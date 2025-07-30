@@ -22,12 +22,3 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-
-# Environment variables for build (these will be set in Netlify dashboard)
-[context.production.environment]
-  NEXT_PUBLIC_SUPABASE_URL = ""
-  NEXT_PUBLIC_SUPABASE_ANON_KEY = ""
-
-[context.deploy-preview.environment]
-  NEXT_PUBLIC_SUPABASE_URL = ""
-  NEXT_PUBLIC_SUPABASE_ANON_KEY = ""
