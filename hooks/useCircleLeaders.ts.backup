@@ -1,0 +1,167 @@
+import { useState, useCallback, useRef } from 'react';
+import { supabase, CircleLeader } from '../lib/supabase';
+
+export const useCircleLeaders = () => {
+  const [circleLeaders, setCircleLeaders] = useState<CircleLeader[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const loadingRef = useRef(false);
+
+  const loadCircleLeaders = useCallback(async () => {
+    if (loadingRef.current) {
+      console.log('Load already in progress, skipping');
+      return;
+    }
+
+    console.log('Starting to load circle leaders...');
+    loadingRef.current = true;
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Load circle leaders
+      console.log('Querying circle_leaders table...');
+      const { data: leaders, error: leadersError } = await supabase
+        .from('circle_leaders')
+        .select('*')
+        .order('name');
+
+      console.log('Supabase response:', { leaders, leadersError });
+
+      if (leadersError) {
+        console.error('Error loading circle leaders:', leadersError);
+        throw leadersError;
+      }
+
+      const loadedLeaders = leaders || [];
+      console.log('Loaded leaders count:', loadedLeaders.length);
+
+      // For now, just set the leaders without loading notes to debug
+      setCircleLeaders(loadedLeaders);
+      console.log('Circle leaders set successfully');
+
+      /* Temporarily commenting out notes loading to debug
+      // Load last note for each circle leader
+      if (loadedLeaders.length > 0) {
+        try {
+          const { data: notes, error: notesError } = await supabase
+            .from('notes')
+            .select('circle_leader_id, content, created_at')
+            .order('created_at', { ascending: false });
+
+          if (!notesError && notes) {
+            // Group notes by circle leader ID and get the most recent for each
+            const notesByLeader: Record<number, any> = {};
+            notes.forEach((note: any) => {
+              if (!notesByLeader[note.circle_leader_id]) {
+                notesByLeader[note.circle_leader_id] = {
+                  content: note.content,
+                  created_at: note.created_at
+                };
+              }
+            });
+
+            // Add last note to each circle leader
+            const leadersWithNotes = loadedLeaders.map((leader: CircleLeader) => ({
+              ...leader,
+              last_note: notesByLeader[leader.id]
+            }));
+
+            setCircleLeaders(leadersWithNotes);
+          } else {
+            setCircleLeaders(loadedLeaders);
+          }
+        } catch (notesError) {
+          console.warn('Notes loading failed, continuing without notes:', notesError);
+          setCircleLeaders(loadedLeaders);
+        }
+      } else {
+        setCircleLeaders(loadedLeaders);
+      }
+      */
+
+    } catch (error: any) {
+      console.error('Error loading circle leaders:', error);
+      
+      if (error.message?.includes('timeout')) {
+        setError('Loading taking longer than expected. Please refresh if needed.');
+      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        setError('Network error. Please check your connection and try again.');
+      } else if (error.message?.includes('auth') || error.code === 'PGRST301') {
+        setError('Authentication error. Please log in again.');
+      } else {
+        setError('Error loading circle leaders. Please refresh the page.');
+      }
+    } finally {
+      setIsLoading(false);
+      loadingRef.current = false;
+    }
+  }, []);
+
+  const toggleEventSummary = async (leaderId: number, isChecked: boolean) => {
+    try {
+      // Update in database
+      const { error } = await supabase
+        .from('circle_leaders')
+        .update({ event_summary_received: isChecked })
+        .eq('id', leaderId);
+
+      if (error) {
+        console.error('Error updating event summary:', error);
+        throw error;
+      }
+
+      // Update local state
+      setCircleLeaders(prev => 
+        prev.map(leader => 
+          leader.id === leaderId 
+            ? { ...leader, event_summary_received: isChecked }
+            : leader
+        )
+      );
+
+    } catch (error) {
+      console.error('Error in toggleEventSummary:', error);
+      setError('Error updating event summary');
+      throw error;
+    }
+  };
+
+  const resetEventSummaryCheckboxes = async (leaderIds: number[]) => {
+    try {
+      // Update in database
+      const { error } = await supabase
+        .from('circle_leaders')
+        .update({ event_summary_received: false })
+        .in('id', leaderIds);
+
+      if (error) {
+        console.error('Error resetting event summaries:', error);
+        throw error;
+      }
+
+      // Update local state
+      setCircleLeaders(prev => 
+        prev.map(leader => 
+          leaderIds.includes(leader.id)
+            ? { ...leader, event_summary_received: false }
+            : leader
+        )
+      );
+
+    } catch (error) {
+      console.error('Error in resetEventSummaryCheckboxes:', error);
+      setError('Error resetting event summaries');
+      throw error;
+    }
+  };
+
+  return {
+    circleLeaders,
+    isLoading,
+    error,
+    loadCircleLeaders,
+    toggleEventSummary,
+    resetEventSummaryCheckboxes
+  };
+};

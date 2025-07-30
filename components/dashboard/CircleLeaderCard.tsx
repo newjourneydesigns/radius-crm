@@ -1,0 +1,142 @@
+'use client';
+
+import Link from 'next/link';
+import { useState } from 'react';
+import { CircleLeader } from '../../lib/supabase';
+
+interface CircleLeaderCardProps {
+  leader: CircleLeader;
+  isAdmin: boolean;
+  onToggleEventSummary: (leaderId: number, isChecked: boolean) => void;
+  onOpenContactModal: (leaderId: number, name: string, email: string, phone: string) => void;
+}
+
+export default function CircleLeaderCard({ 
+  leader, 
+  isAdmin, 
+  onToggleEventSummary, 
+  onOpenContactModal 
+}: CircleLeaderCardProps) {
+  const statusColors = {
+    'Invited': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+    'In Training': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+    'Active': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+    'Paused': 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+  };
+
+  const handleEventSummaryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onToggleEventSummary(leader.id, e.target.checked);
+  };
+
+  const handleContactClick = () => {
+    onOpenContactModal(leader.id, leader.name, leader.email || '', leader.phone || '');
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow">
+      <div className="p-6">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">
+              {leader.name || 'Unknown'}
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {leader.circle_type || ''} → {leader.day || ''} → {leader.time || ''} → {leader.frequency || ''}
+            </p>
+          </div>
+        </div>
+
+        {/* Status Badge */}
+        <div className="mb-4">
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[leader.status as keyof typeof statusColors] || statusColors['Paused']}`}>
+            {leader.status || 'Unknown'}
+          </span>
+        </div>
+
+        {/* Contact Information */}
+        {(leader.email || leader.phone) && (
+          <div className="mb-4">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Contact</p>
+            <div className="flex space-x-2">
+              <button 
+                onClick={handleContactClick}
+                className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 px-3 py-1 rounded hover:bg-blue-200 dark:hover:bg-blue-800 flex items-center"
+              >
+                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
+                </svg>
+                Contact
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Last Note */}
+        <div className="mb-4">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Last Note</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {leader.last_note ? (
+              <span className="block truncate">
+                {leader.last_note.content?.replace(/<[^>]*>/g, '').substring(0, 100)}
+                {leader.last_note.content?.length > 100 ? '...' : ''}
+              </span>
+            ) : (
+              'No notes yet'
+            )}
+          </p>
+        </div>
+
+        {/* Event Summary Checkbox */}
+        <div className="mb-4">
+          <div className="flex items-center">
+            <input 
+              type="checkbox" 
+              id={`eventSummary_${leader.id}`}
+              checked={leader.event_summary_received || false}
+              onChange={handleEventSummaryChange}
+              className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700"
+            />
+            <label htmlFor={`eventSummary_${leader.id}`} className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+              Event Summary
+            </label>
+          </div>
+        </div>
+
+        {/* Links */}
+        <div className="flex space-x-2 mb-4">
+          {leader.ccb_profile_link && (
+            <a 
+              href={leader.ccb_profile_link} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-xs bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-300 px-2 py-1 rounded hover:bg-primary-200 dark:hover:bg-primary-800"
+            >
+              CCB Profile
+            </a>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex justify-between">
+          <div className="flex space-x-2">
+            <Link 
+              href={`/circle/${leader.id}`}
+              className="text-sm bg-primary-600 text-white px-3 py-1 rounded hover:bg-primary-700"
+            >
+              View Profile
+            </Link>
+            {isAdmin && (
+              <Link 
+                href={`/circle/${leader.id}/edit`}
+                className="text-sm bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700"
+              >
+                Edit
+              </Link>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
