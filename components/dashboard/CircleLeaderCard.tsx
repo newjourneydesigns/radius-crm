@@ -18,11 +18,11 @@ export default function CircleLeaderCard({
   onOpenContactModal 
 }: CircleLeaderCardProps) {
   const statusColors = {
-    'invited': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-    'pipeline': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
-    'active': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-    'paused': 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300',
-    'off-boarding': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+    'invited': 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
+    'pipeline': 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300',
+    'active': 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300',
+    'paused': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300',
+    'off-boarding': 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300'
   };
 
   const handleEventSummaryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,7 +51,10 @@ export default function CircleLeaderCard({
         {/* Status Badge */}
         <div className="mb-4">
           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[leader.status as keyof typeof statusColors] || statusColors['paused']}`}>
-            {leader.status === 'off-boarding' ? 'Off-boarding' : (leader.status || 'Unknown')}
+            {leader.status === 'off-boarding' ? 'Off-boarding' 
+             : leader.status === 'pipeline' ? 'Pipeline/Follow Up'
+             : leader.status ? leader.status.charAt(0).toUpperCase() + leader.status.slice(1)
+             : 'Unknown'}
           </span>
         </div>
 

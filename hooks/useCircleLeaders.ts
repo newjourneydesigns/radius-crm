@@ -22,7 +22,6 @@ export const useCircleLeaders = () => {
     setError(null);
 
     try {
-      try {
       // Load circle leaders
       console.log('Querying circle_leaders table...');
       const { data: leaders, error: leadersError } = await supabase
