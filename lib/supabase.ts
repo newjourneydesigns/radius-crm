@@ -48,8 +48,10 @@ export interface CircleLeader {
   created_at?: string;
   updated_at?: string;
   last_note?: {
+    id: number;
     content: string;
     created_at: string;
+    created_by?: string;
   };
 }
 

@@ -22,6 +22,7 @@ export const useCircleLeaders = () => {
     setError(null);
 
     try {
+      try {
       // Load circle leaders
       console.log('Querying circle_leaders table...');
       const { data: leaders, error: leadersError } = await supabase
@@ -36,11 +37,31 @@ export const useCircleLeaders = () => {
         throw leadersError;
       }
 
-      const loadedLeaders = leaders || [];
-      console.log('Loaded leaders count:', loadedLeaders.length);
+      // Now get the latest note for each leader
+      const leadersWithNotes = await Promise.all(
+        (leaders || []).map(async (leader) => {
+          const { data: notes, error: notesError } = await supabase
+            .from('notes')
+            .select('id, content, created_at, created_by')
+            .eq('circle_leader_id', leader.id)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (notesError) {
+            console.error(`Error loading notes for leader ${leader.id}:`, notesError);
+          }
+
+          return {
+            ...leader,
+            last_note: notes && notes.length > 0 ? notes[0] : null
+          };
+        })
+      );
+
+      console.log('Loaded leaders with notes count:', leadersWithNotes.length);
 
       // Set the leaders data
-      setCircleLeaders(loadedLeaders);
+      setCircleLeaders(leadersWithNotes);
       console.log('Circle leaders set successfully');
 
     } catch (error: any) {

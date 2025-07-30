@@ -142,24 +142,13 @@ export default function CircleLeaderProfilePage() {
         setNotes(prev => [data, ...prev]);
         setNewNote('');
       } else {
-        // Fallback to local state update if database fails
-        const note: Note = {
-          id: Date.now(),
-          circle_leader_id: leaderId,
-          content: newNote.trim(),
-          created_at: new Date().toISOString(),
-          created_by: 'Current User'
-        };
-        setNotes(prev => [note, ...prev]);
-        setNewNote('');
-        
-        // Show warning that note was saved locally
-        setNoteError('Note saved locally. Database connection may be unavailable.');
+        console.error('Error saving note:', error);
+        setNoteError('Failed to save note to database. Please try again.');
         setTimeout(() => setNoteError(''), 5000);
       }
     } catch (error) {
       console.error('Error saving note:', error);
-      setNoteError('Failed to save note. Please try again.');
+      setNoteError('Failed to save note. Please check your connection and try again.');
       setTimeout(() => setNoteError(''), 5000);
     } finally {
       setIsSavingNote(false);
@@ -197,19 +186,13 @@ export default function CircleLeaderProfilePage() {
             ? { ...note, content: editingNoteContent.trim() }
             : note
         ));
+        setEditingNoteId(null);
+        setEditingNoteContent('');
       } else {
-        // Fallback to local state update if database fails
-        setNotes(prev => prev.map(note => 
-          note.id === editingNoteId 
-            ? { ...note, content: editingNoteContent.trim() }
-            : note
-        ));
-        setNoteError('Note updated locally. Database connection may be unavailable.');
+        console.error('Error updating note:', error);
+        setNoteError('Failed to update note in database. Please try again.');
         setTimeout(() => setNoteError(''), 5000);
       }
-
-      setEditingNoteId(null);
-      setEditingNoteContent('');
     } catch (error) {
       console.error('Error updating note:', error);
       setNoteError('Failed to update note. Please try again.');
@@ -240,14 +223,12 @@ export default function CircleLeaderProfilePage() {
       if (!error) {
         // Remove from local state
         setNotes(prev => prev.filter(note => note.id !== noteId));
+        setDeletingNoteId(null);
       } else {
-        // Fallback to local state update if database fails
-        setNotes(prev => prev.filter(note => note.id !== noteId));
-        setNoteError('Note deleted locally. Database connection may be unavailable.');
+        console.error('Error deleting note:', error);
+        setNoteError('Failed to delete note from database. Please try again.');
         setTimeout(() => setNoteError(''), 5000);
       }
-
-      setDeletingNoteId(null);
     } catch (error) {
       console.error('Error deleting note:', error);
       setNoteError('Failed to delete note. Please try again.');
