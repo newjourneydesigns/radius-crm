@@ -1,5 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
+// Debug environment variables at build time
+console.log('🔍 Supabase Environment Debug:', {
+  NODE_ENV: process.env.NODE_ENV,
+  SUPABASE_URL_EXISTS: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+  SUPABASE_KEY_EXISTS: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  URL_VALUE: process.env.NEXT_PUBLIC_SUPABASE_URL ? 
+    process.env.NEXT_PUBLIC_SUPABASE_URL.substring(0, 40) + '...' : 
+    'NOT_SET'
+});
+
 // Handle environment variables with fallbacks for build time
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NDg3NjczNjMsImV4cCI6MTk2NDM0MzM2M30.placeholder';
