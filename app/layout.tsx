@@ -2,7 +2,11 @@ import Link from "next/link";
 import "../styles/globals.css";
 import MobileNavigation from "../components/layout/MobileNavigation";
 
-export default function RootLayout({ children }) {
+export default function RootLayout({ 
+  children 
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
       <body className="font-sans bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">

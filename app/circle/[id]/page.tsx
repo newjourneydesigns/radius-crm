@@ -849,13 +849,20 @@ export default function CircleLeaderProfilePage() {
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Campus</dt>
                     <dd className="mt-1">
                       {isEditing ? (
-                        <input
-                          type="text"
+                        <select
                           value={editedLeader.campus || ''}
                           onChange={(e) => handleLeaderFieldChange('campus', e.target.value)}
                           className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="Enter campus"
-                        />
+                        >
+                          <option value="">Select Campus</option>
+                          <option value="Flower Mound">Flower Mound</option>
+                          <option value="Denton">Denton</option>
+                          <option value="Lewisville">Lewisville</option>
+                          <option value="Gainesville">Gainesville</option>
+                          <option value="Online">Online</option>
+                          <option value="University">University</option>
+                          <option value="Argyle">Argyle</option>
+                        </select>
                       ) : (
                         <span className="text-sm text-gray-900 dark:text-white">{leader.campus || 'Not specified'}</span>
                       )}
@@ -932,11 +939,12 @@ export default function CircleLeaderProfilePage() {
                           className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
                           <option value="">Select Circle Type</option>
-                          <option value="Men's Circle">Men's Circle</option>
-                          <option value="Women's Circle">Women's Circle</option>
-                          <option value="Mixed Circle">Mixed Circle</option>
-                          <option value="Youth Circle">Youth Circle</option>
-                          <option value="Senior Circle">Senior Circle</option>
+                          <option value="Men's">Men's</option>
+                          <option value="Women's">Women's</option>
+                          <option value="Young Adult | Coed">Young Adult | Coed</option>
+                          <option value="Young Adult | Men's">Young Adult | Men's</option>
+                          <option value="Young Adult | Women's">Young Adult | Women's</option>
+                          <option value="Young Adult | Couple's">Young Adult | Couple's</option>
                         </select>
                       ) : (
                         <span className="text-sm text-gray-900 dark:text-white">{leader.circle_type || 'Not specified'}</span>

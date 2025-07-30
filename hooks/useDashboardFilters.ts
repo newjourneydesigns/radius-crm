@@ -54,5 +54,9 @@ export const useDashboardFilters = () => {
     setFilters(prev => ({ ...prev, ...newFilters }));
   }, []);
 
-  return { filters, updateFilters };
+  const clearAllFilters = useCallback(() => {
+    setFilters(defaultFilters);
+  }, []);
+
+  return { filters, updateFilters, clearAllFilters };
 };

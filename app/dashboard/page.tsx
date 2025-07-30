@@ -2,11 +2,9 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import FilterPanel from '../../components/dashboard/FilterPanel';
-import EventSummaryProgress from '../../components/dashboard/EventSummaryProgress';
 import CircleLeaderCard from '../../components/dashboard/CircleLeaderCard';
 import TodayCircles from '../../components/dashboard/TodayCircles';
 import ContactModal from '../../components/dashboard/ContactModal';
-import BulkStatusUpdate from '../../components/dashboard/BulkStatusUpdate';
 import ConfirmModal from '../../components/ui/ConfirmModal';
 import AlertModal from '../../components/ui/AlertModal';
 import { useDashboardFilters } from '../../hooks/useDashboardFilters';
@@ -22,7 +20,7 @@ interface ContactModalData {
 }
 
 export default function DashboardPage() {
-  const { filters, updateFilters } = useDashboardFilters();
+  const { filters, updateFilters, clearAllFilters } = useDashboardFilters();
   const { 
     circleLeaders, 
     isLoading, 
@@ -274,24 +272,16 @@ export default function DashboardPage() {
         <FilterPanel 
           filters={filters}
           onFiltersChange={updateFilters}
+          onClearAllFilters={clearAllFilters}
+          onBulkUpdateStatus={handleBulkUpdateStatus}
+          onResetCheckboxes={handleResetCheckboxes}
+          totalLeaders={filteredLeaders.length}
+          receivedCount={eventSummaryProgress.received}
           campuses={filterOptions.campuses}
           acpds={filterOptions.acpds}
           statuses={filterOptions.statuses}
           circleTypes={filterOptions.circleTypes}
           meetingDays={filterOptions.meetingDays}
-        />
-
-        {/* Bulk Status Update */}
-        <BulkStatusUpdate 
-          totalLeaders={filteredLeaders.length}
-          onBulkUpdateStatus={handleBulkUpdateStatus}
-        />
-
-        {/* Event Summary Progress */}
-        <EventSummaryProgress 
-          receivedCount={eventSummaryProgress.received}
-          totalCount={eventSummaryProgress.total}
-          onResetCheckboxes={handleResetCheckboxes}
         />
 
         {/* Today's Circles */}

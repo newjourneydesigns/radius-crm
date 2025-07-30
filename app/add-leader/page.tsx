@@ -165,11 +165,13 @@ export default function AddLeaderPage() {
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="">Select Campus</option>
-                    <option value="Downtown">Downtown</option>
-                    <option value="North">North</option>
-                    <option value="South">South</option>
-                    <option value="East">East</option>
-                    <option value="West">West</option>
+                    <option value="Flower Mound">Flower Mound</option>
+                    <option value="Denton">Denton</option>
+                    <option value="Lewisville">Lewisville</option>
+                    <option value="Gainesville">Gainesville</option>
+                    <option value="Online">Online</option>
+                    <option value="University">University</option>
+                    <option value="Argyle">Argyle</option>
                   </select>
                 </div>
 
@@ -288,10 +290,12 @@ export default function AddLeaderPage() {
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Select Circle Type</option>
-                  <option value="Men's Circle">Men's Circle</option>
-                  <option value="Women's Circle">Women's Circle</option>
-                  <option value="Mixed Circle">Mixed Circle</option>
-                  <option value="Youth Circle">Youth Circle</option>
+                  <option value="Men's">Men's</option>
+                  <option value="Women's">Women's</option>
+                  <option value="Young Adult | Coed">Young Adult | Coed</option>
+                  <option value="Young Adult | Men's">Young Adult | Men's</option>
+                  <option value="Young Adult | Women's">Young Adult | Women's</option>
+                  <option value="Young Adult | Couple's">Young Adult | Couple's</option>
                 </select>
               </div>
             </div>

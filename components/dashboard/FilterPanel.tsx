@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import ConfirmModal from '../ui/ConfirmModal';
 
 interface FilterPanelProps {
   filters: {
@@ -13,6 +14,11 @@ interface FilterPanelProps {
     eventSummary: string;
   };
   onFiltersChange: (filters: any) => void;
+  onClearAllFilters: () => void;
+  onBulkUpdateStatus: (status: string) => void;
+  onResetCheckboxes: () => void;
+  totalLeaders: number;
+  receivedCount: number;
   campuses: string[];
   acpds: string[];
   statuses: string[];
@@ -23,6 +29,11 @@ interface FilterPanelProps {
 export default function FilterPanel({
   filters,
   onFiltersChange,
+  onClearAllFilters,
+  onBulkUpdateStatus,
+  onResetCheckboxes,
+  totalLeaders,
+  receivedCount,
   campuses,
   acpds,
   statuses,
@@ -30,10 +41,30 @@ export default function FilterPanel({
   meetingDays
 }: FilterPanelProps) {
   const [filtersVisible, setFiltersVisible] = useState(true);
+  
+  // Bulk actions state
+  const [showBulkDropdown, setShowBulkDropdown] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<{value: string, label: string} | null>(null);
+  const bulkDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('filtersVisible');
     setFiltersVisible(saved !== 'false');
+  }, []);
+
+  // Close bulk dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (bulkDropdownRef.current && !bulkDropdownRef.current.contains(event.target as Node)) {
+        setShowBulkDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   const toggleFilters = () => {
@@ -54,6 +85,49 @@ export default function FilterPanel({
     handleFilterChange(key, selectedValues);
   };
 
+  // Check if any filters are active
+  const hasActiveFilters = () => {
+    return filters.search.trim() !== '' ||
+           filters.campus.length > 0 ||
+           filters.acpd.length > 0 ||
+           filters.status.length > 0 ||
+           filters.meetingDay.length > 0 ||
+           filters.circleType.length > 0 ||
+           filters.eventSummary !== 'all';
+  };
+
+  // Bulk actions handlers
+  const statusOptions = [
+    { value: 'invited', label: 'Invited', color: 'text-blue-700' },
+    { value: 'pipeline', label: 'Pipeline', color: 'text-indigo-700' },
+    { value: 'follow-up', label: 'Follow Up', color: 'text-orange-700' },
+    { value: 'active', label: 'Active', color: 'text-green-700' },
+    { value: 'paused', label: 'Paused', color: 'text-yellow-700' },
+    { value: 'off-boarding', label: 'Off-boarding', color: 'text-red-700' }
+  ];
+
+  const handleStatusSelect = (status: string, label: string) => {
+    setPendingStatus({ value: status, label });
+    setShowConfirmModal(true);
+    setShowBulkDropdown(false);
+  };
+
+  const handleConfirmUpdate = () => {
+    if (pendingStatus) {
+      onBulkUpdateStatus(pendingStatus.value);
+    }
+    setShowConfirmModal(false);
+    setPendingStatus(null);
+  };
+
+  const handleCancelUpdate = () => {
+    setShowConfirmModal(false);
+    setPendingStatus(null);
+  };
+
+  // Calculate progress percentage
+  const progressPercentage = totalLeaders > 0 ? Math.round((receivedCount / totalLeaders) * 100) : 0;
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -69,20 +143,34 @@ export default function FilterPanel({
               <p className="text-sm text-gray-500 dark:text-gray-400">Filter and sort Circle Leaders</p>
             </div>
           </div>
-          <button
-            onClick={toggleFilters}
-            className="flex items-center px-3 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 focus:outline-none"
-          >
-            <span>{filtersVisible ? 'Hide Filters' : 'Edit Filters'}</span>
-            <svg 
-              className={`w-4 h-4 ml-2 transform transition-transform ${filtersVisible ? 'rotate-180' : ''}`} 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
+          <div className="flex items-center space-x-2">
+            {hasActiveFilters() && (
+              <button
+                onClick={onClearAllFilters}
+                className="flex items-center px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 focus:outline-none bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-md transition-colors"
+                title="Clear all active filters"
+              >
+                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+                Clear All
+              </button>
+            )}
+            <button
+              onClick={toggleFilters}
+              className="flex items-center px-3 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 focus:outline-none"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-            </svg>
-          </button>
+              <span>{filtersVisible ? 'Hide Filters' : 'Edit Filters'}</span>
+              <svg 
+                className={`w-4 h-4 ml-2 transform transition-transform ${filtersVisible ? 'rotate-180' : ''}`} 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
       
@@ -197,7 +285,75 @@ export default function FilterPanel({
               </select>
             </div>
           </div>
+
+          {/* Actions Section */}
+          <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+              
+              {/* Bulk Status Update */}
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Bulk Actions:</span>
+                <div className="relative" ref={bulkDropdownRef}>
+                  <button
+                    onClick={() => setShowBulkDropdown(!showBulkDropdown)}
+                    className="flex items-center px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                  >
+                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                    Update Status ({totalLeaders})
+                    <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                  </button>
+
+                  {showBulkDropdown && (
+                    <div className="absolute top-full left-0 mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md shadow-lg z-50">
+                      {statusOptions.map((status) => (
+                        <button
+                          key={status.value}
+                          onClick={() => handleStatusSelect(status.value, status.label)}
+                          className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 first:rounded-t-md last:rounded-b-md ${status.color} dark:text-gray-300`}
+                        >
+                          {status.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Event Summary Progress & Reset */}
+              <div className="flex items-center gap-3">
+                <div className="text-xs text-gray-600 dark:text-gray-400">
+                  Event Summaries: {receivedCount}/{totalLeaders} ({progressPercentage}%)
+                </div>
+                <button
+                  onClick={onResetCheckboxes}
+                  className="flex items-center px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded border border-red-300 dark:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-500 transition-colors"
+                >
+                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                  </svg>
+                  Reset
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && pendingStatus && (
+        <ConfirmModal
+          isOpen={showConfirmModal}
+          onClose={handleCancelUpdate}
+          onConfirm={handleConfirmUpdate}
+          title="Confirm Bulk Status Update"
+          message={`Are you sure you want to update the status of all ${totalLeaders} Circle Leaders to "${pendingStatus.label}"?`}
+          confirmText="Update All"
+          cancelText="Cancel"
+        />
       )}
     </div>
   );
