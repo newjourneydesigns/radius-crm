@@ -6,6 +6,7 @@ import EventSummaryProgress from '../../components/dashboard/EventSummaryProgres
 import CircleLeaderCard from '../../components/dashboard/CircleLeaderCard';
 import TodayCircles from '../../components/dashboard/TodayCircles';
 import ContactModal from '../../components/dashboard/ContactModal';
+import BulkStatusUpdate from '../../components/dashboard/BulkStatusUpdate';
 import { useDashboardFilters } from '../../hooks/useDashboardFilters';
 import { useCircleLeaders } from '../../hooks/useCircleLeaders';
 import { CircleLeader } from '../../lib/supabase';
@@ -26,7 +27,8 @@ export default function DashboardPage() {
     error, 
     loadCircleLeaders,
     toggleEventSummary, 
-    resetEventSummaryCheckboxes 
+    resetEventSummaryCheckboxes,
+    bulkUpdateStatus
   } = useCircleLeaders();
 
   const clearFilters = () => {
@@ -178,6 +180,18 @@ export default function DashboardPage() {
     }
   };
 
+  const handleBulkUpdateStatus = async (status: string) => {
+    try {
+      const leaderIds = filteredLeaders.map(leader => leader.id);
+      await bulkUpdateStatus(leaderIds, status);
+      // Refresh the data
+      loadCircleLeaders();
+    } catch (error) {
+      console.error('Error bulk updating status:', error);
+      alert('Failed to update status. Please try again.');
+    }
+  };
+
   const openContactModal = (leaderId: number, name: string, email: string, phone: string) => {
     setContactModal({
       isOpen: true,
@@ -244,6 +258,12 @@ export default function DashboardPage() {
           statuses={filterOptions.statuses}
           circleTypes={filterOptions.circleTypes}
           meetingDays={filterOptions.meetingDays}
+        />
+
+        {/* Bulk Status Update */}
+        <BulkStatusUpdate 
+          totalLeaders={filteredLeaders.length}
+          onBulkUpdateStatus={handleBulkUpdateStatus}
         />
 
         {/* Event Summary Progress */}

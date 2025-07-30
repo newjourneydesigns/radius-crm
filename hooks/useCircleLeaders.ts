@@ -149,12 +149,42 @@ export const useCircleLeaders = () => {
     }
   };
 
+  const bulkUpdateStatus = async (leaderIds: number[], newStatus: string) => {
+    try {
+      // Update in database
+      const { error } = await supabase
+        .from('circle_leaders')
+        .update({ status: newStatus })
+        .in('id', leaderIds);
+
+      if (error) {
+        console.error('Error updating status:', error);
+        throw error;
+      }
+
+      // Update local state
+      setCircleLeaders(prev => 
+        prev.map(leader => 
+          leaderIds.includes(leader.id)
+            ? { ...leader, status: newStatus as CircleLeader['status'] }
+            : leader
+        )
+      );
+
+    } catch (error) {
+      console.error('Error in bulkUpdateStatus:', error);
+      setError('Error updating status');
+      throw error;
+    }
+  };
+
   return {
     circleLeaders,
     isLoading,
     error,
     loadCircleLeaders,
     toggleEventSummary,
-    resetEventSummaryCheckboxes
+    resetEventSummaryCheckboxes,
+    bulkUpdateStatus
   };
 };
