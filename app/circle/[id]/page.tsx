@@ -701,17 +701,25 @@ export default function CircleLeaderProfilePage() {
                           onChange={(e) => handleLeaderFieldChange('status', e.target.value)}
                           className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
+                          <option value="invited">Invited</option>
+                          <option value="pipeline">Pipeline</option>
                           <option value="active">Active</option>
-                          <option value="inactive">Inactive</option>
-                          <option value="on-break">On Break</option>
+                          <option value="paused">Paused</option>
+                          <option value="off-boarding">Off-boarding</option>
                         </select>
                       ) : (
                         <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                           leader.status === 'active' 
                             ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                            : leader.status === 'invited' || leader.status === 'pipeline'
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
+                            : leader.status === 'paused'
+                            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
+                            : leader.status === 'off-boarding'
+                            ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
                             : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
                         }`}>
-                          {leader.status || 'Unknown'}
+                          {leader.status === 'off-boarding' ? 'Off-boarding' : leader.status || 'Unknown'}
                         </span>
                       )}
                     </dd>
