@@ -60,12 +60,12 @@ export interface Note {
   circle_leader_id: number;
   user_id?: string;
   content: string;
+  created_at: string;
+  updated_at?: string;
   note_date?: string;
   note?: string;
   follow_up_date?: string;
   created_by?: string;
-  created_at: string;
-  updated_at?: string;
 }
 
 export interface User {

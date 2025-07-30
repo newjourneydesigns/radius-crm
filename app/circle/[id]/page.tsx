@@ -73,6 +73,18 @@ const convertToMilitaryTime = (time: string | undefined | null): string => {
   return `${hour24.toString().padStart(2, '0')}:${minutes}`;
 };
 
+// Helper function to format date and time for display
+const formatDateTime = (dateString: string): string => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
 export default function CircleLeaderProfilePage() {
   const params = useParams();
   const leaderId = parseInt(params.id as string);
@@ -198,6 +210,24 @@ export default function CircleLeaderProfilePage() {
     loadLeaderData();
   }, [leaderId]);
 
+  // Handle anchor link scrolling
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash === '#notes') {
+      setTimeout(() => {
+        const notesElement = document.getElementById('notes');
+        if (notesElement) {
+          notesElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // Also focus on the textarea for better UX
+          const textarea = document.getElementById('newNote');
+          if (textarea) {
+            textarea.focus();
+          }
+        }
+      }, 100); // Small delay to ensure the element is rendered
+    }
+  }, []);
+
   const handleAddNote = async () => {
     if (!newNote.trim()) return;
 
@@ -205,31 +235,38 @@ export default function CircleLeaderProfilePage() {
     setNoteError('');
     
     try {
-      // Save note via API
+      // First test if we can read from the notes table
+      const { data: readTest } = await supabase
+        .from('notes')
+        .select('id, content')
+        .limit(1);
+      
+      console.log('Read test successful:', readTest);
+      
+      // Try to insert a note
       const { data, error } = await supabase
         .from('notes')
-        .insert([
-          {
-            circle_leader_id: leaderId,
-            content: newNote.trim(),
-            created_by: 'Current User' // TODO: Get from auth context
-          }
-        ])
-        .select()
+        .insert({
+          circle_leader_id: leaderId,
+          content: newNote.trim()
+        })
+        .select('*')
         .single();
 
+      console.log('Insert result:', { data, error });
+
       if (data && !error) {
+        // Success - add to local state and clear form
         setNotes(prev => [data, ...prev]);
         setNewNote('');
+        console.log('✅ Note saved successfully');
       } else {
-        console.error('Error saving note:', error);
-        setNoteError('Failed to save note to database. Please try again.');
-        setTimeout(() => setNoteError(''), 5000);
+        console.error('❌ Error saving note:', error);
+        setNoteError(`Failed to save note: ${error?.message || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('Error saving note:', error);
-      setNoteError('Failed to save note. Please check your connection and try again.');
-      setTimeout(() => setNoteError(''), 5000);
+      console.error('❌ Exception saving note:', error);
+      setNoteError('Failed to save note. Please try again.');
     } finally {
       setIsSavingNote(false);
     }
@@ -1178,7 +1215,7 @@ export default function CircleLeaderProfilePage() {
         </div>
 
         {/* Notes Section */}
-        <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div id="notes" className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-lg font-medium text-gray-900 dark:text-white">Notes</h2>
           </div>
@@ -1292,7 +1329,7 @@ export default function CircleLeaderProfilePage() {
                                   <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                                     <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                                   </svg>
-                                  <span>{note.created_by}</span>
+                                  <span>{note.created_by || 'Anonymous'}</span>
                                 </div>
                                 <span className="mx-2">•</span>
                                 <div className="flex items-center">
