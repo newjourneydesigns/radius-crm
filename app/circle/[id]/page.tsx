@@ -16,6 +16,13 @@ export default function CircleLeaderProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isUpdatingEventSummary, setIsUpdatingEventSummary] = useState(false);
+  const [noteError, setNoteError] = useState('');
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
+  const [editingNoteContent, setEditingNoteContent] = useState('');
+  const [isUpdatingNote, setIsUpdatingNote] = useState(false);
+  const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null);
+  const [isDeletingNote, setIsDeletingNote] = useState(false);
 
   useEffect(() => {
     // Load leader data from API
@@ -91,6 +98,8 @@ export default function CircleLeaderProfilePage() {
     if (!newNote.trim()) return;
 
     setIsSavingNote(true);
+    setNoteError('');
+    
     try {
       // Save note via API
       const { data, error } = await supabase
@@ -98,7 +107,7 @@ export default function CircleLeaderProfilePage() {
         .insert([
           {
             circle_leader_id: leaderId,
-            content: newNote,
+            content: newNote.trim(),
             created_by: 'Current User' // TODO: Get from auth context
           }
         ])
@@ -107,23 +116,130 @@ export default function CircleLeaderProfilePage() {
 
       if (data && !error) {
         setNotes(prev => [data, ...prev]);
+        setNewNote('');
       } else {
-        // Fallback to local state update
+        // Fallback to local state update if database fails
         const note: Note = {
           id: Date.now(),
           circle_leader_id: leaderId,
-          content: newNote,
+          content: newNote.trim(),
           created_at: new Date().toISOString(),
           created_by: 'Current User'
         };
         setNotes(prev => [note, ...prev]);
+        setNewNote('');
+        
+        // Show warning that note was saved locally
+        setNoteError('Note saved locally. Database connection may be unavailable.');
+        setTimeout(() => setNoteError(''), 5000);
       }
-
-      setNewNote('');
     } catch (error) {
       console.error('Error saving note:', error);
+      setNoteError('Failed to save note. Please try again.');
+      setTimeout(() => setNoteError(''), 5000);
     } finally {
       setIsSavingNote(false);
+    }
+  };
+
+  const handleNoteKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      handleAddNote();
+    }
+  };
+
+  const handleEditNote = (note: Note) => {
+    setEditingNoteId(note.id);
+    setEditingNoteContent(note.content);
+  };
+
+  const handleSaveEditedNote = async () => {
+    if (!editingNoteContent.trim() || !editingNoteId) return;
+
+    setIsUpdatingNote(true);
+    try {
+      const { data, error } = await supabase
+        .from('notes')
+        .update({ content: editingNoteContent.trim() })
+        .eq('id', editingNoteId)
+        .select()
+        .single();
+
+      if (data && !error) {
+        // Update local state
+        setNotes(prev => prev.map(note => 
+          note.id === editingNoteId 
+            ? { ...note, content: editingNoteContent.trim() }
+            : note
+        ));
+      } else {
+        // Fallback to local state update if database fails
+        setNotes(prev => prev.map(note => 
+          note.id === editingNoteId 
+            ? { ...note, content: editingNoteContent.trim() }
+            : note
+        ));
+        setNoteError('Note updated locally. Database connection may be unavailable.');
+        setTimeout(() => setNoteError(''), 5000);
+      }
+
+      setEditingNoteId(null);
+      setEditingNoteContent('');
+    } catch (error) {
+      console.error('Error updating note:', error);
+      setNoteError('Failed to update note. Please try again.');
+      setTimeout(() => setNoteError(''), 5000);
+    } finally {
+      setIsUpdatingNote(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingNoteId(null);
+    setEditingNoteContent('');
+  };
+
+  const handleDeleteNote = async (noteId: number) => {
+    if (deletingNoteId !== noteId) {
+      setDeletingNoteId(noteId);
+      return;
+    }
+
+    setIsDeletingNote(true);
+    try {
+      const { error } = await supabase
+        .from('notes')
+        .delete()
+        .eq('id', noteId);
+
+      if (!error) {
+        // Remove from local state
+        setNotes(prev => prev.filter(note => note.id !== noteId));
+      } else {
+        // Fallback to local state update if database fails
+        setNotes(prev => prev.filter(note => note.id !== noteId));
+        setNoteError('Note deleted locally. Database connection may be unavailable.');
+        setTimeout(() => setNoteError(''), 5000);
+      }
+
+      setDeletingNoteId(null);
+    } catch (error) {
+      console.error('Error deleting note:', error);
+      setNoteError('Failed to delete note. Please try again.');
+      setTimeout(() => setNoteError(''), 5000);
+    } finally {
+      setIsDeletingNote(false);
+    }
+  };
+
+  const handleEditNoteKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      handleSaveEditedNote();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancelEdit();
     }
   };
 
@@ -219,6 +335,56 @@ export default function CircleLeaderProfilePage() {
     } finally {
       setIsDeleting(false);
       setShowDeleteConfirm(false);
+    }
+  };
+
+  const handleToggleEventSummary = async () => {
+    if (!leader) return;
+
+    setIsUpdatingEventSummary(true);
+    const newStatus = !leader.event_summary_received;
+
+    try {
+      const { error } = await supabase
+        .from('circle_leaders')
+        .update({ event_summary_received: newStatus })
+        .eq('id', leaderId);
+
+      if (!error) {
+        // Update local state
+        setLeader(prev => prev ? { ...prev, event_summary_received: newStatus } : null);
+        
+        // Add a note about the status change
+        const statusText = newStatus ? 'marked as received' : 'marked as not received';
+        await supabase
+          .from('notes')
+          .insert([
+            {
+              circle_leader_id: leaderId,
+              content: `Event summary status ${statusText}.`,
+              created_by: 'System'
+            }
+          ]);
+
+        // Refresh notes to show the new system note
+        const { data: notesData } = await supabase
+          .from('notes')
+          .select('*')
+          .eq('circle_leader_id', leaderId)
+          .order('created_at', { ascending: false });
+
+        if (notesData) {
+          setNotes(notesData);
+        }
+      } else {
+        console.error('Error updating event summary status:', error);
+        alert('Failed to update event summary status. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error updating event summary status:', error);
+      alert('Failed to update event summary status. Please try again.');
+    } finally {
+      setIsUpdatingEventSummary(false);
     }
   };
 
@@ -389,23 +555,34 @@ export default function CircleLeaderProfilePage() {
                 <h2 className="text-lg font-medium text-gray-900 dark:text-white">Event Summary</h2>
               </div>
               <div className="p-6">
-                <div className="flex items-center">
+                <button
+                  onClick={handleToggleEventSummary}
+                  disabled={isUpdatingEventSummary}
+                  className="flex items-center w-full text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md p-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   {leader.event_summary_received ? (
                     <div className="flex items-center text-green-600 dark:text-green-400">
                       <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
-                      <span className="text-sm font-medium">Received</span>
+                      <span className="text-sm font-medium">
+                        {isUpdatingEventSummary ? 'Updating...' : 'Received'}
+                      </span>
                     </div>
                   ) : (
                     <div className="flex items-center text-red-600 dark:text-red-400">
                       <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                       </svg>
-                      <span className="text-sm font-medium">Not Received</span>
+                      <span className="text-sm font-medium">
+                        {isUpdatingEventSummary ? 'Updating...' : 'Not Received'}
+                      </span>
                     </div>
                   )}
-                </div>
+                  <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">
+                    Edit
+                  </span>
+                </button>
               </div>
             </div>
 
@@ -499,38 +676,186 @@ export default function CircleLeaderProfilePage() {
               <label htmlFor="newNote" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Add a note
               </label>
-              <div className="flex space-x-3">
+              <div className="space-y-3">
                 <textarea
                   id="newNote"
                   value={newNote}
                   onChange={(e) => setNewNote(e.target.value)}
+                  onKeyDown={handleNoteKeyDown}
                   rows={3}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter your note here..."
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y min-h-[80px]"
+                  placeholder="Enter your note here... (Cmd/Ctrl + Enter to save)"
                 />
-                <button
-                  onClick={handleAddNote}
-                  disabled={!newNote.trim() || isSavingNote}
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isSavingNote ? 'Adding...' : 'Add Note'}
-                </button>
+                
+                {noteError && (
+                  <div className="flex items-center text-sm text-red-600 dark:text-red-400">
+                    <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {noteError}
+                  </div>
+                )}
+                
+                <div className="flex justify-between items-center">
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {newNote.trim().length > 0 && (
+                      <span>{newNote.trim().length} characters</span>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleAddNote}
+                    disabled={!newNote.trim() || isSavingNote}
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isSavingNote ? (
+                      <div className="flex items-center">
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Adding...
+                      </div>
+                    ) : 'Add Note'}
+                  </button>
+                </div>
               </div>
             </div>
 
             {/* Notes List */}
             <div className="space-y-4">
               {notes.length === 0 ? (
-                <p className="text-gray-500 dark:text-gray-400 text-center py-4">No notes yet.</p>
+                <div className="text-center py-8">
+                  <svg className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No notes yet.</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Add your first note above to get started.</p>
+                </div>
               ) : (
-                notes.map(note => (
-                  <div key={note.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                    <p className="text-gray-900 dark:text-white">{note.content}</p>
-                    <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                      By {note.created_by} on {formatDateTime(note.created_at)}
-                    </div>
+                <>
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {notes.length} {notes.length === 1 ? 'note' : 'notes'}
+                    </p>
                   </div>
-                ))
+                  {notes.map((note, index) => (
+                    <div key={note.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          {editingNoteId === note.id ? (
+                            <div className="space-y-3">
+                              <textarea
+                                value={editingNoteContent}
+                                onChange={(e) => setEditingNoteContent(e.target.value)}
+                                onKeyDown={handleEditNoteKeyDown}
+                                rows={3}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y min-h-[60px]"
+                                placeholder="Edit your note... (Cmd/Ctrl + Enter to save, Esc to cancel)"
+                              />
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  onClick={handleSaveEditedNote}
+                                  disabled={!editingNoteContent.trim() || isUpdatingNote}
+                                  className="px-3 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                  {isUpdatingNote ? 'Saving...' : 'Save'}
+                                </button>
+                                <button
+                                  onClick={handleCancelEdit}
+                                  disabled={isUpdatingNote}
+                                  className="px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded disabled:opacity-50"
+                                >
+                                  Cancel
+                                </button>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {editingNoteContent.trim().length} characters
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p className="text-gray-900 dark:text-white whitespace-pre-wrap">{note.content}</p>
+                              <div className="mt-2 flex items-center text-sm text-gray-500 dark:text-gray-400">
+                                <div className="flex items-center">
+                                  <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                                  </svg>
+                                  <span>{note.created_by}</span>
+                                </div>
+                                <span className="mx-2">•</span>
+                                <div className="flex items-center">
+                                  <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                                  </svg>
+                                  <span>{formatDateTime(note.created_at)}</span>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                        
+                        <div className="ml-4 flex items-center space-x-2">
+                          {/* Note number badge */}
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                            #{notes.length - index}
+                          </span>
+                          
+                          {/* Action buttons */}
+                          {editingNoteId !== note.id && (
+                            <div className="flex items-center space-x-1">
+                              <button
+                                onClick={() => handleEditNote(note)}
+                                disabled={editingNoteId !== null || isDeletingNote}
+                                className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                title="Edit note"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                              
+                              {deletingNoteId === note.id ? (
+                                <div className="flex items-center space-x-1">
+                                  <button
+                                    onClick={() => handleDeleteNote(note.id)}
+                                    disabled={isDeletingNote}
+                                    className="p-1 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    title="Confirm delete"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    onClick={() => setDeletingNoteId(null)}
+                                    disabled={isDeletingNote}
+                                    className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    title="Cancel delete"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => handleDeleteNote(note.id)}
+                                  disabled={editingNoteId !== null || isDeletingNote}
+                                  className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                  title="Delete note"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </>
               )}
             </div>
           </div>
