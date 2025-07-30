@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase, CircleLeader, Note } from '../../../lib/supabase';
+import AlertModal from '../../../components/ui/AlertModal';
 
 // Helper function to format time to AM/PM
 const formatTimeToAMPM = (time: string | undefined | null): string => {
@@ -26,6 +27,28 @@ const formatTimeToAMPM = (time: string | undefined | null): string => {
   } else {
     return `${hour24 - 12}:${minutes} PM`;
   }
+};
+
+// Helper function to convert AM/PM time to 24-hour format for HTML time input
+const convertAMPMTo24Hour = (time: string | undefined | null): string => {
+  if (!time) return '';
+  
+  // If already in 24-hour format, return as is
+  if (!time.includes('AM') && !time.includes('PM')) {
+    return time;
+  }
+  
+  const [timePart, period] = time.split(' ');
+  const [hours, minutes] = timePart.split(':');
+  let hour24 = parseInt(hours);
+  
+  if (period === 'AM' && hour24 === 12) {
+    hour24 = 0;
+  } else if (period === 'PM' && hour24 !== 12) {
+    hour24 += 12;
+  }
+  
+  return `${hour24.toString().padStart(2, '0')}:${minutes}`;
 };
 
 // Helper function to convert AM/PM time to 24-hour format for input
@@ -67,6 +90,17 @@ export default function CircleLeaderProfilePage() {
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState('');
   const [isUpdatingNote, setIsUpdatingNote] = useState(false);
+  const [showAlert, setShowAlert] = useState<{
+    isOpen: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    type: 'info',
+    title: '',
+    message: ''
+  });
   const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null);
   const [isDeletingNote, setIsDeletingNote] = useState(false);
   const [editedLeader, setEditedLeader] = useState<Partial<CircleLeader>>({});
@@ -297,7 +331,12 @@ export default function CircleLeaderProfilePage() {
   // Quick Action Handlers
   const handleSendEmail = () => {
     if (!leader?.email) {
-      alert('No email address available for this leader.');
+      setShowAlert({
+        isOpen: true,
+        type: 'warning',
+        title: 'No Email Address',
+        message: 'No email address available for this leader.'
+      });
       return;
     }
     
@@ -311,7 +350,12 @@ export default function CircleLeaderProfilePage() {
 
   const handleSendSMS = () => {
     if (!leader?.phone) {
-      alert('No phone number available for this leader.');
+      setShowAlert({
+        isOpen: true,
+        type: 'warning',
+        title: 'No Phone Number',
+        message: 'No phone number available for this leader.'
+      });
       return;
     }
     
@@ -326,7 +370,12 @@ export default function CircleLeaderProfilePage() {
 
   const handleScheduleMeeting = () => {
     if (!leader?.email) {
-      alert('No email address available for this leader.');
+      setShowAlert({
+        isOpen: true,
+        type: 'warning',
+        title: 'No Email Address',
+        message: 'No email address available for this leader.'
+      });
       return;
     }
     
@@ -378,11 +427,21 @@ export default function CircleLeaderProfilePage() {
         window.location.href = '/dashboard';
       } else {
         console.error('Error removing leader:', error);
-        alert('Failed to remove leader. Please try again.');
+        setShowAlert({
+          isOpen: true,
+          type: 'error',
+          title: 'Remove Failed',
+          message: 'Failed to remove leader. Please try again.'
+        });
       }
     } catch (error) {
       console.error('Error removing leader:', error);
-      alert('Failed to remove leader. Please try again.');
+      setShowAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Remove Failed',
+        message: 'Failed to remove leader. Please try again.'
+      });
     } finally {
       setIsDeleting(false);
       setShowDeleteConfirm(false);
@@ -429,11 +488,21 @@ export default function CircleLeaderProfilePage() {
         }
       } else {
         console.error('Error updating event summary status:', error);
-        alert('Failed to update event summary status. Please try again.');
+        setShowAlert({
+          isOpen: true,
+          type: 'error',
+          title: 'Update Failed',
+          message: 'Failed to update event summary status. Please try again.'
+        });
       }
     } catch (error) {
       console.error('Error updating event summary status:', error);
-      alert('Failed to update event summary status. Please try again.');
+      setShowAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Update Failed',
+        message: 'Failed to update event summary status. Please try again.'
+      });
     } finally {
       setIsUpdatingEventSummary(false);
     }
@@ -796,6 +865,66 @@ export default function CircleLeaderProfilePage() {
                         </select>
                       ) : (
                         <span className="text-sm text-gray-900 dark:text-white">{leader.circle_type || 'Not specified'}</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Meeting Day</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <select
+                          value={editedLeader.day || ''}
+                          onChange={(e) => handleLeaderFieldChange('day', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="">Select Day</option>
+                          <option value="Monday">Monday</option>
+                          <option value="Tuesday">Tuesday</option>
+                          <option value="Wednesday">Wednesday</option>
+                          <option value="Thursday">Thursday</option>
+                          <option value="Friday">Friday</option>
+                          <option value="Saturday">Saturday</option>
+                          <option value="Sunday">Sunday</option>
+                        </select>
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{leader.day || 'Not specified'}</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Meeting Time</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="time"
+                          value={leader.time?.includes('AM') || leader.time?.includes('PM') 
+                            ? convertAMPMTo24Hour(leader.time) 
+                            : editedLeader.time || ''}
+                          onChange={(e) => handleLeaderFieldChange('time', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{formatTimeToAMPM(leader.time) || 'Not specified'}</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Meeting Frequency</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <select
+                          value={editedLeader.frequency || ''}
+                          onChange={(e) => handleLeaderFieldChange('frequency', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="">Select Frequency</option>
+                          <option value="Weekly">Weekly</option>
+                          <option value="Bi-weekly">Bi-weekly</option>
+                          <option value="Monthly">Monthly</option>
+                          <option value="As needed">As needed</option>
+                        </select>
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{leader.frequency || 'Not specified'}</span>
                       )}
                     </dd>
                   </div>
@@ -1244,6 +1373,15 @@ export default function CircleLeaderProfilePage() {
           </div>
         </div>
       </div>
+      
+      {/* Alert Modal */}
+      <AlertModal
+        isOpen={showAlert.isOpen}
+        onClose={() => setShowAlert({ ...showAlert, isOpen: false })}
+        type={showAlert.type}
+        title={showAlert.title}
+        message={showAlert.message}
+      />
     </div>
   );
 }

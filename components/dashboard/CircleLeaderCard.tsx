@@ -4,6 +4,30 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { CircleLeader } from '../../lib/supabase';
 
+// Helper function to format time to AM/PM
+const formatTimeToAMPM = (time: string | undefined | null): string => {
+  if (!time) return '';
+  
+  // If already in AM/PM format, return as is
+  if (time.includes('AM') || time.includes('PM')) {
+    return time;
+  }
+  
+  // Convert 24-hour format to 12-hour format
+  const [hours, minutes] = time.split(':');
+  const hour24 = parseInt(hours);
+  
+  if (hour24 === 0) {
+    return `12:${minutes} AM`;
+  } else if (hour24 < 12) {
+    return `${hour24}:${minutes} AM`;
+  } else if (hour24 === 12) {
+    return `12:${minutes} PM`;
+  } else {
+    return `${hour24 - 12}:${minutes} PM`;
+  }
+};
+
 interface CircleLeaderCardProps {
   leader: CircleLeader;
   isAdmin: boolean;
@@ -44,7 +68,12 @@ export default function CircleLeaderCard({
               {leader.name || 'Unknown'}
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {leader.circle_type || ''} → {leader.day || ''} → {leader.time || ''} → {leader.frequency || ''}
+              {[
+                leader.circle_type || '', 
+                leader.day || '', 
+                formatTimeToAMPM(leader.time), 
+                leader.frequency || ''
+              ].filter(Boolean).join(' → ') || 'Schedule not specified'}
             </p>
           </div>
         </div>

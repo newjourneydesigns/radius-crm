@@ -7,6 +7,8 @@ import CircleLeaderCard from '../../components/dashboard/CircleLeaderCard';
 import TodayCircles from '../../components/dashboard/TodayCircles';
 import ContactModal from '../../components/dashboard/ContactModal';
 import BulkStatusUpdate from '../../components/dashboard/BulkStatusUpdate';
+import ConfirmModal from '../../components/ui/ConfirmModal';
+import AlertModal from '../../components/ui/AlertModal';
 import { useDashboardFilters } from '../../hooks/useDashboardFilters';
 import { useCircleLeaders } from '../../hooks/useCircleLeaders';
 import { CircleLeader } from '../../lib/supabase';
@@ -49,6 +51,19 @@ export default function DashboardPage() {
     name: '',
     email: '',
     phone: ''
+  });
+
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showAlert, setShowAlert] = useState<{
+    isOpen: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    type: 'info',
+    title: '',
+    message: ''
   });
 
   // Filter circle leaders based on current filters
@@ -172,12 +187,13 @@ export default function DashboardPage() {
       console.error('Error toggling event summary:', error);
     }
   };  const handleResetCheckboxes = async () => {
-    const confirmReset = confirm(`This will reset the Event Summary status to "Not Received" for all ${filteredLeaders.length} currently visible Circle Leaders. Are you sure?`);
-    
-    if (confirmReset) {
-      const leaderIds = filteredLeaders.map(leader => leader.id);
-      await resetEventSummaryCheckboxes(leaderIds);
-    }
+    setShowResetConfirm(true);
+  };
+
+  const confirmResetCheckboxes = async () => {
+    const leaderIds = filteredLeaders.map(leader => leader.id);
+    await resetEventSummaryCheckboxes(leaderIds);
+    setShowResetConfirm(false);
   };
 
   const handleBulkUpdateStatus = async (status: string) => {
@@ -188,7 +204,12 @@ export default function DashboardPage() {
       loadCircleLeaders();
     } catch (error) {
       console.error('Error bulk updating status:', error);
-      alert('Failed to update status. Please try again.');
+      setShowAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Update Failed',
+        message: 'Failed to update status. Please try again.'
+      });
     }
   };
 
@@ -348,6 +369,27 @@ export default function DashboardPage() {
         email={contactModal.email}
         phone={contactModal.phone}
         onClose={closeContactModal}
+      />
+
+      {/* Reset Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        onConfirm={confirmResetCheckboxes}
+        title="Reset Event Summary Status"
+        message={`This will reset the Event Summary status to "Not Received" for all ${filteredLeaders.length} currently visible Circle Leaders. Are you sure?`}
+        confirmText="Reset All"
+        cancelText="Cancel"
+        type="warning"
+      />
+
+      {/* Alert Modal */}
+      <AlertModal
+        isOpen={showAlert.isOpen}
+        onClose={() => setShowAlert({ ...showAlert, isOpen: false })}
+        type={showAlert.type}
+        title={showAlert.title}
+        message={showAlert.message}
       />
     </div>
   );

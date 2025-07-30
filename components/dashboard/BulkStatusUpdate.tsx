@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import ConfirmModal from '../ui/ConfirmModal';
 
 interface BulkStatusUpdateProps {
   totalLeaders: number;
@@ -10,6 +11,8 @@ interface BulkStatusUpdateProps {
 export default function BulkStatusUpdate({ totalLeaders, onBulkUpdateStatus }: BulkStatusUpdateProps) {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<{value: string, label: string} | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -35,17 +38,18 @@ export default function BulkStatusUpdate({ totalLeaders, onBulkUpdateStatus }: B
     { value: 'off-boarding', label: 'Off-boarding', color: 'text-red-700' }
   ];
 
-  const handleStatusSelect = (status: string, label: string) => {
-    setSelectedStatus(status);
+    const handleStatusSelect = (status: string, label: string) => {
+    setPendingStatus({ value: status, label });
+    setShowConfirmModal(true);
     setShowDropdown(false);
-    
-    const confirmUpdate = confirm(
-      `This will change the status to "${label}" for all ${totalLeaders} currently visible Circle Leaders. Are you sure?`
-    );
-    
-    if (confirmUpdate) {
-      onBulkUpdateStatus(status);
+  };
+
+  const handleConfirmUpdate = () => {
+    if (pendingStatus) {
+      onBulkUpdateStatus(pendingStatus.value);
     }
+    setShowConfirmModal(false);
+    setPendingStatus(null);
   };
 
   if (totalLeaders === 0) return null;
@@ -106,6 +110,17 @@ export default function BulkStatusUpdate({ totalLeaders, onBulkUpdateStatus }: B
           )}
         </div>
       </div>
+      
+      <ConfirmModal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={handleConfirmUpdate}
+        title="Confirm Bulk Status Update"
+        message={pendingStatus ? `Are you sure you want to change the status of all ${totalLeaders} leaders to "${pendingStatus.label}"?` : ''}
+        confirmText="Update All"
+        cancelText="Cancel"
+        type="warning"
+      />
     </div>
   );
 }

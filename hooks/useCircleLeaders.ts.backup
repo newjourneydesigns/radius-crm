@@ -14,6 +14,9 @@ export const useCircleLeaders = () => {
     }
 
     console.log('Starting to load circle leaders...');
+    console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+    console.log('Supabase key exists:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+    
     loadingRef.current = true;
     setIsLoading(true);
     setError(null);
@@ -33,57 +36,47 @@ export const useCircleLeaders = () => {
         throw leadersError;
       }
 
-      const loadedLeaders = leaders || [];
-      console.log('Loaded leaders count:', loadedLeaders.length);
-
-      // For now, just set the leaders without loading notes to debug
-      setCircleLeaders(loadedLeaders);
-      console.log('Circle leaders set successfully');
-
-      /* Temporarily commenting out notes loading to debug
-      // Load last note for each circle leader
-      if (loadedLeaders.length > 0) {
-        try {
+      // Now get the latest note for each leader
+      const leadersWithNotes = await Promise.all(
+        (leaders || []).map(async (leader) => {
           const { data: notes, error: notesError } = await supabase
             .from('notes')
-            .select('circle_leader_id, content, created_at')
-            .order('created_at', { ascending: false });
+            .select('id, content, created_at, created_by')
+            .eq('circle_leader_id', leader.id)
+            .order('created_at', { ascending: false })
+            .limit(1);
 
-          if (!notesError && notes) {
-            // Group notes by circle leader ID and get the most recent for each
-            const notesByLeader: Record<number, any> = {};
-            notes.forEach((note: any) => {
-              if (!notesByLeader[note.circle_leader_id]) {
-                notesByLeader[note.circle_leader_id] = {
-                  content: note.content,
-                  created_at: note.created_at
-                };
-              }
-            });
-
-            // Add last note to each circle leader
-            const leadersWithNotes = loadedLeaders.map((leader: CircleLeader) => ({
-              ...leader,
-              last_note: notesByLeader[leader.id]
-            }));
-
-            setCircleLeaders(leadersWithNotes);
-          } else {
-            setCircleLeaders(loadedLeaders);
+          if (notesError) {
+            console.error(`Error loading notes for leader ${leader.id}:`, notesError);
           }
-        } catch (notesError) {
-          console.warn('Notes loading failed, continuing without notes:', notesError);
-          setCircleLeaders(loadedLeaders);
-        }
-      } else {
-        setCircleLeaders(loadedLeaders);
-      }
-      */
+
+          return {
+            ...leader,
+            last_note: notes && notes.length > 0 ? notes[0] : null
+          };
+        })
+      );
+
+      console.log('Loaded leaders with notes count:', leadersWithNotes.length);
+
+      // Set the leaders data
+      setCircleLeaders(leadersWithNotes);
+      console.log('Circle leaders set successfully');
 
     } catch (error: any) {
       console.error('Error loading circle leaders:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        status: error.status
+      });
       
-      if (error.message?.includes('timeout')) {
+      // Check if this is a configuration issue
+      if (error.message?.includes('Invalid API key') || error.message?.includes('Project not found')) {
+        setError('Database configuration error. Please check environment variables.');
+      } else if (error.message?.includes('timeout')) {
         setError('Loading taking longer than expected. Please refresh if needed.');
       } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
         setError('Network error. Please check your connection and try again.');
