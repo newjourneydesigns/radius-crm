@@ -14,6 +14,9 @@ export const useCircleLeaders = () => {
     }
 
     console.log('Starting to load circle leaders...');
+    console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+    console.log('Supabase key exists:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+    
     loadingRef.current = true;
     setIsLoading(true);
     setError(null);
@@ -42,8 +45,18 @@ export const useCircleLeaders = () => {
 
     } catch (error: any) {
       console.error('Error loading circle leaders:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        status: error.status
+      });
       
-      if (error.message?.includes('timeout')) {
+      // Check if this is a configuration issue
+      if (error.message?.includes('Invalid API key') || error.message?.includes('Project not found')) {
+        setError('Database configuration error. Please check environment variables.');
+      } else if (error.message?.includes('timeout')) {
         setError('Loading taking longer than expected. Please refresh if needed.');
       } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
         setError('Network error. Please check your connection and try again.');

@@ -4,11 +4,16 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NDg3NjczNjMsImV4cCI6MTk2NDM0MzM2M30.placeholder';
 
+// Runtime check for placeholder credentials
+if (typeof window !== 'undefined' && supabaseUrl.includes('placeholder')) {
+  console.warn('⚠️ Using placeholder Supabase credentials. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.');
+}
+
 // Create Supabase client with proper fallbacks
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: false, // Disable session persistence for build
-    autoRefreshToken: false // Disable token refresh for build
+    persistSession: !supabaseUrl.includes('placeholder'), // Only persist sessions with real credentials
+    autoRefreshToken: !supabaseUrl.includes('placeholder') // Only refresh tokens with real credentials
   }
 });
 
