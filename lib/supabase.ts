@@ -2,9 +2,15 @@ import { createClient } from '@supabase/supabase-js';
 
 // Handle environment variables with fallbacks for build time
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NDg3NjczNjMsImV4cCI6MTk2NDM0MzM2M30.placeholder';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Create Supabase client with proper fallbacks
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: false, // Disable session persistence for build
+    autoRefreshToken: false // Disable token refresh for build
+  }
+});
 
 // Types for our database tables based on actual schema
 export interface CircleLeader {
