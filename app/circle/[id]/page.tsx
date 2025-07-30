@@ -14,6 +14,8 @@ export default function CircleLeaderProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     // Load leader data from API
@@ -122,6 +124,101 @@ export default function CircleLeaderProfilePage() {
       console.error('Error saving note:', error);
     } finally {
       setIsSavingNote(false);
+    }
+  };
+
+  // Quick Action Handlers
+  const handleSendEmail = () => {
+    if (!leader?.email) {
+      alert('No email address available for this leader.');
+      return;
+    }
+    
+    const subject = `Circle Leader Communication - ${leader.name}`;
+    const firstName = leader.name.split(' ')[0];
+    const body = `Hi ${firstName}!`;
+    const mailtoUrl = `mailto:${leader.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    
+    window.open(mailtoUrl, '_blank');
+  };
+
+  const handleSendSMS = () => {
+    if (!leader?.phone) {
+      alert('No phone number available for this leader.');
+      return;
+    }
+    
+    // Clean phone number (remove formatting)
+    const cleanPhone = leader.phone.replace(/\D/g, '');
+    const firstName = leader.name.split(' ')[0];
+    const message = `Hi ${firstName}!`;
+    const smsUrl = `sms:${cleanPhone}?body=${encodeURIComponent(message)}`;
+    
+    window.open(smsUrl, '_blank');
+  };
+
+  const handleScheduleMeeting = () => {
+    if (!leader?.email) {
+      alert('No email address available for this leader.');
+      return;
+    }
+    
+    // Create a calendar event URL (Google Calendar format)
+    const title = `Meeting with ${leader.name}`;
+    const details = `Circle Leader meeting with ${leader.name}\nCircle Type: ${leader.circle_type || 'Not specified'}\nCampus: ${leader.campus || 'Not specified'}`;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() + 7); // Schedule for next week
+    startDate.setHours(10, 0, 0, 0); // 10 AM
+    
+    const endDate = new Date(startDate);
+    endDate.setHours(11, 0, 0, 0); // 1 hour meeting
+    
+    const formatDate = (date: Date) => {
+      return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    };
+    
+    const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${formatDate(startDate)}/${formatDate(endDate)}&details=${encodeURIComponent(details)}&add=${encodeURIComponent(leader.email)}`;
+    
+    window.open(calendarUrl, '_blank');
+  };
+
+  const handleRemoveLeader = async () => {
+    if (!showDeleteConfirm) {
+      setShowDeleteConfirm(true);
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('circle_leaders')
+        .delete()
+        .eq('id', leaderId);
+
+      if (!error) {
+        // Add a note about the removal
+        await supabase
+          .from('notes')
+          .insert([
+            {
+              circle_leader_id: leaderId,
+              content: `Circle Leader ${leader?.name} was removed from the system.`,
+              created_by: 'System'
+            }
+          ]);
+
+        // Redirect to dashboard
+        window.location.href = '/dashboard';
+      } else {
+        console.error('Error removing leader:', error);
+        alert('Failed to remove leader. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error removing leader:', error);
+      alert('Failed to remove leader. Please try again.');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -318,18 +415,74 @@ export default function CircleLeaderProfilePage() {
                 <h2 className="text-lg font-medium text-gray-900 dark:text-white">Quick Actions</h2>
               </div>
               <div className="p-6 space-y-3">
-                <button className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors">
+                <button 
+                  onClick={handleSendEmail}
+                  disabled={!leader?.email}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
                   Send Email
+                  {!leader?.email && <span className="ml-auto text-xs text-gray-400">(No email)</span>}
                 </button>
-                <button className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors">
+                <button 
+                  onClick={handleSendSMS}
+                  disabled={!leader?.phone}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
                   Send SMS
+                  {!leader?.phone && <span className="ml-auto text-xs text-gray-400">(No phone)</span>}
                 </button>
-                <button className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors">
+                <button 
+                  onClick={handleScheduleMeeting}
+                  disabled={!leader?.email}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
                   Schedule Meeting
+                  {!leader?.email && <span className="ml-auto text-xs text-gray-400">(No email)</span>}
                 </button>
-                <button className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors">
-                  Remove Leader
-                </button>
+                
+                {/* Delete Confirmation */}
+                {showDeleteConfirm ? (
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3">
+                    <p className="text-sm text-red-800 dark:text-red-200 mb-3">
+                      Are you sure you want to remove this leader? This action cannot be undone.
+                    </p>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={handleRemoveLeader}
+                        disabled={isDeleting}
+                        className="px-3 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isDeleting ? 'Removing...' : 'Yes, Remove'}
+                      </button>
+                      <button
+                        onClick={() => setShowDeleteConfirm(false)}
+                        disabled={isDeleting}
+                        className="px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={handleRemoveLeader}
+                    className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors flex items-center"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Remove Leader
+                  </button>
+                )}
               </div>
             </div>
           </div>
