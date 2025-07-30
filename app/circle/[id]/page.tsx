@@ -23,6 +23,10 @@ export default function CircleLeaderProfilePage() {
   const [isUpdatingNote, setIsUpdatingNote] = useState(false);
   const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null);
   const [isDeletingNote, setIsDeletingNote] = useState(false);
+  const [editedLeader, setEditedLeader] = useState<Partial<CircleLeader>>({});
+  const [isSavingLeader, setIsSavingLeader] = useState(false);
+  const [leaderError, setLeaderError] = useState('');
+  const [directors, setDirectors] = useState<Array<{id: number, name: string}>>([]);
 
   useEffect(() => {
     // Load leader data from API
@@ -54,6 +58,26 @@ export default function CircleLeaderProfilePage() {
             event_summary_received: true,
             ccb_profile_link: 'https://example.com/profile'
           });
+        }
+
+        // Load directors from database (ACPDs)
+        const { data: directorsData, error: directorsError } = await supabase
+          .from('acpds')
+          .select('id, name')
+          .eq('status', 'active')
+          .order('name');
+
+        if (directorsData && !directorsError) {
+          setDirectors(directorsData);
+        } else {
+          // Fallback to mock directors
+          setDirectors([
+            { id: 1, name: 'Jane Doe' },
+            { id: 2, name: 'John Smith' },
+            { id: 3, name: 'Trip Ochenski' },
+            { id: 4, name: 'Sarah Johnson' },
+            { id: 5, name: 'Mike Wilson' }
+          ]);
         }
 
         // Load notes
@@ -388,6 +412,104 @@ export default function CircleLeaderProfilePage() {
     }
   };
 
+  const handleEditLeader = () => {
+    if (!leader) return;
+    
+    setIsEditing(true);
+    setEditedLeader({
+      name: leader.name,
+      email: leader.email,
+      phone: leader.phone,
+      campus: leader.campus,
+      acpd: leader.acpd,
+      status: leader.status,
+      day: leader.day,
+      time: leader.time,
+      frequency: leader.frequency,
+      circle_type: leader.circle_type,
+      ccb_profile_link: leader.ccb_profile_link
+    });
+  };
+
+  const handleSaveLeader = async () => {
+    if (!leader || !editedLeader) return;
+
+    setIsSavingLeader(true);
+    setLeaderError('');
+
+    try {
+      const { data, error } = await supabase
+        .from('circle_leaders')
+        .update({
+          name: editedLeader.name,
+          email: editedLeader.email || null,
+          phone: editedLeader.phone || null,
+          campus: editedLeader.campus || null,
+          acpd: editedLeader.acpd || null,
+          status: editedLeader.status || 'active',
+          day: editedLeader.day || null,
+          time: editedLeader.time || null,
+          frequency: editedLeader.frequency || null,
+          circle_type: editedLeader.circle_type || null,
+          ccb_profile_link: editedLeader.ccb_profile_link || null
+        })
+        .eq('id', leaderId)
+        .select()
+        .single();
+
+      if (data && !error) {
+        setLeader(data);
+        setIsEditing(false);
+        setEditedLeader({});
+        
+        // Add a note about the update
+        await supabase
+          .from('notes')
+          .insert([
+            {
+              circle_leader_id: leaderId,
+              content: 'Circle Leader information updated.',
+              created_by: 'System'
+            }
+          ]);
+
+        // Refresh notes to show the new system note
+        const { data: notesData } = await supabase
+          .from('notes')
+          .select('*')
+          .eq('circle_leader_id', leaderId)
+          .order('created_at', { ascending: false });
+
+        if (notesData) {
+          setNotes(notesData);
+        }
+      } else {
+        console.error('Error updating leader:', error);
+        setLeaderError('Failed to update leader information. Please try again.');
+        setTimeout(() => setLeaderError(''), 5000);
+      }
+    } catch (error) {
+      console.error('Error updating leader:', error);
+      setLeaderError('Failed to update leader information. Please try again.');
+      setTimeout(() => setLeaderError(''), 5000);
+    } finally {
+      setIsSavingLeader(false);
+    }
+  };
+
+  const handleCancelLeaderEdit = () => {
+    setIsEditing(false);
+    setEditedLeader({});
+    setLeaderError('');
+  };
+
+  const handleLeaderFieldChange = (field: keyof CircleLeader, value: string) => {
+    setEditedLeader(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   const formatDateTime = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -396,6 +518,30 @@ export default function CircleLeaderProfilePage() {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const formatTimeToAMPM = (timeString: string) => {
+    if (!timeString) return 'Not scheduled';
+    
+    try {
+      // Parse the time string (expecting HH:MM format)
+      const [hours, minutes] = timeString.split(':').map(Number);
+      
+      // Create a date object for today with the given time
+      const date = new Date();
+      date.setHours(hours, minutes, 0, 0);
+      
+      // Format to 12-hour time with AM/PM in Central Time
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'America/Chicago' // Central Time
+      });
+    } catch (error) {
+      console.error('Error formatting time:', error);
+      return timeString; // Fallback to original time string
+    }
   };
 
   if (isLoading) {
@@ -463,47 +609,211 @@ export default function CircleLeaderProfilePage() {
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
                 <h2 className="text-lg font-medium text-gray-900 dark:text-white">Basic Information</h2>
                 <button
-                  onClick={() => setIsEditing(!isEditing)}
+                  onClick={isEditing ? handleCancelLeaderEdit : handleEditLeader}
                   className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
                 >
                   {isEditing ? 'Cancel' : 'Edit'}
                 </button>
               </div>
               <div className="p-6">
+                {leaderError && (
+                  <div className="mb-4 flex items-center text-sm text-red-600 dark:text-red-400">
+                    <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {leaderError}
+                  </div>
+                )}
+                
                 <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Name</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editedLeader.name || ''}
+                          onChange={(e) => handleLeaderFieldChange('name', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Enter name"
+                        />
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{leader.name || 'Not provided'}</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Email</dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-white">{leader.email || 'Not provided'}</dd>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="email"
+                          value={editedLeader.email || ''}
+                          onChange={(e) => handleLeaderFieldChange('email', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Enter email"
+                        />
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{leader.email || 'Not provided'}</span>
+                      )}
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone</dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-white">{leader.phone || 'Not provided'}</dd>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="tel"
+                          value={editedLeader.phone || ''}
+                          onChange={(e) => handleLeaderFieldChange('phone', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Enter phone"
+                        />
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{leader.phone || 'Not provided'}</span>
+                      )}
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Campus</dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-white">{leader.campus || 'Not specified'}</dd>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editedLeader.campus || ''}
+                          onChange={(e) => handleLeaderFieldChange('campus', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Enter campus"
+                        />
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{leader.campus || 'Not specified'}</span>
+                      )}
+                    </dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">ACPD</dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-white">{leader.acpd || 'Not assigned'}</dd>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Director</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <select
+                          value={editedLeader.acpd || ''}
+                          onChange={(e) => handleLeaderFieldChange('acpd', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="">Select Director</option>
+                          {directors.map((director) => (
+                            <option key={director.id} value={director.name}>
+                              {director.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{leader.acpd || 'Not assigned'}</span>
+                      )}
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</dt>
                     <dd className="mt-1">
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                        leader.status === 'active' 
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                          : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
-                      }`}>
-                        {leader.status || 'Unknown'}
-                      </span>
+                      {isEditing ? (
+                        <select
+                          value={editedLeader.status || 'active'}
+                          onChange={(e) => handleLeaderFieldChange('status', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="active">Active</option>
+                          <option value="inactive">Inactive</option>
+                          <option value="on-break">On Break</option>
+                        </select>
+                      ) : (
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                          leader.status === 'active' 
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                            : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+                        }`}>
+                          {leader.status || 'Unknown'}
+                        </span>
+                      )}
                     </dd>
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Circle Type</dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-white">{leader.circle_type || 'Not specified'}</dd>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <select
+                          value={editedLeader.circle_type || ''}
+                          onChange={(e) => handleLeaderFieldChange('circle_type', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="">Select Circle Type</option>
+                          <option value="Men's Circle">Men's Circle</option>
+                          <option value="Women's Circle">Women's Circle</option>
+                          <option value="Mixed Circle">Mixed Circle</option>
+                          <option value="Youth Circle">Youth Circle</option>
+                          <option value="Senior Circle">Senior Circle</option>
+                        </select>
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{leader.circle_type || 'Not specified'}</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">CCB Profile Link</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="url"
+                          value={editedLeader.ccb_profile_link || ''}
+                          onChange={(e) => handleLeaderFieldChange('ccb_profile_link', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Enter CCB profile URL"
+                        />
+                      ) : (
+                        leader.ccb_profile_link ? (
+                          <a
+                            href={leader.ccb_profile_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                          >
+                            CCB Profile
+                            <svg className="ml-1 w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                        ) : (
+                          <span className="text-sm text-gray-900 dark:text-white">Not provided</span>
+                        )
+                      )}
+                    </dd>
                   </div>
                 </dl>
+                
+                {isEditing && (
+                  <div className="mt-6 flex items-center space-x-3">
+                    <button
+                      onClick={handleSaveLeader}
+                      disabled={isSavingLeader || !editedLeader.name?.trim()}
+                      className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {isSavingLeader ? (
+                        <div className="flex items-center">
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Saving...
+                        </div>
+                      ) : 'Save Changes'}
+                    </button>
+                    <button
+                      onClick={handleCancelLeaderEdit}
+                      disabled={isSavingLeader}
+                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -516,33 +826,63 @@ export default function CircleLeaderProfilePage() {
                 <dl className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Day</dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-white">{leader.day || 'Not scheduled'}</dd>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <select
+                          value={editedLeader.day || ''}
+                          onChange={(e) => handleLeaderFieldChange('day', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="">Select Day</option>
+                          <option value="Monday">Monday</option>
+                          <option value="Tuesday">Tuesday</option>
+                          <option value="Wednesday">Wednesday</option>
+                          <option value="Thursday">Thursday</option>
+                          <option value="Friday">Friday</option>
+                          <option value="Saturday">Saturday</option>
+                          <option value="Sunday">Sunday</option>
+                        </select>
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{leader.day || 'Not scheduled'}</span>
+                      )}
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Time</dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-white">{leader.time || 'Not scheduled'}</dd>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="time"
+                          value={editedLeader.time || ''}
+                          onChange={(e) => handleLeaderFieldChange('time', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{formatTimeToAMPM(leader.time)}</span>
+                      )}
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Frequency</dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-white">{leader.frequency || 'Not specified'}</dd>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <select
+                          value={editedLeader.frequency || ''}
+                          onChange={(e) => handleLeaderFieldChange('frequency', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="">Select Frequency</option>
+                          <option value="Weekly">Weekly</option>
+                          <option value="Bi-weekly">Bi-weekly</option>
+                          <option value="Monthly">Monthly</option>
+                          <option value="Quarterly">Quarterly</option>
+                        </select>
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{leader.frequency || 'Not specified'}</span>
+                      )}
+                    </dd>
                   </div>
                 </dl>
-
-                {leader.ccb_profile_link && (
-                  <div className="mt-6 flex space-x-3">
-                    <a
-                      href={leader.ccb_profile_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
-                    >
-                      CCB Profile
-                      <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    </a>
-                  </div>
-                )}
               </div>
             </div>
           </div>
