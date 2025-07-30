@@ -1,6 +1,9 @@
-# RADIUS - Circle Leader Management System
+# RADIUS Circle Leader Management System
 
-A modern, responsive web application for managing Circle Leaders with event tracking, contact management, and real-time updates.
+A comprehensive management system for Circle Leaders built with Next.js, Tailwind CSS, and Supabase.
+
+## Deployment Status
+✅ Successfully deployed to Netlify with full mobile responsiveness and database integration.
 
 ## Features
 
