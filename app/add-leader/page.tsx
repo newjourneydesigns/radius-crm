@@ -103,7 +103,7 @@ export default function AddLeaderPage() {
         <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
             <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Basic Information</h2>
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Circle Information</h2>
             </div>
             <div className="p-4 sm:p-6 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -146,7 +146,7 @@ export default function CircleLeaderProfilePage() {
             day: 'Tuesday',
             time: '19:00',
             frequency: 'Weekly',
-            circle_type: "Men's Circle",
+            circle_type: "Men's",
             event_summary_received: true,
             ccb_profile_link: 'https://example.com/profile'
           });
@@ -225,6 +225,11 @@ export default function CircleLeaderProfilePage() {
           }
         }
       }, 100); // Small delay to ensure the element is rendered
+    } else if (!hash) {
+      // If no hash is present, ensure we're at the top of the page
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 100);
     }
   }, []);
 
@@ -775,10 +780,10 @@ export default function CircleLeaderProfilePage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Profile Info */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Basic Information */}
+            {/* Circle Information */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                <h2 className="text-lg font-medium text-gray-900 dark:text-white">Basic Information</h2>
+                <h2 className="text-lg font-medium text-gray-900 dark:text-white">Circle Information</h2>
                 <button
                   onClick={isEditing ? handleCancelLeaderEdit : handleEditLeader}
                   className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
@@ -1069,75 +1074,6 @@ export default function CircleLeaderProfilePage() {
                     </button>
                   </div>
                 )}
-              </div>
-            </div>
-
-            {/* Meeting Information */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="text-lg font-medium text-gray-900 dark:text-white">Meeting Information</h2>
-              </div>
-              <div className="p-6">
-                <dl className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Day</dt>
-                    <dd className="mt-1">
-                      {isEditing ? (
-                        <select
-                          value={editedLeader.day || ''}
-                          onChange={(e) => handleLeaderFieldChange('day', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                          <option value="">Select Day</option>
-                          <option value="Monday">Monday</option>
-                          <option value="Tuesday">Tuesday</option>
-                          <option value="Wednesday">Wednesday</option>
-                          <option value="Thursday">Thursday</option>
-                          <option value="Friday">Friday</option>
-                          <option value="Saturday">Saturday</option>
-                          <option value="Sunday">Sunday</option>
-                        </select>
-                      ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{leader.day || 'Not scheduled'}</span>
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Time</dt>
-                    <dd className="mt-1">
-                      {isEditing ? (
-                        <input
-                          type="time"
-                          value={convertToMilitaryTime(editedLeader.time || leader.time)}
-                          onChange={(e) => handleLeaderFieldChange('time', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                      ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{formatTimeToAMPM(leader.time)}</span>
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Frequency</dt>
-                    <dd className="mt-1">
-                      {isEditing ? (
-                        <select
-                          value={editedLeader.frequency || ''}
-                          onChange={(e) => handleLeaderFieldChange('frequency', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                          <option value="">Select Frequency</option>
-                          <option value="Weekly">Weekly</option>
-                          <option value="Bi-weekly">Bi-weekly</option>
-                          <option value="Monthly">Monthly</option>
-                          <option value="Quarterly">Quarterly</option>
-                        </select>
-                      ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{leader.frequency || 'Not specified'}</span>
-                      )}
-                    </dd>
-                  </div>
-                </dl>
               </div>
             </div>
           </div>
