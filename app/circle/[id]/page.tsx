@@ -243,17 +243,42 @@ export default function CircleLeaderProfilePage() {
       
       console.log('Read test successful:', readTest);
       
-      // Try to insert a note
+      // Verify the leader exists
+      const { data: leaderExists } = await supabase
+        .from('circle_leaders')
+        .select('id, name')
+        .eq('id', leaderId)
+        .single();
+      
+      console.log('Leader verification:', { leaderId, leaderExists });
+      
+      // Try to insert a note with all potential fields
+      const insertData = {
+        circle_leader_id: leaderId,
+        content: newNote.trim(),
+        note_date: new Date().toISOString().split('T')[0], // Today's date
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      console.log('Attempting to insert:', insertData);
+      
       const { data, error } = await supabase
         .from('notes')
-        .insert({
-          circle_leader_id: leaderId,
-          content: newNote.trim()
-        })
+        .insert(insertData)
         .select('*')
         .single();
 
       console.log('Insert result:', { data, error });
+
+      if (error) {
+        console.error('❌ Detailed error:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+      }
 
       if (data && !error) {
         // Success - add to local state and clear form
