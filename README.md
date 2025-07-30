@@ -1,140 +1,140 @@
 # RADIUS - Circle Leader Management System
 
-A modern Next.js application for managing Circle Leaders with Supabase backend.
+A modern, responsive web application for managing Circle Leaders with event tracking, contact management, and real-time updates.
 
 ## Features
 
-- **Dashboard**: Overview of all Circle Leaders with filtering and search
-- **Event Summary Tracking**: Monitor which leaders have submitted event summaries
-- **Notes System**: Add and track notes for each Circle Leader
-- **Contact Management**: Store and access contact information
-- **User Authentication**: Secure login/logout with Supabase Auth
-- **Dark Mode Support**: Modern, responsive design with dark theme
-- **Real-time Updates**: Live data synchronization with Supabase
+- 📱 **Mobile-First Design**: Responsive interface optimized for all devices
+- 🔍 **Advanced Filtering**: Search and filter by campus, ACPD, status, meeting day, and more
+- 👤 **Leader Profiles**: Detailed profiles with contact info, meeting schedules, and notes
+- 📊 **Event Tracking**: Monitor event summary submissions and follow-up activities
+- 🔄 **Real-Time Updates**: Live data from Supabase with automatic syncing
+- 🎨 **Modern UI**: Clean, accessible interface with dark mode support
+- 🔐 **Authentication**: Secure login with role-based access control
 
 ## Tech Stack
 
 - **Frontend**: Next.js 14, React 18, TypeScript
-- **Styling**: Tailwind CSS v3
-- **Backend**: Supabase (PostgreSQL, Auth, Real-time)
-- **Deployment**: Vercel-ready
+- **Styling**: Tailwind CSS
+- **Database**: Supabase (PostgreSQL)
+- **Deployment**: Netlify
+- **Authentication**: Supabase Auth
 
-## Setup Instructions
+## Quick Start
 
-### 1. Prerequisites
+### Prerequisites
+- Node.js 18+ 
+- npm or yarn
+- Supabase account and project
 
-- Node.js 18+ installed
-- A Supabase account and project
+### Environment Variables
+Create a `.env.local` file with:
+```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
-### 2. Supabase Setup
-
-1. Create a new project at [supabase.com](https://supabase.com)
-2. Go to the SQL Editor in your Supabase dashboard
-3. Run the schema script: Copy and paste the contents of `supabase/schema.sql`
-4. Run the seed script: Copy and paste the contents of `supabase/seed.sql`
-5. Get your project credentials:
-   - Go to Settings > API
-   - Copy your project URL and anon key
-
-### 3. Environment Setup
-
-1. Clone this repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Copy the environment file:
-   ```bash
-   cp .env.example .env.local
-   ```
-4. Update `.env.local` with your Supabase credentials:
-   ```
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
-
-### 4. Create Admin User
-
-1. Go to Authentication > Users in your Supabase dashboard
-2. Create a new user or sign up through the app
-3. In the SQL Editor, run:
-   ```sql
-   UPDATE users SET role = 'admin' WHERE email = 'your-admin-email@example.com';
-   ```
-
-### 5. Run the Application
-
+### Installation
 ```bash
+npm install
 npm run dev
 ```
 
-Visit `http://localhost:3000` to see the application.
+Open [http://localhost:3000](http://localhost:3000) to view the application.
+
+## Deployment to Netlify
+
+### Method 1: GitHub Integration (Recommended)
+
+1. **Push to GitHub**:
+   ```bash
+   git remote add origin https://github.com/yourusername/radius.git
+   git push -u origin main
+   ```
+
+2. **Deploy on Netlify**:
+   - Go to [Netlify](https://netlify.com)
+   - Click "Import from Git"
+   - Connect your GitHub repository
+   - Configure build settings:
+     - Build command: `npm run build`
+     - Publish directory: `.next`
+   - Add environment variables in Netlify dashboard:
+     - `NEXT_PUBLIC_SUPABASE_URL`
+     - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+### Method 2: Netlify CLI
+
+1. **Install Netlify CLI**:
+   ```bash
+   npm install -g netlify-cli
+   ```
+
+2. **Login and Deploy**:
+   ```bash
+   netlify login
+   netlify init
+   netlify deploy --prod
+   ```
+
+### Build Configuration
+
+The project includes a `netlify.toml` file with optimized settings:
+- Next.js plugin for serverless functions
+- Environment variable configuration
+- Security headers
+- Redirect rules
 
 ## Project Structure
 
 ```
-├── app/                    # Next.js app directory
-│   ├── dashboard/         # Dashboard page
-│   ├── login/            # Login page
-│   ├── add-leader/       # Add leader form
-│   ├── circle/[id]/      # Circle leader profile
-│   └── ...
-├── components/           # Reusable React components
-│   └── dashboard/       # Dashboard-specific components
-├── contexts/            # React contexts (Auth)
-├── hooks/              # Custom React hooks
-├── lib/                # Utility libraries
-│   └── supabase.ts    # Supabase client configuration
-├── styles/             # Global styles
-├── supabase/          # Database schema and seeds
-└── ...
+radius/
+├── app/                    # Next.js 14 App Router
+│   ├── dashboard/          # Dashboard page
+│   ├── circle/[id]/        # Dynamic circle leader profiles
+│   ├── add-leader/         # Add new leader form
+│   ├── login/              # Authentication
+│   └── settings/           # User settings
+├── components/             # Reusable components
+│   ├── dashboard/          # Dashboard-specific components
+│   └── layout/             # Layout components
+├── hooks/                  # Custom React hooks
+├── lib/                    # Utilities and configurations
+├── contexts/               # React contexts
+└── styles/                 # Global styles
 ```
 
 ## Database Schema
 
-### Tables
+The application uses Supabase with the following main tables:
+- `circle_leaders` - Leader information and contact details
+- `notes` - Leader-specific notes and follow-ups
+- `campuses` - Campus locations
+- `acpds` - ACPD information
 
-- **users**: User profiles and roles
-- **circle_leaders**: Circle Leader information
-- **notes**: Notes attached to Circle Leaders
+See `database_schema_073025.sql` for the complete schema.
 
-### Key Features
+## Key Features
 
-- Row Level Security (RLS) enabled
-- Automatic user profile creation
-- Role-based permissions (admin/user)
-- Timestamp tracking with auto-update triggers
+### Dashboard
+- Filter leaders by multiple criteria
+- Search functionality
+- Event summary progress tracking
+- Today's meeting schedule
+- Responsive grid layout
 
-## Development
+### Leader Profiles
+- Complete contact information
+- Meeting schedules and preferences
+- Notes and follow-up tracking
+- Event summary status
+- CCB profile integration
 
-### Available Scripts
-
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint
-
-### Key Components
-
-- **Dashboard**: Main interface with filtering and leader management
-- **FilterPanel**: Advanced filtering for Circle Leaders
-- **CircleLeaderCard**: Individual leader display component
-- **ContactModal**: Contact information modal
-- **EventSummaryProgress**: Progress tracking component
-
-### Custom Hooks
-
-- **useDashboardFilters**: Manage filter state with localStorage persistence
-- **useCircleLeaders**: Handle Circle Leader data operations with Supabase
-
-## Deployment
-
-This app is ready for deployment on Vercel:
-
-1. Push your code to GitHub
-2. Connect your repo to Vercel
-3. Add your environment variables in Vercel dashboard
-4. Deploy!
+### Mobile Experience
+- Hamburger navigation menu
+- Bottom tab navigation
+- Touch-optimized interface
+- Responsive forms and modals
 
 ## Contributing
 
@@ -144,6 +144,10 @@ This app is ready for deployment on Vercel:
 4. Test thoroughly
 5. Submit a pull request
 
+## License
+
+This project is private and proprietary.
+
 ## Support
 
-For issues and questions, please open a GitHub issue or contact the development team.
+For support and questions, please contact the development team.
