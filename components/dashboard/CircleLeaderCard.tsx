@@ -19,7 +19,8 @@ export default function CircleLeaderCard({
 }: CircleLeaderCardProps) {
   const statusColors = {
     'invited': 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
-    'pipeline': 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300',
+    'pipeline': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-300',
+    'follow-up': 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300',
     'active': 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300',
     'paused': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300',
     'off-boarding': 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300'
@@ -52,7 +53,7 @@ export default function CircleLeaderCard({
         <div className="mb-4">
           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[leader.status as keyof typeof statusColors] || statusColors['paused']}`}>
             {leader.status === 'off-boarding' ? 'Off-boarding' 
-             : leader.status === 'pipeline' ? 'Pipeline/Follow Up'
+             : leader.status === 'follow-up' ? 'Follow Up'
              : leader.status ? leader.status.charAt(0).toUpperCase() + leader.status.slice(1)
              : 'Unknown'}
           </span>
@@ -114,31 +115,24 @@ export default function CircleLeaderCard({
               href={leader.ccb_profile_link} 
               target="_blank" 
               rel="noopener noreferrer"
-              className="text-xs bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-300 px-2 py-1 rounded hover:bg-primary-200 dark:hover:bg-primary-800"
+              className="inline-flex items-center px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
             >
               CCB Profile
+              <svg className="ml-1 w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
             </a>
           )}
         </div>
 
         {/* Actions */}
-        <div className="flex justify-between">
-          <div className="flex space-x-2">
-            <Link 
-              href={`/circle/${leader.id}`}
-              className="text-sm bg-primary-600 text-white px-3 py-1 rounded hover:bg-primary-700"
-            >
-              View Profile
-            </Link>
-            {isAdmin && (
-              <Link 
-                href={`/circle/${leader.id}/edit`}
-                className="text-sm bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700"
-              >
-                Edit
-              </Link>
-            )}
-          </div>
+        <div className="flex">
+          <Link 
+            href={`/circle/${leader.id}`}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+          >
+            View Profile
+          </Link>
         </div>
       </div>
     </div>

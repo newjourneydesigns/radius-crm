@@ -4,6 +4,52 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase, CircleLeader, Note } from '../../../lib/supabase';
 
+// Helper function to format time to AM/PM
+const formatTimeToAMPM = (time: string | undefined | null): string => {
+  if (!time) return 'Not scheduled';
+  
+  // If already in AM/PM format, return as is
+  if (time.includes('AM') || time.includes('PM')) {
+    return time;
+  }
+  
+  // Convert 24-hour format to 12-hour format
+  const [hours, minutes] = time.split(':');
+  const hour24 = parseInt(hours);
+  
+  if (hour24 === 0) {
+    return `12:${minutes} AM`;
+  } else if (hour24 < 12) {
+    return `${hour24}:${minutes} AM`;
+  } else if (hour24 === 12) {
+    return `12:${minutes} PM`;
+  } else {
+    return `${hour24 - 12}:${minutes} PM`;
+  }
+};
+
+// Helper function to convert AM/PM time to 24-hour format for input
+const convertToMilitaryTime = (time: string | undefined | null): string => {
+  if (!time) return '';
+  
+  // If already in 24-hour format, return as is
+  if (!time.includes('AM') && !time.includes('PM')) {
+    return time;
+  }
+  
+  const [timePart, period] = time.split(' ');
+  const [hours, minutes] = timePart.split(':');
+  let hour24 = parseInt(hours);
+  
+  if (period === 'AM' && hour24 === 12) {
+    hour24 = 0;
+  } else if (period === 'PM' && hour24 !== 12) {
+    hour24 += 12;
+  }
+  
+  return `${hour24.toString().padStart(2, '0')}:${minutes}`;
+};
+
 export default function CircleLeaderProfilePage() {
   const params = useParams();
   const leaderId = parseInt(params.id as string);
@@ -702,7 +748,8 @@ export default function CircleLeaderProfilePage() {
                           className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
                           <option value="invited">Invited</option>
-                          <option value="pipeline">Pipeline/Follow Up</option>
+                          <option value="pipeline">Pipeline</option>
+                          <option value="follow-up">Follow Up</option>
                           <option value="active">Active</option>
                           <option value="paused">Paused</option>
                           <option value="off-boarding">Off-boarding</option>
@@ -714,6 +761,8 @@ export default function CircleLeaderProfilePage() {
                             : leader.status === 'invited'
                             ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
                             : leader.status === 'pipeline'
+                            ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400'
+                            : leader.status === 'follow-up'
                             ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400'
                             : leader.status === 'paused'
                             ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
@@ -722,7 +771,7 @@ export default function CircleLeaderProfilePage() {
                             : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
                         }`}>
                           {leader.status === 'off-boarding' ? 'Off-boarding' 
-                           : leader.status === 'pipeline' ? 'Pipeline/Follow Up'
+                           : leader.status === 'follow-up' ? 'Follow Up'
                            : leader.status ? leader.status.charAt(0).toUpperCase() + leader.status.slice(1)
                            : 'Unknown'}
                         </span>
@@ -847,7 +896,7 @@ export default function CircleLeaderProfilePage() {
                       {isEditing ? (
                         <input
                           type="time"
-                          value={editedLeader.time || ''}
+                          value={convertToMilitaryTime(editedLeader.time || leader.time)}
                           onChange={(e) => handleLeaderFieldChange('time', e.target.value)}
                           className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         />

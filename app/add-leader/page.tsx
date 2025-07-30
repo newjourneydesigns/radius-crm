@@ -204,7 +204,8 @@ export default function AddLeaderPage() {
                   >
                     <option value="">Select Status</option>
                     <option value="invited">Invited</option>
-                    <option value="pipeline">Pipeline/Follow Up</option>
+                    <option value="pipeline">Pipeline</option>
+                    <option value="follow-up">Follow Up</option>
                     <option value="active">Active</option>
                     <option value="paused">Paused</option>
                     <option value="off-boarding">Off-boarding</option>
