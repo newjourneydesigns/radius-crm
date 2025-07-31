@@ -39,7 +39,7 @@ export default function CircleLeaderCard({
   leader, 
   isAdmin, 
   onToggleEventSummary, 
-  onOpenContactModal 
+  onOpenContactModal
 }: CircleLeaderCardProps) {
   const statusColors = {
     'invited': 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',

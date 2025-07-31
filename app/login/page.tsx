@@ -132,8 +132,8 @@ export default function LoginPage() {
             <div className="mt-4 text-center">
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Don't have an account?{' '}
-                <a href="/register" className="font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500">
-                  Contact your administrator
+                <a href="mailto:trip.ochenski@valleycreek.org" className="font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500">
+                  Contact trip.ochenski@valleycreek.org
                 </a>
               </p>
             </div>

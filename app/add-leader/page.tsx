@@ -236,7 +236,7 @@ export default function AddLeaderPage() {
 
                 <div>
                   <label htmlFor="acpd" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    ACPD
+                    Director
                   </label>
                   <select
                     name="acpd"
@@ -245,7 +245,7 @@ export default function AddLeaderPage() {
                     onChange={handleChange}
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option value="">Select ACPD</option>
+                    <option value="">Select Director</option>
                     {directors.map((director) => (
                       <option key={director.id} value={director.name}>
                         {director.name}

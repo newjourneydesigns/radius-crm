@@ -178,6 +178,40 @@ export const useCircleLeaders = () => {
     }
   };
 
+  const deleteCircleLeader = async (leaderId: number) => {
+    try {
+      // First delete associated notes
+      const { error: notesError } = await supabase
+        .from('notes')
+        .delete()
+        .eq('circle_leader_id', leaderId);
+
+      if (notesError) {
+        console.error('Error deleting notes:', notesError);
+        throw notesError;
+      }
+
+      // Then delete the circle leader
+      const { error } = await supabase
+        .from('circle_leaders')
+        .delete()
+        .eq('id', leaderId);
+
+      if (error) {
+        console.error('Error deleting circle leader:', error);
+        throw error;
+      }
+
+      // Update local state
+      setCircleLeaders(prev => prev.filter(leader => leader.id !== leaderId));
+
+    } catch (error) {
+      console.error('Error in deleteCircleLeader:', error);
+      setError('Error deleting circle leader');
+      throw error;
+    }
+  };
+
   return {
     circleLeaders,
     isLoading,
@@ -185,6 +219,7 @@ export const useCircleLeaders = () => {
     loadCircleLeaders,
     toggleEventSummary,
     resetEventSummaryCheckboxes,
-    bulkUpdateStatus
+    bulkUpdateStatus,
+    deleteCircleLeader
   };
 };
