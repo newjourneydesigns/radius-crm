@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import ConfirmModal from '../../components/ui/ConfirmModal';
 import AlertModal from '../../components/ui/AlertModal';
+import ServiceWorkerUtils from '../../components/ServiceWorkerUtils';
 
 interface Director {
   id: number;
@@ -31,7 +32,7 @@ export default function SettingsPage() {
   
   // UI state
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'directors' | 'circles' | 'statuses' | 'frequencies' | 'campuses'>('directors');
+  const [activeTab, setActiveTab] = useState<'directors' | 'circles' | 'statuses' | 'frequencies' | 'campuses' | 'app'>('directors');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{isOpen: boolean, type: string, id: number, name: string}>({
     isOpen: false, type: '', id: 0, name: ''
   });
@@ -325,7 +326,8 @@ export default function SettingsPage() {
     { id: 'circles', label: 'Circle Types', icon: '🔵' },
     { id: 'statuses', label: 'Statuses', icon: '📊' },
     { id: 'frequencies', label: 'Frequencies', icon: '📅' },
-    { id: 'campuses', label: 'Campuses', icon: '🏢' }
+    { id: 'campuses', label: 'Campuses', icon: '🏢' },
+    { id: 'app', label: 'App Management', icon: '⚙️' }
   ];
 
   if (isLoading) {
@@ -602,6 +604,17 @@ export default function SettingsPage() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'app' && (
+            <div className="p-6">
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">App Management</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                Manage app cache, service worker, and troubleshoot PWA issues.
+              </p>
+              
+              <ServiceWorkerUtils />
             </div>
           )}
         </div>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import "../styles/globals.css";
 import MobileNavigation from "../components/layout/MobileNavigation";
+import Footer from "../components/layout/Footer";
 
 export const metadata = {
   title: "RADIUS Circle Leader Management",
@@ -63,6 +64,21 @@ export default function RootLayout({
                 navigator.serviceWorker.register('/sw.js')
                   .then(function(registration) {
                     console.log('SW registered: ', registration);
+                    
+                    // Check for updates
+                    registration.addEventListener('updatefound', () => {
+                      const newWorker = registration.installing;
+                      if (newWorker) {
+                        newWorker.addEventListener('statechange', () => {
+                          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            // New service worker available, reload to activate
+                            if (confirm('New version available! Reload to update?')) {
+                              window.location.reload();
+                            }
+                          }
+                        });
+                      }
+                    });
                   })
                   .catch(function(registrationError) {
                     console.log('SW registration failed: ', registrationError);
@@ -134,8 +150,11 @@ export default function RootLayout({
           </div>
         </header>
         
-        {/* Main Content with mobile padding */}
-        <main className="pb-16 md:pb-0">{children}</main>
+        {/* Main Content */}
+        <main>{children}</main>
+        
+        {/* Footer */}
+        <Footer />
       </body>
     </html>
   );
