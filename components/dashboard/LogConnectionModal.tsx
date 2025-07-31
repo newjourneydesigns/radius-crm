@@ -33,41 +33,45 @@ export default function LogConnectionModal({
     const loadConnectionTypes = async () => {
       setIsLoading(true);
       try {
-        // Try to fetch from database first
+        // Load connection types from database
         const { data, error } = await supabase
           .from('connection_types')
           .select('*')
           .eq('active', true)
           .order('name');
 
-        if (data && !error) {
+        if (data && data.length > 0 && !error) {
+          console.log('Loaded connection types from database:', data);
           setConnectionTypes(data);
         } else {
-          // Fallback to default connection types if table doesn't exist
+          console.log('No connection types found, using fallback');
+          // Fallback to hardcoded types if database is empty
           const defaultTypes: ConnectionType[] = [
-            { id: 1, name: 'In-Person', active: true },
-            { id: 2, name: 'Phone Call', active: true },
-            { id: 3, name: 'Text', active: true },
+            { id: 1, name: 'In Person', active: true },
+            { id: 2, name: 'Text', active: true },
+            { id: 3, name: 'Phone', active: true },
             { id: 4, name: 'Email', active: true },
-            { id: 5, name: 'One-on-One', active: true },
-            { id: 6, name: 'Circle Visit', active: true },
-            { id: 7, name: 'Circle Leader Equipping', active: true },
-            { id: 8, name: 'Other', active: true }
+            { id: 5, name: 'Zoom', active: true },
+            { id: 6, name: 'One-On-One', active: true },
+            { id: 7, name: 'Circle Visit', active: true },
+            { id: 8, name: 'Circle Leader Equipping', active: true },
+            { id: 9, name: 'Other', active: true }
           ];
           setConnectionTypes(defaultTypes);
         }
       } catch (error) {
         console.error('Error loading connection types:', error);
-        // Use default types on error
+        // Use fallback types on error
         const defaultTypes: ConnectionType[] = [
-          { id: 1, name: 'In-Person', active: true },
-          { id: 2, name: 'Phone Call', active: true },
-          { id: 3, name: 'Text', active: true },
+          { id: 1, name: 'In Person', active: true },
+          { id: 2, name: 'Text', active: true },
+          { id: 3, name: 'Phone', active: true },
           { id: 4, name: 'Email', active: true },
-          { id: 5, name: 'One-on-One', active: true },
-          { id: 6, name: 'Circle Visit', active: true },
-          { id: 7, name: 'Circle Leader Equipping', active: true },
-          { id: 8, name: 'Other', active: true }
+          { id: 5, name: 'Zoom', active: true },
+          { id: 6, name: 'One-On-One', active: true },
+          { id: 7, name: 'Circle Visit', active: true },
+          { id: 8, name: 'Circle Leader Equipping', active: true },
+          { id: 9, name: 'Other', active: true }
         ];
         setConnectionTypes(defaultTypes);
       } finally {
@@ -106,6 +110,8 @@ export default function LogConnectionModal({
       const connectionType = connectionTypes.find(type => type.id.toString() === formData.connectionTypeId);
       const connectionTypeName = connectionType?.name || 'Unknown';
 
+      console.log('🔍 Attempting to save connection to database...');
+
       // Save connection to database
       const { data: connectionData, error: connectionError } = await supabase
         .from('connections')
@@ -118,10 +124,15 @@ export default function LogConnectionModal({
         .select('*')
         .single();
 
+      console.log('🔍 Connection save result:', { connectionData, connectionError });
+
       if (connectionError) {
-        console.warn('Could not save to connections table:', connectionError);
-        // Continue with note creation even if connections table doesn't exist
+        console.error('Error saving connection:', connectionError);
+        setError('Failed to save connection to database. Please try again.');
+        return;
       }
+
+      console.log('🔍 Connection saved successfully!');
 
       // Create a formatted note entry
       const noteContent = `Connection on ${new Date(formData.date).toLocaleDateString('en-US', {
@@ -136,13 +147,12 @@ export default function LogConnectionModal({
         .insert({
           circle_leader_id: circleLeaderId,
           content: noteContent,
-          created_by: 'System'
+          created_by: null // Use null instead of "System" to avoid UUID issues
         });
 
       if (noteError) {
         console.error('Error saving note:', noteError);
-        setError('Failed to save connection note. Please try again.');
-        return;
+        // Don't fail the whole operation if note saving fails
       }
 
       // Update last_connection field on circle_leaders table (if the column exists)
@@ -154,6 +164,7 @@ export default function LogConnectionModal({
         .eq('id', circleLeaderId);
 
       // Success - close modal and refresh data
+      console.log('🔍 Calling onConnectionLogged to trigger refresh...');
       onConnectionLogged?.();
       onClose();
 

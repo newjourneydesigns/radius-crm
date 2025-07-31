@@ -256,9 +256,6 @@ export default function CircleLeaderProfilePage() {
   const handleAddNote = async () => {
     if (!newNote.trim()) return;
 
-  const handleAddNote = async () => {
-    if (!newNote.trim()) return;
-
     setIsSavingNote(true);
     setNoteError('');
     

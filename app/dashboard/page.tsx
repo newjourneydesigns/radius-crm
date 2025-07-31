@@ -65,6 +65,8 @@ export default function DashboardPage() {
     leaderId: 0,
     name: ''
   });
+  
+  const [connectionsRefreshTrigger, setConnectionsRefreshTrigger] = useState(0);
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showAlert, setShowAlert] = useState<{
@@ -254,6 +256,8 @@ export default function DashboardPage() {
   const handleConnectionLogged = () => {
     // Refresh the data to update connections progress
     loadCircleLeaders();
+    // Trigger connections progress refresh
+    setConnectionsRefreshTrigger(prev => prev + 1);
   };
 
   // For now, assume user is admin - in a real app, you'd get this from your auth context
@@ -315,6 +319,7 @@ export default function DashboardPage() {
         <ConnectionsProgress
           filteredLeaderIds={filteredLeaders.map(leader => leader.id)}
           totalFilteredLeaders={filteredLeaders.length}
+          refreshTrigger={connectionsRefreshTrigger}
         />
 
         {/* Today's Circles */}

@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 interface ConnectionsProgressProps {
   filteredLeaderIds: number[];
   totalFilteredLeaders: number;
+  refreshTrigger?: number; // Add refresh trigger prop
 }
 
 interface ConnectionsData {
@@ -14,7 +15,7 @@ interface ConnectionsData {
   percentage: number;
 }
 
-export default function ConnectionsProgress({ filteredLeaderIds, totalFilteredLeaders }: ConnectionsProgressProps) {
+export default function ConnectionsProgress({ filteredLeaderIds, totalFilteredLeaders, refreshTrigger }: ConnectionsProgressProps) {
   const [connectionsData, setConnectionsData] = useState<ConnectionsData>({
     total: 0,
     connected: 0,
@@ -39,6 +40,9 @@ export default function ConnectionsProgress({ filteredLeaderIds, totalFilteredLe
         const startDate = firstDayOfMonth.toISOString().split('T')[0];
         const endDate = lastDayOfMonth.toISOString().split('T')[0];
 
+        console.log('🔍 Fetching connections for date range:', { startDate, endDate });
+        console.log('🔍 Filtered leader IDs:', filteredLeaderIds);
+
         // Query for connections this month for the filtered leaders
         const { data: connections, error } = await supabase
           .from('connections')
@@ -46,6 +50,8 @@ export default function ConnectionsProgress({ filteredLeaderIds, totalFilteredLe
           .in('circle_leader_id', filteredLeaderIds)
           .gte('date_of_connection', startDate)
           .lte('date_of_connection', endDate);
+
+        console.log('🔍 Connections query result:', { connections, error });
 
         if (error) {
           console.error('Error fetching connections:', error);
@@ -56,7 +62,25 @@ export default function ConnectionsProgress({ filteredLeaderIds, totalFilteredLe
         // Count unique circle leaders who have connections this month
         const uniqueLeaderIds = new Set(connections?.map(conn => conn.circle_leader_id) || []);
         const connectedCount = uniqueLeaderIds.size;
-        const percentage = totalFilteredLeaders > 0 ? Math.round((connectedCount / totalFilteredLeaders) * 100) : 0;
+        
+        // Calculate percentage with minimum 1% if there are any connections
+        let percentage = 0;
+        if (totalFilteredLeaders > 0) {
+          const exactPercentage = (connectedCount / totalFilteredLeaders) * 100;
+          if (connectedCount > 0 && exactPercentage < 1) {
+            percentage = 1; // Show at least 1% if there are any connections
+          } else {
+            percentage = Math.round(exactPercentage);
+          }
+        }
+
+        console.log('🔍 Connections calculation:', { 
+          uniqueLeaderIds: Array.from(uniqueLeaderIds), 
+          connectedCount, 
+          totalFilteredLeaders, 
+          exactPercentage: totalFilteredLeaders > 0 ? (connectedCount / totalFilteredLeaders) * 100 : 0,
+          percentage 
+        });
 
         setConnectionsData({
           total: totalFilteredLeaders,
@@ -73,7 +97,7 @@ export default function ConnectionsProgress({ filteredLeaderIds, totalFilteredLe
     };
 
     loadConnectionsData();
-  }, [filteredLeaderIds, totalFilteredLeaders]);
+  }, [filteredLeaderIds, totalFilteredLeaders, refreshTrigger]); // Add refreshTrigger dependency
 
   const currentMonth = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
@@ -81,7 +105,7 @@ export default function ConnectionsProgress({ filteredLeaderIds, totalFilteredLe
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-          Connections Made This Month ({currentMonth})
+          Connections Made ({currentMonth})
         </h3>
         <span className="text-sm text-gray-600 dark:text-gray-400">
           {isLoading ? (
