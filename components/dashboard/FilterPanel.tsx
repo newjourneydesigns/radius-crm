@@ -180,8 +180,8 @@ export default function FilterPanel({
               </svg>
             </div>
             <div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Filters & Search</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Filter and sort Circle Leaders</p>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Filters</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Search & SortCircle Leaders</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">

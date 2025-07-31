@@ -1,6 +1,7 @@
 'use client';
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 
@@ -24,8 +25,17 @@ export default function MobileNavigation() {
       <header className="md:hidden bg-white dark:bg-gray-800 shadow border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
         <div className="px-4 py-3">
           <div className="flex justify-between items-center">
-            <Link href="/dashboard" className="text-xl font-bold text-blue-600 dark:text-blue-400">
-              RADIUS
+            <Link href="/dashboard" className="flex items-center space-x-2">
+              <Image 
+                src="/icon-32x32.png" 
+                alt="RADIUS Logo" 
+                width={24} 
+                height={24}
+                className="rounded"
+              />
+              <span className="text-xl font-bold text-white">
+                RADIUS
+              </span>
             </Link>
             <button
               onClick={() => setIsOpen(!isOpen)}
