@@ -1,8 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
+
+interface Director {
+  id: number;
+  name: string;
+  description?: string;
+  status: 'active' | 'inactive';
+}
+
+interface SettingsItem {
+  id: number;
+  value: string;
+}
 
 export default function AddLeaderPage() {
   const [formData, setFormData] = useState({
@@ -16,13 +28,54 @@ export default function AddLeaderPage() {
     time: '',
     frequency: '',
     circleType: '',
-    ccbProfileLink: '',
-    calendarLink: ''
+    ccbProfileLink: ''
   });
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+
+  // Reference data state
+  const [directors, setDirectors] = useState<Director[]>([]);
+  const [campuses, setCampuses] = useState<SettingsItem[]>([]);
+  const [circleTypes, setCircleTypes] = useState<SettingsItem[]>([]);
+  const [statuses, setStatuses] = useState<SettingsItem[]>([]);
+  const [frequencies, setFrequencies] = useState<SettingsItem[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+
+  useEffect(() => {
+    loadReferenceData();
+  }, []);
+
+  const loadReferenceData = async () => {
+    try {
+      setIsLoadingData(true);
+      const [directorsResult, campusesResult, circleTypesResult, statusesResult, frequenciesResult] = await Promise.all([
+        supabase.from('acpd_list').select('*').eq('active', true).order('name'),
+        supabase.from('campuses').select('*').order('value'),
+        supabase.from('circle_types').select('*').order('value'),
+        supabase.from('statuses').select('*').order('value'),
+        supabase.from('frequencies').select('*').order('value')
+      ]);
+
+      if (directorsResult.data) {
+        const formattedDirectors = directorsResult.data.map(director => ({
+          ...director,
+          status: director.active ? 'active' : 'inactive'
+        }));
+        setDirectors(formattedDirectors);
+      }
+      
+      if (campusesResult.data) setCampuses(campusesResult.data);
+      if (circleTypesResult.data) setCircleTypes(circleTypesResult.data);
+      if (statusesResult.data) setStatuses(statusesResult.data);
+      if (frequenciesResult.data) setFrequencies(frequenciesResult.data);
+    } catch (error) {
+      console.error('Error loading reference data:', error);
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -74,8 +127,7 @@ export default function AddLeaderPage() {
         time: '',
         frequency: '',
         circleType: '',
-        ccbProfileLink: '',
-        calendarLink: ''
+        ccbProfileLink: ''
       });
 
       // Redirect to dashboard after a short delay
@@ -99,6 +151,15 @@ export default function AddLeaderPage() {
             Add a new Circle Leader to the system
           </p>
         </div>
+
+        {isLoadingData ? (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-2 text-gray-600 dark:text-gray-400">Loading form data...</p>
+            </div>
+          </div>
+        ) : (
 
         <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
@@ -165,13 +226,11 @@ export default function AddLeaderPage() {
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="">Select Campus</option>
-                    <option value="Flower Mound">Flower Mound</option>
-                    <option value="Denton">Denton</option>
-                    <option value="Lewisville">Lewisville</option>
-                    <option value="Gainesville">Gainesville</option>
-                    <option value="Online">Online</option>
-                    <option value="University">University</option>
-                    <option value="Argyle">Argyle</option>
+                    {campuses.map((campus) => (
+                      <option key={campus.id} value={campus.value}>
+                        {campus.value}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -187,9 +246,11 @@ export default function AddLeaderPage() {
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="">Select ACPD</option>
-                    <option value="John Smith">John Smith</option>
-                    <option value="Jane Doe">Jane Doe</option>
-                    <option value="Mike Johnson">Mike Johnson</option>
+                    {directors.map((director) => (
+                      <option key={director.id} value={director.name}>
+                        {director.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -205,12 +266,11 @@ export default function AddLeaderPage() {
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="">Select Status</option>
-                    <option value="invited">Invited</option>
-                    <option value="pipeline">Pipeline</option>
-                    <option value="follow-up">Follow Up</option>
-                    <option value="active">Active</option>
-                    <option value="paused">Paused</option>
-                    <option value="off-boarding">Off-boarding</option>
+                    {statuses.map((status) => (
+                      <option key={status.id} value={status.value}>
+                        {status.value.charAt(0).toUpperCase() + status.value.slice(1)}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -271,9 +331,11 @@ export default function AddLeaderPage() {
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="">Select Frequency</option>
-                    <option value="Weekly">Weekly</option>
-                    <option value="Bi-weekly">Bi-weekly</option>
-                    <option value="Monthly">Monthly</option>
+                    {frequencies.map((frequency) => (
+                      <option key={frequency.id} value={frequency.value}>
+                        {frequency.value}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -290,12 +352,11 @@ export default function AddLeaderPage() {
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Select Circle Type</option>
-                  <option value="Men's">Men's</option>
-                  <option value="Women's">Women's</option>
-                  <option value="Young Adult | Coed">Young Adult | Coed</option>
-                  <option value="Young Adult | Men's">Young Adult | Men's</option>
-                  <option value="Young Adult | Women's">Young Adult | Women's</option>
-                  <option value="Young Adult | Couple's">Young Adult | Couple's</option>
+                  {circleTypes.map((type) => (
+                    <option key={type.id} value={type.value}>
+                      {type.value}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -315,21 +376,6 @@ export default function AddLeaderPage() {
                   name="ccbProfileLink"
                   id="ccbProfileLink"
                   value={formData.ccbProfileLink}
-                  onChange={handleChange}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="https://..."
-                />
-              </div>
-
-              <div>
-                <label htmlFor="calendarLink" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Calendar Link
-                </label>
-                <input
-                  type="url"
-                  name="calendarLink"
-                  id="calendarLink"
-                  value={formData.calendarLink}
                   onChange={handleChange}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="https://..."
@@ -389,6 +435,7 @@ export default function AddLeaderPage() {
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );

@@ -119,6 +119,12 @@ export default function CircleLeaderProfilePage() {
   const [isSavingLeader, setIsSavingLeader] = useState(false);
   const [leaderError, setLeaderError] = useState('');
   const [directors, setDirectors] = useState<Array<{id: number, name: string}>>([]);
+  
+  // Reference data state
+  const [campuses, setCampuses] = useState<Array<{id: number, value: string}>>([]);
+  const [statuses, setStatuses] = useState<Array<{id: number, value: string}>>([]);
+  const [circleTypes, setCircleTypes] = useState<Array<{id: number, value: string}>>([]);
+  const [frequencies, setFrequencies] = useState<Array<{id: number, value: string}>>([]);
 
   useEffect(() => {
     // Load leader data from API
@@ -154,9 +160,9 @@ export default function CircleLeaderProfilePage() {
 
         // Load directors from database (ACPDs)
         const { data: directorsData, error: directorsError } = await supabase
-          .from('acpds')
+          .from('acpd_list')
           .select('id, name')
-          .eq('status', 'active')
+          .eq('active', true)
           .order('name');
 
         if (directorsData && !directorsError) {
@@ -171,6 +177,19 @@ export default function CircleLeaderProfilePage() {
             { id: 5, name: 'Mike Wilson' }
           ]);
         }
+
+        // Load reference data
+        const [campusesResult, statusesResult, circleTypesResult, frequenciesResult] = await Promise.all([
+          supabase.from('campuses').select('*').order('value'),
+          supabase.from('statuses').select('*').order('value'),
+          supabase.from('circle_types').select('*').order('value'),
+          supabase.from('frequencies').select('*').order('value')
+        ]);
+
+        if (campusesResult.data) setCampuses(campusesResult.data);
+        if (statusesResult.data) setStatuses(statusesResult.data);
+        if (circleTypesResult.data) setCircleTypes(circleTypesResult.data);
+        if (frequenciesResult.data) setFrequencies(frequenciesResult.data);
 
         // Load notes
         const { data: notesData, error: notesError } = await supabase
@@ -860,13 +879,11 @@ export default function CircleLeaderProfilePage() {
                           className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
                           <option value="">Select Campus</option>
-                          <option value="Flower Mound">Flower Mound</option>
-                          <option value="Denton">Denton</option>
-                          <option value="Lewisville">Lewisville</option>
-                          <option value="Gainesville">Gainesville</option>
-                          <option value="Online">Online</option>
-                          <option value="University">University</option>
-                          <option value="Argyle">Argyle</option>
+                          {campuses.map((campus) => (
+                            <option key={campus.id} value={campus.value}>
+                              {campus.value}
+                            </option>
+                          ))}
                         </select>
                       ) : (
                         <span className="text-sm text-gray-900 dark:text-white">{leader.campus || 'Not specified'}</span>
@@ -903,12 +920,11 @@ export default function CircleLeaderProfilePage() {
                           onChange={(e) => handleLeaderFieldChange('status', e.target.value)}
                           className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
-                          <option value="invited">Invited</option>
-                          <option value="pipeline">Pipeline</option>
-                          <option value="follow-up">Follow Up</option>
-                          <option value="active">Active</option>
-                          <option value="paused">Paused</option>
-                          <option value="off-boarding">Off-boarding</option>
+                          {statuses.map((status) => (
+                            <option key={status.id} value={status.value}>
+                              {status.value.charAt(0).toUpperCase() + status.value.slice(1)}
+                            </option>
+                          ))}
                         </select>
                       ) : (
                         <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
@@ -944,12 +960,11 @@ export default function CircleLeaderProfilePage() {
                           className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
                           <option value="">Select Circle Type</option>
-                          <option value="Men's">Men's</option>
-                          <option value="Women's">Women's</option>
-                          <option value="Young Adult | Coed">Young Adult | Coed</option>
-                          <option value="Young Adult | Men's">Young Adult | Men's</option>
-                          <option value="Young Adult | Women's">Young Adult | Women's</option>
-                          <option value="Young Adult | Couple's">Young Adult | Couple's</option>
+                          {circleTypes.map((type) => (
+                            <option key={type.id} value={type.value}>
+                              {type.value}
+                            </option>
+                          ))}
                         </select>
                       ) : (
                         <span className="text-sm text-gray-900 dark:text-white">{leader.circle_type || 'Not specified'}</span>
@@ -1006,10 +1021,11 @@ export default function CircleLeaderProfilePage() {
                           className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
                           <option value="">Select Frequency</option>
-                          <option value="Weekly">Weekly</option>
-                          <option value="Bi-weekly">Bi-weekly</option>
-                          <option value="Monthly">Monthly</option>
-                          <option value="As needed">As needed</option>
+                          {frequencies.map((frequency) => (
+                            <option key={frequency.id} value={frequency.value}>
+                              {frequency.value}
+                            </option>
+                          ))}
                         </select>
                       ) : (
                         <span className="text-sm text-gray-900 dark:text-white">{leader.frequency || 'Not specified'}</span>

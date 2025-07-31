@@ -159,17 +159,6 @@ export default function DashboardPage() {
     };
   }, [filteredLeaders]);
 
-  // Extract unique values for filter options
-  const filterOptions = useMemo(() => {
-    const campuses = Array.from(new Set(circleLeaders.map(l => l.campus).filter(Boolean)));
-    const acpds = Array.from(new Set(circleLeaders.map(l => l.acpd).filter(Boolean)));
-    const statuses = Array.from(new Set(circleLeaders.map(l => l.status).filter(Boolean)));
-    const circleTypes = Array.from(new Set(circleLeaders.map(l => l.circle_type).filter(Boolean)));
-    const meetingDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    
-    return { campuses, acpds, statuses, circleTypes, meetingDays };
-  }, [circleLeaders]);
-
   // Load data on component mount
   useEffect(() => {
     loadCircleLeaders();
@@ -277,11 +266,6 @@ export default function DashboardPage() {
           onResetCheckboxes={handleResetCheckboxes}
           totalLeaders={filteredLeaders.length}
           receivedCount={eventSummaryProgress.received}
-          campuses={filterOptions.campuses}
-          acpds={filterOptions.acpds}
-          statuses={filterOptions.statuses}
-          circleTypes={filterOptions.circleTypes}
-          meetingDays={filterOptions.meetingDays}
         />
 
         {/* Today's Circles */}

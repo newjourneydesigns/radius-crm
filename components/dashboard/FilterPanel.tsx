@@ -1,7 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { supabase } from '../../lib/supabase';
 import ConfirmModal from '../ui/ConfirmModal';
+
+interface SettingsItem {
+  id: number;
+  value: string;
+}
 
 interface FilterPanelProps {
   filters: {
@@ -19,11 +25,6 @@ interface FilterPanelProps {
   onResetCheckboxes: () => void;
   totalLeaders: number;
   receivedCount: number;
-  campuses: string[];
-  acpds: string[];
-  statuses: string[];
-  circleTypes: string[];
-  meetingDays: string[];
 }
 
 export default function FilterPanel({
@@ -33,20 +34,57 @@ export default function FilterPanel({
   onBulkUpdateStatus,
   onResetCheckboxes,
   totalLeaders,
-  receivedCount,
-  campuses,
-  acpds,
-  statuses,
-  circleTypes,
-  meetingDays
+  receivedCount
 }: FilterPanelProps) {
   const [filtersVisible, setFiltersVisible] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  
+  // Reference data state
+  const [campuses, setCampuses] = useState<SettingsItem[]>([]);
+  const [directors, setDirectors] = useState<SettingsItem[]>([]);
+  const [statuses, setStatuses] = useState<SettingsItem[]>([]);
+  const [circleTypes, setCircleTypes] = useState<SettingsItem[]>([]);
+  const [frequencies, setFrequencies] = useState<SettingsItem[]>([]);
   
   // Bulk actions state
   const [showBulkDropdown, setShowBulkDropdown] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<{value: string, label: string} | null>(null);
   const bulkDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Load reference data from database
+  const loadReferenceData = async () => {
+    try {
+      const [directorsResult, campusesResult, statusesResult, circleTypesResult, frequenciesResult] = await Promise.all([
+        supabase.from('acpd_list').select('*').eq('active', true).order('name'),
+        supabase.from('campuses').select('*').order('value'),
+        supabase.from('statuses').select('*').order('value'),
+        supabase.from('circle_types').select('*').order('value'),
+        supabase.from('frequencies').select('*').order('value')
+      ]);
+
+      if (directorsResult.data) {
+        const formattedDirectors = directorsResult.data.map(director => ({
+          id: director.id,
+          value: director.name
+        }));
+        setDirectors(formattedDirectors);
+      }
+      
+      if (campusesResult.data) setCampuses(campusesResult.data);
+      if (statusesResult.data) setStatuses(statusesResult.data);
+      if (circleTypesResult.data) setCircleTypes(circleTypesResult.data);
+      if (frequenciesResult.data) setFrequencies(frequenciesResult.data);
+    } catch (error) {
+      console.error('Error loading reference data:', error);
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
+
+  useEffect(() => {
+    loadReferenceData();
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem('filtersVisible');
@@ -128,6 +166,9 @@ export default function FilterPanel({
   // Calculate progress percentage
   const progressPercentage = totalLeaders > 0 ? Math.round((receivedCount / totalLeaders) * 100) : 0;
 
+  // Meeting days array
+  const meetingDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -176,115 +217,126 @@ export default function FilterPanel({
       
       {filtersVisible && (
         <div className="p-4 sm:p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
-            {/* Search */}
-            <div className="sm:col-span-2 xl:col-span-2">
-              <label htmlFor="search" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search</label>
-              <input 
-                type="text" 
-                id="search" 
-                placeholder="Search by name..." 
-                value={filters.search}
-                onChange={(e) => handleFilterChange('search', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
+          {isLoadingData ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
+              {[...Array(7)].map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 mb-1"></div>
+                  <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                </div>
+              ))}
             </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
+              {/* Search */}
+              <div className="sm:col-span-2 xl:col-span-2">
+                <label htmlFor="search" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search</label>
+                <input 
+                  type="text" 
+                  id="search" 
+                  placeholder="Search by name..." 
+                  value={filters.search}
+                  onChange={(e) => handleFilterChange('search', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
 
-            {/* Campus Filter */}
-            <div>
-              <label htmlFor="campusFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Campus</label>
-              <select 
-                id="campusFilter" 
-                multiple 
-                value={filters.campus}
-                onChange={(e) => handleMultiSelectChange('campus', e.target)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              >
-                {campuses.map(campus => (
-                  <option key={campus} value={campus}>{campus}</option>
-                ))}
-              </select>
-            </div>
+              {/* Campus Filter */}
+              <div>
+                <label htmlFor="campusFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Campus</label>
+                <select 
+                  id="campusFilter" 
+                  multiple 
+                  value={filters.campus}
+                  onChange={(e) => handleMultiSelectChange('campus', e.target)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {campuses.map(campus => (
+                    <option key={campus.id} value={campus.value}>{campus.value}</option>
+                  ))}
+                </select>
+              </div>
 
-            {/* ACPD Filter */}
-            <div>
-              <label htmlFor="acpdFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ACPD</label>
-              <select 
-                id="acpdFilter" 
-                multiple 
-                value={filters.acpd}
-                onChange={(e) => handleMultiSelectChange('acpd', e.target)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              >
-                {acpds.map(acpd => (
-                  <option key={acpd} value={acpd}>{acpd}</option>
-                ))}
-              </select>
-            </div>
+              {/* ACPD Filter */}
+              <div>
+                <label htmlFor="acpdFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ACPD</label>
+                <select 
+                  id="acpdFilter" 
+                  multiple 
+                  value={filters.acpd}
+                  onChange={(e) => handleMultiSelectChange('acpd', e.target)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {directors.map(director => (
+                    <option key={director.id} value={director.value}>{director.value}</option>
+                  ))}
+                </select>
+              </div>
 
-            {/* Status Filter */}
-            <div>
-              <label htmlFor="statusFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-              <select 
-                id="statusFilter" 
-                multiple 
-                value={filters.status}
-                onChange={(e) => handleMultiSelectChange('status', e.target)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              >
-                {statuses.map(status => (
-                  <option key={status} value={status}>{status}</option>
-                ))}
-              </select>
-            </div>
+              {/* Status Filter */}
+              <div>
+                <label htmlFor="statusFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                <select 
+                  id="statusFilter" 
+                  multiple 
+                  value={filters.status}
+                  onChange={(e) => handleMultiSelectChange('status', e.target)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {statuses.map(status => (
+                    <option key={status.id} value={status.value}>{status.value}</option>
+                  ))}
+                </select>
+              </div>
 
-            {/* Meeting Day Filter */}
-            <div>
-              <label htmlFor="meetingDayFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Meeting Day</label>
-              <select 
-                id="meetingDayFilter" 
-                multiple 
-                value={filters.meetingDay}
-                onChange={(e) => handleMultiSelectChange('meetingDay', e.target)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              >
-                {meetingDays.map(day => (
-                  <option key={day} value={day}>{day}</option>
-                ))}
-              </select>
-            </div>
+              {/* Meeting Day Filter */}
+              <div>
+                <label htmlFor="meetingDayFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Meeting Day</label>
+                <select 
+                  id="meetingDayFilter" 
+                  multiple 
+                  value={filters.meetingDay}
+                  onChange={(e) => handleMultiSelectChange('meetingDay', e.target)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {meetingDays.map(day => (
+                    <option key={day} value={day}>{day}</option>
+                  ))}
+                </select>
+              </div>
 
-            {/* Circle Type Filter */}
-            <div>
-              <label htmlFor="circleTypeFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Circle Type</label>
-              <select 
-                id="circleTypeFilter" 
-                multiple 
-                value={filters.circleType}
-                onChange={(e) => handleMultiSelectChange('circleType', e.target)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              >
-                {circleTypes.map(type => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-            </div>
+              {/* Circle Type Filter */}
+              <div>
+                <label htmlFor="circleTypeFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Circle Type</label>
+                <select 
+                  id="circleTypeFilter" 
+                  multiple 
+                  value={filters.circleType}
+                  onChange={(e) => handleMultiSelectChange('circleType', e.target)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {circleTypes.map(type => (
+                    <option key={type.id} value={type.value}>{type.value}</option>
+                  ))}
+                </select>
+              </div>
 
-            {/* Event Summary Filter */}
-            <div>
-              <label htmlFor="eventSummaryFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Event Summary</label>
-              <select 
-                id="eventSummaryFilter"
-                value={filters.eventSummary}
-                onChange={(e) => handleFilterChange('eventSummary', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="all">All</option>
-                <option value="received">Summary Received</option>
-                <option value="not_received">Summary Not Received</option>
-              </select>
+              {/* Event Summary Filter */}
+              <div>
+                <label htmlFor="eventSummaryFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Event Summary</label>
+                <select 
+                  id="eventSummaryFilter"
+                  value={filters.eventSummary}
+                  onChange={(e) => handleFilterChange('eventSummary', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All</option>
+                  <option value="received">Summary Received</option>
+                  <option value="not_received">Summary Not Received</option>
+                </select>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Actions Section */}
           <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
