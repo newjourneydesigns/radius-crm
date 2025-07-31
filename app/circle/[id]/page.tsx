@@ -255,34 +255,19 @@ export default function CircleLeaderProfilePage() {
   const handleAddNote = async () => {
     if (!newNote.trim()) return;
 
+  const handleAddNote = async () => {
+    if (!newNote.trim()) return;
+
     setIsSavingNote(true);
     setNoteError('');
     
     try {
-      // First test if we can read from the notes table
-      const { data: readTest } = await supabase
-        .from('notes')
-        .select('id, content')
-        .limit(1);
-      
-      console.log('Read test successful:', readTest);
-      
-      // Verify the leader exists
-      const { data: leaderExists } = await supabase
-        .from('circle_leaders')
-        .select('id, name')
-        .eq('id', leaderId)
-        .single();
-      
-      console.log('Leader verification:', { leaderId, leaderExists });
-      
-      // Try to insert a note with minimal fields
+      // Simple note insertion
       const insertData = {
         circle_leader_id: leaderId,
-        content: newNote.trim()
+        content: newNote.trim(),
+        created_by: 'Anonymous'
       };
-      
-      console.log('Attempting to insert:', insertData);
       
       const { data, error } = await supabase
         .from('notes')
@@ -290,44 +275,16 @@ export default function CircleLeaderProfilePage() {
         .select('*')
         .single();
 
-      console.log('Insert result:', { data, error });
-
-      if (error) {
-        console.error('❌ Detailed error:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-      }
-
       if (data && !error) {
         // Success - add to local state and clear form
         setNotes(prev => [data, ...prev]);
         setNewNote('');
-        console.log('✅ Note saved successfully');
       } else {
-        console.error('❌ Error saving note:', error);
-        
-        // If it's a permissions error, create a local note as fallback
-        if (error?.message?.includes('permission') || error?.code === '42501' || error?.message?.includes('policy')) {
-          console.log('🔄 Creating temporary local note due to permissions');
-          const tempNote: Note = {
-            id: Date.now(), // Temporary ID
-            circle_leader_id: leaderId,
-            content: newNote.trim(),
-            created_at: new Date().toISOString(),
-            created_by: 'Local User'
-          };
-          setNotes(prev => [tempNote, ...prev]);
-          setNewNote('');
-          console.log('✅ Local note created successfully');
-        } else {
-          setNoteError(`Failed to save note: ${error?.message || 'Unknown error'}`);
-        }
+        console.error('Error saving note:', error);
+        setNoteError(`Failed to save note: ${error?.message || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('❌ Exception saving note:', error);
+      console.error('Exception saving note:', error);
       setNoteError('Failed to save note. Please try again.');
     } finally {
       setIsSavingNote(false);
