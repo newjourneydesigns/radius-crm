@@ -5,6 +5,7 @@ import FilterPanel from '../../components/dashboard/FilterPanel';
 import CircleLeaderCard from '../../components/dashboard/CircleLeaderCard';
 import TodayCircles from '../../components/dashboard/TodayCircles';
 import ContactModal from '../../components/dashboard/ContactModal';
+import EventSummaryProgress from '../../components/dashboard/EventSummaryProgress';
 import ConfirmModal from '../../components/ui/ConfirmModal';
 import AlertModal from '../../components/ui/AlertModal';
 import { useDashboardFilters } from '../../hooks/useDashboardFilters';
@@ -266,6 +267,13 @@ export default function DashboardPage() {
           onResetCheckboxes={handleResetCheckboxes}
           totalLeaders={filteredLeaders.length}
           receivedCount={eventSummaryProgress.received}
+        />
+
+        {/* Event Summary Progress */}
+        <EventSummaryProgress
+          receivedCount={eventSummaryProgress.received}
+          totalCount={eventSummaryProgress.total}
+          onResetCheckboxes={handleResetCheckboxes}
         />
 
         {/* Today's Circles */}
