@@ -33,13 +33,15 @@ interface CircleLeaderCardProps {
   isAdmin: boolean;
   onToggleEventSummary: (leaderId: number, isChecked: boolean) => void;
   onOpenContactModal: (leaderId: number, name: string, email: string, phone: string) => void;
+  onLogConnection?: (leaderId: number, name: string) => void;
 }
 
 export default function CircleLeaderCard({ 
   leader, 
   isAdmin, 
   onToggleEventSummary, 
-  onOpenContactModal
+  onOpenContactModal,
+  onLogConnection
 }: CircleLeaderCardProps) {
   const statusColors = {
     'invited': 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
@@ -56,6 +58,10 @@ export default function CircleLeaderCard({
 
   const handleContactClick = () => {
     onOpenContactModal(leader.id, leader.name, leader.email || '', leader.phone || '');
+  };
+
+  const handleLogConnection = () => {
+    onLogConnection?.(leader.id, leader.name);
   };
 
   return (
@@ -155,7 +161,7 @@ export default function CircleLeaderCard({
         </div>
 
         {/* Actions */}
-        <div className="flex space-x-2">
+        <div className="flex flex-wrap gap-2">
           <Link 
             href={`/circle/${leader.id}`}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
@@ -171,6 +177,17 @@ export default function CircleLeaderCard({
             </svg>
             Add Note
           </Link>
+          {onLogConnection && (
+            <button
+              onClick={handleLogConnection}
+              className="inline-flex items-center px-3 py-2 border border-green-300 dark:border-green-600 rounded-md shadow-sm text-sm font-medium text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+            >
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              Log Connection
+            </button>
+          )}
         </div>
       </div>
     </div>

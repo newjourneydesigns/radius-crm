@@ -6,6 +6,8 @@ import CircleLeaderCard from '../../components/dashboard/CircleLeaderCard';
 import TodayCircles from '../../components/dashboard/TodayCircles';
 import ContactModal from '../../components/dashboard/ContactModal';
 import EventSummaryProgress from '../../components/dashboard/EventSummaryProgress';
+import ConnectionsProgress from '../../components/dashboard/ConnectionsProgress';
+import LogConnectionModal from '../../components/dashboard/LogConnectionModal';
 import ConfirmModal from '../../components/ui/ConfirmModal';
 import AlertModal from '../../components/ui/AlertModal';
 import { useDashboardFilters } from '../../hooks/useDashboardFilters';
@@ -18,6 +20,12 @@ interface ContactModalData {
   name: string;
   email: string;
   phone: string;
+}
+
+interface LogConnectionModalData {
+  isOpen: boolean;
+  leaderId: number;
+  name: string;
 }
 
 export default function DashboardPage() {
@@ -50,6 +58,12 @@ export default function DashboardPage() {
     name: '',
     email: '',
     phone: ''
+  });
+
+  const [logConnectionModal, setLogConnectionModal] = useState<LogConnectionModalData>({
+    isOpen: false,
+    leaderId: 0,
+    name: ''
   });
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -221,6 +235,27 @@ export default function DashboardPage() {
     });
   };
 
+  const openLogConnectionModal = (leaderId: number, name: string) => {
+    setLogConnectionModal({
+      isOpen: true,
+      leaderId,
+      name
+    });
+  };
+
+  const closeLogConnectionModal = () => {
+    setLogConnectionModal({
+      isOpen: false,
+      leaderId: 0,
+      name: ''
+    });
+  };
+
+  const handleConnectionLogged = () => {
+    // Refresh the data to update connections progress
+    loadCircleLeaders();
+  };
+
   // For now, assume user is admin - in a real app, you'd get this from your auth context
   const isAdmin = true;
 
@@ -274,6 +309,12 @@ export default function DashboardPage() {
           receivedCount={eventSummaryProgress.received}
           totalCount={eventSummaryProgress.total}
           onResetCheckboxes={handleResetCheckboxes}
+        />
+
+        {/* Connections Progress */}
+        <ConnectionsProgress
+          filteredLeaderIds={filteredLeaders.map(leader => leader.id)}
+          totalFilteredLeaders={filteredLeaders.length}
         />
 
         {/* Today's Circles */}
@@ -336,6 +377,7 @@ export default function DashboardPage() {
                   leader={leader}
                   onToggleEventSummary={handleToggleEventSummary}
                   onOpenContactModal={openContactModal}
+                  onLogConnection={openLogConnectionModal}
                   isAdmin={isAdmin}
                 />
               ))}
@@ -351,6 +393,15 @@ export default function DashboardPage() {
         email={contactModal.email}
         phone={contactModal.phone}
         onClose={closeContactModal}
+      />
+
+      {/* Log Connection Modal */}
+      <LogConnectionModal
+        isOpen={logConnectionModal.isOpen}
+        onClose={closeLogConnectionModal}
+        circleLeaderId={logConnectionModal.leaderId}
+        circleLeaderName={logConnectionModal.name}
+        onConnectionLogged={handleConnectionLogged}
       />
 
       {/* Reset Confirmation Modal */}

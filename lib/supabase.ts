@@ -53,6 +53,11 @@ export interface CircleLeader {
     created_at: string;
     created_by?: string;
   };
+  last_connection?: {
+    id: number;
+    date_of_connection: string;
+    connection_type: string;
+  };
 }
 
 export interface Note {
@@ -100,9 +105,28 @@ export interface Communication {
   circle_leader_id: number;
   user_id?: string;
   type: string;
+  content: string;
   date: string;
   communication_date?: string;
   notes?: string;
   created_at?: string;
+  updated_at?: string;
+}
+
+export interface ConnectionType {
+  id: number;
+  name: string;
+  active: boolean;
+  created_at?: string;
+}
+
+export interface Connection {
+  id: number;
+  circle_leader_id: number;
+  date_of_connection: string; // Date only (YYYY-MM-DD)
+  connection_type_id: number;
+  connection_type?: ConnectionType; // For joined queries
+  note?: string;
+  created_at: string;
   updated_at?: string;
 }

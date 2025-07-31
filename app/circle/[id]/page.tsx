@@ -6,6 +6,7 @@ import { supabase, CircleLeader, Note } from '../../../lib/supabase';
 import { useCircleLeaders } from '../../../hooks/useCircleLeaders';
 import AlertModal from '../../../components/ui/AlertModal';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
+import LogConnectionModal from '../../../components/dashboard/LogConnectionModal';
 
 // Helper function to format time to AM/PM
 const formatTimeToAMPM = (time: string | undefined | null): string => {
