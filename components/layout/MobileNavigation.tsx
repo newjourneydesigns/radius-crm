@@ -15,7 +15,6 @@ export default function MobileNavigation() {
   const getNavigationItems = () => {
     const baseItems = [
       { name: 'Dashboard', href: '/dashboard', requiresAuth: true },
-      { name: 'Add Leader', href: '/add-leader', requiresAuth: true },
       { name: 'Users', href: '/users', requiresAuth: true },
       { name: 'Settings', href: '/settings', requiresAuth: true },
     ];
