@@ -1,8 +1,7 @@
-const CACHE_NAME = 'radius-v1.0.1';
+const CACHE_NAME = 'radius-v1.0.2';
 const urlsToCache = [
   '/',
   '/dashboard',
-  '/add-leader',
   '/users',
   '/settings',
   '/login',
