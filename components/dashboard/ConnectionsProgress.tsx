@@ -21,8 +21,16 @@ export default function ConnectionsProgress({ filteredLeaderIds, totalFilteredLe
     percentage: 0
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
+  // Set client flag after hydration
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
+    if (!isClient) return; // Skip during SSR
+    
     const loadConnectionsData = async () => {
       if (filteredLeaderIds.length === 0) {
         setConnectionsData({ total: 0, connected: 0, percentage: 0 });
@@ -73,7 +81,7 @@ export default function ConnectionsProgress({ filteredLeaderIds, totalFilteredLe
     };
 
     loadConnectionsData();
-  }, [filteredLeaderIds, totalFilteredLeaders]);
+  }, [isClient, filteredLeaderIds, totalFilteredLeaders]);
 
   const getProgressColor = () => {
     const { percentage } = connectionsData;
@@ -103,7 +111,10 @@ export default function ConnectionsProgress({ filteredLeaderIds, totalFilteredLe
     return 'text-red-600 dark:text-red-400';
   };
 
-  const currentMonth = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  // Get current month string safely on client only
+  const currentMonth = isClient 
+    ? new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    : 'Loading...';
 
   if (totalFilteredLeaders === 0) {
     return (

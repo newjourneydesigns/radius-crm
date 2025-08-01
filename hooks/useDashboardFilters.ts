@@ -22,9 +22,17 @@ export const defaultFilters: DashboardFilters = {
 
 export const useDashboardFilters = () => {
   const [filters, setFilters] = useState<DashboardFilters>(defaultFilters);
+  const [isClient, setIsClient] = useState(false);
 
-  // Load saved filters from localStorage
+  // Set client flag after hydration
   useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Load saved filters from localStorage only on client
+  useEffect(() => {
+    if (!isClient) return; // Skip during SSR
+    
     try {
       const savedState = localStorage.getItem('radiusDashboardFilters');
       if (savedState) {
@@ -43,10 +51,11 @@ export const useDashboardFilters = () => {
       console.error('Error loading filter state:', error);
       setFilters(defaultFilters);
     }
-  }, []);
+  }, [isClient]);
 
-  // Save filters to localStorage whenever they change
+  // Save filters to localStorage whenever they change (only on client)
   useEffect(() => {
+    if (!isClient) return; // Skip during SSR
     localStorage.setItem('radiusDashboardFilters', JSON.stringify(filters));
   }, [filters]);
 
