@@ -30,18 +30,15 @@ interface LogConnectionModalData {
 
 export default function DashboardPage() {
   const { filters, updateFilters, clearAllFilters } = useDashboardFilters();
-  const { 
-    circleLeaders, 
-    isLoading, 
-    error, 
+  const {
+    circleLeaders,
+    isLoading,
+    error,
     loadCircleLeaders,
-    toggleEventSummary, 
+    toggleEventSummary,
     resetEventSummaryCheckboxes,
-    bulkUpdateStatus,
-    deleteCircleLeader
-  } = useCircleLeaders();
-
-  const clearFilters = () => {
+    bulkUpdateStatus
+  } = useCircleLeaders();  const clearFilters = () => {
     updateFilters({
       search: '',
       campus: [],
@@ -384,7 +381,6 @@ export default function DashboardPage() {
                   onToggleEventSummary={handleToggleEventSummary}
                   onOpenContactModal={openContactModal}
                   onLogConnection={openLogConnectionModal}
-                  onDelete={deleteCircleLeader}
                   isAdmin={isAdmin}
                 />
               ))}
