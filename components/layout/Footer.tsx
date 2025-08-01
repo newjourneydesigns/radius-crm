@@ -4,12 +4,15 @@ import { useEffect, useState } from 'react';
 
 export default function Footer() {
   const [version, setVersion] = useState('1.0.0');
-  const currentYear = new Date().getFullYear();
+  const [currentYear, setCurrentYear] = useState(2025); // Default to avoid hydration mismatch
 
   useEffect(() => {
     // Get version from environment variable (set by build process)
     const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0';
     setVersion(appVersion);
+    
+    // Set current year on client side only
+    setCurrentYear(new Date().getFullYear());
   }, []);
 
   return (
