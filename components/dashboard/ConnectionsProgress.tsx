@@ -106,7 +106,32 @@ export default function ConnectionsProgress({ filteredLeaderIds, totalFilteredLe
   const currentMonth = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   if (totalFilteredLeaders === 0) {
-    return null;
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center">
+            <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center mr-3 sm:mr-4">
+              <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Connections Progress</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                No leaders in current filter ({currentMonth})
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="px-4 sm:px-6 py-4 sm:py-5">
+          <div className="text-center py-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Adjust your filters or check data connection
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

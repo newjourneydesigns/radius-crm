@@ -52,8 +52,13 @@ export default function RootLayout({
                   .then(function(registration) {
                     console.log('SW registered: ', registration);
                     
-                    // Force update check
+                    // Force immediate update check
                     registration.update();
+                    
+                    // Check for updates every 30 seconds
+                    setInterval(() => {
+                      registration.update();
+                    }, 30000);
                     
                     // Check for updates
                     registration.addEventListener('updatefound', () => {
@@ -61,7 +66,7 @@ export default function RootLayout({
                       if (newWorker) {
                         newWorker.addEventListener('statechange', () => {
                           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            // New service worker available, reload to activate
+                            // New service worker available, reload immediately
                             console.log('New service worker installed, reloading...');
                             window.location.reload();
                           }
@@ -71,7 +76,7 @@ export default function RootLayout({
                     
                     // Handle controller changes
                     navigator.serviceWorker.addEventListener('controllerchange', () => {
-                      console.log('Service worker controller changed');
+                      console.log('Service worker controller changed, reloading...');
                       window.location.reload();
                     });
                   })
@@ -83,6 +88,13 @@ export default function RootLayout({
               // Handle service worker errors
               navigator.serviceWorker.addEventListener('error', (error) => {
                 console.error('Service worker error:', error);
+              });
+              
+              // Force reload if we detect stale cache
+              window.addEventListener('beforeunload', () => {
+                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                  navigator.serviceWorker.controller.postMessage({type: 'SKIP_WAITING'});
+                }
               });
             }
           `

@@ -39,7 +39,32 @@ export default function EventSummaryProgress({
   };
 
   if (totalCount === 0) {
-    return null;
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center">
+            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mr-3 sm:mr-4">
+              <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd"></path>
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Event Summaries Progress</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                No leaders in current filter
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="px-4 sm:px-6 py-4 sm:py-5">
+          <div className="text-center py-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Adjust your filters or check data connection
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

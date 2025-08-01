@@ -1,4 +1,4 @@
-const CACHE_NAME = 'radius-v1.0.1';
+const CACHE_NAME = 'radius-v1.0.3';
 const urlsToCache = [
   '/',
   '/dashboard',
@@ -121,4 +121,11 @@ self.addEventListener('fetch', (event) => {
           });
       })
   );
+});
+
+// Handle messages from the client
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
