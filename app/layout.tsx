@@ -1,28 +1,10 @@
-import Link from "next/link";
-import Image from "next/image";
+'use client';
+
 import "../styles/globals.css";
 import MobileNavigation from "../components/layout/MobileNavigation";
+import AuthenticatedNavigation from "../components/layout/AuthenticatedNavigation";
 import Footer from "../components/layout/Footer";
-import ClientLayout from "./ClientLayout";
-
-export const metadata = {
-  title: "RADIUS Circle Leader Management",
-  description: "Circle Leader Management System for RADIUS",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "RADIUS"
-  }
-};
-
-export const viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-  themeColor: "#2563eb"
-};
+import { AuthProvider } from "../contexts/AuthContext";
 
 export default function RootLayout({ 
   children 
@@ -32,6 +14,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <title>RADIUS Circle Leader Management</title>
+        <meta name="description" content="Circle Leader Management System for RADIUS" />
+        <link rel="manifest" href="/manifest.json" />
+        
         {/* PWA Meta Tags */}
         <meta name="application-name" content="RADIUS" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -43,6 +29,7 @@ export default function RootLayout({
         <meta name="msapplication-TileColor" content="#2563eb" />
         <meta name="msapplication-tap-highlight" content="no" />
         <meta name="theme-color" content="#2563eb" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 
         {/* Favicon Links */}
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -50,7 +37,6 @@ export default function RootLayout({
         <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon-120x120.png" />
         <link rel="icon" type="image/png" sizes="32x32" href="/icon-32x32.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/icon-16x16.png" />
-        <link rel="manifest" href="/manifest.json" />
         <link rel="shortcut icon" href="/icon-32x32.png" />
 
         {/* Apple Splash Screen */}
@@ -66,6 +52,9 @@ export default function RootLayout({
                   .then(function(registration) {
                     console.log('SW registered: ', registration);
                     
+                    // Force update check
+                    registration.update();
+                    
                     // Check for updates
                     registration.addEventListener('updatefound', () => {
                       const newWorker = registration.installing;
@@ -73,91 +62,46 @@ export default function RootLayout({
                         newWorker.addEventListener('statechange', () => {
                           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                             // New service worker available, reload to activate
-                            if (confirm('New version available! Reload to update?')) {
-                              window.location.reload();
-                            }
+                            console.log('New service worker installed, reloading...');
+                            window.location.reload();
                           }
                         });
                       }
+                    });
+                    
+                    // Handle controller changes
+                    navigator.serviceWorker.addEventListener('controllerchange', () => {
+                      console.log('Service worker controller changed');
+                      window.location.reload();
                     });
                   })
                   .catch(function(registrationError) {
                     console.log('SW registration failed: ', registrationError);
                   });
               });
+              
+              // Handle service worker errors
+              navigator.serviceWorker.addEventListener('error', (error) => {
+                console.error('Service worker error:', error);
+              });
             }
           `
         }} />
       </head>
       <body className="font-sans bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
-        <ClientLayout>
+        <AuthProvider>
           {/* Mobile Navigation */}
           <MobileNavigation />
-        
-        {/* Desktop Navigation */}
-        <header className="hidden md:block bg-white dark:bg-gray-800 shadow border-b border-gray-200 dark:border-gray-700">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-4">
-              <Link href="/dashboard" className="flex items-center space-x-3">
-                <Image 
-                  src="/icon-32x32.png" 
-                  alt="RADIUS Logo" 
-                  width={32} 
-                  height={32}
-                  className="rounded"
-                />
-                <span className="text-xl sm:text-2xl font-bold text-white">
-                  RADIUS
-                </span>
-              </Link>
-              <nav className="flex space-x-1">
-                <Link 
-                  href="/dashboard" 
-                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Dashboard
-                </Link>
-                <Link 
-                  href="/add-leader" 
-                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Add Leader
-                </Link>
-                <Link 
-                  href="/users" 
-                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Users
-                </Link>
-                <Link 
-                  href="/settings" 
-                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Settings
-                </Link>
-                <Link 
-                  href="/login" 
-                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Login
-                </Link>
-                <Link 
-                  href="/logout" 
-                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Logout
-                </Link>
-              </nav>
-            </div>
-          </div>
-        </header>
-        
-        {/* Main Content */}
-        <main>{children}</main>
-        
-        {/* Footer */}
-        <Footer />
-        </ClientLayout>
+          
+          {/* Desktop Navigation */}
+          <AuthenticatedNavigation />
+          
+          {/* Main Content */}
+          <main>{children}</main>
+          
+          {/* Footer */}
+          <Footer />
+        </AuthProvider>
       </body>
     </html>
   );

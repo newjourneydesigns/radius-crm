@@ -4,20 +4,34 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function MobileNavigation() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
+  const { isAuthenticated } = useAuth();
 
-  const navigation = [
-    { name: 'Dashboard', href: '/dashboard' },
-    { name: 'Add Leader', href: '/add-leader' },
-    { name: 'Users', href: '/users' },
-    { name: 'Settings', href: '/settings' },
-    { name: 'Login', href: '/login' },
-    { name: 'Logout', href: '/logout' },
-  ];
+  // Filter navigation items based on authentication state
+  const getNavigationItems = () => {
+    const baseItems = [
+      { name: 'Dashboard', href: '/dashboard', requiresAuth: true },
+      { name: 'Add Leader', href: '/add-leader', requiresAuth: true },
+      { name: 'Users', href: '/users', requiresAuth: true },
+      { name: 'Settings', href: '/settings', requiresAuth: true },
+    ];
 
+    const authItems = isAuthenticated() 
+      ? [{ name: 'Logout', href: '/logout', requiresAuth: true }]
+      : [{ name: 'Login', href: '/login', requiresAuth: false }];
+
+    const filteredBaseItems = isAuthenticated() 
+      ? baseItems 
+      : baseItems.filter(item => !item.requiresAuth);
+
+    return [...filteredBaseItems, ...authItems];
+  };
+
+  const navigation = getNavigationItems();
   const isActive = (href: string) => pathname === href;
 
   return (

@@ -27,7 +27,17 @@ export default function ServiceWorkerUtils() {
         );
       }
 
-      setMessage('Cache cleared successfully! Please refresh the page.');
+      // Clear localStorage and sessionStorage
+      localStorage.clear();
+      sessionStorage.clear();
+
+      setMessage('Cache cleared successfully! The app will reload automatically.');
+      
+      // Auto-reload after 2 seconds
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+      
     } catch (error) {
       setMessage('Error clearing cache: ' + (error as Error).message);
     } finally {
@@ -46,8 +56,18 @@ export default function ServiceWorkerUtils() {
           PWA Cache Management
         </h3>
         <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
-          If you're experiencing issues with outdated content or service worker errors, try clearing the cache.
+          If you're experiencing issues like "Response served by service worker has redirections" or outdated content, try clearing the cache.
         </p>
+        
+        <div className="bg-yellow-100 dark:bg-yellow-900/40 rounded p-3 mb-3">
+          <p className="text-xs text-yellow-800 dark:text-yellow-200">
+            <strong>Common Issues Fixed:</strong><br/>
+            • Service worker redirect errors<br/>
+            • Cached outdated content<br/>
+            • PWA loading problems<br/>
+            • Authentication issues after updates
+          </p>
+        </div>
         
         <div className="flex space-x-3">
           <button
@@ -55,7 +75,7 @@ export default function ServiceWorkerUtils() {
             disabled={isClearing}
             className="px-3 py-2 text-sm bg-yellow-600 text-white rounded-md hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isClearing ? 'Clearing...' : 'Clear Cache'}
+            {isClearing ? 'Clearing...' : 'Clear Cache & Reload'}
           </button>
           
           <button
@@ -67,7 +87,7 @@ export default function ServiceWorkerUtils() {
         </div>
 
         {message && (
-          <div className="mt-3 text-sm text-yellow-700 dark:text-yellow-300">
+          <div className="mt-3 text-sm text-yellow-700 dark:text-yellow-300 bg-yellow-100 dark:bg-yellow-900/40 rounded p-2">
             {message}
           </div>
         )}

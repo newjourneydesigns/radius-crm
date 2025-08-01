@@ -7,16 +7,14 @@ CREATE TABLE IF NOT EXISTS connection_types (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Insert your specific connection types
+-- Insert default connection types
 INSERT INTO connection_types (name, description) VALUES
-('In Person', 'Face-to-face meeting or encounter'),
-('Text', 'SMS or text message communication'),
-('Phone', 'Direct phone conversation with circle leader'),
+('Phone Call', 'Direct phone conversation with circle leader'),
+('Text Message', 'SMS or text message communication'),
 ('Email', 'Email communication'),
-('Zoom', 'Video conference or virtual meeting'),
-('One-On-One', 'Personal one-on-one meeting'),
-('Circle Visit', 'Visit to circle leader or their circle'),
-('Circle Leader Equipping', 'Training or equipping session'),
+('In-Person Meeting', 'Face-to-face meeting or encounter'),
+('Video Call', 'Video conference or virtual meeting'),
+('Social Media', 'Communication via social media platforms'),
 ('Other', 'Other forms of communication')
 ON CONFLICT (name) DO NOTHING;
 

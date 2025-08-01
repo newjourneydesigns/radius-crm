@@ -1,4 +1,4 @@
-const CACHE_NAME = 'radius-v1.0.0';
+const CACHE_NAME = 'radius-v1.0.1';
 const urlsToCache = [
   '/',
   '/dashboard',
@@ -45,7 +45,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event - improved caching strategy with better error handling
+// Fetch event - improved caching strategy
 self.addEventListener('fetch', (event) => {
   // Skip cross-origin requests
   if (!event.request.url.startsWith(self.location.origin)) {
@@ -57,63 +57,67 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Skip requests that might involve authentication, redirects, or dynamic content
-  const url = new URL(event.request.url);
-  if (url.pathname.includes('/api/') || 
-      url.pathname.includes('/auth/') || 
-      url.pathname.includes('/login') ||
-      url.pathname.includes('/logout') ||
-      url.pathname.includes('/_next/') ||
-      url.search.includes('vscodeBrowserReqId') ||
-      event.request.headers.get('accept')?.includes('text/event-stream')) {
-    // Let these requests pass through without service worker intervention
-    return fetch(event.request, { redirect: 'follow' });
-  }
-
   event.respondWith(
-    // First try to fetch from network, then fall back to cache
-    fetch(event.request, { 
-      redirect: 'follow',
-      credentials: 'same-origin'
-    })
-      .then((response) => {
-        // Check if it's a valid response
-        if (!response || response.status !== 200 || response.type !== 'basic') {
-          return response;
+    caches.match(event.request)
+      .then((cachedResponse) => {
+        // If we have a cached response, return it
+        if (cachedResponse) {
+          // But also fetch from network to update cache in background
+          fetch(event.request)
+            .then((response) => {
+              // Only cache successful, non-redirect responses
+              if (response.status === 200 && response.type === 'basic' && !response.redirected) {
+                const responseToCache = response.clone();
+                caches.open(CACHE_NAME)
+                  .then((cache) => {
+                    cache.put(event.request, responseToCache);
+                  });
+              }
+            })
+            .catch(() => {
+              // Network failed, but we have cache
+            });
+          
+          return cachedResponse;
         }
 
-        // Clone the response for caching
-        const responseToCache = response.clone();
-        
-        // Cache the response (don't wait for it)
-        caches.open(CACHE_NAME)
-          .then((cache) => {
-            cache.put(event.request, responseToCache);
+        // No cached response, fetch from network
+        return fetch(event.request)
+          .then((response) => {
+            // Don't cache redirects, errors, or opaque responses
+            if (response.status !== 200 || response.type !== 'basic' || response.redirected) {
+              return response;
+            }
+
+            // Clone the response for caching
+            const responseToCache = response.clone();
+            
+            caches.open(CACHE_NAME)
+              .then((cache) => {
+                cache.put(event.request, responseToCache);
+              });
+
+            return response;
           })
           .catch(() => {
-            // Ignore cache errors
-          });
-
-        return response;
-      })
-      .catch(() => {
-        // Network failed, try cache
-        return caches.match(event.request)
-          .then((cachedResponse) => {
-            if (cachedResponse) {
-              return cachedResponse;
-            }
-            
-            // No cache available, return offline page for documents
+            // Network failed and no cache available
+            // Return a generic offline page for document requests
             if (event.request.destination === 'document') {
               return new Response(
-                '<!DOCTYPE html><html><body><h1>Offline</h1><p>Please check your connection and try again.</p></body></html>',
-                { headers: { 'Content-Type': 'text/html' } }
+                '<!DOCTYPE html><html><head><title>Offline - RADIUS</title></head><body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;"><h1>You\'re Offline</h1><p>Please check your internet connection and try again.</p><button onclick="window.location.reload()">Retry</button></body></html>',
+                { 
+                  headers: { 'Content-Type': 'text/html' },
+                  status: 200,
+                  statusText: 'OK'
+                }
               );
             }
             
-            // For other resources, let the error propagate
-            throw new Error('No cache available');
+            // For other resources, return a network error
+            return new Response('Network Error', {
+              status: 408,
+              statusText: 'Request Timeout'
+            });
           });
       })
   );
