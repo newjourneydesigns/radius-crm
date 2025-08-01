@@ -34,6 +34,7 @@ interface CircleLeaderCardProps {
   onToggleEventSummary: (leaderId: number, isChecked: boolean) => void;
   onOpenContactModal: (leaderId: number, name: string, email: string, phone: string) => void;
   onLogConnection?: (leaderId: number, name: string) => void;
+  onDelete?: (leaderId: number) => Promise<void>;
 }
 
 export default function CircleLeaderCard({ 
@@ -41,8 +42,11 @@ export default function CircleLeaderCard({
   isAdmin, 
   onToggleEventSummary, 
   onOpenContactModal,
-  onLogConnection
+  onLogConnection,
+  onDelete
 }: CircleLeaderCardProps) {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const statusColors = {
     'invited': 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
     'pipeline': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-300',
@@ -62,6 +66,21 @@ export default function CircleLeaderCard({
 
   const handleLogConnection = () => {
     onLogConnection?.(leader.id, leader.name);
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      await onDelete(leader.id);
+      setShowDeleteConfirm(false);
+    } catch (error) {
+      console.error('Error deleting circle leader:', error);
+      // You might want to show an error message to the user here
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -188,8 +207,50 @@ export default function CircleLeaderCard({
               Log Connection
             </button>
           )}
+          {onDelete && isAdmin && (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="inline-flex items-center px-3 py-2 border border-red-300 dark:border-red-600 rounded-md shadow-sm text-sm font-medium text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+            >
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Delete
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+              Delete Circle Leader
+            </h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              Are you sure you want to delete <span className="font-semibold">{leader.name}</span>? 
+              This action cannot be undone and will also delete all associated notes.
+            </p>
+            <div className="flex space-x-3 justify-end">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

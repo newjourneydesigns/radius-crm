@@ -37,7 +37,8 @@ export default function DashboardPage() {
     loadCircleLeaders,
     toggleEventSummary, 
     resetEventSummaryCheckboxes,
-    bulkUpdateStatus
+    bulkUpdateStatus,
+    deleteCircleLeader
   } = useCircleLeaders();
 
   const clearFilters = () => {
@@ -383,6 +384,7 @@ export default function DashboardPage() {
                   onToggleEventSummary={handleToggleEventSummary}
                   onOpenContactModal={openContactModal}
                   onLogConnection={openLogConnectionModal}
+                  onDelete={deleteCircleLeader}
                   isAdmin={isAdmin}
                 />
               ))}
