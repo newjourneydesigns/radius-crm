@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase, ConnectionType } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface LogConnectionModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export default function LogConnectionModal({
   circleLeaderName, 
   onConnectionLogged 
 }: LogConnectionModalProps) {
+  const { user } = useAuth();
   const [connectionTypes, setConnectionTypes] = useState<ConnectionType[]>([]);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0], // Today's date in YYYY-MM-DD format
@@ -147,7 +149,7 @@ export default function LogConnectionModal({
         .insert({
           circle_leader_id: circleLeaderId,
           content: noteContent,
-          created_by: null // Use null instead of "System" to avoid UUID issues
+          created_by: user?.id || null // Use logged-in user's ID or null if not authenticated
         });
 
       if (noteError) {

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase, CircleLeader, Note } from '../../../lib/supabase';
 import { useCircleLeaders } from '../../../hooks/useCircleLeaders';
+import { useAuth } from '../../../contexts/AuthContext';
 import AlertModal from '../../../components/ui/AlertModal';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 import LogConnectionModal from '../../../components/dashboard/LogConnectionModal';
@@ -91,6 +92,7 @@ const formatDateTime = (dateString: string): string => {
 export default function CircleLeaderProfilePage() {
   const params = useParams();
   const leaderId = parseInt(params.id as string);
+  const { user } = useAuth();
   
   const [leader, setLeader] = useState<CircleLeader | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -264,7 +266,7 @@ export default function CircleLeaderProfilePage() {
       const insertData = {
         circle_leader_id: leaderId,
         content: newNote.trim(),
-        created_by: 'Anonymous'
+        created_by: user?.id || null // Use logged-in user's ID or null if not authenticated
       };
       
       const { data, error } = await supabase

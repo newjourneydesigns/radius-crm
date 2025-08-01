@@ -3,6 +3,7 @@ import Image from "next/image";
 import "../styles/globals.css";
 import MobileNavigation from "../components/layout/MobileNavigation";
 import Footer from "../components/layout/Footer";
+import ClientLayout from "./ClientLayout";
 
 export const metadata = {
   title: "RADIUS Circle Leader Management",
@@ -89,8 +90,9 @@ export default function RootLayout({
         }} />
       </head>
       <body className="font-sans bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
-        {/* Mobile Navigation */}
-        <MobileNavigation />
+        <ClientLayout>
+          {/* Mobile Navigation */}
+          <MobileNavigation />
         
         {/* Desktop Navigation */}
         <header className="hidden md:block bg-white dark:bg-gray-800 shadow border-b border-gray-200 dark:border-gray-700">
@@ -155,6 +157,7 @@ export default function RootLayout({
         
         {/* Footer */}
         <Footer />
+        </ClientLayout>
       </body>
     </html>
   );
