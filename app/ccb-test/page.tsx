@@ -16,6 +16,7 @@ export default function CCBTestPage() {
   const [groupId, setGroupId] = useState('3143');
   const [startDate, setStartDate] = useState('2025-04-01');
   const [endDate, setEndDate] = useState('2025-06-30');
+  const [leaderName, setLeaderName] = useState('Amanda Duke');
 
   const addResult = (endpoint: string, status: number, data: any, error?: string) => {
     const result: CCBTestResult = {
@@ -50,6 +51,16 @@ export default function CCBTestPage() {
     testEndpoint(endpoint, 'CCB Event Notes (Wide Range)');
   };
 
+  const testCCBByLeaderName = () => {
+    const endpoint = `/api/ccb/event-notes/?leaderName=${encodeURIComponent(leaderName)}&startDate=${startDate}&endDate=${endDate}`;
+    testEndpoint(endpoint, 'CCB Event Notes by Leader Name');
+  };
+
+  const testCCBByLeaderNameWide = () => {
+    const endpoint = `/api/ccb/event-notes/?leaderName=${encodeURIComponent(leaderName)}&startDate=2020-01-01&endDate=2030-12-31`;
+    testEndpoint(endpoint, 'CCB Event Notes by Leader Name (Wide Range)');
+  };
+
   const clearResults = () => {
     setResults([]);
   };
@@ -62,7 +73,7 @@ export default function CCBTestPage() {
         {/* Test Parameters */}
         <div className="bg-white rounded-lg shadow p-6 mb-8 text-gray-900">
           <h2 className="text-xl font-semibold mb-4 text-gray-900">Test Parameters</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Group ID
@@ -76,6 +87,21 @@ export default function CCBTestPage() {
               />
               <div className="text-xs text-gray-500 mt-1">
                 Current: {groupId || 'Not set'}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Leader Name
+              </label>
+              <input
+                type="text"
+                value={leaderName}
+                onChange={(e) => setLeaderName(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Amanda Duke"
+              />
+              <div className="text-xs text-gray-500 mt-1">
+                Search events by leader name
               </div>
             </div>
             <div>
@@ -125,6 +151,22 @@ export default function CCBTestPage() {
             </button>
 
             <button
+              onClick={testCCBByLeaderName}
+              disabled={loading !== null}
+              className="px-4 py-2 bg-cyan-600 text-white rounded-md hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading === `/api/ccb/event-notes/?leaderName=${encodeURIComponent(leaderName)}&startDate=${startDate}&endDate=${endDate}` ? 'Testing...' : 'Test by Leader Name'}
+            </button>
+
+            <button
+              onClick={testCCBByLeaderNameWide}
+              disabled={loading !== null}
+              className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading === `/api/ccb/event-notes/?leaderName=${encodeURIComponent(leaderName)}&startDate=2020-01-01&endDate=2030-12-31` ? 'Testing...' : 'Leader Name (Wide)'}
+            </button>
+
+            <button
               onClick={() => testEndpoint('/api/ccb/event-notes/?groupId=invalid&startDate=2025-01-01&endDate=2025-12-31', 'Invalid Group ID Test')}
               disabled={loading !== null}
               className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -138,14 +180,6 @@ export default function CCBTestPage() {
               className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading === '/api/ccb/event-notes/?groupId=3254&startDate=2025-01-01&endDate=2025-12-31' ? 'Testing...' : 'Test Group 3254'}
-            </button>
-
-            <button
-              onClick={() => testEndpoint('/api/ccb/event-notes/?groupId=3413&startDate=2025-01-01&endDate=2025-12-31', 'Group 3413 Test')}
-              disabled={loading !== null}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading === '/api/ccb/event-notes/?groupId=3413&startDate=2025-01-01&endDate=2025-12-31' ? 'Testing...' : 'Test Group 3413'}
             </button>
 
             <button
