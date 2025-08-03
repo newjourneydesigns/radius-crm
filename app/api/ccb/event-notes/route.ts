@@ -74,10 +74,43 @@ async function processCCBRequest(groupId: string, startDate: string, endDate: st
     const auth = Buffer.from(`${CCB_API_USER}:${CCB_API_PASSWORD}`).toString('base64');
     console.log('🔍 Auth header created for simple test');
 
-    // Fetch attendance profiles for the specific group and date range
-    const attendanceUrl = `${CCB_BASE_URL}/attendance_profiles?start_date=${startDate}&end_date=${endDate}&group_id=${groupId}&limit=50`;
+    // Try different endpoints to understand the API structure
+    console.log('Testing CCB API endpoints...');
     
-    console.log('Fetching from:', attendanceUrl);
+    // First, test group_profiles to see if the group exists
+    const groupUrl = `${CCB_BASE_URL}/group_profiles?group_id=${groupId}`;
+    console.log('Testing group URL:', groupUrl);
+    
+    const groupResponse = await fetch(groupUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Basic ${Buffer.from(`${CCB_API_USER}:${CCB_API_PASSWORD}`).toString('base64')}`,
+        'Content-Type': 'application/xml'
+      }
+    });
+
+    const groupData = await groupResponse.text();
+    console.log('Group response status:', groupResponse.status);
+    console.log('Group data length:', groupData.length);
+    
+    if (!groupResponse.ok) {
+      return NextResponse.json({
+        success: false,
+        error: `Group lookup failed: ${groupResponse.status} ${groupResponse.statusText}`,
+        groupId,
+        startDate,
+        endDate,
+        debug: {
+          groupUrl,
+          responseStatus: groupResponse.status,
+          responseData: groupData.substring(0, 500)
+        }
+      }, { status: 500 });
+    }
+
+    // Now try attendance profiles with proper service parameter
+    const attendanceUrl = `${CCB_BASE_URL}/attendance_profiles?srv=attendance_profiles&start_date=${startDate}&end_date=${endDate}&group_id=${groupId}&limit=50`;
+    console.log('Testing attendance URL:', attendanceUrl);
     
     const attendanceResponse = await fetch(attendanceUrl, {
       method: 'GET',
@@ -87,19 +120,25 @@ async function processCCBRequest(groupId: string, startDate: string, endDate: st
       }
     });
 
+    const xmlData = await attendanceResponse.text();
+    console.log('Attendance response status:', attendanceResponse.status);
+    console.log('XML Response length:', xmlData.length);
+
     if (!attendanceResponse.ok) {
-      console.error('CCB API error:', attendanceResponse.status, attendanceResponse.statusText);
       return NextResponse.json({
         success: false,
         error: `CCB API error: ${attendanceResponse.status} ${attendanceResponse.statusText}`,
         groupId,
         startDate,
-        endDate
+        endDate,
+        debug: {
+          attendanceUrl,
+          responseStatus: attendanceResponse.status,
+          responseData: xmlData.substring(0, 500),
+          groupTestPassed: true
+        }
       }, { status: 500 });
     }
-
-    const xmlData = await attendanceResponse.text();
-    console.log('XML Response length:', xmlData.length);
     
     // Parse the XML to extract event information
     const eventNotes: any[] = [];
@@ -160,7 +199,9 @@ async function processCCBRequest(groupId: string, startDate: string, endDate: st
       debug: {
         xmlResponseLength: xmlData.length,
         profilesFound: profiles.length,
-        notesExtracted: eventNotes.length
+        notesExtracted: eventNotes.length,
+        groupTestPassed: true,
+        sampleXML: xmlData.substring(0, 1000)
       }
     });  } catch (error) {
     console.error('CCB API integration error:', error);
