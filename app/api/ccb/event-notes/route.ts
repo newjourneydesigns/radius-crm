@@ -78,7 +78,7 @@ async function processCCBRequest(groupId: string, startDate: string, endDate: st
     console.log('Testing CCB API endpoints...');
     
     // First, test group_profiles to see if the group exists
-    const groupUrl = `${CCB_BASE_URL}/group_profiles?group_id=${groupId}`;
+    const groupUrl = `${CCB_BASE_URL}/group_profiles?srv=group_profiles&group_id=${groupId}`;
     console.log('Testing group URL:', groupUrl);
     
     const groupResponse = await fetch(groupUrl, {
