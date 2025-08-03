@@ -1,4 +1,4 @@
-const CACHE_NAME = 'radius-v1.0.5';
+const CACHE_NAME = 'radius-v2.0.0';
 const urlsToCache = [
   '/',
   '/dashboard',
@@ -6,6 +6,7 @@ const urlsToCache = [
   '/users',
   '/settings',
   '/login',
+  '/api/ccb/event-notes',
   '/icon-192x192.png',
   '/icon-512x512.png',
   '/manifest.json'
@@ -32,6 +33,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
+          // Delete ALL old caches, not just different versions
           if (cacheName !== CACHE_NAME) {
             console.log('Deleting old cache:', cacheName);
             return caches.delete(cacheName);
@@ -39,8 +41,16 @@ self.addEventListener('activate', (event) => {
         })
       );
     }).then(() => {
-      // Take control of all pages immediately
-      return self.clients.claim();
+      // Take control of all pages immediately and force reload
+      console.log('New service worker taking control');
+      return self.clients.claim().then(() => {
+        // Force reload all clients
+        return self.clients.matchAll().then((clients) => {
+          clients.forEach((client) => {
+            client.postMessage({ type: 'FORCE_RELOAD' });
+          });
+        });
+      });
     })
   );
 });

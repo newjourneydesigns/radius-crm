@@ -7,6 +7,7 @@ import { useCircleLeaders } from '../../../hooks/useCircleLeaders';
 import AlertModal from '../../../components/ui/AlertModal';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 import LogConnectionModal from '../../../components/dashboard/LogConnectionModal';
+import CCBEventNotes from '../../../components/dashboard/CCBEventNotes';
 
 // Helper function to format time to AM/PM
 const formatTimeToAMPM = (time: string | undefined | null): string => {
@@ -515,7 +516,8 @@ export default function CircleLeaderProfilePage() {
       time: leader.time,
       frequency: leader.frequency,
       circle_type: leader.circle_type,
-      ccb_profile_link: leader.ccb_profile_link
+      ccb_profile_link: leader.ccb_profile_link,
+      ccb_group_id: leader.ccb_group_id
     });
   };
 
@@ -539,7 +541,8 @@ export default function CircleLeaderProfilePage() {
           time: editedLeader.time || null,
           frequency: editedLeader.frequency || null,
           circle_type: editedLeader.circle_type || null,
-          ccb_profile_link: editedLeader.ccb_profile_link || null
+          ccb_profile_link: editedLeader.ccb_profile_link || null,
+          ccb_group_id: editedLeader.ccb_group_id || null
         })
         .eq('id', leaderId)
         .select()
@@ -955,6 +958,22 @@ export default function CircleLeaderProfilePage() {
                       )}
                     </dd>
                   </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">CCB Group ID</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editedLeader.ccb_group_id || ''}
+                          onChange={(e) => handleLeaderFieldChange('ccb_group_id', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Enter CCB Group ID for API integration"
+                        />
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{leader.ccb_group_id || 'Not provided'}</span>
+                      )}
+                    </dd>
+                  </div>
                 </dl>
                 
                 {isEditing && (
@@ -1068,6 +1087,14 @@ export default function CircleLeaderProfilePage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* CCB Event Notes Section */}
+        <div className="mt-8">
+          <CCBEventNotes 
+            circleLeaderId={leaderId} 
+            groupId={leader.ccb_group_id} 
+          />
         </div>
 
         {/* Notes Section */}

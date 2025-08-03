@@ -79,6 +79,14 @@ export default function RootLayout({
                       console.log('Service worker controller changed, reloading...');
                       window.location.reload();
                     });
+                    
+                    // Listen for force reload messages from service worker
+                    navigator.serviceWorker.addEventListener('message', (event) => {
+                      if (event.data && event.data.type === 'FORCE_RELOAD') {
+                        console.log('Force reload requested by service worker');
+                        window.location.reload(true); // Force reload from server
+                      }
+                    });
                   })
                   .catch(function(registrationError) {
                     console.log('SW registration failed: ', registrationError);
