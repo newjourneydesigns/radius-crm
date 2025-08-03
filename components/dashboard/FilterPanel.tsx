@@ -58,21 +58,28 @@ export default function FilterPanel({
   const loadReferenceData = async () => {
     console.log('FilterPanel: Starting to load reference data...');
     try {
-      const [directorsResult, campusesResult, statusesResult, circleTypesResult, frequenciesResult] = await Promise.all([
-        supabase.from('acpd_list').select('*').eq('active', true).order('name'),
-        supabase.from('campuses').select('*').order('value'),
-        supabase.from('statuses').select('*').order('value'),
-        supabase.from('circle_types').select('*').order('value'),
-        supabase.from('frequencies').select('*').order('value')
-      ]);
+      // Load each table individually with error handling
+      console.log('FilterPanel: Loading directors...');
+      const directorsResult = await supabase.from('acpd_list').select('*').eq('active', true).order('name');
+      console.log('FilterPanel: Directors result:', directorsResult.data?.length, directorsResult.error);
+      
+      console.log('FilterPanel: Loading campuses...');
+      const campusesResult = await supabase.from('campuses').select('*').order('value');
+      console.log('FilterPanel: Campuses result:', campusesResult.data?.length, campusesResult.error);
+      
+      console.log('FilterPanel: Loading statuses...');
+      const statusesResult = await supabase.from('statuses').select('*').order('value');
+      console.log('FilterPanel: Statuses result:', statusesResult.data?.length, statusesResult.error);
+      
+      console.log('FilterPanel: Loading circle types...');
+      const circleTypesResult = await supabase.from('circle_types').select('*').order('value');
+      console.log('FilterPanel: Circle types result:', circleTypesResult.data?.length, circleTypesResult.error);
+      
+      console.log('FilterPanel: Loading frequencies...');
+      const frequenciesResult = await supabase.from('frequencies').select('*').order('value');
+      console.log('FilterPanel: Frequencies result:', frequenciesResult.data?.length, frequenciesResult.error);
 
-      console.log('FilterPanel: Reference data results:', {
-        directors: directorsResult.data?.length,
-        campuses: campusesResult.data?.length,
-        statuses: statusesResult.data?.length,
-        circleTypes: circleTypesResult.data?.length,
-        frequencies: frequenciesResult.data?.length
-      });
+      console.log('FilterPanel: All queries completed, processing results...');
 
       if (directorsResult.data) {
         const formattedDirectors = directorsResult.data.map(director => ({
