@@ -270,7 +270,13 @@ async function processCCBRequest(groupId: string, startDate: string, endDate: st
       endDate,
       eventNotes: eventNotes,
       totalEvents: eventNotes.length,
-      source: 'attendance_profile'
+      source: 'attendance_profile',
+      debug: {
+        searchStartDate: broadSearchStart,
+        totalEventsFound: relevantEvents.length,
+        allGroupIdsFound: Array.from(foundGroupIds).slice(0, 10), // First 10 for debugging
+        totalGroupIds: foundGroupIds.size
+      }
     });
 
   } catch (error) {
