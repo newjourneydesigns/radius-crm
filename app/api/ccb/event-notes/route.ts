@@ -108,8 +108,9 @@ async function processCCBRequest(groupId: string, startDate: string, endDate: st
       }, { status: 500 });
     }
 
-    // Now try attendance profiles with proper service parameter
-    const attendanceUrl = `${CCB_BASE_URL}/attendance_profiles?srv=attendance_profiles&start_date=${startDate}&end_date=${endDate}&group_id=${groupId}`;
+    // CCB attendance_profiles service fetches ALL attendance data for date range
+    // Then we filter for the specific group we want
+    const attendanceUrl = `${CCB_BASE_URL}/attendance_profiles?srv=attendance_profiles&start_date=${startDate}&end_date=${endDate}`;
     console.log('Testing attendance URL:', attendanceUrl);
     
     const attendanceResponse = await fetch(attendanceUrl, {
@@ -140,52 +141,65 @@ async function processCCBRequest(groupId: string, startDate: string, endDate: st
       }, { status: 500 });
     }
     
-    // Parse the XML to extract event information
+    // Parse the XML to extract event information for our specific group
     const eventNotes: any[] = [];
     
-    // Find all attendance_profile entries
-    const profileRegex = /<attendance_profile[^>]*>[\s\S]*?<\/attendance_profile>/g;
-    const profiles = xmlData.match(profileRegex) || [];
+    // Find all event entries that match our group ID
+    const eventRegex = /<event[^>]*>[\s\S]*?<\/event>/g;
+    const events = xmlData.match(eventRegex) || [];
     
-    console.log('Found profiles:', profiles.length);
+    console.log('Found total events:', events.length);
     
-    for (const profile of profiles) {
+    let groupEventsFound = 0;
+    for (const event of events) {
       try {
-        // Extract event name
-        const eventNameMatch = profile.match(/<event[^>]*name="([^"]*)"[^>]*>/);
-        const eventName = eventNameMatch ? eventNameMatch[1] : 'Unknown Event';
+        // Check if this event belongs to our target group
+        const groupMatch = event.match(/<group[^>]*id="([^"]*)"[^>]*>/);
+        const eventGroupId = groupMatch ? groupMatch[1] : null;
         
-        // Extract event date
-        const eventDateMatch = profile.match(/<event[^>]*start_datetime="([^"]*)"[^>]*>/);
-        const eventDate = eventDateMatch ? eventDateMatch[1] : '';
-        
-        // Extract event occurrence
-        const eventOccurrenceMatch = profile.match(/<event_occurrence[^>]*>[\s\S]*?<\/event_occurrence>/);
-        let occurrenceDate = '';
-        if (eventOccurrenceMatch) {
-          const occurrenceDateMatch = eventOccurrenceMatch[0].match(/<start_datetime>([^<]*)<\/start_datetime>/);
-          occurrenceDate = occurrenceDateMatch ? occurrenceDateMatch[1] : '';
-        }
-        
-        // Extract notes
-        const notesMatch = profile.match(/<note>([^<]*)<\/note>/);
-        const notes = notesMatch ? notesMatch[1] : '';
-        
-        if (notes.trim()) {
-          eventNotes.push({
-            eventName,
-            eventDate: eventDate || occurrenceDate,
-            occurrenceDate,
-            notes: notes.trim(),
-            source: 'attendance_profiles'
-          });
+        if (eventGroupId === groupId) {
+          groupEventsFound++;
+          
+          // Extract event name
+          const eventNameMatch = event.match(/<name>([^<]*)<\/name>/);
+          const eventName = eventNameMatch ? eventNameMatch[1] : 'Unknown Event';
+          
+          // Extract event occurrence/date
+          const occurrenceMatch = event.match(/<occurrence>([^<]*)<\/occurrence>/);
+          const occurrenceDate = occurrenceMatch ? occurrenceMatch[1] : '';
+          
+          // Extract notes
+          const notesMatch = event.match(/<notes>([^<]*)<\/notes>/);
+          const notes = notesMatch ? notesMatch[1] : '';
+          
+          // Extract topic
+          const topicMatch = event.match(/<topic>([^<]*)<\/topic>/);
+          const topic = topicMatch ? topicMatch[1] : '';
+          
+          // Extract prayer requests
+          const prayerMatch = event.match(/<prayer_requests>([^<]*)<\/prayer_requests>/);
+          const prayerRequests = prayerMatch ? prayerMatch[1] : '';
+          
+          // Combine all text content for notes
+          const combinedNotes = [notes, topic, prayerRequests].filter(n => n.trim()).join(' | ');
+          
+          if (combinedNotes.trim()) {
+            eventNotes.push({
+              eventName,
+              eventDate: occurrenceDate,
+              notes: combinedNotes.trim(),
+              source: 'attendance_profiles',
+              groupId: eventGroupId
+            });
+          }
         }
       } catch (parseError) {
-        console.error('Error parsing profile:', parseError);
+        console.error('Error parsing event:', parseError);
       }
     }
 
-    console.log('Extracted notes:', eventNotes.length);
+    console.log('Group events found:', groupEventsFound);
+    console.log('Notes extracted:', eventNotes.length);
 
     return NextResponse.json({
       success: true,
@@ -193,12 +207,14 @@ async function processCCBRequest(groupId: string, startDate: string, endDate: st
       startDate,
       endDate,
       eventNotes,
-      totalEvents: profiles.length,
+      totalEvents: events.length,
+      groupEventsFound,
       totalNotesFound: eventNotes.length,
       source: 'attendance_profiles',
       debug: {
         xmlResponseLength: xmlData.length,
-        profilesFound: profiles.length,
+        totalEventsFound: events.length,
+        groupEventsFound,
         notesExtracted: eventNotes.length,
         groupTestPassed: true,
         sampleXML: xmlData.substring(0, 1000)
