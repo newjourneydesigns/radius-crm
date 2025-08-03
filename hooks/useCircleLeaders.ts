@@ -36,26 +36,32 @@ export const useCircleLeaders = () => {
         throw leadersError;
       }
 
-      // Now get the latest note for each leader
-      const leadersWithNotes = await Promise.all(
-        (leaders || []).map(async (leader) => {
-          const { data: notes, error: notesError } = await supabase
-            .from('notes')
-            .select('id, content, created_at, created_by')
-            .eq('circle_leader_id', leader.id)
-            .order('created_at', { ascending: false })
-            .limit(1);
+      // Get all latest notes for all leaders in one query
+      console.log('Fetching notes for all leaders...');
+      const { data: allNotes, error: notesError } = await supabase
+        .from('notes')
+        .select('id, content, created_at, created_by, circle_leader_id')
+        .order('created_at', { ascending: false });
 
-          if (notesError) {
-            console.error(`Error loading notes for leader ${leader.id}:`, notesError);
+      if (notesError) {
+        console.error('Error loading notes:', notesError);
+      }
+
+      // Create a map of leader_id to their latest note
+      const latestNotesMap = new Map();
+      if (allNotes) {
+        allNotes.forEach(note => {
+          if (!latestNotesMap.has(note.circle_leader_id)) {
+            latestNotesMap.set(note.circle_leader_id, note);
           }
+        });
+      }
 
-          return {
-            ...leader,
-            last_note: notes && notes.length > 0 ? notes[0] : null
-          };
-        })
-      );
+      // Combine leaders with their latest notes
+      const leadersWithNotes = (leaders || []).map(leader => ({
+        ...leader,
+        last_note: latestNotesMap.get(leader.id) || null
+      }));
 
       console.log('Loaded leaders with notes count:', leadersWithNotes.length);
 
