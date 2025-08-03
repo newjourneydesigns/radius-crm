@@ -36,6 +36,8 @@ export default function FilterPanel({
   totalLeaders,
   receivedCount
 }: FilterPanelProps) {
+  console.log('FilterPanel: Component rendering with props:', { totalLeaders, receivedCount });
+  
   const [filtersVisible, setFiltersVisible] = useState(true);
   const [isLoadingData, setIsLoadingData] = useState(true);
   
@@ -54,6 +56,7 @@ export default function FilterPanel({
 
   // Load reference data from database
   const loadReferenceData = async () => {
+    console.log('FilterPanel: Starting to load reference data...');
     try {
       const [directorsResult, campusesResult, statusesResult, circleTypesResult, frequenciesResult] = await Promise.all([
         supabase.from('acpd_list').select('*').eq('active', true).order('name'),
@@ -62,6 +65,14 @@ export default function FilterPanel({
         supabase.from('circle_types').select('*').order('value'),
         supabase.from('frequencies').select('*').order('value')
       ]);
+
+      console.log('FilterPanel: Reference data results:', {
+        directors: directorsResult.data?.length,
+        campuses: campusesResult.data?.length,
+        statuses: statusesResult.data?.length,
+        circleTypes: circleTypesResult.data?.length,
+        frequencies: frequenciesResult.data?.length
+      });
 
       if (directorsResult.data) {
         const formattedDirectors = directorsResult.data.map(director => ({
@@ -75,10 +86,13 @@ export default function FilterPanel({
       if (statusesResult.data) setStatuses(statusesResult.data);
       if (circleTypesResult.data) setCircleTypes(circleTypesResult.data);
       if (frequenciesResult.data) setFrequencies(frequenciesResult.data);
+      
+      console.log('FilterPanel: Reference data loaded successfully');
     } catch (error) {
-      console.error('Error loading reference data:', error);
+      console.error('FilterPanel: Error loading reference data:', error);
     } finally {
       setIsLoadingData(false);
+      console.log('FilterPanel: Loading complete');
     }
   };
 
