@@ -74,76 +74,95 @@ async function processCCBRequest(groupId: string, startDate: string, endDate: st
     const auth = Buffer.from(`${CCB_API_USER}:${CCB_API_PASSWORD}`).toString('base64');
     console.log('🔍 Auth header created for simple test');
 
-    // For now, let's just test basic connectivity and return debug info
-    console.log('🔍 Testing basic CCB API connectivity...');
+    // Fetch attendance profiles for the specific group and date range
+    const attendanceUrl = `${CCB_BASE_URL}/attendance_profiles?start_date=${startDate}&end_date=${endDate}&group_id=${groupId}&limit=50`;
     
-    try {
-      // Test with a simple service first
-      const testUrl = `${CCB_BASE_URL}?srv=campus_list`;
-      console.log('🔍 Testing with campus_list service:', testUrl);
-
-      const testResponse = await fetch(testUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Basic ${auth}`,
-        },
-      });
-
-      console.log('🔍 Campus List Response:', {
-        status: testResponse.status,
-        statusText: testResponse.statusText
-      });
-
-      if (testResponse.ok) {
-        const testXml = await testResponse.text();
-        console.log('🔍 Campus List XML Response length:', testXml.length);
-        
-        return NextResponse.json({
-          success: true,
-          message: 'CCB API connection successful',
-          groupId,
-          startDate,
-          endDate,
-          eventNotes: [],
-          totalEvents: 0,
-          source: 'connectivity_test',
-          debug: {
-            apiStatus: 'connected',
-            responseSize: testXml.length,
-            testEndpoint: 'campus_list',
-            nextStep: 'Need to implement event fetching without timeout'
-          }
-        });
-      } else {
-        return NextResponse.json({
-          success: false,
-          error: `CCB API test failed: ${testResponse.status}`,
-          groupId,
-          startDate,
-          endDate,
-          debug: {
-            apiStatus: 'failed',
-            testEndpoint: 'campus_list',
-            httpStatus: testResponse.status
-          }
-        });
+    console.log('Fetching from:', attendanceUrl);
+    
+    const attendanceResponse = await fetch(attendanceUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Basic ${Buffer.from(`${CCB_API_USER}:${CCB_API_PASSWORD}`).toString('base64')}`,
+        'Content-Type': 'application/xml'
       }
-    } catch (fetchError) {
-      console.error('Fetch error:', fetchError);
+    });
+
+    if (!attendanceResponse.ok) {
+      console.error('CCB API error:', attendanceResponse.status, attendanceResponse.statusText);
       return NextResponse.json({
         success: false,
-        error: `Network error: ${fetchError.message}`,
+        error: `CCB API error: ${attendanceResponse.status} ${attendanceResponse.statusText}`,
         groupId,
         startDate,
-        endDate,
-        debug: {
-          apiStatus: 'network_error',
-          errorMessage: fetchError.message
-        }
-      });
+        endDate
+      }, { status: 500 });
     }
 
-  } catch (error) {
+    const xmlData = await attendanceResponse.text();
+    console.log('XML Response length:', xmlData.length);
+    
+    // Parse the XML to extract event information
+    const eventNotes: any[] = [];
+    
+    // Find all attendance_profile entries
+    const profileRegex = /<attendance_profile[^>]*>[\s\S]*?<\/attendance_profile>/g;
+    const profiles = xmlData.match(profileRegex) || [];
+    
+    console.log('Found profiles:', profiles.length);
+    
+    for (const profile of profiles) {
+      try {
+        // Extract event name
+        const eventNameMatch = profile.match(/<event[^>]*name="([^"]*)"[^>]*>/);
+        const eventName = eventNameMatch ? eventNameMatch[1] : 'Unknown Event';
+        
+        // Extract event date
+        const eventDateMatch = profile.match(/<event[^>]*start_datetime="([^"]*)"[^>]*>/);
+        const eventDate = eventDateMatch ? eventDateMatch[1] : '';
+        
+        // Extract event occurrence
+        const eventOccurrenceMatch = profile.match(/<event_occurrence[^>]*>[\s\S]*?<\/event_occurrence>/);
+        let occurrenceDate = '';
+        if (eventOccurrenceMatch) {
+          const occurrenceDateMatch = eventOccurrenceMatch[0].match(/<start_datetime>([^<]*)<\/start_datetime>/);
+          occurrenceDate = occurrenceDateMatch ? occurrenceDateMatch[1] : '';
+        }
+        
+        // Extract notes
+        const notesMatch = profile.match(/<note>([^<]*)<\/note>/);
+        const notes = notesMatch ? notesMatch[1] : '';
+        
+        if (notes.trim()) {
+          eventNotes.push({
+            eventName,
+            eventDate: eventDate || occurrenceDate,
+            occurrenceDate,
+            notes: notes.trim(),
+            source: 'attendance_profiles'
+          });
+        }
+      } catch (parseError) {
+        console.error('Error parsing profile:', parseError);
+      }
+    }
+
+    console.log('Extracted notes:', eventNotes.length);
+
+    return NextResponse.json({
+      success: true,
+      groupId,
+      startDate,
+      endDate,
+      eventNotes,
+      totalEvents: profiles.length,
+      totalNotesFound: eventNotes.length,
+      source: 'attendance_profiles',
+      debug: {
+        xmlResponseLength: xmlData.length,
+        profilesFound: profiles.length,
+        notesExtracted: eventNotes.length
+      }
+    });  } catch (error) {
     console.error('CCB API integration error:', error);
     return NextResponse.json({
       success: false,
