@@ -2,13 +2,13 @@
   "name": "RADIUS Circle Leader Management",
   "short_name": "RADIUS",
   "description": "Circle Leader Management System for RADIUS",
-  "start_url": "/dashboard?v=2.0.0",
+  "start_url": "/dashboard?v=2.0.1",
   "display": "standalone",
   "background_color": "#1f2937",
   "theme_color": "#2563eb",
   "orientation": "portrait-primary",
   "categories": ["productivity", "business"],
-  "version": "2.0.0",
+  "version": "2.0.1",
   "icons": [
     {
       "src": "/icon-16x16.png",

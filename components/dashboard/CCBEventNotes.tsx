@@ -34,6 +34,8 @@ export default function CCBEventNotes({ circleLeaderId, groupId }: CCBEventNotes
   const [hasSearched, setHasSearched] = useState(false);
 
   const fetchEventNotes = async () => {
+    console.log('CCB fetchEventNotes called with:', { groupId, startDate, endDate });
+    
     if (!groupId) {
       setError('No CCB Group ID configured for this Circle Leader');
       return;
@@ -54,6 +56,7 @@ export default function CCBEventNotes({ circleLeaderId, groupId }: CCBEventNotes
     setHasSearched(true);
 
     try {
+      console.log('Making CCB API request...');
       const response = await fetch('/api/ccb/event-notes', {
         method: 'POST',
         headers: {
@@ -66,12 +69,16 @@ export default function CCBEventNotes({ circleLeaderId, groupId }: CCBEventNotes
         }),
       });
 
+      console.log('CCB API response status:', response.status);
+      console.log('CCB API response headers:', response.headers);
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to fetch event notes');
       }
 
       const data = await response.json();
+      console.log('CCB API response data:', data);
       setEventNotes(data.eventNotes || []);
     } catch (err) {
       console.error('Error fetching CCB event notes:', err);
