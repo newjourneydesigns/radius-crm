@@ -109,7 +109,7 @@ async function processCCBRequest(groupId: string, startDate: string, endDate: st
     }
 
     // Now try attendance profiles with proper service parameter
-    const attendanceUrl = `${CCB_BASE_URL}/attendance_profiles?srv=attendance_profiles&start_date=${startDate}&end_date=${endDate}&group_id=${groupId}&limit=50`;
+    const attendanceUrl = `${CCB_BASE_URL}/attendance_profiles?srv=attendance_profiles&start_date=${startDate}&end_date=${endDate}&group_id=${groupId}`;
     console.log('Testing attendance URL:', attendanceUrl);
     
     const attendanceResponse = await fetch(attendanceUrl, {
