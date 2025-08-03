@@ -6,8 +6,9 @@ export async function GET(request: NextRequest) {
     const groupId = searchParams.get('groupId') || '';
     const startDate = searchParams.get('startDate') || '2025-07-01';
     const endDate = searchParams.get('endDate') || '2025-08-03';
+    const leaderName = searchParams.get('leaderName') || '';
 
-    console.log('CCB Event Notes API called:', { groupId, startDate, endDate });
+    console.log('CCB Event Notes API called:', { groupId, startDate, endDate, leaderName });
 
     // Validate environment variables
     const CCB_BASE_URL = process.env.CCB_BASE_URL;
@@ -21,7 +22,8 @@ export async function GET(request: NextRequest) {
         error: 'CCB API configuration missing',
         groupId,
         startDate,
-        endDate
+        endDate,
+        leaderName
       }, { status: 500 });
     }
 
@@ -101,20 +103,35 @@ export async function GET(request: NextRequest) {
         });
       }
       
-      // Look for events belonging to our group
+      // Look for events belonging to our group or matching leader name
       for (const event of events) {
         const groupMatch = event.match(/<group[^>]*id="([^"]*)"[^>]*>/);
         const eventGroupId = groupMatch ? groupMatch[1] : null;
         
-        if (eventGroupId === groupId) {
+        const eventNameMatch = event.match(/<name>([^<]*)<\/name>/);
+        const eventName = eventNameMatch ? eventNameMatch[1] : 'Unknown Event';
+        
+        // Check if event matches our criteria
+        const matchesGroup = groupId && eventGroupId === groupId;
+        const matchesLeader = leaderName && eventName.toLowerCase().includes(leaderName.toLowerCase());
+        
+        if (matchesGroup || matchesLeader) {
           const eventIdMatch = event.match(/<event[^>]*id="([^"]*)"[^>]*>/);
           const eventId = eventIdMatch ? eventIdMatch[1] : null;
           
-          const eventNameMatch = event.match(/<name>([^<]*)<\/name>/);
-          const eventName = eventNameMatch ? eventNameMatch[1] : 'Unknown Event';
-          
           const startDateMatch = event.match(/<start_datetime>([^<]*)<\/start_datetime>/);
           const eventDate = startDateMatch ? startDateMatch[1] : '';
+          
+          // Filter by date range if event date is available
+          if (eventDate) {
+            const eventDateObj = new Date(eventDate);
+            const startDateObj = new Date(startDate);
+            const endDateObj = new Date(endDate);
+            
+            if (eventDateObj < startDateObj || eventDateObj > endDateObj) {
+              continue; // Skip events outside date range
+            }
+          }
           
           const descriptionMatch = event.match(/<description>([^<]*)<\/description>/);
           const description = descriptionMatch ? descriptionMatch[1] : '';
@@ -130,7 +147,8 @@ export async function GET(request: NextRequest) {
             eventDate,
             notes: combinedNotes || 'No notes available',
             source: 'event_profiles',
-            groupId: eventGroupId
+            groupId: eventGroupId,
+            matchType: matchesGroup ? (matchesLeader ? 'group_and_leader' : 'group') : 'leader_name'
           });
         }
       }
@@ -141,6 +159,7 @@ export async function GET(request: NextRequest) {
       groupId,
       startDate,
       endDate,
+      leaderName,
       eventNotes,
       foundGroupEvents: eventNotes.length,
       debug: {
