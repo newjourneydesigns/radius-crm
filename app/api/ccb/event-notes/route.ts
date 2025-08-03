@@ -13,19 +13,53 @@ interface CCBEventNote {
   notes: string;
 }
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { groupId, startDate, endDate }: CCBEventNotesParams = body;
+    const { searchParams } = new URL(request.url);
+    const groupId = searchParams.get('groupId');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
 
-    console.log('🔍 CCB API Request:', { groupId, startDate, endDate });
-
-    // Validate required parameters
     if (!groupId || !startDate || !endDate) {
       return NextResponse.json(
         { error: 'Missing required parameters: groupId, startDate, endDate' },
         { status: 400 }
       );
+    }
+
+    return await processCCBRequest(groupId, startDate, endDate);
+  } catch (error) {
+    console.error('CCB API integration error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { groupId, startDate, endDate }: CCBEventNotesParams = body;
+
+    return await processCCBRequest(groupId, startDate, endDate);
+  } catch (error) {
+    console.error('CCB API integration error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+// Helper function to process CCB API request
+async function processCCBRequest(groupId: string, startDate: string, endDate: string) {
+  try {
+    console.log('🔍 CCB API Request:', { groupId, startDate, endDate });
+
+    // Validate required parameters
+    if (!groupId || !startDate || !endDate) {
+      throw new Error('Missing required parameters: groupId, startDate, endDate');
     }
 
     // Get CCB API credentials from environment variables
@@ -241,9 +275,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('CCB API integration error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    throw error;
   }
 }
