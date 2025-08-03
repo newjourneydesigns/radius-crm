@@ -121,9 +121,9 @@ async function processCCBRequest(groupId: string, startDate: string, endDate: st
     let page = 1;
     let hasMorePages = true;
     
-    // Use a broader search range to capture recurring events - search from 6 months ago
+    // Use a broader search range to capture recurring events - search from 12 months ago
     const searchStartDate = new Date();
-    searchStartDate.setMonth(searchStartDate.getMonth() - 6);
+    searchStartDate.setMonth(searchStartDate.getMonth() - 12);
     const broadSearchStart = searchStartDate.toISOString().split('T')[0];
     
     while (hasMorePages && page <= 10) { // Limit to 10 pages for safety
