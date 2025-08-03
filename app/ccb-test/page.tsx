@@ -55,13 +55,13 @@ export default function CCBTestPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 p-8 text-gray-900">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">CCB API Test Dashboard</h1>
         
         {/* Test Parameters */}
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">Test Parameters</h2>
+        <div className="bg-white rounded-lg shadow p-6 mb-8 text-gray-900">
+          <h2 className="text-xl font-semibold mb-4 text-gray-900">Test Parameters</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -104,8 +104,8 @@ export default function CCBTestPage() {
         </div>
 
         {/* Test Buttons */}
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">Available Tests</h2>
+        <div className="bg-white rounded-lg shadow p-6 mb-8 text-gray-900">
+          <h2 className="text-xl font-semibold mb-4 text-gray-900">Available Tests</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             
             <button
@@ -158,8 +158,8 @@ export default function CCBTestPage() {
         </div>
 
         {/* Results */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Test Results ({results.length})</h2>
+        <div className="bg-white rounded-lg shadow p-6 text-gray-900">
+          <h2 className="text-xl font-semibold mb-4 text-gray-900">Test Results ({results.length})</h2>
           
           {results.length === 0 ? (
             <p className="text-gray-500 text-center py-8">No tests run yet. Click a test button above to get started.</p>
@@ -177,7 +177,7 @@ export default function CCBTestPage() {
                   }`}
                 >
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-semibold text-lg">{result.endpoint}</h3>
+                    <h3 className="font-semibold text-lg text-gray-900">{result.endpoint}</h3>
                     <div className="flex items-center space-x-2">
                       <span
                         className={`px-2 py-1 rounded text-sm font-medium ${
@@ -206,7 +206,7 @@ export default function CCBTestPage() {
                   {result.data && (
                     <div className="mt-2">
                       <details className="cursor-pointer">
-                        <summary className="font-medium text-gray-700 hover:text-gray-900">
+                        <summary className="font-medium text-gray-900 hover:text-gray-700">
                           Response Data
                           {result.data.totalEvents !== undefined && (
                             <span className="ml-2 text-sm text-gray-600">
