@@ -2,6 +2,12 @@
 
 A comprehensive management system for Circle Leaders built with Next.js, Tailwind CSS, and Supabase.
 
+## Features
+- ✅ CCB API Integration with Event Notes
+- ✅ Circle Leader Management  
+- ✅ Dashboard with Filters
+- ✅ Connection Tracking
+
 ## Deployment Status
 ✅ Successfully deployed to Netlify with full mobile responsiveness and database integration.
 
