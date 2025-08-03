@@ -962,15 +962,30 @@ export default function CircleLeaderProfilePage() {
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">CCB Group ID</dt>
                     <dd className="mt-1">
                       {isEditing ? (
-                        <input
-                          type="text"
-                          value={editedLeader.ccb_group_id || ''}
-                          onChange={(e) => handleLeaderFieldChange('ccb_group_id', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="Enter CCB Group ID for API integration"
-                        />
+                        <div>
+                          <input
+                            type="text"
+                            value={editedLeader.ccb_group_id || ''}
+                            onChange={(e) => handleLeaderFieldChange('ccb_group_id', e.target.value)}
+                            className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Enter CCB Group ID for API integration"
+                          />
+                          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            Example working Group IDs: 170, 285, 34. This enables automatic event notes retrieval from CCB.
+                          </p>
+                        </div>
                       ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{leader.ccb_group_id || 'Not provided'}</span>
+                        <div>
+                          <span className="text-sm text-gray-900 dark:text-white">{leader.ccb_group_id || 'Not provided'}</span>
+                          {leader.ccb_group_id && (
+                            <div className="mt-1 flex items-center text-xs text-green-600 dark:text-green-400">
+                              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                              CCB Integration Enabled
+                            </div>
+                          )}
+                        </div>
                       )}
                     </dd>
                   </div>
