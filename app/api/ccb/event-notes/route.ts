@@ -107,159 +107,122 @@ async function processCCBRequest(groupId: string, startDate: string, endDate: st
       console.log('🔍 Test API XML Response:', testXml.substring(0, 1000));
     }
 
-    // Try attendance_profile endpoint with pagination to find all events
-    console.log('🔍 Trying attendance_profile endpoint for specific events...');
+    // Use attendance_profiles service with date range to get all attendance records
+    console.log('🔍 Using attendance_profiles service with date range...');
     
-    // First, we need to get events from event_profiles to get event IDs and dates
-    // Use a broader search range to capture all occurrences of recurring events
-    // CCB events can have multiple occurrences, so we need to search beyond just the requested date range
-    console.log('🔍 Getting events from event_profiles with pagination...');
-    console.log('🔍 Searching for all occurrences, then filtering by requested date range:', startDate, 'to', endDate);
-    
-    const relevantEvents = [];
-    const foundGroupIds = new Set();
-    let page = 1;
-    let hasMorePages = true;
-    
-    // Use a broader search range to capture recurring events - search from 12 months ago
-    const searchStartDate = new Date();
-    searchStartDate.setMonth(searchStartDate.getMonth() - 12);
-    const broadSearchStart = searchStartDate.toISOString().split('T')[0];
-    
-    while (hasMorePages && page <= 10) { // Limit to 10 pages for safety
-      const eventProfilesParams = new URLSearchParams({
-        srv: 'event_profiles',
-        modified_since: broadSearchStart,
-        page: page.toString(),
-        per_page: '100'
+    const attendanceProfilesParams = new URLSearchParams({
+      srv: 'attendance_profiles',
+      start_date: startDate,
+      end_date: endDate
+    });
+
+    const attendanceProfilesUrl = `${CCB_BASE_URL}?${attendanceProfilesParams}`;
+    console.log(`🔍 Fetching attendance profiles:`, attendanceProfilesUrl);
+
+    const attendanceProfilesResponse = await fetch(attendanceProfilesUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Content-Type': 'application/xml',
+      },
+    });
+
+    console.log('🔍 Attendance Profiles Response:', {
+      status: attendanceProfilesResponse.status,
+      statusText: attendanceProfilesResponse.statusText
+    });
+
+    if (!attendanceProfilesResponse.ok) {
+      console.error('Failed to fetch attendance profiles:', attendanceProfilesResponse.status);
+      return NextResponse.json({
+        success: false,
+        error: `Failed to fetch attendance profiles: ${attendanceProfilesResponse.status}`,
+        groupId,
+        startDate,
+        endDate
       });
-
-      const eventProfilesUrl = `${CCB_BASE_URL}?${eventProfilesParams}`;
-      console.log(`🔍 Checking page ${page}:`, eventProfilesUrl);
-
-      const eventProfilesResponse = await fetch(eventProfilesUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Basic ${auth}`,
-          'Content-Type': 'application/xml',
-        },
-      });
-
-      if (eventProfilesResponse.ok) {
-        const eventProfilesXml = await eventProfilesResponse.text();
-        console.log(`🔍 Page ${page} XML Response length:`, eventProfilesXml.length);
-        
-        // Extract events that match our group ID
-        const eventMatches = eventProfilesXml.match(/<event id="[^"]*">[\s\S]*?<\/event>/g) || [];
-        console.log(`🔍 Found ${eventMatches.length} events on page ${page}`);
-        
-        for (const eventMatch of eventMatches) {
-          const eventIdMatch = eventMatch.match(/<event id="([^"]*)">/);
-          const groupIdMatch = eventMatch.match(/<group id="([^"]*)">/);
-          const startDateTimeMatch = eventMatch.match(/<start_datetime>([^<]*)<\/start_datetime>/);
-          const eventNameMatch = eventMatch.match(/<name>([^<]*)<\/name>/);
-          
-          if (groupIdMatch) {
-            foundGroupIds.add(groupIdMatch[1]);
-          }
-          
-          if (eventIdMatch && groupIdMatch && startDateTimeMatch && eventNameMatch) {
-            // Log ALL events for group 3143 to debug
-            if (groupIdMatch[1] === '3143') {
-              const eventDate = startDateTimeMatch[1].split(' ')[0];
-              console.log(`🔍 DEBUG: Found event for group 3143: ID=${eventIdMatch[1]}, Name="${eventNameMatch[1]}", Date=${eventDate}, FullDateTime=${startDateTimeMatch[1]}`);
-            }
-            
-            if (groupIdMatch[1] === groupId) {
-              // Convert datetime to date format for occurrence parameter
-              const eventDate = startDateTimeMatch[1].split(' ')[0]; // Get just the date part
-              
-              // Collect ALL occurrences for this group - we'll filter by date range later after getting attendance data
-              relevantEvents.push({
-                id: eventIdMatch[1],
-                name: eventNameMatch[1],
-                occurrence: eventDate,
-                datetime: startDateTimeMatch[1]
-              });
-              console.log(`📅 Found event occurrence for group ${groupId}: ${eventNameMatch[1]} on ${eventDate} (Event ID: ${eventIdMatch[1]})`);
-            }
-          }
-        }
-        
-        // Check if we have more events (if we got 100 events, there might be more)
-        hasMorePages = eventMatches.length === 100;
-        page++;
-      } else {
-        console.error(`Failed to fetch page ${page}:`, eventProfilesResponse.status);
-        hasMorePages = false;
-      }
     }
+
+    const attendanceProfilesXml = await attendanceProfilesResponse.text();
+    console.log(`🔍 Attendance Profiles XML Response (first 2000 chars):`, attendanceProfilesXml.substring(0, 2000));
     
-    console.log(`🔍 All group IDs found across all pages:`, Array.from(foundGroupIds).sort());
-    console.log(`🔍 Looking for group ID: ${groupId}`);
-    console.log(`🔍 Found ${relevantEvents.length} total events for group ${groupId}`);
-    
-    // Now get attendance_profile for each relevant event
+    // Parse the XML to find events for our specific group
     const eventNotes: CCBEventNote[] = [];
+    const foundGroupIds = new Set();
     
-    for (const event of relevantEvents) {
-      const attendanceProfileParams = new URLSearchParams({
-        srv: 'attendance_profile',
-        id: event.id,
-        occurrence: event.occurrence
-      });
-
-      const attendanceProfileUrl = `${CCB_BASE_URL}?${attendanceProfileParams}`;
-      console.log(`🔍 Getting attendance for event ${event.id} on ${event.occurrence}:`, attendanceProfileUrl);
-
-      const attendanceProfileResponse = await fetch(attendanceProfileUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Basic ${auth}`,
-          'Content-Type': 'application/xml',
-        },
-      });
-
-      if (attendanceProfileResponse.ok) {
-        const attendanceProfileXml = await attendanceProfileResponse.text();
-        console.log(`🔍 Attendance Profile XML for event ${event.id}:`, attendanceProfileXml.substring(0, 1000));
-        
-        // Extract notes from the attendance XML
-        const notesMatch = attendanceProfileXml.match(/<notes>([\s\S]*?)<\/notes>/);
+    // Extract all event blocks from the XML
+    const eventMatches = attendanceProfilesXml.match(/<event id="[^"]*">[\s\S]*?<\/event>/g) || [];
+    console.log(`🔍 Found ${eventMatches.length} events in attendance profiles`);
+    
+    for (const eventMatch of eventMatches) {
+      const eventIdMatch = eventMatch.match(/<event id="([^"]*)">/);
+      const eventNameMatch = eventMatch.match(/<name>([^<]*)<\/name>/);
+      const occurrenceMatch = eventMatch.match(/<occurrence>([^<]*)<\/occurrence>/);
+      const notesMatch = eventMatch.match(/<notes>([\s\S]*?)<\/notes>/);
+      
+      if (eventIdMatch && eventNameMatch && occurrenceMatch) {
+        const eventId = eventIdMatch[1];
+        const eventName = eventNameMatch[1];
+        const occurrence = occurrenceMatch[1];
         const notes = notesMatch && notesMatch[1] ? notesMatch[1].trim() : '';
         
-        // Extract the actual occurrence date from the attendance response
-        const occurrenceMatch = attendanceProfileXml.match(/<occurrence>([^<]*)<\/occurrence>/);
-        const actualEventDate = occurrenceMatch ? occurrenceMatch[1] : event.datetime;
-        const actualEventDateOnly = actualEventDate.split(' ')[0]; // Get just the date part
+        console.log(`� Processing event: ID=${eventId}, Name="${eventName}", Occurrence=${occurrence}`);
         
-        // Filter by the requested date range
-        const eventDateObj = new Date(actualEventDateOnly);
-        const startDateObj = new Date(startDate);
-        const endDateObj = new Date(endDate);
-        
-        if (eventDateObj >= startDateObj && eventDateObj <= endDateObj) {
-          if (notes) {
-            const eventNote: CCBEventNote = {
-              eventId: event.id,
-              eventName: event.name,
-              eventDate: actualEventDate,
-              notes: notes
-            };
+        // We need to get the group information for this event
+        // Use event_profile service to get the group info for this event
+        const eventProfileParams = new URLSearchParams({
+          srv: 'event_profile',
+          id: eventId
+        });
+
+        const eventProfileUrl = `${CCB_BASE_URL}?${eventProfileParams}`;
+        console.log(`🔍 Getting event profile for event ${eventId}:`, eventProfileUrl);
+
+        const eventProfileResponse = await fetch(eventProfileUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Basic ${auth}`,
+            'Content-Type': 'application/xml',
+          },
+        });
+
+        if (eventProfileResponse.ok) {
+          const eventProfileXml = await eventProfileResponse.text();
+          const groupIdMatch = eventProfileXml.match(/<group id="([^"]*)">/);
+          
+          if (groupIdMatch) {
+            const eventGroupId = groupIdMatch[1];
+            foundGroupIds.add(eventGroupId);
             
-            eventNotes.push(eventNote);
-            console.log(`✅ Added event with attendance notes: ${event.name} on ${actualEventDateOnly}`);
+            console.log(`🔍 Event ${eventId} belongs to group ${eventGroupId}`);
+            
+            // Check if this event belongs to our target group
+            if (eventGroupId === groupId) {
+              console.log(`✅ Found matching event for group ${groupId}: ${eventName} on ${occurrence}`);
+              
+              if (notes) {
+                const eventNote: CCBEventNote = {
+                  eventId: eventId,
+                  eventName: eventName,
+                  eventDate: occurrence,
+                  notes: notes
+                };
+                
+                eventNotes.push(eventNote);
+                console.log(`📝 Added event with notes: ${eventName} on ${occurrence}`);
+              } else {
+                console.log(`📝 No notes found for event: ${eventName} on ${occurrence}`);
+              }
+            }
           } else {
-            console.log(`📝 No notes found for event: ${event.name} on ${actualEventDateOnly}`);
+            console.log(`❌ Could not find group ID for event ${eventId}`);
           }
         } else {
-          console.log(`📅 Event outside requested date range: ${event.name} on ${actualEventDateOnly} (requested: ${startDate} to ${endDate})`);
-          if (notes) {
-            console.log(`📝 (Event had notes but was filtered out by date)`);
-          }
+          console.log(`❌ Failed to get event profile for event ${eventId}: ${eventProfileResponse.status}`);
         }
-      } else {
-        console.log(`❌ Failed to get attendance for event ${event.id}: ${attendanceProfileResponse.status}`);
+        
+        // Add a small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
     
@@ -270,10 +233,9 @@ async function processCCBRequest(groupId: string, startDate: string, endDate: st
       endDate,
       eventNotes: eventNotes,
       totalEvents: eventNotes.length,
-      source: 'attendance_profile',
+      source: 'attendance_profiles',
       debug: {
-        searchStartDate: broadSearchStart,
-        totalEventsFound: relevantEvents.length,
+        attendanceEventsFound: eventMatches.length,
         allGroupIdsFound: Array.from(foundGroupIds).slice(0, 10), // First 10 for debugging
         totalGroupIds: foundGroupIds.size
       }
