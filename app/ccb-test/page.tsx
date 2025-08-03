@@ -74,6 +74,9 @@ export default function CCBTestPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="3143"
               />
+              <div className="text-xs text-gray-500 mt-1">
+                Current: {groupId || 'Not set'}
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -211,9 +214,114 @@ export default function CCBTestPage() {
                             </span>
                           )}
                         </summary>
-                        <pre className="mt-2 p-3 bg-gray-100 rounded text-xs overflow-x-auto max-h-40 overflow-y-auto">
-                          {JSON.stringify(result.data, null, 2)}
-                        </pre>
+                        
+                        {/* Formatted Key Information */}
+                        {result.data && (
+                          <div className="mt-3 space-y-3">
+                            {/* Success/Error Status */}
+                            {result.data.success !== undefined && (
+                              <div className="flex items-center space-x-2">
+                                <span className="font-medium text-gray-600">Status:</span>
+                                <span className={`px-2 py-1 rounded text-sm ${result.data.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                  {result.data.success ? 'Success' : 'Failed'}
+                                </span>
+                              </div>
+                            )}
+                            
+                            {/* Group ID and Date Range */}
+                            {result.data.groupId && (
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                <div>
+                                  <span className="font-medium text-gray-600">Group ID:</span>
+                                  <span className="ml-2 font-mono bg-gray-100 px-2 py-1 rounded">{result.data.groupId}</span>
+                                </div>
+                                {result.data.startDate && (
+                                  <div>
+                                    <span className="font-medium text-gray-600">Start Date:</span>
+                                    <span className="ml-2 font-mono bg-gray-100 px-2 py-1 rounded">{result.data.startDate}</span>
+                                  </div>
+                                )}
+                                {result.data.endDate && (
+                                  <div>
+                                    <span className="font-medium text-gray-600">End Date:</span>
+                                    <span className="ml-2 font-mono bg-gray-100 px-2 py-1 rounded">{result.data.endDate}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            
+                            {/* Debug Information */}
+                            {result.data.debug && (
+                              <div className="bg-blue-50 p-3 rounded-lg">
+                                <h4 className="font-medium text-blue-900 mb-2">🔍 Debug Information</h4>
+                                <div className="space-y-2 text-sm">
+                                  <div>
+                                    <span className="font-medium text-blue-700">Search Window:</span>
+                                    <span className="ml-2 font-mono text-blue-600">{result.data.debug.searchStartDate} to today</span>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-blue-700">Events Found for Group:</span>
+                                    <span className="ml-2 font-bold text-blue-800">{result.data.debug.totalEventsFound}</span>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-blue-700">Total Groups Found:</span>
+                                    <span className="ml-2 font-bold text-blue-800">{result.data.debug.totalGroupIds}</span>
+                                  </div>
+                                  {result.data.debug.allGroupIdsFound && result.data.debug.allGroupIdsFound.length > 0 && (
+                                    <div>
+                                      <span className="font-medium text-blue-700">Sample Group IDs:</span>
+                                      <div className="mt-1 flex flex-wrap gap-1">
+                                        {result.data.debug.allGroupIdsFound.map((gid: string, idx: number) => (
+                                          <span key={idx} className="font-mono text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                                            {gid}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Event Notes */}
+                            {result.data.eventNotes && result.data.eventNotes.length > 0 && (
+                              <div className="bg-green-50 p-3 rounded-lg">
+                                <h4 className="font-medium text-green-900 mb-2">📝 Event Notes Found</h4>
+                                {result.data.eventNotes.map((note: any, idx: number) => (
+                                  <div key={idx} className="border-l-4 border-green-400 pl-3 mb-3 last:mb-0">
+                                    <div className="font-medium text-green-800">
+                                      {note.eventName} - {note.eventDate}
+                                    </div>
+                                    <div className="text-sm text-green-700 mt-1">
+                                      Event ID: {note.eventId}
+                                    </div>
+                                    <div className="text-sm text-green-600 mt-2 bg-white p-2 rounded border">
+                                      {note.notes}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            
+                            {/* Error Messages */}
+                            {result.data.error && (
+                              <div className="bg-red-50 p-3 rounded-lg">
+                                <h4 className="font-medium text-red-900 mb-1">❌ Error</h4>
+                                <p className="text-red-700">{result.data.error}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Raw JSON (collapsible) */}
+                        <details className="mt-4 cursor-pointer">
+                          <summary className="text-xs font-medium text-gray-500 hover:text-gray-700">
+                            📋 Raw JSON Response
+                          </summary>
+                          <pre className="mt-2 p-3 bg-gray-100 rounded text-xs overflow-x-auto max-h-40 overflow-y-auto">
+                            {JSON.stringify(result.data, null, 2)}
+                          </pre>
+                        </details>
                       </details>
                     </div>
                   )}
