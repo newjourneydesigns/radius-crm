@@ -143,6 +143,7 @@ async function processCCBRequest(groupId: string, startDate: string, endDate: st
     
     // Parse the XML to extract event information for our specific group
     const eventNotes: any[] = [];
+    const foundGroups = new Set();
     
     // Find all event entries that match our group ID
     const eventRegex = /<event[^>]*>[\s\S]*?<\/event>/g;
@@ -156,6 +157,11 @@ async function processCCBRequest(groupId: string, startDate: string, endDate: st
         // Check if this event belongs to our target group
         const groupMatch = event.match(/<group[^>]*id="([^"]*)"[^>]*>/);
         const eventGroupId = groupMatch ? groupMatch[1] : null;
+        
+        // Collect all group IDs we see for debugging
+        if (eventGroupId) {
+          foundGroups.add(eventGroupId);
+        }
         
         if (eventGroupId === groupId) {
           groupEventsFound++;
@@ -200,6 +206,7 @@ async function processCCBRequest(groupId: string, startDate: string, endDate: st
 
     console.log('Group events found:', groupEventsFound);
     console.log('Notes extracted:', eventNotes.length);
+    console.log('All group IDs found:', Array.from(foundGroups).slice(0, 20)); // First 20 for debugging
 
     return NextResponse.json({
       success: true,
@@ -217,6 +224,7 @@ async function processCCBRequest(groupId: string, startDate: string, endDate: st
         groupEventsFound,
         notesExtracted: eventNotes.length,
         groupTestPassed: true,
+        foundGroupIds: Array.from(foundGroups).slice(0, 50), // Show first 50 group IDs
         sampleXML: xmlData.substring(0, 1000)
       }
     });  } catch (error) {
