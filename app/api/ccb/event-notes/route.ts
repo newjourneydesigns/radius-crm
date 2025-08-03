@@ -77,19 +77,25 @@ export async function POST(request: NextRequest) {
     console.log('🔍 Trying attendance_profile endpoint for specific events...');
     
     // First, we need to get events from event_profiles to get event IDs and dates
-    // Use July 1, 2025 as the search start date to capture July 28 event
-    // Check multiple pages to ensure we find all events
+    // Use a broader search range to capture all occurrences of recurring events
+    // CCB events can have multiple occurrences, so we need to search beyond just the requested date range
     console.log('🔍 Getting events from event_profiles with pagination...');
+    console.log('🔍 Searching for all occurrences, then filtering by requested date range:', startDate, 'to', endDate);
     
     const relevantEvents = [];
     const foundGroupIds = new Set();
     let page = 1;
     let hasMorePages = true;
     
+    // Use a broader search range to capture recurring events - search from 6 months ago
+    const searchStartDate = new Date();
+    searchStartDate.setMonth(searchStartDate.getMonth() - 6);
+    const broadSearchStart = searchStartDate.toISOString().split('T')[0];
+    
     while (hasMorePages && page <= 10) { // Limit to 10 pages for safety
       const eventProfilesParams = new URLSearchParams({
         srv: 'event_profiles',
-        modified_since: '2025-07-01',
+        modified_since: broadSearchStart,
         page: page.toString(),
         per_page: '100'
       });
@@ -124,16 +130,24 @@ export async function POST(request: NextRequest) {
           }
           
           if (eventIdMatch && groupIdMatch && startDateTimeMatch && eventNameMatch) {
+            // Log ALL events for group 3143 to debug
+            if (groupIdMatch[1] === '3143') {
+              const eventDate = startDateTimeMatch[1].split(' ')[0];
+              console.log(`🔍 DEBUG: Found event for group 3143: ID=${eventIdMatch[1]}, Name="${eventNameMatch[1]}", Date=${eventDate}, FullDateTime=${startDateTimeMatch[1]}`);
+            }
+            
             if (groupIdMatch[1] === groupId) {
               // Convert datetime to date format for occurrence parameter
               const eventDate = startDateTimeMatch[1].split(' ')[0]; // Get just the date part
+              
+              // Collect ALL occurrences for this group - we'll filter by date range later after getting attendance data
               relevantEvents.push({
                 id: eventIdMatch[1],
                 name: eventNameMatch[1],
                 occurrence: eventDate,
                 datetime: startDateTimeMatch[1]
               });
-              console.log(`📅 Found relevant event: ${eventNameMatch[1]} on ${eventDate} (Event ID: ${eventIdMatch[1]})`);
+              console.log(`📅 Found event occurrence for group ${groupId}: ${eventNameMatch[1]} on ${eventDate} (Event ID: ${eventIdMatch[1]})`);
             }
           }
         }
@@ -180,18 +194,35 @@ export async function POST(request: NextRequest) {
         const notesMatch = attendanceProfileXml.match(/<notes>([\s\S]*?)<\/notes>/);
         const notes = notesMatch && notesMatch[1] ? notesMatch[1].trim() : '';
         
-        if (notes) {
-          const eventNote: CCBEventNote = {
-            eventId: event.id,
-            eventName: event.name,
-            eventDate: event.datetime,
-            notes: notes
-          };
-          
-          eventNotes.push(eventNote);
-          console.log(`✅ Added event with attendance notes: ${event.name}`);
+        // Extract the actual occurrence date from the attendance response
+        const occurrenceMatch = attendanceProfileXml.match(/<occurrence>([^<]*)<\/occurrence>/);
+        const actualEventDate = occurrenceMatch ? occurrenceMatch[1] : event.datetime;
+        const actualEventDateOnly = actualEventDate.split(' ')[0]; // Get just the date part
+        
+        // Filter by the requested date range
+        const eventDateObj = new Date(actualEventDateOnly);
+        const startDateObj = new Date(startDate);
+        const endDateObj = new Date(endDate);
+        
+        if (eventDateObj >= startDateObj && eventDateObj <= endDateObj) {
+          if (notes) {
+            const eventNote: CCBEventNote = {
+              eventId: event.id,
+              eventName: event.name,
+              eventDate: actualEventDate,
+              notes: notes
+            };
+            
+            eventNotes.push(eventNote);
+            console.log(`✅ Added event with attendance notes: ${event.name} on ${actualEventDateOnly}`);
+          } else {
+            console.log(`📝 No notes found for event: ${event.name} on ${actualEventDateOnly}`);
+          }
         } else {
-          console.log(`📝 No notes found for event: ${event.name}`);
+          console.log(`📅 Event outside requested date range: ${event.name} on ${actualEventDateOnly} (requested: ${startDate} to ${endDate})`);
+          if (notes) {
+            console.log(`📝 (Event had notes but was filtered out by date)`);
+          }
         }
       } else {
         console.log(`❌ Failed to get attendance for event ${event.id}: ${attendanceProfileResponse.status}`);
