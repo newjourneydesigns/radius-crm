@@ -94,7 +94,7 @@ export default function CircleLeaderCard({
           </p>
         </div>
 
-        {/* Contact & CCB Profile */}
+        {/* Contact Info */}
         <div className="grid grid-cols-1 gap-3 mb-4">
           {(leader.email || leader.phone) && (
             <button 
@@ -106,20 +106,6 @@ export default function CircleLeaderCard({
               </svg>
               Contact Info
             </button>
-          )}
-          
-          {leader.ccb_profile_link && (
-            <a 
-              href={leader.ccb_profile_link} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="flex items-center justify-center px-4 py-2 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors text-sm font-medium"
-            >
-              CCB Profile
-              <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-            </a>
           )}
         </div>
 

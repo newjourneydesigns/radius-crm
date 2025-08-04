@@ -14,109 +14,59 @@ export const useCircleLeaders = () => {
     }
 
     console.log('Starting to load circle leaders...');
-    console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
-    console.log('Supabase key exists:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
     
     loadingRef.current = true;
     setIsLoading(true);
     setError(null);
 
-    // Set a timeout to prevent infinite hanging
-    const timeoutId = setTimeout(() => {
-      console.error('LoadCircleLeaders timed out after 30 seconds');
-      setError('Loading timed out. Please refresh the page.');
-      setIsLoading(false);
-      loadingRef.current = false;
-    }, 30000);
-
     try {
-      // Load circle leaders
+      // Load circle leaders with only needed fields
       console.log('Querying circle_leaders table...');
       const { data: leaders, error: leadersError } = await supabase
         .from('circle_leaders')
         .select('id, name, email, phone, campus, acpd, status, meeting_day, circle_type, meeting_frequency, event_summary_received')
         .order('name');
 
-      console.log('Supabase response received');
-      console.log('Leaders count:', leaders?.length || 0);
-      console.log('Leaders error:', leadersError);
-
       if (leadersError) {
         console.error('Error loading circle leaders:', leadersError);
         throw leadersError;
       }
 
-      console.log('About to fetch notes for all leaders...');
-      // Get all latest notes for all leaders in one query
-      console.log('Fetching notes for all leaders...');
+      console.log('Loaded', leaders?.length || 0, 'circle leaders');
+
+      // Get all notes in one query and map to leaders
+      console.log('Fetching notes...');
       const { data: allNotes, error: notesError } = await supabase
         .from('notes')
         .select('id, content, created_at, created_by, circle_leader_id')
         .order('created_at', { ascending: false });
 
-      console.log('Notes query completed. Notes count:', allNotes?.length || 0);
-      console.log('Notes error:', notesError);
-
       if (notesError) {
         console.error('Error loading notes:', notesError);
       }
 
-      console.log('Starting to process notes...');
       // Create a map of leader_id to their latest note
       const latestNotesMap = new Map();
       if (allNotes) {
-        console.log('Processing', allNotes.length, 'notes');
         allNotes.forEach(note => {
           if (!latestNotesMap.has(note.circle_leader_id)) {
             latestNotesMap.set(note.circle_leader_id, note);
           }
         });
       }
-      console.log('Notes map created with', latestNotesMap.size, 'entries');
 
-      console.log('Combining leaders with notes...');
       // Combine leaders with their latest notes
       const leadersWithNotes = (leaders || []).map(leader => ({
         ...leader,
         last_note: latestNotesMap.get(leader.id) || null
       }));
 
-      console.log('Leaders with notes processed. Count:', leadersWithNotes.length);
-
-      console.log('Loaded leaders with notes count:', leadersWithNotes.length);
-
-      // Set the leaders data
+      console.log('Setting circle leaders:', leadersWithNotes.length);
       setCircleLeaders(leadersWithNotes);
-      console.log('Circle leaders set successfully');
-
-      // Clear the timeout since we completed successfully
-      clearTimeout(timeoutId);
 
     } catch (error: any) {
-      // Clear the timeout
-      clearTimeout(timeoutId);
-      
       console.error('Error loading circle leaders:', error);
-      console.error('Error details:', {
-        message: error.message,
-        code: error.code,
-        details: error.details,
-        hint: error.hint,
-        status: error.status
-      });
-      
-      // Check if this is a configuration issue
-      if (error.message?.includes('Invalid API key') || error.message?.includes('Project not found')) {
-        setError('Database configuration error. Please check environment variables.');
-      } else if (error.message?.includes('timeout')) {
-        setError('Loading taking longer than expected. Please refresh if needed.');
-      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
-        setError('Network error. Please check your connection and try again.');
-      } else if (error.message?.includes('auth') || error.code === 'PGRST301') {
-        setError('Authentication error. Please log in again.');
-      } else {
-        setError('Error loading circle leaders. Please refresh the page.');
-      }
+      setError('Error loading circle leaders. Please refresh the page.');
     } finally {
       setIsLoading(false);
       loadingRef.current = false;

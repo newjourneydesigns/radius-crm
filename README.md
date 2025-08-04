@@ -3,7 +3,6 @@
 A comprehensive management system for Circle Leaders built with Next.js, Tailwind CSS, and Supabase.
 
 ## Features
-- ✅ CCB API Integration with Event Notes
 - ✅ Circle Leader Management  
 - ✅ Dashboard with Filters
 - ✅ Connection Tracking
@@ -20,7 +19,6 @@ A comprehensive management system for Circle Leaders built with Next.js, Tailwin
 - 🔄 **Real-Time Updates**: Live data from Supabase with automatic syncing
 - 🎨 **Modern UI**: Clean, accessible interface with dark mode support
 - 🔐 **Authentication**: Secure login with role-based access control
-- 🔌 **CCB Integration**: View event notes from Church Community Builder API
 
 ## Tech Stack
 
@@ -138,17 +136,12 @@ See `database_schema_073025.sql` for the complete schema.
 - Meeting schedules and preferences
 - Notes and follow-up tracking
 - Event summary status
-- CCB profile integration
 
 ### Mobile Experience
 - Hamburger navigation menu
 - Bottom tab navigation
 - Touch-optimized interface
 - Responsive forms and modals
-
-## CCB Integration
-
-The system now includes integration with Church Community Builder (CCB) API to display event notes for Circle Leaders. See [CCB Integration Documentation](./docs/CCB_INTEGRATION.md) for setup and configuration details.
 
 ## Contributing
 

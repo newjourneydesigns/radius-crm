@@ -41,8 +41,6 @@ export interface CircleLeader {
   frequency?: string;
   circle_type?: 'Men\'s' | 'Women\'s' | 'Young Adult | Coed' | 'Young Adult | Men\'s' | 'Young Adult | Women\'s' | 'Young Adult | Couple\'s';
   event_summary_received?: boolean;
-  ccb_profile_link?: string;
-  ccb_group_id?: string;
   follow_up_date?: string;
   follow_up_note?: string;
   uuid?: string;
