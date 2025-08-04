@@ -34,7 +34,7 @@ export default function ProtectedRoute({ children, requireAuth = true }: Protect
         console.warn('Authentication timeout reached, forcing refresh');
         setTimeoutReached(true);
       }
-    }, 5000); // Reduced to 5 second timeout
+    }, 7000); // 7 second timeout to allow for auth context fallback
 
     return () => clearTimeout(timeout);
   }, [loading]);

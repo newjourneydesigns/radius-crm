@@ -36,10 +36,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (session?.user) {
           console.log('🔍 AuthContext: Fetching user profile for:', session.user.id);
           
-          // Add timeout to profile fetch
+          // Optimize query by selecting only necessary fields
           const profilePromise = supabase
             .from('users')
-            .select('*')
+            .select('id, email, name, role')
             .eq('id', session.user.id)
             .single();
 
@@ -55,14 +55,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               setUser(profile);
             } else if (error) {
               console.error('❌ AuthContext: Error fetching user profile:', error);
-              // If profile fetch fails, sign out to clear bad session
-              await supabase.auth.signOut();
-              setUser(null);
+              
+              // Fallback: Create a basic user object from auth data
+              console.log('🔄 AuthContext: Using fallback user data from auth');
+              const fallbackUser = {
+                id: session.user.id,
+                email: session.user.email || '',
+                name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
+                role: 'Viewer' as const // Default role
+              };
+              setUser(fallbackUser);
             }
           } catch (timeoutError) {
-            console.error('❌ AuthContext: Profile fetch timed out, clearing session');
-            await supabase.auth.signOut();
-            setUser(null);
+            console.error('❌ AuthContext: Initial profile fetch timed out, using fallback');
+            console.log('🔄 AuthContext: Creating fallback user from initial session data');
+            
+            // Fallback: Create a basic user object from auth data
+            const fallbackUser = {
+              id: session.user.id,
+              email: session.user.email || '',
+              name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
+              role: 'Viewer' as const // Default role
+            };
+            console.log('✅ AuthContext: Initial fallback user created:', fallbackUser.name);
+            setUser(fallbackUser);
           }
         }
       } catch (error) {
@@ -83,10 +99,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (session?.user) {
           console.log('🔍 AuthContext: Auth change - fetching user profile');
           
-          // Add timeout to profile fetch in auth change too
+          // Optimize query by selecting only necessary fields
           const profilePromise = supabase
             .from('users')
-            .select('*')
+            .select('id, email, name, role')
             .eq('id', session.user.id)
             .single();
 
@@ -102,14 +118,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               setUser(profile);
             } else if (error) {
               console.error('❌ AuthContext: Error fetching user profile in auth change:', error);
-              // If profile fetch fails, sign out to clear bad session
-              await supabase.auth.signOut();
-              setUser(null);
+              
+              // Fallback: Create a basic user object from auth data
+              console.log('🔄 AuthContext: Auth change - using fallback user data');
+              const fallbackUser = {
+                id: session.user.id,
+                email: session.user.email || '',
+                name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
+                role: 'Viewer' as const // Default role
+              };
+              setUser(fallbackUser);
             }
           } catch (timeoutError) {
-            console.error('❌ AuthContext: Auth change profile fetch timed out, clearing session');
-            await supabase.auth.signOut();
-            setUser(null);
+            console.error('❌ AuthContext: Auth change profile fetch timed out, using fallback');
+            console.log('🔄 AuthContext: Creating fallback user from session data');
+            
+            // Fallback: Create a basic user object from auth data
+            const fallbackUser = {
+              id: session.user.id,
+              email: session.user.email || '',
+              name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
+              role: 'Viewer' as const // Default role
+            };
+            console.log('✅ AuthContext: Fallback user created:', fallbackUser.name);
+            setUser(fallbackUser);
           }
         } else {
           console.log('🔍 AuthContext: Auth change - clearing user');
