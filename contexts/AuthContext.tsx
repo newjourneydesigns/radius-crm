@@ -6,6 +6,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  clearAuthData: () => Promise<void>;
   isAuthenticated: () => boolean;
   isAdmin: () => boolean;
 }
@@ -27,20 +28,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     // Get initial session
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user) {
-        // Get user profile from our users table
-        const { data: profile } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
+      console.log('🔍 AuthContext: Getting initial session...');
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log('🔍 AuthContext: Initial session:', session ? 'Found' : 'None');
         
-        if (profile) {
-          setUser(profile);
+        if (session?.user) {
+          console.log('🔍 AuthContext: Fetching user profile for:', session.user.id);
+          // Get user profile from our users table
+          const { data: profile, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (profile) {
+            console.log('🔍 AuthContext: User profile loaded:', profile.name);
+            setUser(profile);
+          } else if (error) {
+            console.error('❌ AuthContext: Error fetching user profile:', error);
+            // If profile fetch fails, sign out to clear bad session
+            await supabase.auth.signOut();
+            setUser(null);
+          }
         }
+      } catch (error) {
+        console.error('❌ AuthContext: Error getting session:', error);
+        // Clear any bad session data
+        setUser(null);
       }
+      console.log('✅ AuthContext: Initial session check complete');
       setLoading(false);
     };
 
@@ -48,18 +65,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        // Get user profile
-        const { data: profile } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (profile) {
-          setUser(profile);
+      console.log('🔍 AuthContext: Auth state change:', event, session ? 'Session exists' : 'No session');
+      try {
+        if (session?.user) {
+          console.log('🔍 AuthContext: Auth change - fetching user profile');
+          // Get user profile
+          const { data: profile, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (profile) {
+            console.log('🔍 AuthContext: Auth change - profile loaded:', profile.name);
+            setUser(profile);
+          } else if (error) {
+            console.error('❌ AuthContext: Error fetching user profile in auth change:', error);
+            // If profile fetch fails, sign out to clear bad session
+            await supabase.auth.signOut();
+            setUser(null);
+          }
+        } else {
+          console.log('🔍 AuthContext: Auth change - clearing user');
+          setUser(null);
         }
-      } else {
+      } catch (error) {
+        console.error('❌ AuthContext: Error in auth state change:', error);
         setUser(null);
       }
       setLoading(false);
@@ -87,6 +118,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(null);
   };
 
+  const clearAuthData = async () => {
+    try {
+      // Sign out from Supabase
+      await supabase.auth.signOut();
+      // Clear local state
+      setUser(null);
+      // Clear any localStorage data (if any)
+      if (typeof window !== 'undefined') {
+        localStorage.clear();
+        sessionStorage.clear();
+      }
+    } catch (error) {
+      console.error('Error clearing auth data:', error);
+      // Force clear local state even if signOut fails
+      setUser(null);
+    }
+  };
+
   const isAuthenticated = () => {
     return user !== null;
   };
@@ -100,6 +149,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     loading,
     signIn,
     signOut,
+    clearAuthData,
     isAuthenticated,
     isAdmin,
   };
