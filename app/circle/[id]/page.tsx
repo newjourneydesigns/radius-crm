@@ -7,6 +7,7 @@ import { useCircleLeaders } from '../../../hooks/useCircleLeaders';
 import AlertModal from '../../../components/ui/AlertModal';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 import LogConnectionModal from '../../../components/dashboard/LogConnectionModal';
+import ProtectedRoute from '../../../components/ProtectedRoute';
 
 // Helper function to format time to AM/PM
 const formatTimeToAMPM = (time: string | undefined | null): string => {
@@ -52,6 +53,56 @@ const convertAMPMTo24Hour = (time: string | undefined | null): string => {
   }
   
   return `${hour24.toString().padStart(2, '0')}:${minutes}`;
+};
+
+// Helper function to get follow-up date status
+const getFollowUpStatus = (dateString: string | undefined | null): { 
+  isOverdue: boolean; 
+  isApproaching: boolean; 
+  daysUntil: number;
+} => {
+  if (!dateString) return { isOverdue: false, isApproaching: false, daysUntil: 0 };
+  
+  try {
+    // Parse the date as local date to avoid timezone issues
+    const [year, month, day] = dateString.split('-').map(Number);
+    const followUpDate = new Date(year, month - 1, day); // month is 0-indexed
+    const today = new Date();
+    
+    // Reset time to compare just dates
+    followUpDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    
+    const diffTime = followUpDate.getTime() - today.getTime();
+    const daysUntil = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return {
+      isOverdue: daysUntil < 0,
+      isApproaching: daysUntil >= 0 && daysUntil <= 3, // Approaching if within 3 days
+      daysUntil
+    };
+  } catch (error) {
+    return { isOverdue: false, isApproaching: false, daysUntil: 0 };
+  }
+};
+
+// Helper function to format date for display (avoiding timezone issues)
+const formatDateForDisplay = (dateString: string | undefined | null): string => {
+  if (!dateString) return 'Not set';
+  
+  try {
+    // Parse the date as local date to avoid timezone issues
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day); // month is 0-indexed
+    
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long', 
+      day: 'numeric'
+    });
+  } catch (error) {
+    return dateString; // Fallback to raw string
+  }
 };
 
 // Helper function to convert AM/PM time to 24-hour format for input
@@ -120,6 +171,7 @@ export default function CircleLeaderProfilePage() {
   const [isSavingLeader, setIsSavingLeader] = useState(false);
   const [leaderError, setLeaderError] = useState('');
   const [directors, setDirectors] = useState<Array<{id: number, name: string}>>([]);
+  const [showLogConnectionModal, setShowLogConnectionModal] = useState(false);
   
   // Reference data state
   const [campuses, setCampuses] = useState<Array<{id: number, value: string}>>([]);
@@ -251,6 +303,23 @@ export default function CircleLeaderProfilePage() {
       }, 100);
     }
   }, []);
+
+  // Function to reload notes data
+  const reloadNotes = async () => {
+    try {
+      const { data: notesData, error: notesError } = await supabase
+        .from('notes')
+        .select('*')
+        .eq('circle_leader_id', leaderId)
+        .order('created_at', { ascending: false });
+
+      if (notesData && !notesError) {
+        setNotes(notesData);
+      }
+    } catch (error) {
+      console.error('Error reloading notes:', error);
+    }
+  };
 
   const handleAddNote = async () => {
     if (!newNote.trim()) return;
@@ -512,7 +581,8 @@ export default function CircleLeaderProfilePage() {
       day: leader.day,
       time: leader.time,
       frequency: leader.frequency,
-      circle_type: leader.circle_type
+      circle_type: leader.circle_type,
+      follow_up_date: leader.follow_up_date
     });
   };
 
@@ -535,7 +605,8 @@ export default function CircleLeaderProfilePage() {
           day: editedLeader.day || null,
           time: editedLeader.time || null,
           frequency: editedLeader.frequency || null,
-          circle_type: editedLeader.circle_type || null
+          circle_type: editedLeader.circle_type || null,
+          follow_up_date: editedLeader.follow_up_date || null
         })
         .eq('id', leaderId)
         .select()
@@ -588,10 +659,19 @@ export default function CircleLeaderProfilePage() {
   };
 
   const handleLeaderFieldChange = (field: keyof CircleLeader, value: string) => {
-    setEditedLeader(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setEditedLeader(prev => {
+      const updated = {
+        ...prev,
+        [field]: value
+      };
+      
+      // If status is changed from follow-up to something else, clear the follow-up date
+      if (field === 'status' && value !== 'follow-up' && prev.follow_up_date) {
+        updated.follow_up_date = '';
+      }
+      
+      return updated;
+    });
   };
 
   const formatDateTime = (dateString: string) => {
@@ -630,41 +710,46 @@ export default function CircleLeaderProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-2"></div>
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-8"></div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <div className="space-y-4">
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+      <ProtectedRoute>
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="animate-pulse">
+              <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-2"></div>
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-8"></div>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <div className="space-y-4">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </ProtectedRoute>
     );
   }
 
   if (!leader) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Leader Not Found</h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">The requested Circle Leader could not be found.</p>
-          <a href="/dashboard" className="text-blue-600 dark:text-blue-400 hover:underline">
-            Return to Dashboard
-          </a>
+      <ProtectedRoute>
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Leader Not Found</h1>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">The requested Circle Leader could not be found.</p>
+            <a href="/dashboard" className="text-blue-600 dark:text-blue-400 hover:underline">
+              Return to Dashboard
+            </a>
+          </div>
         </div>
-      </div>
+      </ProtectedRoute>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center mb-4">
@@ -839,6 +924,50 @@ export default function CircleLeaderProfilePage() {
                       )}
                     </dd>
                   </div>
+                  {/* Follow-up Date Field - Only show when status is follow-up */}
+                  {(leader.status === 'follow-up' || editedLeader.status === 'follow-up') && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Follow-up Date</dt>
+                      <dd className="mt-1">
+                        {isEditing ? (
+                          <input
+                            type="date"
+                            value={editedLeader.follow_up_date || leader.follow_up_date || ''}
+                            onChange={(e) => handleLeaderFieldChange('follow_up_date', e.target.value)}
+                            className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        ) : (
+                          <span className={`text-sm ${
+                            leader.follow_up_date ? (
+                              getFollowUpStatus(leader.follow_up_date).isOverdue 
+                                ? 'text-red-600 dark:text-red-400 font-medium' 
+                                : getFollowUpStatus(leader.follow_up_date).isApproaching
+                                ? 'text-yellow-600 dark:text-yellow-400 font-medium'
+                                : 'text-gray-900 dark:text-white'
+                            ) : 'text-gray-900 dark:text-white'
+                          }`}>
+                            {leader.follow_up_date ? (
+                              <>
+                                {formatDateForDisplay(leader.follow_up_date)}
+                                {getFollowUpStatus(leader.follow_up_date).isOverdue && (
+                                  <span className="ml-2 text-xs bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400 px-2 py-1 rounded-full">
+                                    Overdue
+                                  </span>
+                                )}
+                                {getFollowUpStatus(leader.follow_up_date).isApproaching && !getFollowUpStatus(leader.follow_up_date).isOverdue && (
+                                  <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400 px-2 py-1 rounded-full">
+                                    Due Soon
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              'Not set'
+                            )}
+                          </span>
+                        )}
+                      </dd>
+                    </div>
+                  )}
                   <div>
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Circle Type</dt>
                     <dd className="mt-1">
@@ -918,6 +1047,35 @@ export default function CircleLeaderProfilePage() {
                         </select>
                       ) : (
                         <span className="text-sm text-gray-900 dark:text-white">{leader.frequency || 'Not specified'}</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">CCB Profile Link</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="url"
+                          value={editedLeader.ccb_profile_link || ''}
+                          onChange={(e) => handleLeaderFieldChange('ccb_profile_link', e.target.value)}
+                          placeholder="https://example.ccbchurch.com/..."
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">
+                          {leader.ccb_profile_link ? (
+                            <a 
+                              href={leader.ccb_profile_link} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline"
+                            >
+                              View CCB Profile
+                            </a>
+                          ) : (
+                            'Not specified'
+                          )}
+                        </span>
                       )}
                     </dd>
                   </div>
@@ -1030,6 +1188,15 @@ export default function CircleLeaderProfilePage() {
                   </svg>
                   Call Leader
                   {!leader?.phone && <span className="ml-auto text-xs text-gray-400">(No phone)</span>}
+                </button>
+                <button 
+                  onClick={() => setShowLogConnectionModal(true)}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors flex items-center"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Log Connection
                 </button>
               </div>
             </div>
@@ -1241,6 +1408,27 @@ export default function CircleLeaderProfilePage() {
         title={showAlert.title}
         message={showAlert.message}
       />
-    </div>
+
+      {/* Log Connection Modal */}
+      <LogConnectionModal
+        isOpen={showLogConnectionModal}
+        onClose={() => setShowLogConnectionModal(false)}
+        circleLeaderId={leader?.id || 0}
+        circleLeaderName={leader?.name || ''}
+        onConnectionLogged={async () => {
+          // Reload notes to show the new connection log
+          await reloadNotes();
+          
+          // Show success message
+          setShowAlert({
+            isOpen: true,
+            type: 'success',
+            title: 'Connection Logged',
+            message: 'Connection has been successfully logged.'
+          });
+        }}
+      />
+      </div>
+    </ProtectedRoute>
   );
 }

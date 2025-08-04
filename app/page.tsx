@@ -1,14 +1,17 @@
+import ProtectedRoute from '../components/ProtectedRoute';
+
 export default function Page() {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
-        {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Welcome to RADIUS</h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Circle Leader Management System
-          </p>
-        </div>
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
+          {/* Header */}
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Welcome to RADIUS</h1>
+            <p className="mt-2 text-gray-600 dark:text-gray-400">
+              Circle Leader Management System
+            </p>
+          </div>
 
         {/* Main Content */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
@@ -97,6 +100,7 @@ export default function Page() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </ProtectedRoute>
   );
 }

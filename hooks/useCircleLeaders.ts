@@ -24,7 +24,7 @@ export const useCircleLeaders = () => {
       console.log('Querying circle_leaders table...');
       const { data: leaders, error: leadersError } = await supabase
         .from('circle_leaders')
-        .select('id, name, email, phone, campus, acpd, status, day, time, frequency, circle_type, event_summary_received')
+        .select('id, name, email, phone, campus, acpd, status, day, time, frequency, circle_type, event_summary_received, follow_up_date, ccb_profile_link')
         .order('name');
 
       if (leadersError) {
@@ -131,6 +131,35 @@ export const useCircleLeaders = () => {
     }
   };
 
+  const updateStatus = async (leaderId: number, newStatus: string) => {
+    try {
+      // Update in database
+      const { error } = await supabase
+        .from('circle_leaders')
+        .update({ status: newStatus })
+        .eq('id', leaderId);
+
+      if (error) {
+        console.error('Error updating status:', error);
+        throw error;
+      }
+
+      // Update local state
+      setCircleLeaders(prev => 
+        prev.map(leader => 
+          leader.id === leaderId
+            ? { ...leader, status: newStatus as CircleLeader['status'] }
+            : leader
+        )
+      );
+
+    } catch (error) {
+      console.error('Error in updateStatus:', error);
+      setError('Error updating status');
+      throw error;
+    }
+  };
+
   const bulkUpdateStatus = async (leaderIds: number[], newStatus: string) => {
     try {
       // Update in database
@@ -201,6 +230,7 @@ export const useCircleLeaders = () => {
     loadCircleLeaders,
     toggleEventSummary,
     resetEventSummaryCheckboxes,
+    updateStatus,
     bulkUpdateStatus,
     deleteCircleLeader
   };

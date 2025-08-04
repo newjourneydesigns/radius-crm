@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase } from '../../lib/supabase';
+import ProtectedRoute from '../../components/ProtectedRoute';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -38,25 +39,26 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center py-6 sm:py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-6 sm:space-y-8">
-        <div>
-          <div className="mx-auto h-20 w-20 flex items-center justify-center">
-            <Image 
-              src="/icon-192x192.png" 
-              alt="RADIUS Logo" 
-              width={80} 
-              height={80}
-              className="rounded-lg"
-            />
+    <ProtectedRoute requireAuth={false}>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center py-6 sm:py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-6 sm:space-y-8">
+          <div>
+            <div className="mx-auto h-20 w-20 flex items-center justify-center">
+              <Image 
+                src="/icon-192x192.png" 
+                alt="RADIUS Logo" 
+                width={80} 
+                height={80}
+                className="rounded-lg"
+              />
+            </div>
+            <h2 className="mt-4 sm:mt-6 text-center text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+              Sign in to RADIUS
+            </h2>
+            <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
+              Access your Circle Leader dashboard
+            </p>
           </div>
-          <h2 className="mt-4 sm:mt-6 text-center text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-            Sign in to RADIUS
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
-            Access your Circle Leader dashboard
-          </p>
-        </div>
 
         <form className="mt-6 sm:mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
@@ -140,6 +142,7 @@ export default function LoginPage() {
           </div>
         </form>
       </div>
-    </div>
+      </div>
+    </ProtectedRoute>
   );
 }

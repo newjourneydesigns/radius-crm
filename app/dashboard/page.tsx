@@ -10,6 +10,7 @@ import ConnectionsProgress from '../../components/dashboard/ConnectionsProgress'
 import LogConnectionModal from '../../components/dashboard/LogConnectionModal';
 import ConfirmModal from '../../components/ui/ConfirmModal';
 import AlertModal from '../../components/ui/AlertModal';
+import ProtectedRoute from '../../components/ProtectedRoute';
 import { useDashboardFilters } from '../../hooks/useDashboardFilters';
 import { useCircleLeaders } from '../../hooks/useCircleLeaders';
 import { CircleLeader } from '../../lib/supabase';
@@ -37,6 +38,7 @@ export default function DashboardPage() {
     loadCircleLeaders,
     toggleEventSummary, 
     resetEventSummaryCheckboxes,
+    updateStatus,
     bulkUpdateStatus
   } = useCircleLeaders();
 
@@ -215,6 +217,26 @@ export default function DashboardPage() {
     }
   };
 
+  const handleUpdateStatus = async (leaderId: number, newStatus: string) => {
+    try {
+      await updateStatus(leaderId, newStatus);
+      setShowAlert({
+        isOpen: true,
+        type: 'success',
+        title: 'Status Updated',
+        message: 'Circle status has been updated successfully.'
+      });
+    } catch (error) {
+      console.error('Error updating status:', error);
+      setShowAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Update Failed',
+        message: 'Failed to update status. Please try again.'
+      });
+    }
+  };
+
   const openContactModal = (leaderId: number, name: string, email: string, phone: string) => {
     setContactModal({
       isOpen: true,
@@ -283,10 +305,11 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
-        {/* Header */}
-        <div className="mb-6 sm:mb-8">
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
+          {/* Header */}
+          <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
           <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-400">
             Manage and track your Circle Leaders
@@ -335,14 +358,24 @@ export default function DashboardPage() {
           </div>
 
           {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div className="space-y-4">
               {[...Array(6)].map((_, i) => (
                 <div key={i} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 animate-pulse">
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
-                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 pr-6">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-2"></div>
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-2"></div>
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+                    </div>
+                    <div className="flex-1 px-6">
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                    </div>
+                    <div className="flex space-x-2">
+                      <div className="h-8 w-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      <div className="h-8 w-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      <div className="h-8 w-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -370,7 +403,7 @@ export default function DashboardPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div className="space-y-4">
               {filteredLeaders.map(leader => (
                 <CircleLeaderCard
                   key={leader.id}
@@ -378,6 +411,7 @@ export default function DashboardPage() {
                   onToggleEventSummary={handleToggleEventSummary}
                   onOpenContactModal={openContactModal}
                   onLogConnection={openLogConnectionModal}
+                  onUpdateStatus={handleUpdateStatus}
                   isAdmin={isAdmin}
                 />
               ))}
@@ -424,6 +458,7 @@ export default function DashboardPage() {
         title={showAlert.title}
         message={showAlert.message}
       />
-    </div>
+      </div>
+    </ProtectedRoute>
   );
 }

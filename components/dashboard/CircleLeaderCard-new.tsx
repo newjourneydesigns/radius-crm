@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { CircleLeader } from '../../lib/supabase';
 
 // Helper function to format time to AM/PM
@@ -28,63 +28,12 @@ const formatTimeToAMPM = (time: string | undefined | null): string => {
   }
 };
 
-// Helper function to format date for display
-const formatDate = (dateString: string | undefined | null): string => {
-  if (!dateString) return '';
-  
-  try {
-    // Parse the date as local date to avoid timezone issues
-    const [year, month, day] = dateString.split('-').map(Number);
-    const date = new Date(year, month - 1, day); // month is 0-indexed
-    
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  } catch (error) {
-    return '';
-  }
-};
-
-// Helper function to get follow-up date status
-const getFollowUpStatus = (dateString: string | undefined | null): { 
-  isOverdue: boolean; 
-  isApproaching: boolean; 
-  daysUntil: number;
-} => {
-  if (!dateString) return { isOverdue: false, isApproaching: false, daysUntil: 0 };
-  
-  try {
-    // Parse the date as local date to avoid timezone issues
-    const [year, month, day] = dateString.split('-').map(Number);
-    const followUpDate = new Date(year, month - 1, day); // month is 0-indexed
-    const today = new Date();
-    
-    // Reset time to compare just dates
-    followUpDate.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-    
-    const diffTime = followUpDate.getTime() - today.getTime();
-    const daysUntil = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    return {
-      isOverdue: daysUntil < 0,
-      isApproaching: daysUntil >= 0 && daysUntil <= 3, // Approaching if within 3 days
-      daysUntil
-    };
-  } catch (error) {
-    return { isOverdue: false, isApproaching: false, daysUntil: 0 };
-  }
-};
-
 interface CircleLeaderCardProps {
   leader: CircleLeader;
   isAdmin: boolean;
   onToggleEventSummary: (leaderId: number, isChecked: boolean) => void;
   onOpenContactModal: (leaderId: number, name: string, email: string, phone: string) => void;
   onLogConnection?: (leaderId: number, name: string) => void;
-  onUpdateStatus?: (leaderId: number, newStatus: string) => void;
 }
 
 export default function CircleLeaderCard({ 
@@ -92,8 +41,7 @@ export default function CircleLeaderCard({
   isAdmin, 
   onToggleEventSummary, 
   onOpenContactModal,
-  onLogConnection,
-  onUpdateStatus
+  onLogConnection
 }: CircleLeaderCardProps) {
   const statusColors = {
     'invited': 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
@@ -103,34 +51,6 @@ export default function CircleLeaderCard({
     'paused': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300',
     'off-boarding': 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300'
   };
-
-  const statusOptions = [
-    { value: 'invited', label: 'Invited' },
-    { value: 'pipeline', label: 'Pipeline' },
-    { value: 'active', label: 'Active' },
-    { value: 'paused', label: 'Paused' },
-    { value: 'follow-up', label: 'Follow Up' },
-    { value: 'off-boarding', label: 'Off-boarding' }
-  ];
-
-  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (showStatusDropdown) {
-        setShowStatusDropdown(false);
-      }
-    };
-
-    if (showStatusDropdown) {
-      document.addEventListener('click', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, [showStatusDropdown]);
 
   const handleEventSummaryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onToggleEventSummary(leader.id, e.target.checked);
@@ -144,11 +64,6 @@ export default function CircleLeaderCard({
     onLogConnection?.(leader.id, leader.name);
   };
 
-  const handleStatusChange = (newStatus: string) => {
-    onUpdateStatus?.(leader.id, newStatus);
-    setShowStatusDropdown(false);
-  };
-
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-lg transition-all duration-200 border border-gray-100 dark:border-gray-700">
       <div className="p-4 sm:p-6">
@@ -160,58 +75,12 @@ export default function CircleLeaderCard({
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 {leader.name || 'Unknown'}
               </h3>
-              <div className="flex flex-col space-y-2">
-                <div className="relative inline-block">
-                  <button
-                    onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium transition-colors hover:opacity-80 ${statusColors[leader.status as keyof typeof statusColors] || statusColors['paused']}`}
-                  >
-                    {leader.status === 'off-boarding' ? 'Off-boarding' 
-                     : leader.status === 'follow-up' ? 'Follow Up'
-                     : leader.status ? leader.status.charAt(0).toUpperCase() + leader.status.slice(1)
-                     : 'Unknown'}
-                    <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  
-                  {showStatusDropdown && (
-                    <div className="absolute top-full left-0 mt-1 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10">
-                      {statusOptions.map((option) => (
-                        <button
-                          key={option.value}
-                          onClick={() => handleStatusChange(option.value)}
-                          className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 first:rounded-t-lg last:rounded-b-lg transition-colors ${
-                            leader.status === option.value 
-                              ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' 
-                              : 'text-gray-700 dark:text-gray-300'
-                          }`}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {leader.status === 'follow-up' && leader.follow_up_date && (
-                  <div className={`flex items-center ${
-                    getFollowUpStatus(leader.follow_up_date).isOverdue 
-                      ? 'text-red-600 dark:text-red-400' 
-                      : getFollowUpStatus(leader.follow_up_date).isApproaching
-                      ? 'text-yellow-600 dark:text-yellow-400'
-                      : 'text-orange-600 dark:text-orange-400'
-                  }`}>
-                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span className="text-sm font-medium">
-                      Follow up: {formatDate(leader.follow_up_date)}
-                      {getFollowUpStatus(leader.follow_up_date).isOverdue && ' (Overdue)'}
-                      {getFollowUpStatus(leader.follow_up_date).isApproaching && !getFollowUpStatus(leader.follow_up_date).isOverdue && ' (Due Soon)'}
-                    </span>
-                  </div>
-                )}
-              </div>
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${statusColors[leader.status as keyof typeof statusColors] || statusColors['paused']}`}>
+                {leader.status === 'off-boarding' ? 'Off-boarding' 
+                 : leader.status === 'follow-up' ? 'Follow Up'
+                 : leader.status ? leader.status.charAt(0).toUpperCase() + leader.status.slice(1)
+                 : 'Unknown'}
+              </span>
             </div>
           </div>
 
@@ -349,38 +218,12 @@ export default function CircleLeaderCard({
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white truncate">
                   {leader.name || 'Unknown'}
                 </h3>
-                <div className="relative inline-block">
-                  <button
-                    onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap transition-colors hover:opacity-80 ${statusColors[leader.status as keyof typeof statusColors] || statusColors['paused']}`}
-                  >
-                    {leader.status === 'off-boarding' ? 'Off-boarding' 
-                     : leader.status === 'follow-up' ? 'Follow Up'
-                     : leader.status ? leader.status.charAt(0).toUpperCase() + leader.status.slice(1)
-                     : 'Unknown'}
-                    <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  
-                  {showStatusDropdown && (
-                    <div className="absolute top-full left-0 mt-1 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10">
-                      {statusOptions.map((option) => (
-                        <button
-                          key={option.value}
-                          onClick={() => handleStatusChange(option.value)}
-                          className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 first:rounded-t-lg last:rounded-b-lg transition-colors ${
-                            leader.status === option.value 
-                              ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' 
-                              : 'text-gray-700 dark:text-gray-300'
-                          }`}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap ${statusColors[leader.status as keyof typeof statusColors] || statusColors['paused']}`}>
+                  {leader.status === 'off-boarding' ? 'Off-boarding' 
+                   : leader.status === 'follow-up' ? 'Follow Up'
+                   : leader.status ? leader.status.charAt(0).toUpperCase() + leader.status.slice(1)
+                   : 'Unknown'}
+                </span>
               </div>
               
               <div className="text-gray-700 dark:text-gray-200 text-sm mb-3">
@@ -391,26 +234,6 @@ export default function CircleLeaderCard({
                   leader.frequency || ''
                 ].filter(Boolean).join(' • ') || 'Schedule not specified'}
               </div>
-              
-              {/* Follow-up Date */}
-              {leader.status === 'follow-up' && leader.follow_up_date && (
-                <div className={`flex items-center mb-3 ${
-                  getFollowUpStatus(leader.follow_up_date).isOverdue 
-                    ? 'text-red-600 dark:text-red-400' 
-                    : getFollowUpStatus(leader.follow_up_date).isApproaching
-                    ? 'text-yellow-600 dark:text-yellow-400'
-                    : 'text-orange-600 dark:text-orange-400'
-                }`}>
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <span className="text-sm font-medium">
-                    Follow up: {formatDate(leader.follow_up_date)}
-                    {getFollowUpStatus(leader.follow_up_date).isOverdue && ' (Overdue)'}
-                    {getFollowUpStatus(leader.follow_up_date).isApproaching && !getFollowUpStatus(leader.follow_up_date).isOverdue && ' (Due Soon)'}
-                  </span>
-                </div>
-              )}
               
               {/* Event Summary Checkbox */}
               <div className="flex items-center space-x-3">

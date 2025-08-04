@@ -43,6 +43,7 @@ export interface CircleLeader {
   event_summary_received?: boolean;
   follow_up_date?: string;
   follow_up_note?: string;
+  ccb_profile_link?: string;
   uuid?: string;
   created_at?: string;
   updated_at?: string;
