@@ -24,7 +24,7 @@ export const useCircleLeaders = () => {
       console.log('Querying circle_leaders table...');
       const { data: leaders, error: leadersError } = await supabase
         .from('circle_leaders')
-        .select('id, name, email, phone, campus, acpd, status, meeting_day, circle_type, meeting_frequency, event_summary_received')
+        .select('id, name, email, phone, campus, acpd, status, day, time, frequency, circle_type, event_summary_received')
         .order('name');
 
       if (leadersError) {
