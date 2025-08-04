@@ -15,12 +15,15 @@ export default function ProtectedRoute({ children, requireAuth = true }: Protect
   const [timeoutReached, setTimeoutReached] = useState(false);
 
   const handleClearData = async () => {
+    console.log('🔄 ProtectedRoute: Clearing data and refreshing...');
     try {
       await clearAuthData();
-      window.location.reload();
+      // Force a hard refresh to completely reset the app state
+      window.location.href = '/login';
     } catch (error) {
       console.error('Error clearing auth data:', error);
-      window.location.reload();
+      // Force refresh even if clear fails
+      window.location.href = '/login';
     }
   };
 
@@ -31,7 +34,7 @@ export default function ProtectedRoute({ children, requireAuth = true }: Protect
         console.warn('Authentication timeout reached, forcing refresh');
         setTimeoutReached(true);
       }
-    }, 10000); // 10 second timeout
+    }, 5000); // Reduced to 5 second timeout
 
     return () => clearTimeout(timeout);
   }, [loading]);
@@ -79,19 +82,19 @@ export default function ProtectedRoute({ children, requireAuth = true }: Protect
             </svg>
           </div>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Authentication Timeout</h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">The authentication check is taking too long.</p>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">The authentication check is taking too long. This usually indicates a database connection issue.</p>
           <div className="space-x-2">
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => window.location.href = '/login'}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
-              Refresh Page
+              Go to Login
             </button>
             <button
               onClick={handleClearData}
               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
             >
-              Clear Data & Refresh
+              Clear Data & Reset
             </button>
           </div>
         </div>

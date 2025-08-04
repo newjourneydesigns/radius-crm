@@ -54,39 +54,16 @@ export default function RootLayout({
                     .then(function(registration) {
                       console.log('SW registered: ', registration);
                       
-                      // Force immediate update check
-                      registration.update();
-                      
-                      // Check for updates every 30 seconds
-                      setInterval(() => {
-                        registration.update();
-                      }, 30000);
-                      
                       // Check for updates
-                      registration.addEventListener('updatefound', () => {
+                      registration.addEventListener('updatefound', function() {
                         const newWorker = registration.installing;
                         if (newWorker) {
-                          newWorker.addEventListener('statechange', () => {
+                          newWorker.addEventListener('statechange', function() {
                             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                              // New service worker available, reload immediately
                               console.log('New service worker installed, reloading...');
                               window.location.reload();
                             }
                           });
-                        }
-                      });
-                      
-                      // Handle controller changes
-                      navigator.serviceWorker.addEventListener('controllerchange', () => {
-                        console.log('Service worker controller changed, reloading...');
-                        window.location.reload();
-                      });
-                      
-                      // Listen for force reload messages from service worker
-                      navigator.serviceWorker.addEventListener('message', (event) => {
-                        if (event.data && event.data.type === 'FORCE_RELOAD') {
-                          console.log('Force reload requested by service worker');
-                          window.location.reload(true); // Force reload from server
                         }
                       });
                     })
@@ -95,18 +72,6 @@ export default function RootLayout({
                     });
                 } else {
                   console.log('Service worker disabled in development');
-                }
-              });
-              
-              // Handle service worker errors
-              navigator.serviceWorker.addEventListener('error', (error) => {
-                console.error('Service worker error:', error);
-              });
-              
-              // Force reload if we detect stale cache
-              window.addEventListener('beforeunload', () => {
-                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                  navigator.serviceWorker.controller.postMessage({type: 'SKIP_WAITING'});
                 }
               });
             }

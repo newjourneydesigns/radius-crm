@@ -35,19 +35,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         if (session?.user) {
           console.log('🔍 AuthContext: Fetching user profile for:', session.user.id);
-          // Get user profile from our users table
-          const { data: profile, error } = await supabase
+          
+          // Add timeout to profile fetch
+          const profilePromise = supabase
             .from('users')
             .select('*')
             .eq('id', session.user.id)
             .single();
-          
-          if (profile) {
-            console.log('🔍 AuthContext: User profile loaded:', profile.name);
-            setUser(profile);
-          } else if (error) {
-            console.error('❌ AuthContext: Error fetching user profile:', error);
-            // If profile fetch fails, sign out to clear bad session
+
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
+          );
+
+          try {
+            const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
+            
+            if (profile) {
+              console.log('🔍 AuthContext: User profile loaded:', profile.name);
+              setUser(profile);
+            } else if (error) {
+              console.error('❌ AuthContext: Error fetching user profile:', error);
+              // If profile fetch fails, sign out to clear bad session
+              await supabase.auth.signOut();
+              setUser(null);
+            }
+          } catch (timeoutError) {
+            console.error('❌ AuthContext: Profile fetch timed out, clearing session');
             await supabase.auth.signOut();
             setUser(null);
           }
@@ -69,19 +82,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         if (session?.user) {
           console.log('🔍 AuthContext: Auth change - fetching user profile');
-          // Get user profile
-          const { data: profile, error } = await supabase
+          
+          // Add timeout to profile fetch in auth change too
+          const profilePromise = supabase
             .from('users')
             .select('*')
             .eq('id', session.user.id)
             .single();
-          
-          if (profile) {
-            console.log('🔍 AuthContext: Auth change - profile loaded:', profile.name);
-            setUser(profile);
-          } else if (error) {
-            console.error('❌ AuthContext: Error fetching user profile in auth change:', error);
-            // If profile fetch fails, sign out to clear bad session
+
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
+          );
+
+          try {
+            const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
+            
+            if (profile) {
+              console.log('🔍 AuthContext: Auth change - profile loaded:', profile.name);
+              setUser(profile);
+            } else if (error) {
+              console.error('❌ AuthContext: Error fetching user profile in auth change:', error);
+              // If profile fetch fails, sign out to clear bad session
+              await supabase.auth.signOut();
+              setUser(null);
+            }
+          } catch (timeoutError) {
+            console.error('❌ AuthContext: Auth change profile fetch timed out, clearing session');
             await supabase.auth.signOut();
             setUser(null);
           }
@@ -119,21 +145,40 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const clearAuthData = async () => {
+    console.log('🧹 AuthContext: Clearing all auth data...');
     try {
-      // Sign out from Supabase
-      await supabase.auth.signOut();
-      // Clear local state
-      setUser(null);
-      // Clear any localStorage data (if any)
-      if (typeof window !== 'undefined') {
+      // Force sign out from Supabase with global scope
+      await supabase.auth.signOut({ scope: 'global' });
+      console.log('✅ AuthContext: Supabase signOut complete');
+    } catch (error) {
+      console.error('❌ AuthContext: Error during signOut:', error);
+    }
+    
+    // Clear local state immediately
+    setUser(null);
+    setLoading(false);
+    
+    // Clear browser storage
+    if (typeof window !== 'undefined') {
+      try {
         localStorage.clear();
         sessionStorage.clear();
+        // Also clear specific Supabase keys
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.includes('supabase')) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+        console.log('✅ AuthContext: Browser storage cleared');
+      } catch (error) {
+        console.error('❌ AuthContext: Error clearing storage:', error);
       }
-    } catch (error) {
-      console.error('Error clearing auth data:', error);
-      // Force clear local state even if signOut fails
-      setUser(null);
     }
+    
+    console.log('✅ AuthContext: All auth data cleared');
   };
 
   const isAuthenticated = () => {
