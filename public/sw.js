@@ -24,12 +24,6 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event - pass through all requests without caching
-self.addEventListener('fetch', (event) => {
-  // Simply pass through all requests to avoid redirect issues
-  return;
-});
-
 // Handle messages from the client
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
