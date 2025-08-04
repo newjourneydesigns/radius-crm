@@ -7,7 +7,6 @@ import { useCircleLeaders } from '../../../hooks/useCircleLeaders';
 import AlertModal from '../../../components/ui/AlertModal';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 import LogConnectionModal from '../../../components/dashboard/LogConnectionModal';
-import CCBEventNotes from '../../../components/dashboard/CCBEventNotes';
 
 // Helper function to format time to AM/PM
 const formatTimeToAMPM = (time: string | undefined | null): string => {
@@ -155,8 +154,7 @@ export default function CircleLeaderProfilePage() {
             time: '19:00',
             frequency: 'Weekly',
             circle_type: "Men's",
-            event_summary_received: true,
-            ccb_profile_link: 'https://example.com/profile'
+            event_summary_received: true
           });
         }
 
@@ -515,9 +513,7 @@ export default function CircleLeaderProfilePage() {
       day: leader.day,
       time: leader.time,
       frequency: leader.frequency,
-      circle_type: leader.circle_type,
-      ccb_profile_link: leader.ccb_profile_link,
-      ccb_group_id: leader.ccb_group_id
+      circle_type: leader.circle_type
     });
   };
 
@@ -540,9 +536,7 @@ export default function CircleLeaderProfilePage() {
           day: editedLeader.day || null,
           time: editedLeader.time || null,
           frequency: editedLeader.frequency || null,
-          circle_type: editedLeader.circle_type || null,
-          ccb_profile_link: editedLeader.ccb_profile_link || null,
-          ccb_group_id: editedLeader.ccb_group_id || null
+          circle_type: editedLeader.circle_type || null
         })
         .eq('id', leaderId)
         .select()
@@ -928,67 +922,6 @@ export default function CircleLeaderProfilePage() {
                       )}
                     </dd>
                   </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">CCB Profile Link</dt>
-                    <dd className="mt-1">
-                      {isEditing ? (
-                        <input
-                          type="url"
-                          value={editedLeader.ccb_profile_link || ''}
-                          onChange={(e) => handleLeaderFieldChange('ccb_profile_link', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="Enter CCB profile URL"
-                        />
-                      ) : (
-                        leader.ccb_profile_link ? (
-                          <a
-                            href={leader.ccb_profile_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-                          >
-                            CCB Profile
-                            <svg className="ml-1 w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
-                          </a>
-                        ) : (
-                          <span className="text-sm text-gray-900 dark:text-white">Not provided</span>
-                        )
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">CCB Group ID</dt>
-                    <dd className="mt-1">
-                      {isEditing ? (
-                        <div>
-                          <input
-                            type="text"
-                            value={editedLeader.ccb_group_id || ''}
-                            onChange={(e) => handleLeaderFieldChange('ccb_group_id', e.target.value)}
-                            className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="Enter CCB Group ID for API integration"
-                          />
-                          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            Example working Group IDs: 170, 285, 34. This enables automatic event notes retrieval from CCB.
-                          </p>
-                        </div>
-                      ) : (
-                        <div>
-                          <span className="text-sm text-gray-900 dark:text-white">{leader.ccb_group_id || 'Not provided'}</span>
-                          {leader.ccb_group_id && (
-                            <div className="mt-1 flex items-center text-xs text-green-600 dark:text-green-400">
-                              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                              </svg>
-                              CCB Integration Enabled
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </dd>
-                  </div>
                 </dl>
                 
                 {isEditing && (
@@ -1102,14 +1035,6 @@ export default function CircleLeaderProfilePage() {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* CCB Event Notes Section */}
-        <div className="mt-8">
-          <CCBEventNotes 
-            circleLeaderId={leaderId} 
-            groupId={leader.ccb_group_id} 
-          />
         </div>
 
         {/* Notes Section */}
