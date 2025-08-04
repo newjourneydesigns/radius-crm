@@ -262,8 +262,7 @@ export default function CircleLeaderProfilePage() {
       // Simple note insertion
       const insertData = {
         circle_leader_id: leaderId,
-        content: newNote.trim(),
-        created_by: 'Anonymous'
+        content: newNote.trim()
       };
       
       const { data, error } = await supabase

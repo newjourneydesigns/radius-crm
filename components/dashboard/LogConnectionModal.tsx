@@ -135,8 +135,7 @@ export default function LogConnectionModal({
         .from('notes')
         .insert({
           circle_leader_id: circleLeaderId,
-          content: noteContent,
-          created_by: 'System'
+          content: noteContent
         });
 
       if (noteError) {
