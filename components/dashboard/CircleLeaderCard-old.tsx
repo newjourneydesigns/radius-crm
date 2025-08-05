@@ -46,7 +46,6 @@ export default function CircleLeaderCard({
   const statusColors = {
     'invited': 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
     'pipeline': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-300',
-    'follow-up': 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300',
     'active': 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300',
     'paused': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300',
     'off-boarding': 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300'
@@ -75,7 +74,6 @@ export default function CircleLeaderCard({
             </h3>
             <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${statusColors[leader.status as keyof typeof statusColors] || statusColors['paused']}`}>
               {leader.status === 'off-boarding' ? 'Off-boarding' 
-               : leader.status === 'follow-up' ? 'Follow Up'
                : leader.status ? leader.status.charAt(0).toUpperCase() + leader.status.slice(1)
                : 'Unknown'}
             </span>

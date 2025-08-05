@@ -38,6 +38,7 @@ export default function DashboardPage() {
     loadCircleLeaders,
     toggleEventSummary, 
     resetEventSummaryCheckboxes,
+    toggleFollowUp,
     updateStatus,
     bulkUpdateStatus
   } = useCircleLeaders();
@@ -109,9 +110,14 @@ export default function DashboardPage() {
 
     // Status filter
     if (filters.status.length > 0) {
-      filtered = filtered.filter(leader => 
-        filters.status.includes(leader.status || '')
-      );
+      filtered = filtered.filter(leader => {
+        // Check if regular status is selected
+        const statusMatch = filters.status.includes(leader.status || '');
+        // Check if follow-up is selected and leader has follow-up required
+        const followUpMatch = filters.status.includes('follow-up') && leader.follow_up_required;
+        
+        return statusMatch || followUpMatch;
+      });
     }
 
     // Meeting Day filter
@@ -412,6 +418,7 @@ export default function DashboardPage() {
                   onOpenContactModal={openContactModal}
                   onLogConnection={openLogConnectionModal}
                   onUpdateStatus={handleUpdateStatus}
+                  onToggleFollowUp={toggleFollowUp}
                   isAdmin={isAdmin}
                 />
               ))}

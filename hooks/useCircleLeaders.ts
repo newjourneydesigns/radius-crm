@@ -24,7 +24,7 @@ export const useCircleLeaders = () => {
       console.log('Querying circle_leaders table...');
       const { data: leaders, error: leadersError } = await supabase
         .from('circle_leaders')
-        .select('id, name, email, phone, campus, acpd, status, day, time, frequency, circle_type, event_summary_received, follow_up_date, ccb_profile_link')
+        .select('id, name, email, phone, campus, acpd, status, day, time, frequency, circle_type, event_summary_received, follow_up_required, follow_up_date, ccb_profile_link')
         .order('name');
 
       if (leadersError) {
@@ -131,6 +131,35 @@ export const useCircleLeaders = () => {
     }
   };
 
+  const toggleFollowUp = async (leaderId: number, isRequired: boolean) => {
+    try {
+      // Update in database
+      const { error } = await supabase
+        .from('circle_leaders')
+        .update({ follow_up_required: isRequired })
+        .eq('id', leaderId);
+
+      if (error) {
+        console.error('Error updating follow-up status:', error);
+        throw error;
+      }
+
+      // Update local state
+      setCircleLeaders(prev => 
+        prev.map(leader => 
+          leader.id === leaderId 
+            ? { ...leader, follow_up_required: isRequired }
+            : leader
+        )
+      );
+
+    } catch (error) {
+      console.error('Error in toggleFollowUp:', error);
+      setError('Error updating follow-up status');
+      throw error;
+    }
+  };
+
   const updateStatus = async (leaderId: number, newStatus: string) => {
     try {
       // Update in database
@@ -162,25 +191,48 @@ export const useCircleLeaders = () => {
 
   const bulkUpdateStatus = async (leaderIds: number[], newStatus: string) => {
     try {
-      // Update in database
-      const { error } = await supabase
-        .from('circle_leaders')
-        .update({ status: newStatus })
-        .in('id', leaderIds);
+      // Handle follow-up specially since it's not a status but a boolean flag
+      if (newStatus === 'follow-up') {
+        // Update follow_up_required flag
+        const { error } = await supabase
+          .from('circle_leaders')
+          .update({ follow_up_required: true })
+          .in('id', leaderIds);
 
-      if (error) {
-        console.error('Error updating status:', error);
-        throw error;
+        if (error) {
+          console.error('Error updating follow-up:', error);
+          throw error;
+        }
+
+        // Update local state
+        setCircleLeaders(prev => 
+          prev.map(leader => 
+            leaderIds.includes(leader.id)
+              ? { ...leader, follow_up_required: true }
+              : leader
+          )
+        );
+      } else {
+        // Handle regular status updates
+        const { error } = await supabase
+          .from('circle_leaders')
+          .update({ status: newStatus })
+          .in('id', leaderIds);
+
+        if (error) {
+          console.error('Error updating status:', error);
+          throw error;
+        }
+
+        // Update local state
+        setCircleLeaders(prev => 
+          prev.map(leader => 
+            leaderIds.includes(leader.id)
+              ? { ...leader, status: newStatus as CircleLeader['status'] }
+              : leader
+          )
+        );
       }
-
-      // Update local state
-      setCircleLeaders(prev => 
-        prev.map(leader => 
-          leaderIds.includes(leader.id)
-            ? { ...leader, status: newStatus as CircleLeader['status'] }
-            : leader
-        )
-      );
 
     } catch (error) {
       console.error('Error in bulkUpdateStatus:', error);
@@ -230,6 +282,7 @@ export const useCircleLeaders = () => {
     loadCircleLeaders,
     toggleEventSummary,
     resetEventSummaryCheckboxes,
+    toggleFollowUp,
     updateStatus,
     bulkUpdateStatus,
     deleteCircleLeader

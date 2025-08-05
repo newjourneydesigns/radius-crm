@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase, CircleLeader, Note } from '../../../lib/supabase';
 import { useCircleLeaders } from '../../../hooks/useCircleLeaders';
+import { useAuth } from '../../../contexts/AuthContext';
 import AlertModal from '../../../components/ui/AlertModal';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 import LogConnectionModal from '../../../components/dashboard/LogConnectionModal';
@@ -141,7 +142,8 @@ const formatDateTime = (dateString: string): string => {
 
 export default function CircleLeaderProfilePage() {
   const params = useParams();
-  const leaderId = parseInt(params.id as string);
+  const leaderId = params?.id ? parseInt(params.id as string) : 0;
+  const { user } = useAuth(); // Get current user information
   
   const [leader, setLeader] = useState<CircleLeader | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -150,6 +152,7 @@ export default function CircleLeaderProfilePage() {
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isUpdatingEventSummary, setIsUpdatingEventSummary] = useState(false);
+  const [isUpdatingFollowUp, setIsUpdatingFollowUp] = useState(false);
   const [noteError, setNoteError] = useState('');
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState('');
@@ -243,10 +246,13 @@ export default function CircleLeaderProfilePage() {
         if (circleTypesResult.data) setCircleTypes(circleTypesResult.data);
         if (frequenciesResult.data) setFrequencies(frequenciesResult.data);
 
-        // Load notes
+        // Load notes with user information
         const { data: notesData, error: notesError } = await supabase
           .from('notes')
-          .select('*')
+          .select(`
+            *,
+            users (name)
+          `)
           .eq('circle_leader_id', leaderId)
           .order('created_at', { ascending: false });
 
@@ -309,7 +315,10 @@ export default function CircleLeaderProfilePage() {
     try {
       const { data: notesData, error: notesError } = await supabase
         .from('notes')
-        .select('*')
+        .select(`
+          *,
+          users (name)
+        `)
         .eq('circle_leader_id', leaderId)
         .order('created_at', { ascending: false });
 
@@ -328,10 +337,11 @@ export default function CircleLeaderProfilePage() {
     setNoteError('');
     
     try {
-      // Simple note insertion
+      // Simple note insertion with user ID
       const insertData = {
         circle_leader_id: leaderId,
-        content: newNote.trim()
+        content: newNote.trim(),
+        user_id: user?.id || null // Use the user's UUID for tracking who created it
       };
       
       const { data, error } = await supabase
@@ -341,8 +351,8 @@ export default function CircleLeaderProfilePage() {
         .single();
 
       if (data && !error) {
-        // Success - add to local state and clear form
-        setNotes(prev => [data, ...prev]);
+        // Success - reload notes to include user information and clear form
+        await reloadNotes();
         setNewNote('');
       } else {
         console.error('Error saving note:', error);
@@ -538,7 +548,10 @@ export default function CircleLeaderProfilePage() {
         // Refresh notes to show the new system note
         const { data: notesData } = await supabase
           .from('notes')
-          .select('*')
+          .select(`
+            *,
+            users (name)
+          `)
           .eq('circle_leader_id', leaderId)
           .order('created_at', { ascending: false });
 
@@ -567,6 +580,139 @@ export default function CircleLeaderProfilePage() {
     }
   };
 
+  // Follow-up handlers
+  const handleToggleFollowUp = async () => {
+    if (!leader) return;
+
+    setIsUpdatingFollowUp(true);
+    const newStatus = !leader.follow_up_required;
+
+    try {
+      const updateData: any = { follow_up_required: newStatus };
+      
+      // If disabling follow-up, also clear the date
+      if (!newStatus) {
+        updateData.follow_up_date = null;
+      }
+
+      const { error } = await supabase
+        .from('circle_leaders')
+        .update(updateData)
+        .eq('id', leaderId);
+
+      if (!error) {
+        // Update local state
+        setLeader(prev => prev ? { 
+          ...prev, 
+          follow_up_required: newStatus,
+          follow_up_date: newStatus ? prev.follow_up_date : undefined
+        } : null);
+        
+        // Add a note about the status change
+        const statusText = newStatus ? 'enabled' : 'disabled';
+        await supabase
+          .from('notes')
+          .insert([
+            {
+              circle_leader_id: leaderId,
+              content: `Follow-up status ${statusText}.`,
+              created_by: 'System'
+            }
+          ]);
+
+        // Refresh notes to show the new system note
+        const { data: notesData } = await supabase
+          .from('notes')
+          .select(`
+            *,
+            users (name)
+          `)
+          .eq('circle_leader_id', leaderId)
+          .order('created_at', { ascending: false });
+
+        if (notesData) {
+          setNotes(notesData);
+        }
+      } else {
+        console.error('Error updating follow-up status:', error);
+        setShowAlert({
+          isOpen: true,
+          type: 'error',
+          title: 'Update Failed',
+          message: 'Failed to update follow-up status. Please try again.'
+        });
+      }
+    } catch (error) {
+      console.error('Error updating follow-up status:', error);
+      setShowAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Update Failed',
+        message: 'Failed to update follow-up status. Please try again.'
+      });
+    } finally {
+      setIsUpdatingFollowUp(false);
+    }
+  };
+
+  const handleFollowUpDateChange = async (newDate: string) => {
+    if (!leader) return;
+
+    try {
+      const { error } = await supabase
+        .from('circle_leaders')
+        .update({ follow_up_date: newDate || null })
+        .eq('id', leaderId);
+
+      if (!error) {
+        // Update local state
+        setLeader(prev => prev ? { ...prev, follow_up_date: newDate || undefined } : null);
+        
+        // Add a note about the date change
+        const dateText = newDate ? `set to ${newDate}` : 'cleared';
+        await supabase
+          .from('notes')
+          .insert([
+            {
+              circle_leader_id: leaderId,
+              content: `Follow-up date ${dateText}.`,
+              created_by: 'System'
+            }
+          ]);
+
+        // Refresh notes to show the new system note
+        const { data: notesData } = await supabase
+          .from('notes')
+          .select(`
+            *,
+            users (name)
+          `)
+          .eq('circle_leader_id', leaderId)
+          .order('created_at', { ascending: false });
+
+        if (notesData) {
+          setNotes(notesData);
+        }
+      } else {
+        console.error('Error updating follow-up date:', error);
+        setShowAlert({
+          isOpen: true,
+          type: 'error',
+          title: 'Update Failed',
+          message: 'Failed to update follow-up date. Please try again.'
+        });
+      }
+    } catch (error) {
+      console.error('Error updating follow-up date:', error);
+      setShowAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Update Failed',
+        message: 'Failed to update follow-up date. Please try again.'
+      });
+    }
+  };
+
   const handleEditLeader = () => {
     if (!leader) return;
     
@@ -582,6 +728,7 @@ export default function CircleLeaderProfilePage() {
       time: leader.time,
       frequency: leader.frequency,
       circle_type: leader.circle_type,
+      follow_up_required: leader.follow_up_required,
       follow_up_date: leader.follow_up_date
     });
   };
@@ -606,6 +753,7 @@ export default function CircleLeaderProfilePage() {
           time: editedLeader.time || null,
           frequency: editedLeader.frequency || null,
           circle_type: editedLeader.circle_type || null,
+          follow_up_required: editedLeader.follow_up_required || false,
           follow_up_date: editedLeader.follow_up_date || null
         })
         .eq('id', leaderId)
@@ -631,7 +779,10 @@ export default function CircleLeaderProfilePage() {
         // Refresh notes to show the new system note
         const { data: notesData } = await supabase
           .from('notes')
-          .select('*')
+          .select(`
+            *,
+            users (name)
+          `)
           .eq('circle_leader_id', leaderId)
           .order('created_at', { ascending: false });
 
@@ -658,17 +809,12 @@ export default function CircleLeaderProfilePage() {
     setLeaderError('');
   };
 
-  const handleLeaderFieldChange = (field: keyof CircleLeader, value: string) => {
+  const handleLeaderFieldChange = (field: keyof CircleLeader, value: string | boolean) => {
     setEditedLeader(prev => {
       const updated = {
         ...prev,
         [field]: value
       };
-      
-      // If status is changed from follow-up to something else, clear the follow-up date
-      if (field === 'status' && value !== 'follow-up' && prev.follow_up_date) {
-        updated.follow_up_date = '';
-      }
       
       return updated;
     });
@@ -908,8 +1054,6 @@ export default function CircleLeaderProfilePage() {
                             ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
                             : leader.status === 'pipeline'
                             ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400'
-                            : leader.status === 'follow-up'
-                            ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400'
                             : leader.status === 'paused'
                             ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
                             : leader.status === 'off-boarding'
@@ -917,57 +1061,12 @@ export default function CircleLeaderProfilePage() {
                             : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
                         }`}>
                           {leader.status === 'off-boarding' ? 'Off-boarding' 
-                           : leader.status === 'follow-up' ? 'Follow Up'
                            : leader.status ? leader.status.charAt(0).toUpperCase() + leader.status.slice(1)
                            : 'Unknown'}
                         </span>
                       )}
                     </dd>
                   </div>
-                  {/* Follow-up Date Field - Only show when status is follow-up */}
-                  {(leader.status === 'follow-up' || editedLeader.status === 'follow-up') && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Follow-up Date</dt>
-                      <dd className="mt-1">
-                        {isEditing ? (
-                          <input
-                            type="date"
-                            value={editedLeader.follow_up_date || leader.follow_up_date || ''}
-                            onChange={(e) => handleLeaderFieldChange('follow_up_date', e.target.value)}
-                            className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          />
-                        ) : (
-                          <span className={`text-sm ${
-                            leader.follow_up_date ? (
-                              getFollowUpStatus(leader.follow_up_date).isOverdue 
-                                ? 'text-red-600 dark:text-red-400 font-medium' 
-                                : getFollowUpStatus(leader.follow_up_date).isApproaching
-                                ? 'text-yellow-600 dark:text-yellow-400 font-medium'
-                                : 'text-gray-900 dark:text-white'
-                            ) : 'text-gray-900 dark:text-white'
-                          }`}>
-                            {leader.follow_up_date ? (
-                              <>
-                                {formatDateForDisplay(leader.follow_up_date)}
-                                {getFollowUpStatus(leader.follow_up_date).isOverdue && (
-                                  <span className="ml-2 text-xs bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400 px-2 py-1 rounded-full">
-                                    Overdue
-                                  </span>
-                                )}
-                                {getFollowUpStatus(leader.follow_up_date).isApproaching && !getFollowUpStatus(leader.follow_up_date).isOverdue && (
-                                  <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400 px-2 py-1 rounded-full">
-                                    Due Soon
-                                  </span>
-                                )}
-                              </>
-                            ) : (
-                              'Not set'
-                            )}
-                          </span>
-                        )}
-                      </dd>
-                    </div>
-                  )}
                   <div>
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Circle Type</dt>
                     <dd className="mt-1">
@@ -1025,7 +1124,7 @@ export default function CircleLeaderProfilePage() {
                           className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         />
                       ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{formatTimeToAMPM(leader.time) || 'Not specified'}</span>
+                        <span className="text-sm text-gray-900 dark:text-white">{formatTimeToAMPM(leader.time || '') || 'Not specified'}</span>
                       )}
                     </dd>
                   </div>
@@ -1147,6 +1246,78 @@ export default function CircleLeaderProfilePage() {
                     Edit
                   </span>
                 </button>
+              </div>
+            </div>
+
+            {/* Follow Up Status */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-lg font-medium text-gray-900 dark:text-white">Follow Up</h2>
+              </div>
+              <div className="p-6 space-y-4">
+                {/* Follow Up Toggle */}
+                <button
+                  onClick={handleToggleFollowUp}
+                  disabled={isUpdatingFollowUp}
+                  className="flex items-center w-full text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md p-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {leader.follow_up_required ? (
+                    <div className="flex items-center text-orange-600 dark:text-orange-400">
+                      <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm font-medium">
+                        {isUpdatingFollowUp ? 'Updating...' : 'Follow-Up Required'}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center text-gray-600 dark:text-gray-400">
+                      <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm font-medium">
+                        {isUpdatingFollowUp ? 'Updating...' : 'No Follow-Up Needed'}
+                      </span>
+                    </div>
+                  )}
+                  <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">
+                    Toggle
+                  </span>
+                </button>
+
+                {/* Follow Up Date - Only show when follow-up is required */}
+                {leader.follow_up_required && (
+                  <div className="border-t border-gray-200 dark:border-gray-600 pt-4">
+                    <label htmlFor="followUpDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Follow-up Date
+                    </label>
+                    <input
+                      id="followUpDate"
+                      type="date"
+                      value={leader.follow_up_date || ''}
+                      onChange={(e) => handleFollowUpDateChange(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    {leader.follow_up_date && (
+                      <div className={`mt-2 text-sm ${
+                        getFollowUpStatus(leader.follow_up_date).isOverdue 
+                          ? 'text-red-600 dark:text-red-400 font-medium' 
+                          : getFollowUpStatus(leader.follow_up_date).isApproaching
+                          ? 'text-yellow-600 dark:text-yellow-400 font-medium'
+                          : 'text-green-600 dark:text-green-400'
+                      }`}>
+                        <div className="flex items-center">
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          {getFollowUpStatus(leader.follow_up_date).isOverdue && 'Overdue'}
+                          {getFollowUpStatus(leader.follow_up_date).isApproaching && !getFollowUpStatus(leader.follow_up_date).isOverdue && 'Due Soon'}
+                          {!getFollowUpStatus(leader.follow_up_date).isOverdue && !getFollowUpStatus(leader.follow_up_date).isApproaching && 'Scheduled'}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1318,7 +1489,7 @@ export default function CircleLeaderProfilePage() {
                                   <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                                     <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                                   </svg>
-                                  <span>{note.created_by || 'Anonymous'}</span>
+                                  <span>{note.users?.name || note.created_by || 'Anonymous'}</span>
                                 </div>
                                 <span className="mx-2">•</span>
                                 <div className="flex items-center">

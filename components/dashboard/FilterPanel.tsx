@@ -159,10 +159,10 @@ export default function FilterPanel({
   const statusOptions = [
     { value: 'invited', label: 'Invited', color: 'text-blue-700' },
     { value: 'pipeline', label: 'Pipeline', color: 'text-indigo-700' },
-    { value: 'follow-up', label: 'Follow Up', color: 'text-orange-700' },
     { value: 'active', label: 'Active', color: 'text-green-700' },
     { value: 'paused', label: 'Paused', color: 'text-yellow-700' },
-    { value: 'off-boarding', label: 'Off-boarding', color: 'text-red-700' }
+    { value: 'off-boarding', label: 'Off-boarding', color: 'text-red-700' },
+    { value: 'follow-up', label: 'Follow Up', color: 'text-orange-700' }
   ];
 
   const handleStatusSelect = (status: string, label: string) => {
@@ -307,6 +307,7 @@ export default function FilterPanel({
                   {statuses.map(status => (
                     <option key={status.id} value={status.value}>{status.value}</option>
                   ))}
+                  <option key="follow-up" value="follow-up">follow up</option>
                 </select>
               </div>
 

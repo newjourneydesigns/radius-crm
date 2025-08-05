@@ -32,7 +32,6 @@ export default function BulkStatusUpdate({ totalLeaders, onBulkUpdateStatus }: B
   const statusOptions = [
     { value: 'invited', label: 'Invited', color: 'text-blue-700' },
     { value: 'pipeline', label: 'Pipeline', color: 'text-indigo-700' },
-    { value: 'follow-up', label: 'Follow Up', color: 'text-orange-700' },
     { value: 'active', label: 'Active', color: 'text-green-700' },
     { value: 'paused', label: 'Paused', color: 'text-yellow-700' },
     { value: 'off-boarding', label: 'Off-boarding', color: 'text-red-700' }
@@ -95,8 +94,6 @@ export default function BulkStatusUpdate({ totalLeaders, onBulkUpdateStatus }: B
                         ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
                         : option.value === 'pipeline'
                         ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400'
-                        : option.value === 'follow-up'
-                        ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400'
                         : option.value === 'paused'
                         ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
                         : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'

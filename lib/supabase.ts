@@ -35,12 +35,13 @@ export interface CircleLeader {
   phone?: string;
   campus?: string;
   acpd?: string;
-  status?: 'invited' | 'pipeline' | 'active' | 'paused' | 'follow-up' | 'off-boarding';
+  status?: 'invited' | 'pipeline' | 'active' | 'paused' | 'off-boarding';
   day?: string;
   time?: string;
   frequency?: string;
   circle_type?: 'Men\'s' | 'Women\'s' | 'Young Adult | Coed' | 'Young Adult | Men\'s' | 'Young Adult | Women\'s' | 'Young Adult | Couple\'s';
   event_summary_received?: boolean;
+  follow_up_required?: boolean;
   follow_up_date?: string;
   follow_up_note?: string;
   ccb_profile_link?: string;
@@ -71,6 +72,9 @@ export interface Note {
   note?: string;
   follow_up_date?: string;
   created_by?: string;
+  users?: {
+    name: string;
+  };
 }
 
 export interface User {
