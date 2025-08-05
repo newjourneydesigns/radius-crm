@@ -174,7 +174,7 @@ export default function DashboardPage() {
     };
   }, [filteredLeaders]);
 
-  // Calculate status distribution for the status bar
+  // Calculate status distribution for the status bar - filtered by campus only
   const statusData = useMemo(() => {
     const statusCounts = {
       'Invited': 0,
@@ -185,8 +185,16 @@ export default function DashboardPage() {
       'Off-Boarding': 0
     };
 
-    // Count statuses from all circle leaders (not just filtered)
-    circleLeaders.forEach(leader => {
+    // Filter leaders by campus only for status overview
+    let leadersForStatusOverview = [...circleLeaders];
+    if (filters.campus.length > 0) {
+      leadersForStatusOverview = leadersForStatusOverview.filter(leader => 
+        filters.campus.includes(leader.campus || '')
+      );
+    }
+
+    // Count statuses from campus-filtered leaders
+    leadersForStatusOverview.forEach(leader => {
       const status = leader.status;
       
       if (status === 'invited') statusCounts['Invited']++;
@@ -210,7 +218,7 @@ export default function DashboardPage() {
       { status: 'Paused' as const, count: statusCounts['Paused'], color: 'bg-yellow-500' },
       { status: 'Off-Boarding' as const, count: statusCounts['Off-Boarding'], color: 'bg-red-500' }
     ];
-  }, [circleLeaders]);
+  }, [circleLeaders, filters.campus]);
 
   // Load data on component mount
   useEffect(() => {
@@ -380,7 +388,10 @@ export default function DashboardPage() {
             </div>
             <CircleStatusBar
               data={statusData}
-              total={circleLeaders.length}
+              total={filters.campus.length > 0 ? 
+                circleLeaders.filter(leader => filters.campus.includes(leader.campus || '')).length : 
+                circleLeaders.length
+              }
               onStatusClick={handleStatusBarClick}
             />
           </div>
