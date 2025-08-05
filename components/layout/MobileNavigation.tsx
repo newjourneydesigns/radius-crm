@@ -17,6 +17,7 @@ export default function MobileNavigation() {
       { name: 'Dashboard', href: '/dashboard', requiresAuth: true },
       { name: 'Add Circle Leader', href: '/add-leader', requiresAuth: true },
       { name: 'Users', href: '/users', requiresAuth: true },
+      { name: 'Tools', href: '/func', requiresAuth: true },
       { name: 'Settings', href: '/settings', requiresAuth: true },
     ];
 
