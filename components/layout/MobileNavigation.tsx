@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../../contexts/AuthContext";
+import GlobalSearch from './GlobalSearch';
 
 export default function MobileNavigation() {
   const [isOpen, setIsOpen] = useState(false);
@@ -53,11 +54,15 @@ export default function MobileNavigation() {
                 RADIUS
               </span>
             </Link>
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
-              aria-label="Toggle navigation menu"
-            >
+            
+            {/* Mobile Search - Only show search icon */}
+            <div className="flex items-center space-x-2">
+              <GlobalSearch />
+              <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+                aria-label="Toggle navigation menu"
+              >
               <svg 
                 className="h-6 w-6" 
                 fill="none" 
@@ -71,6 +76,7 @@ export default function MobileNavigation() {
                 )}
               </svg>
             </button>
+            </div>
           </div>
         </div>
 

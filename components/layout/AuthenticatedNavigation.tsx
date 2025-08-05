@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "../../contexts/AuthContext";
+import GlobalSearch from './GlobalSearch';
 
 export default function AuthenticatedNavigation() {
   const { user, isAuthenticated } = useAuth();
@@ -23,6 +24,12 @@ export default function AuthenticatedNavigation() {
               RADIUS
             </span>
           </Link>
+          
+          {/* Search Component */}
+          <div className="flex-1 max-w-md mx-8">
+            <GlobalSearch />
+          </div>
+
           <nav className="flex space-x-1">
             {isAuthenticated() && (
               <>
