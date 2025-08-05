@@ -262,9 +262,9 @@ export default function DashboardPage() {
     }
   };
 
-  const handleUpdateStatus = async (leaderId: number, newStatus: string) => {
+  const handleUpdateStatus = async (leaderId: number, newStatus: string, followUpDate?: string) => {
     try {
-      await updateStatus(leaderId, newStatus);
+      await updateStatus(leaderId, newStatus, followUpDate);
       loadCircleLeaders();
     } catch (error) {
       console.error('Error updating status:', error);

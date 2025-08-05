@@ -160,12 +160,26 @@ export const useCircleLeaders = () => {
     }
   };
 
-  const updateStatus = async (leaderId: number, newStatus: string) => {
+  const updateStatus = async (leaderId: number, newStatus: string, followUpDate?: string) => {
     try {
+      // Prepare update data
+      const updateData: any = { status: newStatus };
+      
+      // If setting to follow-up status and date provided, include it
+      if (newStatus === 'follow-up' && followUpDate) {
+        updateData.follow_up_required = true;
+        updateData.follow_up_date = followUpDate;
+      }
+      // If changing from follow-up to another status, clear follow-up data
+      else if (newStatus !== 'follow-up') {
+        updateData.follow_up_required = false;
+        updateData.follow_up_date = null;
+      }
+
       // Update in database
       const { error } = await supabase
         .from('circle_leaders')
-        .update({ status: newStatus })
+        .update(updateData)
         .eq('id', leaderId);
 
       if (error) {
@@ -177,7 +191,12 @@ export const useCircleLeaders = () => {
       setCircleLeaders(prev => 
         prev.map(leader => 
           leader.id === leaderId
-            ? { ...leader, status: newStatus as CircleLeader['status'] }
+            ? { 
+                ...leader, 
+                status: newStatus as CircleLeader['status'],
+                follow_up_required: updateData.follow_up_required !== undefined ? updateData.follow_up_required : leader.follow_up_required,
+                follow_up_date: updateData.follow_up_date !== undefined ? updateData.follow_up_date : leader.follow_up_date
+              }
             : leader
         )
       );

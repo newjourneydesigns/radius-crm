@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { CircleLeader } from '../../lib/supabase';
+import FollowUpDateModal from './FollowUpDateModal';
 
 // Helper function to format time to AM/PM
 const formatTimeToAMPM = (time: string | undefined | null): string => {
@@ -84,7 +85,7 @@ interface CircleLeaderCardProps {
   onToggleEventSummary: (leaderId: number, isChecked: boolean) => void;
   onOpenContactModal: (leaderId: number, name: string, email: string, phone: string) => void;
   onLogConnection?: (leaderId: number, name: string) => void;
-  onUpdateStatus?: (leaderId: number, newStatus: string) => void;
+  onUpdateStatus?: (leaderId: number, newStatus: string, followUpDate?: string) => void;
   onToggleFollowUp?: (leaderId: number, isRequired: boolean) => void;
 }
 
@@ -114,6 +115,8 @@ export default function CircleLeaderCard({
   ];
 
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [showFollowUpModal, setShowFollowUpModal] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -149,8 +152,28 @@ export default function CircleLeaderCard({
   };
 
   const handleStatusChange = (newStatus: string) => {
-    onUpdateStatus?.(leader.id, newStatus);
+    if (newStatus === 'follow-up') {
+      // Show modal to collect follow-up date
+      setPendingStatus(newStatus);
+      setShowFollowUpModal(true);
+    } else {
+      // Update status immediately for non-follow-up statuses
+      onUpdateStatus?.(leader.id, newStatus);
+    }
     setShowStatusDropdown(false);
+  };
+
+  const handleFollowUpDateConfirm = (followUpDate: string) => {
+    if (pendingStatus) {
+      onUpdateStatus?.(leader.id, pendingStatus, followUpDate);
+    }
+    setShowFollowUpModal(false);
+    setPendingStatus(null);
+  };
+
+  const handleFollowUpModalClose = () => {
+    setShowFollowUpModal(false);
+    setPendingStatus(null);
   };
 
   return (
@@ -615,6 +638,14 @@ export default function CircleLeaderCard({
           </div>
         </div>
       </div>
+      
+      {/* Follow-Up Date Modal */}
+      <FollowUpDateModal
+        isOpen={showFollowUpModal}
+        onClose={handleFollowUpModalClose}
+        onConfirm={handleFollowUpDateConfirm}
+        leaderName={leader.name}
+      />
     </div>
   );
 }
