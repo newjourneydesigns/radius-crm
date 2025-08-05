@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { supabase, CircleLeader, Note } from '../../../lib/supabase';
 import { useCircleLeaders } from '../../../hooks/useCircleLeaders';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -517,6 +518,32 @@ export default function CircleLeaderProfilePage() {
     window.open(telUrl, '_self');
   };
 
+  const handleContactClick = () => {
+    if (!leader?.email && !leader?.phone) {
+      setShowAlert({
+        isOpen: true,
+        type: 'warning',
+        title: 'No Contact Information',
+        message: 'No email or phone number available for this leader.'
+      });
+      return;
+    }
+    
+    // If both email and phone exist, show options
+    if (leader?.email && leader?.phone) {
+      const choice = window.confirm('Choose contact method:\nOK = Email\nCancel = Phone');
+      if (choice) {
+        handleSendEmail();
+      } else {
+        handleCallLeader();
+      }
+    } else if (leader?.email) {
+      handleSendEmail();
+    } else if (leader?.phone) {
+      handleCallLeader();
+    }
+  };
+
   const handleToggleEventSummary = async () => {
     if (!leader) return;
 
@@ -913,6 +940,63 @@ export default function CircleLeaderProfilePage() {
                 Circle Leader Profile
               </p>
             </div>
+          </div>
+          
+          {/* Action Buttons Row */}
+          <div className="flex flex-wrap gap-2 mt-6">
+            <button
+              className="flex items-center justify-center px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors font-medium text-sm"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              Profile
+            </button>
+            
+            <Link
+              href={`#notes`}
+              className="flex items-center justify-center px-4 py-2 bg-gray-50 dark:bg-gray-900/20 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900/30 rounded-lg transition-colors font-medium text-sm"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Note
+            </Link>
+            
+            <button
+              onClick={() => setShowLogConnectionModal(true)}
+              className="flex items-center justify-center px-4 py-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg transition-colors font-medium text-sm"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              Log Connection
+            </button>
+            
+            <button 
+              onClick={handleContactClick}
+              disabled={!leader?.email && !leader?.phone}
+              className="flex items-center justify-center px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+              Contact
+            </button>
+            
+            {leader?.ccb_profile_link && (
+              <a 
+                href={leader.ccb_profile_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center px-4 py-2 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-lg transition-colors font-medium text-sm"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                CCB
+              </a>
+            )}
           </div>
         </div>
 
@@ -1330,39 +1414,39 @@ export default function CircleLeaderProfilePage() {
                 <button 
                   onClick={handleSendEmail}
                   disabled={!leader?.email}
-                  className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  className="w-full flex items-center justify-center px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                   Send Email
-                  {!leader?.email && <span className="ml-auto text-xs text-gray-400">(No email)</span>}
+                  {!leader?.email && <span className="ml-auto text-xs opacity-60">(No email)</span>}
                 </button>
                 <button 
                   onClick={handleSendSMS}
                   disabled={!leader?.phone}
-                  className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  className="w-full flex items-center justify-center px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                   </svg>
                   Send SMS
-                  {!leader?.phone && <span className="ml-auto text-xs text-gray-400">(No phone)</span>}
+                  {!leader?.phone && <span className="ml-auto text-xs opacity-60">(No phone)</span>}
                 </button>
                 <button 
                   onClick={handleCallLeader}
                   disabled={!leader?.phone}
-                  className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  className="w-full flex items-center justify-center px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                   </svg>
                   Call Leader
-                  {!leader?.phone && <span className="ml-auto text-xs text-gray-400">(No phone)</span>}
+                  {!leader?.phone && <span className="ml-auto text-xs opacity-60">(No phone)</span>}
                 </button>
                 <button 
                   onClick={() => setShowLogConnectionModal(true)}
-                  className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors flex items-center"
+                  className="w-full flex items-center justify-center px-4 py-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg transition-colors font-medium text-sm"
                 >
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
