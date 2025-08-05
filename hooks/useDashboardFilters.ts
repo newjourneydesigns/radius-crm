@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
 export interface DashboardFilters {
-  search: string;
   campus: string[];
   acpd: string[];
   status: string[];
@@ -11,7 +10,6 @@ export interface DashboardFilters {
 }
 
 export const defaultFilters: DashboardFilters = {
-  search: '',
   campus: [],
   acpd: [],
   status: [],
@@ -38,7 +36,6 @@ export const useDashboardFilters = () => {
       if (savedState) {
         const filterState = JSON.parse(savedState);
         setFilters({
-          search: filterState.search || '',
           campus: filterState.campus || [],
           acpd: filterState.acpd || [],
           status: filterState.status || [],

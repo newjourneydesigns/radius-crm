@@ -46,7 +46,6 @@ export default function DashboardPage() {
 
   const clearFilters = () => {
     updateFilters({
-      search: '',
       campus: [],
       acpd: [],
       status: [],
@@ -86,14 +85,6 @@ export default function DashboardPage() {
   // Filter circle leaders based on current filters
   const filteredLeaders = useMemo(() => {
     let filtered = [...circleLeaders];
-
-    // Search filter
-    if (filters.search) {
-      const search = filters.search.toLowerCase();
-      filtered = filtered.filter(leader => 
-        leader.name?.toLowerCase().includes(search)
-      );
-    }
 
     // Campus filter
     if (filters.campus.length > 0) {

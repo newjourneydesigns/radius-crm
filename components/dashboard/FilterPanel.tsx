@@ -11,7 +11,6 @@ interface SettingsItem {
 
 interface FilterPanelProps {
   filters: {
-    search: string;
     campus: string[];
     acpd: string[];
     status: string[];
@@ -146,8 +145,7 @@ export default function FilterPanel({
 
   // Check if any filters are active
   const hasActiveFilters = () => {
-    return filters.search.trim() !== '' ||
-           filters.campus.length > 0 ||
+    return filters.campus.length > 0 ||
            filters.acpd.length > 0 ||
            filters.status.length > 0 ||
            filters.meetingDay.length > 0 ||
@@ -239,8 +237,8 @@ export default function FilterPanel({
       {filtersVisible && (
         <div className="p-4 sm:p-6">
           {isLoadingData ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
-              {[...Array(7)].map((_, i) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+              {[...Array(5)].map((_, i) => (
                 <div key={i} className="animate-pulse">
                   <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 mb-1"></div>
                   <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
@@ -248,20 +246,7 @@ export default function FilterPanel({
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
-              {/* Search */}
-              <div className="sm:col-span-2 xl:col-span-2">
-                <label htmlFor="search" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search</label>
-                <input 
-                  type="text" 
-                  id="search" 
-                  placeholder="Search by name..." 
-                  value={filters.search}
-                  onChange={(e) => handleFilterChange('search', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
               {/* Campus Filter */}
               <div>
                 <label htmlFor="campusFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Campus</label>
