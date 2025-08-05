@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import FilterPanel from '../../components/dashboard/FilterPanel';
 import CircleLeaderCard from '../../components/dashboard/CircleLeaderCard';
+import CircleStatusBar from '../../components/dashboard/CircleStatusBar';
 import TodayCircles from '../../components/dashboard/TodayCircles';
 import ContactModal from '../../components/dashboard/ContactModal';
 import EventSummaryProgress from '../../components/dashboard/EventSummaryProgress';
@@ -182,6 +183,44 @@ export default function DashboardPage() {
     };
   }, [filteredLeaders]);
 
+  // Calculate status distribution for the status bar
+  const statusData = useMemo(() => {
+    const statusCounts = {
+      'Invited': 0,
+      'Pipeline': 0,
+      'Active': 0,
+      'Follow-Up': 0,
+      'Paused': 0,
+      'Off-Boarding': 0
+    };
+
+    // Count statuses from all circle leaders (not just filtered)
+    circleLeaders.forEach(leader => {
+      const status = leader.status;
+      
+      if (status === 'invited') statusCounts['Invited']++;
+      else if (status === 'pipeline') statusCounts['Pipeline']++;
+      else if (status === 'active') statusCounts['Active']++;
+      else if (status === 'paused') statusCounts['Paused']++;
+      else if (status === 'off-boarding') statusCounts['Off-Boarding']++;
+      
+      // Add to Follow-Up if follow_up_required is true
+      if (leader.follow_up_required) {
+        statusCounts['Follow-Up']++;
+      }
+    });
+
+    // Convert to the format expected by CircleStatusBar
+    return [
+      { status: 'Invited' as const, count: statusCounts['Invited'], color: 'bg-blue-500' },
+      { status: 'Pipeline' as const, count: statusCounts['Pipeline'], color: 'bg-indigo-500' },
+      { status: 'Active' as const, count: statusCounts['Active'], color: 'bg-green-500' },
+      { status: 'Follow-Up' as const, count: statusCounts['Follow-Up'], color: 'bg-orange-500' },
+      { status: 'Paused' as const, count: statusCounts['Paused'], color: 'bg-yellow-500' },
+      { status: 'Off-Boarding' as const, count: statusCounts['Off-Boarding'], color: 'bg-red-500' }
+    ];
+  }, [circleLeaders]);
+
   // Load data on component mount
   useEffect(() => {
     loadCircleLeaders();
@@ -226,21 +265,29 @@ export default function DashboardPage() {
   const handleUpdateStatus = async (leaderId: number, newStatus: string) => {
     try {
       await updateStatus(leaderId, newStatus);
-      setShowAlert({
-        isOpen: true,
-        type: 'success',
-        title: 'Status Updated',
-        message: 'Circle status has been updated successfully.'
-      });
+      loadCircleLeaders();
     } catch (error) {
       console.error('Error updating status:', error);
-      setShowAlert({
-        isOpen: true,
-        type: 'error',
-        title: 'Update Failed',
-        message: 'Failed to update status. Please try again.'
-      });
     }
+  };
+
+  const handleStatusBarClick = (status: string) => {
+    // Map display status to filter values
+    const statusMap: Record<string, string[]> = {
+      'Invited': ['invited'],
+      'Pipeline': ['pipeline'],
+      'Active': ['active'],
+      'Follow-Up': ['follow-up'],
+      'Paused': ['paused'],
+      'Off-Boarding': ['off-boarding']
+    };
+
+    const filterValues = statusMap[status] || [];
+    
+    updateFilters({
+      ...filters,
+      status: filterValues
+    });
   };
 
   const openContactModal = (leaderId: number, name: string, email: string, phone: string) => {
@@ -332,6 +379,21 @@ export default function DashboardPage() {
           totalLeaders={filteredLeaders.length}
           receivedCount={eventSummaryProgress.received}
         />
+
+        {/* Status Bar */}
+        <div className="mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="mb-4">
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Status Overview</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Click on a segment to filter by status</p>
+            </div>
+            <CircleStatusBar
+              data={statusData}
+              total={circleLeaders.length}
+              onStatusClick={handleStatusBarClick}
+            />
+          </div>
+        </div>
 
         {/* Event Summary Progress */}
         <EventSummaryProgress
