@@ -1,22 +1,47 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { CircleLeader } from '../../lib/supabase';
 import FollowUpDateModal from './FollowUpDateModal';
 
-// Helper function to format time to AM/PM
+// Constants
+const STATUS_COLORS = {
+  'invited': 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
+  'pipeline': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-300',
+  'active': 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300',
+  'paused': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300',
+  'off-boarding': 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300'
+} as const;
+
+const STATUS_OPTIONS = [
+  { value: 'invited', label: 'Invited' },
+  { value: 'pipeline', label: 'Pipeline' },
+  { value: 'active', label: 'Active' },
+  { value: 'paused', label: 'Paused' },
+  { value: 'off-boarding', label: 'Off-boarding' }
+] as const;
+
+const TIME_FORMAT_REGEX = /^(\d{1,2}):(\d{2})$/;
+const DATE_FORMAT_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+// Utility Functions
 const formatTimeToAMPM = (time: string | undefined | null): string => {
-  if (!time) return '';
+  if (!time || typeof time !== 'string') return '';
   
   // If already in AM/PM format, return as is
   if (time.includes('AM') || time.includes('PM')) {
     return time;
   }
   
-  // Convert 24-hour format to 12-hour format
-  const [hours, minutes] = time.split(':');
-  const hour24 = parseInt(hours);
+  // Validate time format
+  const match = time.match(TIME_FORMAT_REGEX);
+  if (!match) return time;
+  
+  const [, hoursStr, minutes] = match;
+  const hour24 = parseInt(hoursStr, 10);
+  
+  if (isNaN(hour24) || hour24 < 0 || hour24 > 23) return time;
   
   if (hour24 === 0) {
     return `12:${minutes} AM`;
@@ -29,13 +54,22 @@ const formatTimeToAMPM = (time: string | undefined | null): string => {
   }
 };
 
-// Helper function to format date for display
 const formatDate = (dateString: string | undefined | null): string => {
-  if (!dateString) return '';
+  if (!dateString || typeof dateString !== 'string') return '';
   
   try {
-    // Parse the date as local date to avoid timezone issues
-    const [year, month, day] = dateString.split('-').map(Number);
+    // Validate date format
+    const datePart = dateString.split('T')[0]; // Remove time part if present
+    if (!DATE_FORMAT_REGEX.test(datePart)) return '';
+    
+    const [year, month, day] = datePart.split('-').map(Number);
+    
+    // Validate date components
+    if (isNaN(year) || isNaN(month) || isNaN(day) || 
+        year < 1900 || month < 1 || month > 12 || day < 1 || day > 31) {
+      return '';
+    }
+    
     const date = new Date(year, month - 1, day); // month is 0-indexed
     
     return date.toLocaleDateString('en-US', {
@@ -44,21 +78,34 @@ const formatDate = (dateString: string | undefined | null): string => {
       day: 'numeric'
     });
   } catch (error) {
+    console.error('Error formatting date:', error);
     return '';
   }
 };
 
-// Helper function to get follow-up date status
 const getFollowUpStatus = (dateString: string | undefined | null): { 
   isOverdue: boolean; 
   isApproaching: boolean; 
   daysUntil: number;
 } => {
-  if (!dateString) return { isOverdue: false, isApproaching: false, daysUntil: 0 };
+  if (!dateString || typeof dateString !== 'string') {
+    return { isOverdue: false, isApproaching: false, daysUntil: 0 };
+  }
   
   try {
-    // Parse the date as local date to avoid timezone issues
-    const [year, month, day] = dateString.split('-').map(Number);
+    // Validate date format
+    const datePart = dateString.split('T')[0]; // Remove time part if present
+    if (!DATE_FORMAT_REGEX.test(datePart)) {
+      return { isOverdue: false, isApproaching: false, daysUntil: 0 };
+    }
+    
+    const [year, month, day] = datePart.split('-').map(Number);
+    
+    // Validate date components
+    if (isNaN(year) || isNaN(month) || isNaN(day)) {
+      return { isOverdue: false, isApproaching: false, daysUntil: 0 };
+    }
+    
     const followUpDate = new Date(year, month - 1, day); // month is 0-indexed
     const today = new Date();
     
@@ -75,10 +122,20 @@ const getFollowUpStatus = (dateString: string | undefined | null): {
       daysUntil
     };
   } catch (error) {
+    console.error('Error calculating follow-up status:', error);
     return { isOverdue: false, isApproaching: false, daysUntil: 0 };
   }
 };
 
+const validateLeaderData = (leader: CircleLeader): boolean => {
+  return leader && typeof leader.id === 'number' && leader.id > 0;
+};
+
+const stripHtmlTags = (html: string): string => {
+  return html.replace(/<[^>]*>/g, '');
+};
+
+// Type Definitions
 interface CircleLeaderCardProps {
   leader: CircleLeader;
   isAdmin: boolean;
@@ -90,7 +147,11 @@ interface CircleLeaderCardProps {
   onUpdateFollowUpDate?: (leaderId: number, followUpDate: string) => void;
 }
 
-export default function CircleLeaderCard({ 
+/**
+ * Optimized CircleLeaderCard component with performance improvements and error handling
+ * Features: Mobile/desktop responsive design, status management, follow-up functionality
+ */
+const CircleLeaderCard = memo(function CircleLeaderCard({ 
   leader, 
   isAdmin, 
   onToggleEventSummary, 
@@ -100,26 +161,116 @@ export default function CircleLeaderCard({
   onToggleFollowUp,
   onUpdateFollowUpDate
 }: CircleLeaderCardProps) {
-  const statusColors = {
-    'invited': 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
-    'pipeline': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-300',
-    'active': 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300',
-    'paused': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300',
-    'off-boarding': 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300'
-  };
+  // Validate leader data
+  if (!validateLeaderData(leader)) {
+    console.error('Invalid leader data:', leader);
+    return null;
+  }
 
-  const statusOptions = [
-    { value: 'invited', label: 'Invited' },
-    { value: 'pipeline', label: 'Pipeline' },
-    { value: 'active', label: 'Active' },
-    { value: 'paused', label: 'Paused' },
-    { value: 'off-boarding', label: 'Off-boarding' }
-  ];
-
+  // Modal and UI state
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showFollowUpModal, setShowFollowUpModal] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const [editingFollowUpDate, setEditingFollowUpDate] = useState(false);
+
+  // Memoized computed values
+  const circleSchedule = useMemo(() => {
+    const schedule = [
+      leader.circle_type || '', 
+      leader.day || '', 
+      formatTimeToAMPM(leader.time), 
+      leader.frequency || ''
+    ].filter(Boolean).join(' • ');
+    
+    return schedule || 'Schedule not specified';
+  }, [leader.circle_type, leader.day, leader.time, leader.frequency]);
+
+  const followUpStatus = useMemo(() => 
+    getFollowUpStatus(leader.follow_up_date), 
+    [leader.follow_up_date]
+  );
+
+  const lastNotePreview = useMemo(() => {
+    if (!leader.last_note?.content) return 'No notes yet';
+    
+    const stripped = stripHtmlTags(leader.last_note.content);
+    return stripped.length > 150 ? `${stripped.substring(0, 150)}...` : stripped;
+  }, [leader.last_note?.content]);
+
+  const statusColor = useMemo(() => 
+    STATUS_COLORS[leader.status as keyof typeof STATUS_COLORS] || STATUS_COLORS['paused'],
+    [leader.status]
+  );
+
+  const statusLabel = useMemo(() => {
+    if (leader.status === 'off-boarding') return 'Off-boarding';
+    if (leader.status) return leader.status.charAt(0).toUpperCase() + leader.status.slice(1);
+    return 'Unknown';
+  }, [leader.status]);
+
+  // Event handlers with validation
+  const handleEventSummaryChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!validateLeaderData(leader)) return;
+    onToggleEventSummary(leader.id, e.target.checked);
+  }, [leader, onToggleEventSummary]);
+
+  const handleFollowUpChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!validateLeaderData(leader) || !onToggleFollowUp) return;
+    onToggleFollowUp(leader.id, e.target.checked);
+  }, [leader, onToggleFollowUp]);
+
+  const handleContactClick = useCallback(() => {
+    if (!validateLeaderData(leader)) return;
+    onOpenContactModal(
+      leader.id, 
+      leader.name || 'Unknown', 
+      leader.email || '', 
+      leader.phone || ''
+    );
+  }, [leader, onOpenContactModal]);
+
+  const handleLogConnection = useCallback(() => {
+    if (!validateLeaderData(leader) || !onLogConnection) return;
+    onLogConnection(leader.id, leader.name || 'Unknown');
+  }, [leader, onLogConnection]);
+
+  const handleStatusChange = useCallback((newStatus: string) => {
+    if (!validateLeaderData(leader) || !onUpdateStatus) return;
+    
+    if (newStatus === 'follow-up') {
+      // Show modal to collect follow-up date
+      setPendingStatus(newStatus);
+      setShowFollowUpModal(true);
+    } else {
+      // Update status immediately for non-follow-up statuses
+      onUpdateStatus(leader.id, newStatus);
+    }
+    setShowStatusDropdown(false);
+  }, [leader, onUpdateStatus]);
+
+  const handleEditFollowUpDate = useCallback(() => {
+    setEditingFollowUpDate(true);
+    setShowFollowUpModal(true);
+  }, []);
+
+  const handleFollowUpDateConfirm = useCallback((followUpDate: string) => {
+    if (!validateLeaderData(leader)) return;
+    
+    if (editingFollowUpDate && onUpdateFollowUpDate) {
+      onUpdateFollowUpDate(leader.id, followUpDate);
+      setEditingFollowUpDate(false);
+    } else if (pendingStatus && onUpdateStatus) {
+      onUpdateStatus(leader.id, pendingStatus, followUpDate);
+      setPendingStatus(null);
+    }
+    setShowFollowUpModal(false);
+  }, [leader, editingFollowUpDate, pendingStatus, onUpdateFollowUpDate, onUpdateStatus]);
+
+  const handleFollowUpModalClose = useCallback(() => {
+    setShowFollowUpModal(false);
+    setPendingStatus(null);
+    setEditingFollowUpDate(false);
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -131,66 +282,42 @@ export default function CircleLeaderCard({
 
     if (showStatusDropdown) {
       document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
     }
-
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
   }, [showStatusDropdown]);
 
-  const handleEventSummaryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onToggleEventSummary(leader.id, e.target.checked);
-  };
-
-  const handleFollowUpChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onToggleFollowUp?.(leader.id, e.target.checked);
-  };
-
-  const handleContactClick = () => {
-    onOpenContactModal(leader.id, leader.name, leader.email || '', leader.phone || '');
-  };
-
-  const handleLogConnection = () => {
-    onLogConnection?.(leader.id, leader.name);
-  };
-
-  const handleStatusChange = (newStatus: string) => {
-    if (newStatus === 'follow-up') {
-      // Show modal to collect follow-up date
-      setPendingStatus(newStatus);
-      setShowFollowUpModal(true);
+  // Follow-up date status styling
+  const followUpDateClassName = useMemo(() => {
+    if (!leader.follow_up_date || leader.follow_up_date.trim() === '') {
+      return 'text-gray-500 dark:text-gray-400';
+    }
+    
+    if (followUpStatus.isOverdue) {
+      return 'text-red-600 dark:text-red-400';
+    } else if (followUpStatus.isApproaching) {
+      return 'text-yellow-600 dark:text-yellow-400';
     } else {
-      // Update status immediately for non-follow-up statuses
-      onUpdateStatus?.(leader.id, newStatus);
+      return 'text-orange-600 dark:text-orange-400';
     }
-    setShowStatusDropdown(false);
-  };
+  }, [leader.follow_up_date, followUpStatus]);
 
-  const handleFollowUpDateConfirm = (followUpDate: string) => {
-    handleFollowUpDateUpdate(followUpDate);
-  };
-
-  const handleFollowUpModalClose = () => {
-    setShowFollowUpModal(false);
-    setPendingStatus(null);
-    setEditingFollowUpDate(false);
-  };
-
-  const handleEditFollowUpDate = () => {
-    setEditingFollowUpDate(true);
-    setShowFollowUpModal(true);
-  };
-
-  const handleFollowUpDateUpdate = (followUpDate: string) => {
-    if (editingFollowUpDate) {
-      onUpdateFollowUpDate?.(leader.id, followUpDate);
-      setEditingFollowUpDate(false);
-    } else if (pendingStatus) {
-      onUpdateStatus?.(leader.id, pendingStatus, followUpDate);
-      setPendingStatus(null);
+  const followUpDateText = useMemo(() => {
+    if (!leader.follow_up_date || leader.follow_up_date.trim() === '') {
+      return 'Follow up: No date set';
     }
-    setShowFollowUpModal(false);
-  };
+    
+    const formattedDate = formatDate(leader.follow_up_date);
+    if (!formattedDate) return 'Follow up: Invalid date';
+    
+    let suffix = '';
+    if (followUpStatus.isOverdue) {
+      suffix = ' (Overdue)';
+    } else if (followUpStatus.isApproaching && !followUpStatus.isOverdue) {
+      suffix = ' (Due Soon)';
+    }
+    
+    return `Follow up: ${formattedDate}${suffix}`;
+  }, [leader.follow_up_date, followUpStatus]);
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-lg transition-all duration-200 border border-gray-100 dark:border-gray-700">
@@ -215,11 +342,11 @@ export default function CircleLeaderCard({
                   <div className="relative inline-block">
                     <button
                       onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium transition-colors hover:opacity-80 ${statusColors[leader.status as keyof typeof statusColors] || statusColors['paused']}`}
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium transition-colors hover:opacity-80 ${statusColor}`}
+                      aria-haspopup="true"
+                      aria-expanded={showStatusDropdown}
                     >
-                      {leader.status === 'off-boarding' ? 'Off-boarding' 
-                       : leader.status ? leader.status.charAt(0).toUpperCase() + leader.status.slice(1)
-                       : 'Unknown'}
+                      {statusLabel}
                       <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                       </svg>
@@ -227,7 +354,7 @@ export default function CircleLeaderCard({
                     
                     {showStatusDropdown && (
                       <div className="absolute top-full left-0 mt-1 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10">
-                        {statusOptions.map((option) => (
+                        {STATUS_OPTIONS.map((option) => (
                           <button
                             key={option.value}
                             onClick={() => handleStatusChange(option.value)}
@@ -254,28 +381,12 @@ export default function CircleLeaderCard({
                 
                 {/* Follow-up date under status */}
                 {leader.follow_up_required && (
-                  <div className={`flex items-center ${
-                    leader.follow_up_date && leader.follow_up_date.trim() !== ''
-                      ? (getFollowUpStatus(leader.follow_up_date).isOverdue 
-                          ? 'text-red-600 dark:text-red-400' 
-                          : getFollowUpStatus(leader.follow_up_date).isApproaching
-                          ? 'text-yellow-600 dark:text-yellow-400'
-                          : 'text-orange-600 dark:text-orange-400')
-                      : 'text-gray-500 dark:text-gray-400'
-                  }`}>
+                  <div className={`flex items-center ${followUpDateClassName}`}>
                     <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                     <span className="text-sm font-medium">
-                      {leader.follow_up_date && leader.follow_up_date.trim() !== '' ? (
-                        <>
-                          Follow up: {formatDate(leader.follow_up_date)}
-                          {getFollowUpStatus(leader.follow_up_date).isOverdue && ' (Overdue)'}
-                          {getFollowUpStatus(leader.follow_up_date).isApproaching && !getFollowUpStatus(leader.follow_up_date).isOverdue && ' (Due Soon)'}
-                        </>
-                      ) : (
-                        'Follow up: No date set'
-                      )}
+                      {followUpDateText}
                     </span>
                   </div>
                 )}
@@ -286,12 +397,7 @@ export default function CircleLeaderCard({
           {/* Circle Information */}
           <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 mb-4">
             <p className="text-gray-700 dark:text-gray-200 text-sm">
-              {[
-                leader.circle_type || '', 
-                leader.day || '', 
-                formatTimeToAMPM(leader.time), 
-                leader.frequency || ''
-              ].filter(Boolean).join(' • ') || 'Schedule not specified'}
+              {circleSchedule}
             </p>
           </div>
 
@@ -307,14 +413,7 @@ export default function CircleLeaderCard({
               <span className="text-sm font-medium">Notes</span>
             </Link>
             <p className="text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
-              {leader.last_note ? (
-                <span className="block">
-                  {leader.last_note.content?.replace(/<[^>]*>/g, '').substring(0, 120)}
-                  {leader.last_note.content?.length > 120 ? '...' : ''}
-                </span>
-              ) : (
-                <em>No notes yet</em>
-              )}
+              <em>{lastNotePreview}</em>
             </p>
           </div>
 
@@ -420,29 +519,13 @@ export default function CircleLeaderCard({
                   onClick={handleEditFollowUpDate}
                   className="w-full text-left hover:bg-yellow-100 dark:hover:bg-yellow-900/30 rounded-md p-2 transition-colors"
                 >
-                  <div className={`flex items-center justify-between ${
-                    leader.follow_up_date && leader.follow_up_date.trim() !== ''
-                      ? (getFollowUpStatus(leader.follow_up_date).isOverdue 
-                          ? 'text-red-600 dark:text-red-400' 
-                          : getFollowUpStatus(leader.follow_up_date).isApproaching
-                          ? 'text-yellow-600 dark:text-yellow-400'
-                          : 'text-orange-600 dark:text-orange-400')
-                      : 'text-gray-500 dark:text-gray-400'
-                  }`}>
+                  <div className={`flex items-center justify-between ${followUpDateClassName}`}>
                     <div className="flex items-center">
                       <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                       <span className="text-sm font-medium">
-                        {leader.follow_up_date && leader.follow_up_date.trim() !== '' ? (
-                          <>
-                            Follow up: {formatDate(leader.follow_up_date)}
-                            {getFollowUpStatus(leader.follow_up_date).isOverdue && ' (Overdue)'}
-                            {getFollowUpStatus(leader.follow_up_date).isApproaching && !getFollowUpStatus(leader.follow_up_date).isOverdue && ' (Due Soon)'}
-                          </>
-                        ) : (
-                          'Follow up: No date set'
-                        )}
+                        {followUpDateText}
                       </span>
                     </div>
                     <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -475,11 +558,11 @@ export default function CircleLeaderCard({
                   <div className="relative inline-block">
                     <button
                       onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap transition-colors hover:opacity-80 ${statusColors[leader.status as keyof typeof statusColors] || statusColors['paused']}`}
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap transition-colors hover:opacity-80 ${statusColor}`}
+                      aria-haspopup="true"
+                      aria-expanded={showStatusDropdown}
                     >
-                      {leader.status === 'off-boarding' ? 'Off-boarding' 
-                       : leader.status ? leader.status.charAt(0).toUpperCase() + leader.status.slice(1)
-                       : 'Unknown'}
+                      {statusLabel}
                       <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                       </svg>
@@ -487,7 +570,7 @@ export default function CircleLeaderCard({
                     
                     {showStatusDropdown && (
                       <div className="absolute top-full left-0 mt-1 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10">
-                        {statusOptions.map((option) => (
+                        {STATUS_OPTIONS.map((option) => (
                           <button
                             key={option.value}
                             onClick={() => handleStatusChange(option.value)}
@@ -519,28 +602,12 @@ export default function CircleLeaderCard({
                   onClick={handleEditFollowUpDate}
                   className="flex items-center mb-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-md p-1 -ml-1 transition-colors group"
                 >
-                  <div className={`flex items-center ${
-                    leader.follow_up_date && leader.follow_up_date.trim() !== ''
-                      ? (getFollowUpStatus(leader.follow_up_date).isOverdue 
-                          ? 'text-red-600 dark:text-red-400' 
-                          : getFollowUpStatus(leader.follow_up_date).isApproaching
-                          ? 'text-yellow-600 dark:text-yellow-400'
-                          : 'text-orange-600 dark:text-orange-400')
-                      : 'text-gray-500 dark:text-gray-400'
-                  }`}>
+                  <div className={`flex items-center ${followUpDateClassName}`}>
                     <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                     <span className="text-sm font-medium">
-                      {leader.follow_up_date && leader.follow_up_date.trim() !== '' ? (
-                        <>
-                          Follow up: {formatDate(leader.follow_up_date)}
-                          {getFollowUpStatus(leader.follow_up_date).isOverdue && ' (Overdue)'}
-                          {getFollowUpStatus(leader.follow_up_date).isApproaching && !getFollowUpStatus(leader.follow_up_date).isOverdue && ' (Due Soon)'}
-                        </>
-                      ) : (
-                        'Follow up: No date set'
-                      )}
+                      {followUpDateText}
                     </span>
                     <svg className="w-3 h-3 ml-1 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -550,12 +617,7 @@ export default function CircleLeaderCard({
               )}
               
               <div className="text-gray-700 dark:text-gray-200 text-sm mb-3">
-                {[
-                  leader.circle_type || '', 
-                  leader.day || '', 
-                  formatTimeToAMPM(leader.time), 
-                  leader.frequency || ''
-                ].filter(Boolean).join(' • ') || 'Schedule not specified'}
+                {circleSchedule}
               </div>
             </div>
 
@@ -571,14 +633,7 @@ export default function CircleLeaderCard({
                 <span className="text-sm font-medium">Last Note</span>
               </Link>
               <p className="text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
-                {leader.last_note ? (
-                  <span className="block">
-                    {leader.last_note.content?.replace(/<[^>]*>/g, '').substring(0, 150)}
-                    {leader.last_note.content?.length > 150 ? '...' : ''}
-                  </span>
-                ) : (
-                  <em>No notes yet</em>
-                )}
+                <em>{lastNotePreview}</em>
               </p>
             </div>
 
@@ -684,10 +739,12 @@ export default function CircleLeaderCard({
         isOpen={showFollowUpModal}
         onClose={handleFollowUpModalClose}
         onConfirm={handleFollowUpDateConfirm}
-        leaderName={leader.name}
+        leaderName={leader.name || 'Unknown'}
         existingDate={editingFollowUpDate ? leader.follow_up_date : undefined}
         isEditing={editingFollowUpDate}
       />
     </div>
   );
-}
+});
+
+export default CircleLeaderCard;
