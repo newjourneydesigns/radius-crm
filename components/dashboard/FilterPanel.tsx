@@ -1,11 +1,114 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import ConfirmModal from '../ui/ConfirmModal';
 import FollowUpDateModal from './FollowUpDateModal';
 
+// Constants
+const MEETING_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
+
+const ORDERED_STATUSES = [
+  { value: 'active', label: 'Active' },
+  { value: 'follow-up', label: 'Follow Up' },
+  { value: 'invited', label: 'Invited' },
+  { value: 'pipeline', label: 'Pipeline' },
+  { value: 'paused', label: 'Paused' },
+  { value: 'off-boarding', label: 'Off Boarding' }
+] as const;
+
+const STATUS_OPTIONS = [
+  { value: 'invited', label: 'Invited', color: 'text-blue-700' },
+  { value: 'pipeline', label: 'Pipeline', color: 'text-indigo-700' },
+  { value: 'active', label: 'Active', color: 'text-green-700' },
+  { value: 'paused', label: 'Paused', color: 'text-yellow-700' },
+  { value: 'off-boarding', label: 'Off-boarding', color: 'text-red-700' },
+  { value: 'follow-up', label: 'Follow Up', color: 'text-orange-700' }
+] as const;
+
+const STATUS_MAP = {
+  'active': { label: 'Active', color: 'text-green-600 dark:text-green-400' },
+  'paused': { label: 'Paused', color: 'text-yellow-600 dark:text-yellow-400' },
+  'off-boarding': { label: 'Off Boarding', color: 'text-red-600 dark:text-red-400' },
+  'invited': { label: 'Invited', color: 'text-blue-600 dark:text-blue-400' },
+  'pipeline': { label: 'Pipeline', color: 'text-indigo-600 dark:text-indigo-400' },
+  'follow-up': { label: 'Follow Up', color: 'text-orange-600 dark:text-orange-400' }
+} as const;
+
+const DATE_FORMAT_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+// Utility Functions
+const formatDate = (date: Date | string): string => {
+  try {
+    if (typeof date === 'string') {
+      if (!DATE_FORMAT_REGEX.test(date)) {
+        console.warn('Invalid date format:', date);
+        return date;
+      }
+      return date;
+    }
+    if (date instanceof Date) {
+      return date.toISOString().split('T')[0];
+    }
+    console.warn('Invalid date type:', typeof date);
+    return '';
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return '';
+  }
+};
+
+const parseLocalDate = (dateString: string): Date | null => {
+  try {
+    if (!dateString || !DATE_FORMAT_REGEX.test(dateString)) {
+      console.warn('Invalid date string format:', dateString);
+      return null;
+    }
+    const [year, month, day] = dateString.split('-').map(Number);
+    if (isNaN(year) || isNaN(month) || isNaN(day)) {
+      console.warn('Invalid date components:', { year, month, day });
+      return null;
+    }
+    return new Date(year, month - 1, day);
+  } catch (error) {
+    console.error('Error parsing date:', error);
+    return null;
+  }
+};
+
+const isDateOverdue = (dateString: string): boolean => {
+  try {
+    const parsedDate = parseLocalDate(dateString);
+    if (!parsedDate) return false;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    parsedDate.setHours(0, 0, 0, 0);
+    
+    return parsedDate < today;
+  } catch (error) {
+    console.error('Error checking if date is overdue:', error);
+    return false;
+  }
+};
+
+const validateUserInput = (value: any, type: 'string' | 'number' | 'array' = 'string'): boolean => {
+  if (value === null || value === undefined) return false;
+  
+  switch (type) {
+    case 'string':
+      return typeof value === 'string' && value.trim().length > 0;
+    case 'number':
+      return typeof value === 'number' && !isNaN(value);
+    case 'array':
+      return Array.isArray(value);
+    default:
+      return false;
+  }
+};
+
+// Type Definitions
 interface SettingsItem {
   id: number;
   value: string;
@@ -23,6 +126,10 @@ interface FollowUpLeader {
   } | null;
 }
 
+/**
+ * FilterPanel component for managing circle leader filters and bulk operations
+ * Handles filtering by campus, status, meeting day, and provides follow-up management
+ */
 interface FilterPanelProps {
   filters: {
     campus: string[];
@@ -50,15 +157,18 @@ export default function FilterPanel({
   totalLeaders,
   receivedCount
 }: FilterPanelProps) {
-  console.log('FilterPanel: Component rendering with props:', { totalLeaders, receivedCount });
-  
+  // Core Component State
   const [filtersVisible, setFiltersVisible] = useState(true);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  
+  // Follow-up Table State
   const [followUpTableVisible, setFollowUpTableVisible] = useState(true);
   const [followUpLeaders, setFollowUpLeaders] = useState<FollowUpLeader[]>([]);
   const [isLoadingFollowUp, setIsLoadingFollowUp] = useState(false);
   const [sortField, setSortField] = useState<'name' | 'follow_up_date' | 'last_note_date'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  
+  // Modal State
   const [showFollowUpModal, setShowFollowUpModal] = useState(false);
   const [selectedLeader, setSelectedLeader] = useState<FollowUpLeader | null>(null);
   
@@ -79,30 +189,17 @@ export default function FilterPanel({
 
   // Load reference data from database
   const loadReferenceData = async () => {
-    console.log('FilterPanel: Starting to load reference data...');
     try {
       // Load each table individually with error handling
-      console.log('FilterPanel: Loading directors...');
       const directorsResult = await supabase.from('acpd_list').select('*').eq('active', true).order('name');
-      console.log('FilterPanel: Directors result:', directorsResult.data?.length, directorsResult.error);
       
-      console.log('FilterPanel: Loading campuses...');
       const campusesResult = await supabase.from('campuses').select('*').order('value');
-      console.log('FilterPanel: Campuses result:', campusesResult.data?.length, campusesResult.error);
       
-      console.log('FilterPanel: Loading statuses...');
       const statusesResult = await supabase.from('statuses').select('*').order('value');
-      console.log('FilterPanel: Statuses result:', statusesResult.data?.length, statusesResult.error);
       
-      console.log('FilterPanel: Loading circle types...');
       const circleTypesResult = await supabase.from('circle_types').select('*').order('value');
-      console.log('FilterPanel: Circle types result:', circleTypesResult.data?.length, circleTypesResult.error);
       
-      console.log('FilterPanel: Loading frequencies...');
       const frequenciesResult = await supabase.from('frequencies').select('*').order('value');
-      console.log('FilterPanel: Frequencies result:', frequenciesResult.data?.length, frequenciesResult.error);
-
-      console.log('FilterPanel: All queries completed, processing results...');
 
       if (directorsResult.data) {
         const formattedDirectors = directorsResult.data.map(director => ({
@@ -117,18 +214,26 @@ export default function FilterPanel({
       if (circleTypesResult.data) setCircleTypes(circleTypesResult.data);
       if (frequenciesResult.data) setFrequencies(frequenciesResult.data);
       
-      console.log('FilterPanel: Reference data loaded successfully');
     } catch (error) {
       console.error('FilterPanel: Error loading reference data:', error);
     } finally {
       setIsLoadingData(false);
-      console.log('FilterPanel: Loading complete');
     }
   };
 
-  // Load follow-up leaders based on selected campus
-  const loadFollowUpLeaders = async () => {
-    if (filters.campus.length === 0) {
+  // Load follow-up leaders based on selected campus with validation
+  const loadFollowUpLeaders = useCallback(async () => {
+    if (!filters.campus || filters.campus.length === 0) {
+      setFollowUpLeaders([]);
+      return;
+    }
+
+    // Validate campus inputs
+    const validCampuses = filters.campus.filter(campus => 
+      typeof campus === 'string' && campus.trim().length > 0
+    );
+    
+    if (validCampuses.length === 0) {
       setFollowUpLeaders([]);
       return;
     }
@@ -140,11 +245,12 @@ export default function FilterPanel({
         .from('circle_leaders')
         .select('id, name, campus, status, follow_up_date')
         .eq('follow_up_required', true)
-        .in('campus', filters.campus)
+        .in('campus', validCampuses)
         .order('name');
 
       if (leadersError) {
         console.error('Error loading follow-up leaders:', leadersError);
+        setFollowUpLeaders([]);
         return;
       }
 
@@ -153,12 +259,24 @@ export default function FilterPanel({
         return;
       }
 
+      // Validate leader IDs before querying notes
+      const validLeaderIds = leaders
+        .filter(leader => leader.id && typeof leader.id === 'number')
+        .map(leader => leader.id);
+
+      if (validLeaderIds.length === 0) {
+        setFollowUpLeaders(leaders.map(leader => ({
+          ...leader,
+          last_note: null
+        })));
+        return;
+      }
+
       // Get the latest note for each leader
-      const leaderIds = leaders.map(l => l.id);
       const { data: notes, error: notesError } = await supabase
         .from('notes')
         .select('circle_leader_id, content, created_at')
-        .in('circle_leader_id', leaderIds)
+        .in('circle_leader_id', validLeaderIds)
         .order('created_at', { ascending: false });
 
       if (notesError) {
@@ -170,12 +288,12 @@ export default function FilterPanel({
         const latestNote = notes?.find(note => note.circle_leader_id === leader.id) || null;
         return {
           id: leader.id,
-          name: leader.name,
-          campus: leader.campus,
-          status: leader.status,
+          name: leader.name || 'Unknown',
+          campus: leader.campus || 'Unknown',
+          status: leader.status || 'unknown',
           follow_up_date: leader.follow_up_date,
           last_note: latestNote ? {
-            content: latestNote.content,
+            content: latestNote.content || '',
             created_at: latestNote.created_at
           } : null
         };
@@ -184,10 +302,11 @@ export default function FilterPanel({
       setFollowUpLeaders(leadersWithNotes);
     } catch (error) {
       console.error('Error loading follow-up data:', error);
+      setFollowUpLeaders([]);
     } finally {
       setIsLoadingFollowUp(false);
     }
-  };
+  }, [filters.campus]);
 
   useEffect(() => {
     loadReferenceData();
@@ -206,7 +325,7 @@ export default function FilterPanel({
   // Load follow-up data when campus filter changes
   useEffect(() => {
     loadFollowUpLeaders();
-  }, [filters.campus]);
+  }, [filters.campus]); // Added missing dependency
 
   // Close bulk dropdown when clicking outside
   useEffect(() => {
@@ -244,99 +363,115 @@ export default function FilterPanel({
     }
   };
 
-  const sortedFollowUpLeaders = [...followUpLeaders].sort((a, b) => {
-    let aValue: string | Date | null = null;
-    let bValue: string | Date | null = null;
+  const sortedFollowUpLeaders = useMemo(() => {
+    return [...followUpLeaders].sort((a, b) => {
+      let aValue: string | Date | null = null;
+      let bValue: string | Date | null = null;
 
-    switch (sortField) {
-      case 'name':
-        aValue = a.name;
-        bValue = b.name;
-        break;
-      case 'follow_up_date':
-        aValue = a.follow_up_date ? new Date(a.follow_up_date) : null;
-        bValue = b.follow_up_date ? new Date(b.follow_up_date) : null;
-        break;
-      case 'last_note_date':
-        aValue = a.last_note?.created_at ? new Date(a.last_note.created_at) : null;
-        bValue = b.last_note?.created_at ? new Date(b.last_note.created_at) : null;
-        break;
-    }
+      switch (sortField) {
+        case 'name':
+          aValue = a.name;
+          bValue = b.name;
+          break;
+        case 'follow_up_date':
+          aValue = a.follow_up_date ? new Date(a.follow_up_date) : null;
+          bValue = b.follow_up_date ? new Date(b.follow_up_date) : null;
+          break;
+        case 'last_note_date':
+          aValue = a.last_note?.created_at ? new Date(a.last_note.created_at) : null;
+          bValue = b.last_note?.created_at ? new Date(b.last_note.created_at) : null;
+          break;
+      }
 
-    // Handle null values
-    if (aValue === null && bValue === null) return 0;
-    if (aValue === null) return sortDirection === 'asc' ? 1 : -1;
-    if (bValue === null) return sortDirection === 'asc' ? -1 : 1;
+      // Handle null values
+      if (aValue === null && bValue === null) return 0;
+      if (aValue === null) return sortDirection === 'asc' ? 1 : -1;
+      if (bValue === null) return sortDirection === 'asc' ? -1 : 1;
 
-    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-    return 0;
-  });
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [followUpLeaders, sortField, sortDirection]);
 
-  const formatDate = (dateString: string | null) => {
+  // Display formatter for dates - handles local timezone display
+  const formatDateDisplay = useCallback((dateString: string | null) => {
     if (!dateString) return 'No date set';
     
-    // Parse the date as a local date to avoid timezone issues
-    // This assumes the date string is in YYYY-MM-DD format
-    const dateParts = dateString.split('T')[0]; // Remove time part if present
-    const [year, month, day] = dateParts.split('-').map(num => parseInt(num));
-    const localDate = new Date(year, month - 1, day); // month is 0-indexed
-    
-    return localDate.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
+    try {
+      // Parse the date as a local date to avoid timezone issues
+      const dateParts = dateString.split('T')[0]; // Remove time part if present
+      const [year, month, day] = dateParts.split('-').map(num => parseInt(num, 10));
+      
+      // Validate date components
+      if (!year || !month || !day || year < 1900 || month < 1 || month > 12 || day < 1 || day > 31) {
+        return 'Invalid date';
+      }
+      
+      const localDate = new Date(year, month - 1, day); // month is 0-indexed
+      
+      return localDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch (error) {
+      console.error('Error formatting date for display:', error);
+      return 'Invalid date';
+    }
+  }, []);
 
-  const parseLocalDate = (dateString: string) => {
-    // Parse the date as a local date to avoid timezone issues
-    const dateParts = dateString.split('T')[0]; // Remove time part if present
-    const [year, month, day] = dateParts.split('-').map(num => parseInt(num));
-    return new Date(year, month - 1, day); // month is 0-indexed
-  };
-
-  const isDateOverdue = (dateString: string | null) => {
+  // Enhanced date overdue checker using utility functions
+  const isFollowUpDateOverdue = useCallback((dateString: string | null) => {
     if (!dateString) return false;
-    const followUpDate = parseLocalDate(dateString);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset time to compare dates only
-    return followUpDate < today;
-  };
+    return isDateOverdue(dateString);
+  }, []);
 
-  const formatStatus = (status: string) => {
-    const statusMap: { [key: string]: { label: string; color: string } } = {
-      'active': { label: 'Active', color: 'text-green-600 dark:text-green-400' },
-      'paused': { label: 'Paused', color: 'text-yellow-600 dark:text-yellow-400' },
-      'off-boarding': { label: 'Off Boarding', color: 'text-red-600 dark:text-red-400' },
-      'invited': { label: 'Invited', color: 'text-blue-600 dark:text-blue-400' },
-      'pipeline': { label: 'Pipeline', color: 'text-indigo-600 dark:text-indigo-400' },
-      'follow-up': { label: 'Follow Up', color: 'text-orange-600 dark:text-orange-400' }
+  // Status formatter using constants
+  const getStatusInfo = useCallback((status: string) => {
+    return STATUS_MAP[status as keyof typeof STATUS_MAP] || { 
+      label: status.charAt(0).toUpperCase() + status.slice(1), 
+      color: 'text-gray-600 dark:text-gray-400' 
     };
-    
-    return statusMap[status] || { label: status.charAt(0).toUpperCase() + status.slice(1), color: 'text-gray-600 dark:text-gray-400' };
-  };
+  }, []);
 
-  // Navigation handler
-  const handleLeaderClick = (leaderId: number) => {
+  // Navigation handler with validation
+  const handleLeaderClick = useCallback((leaderId: number) => {
+    if (!validateUserInput(leaderId, 'number') || leaderId <= 0) {
+      console.error('Invalid leader ID');
+      return;
+    }
     router.push(`/circle/${leaderId}`);
-  };
+  }, [router]);
 
-  // Follow-up date handlers
-  const handleFollowUpDateClick = (leader: FollowUpLeader) => {
+  // Follow-up date handlers with validation
+  const handleFollowUpDateClick = useCallback((leader: FollowUpLeader) => {
+    if (!leader || !leader.id) {
+      console.error('Invalid leader data');
+      return;
+    }
     setSelectedLeader(leader);
     setShowFollowUpModal(true);
-  };
+  }, []);
 
-  const handleFollowUpDateSave = async (date: string | null) => {
-    if (!selectedLeader) return;
+  const handleFollowUpDateSave = useCallback(async (date: string | null) => {
+    if (!selectedLeader?.id) {
+      console.error('No leader selected for follow-up date update');
+      return;
+    }
+
+    // Validate date format if provided
+    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      console.error('Invalid date format');
+      return;
+    }
 
     try {
       const { error } = await supabase
         .from('circle_leaders')
         .update({ 
           follow_up_date: date,
-          follow_up_required: date !== null // Set follow_up_required based on whether date is set
+          follow_up_required: date !== null
         })
         .eq('id', selectedLeader.id);
 
@@ -357,7 +492,7 @@ export default function FilterPanel({
     } catch (error) {
       console.error('Error updating follow-up date:', error);
     }
-  };
+  }, [selectedLeader]);
 
   const handleFollowUpDateSaveWrapper = (date: string) => {
     handleFollowUpDateSave(date);
@@ -368,19 +503,40 @@ export default function FilterPanel({
     setSelectedLeader(null);
   };
 
-  const handleFilterChange = (key: string, value: any) => {
+  const handleFilterChange = useCallback((key: string, value: any) => {
+    if (!key || typeof key !== 'string') {
+      console.error('Invalid filter key');
+      return;
+    }
+    
     onFiltersChange({
       ...filters,
       [key]: value
     });
-  };
+  }, [filters, onFiltersChange]);
 
-  const handleMultiSelectChange = (key: string, selectElement: HTMLSelectElement) => {
-    const selectedValues = Array.from(selectElement.selectedOptions).map(option => option.value);
-    handleFilterChange(key, selectedValues);
-  };
+  const handleMultiSelectChange = useCallback((key: string, selectElement: HTMLSelectElement | null) => {
+    if (!selectElement || !key) {
+      console.error('Invalid parameters for multi-select change');
+      return;
+    }
+    
+    try {
+      const selectedValues = Array.from(selectElement.selectedOptions)
+        .map(option => option.value)
+        .filter(value => typeof value === 'string' && value.trim().length > 0);
+      
+      handleFilterChange(key, selectedValues);
+    } catch (error) {
+      console.error('Error handling multi-select change:', error);
+    }
+  }, [handleFilterChange]);
 
-  // Remove individual filter value
+  /**
+   * Removes a specific value from a filter
+   * @param filterKey - The filter key to modify
+   * @param valueToRemove - The value to remove from the filter
+   */
   const removeFilterValue = (filterKey: string, valueToRemove: string) => {
     if (filterKey === 'eventSummary' || filterKey === 'connected') {
       handleFilterChange(filterKey, 'all');
@@ -391,26 +547,8 @@ export default function FilterPanel({
     }
   };
 
-  // Check if any filters are active
-  const hasActiveFilters = () => {
-    return filters.campus.length > 0 ||
-           filters.acpd.length > 0 ||
-           filters.status.length > 0 ||
-           filters.meetingDay.length > 0 ||
-           filters.circleType.length > 0 ||
-           filters.eventSummary !== 'all' ||
-           filters.connected !== 'all';
-  };
-
-  // Bulk actions handlers
-  const statusOptions = [
-    { value: 'invited', label: 'Invited', color: 'text-blue-700' },
-    { value: 'pipeline', label: 'Pipeline', color: 'text-indigo-700' },
-    { value: 'active', label: 'Active', color: 'text-green-700' },
-    { value: 'paused', label: 'Paused', color: 'text-yellow-700' },
-    { value: 'off-boarding', label: 'Off-boarding', color: 'text-red-700' },
-    { value: 'follow-up', label: 'Follow Up', color: 'text-orange-700' }
-  ];
+  // Bulk status update actions using constants
+  const statusOptions = STATUS_OPTIONS;
 
   const handleStatusSelect = (status: string, label: string) => {
     setPendingStatus({ value: status, label });
@@ -431,21 +569,25 @@ export default function FilterPanel({
     setPendingStatus(null);
   };
 
-  // Calculate progress percentage
-  const progressPercentage = totalLeaders > 0 ? Math.round((receivedCount / totalLeaders) * 100) : 0;
+  // Check if any filters are active
+  const hasActiveFilters = useMemo(() => {
+    return filters.campus.length > 0 ||
+           filters.acpd.length > 0 ||
+           filters.status.length > 0 ||
+           filters.meetingDay.length > 0 ||
+           filters.circleType.length > 0 ||
+           filters.eventSummary !== 'all' ||
+           filters.connected !== 'all';
+  }, [filters]);
 
-  // Meeting days array
-  const meetingDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
-  // Status options with proper order and formatting
-  const orderedStatuses = [
-    { value: 'active', label: 'Active' },
-    { value: 'follow-up', label: 'Follow Up' },
-    { value: 'invited', label: 'Invited' },
-    { value: 'pipeline', label: 'Pipeline' },
-    { value: 'paused', label: 'Paused' },
-    { value: 'off-boarding', label: 'Off Boarding' }
-  ];
+  /**
+   * Calculates the progress percentage for filtered results
+   * @returns Progress percentage as a number between 0 and 100
+   */
+  const progressPercentage = useMemo(() => {
+    if (totalLeaders === 0) return 0;
+    return Math.round((receivedCount / totalLeaders) * 100);
+  }, [receivedCount, totalLeaders]);
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
@@ -537,7 +679,7 @@ export default function FilterPanel({
                   onChange={(e) => handleMultiSelectChange('status', e.target)}
                   className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-32 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 dark:[&::-webkit-scrollbar-track]:bg-gray-600 [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-500 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent"
                 >
-                  {orderedStatuses.map(status => (
+                  {ORDERED_STATUSES.map(status => (
                     <option key={status.value} value={status.value}>{status.label}</option>
                   ))}
                 </select>
@@ -553,7 +695,7 @@ export default function FilterPanel({
                   onChange={(e) => handleMultiSelectChange('meetingDay', e.target)}
                   className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-32 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 dark:[&::-webkit-scrollbar-track]:bg-gray-600 [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-500 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent"
                 >
-                  {meetingDays.map(day => (
+                  {MEETING_DAYS.map(day => (
                     <option key={day} value={day}>{day}</option>
                   ))}
                 </select>
@@ -609,7 +751,7 @@ export default function FilterPanel({
           )}
 
           {/* Active Filters Display */}
-          {hasActiveFilters() && (
+          {hasActiveFilters && (
             <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Active Filters:</span>
@@ -655,7 +797,7 @@ export default function FilterPanel({
 
                 {/* Status Tags */}
                 {filters.status.map(status => {
-                  const statusObj = orderedStatuses.find(s => s.value === status);
+                  const statusObj = ORDERED_STATUSES.find(s => s.value === status);
                   const displayLabel = statusObj ? statusObj.label : status.charAt(0).toUpperCase() + status.slice(1);
                   
                   return (
@@ -924,8 +1066,8 @@ export default function FilterPanel({
                               >
                                 {leader.name}
                               </button>
-                              <div className={`text-sm ${formatStatus(leader.status).color}`}>
-                                {formatStatus(leader.status).label}
+                              <div className={`text-sm ${getStatusInfo(leader.status).color}`}>
+                                {getStatusInfo(leader.status).label}
                               </div>
                             </div>
                           </td>
@@ -938,15 +1080,15 @@ export default function FilterPanel({
                               <div className="flex items-center">
                                 <div>
                                   <div className="text-sm text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                                    {formatDate(leader.follow_up_date)}
+                                    {formatDateDisplay(leader.follow_up_date)}
                                   </div>
                                   {leader.follow_up_date && (
                                     <div className={`text-xs ${
-                                      isDateOverdue(leader.follow_up_date)
+                                      isFollowUpDateOverdue(leader.follow_up_date)
                                         ? 'text-red-500 dark:text-red-400' 
                                         : 'text-green-500 dark:text-green-400'
                                     }`}>
-                                      {isDateOverdue(leader.follow_up_date) ? 'Overdue' : 'Upcoming'}
+                                      {isFollowUpDateOverdue(leader.follow_up_date) ? 'Overdue' : 'Upcoming'}
                                     </div>
                                   )}
                                 </div>
@@ -966,7 +1108,7 @@ export default function FilterPanel({
                                   }
                                 </div>
                                 <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  {formatDate(leader.last_note.created_at)}
+                                  {formatDateDisplay(leader.last_note.created_at)}
                                 </div>
                               </div>
                             ) : (
