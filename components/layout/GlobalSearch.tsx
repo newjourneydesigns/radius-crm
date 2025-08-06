@@ -33,6 +33,10 @@ export default function GlobalSearch() {
     includeMatches: true,
     threshold: 0.3, // Lower = more strict matching
     minMatchCharLength: 2,
+    location: 0, // Start searching from the beginning
+    distance: 1000, // How far from location to search (higher = more flexible)
+    findAllMatches: true, // Find all matches, not just the first one
+    ignoreLocation: true, // Search anywhere in the text, not just at location
     keys: [
       // Circle Leader fields
       { name: 'name', weight: 2 }, // Higher weight for names

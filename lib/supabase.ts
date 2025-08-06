@@ -59,6 +59,11 @@ export interface CircleLeader {
     date_of_connection: string;
     connection_type: string;
   };
+  connections?: {
+    id: number;
+    date_of_connection: string;
+    connection_type: string;
+  }[];
 }
 
 export interface Note {

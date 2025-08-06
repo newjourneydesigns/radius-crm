@@ -14,7 +14,7 @@ import AlertModal from '../../components/ui/AlertModal';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useDashboardFilters } from '../../hooks/useDashboardFilters';
 import { useCircleLeaders } from '../../hooks/useCircleLeaders';
-import { CircleLeader } from '../../lib/supabase';
+import { CircleLeader, supabase } from '../../lib/supabase';
 
 interface ContactModalData {
   isOpen: boolean;
@@ -44,6 +44,47 @@ export default function DashboardPage() {
     bulkUpdateStatus
   } = useCircleLeaders();
 
+  // State for tracking connected leaders this month
+  const [connectedLeaderIds, setConnectedLeaderIds] = useState<Set<number>>(new Set());
+
+  // Load connected leaders for this month
+  const loadConnectedLeaders = async () => {
+    try {
+      // Get current month boundaries
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      
+      const startDate = firstDayOfMonth.toISOString().split('T')[0];
+      const endDate = lastDayOfMonth.toISOString().split('T')[0];
+
+      // Query for connections this month
+      const { data: connections, error } = await supabase
+        .from('connections')
+        .select('circle_leader_id')
+        .gte('date_of_connection', startDate)
+        .lte('date_of_connection', endDate);
+
+      if (error) {
+        console.error('Error fetching connected leaders:', error);
+        return;
+      }
+
+      // Create set of unique leader IDs who have connections this month
+      const uniqueLeaderIds = new Set(connections?.map(conn => conn.circle_leader_id) || []);
+      setConnectedLeaderIds(uniqueLeaderIds);
+    } catch (error) {
+      console.error('Error loading connected leaders:', error);
+    }
+  };
+
+  // Load connected leaders when component mounts or circleLeaders change
+  useEffect(() => {
+    if (circleLeaders.length > 0) {
+      loadConnectedLeaders();
+    }
+  }, [circleLeaders]);
+
   const clearFilters = () => {
     updateFilters({
       campus: [],
@@ -51,7 +92,8 @@ export default function DashboardPage() {
       status: [],
       meetingDay: [],
       circleType: [],
-      eventSummary: 'all'
+      eventSummary: 'all',
+      connected: 'all'
     });
   };
 
@@ -133,6 +175,13 @@ export default function DashboardPage() {
       filtered = filtered.filter(leader => leader.event_summary_received !== true);
     }
 
+    // Connected filter
+    if (filters.connected === 'connected') {
+      filtered = filtered.filter(leader => connectedLeaderIds.has(leader.id));
+    } else if (filters.connected === 'not_connected') {
+      filtered = filtered.filter(leader => !connectedLeaderIds.has(leader.id));
+    }
+
     // Sort by name
     filtered.sort((a, b) => {
       const aName = a.name || '';
@@ -141,7 +190,7 @@ export default function DashboardPage() {
     });
 
     return filtered;
-  }, [circleLeaders, filters]);
+  }, [circleLeaders, filters, connectedLeaderIds]);
 
   // Calculate today's circles
   const todayCircles = useMemo(() => {

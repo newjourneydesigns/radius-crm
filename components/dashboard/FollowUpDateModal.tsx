@@ -8,21 +8,25 @@ interface FollowUpDateModalProps {
   onClose: () => void;
   onConfirm: (date: string) => void;
   leaderName: string;
+  existingDate?: string;
+  isEditing?: boolean;
 }
 
 export default function FollowUpDateModal({
   isOpen,
   onClose,
   onConfirm,
-  leaderName
+  leaderName,
+  existingDate,
+  isEditing = false
 }: FollowUpDateModalProps) {
-  const [followUpDate, setFollowUpDate] = useState('');
+  const [followUpDate, setFollowUpDate] = useState(existingDate || '');
   const [error, setError] = useState('');
 
-  // Get tomorrow's date as minimum selectable date
+  // Get tomorrow's date as minimum selectable date (unless editing existing date)
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const minDate = tomorrow.toISOString().split('T')[0];
+  const minDate = isEditing ? undefined : tomorrow.toISOString().split('T')[0];
 
   // Get max date (6 months from now)
   const maxDate = new Date();
@@ -37,13 +41,16 @@ export default function FollowUpDateModal({
       return;
     }
 
-    const selectedDate = new Date(followUpDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Only validate future date for new follow-ups, not when editing
+    if (!isEditing) {
+      const selectedDate = new Date(followUpDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-    if (selectedDate <= today) {
-      setError('Follow-up date must be in the future');
-      return;
+      if (selectedDate <= today) {
+        setError('Follow-up date must be in the future');
+        return;
+      }
     }
 
     onConfirm(followUpDate);
@@ -51,17 +58,19 @@ export default function FollowUpDateModal({
   };
 
   const handleClose = () => {
-    setFollowUpDate('');
+    setFollowUpDate(existingDate || '');
     setError('');
     onClose();
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Set Follow-Up Date">
+    <Modal isOpen={isOpen} onClose={handleClose} title={isEditing ? "Edit Follow-Up Date" : "Set Follow-Up Date"}>
       <div className="p-6">
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-          Setting follow-up status for <span className="font-medium">{leaderName}</span>. 
-          When should you follow up with this Circle Leader?
+          {isEditing 
+            ? `Editing follow-up date for ${leaderName}. When should you follow up with this Circle Leader?`
+            : `Setting follow-up status for ${leaderName}. When should you follow up with this Circle Leader?`
+          }
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -83,7 +92,10 @@ export default function FollowUpDateModal({
               required
             />
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Select a date between tomorrow and 6 months from now
+              {isEditing 
+                ? 'Select a new follow-up date'
+                : 'Select a date between tomorrow and 6 months from now'
+              }
             </p>
           </div>
 
@@ -105,7 +117,7 @@ export default function FollowUpDateModal({
               type="submit"
               className="px-4 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
             >
-              Set Follow-Up
+              {isEditing ? 'Update Follow-Up' : 'Set Follow-Up'}
             </button>
           </div>
         </form>
