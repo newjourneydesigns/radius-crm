@@ -9,9 +9,11 @@ import ContactModal from '../../components/dashboard/ContactModal';
 import EventSummaryProgress from '../../components/dashboard/EventSummaryProgress';
 import ConnectionsProgress from '../../components/dashboard/ConnectionsProgress';
 import LogConnectionModal from '../../components/dashboard/LogConnectionModal';
+import AddNoteModal from '../../components/dashboard/AddNoteModal';
 import ConfirmModal from '../../components/ui/ConfirmModal';
 import AlertModal from '../../components/ui/AlertModal';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import ExportModal from '../../components/dashboard/ExportModal';
 import { useDashboardFilters } from '../../hooks/useDashboardFilters';
 import { useCircleLeaders } from '../../hooks/useCircleLeaders';
 import { CircleLeader, supabase } from '../../lib/supabase';
@@ -110,6 +112,20 @@ export default function DashboardPage() {
     leaderId: 0,
     name: ''
   });
+
+  const [addNoteModal, setAddNoteModal] = useState<{
+    isOpen: boolean;
+    leaderId?: number;
+    name?: string;
+    clearFollowUp?: boolean;
+  }>({
+    isOpen: false,
+    leaderId: undefined,
+    name: undefined,
+    clearFollowUp: false
+  });
+
+  const [exportModal, setExportModal] = useState(false);
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showAlert, setShowAlert] = useState<{
@@ -374,6 +390,41 @@ export default function DashboardPage() {
     });
   };
 
+  // Add Note Modal Functions
+  const openAddNoteModal = (leaderId?: number, name?: string, clearFollowUp?: boolean) => {
+    setAddNoteModal({
+      isOpen: true,
+      leaderId,
+      name,
+      clearFollowUp: clearFollowUp || false
+    });
+  };
+
+  const closeAddNoteModal = () => {
+    setAddNoteModal({
+      isOpen: false,
+      leaderId: undefined,
+      name: undefined,
+      clearFollowUp: false
+    });
+  };
+
+  const handleNoteAdded = () => {
+    loadCircleLeaders(); // Refresh the data to show the new note
+    const messageText = addNoteModal.clearFollowUp ? 'Follow-up cleared and note added successfully.' : 'The note has been successfully added.';
+    setShowAlert({
+      isOpen: true,
+      type: 'success',
+      title: addNoteModal.clearFollowUp ? 'Follow-Up Cleared' : 'Note Added',
+      message: messageText
+    });
+  };
+
+  // Clear Follow-Up Handler
+  const handleClearFollowUp = (leaderId: number, name: string) => {
+    openAddNoteModal(leaderId, name, true);
+  };
+
   const handleConnectionLogged = () => {
     // Refresh the data to update connections progress
     loadCircleLeaders();
@@ -411,11 +462,26 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
           {/* Header */}
           <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-          <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-400">
-            Manage and track your Circle Leaders
-          </p>
-        </div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+                <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-400">
+                  Manage and track your Circle Leaders
+                </p>
+              </div>
+              <div className="mt-4 sm:mt-0">
+                <button
+                  onClick={() => setExportModal(true)}
+                  className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Export
+                </button>
+              </div>
+            </div>
+          </div>
 
         {/* Filters */}
         <FilterPanel 
@@ -426,6 +492,8 @@ export default function DashboardPage() {
           onResetCheckboxes={handleResetCheckboxes}
           totalLeaders={filteredLeaders.length}
           receivedCount={eventSummaryProgress.received}
+          onAddNote={(leaderId, name) => openAddNoteModal(leaderId, name)}
+          onClearFollowUp={handleClearFollowUp}
         />
 
         {/* Status Bar */}
@@ -530,6 +598,8 @@ export default function DashboardPage() {
                   onToggleEventSummary={handleToggleEventSummary}
                   onOpenContactModal={openContactModal}
                   onLogConnection={openLogConnectionModal}
+                  onAddNote={(leaderId, name) => openAddNoteModal(leaderId, name)}
+                  onClearFollowUp={handleClearFollowUp}
                   onUpdateStatus={handleUpdateStatus}
                   onToggleFollowUp={toggleFollowUp}
                   isAdmin={isAdmin}
@@ -558,6 +628,16 @@ export default function DashboardPage() {
         onConnectionLogged={handleConnectionLogged}
       />
 
+      {/* Add Note Modal */}
+      <AddNoteModal
+        isOpen={addNoteModal.isOpen}
+        onClose={closeAddNoteModal}
+        circleLeaderId={addNoteModal.leaderId}
+        circleLeaderName={addNoteModal.name}
+        clearFollowUp={addNoteModal.clearFollowUp}
+        onNoteAdded={handleNoteAdded}
+      />
+
       {/* Reset Confirmation Modal */}
       <ConfirmModal
         isOpen={showResetConfirm}
@@ -577,6 +657,13 @@ export default function DashboardPage() {
         type={showAlert.type}
         title={showAlert.title}
         message={showAlert.message}
+      />
+
+      {/* Export Modal */}
+      <ExportModal
+        isOpen={exportModal}
+        onClose={() => setExportModal(false)}
+        leaders={filteredLeaders}
       />
       </div>
     </ProtectedRoute>

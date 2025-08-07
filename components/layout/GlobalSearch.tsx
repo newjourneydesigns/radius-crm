@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import { supabase, CircleLeader, Note } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
 import Fuse from 'fuse.js';
-import { supabase } from '../../lib/supabase';
-import { CircleLeader, Note } from '../../lib/supabase';
 
 interface SearchResult {
   type: 'leader' | 'note';
@@ -65,13 +65,7 @@ export default function GlobalSearch() {
       // Load Notes with Circle Leader info
       const { data: notes, error: notesError } = await supabase
         .from('notes')
-        .select(`
-          id,
-          circle_leader_id,
-          content,
-          created_at,
-          circle_leaders!inner(id, name, email, campus)
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(500); // Limit to recent notes for performance
 
@@ -80,13 +74,19 @@ export default function GlobalSearch() {
         return;
       }
 
+      // Create a map of leaders for quick lookup
+      const leadersMap = new Map();
+      (leaders || []).forEach(leader => {
+        leadersMap.set(leader.id, leader);
+      });
+
       // Format notes data
       const formattedNotes = notes?.map(note => ({
         id: note.id,
         circle_leader_id: note.circle_leader_id,
         content: note.content,
         created_at: note.created_at,
-        circle_leader: Array.isArray(note.circle_leaders) ? note.circle_leaders[0] : note.circle_leaders
+        circle_leader: leadersMap.get(note.circle_leader_id) || null
       })) || [];
 
       setSearchData({

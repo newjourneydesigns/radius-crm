@@ -35,10 +35,9 @@ export const useCircleLeaders = () => {
       console.log('Loaded', leaders?.length || 0, 'circle leaders');
 
       // Get all notes in one query and map to leaders
-      console.log('Fetching notes...');
       const { data: allNotes, error: notesError } = await supabase
         .from('notes')
-        .select('id, content, created_at, created_by, circle_leader_id')
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (notesError) {
@@ -61,7 +60,6 @@ export const useCircleLeaders = () => {
         last_note: latestNotesMap.get(leader.id) || null
       }));
 
-      console.log('Setting circle leaders:', leadersWithNotes.length);
       setCircleLeaders(leadersWithNotes);
 
     } catch (error: any) {

@@ -250,10 +250,7 @@ export default function CircleLeaderProfilePage() {
         // Load notes with user information
         const { data: notesData, error: notesError } = await supabase
           .from('notes')
-          .select(`
-            *,
-            users (name)
-          `)
+          .select('*')
           .eq('circle_leader_id', leaderId)
           .order('created_at', { ascending: false });
 
@@ -316,10 +313,7 @@ export default function CircleLeaderProfilePage() {
     try {
       const { data: notesData, error: notesError } = await supabase
         .from('notes')
-        .select(`
-          *,
-          users (name)
-        `)
+        .select('*')
         .eq('circle_leader_id', leaderId)
         .order('created_at', { ascending: false });
 
@@ -338,11 +332,10 @@ export default function CircleLeaderProfilePage() {
     setNoteError('');
     
     try {
-      // Simple note insertion with user ID
+      // Simple note insertion
       const insertData = {
         circle_leader_id: leaderId,
-        content: newNote.trim(),
-        user_id: user?.id || null // Use the user's UUID for tracking who created it
+        content: newNote.trim()
       };
       
       const { data, error } = await supabase
@@ -744,7 +737,7 @@ export default function CircleLeaderProfilePage() {
     if (!leader) return;
     
     setIsEditing(true);
-    setEditedLeader({
+    const editData = {
       name: leader.name,
       email: leader.email,
       phone: leader.phone,
@@ -756,8 +749,11 @@ export default function CircleLeaderProfilePage() {
       frequency: leader.frequency,
       circle_type: leader.circle_type,
       follow_up_required: leader.follow_up_required,
-      follow_up_date: leader.follow_up_date
-    });
+      follow_up_date: leader.follow_up_date,
+      ccb_profile_link: leader.ccb_profile_link
+    };
+    
+    setEditedLeader(editData);
   };
 
   const handleSaveLeader = async () => {
@@ -781,7 +777,8 @@ export default function CircleLeaderProfilePage() {
           frequency: editedLeader.frequency || null,
           circle_type: editedLeader.circle_type || null,
           follow_up_required: editedLeader.follow_up_required || false,
-          follow_up_date: editedLeader.follow_up_date || null
+          follow_up_date: editedLeader.follow_up_date || null,
+          ccb_profile_link: editedLeader.ccb_profile_link || null
         })
         .eq('id', leaderId)
         .select()
@@ -893,14 +890,10 @@ export default function CircleLeaderProfilePage() {
   };
 
   const handleLeaderFieldChange = (field: keyof CircleLeader, value: string | boolean) => {
-    setEditedLeader(prev => {
-      const updated = {
-        ...prev,
-        [field]: value
-      };
-      
-      return updated;
-    });
+    setEditedLeader(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   const formatDateTime = (dateString: string) => {
@@ -1232,13 +1225,13 @@ export default function CircleLeaderProfilePage() {
                       )}
                     </dd>
                   </div>
-                  <div>
+                  <div className="sm:col-span-2">
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">CCB Profile Link</dt>
                     <dd className="mt-1">
                       {isEditing ? (
                         <input
                           type="url"
-                          value={editedLeader.ccb_profile_link || ''}
+                          value={editedLeader.ccb_profile_link || leader.ccb_profile_link || ''}
                           onChange={(e) => handleLeaderFieldChange('ccb_profile_link', e.target.value)}
                           placeholder="https://example.ccbchurch.com/..."
                           className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"

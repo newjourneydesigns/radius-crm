@@ -142,9 +142,11 @@ interface CircleLeaderCardProps {
   onToggleEventSummary: (leaderId: number, isChecked: boolean) => void;
   onOpenContactModal: (leaderId: number, name: string, email: string, phone: string) => void;
   onLogConnection?: (leaderId: number, name: string) => void;
+  onAddNote?: (leaderId: number, name: string) => void;
   onUpdateStatus?: (leaderId: number, newStatus: string, followUpDate?: string) => void;
   onToggleFollowUp?: (leaderId: number, isRequired: boolean) => void;
   onUpdateFollowUpDate?: (leaderId: number, followUpDate: string) => void;
+  onClearFollowUp?: (leaderId: number, name: string) => void;
 }
 
 /**
@@ -157,9 +159,11 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
   onToggleEventSummary, 
   onOpenContactModal,
   onLogConnection,
+  onAddNote,
   onUpdateStatus,
   onToggleFollowUp,
-  onUpdateFollowUpDate
+  onUpdateFollowUpDate,
+  onClearFollowUp
 }: CircleLeaderCardProps) {
   // Validate leader data
   if (!validateLeaderData(leader)) {
@@ -233,6 +237,16 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
     if (!validateLeaderData(leader) || !onLogConnection) return;
     onLogConnection(leader.id, leader.name || 'Unknown');
   }, [leader, onLogConnection]);
+
+  const handleAddNote = useCallback(() => {
+    if (!validateLeaderData(leader) || !onAddNote) return;
+    onAddNote(leader.id, leader.name || 'Unknown');
+  }, [leader, onAddNote]);
+
+  const handleClearFollowUp = useCallback(() => {
+    if (!validateLeaderData(leader) || !onClearFollowUp) return;
+    onClearFollowUp(leader.id, leader.name || 'Unknown');
+  }, [leader, onClearFollowUp]);
 
   const handleStatusChange = useCallback((newStatus: string) => {
     if (!validateLeaderData(leader) || !onUpdateStatus) return;
@@ -431,6 +445,18 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
                   Log Connection
                 </button>
               )}
+              
+              {onAddNote && (
+                <button
+                  onClick={handleAddNote}
+                  className="flex items-center justify-center px-3 py-2 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-lg transition-colors text-sm font-medium"
+                >
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Add Note
+                </button>
+              )}
             </div>
             
             {/* Additional Buttons - Mobile */}
@@ -514,7 +540,7 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
 
             {/* Follow-Up Date - Mobile */}
             {leader.follow_up_required && (
-              <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+              <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg space-y-2">
                 <button
                   onClick={handleEditFollowUpDate}
                   className="w-full text-left hover:bg-yellow-100 dark:hover:bg-yellow-900/30 rounded-md p-2 transition-colors"
@@ -533,6 +559,19 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
                     </svg>
                   </div>
                 </button>
+                
+                {/* Clear Follow-Up Button - Mobile */}
+                {onClearFollowUp && (
+                  <button
+                    onClick={handleClearFollowUp}
+                    className="w-full flex items-center justify-center px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-md transition-colors text-sm font-medium"
+                  >
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Clear Follow-Up
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -598,22 +637,37 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
               
               {/* Follow-up Date under status */}
               {leader.follow_up_required && (
-                <button
-                  onClick={handleEditFollowUpDate}
-                  className="flex items-center mb-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-md p-1 -ml-1 transition-colors group"
-                >
-                  <div className={`flex items-center ${followUpDateClassName}`}>
-                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span className="text-sm font-medium">
-                      {followUpDateText}
-                    </span>
-                    <svg className="w-3 h-3 ml-1 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </div>
-                </button>
+                <div className="mb-2 space-y-1">
+                  <button
+                    onClick={handleEditFollowUpDate}
+                    className="flex items-center hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-md p-1 -ml-1 transition-colors group"
+                  >
+                    <div className={`flex items-center ${followUpDateClassName}`}>
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-sm font-medium">
+                        {followUpDateText}
+                      </span>
+                      <svg className="w-3 h-3 ml-1 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </div>
+                  </button>
+                  
+                  {/* Clear Follow-Up Button - Desktop */}
+                  {onClearFollowUp && (
+                    <button
+                      onClick={handleClearFollowUp}
+                      className="flex items-center px-2 py-1 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-md transition-colors text-xs font-medium -ml-1"
+                    >
+                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      Clear
+                    </button>
+                  )}
+                </div>
               )}
               
               <div className="text-gray-700 dark:text-gray-200 text-sm mb-3">
@@ -650,6 +704,18 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
                     Log Connection
+                  </button>
+                )}
+                
+                {onAddNote && (
+                  <button
+                    onClick={handleAddNote}
+                    className="flex items-center px-3 py-2 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
+                  >
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Add Note
                   </button>
                 )}
                 

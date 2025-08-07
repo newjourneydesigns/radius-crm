@@ -146,6 +146,8 @@ interface FilterPanelProps {
   onResetCheckboxes: () => void;
   totalLeaders: number;
   receivedCount: number;
+  onAddNote?: (leaderId: number, name: string) => void;
+  onClearFollowUp?: (leaderId: number, name: string) => void;
 }
 
 export default function FilterPanel({
@@ -155,7 +157,9 @@ export default function FilterPanel({
   onBulkUpdateStatus,
   onResetCheckboxes,
   totalLeaders,
-  receivedCount
+  receivedCount,
+  onAddNote,
+  onClearFollowUp
 }: FilterPanelProps) {
   // Core Component State
   const [filtersVisible, setFiltersVisible] = useState(true);
@@ -1053,6 +1057,9 @@ export default function FilterPanel({
                             )}
                           </div>
                         </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
@@ -1116,6 +1123,37 @@ export default function FilterPanel({
                                 No notes available
                               </div>
                             )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex space-x-2">
+                              {/* Add Note Button */}
+                              {onAddNote && (
+                                <button
+                                  onClick={() => onAddNote(leader.id, leader.name)}
+                                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-md transition-colors"
+                                  title="Add Note"
+                                >
+                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                  Note
+                                </button>
+                              )}
+                              
+                              {/* Clear Follow-Up Button */}
+                              {onClearFollowUp && (
+                                <button
+                                  onClick={() => onClearFollowUp(leader.id, leader.name)}
+                                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-md transition-colors"
+                                  title="Clear Follow-Up"
+                                >
+                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                  Clear
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
