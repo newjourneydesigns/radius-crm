@@ -969,176 +969,288 @@ export default function FilterPanel({
                 <p className="text-gray-500 dark:text-gray-400">No follow-up required for leaders in selected campus(es)</p>
               </div>
             ) : (
-              <div className="overflow-hidden border border-gray-200 dark:border-gray-600 rounded-lg">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
-                    <thead className="bg-gray-50 dark:bg-gray-700">
-                      <tr>
-                        <th 
-                          onClick={() => handleSort('name')}
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 select-none"
-                        >
-                          <div className="flex items-center">
-                            Circle Leader
-                            <svg className="w-3 h-3 ml-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                            </svg>
-                            {sortField === 'name' && (
-                              <svg 
-                                className={`w-4 h-4 ml-1 transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} 
-                                fill="none" 
-                                stroke="currentColor" 
-                                viewBox="0 0 24 24"
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path>
+              <>
+                {/* Desktop Table View */}
+                <div className="hidden sm:block overflow-hidden border border-gray-200 dark:border-gray-600 rounded-lg">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
+                      <thead className="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                          <th 
+                            onClick={() => handleSort('name')}
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 select-none"
+                          >
+                            <div className="flex items-center">
+                              Circle Leader
+                              <svg className="w-3 h-3 ml-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
                               </svg>
-                            )}
+                              {sortField === 'name' && (
+                                <svg 
+                                  className={`w-4 h-4 ml-1 transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} 
+                                  fill="none" 
+                                  stroke="currentColor" 
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path>
+                                </svg>
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            onClick={() => handleSort('follow_up_date')}
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 select-none"
+                          >
+                            <div className="flex items-center">
+                              Follow Up Date
+                              <svg className="w-3 h-3 ml-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                              </svg>
+                              {sortField === 'follow_up_date' && (
+                                <svg 
+                                  className={`w-4 h-4 ml-1 transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} 
+                                  fill="none" 
+                                  stroke="currentColor" 
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path>
+                                </svg>
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            onClick={() => handleSort('last_note_date')}
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 select-none"
+                          >
+                            <div className="flex items-center">
+                              Last Note
+                              {sortField === 'last_note_date' && (
+                                <svg 
+                                  className={`w-4 h-4 ml-1 transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} 
+                                  fill="none" 
+                                  stroke="currentColor" 
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path>
+                                </svg>
+                              )}
+                            </div>
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
+                        {sortedFollowUpLeaders.map((leader) => (
+                          <tr key={leader.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div>
+                                <button
+                                  onClick={() => handleLeaderClick(leader.id)}
+                                  className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline focus:outline-none focus:underline"
+                                >
+                                  {leader.name}
+                                </button>
+                                <div className={`text-sm ${getStatusInfo(leader.status).color}`}>
+                                  {getStatusInfo(leader.status).label}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <button
+                                onClick={() => handleFollowUpDateClick(leader)}
+                                className="text-left focus:outline-none hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded px-2 py-1 -mx-2 -my-1 transition-colors group"
+                                title="Click to edit follow-up date"
+                              >
+                                <div className="flex items-center">
+                                  <div>
+                                    <div className="text-sm text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                                      {formatDateDisplay(leader.follow_up_date)}
+                                    </div>
+                                    {leader.follow_up_date && (
+                                      <div className={`text-xs ${
+                                        isFollowUpDateOverdue(leader.follow_up_date)
+                                          ? 'text-red-500 dark:text-red-400' 
+                                          : 'text-green-500 dark:text-green-400'
+                                      }`}>
+                                        {isFollowUpDateOverdue(leader.follow_up_date) ? 'Overdue' : 'Upcoming'}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <svg className="w-4 h-4 ml-2 text-gray-400 group-hover:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                                  </svg>
+                                </div>
+                              </button>
+                            </td>
+                            <td className="px-6 py-4">
+                              {leader.last_note ? (
+                                <div>
+                                  <div className="text-sm text-gray-900 dark:text-white mb-1 line-clamp-2">
+                                    {leader.last_note.content.length > 100 
+                                      ? `${leader.last_note.content.substring(0, 100)}...`
+                                      : leader.last_note.content
+                                    }
+                                  </div>
+                                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                                    {formatDateDisplay(leader.last_note.created_at)}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-sm text-gray-400 dark:text-gray-500 italic">
+                                  No notes available
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex space-x-2">
+                                {/* Add Note Button */}
+                                {onAddNote && (
+                                  <button
+                                    onClick={() => onAddNote(leader.id, leader.name)}
+                                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-md transition-colors"
+                                    title="Add Note"
+                                  >
+                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                    Note
+                                  </button>
+                                )}
+                                
+                                {/* Clear Follow-Up Button */}
+                                {onClearFollowUp && (
+                                  <button
+                                    onClick={() => onClearFollowUp(leader.id, leader.name)}
+                                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-md transition-colors"
+                                    title="Clear Follow-Up"
+                                  >
+                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                    Clear
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="sm:hidden space-y-4">
+                  {sortedFollowUpLeaders.map((leader) => (
+                    <div key={leader.id} className="bg-white dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 shadow-sm">
+                      {/* Header - Leader Name and Status */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <button
+                            onClick={() => handleLeaderClick(leader.id)}
+                            className="text-lg font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline focus:outline-none focus:underline"
+                          >
+                            {leader.name}
+                          </button>
+                          <div className={`text-sm ${getStatusInfo(leader.status).color} mt-1`}>
+                            {getStatusInfo(leader.status).label}
                           </div>
-                        </th>
-                        <th 
-                          onClick={() => handleSort('follow_up_date')}
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 select-none"
+                        </div>
+                      </div>
+
+                      {/* Follow Up Date */}
+                      <div className="mb-3">
+                        <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+                          Follow Up Date
+                        </div>
+                        <button
+                          onClick={() => handleFollowUpDateClick(leader)}
+                          className="text-left focus:outline-none hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded px-2 py-1 -mx-2 -my-1 transition-colors group w-full"
+                          title="Click to edit follow-up date"
                         >
-                          <div className="flex items-center">
-                            Follow Up Date
-                            <svg className="w-3 h-3 ml-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="text-sm text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                                {formatDateDisplay(leader.follow_up_date)}
+                              </div>
+                              {leader.follow_up_date && (
+                                <div className={`text-xs ${
+                                  isFollowUpDateOverdue(leader.follow_up_date)
+                                    ? 'text-red-500 dark:text-red-400' 
+                                    : 'text-green-500 dark:text-green-400'
+                                }`}>
+                                  {isFollowUpDateOverdue(leader.follow_up_date) ? 'Overdue' : 'Upcoming'}
+                                </div>
+                              )}
+                            </div>
+                            <svg className="w-4 h-4 text-gray-400 group-hover:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
                             </svg>
-                            {sortField === 'follow_up_date' && (
-                              <svg 
-                                className={`w-4 h-4 ml-1 transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} 
-                                fill="none" 
-                                stroke="currentColor" 
-                                viewBox="0 0 24 24"
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path>
-                              </svg>
-                            )}
                           </div>
-                        </th>
-                        <th 
-                          onClick={() => handleSort('last_note_date')}
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 select-none"
-                        >
-                          <div className="flex items-center">
-                            Last Note
-                            {sortField === 'last_note_date' && (
-                              <svg 
-                                className={`w-4 h-4 ml-1 transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} 
-                                fill="none" 
-                                stroke="currentColor" 
-                                viewBox="0 0 24 24"
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path>
-                              </svg>
-                            )}
+                        </button>
+                      </div>
+
+                      {/* Last Note */}
+                      <div className="mb-3">
+                        <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+                          Last Note
+                        </div>
+                        {leader.last_note ? (
+                          <div>
+                            <div className="text-sm text-gray-900 dark:text-white mb-1">
+                              {leader.last_note.content.length > 100 
+                                ? `${leader.last_note.content.substring(0, 100)}...`
+                                : leader.last_note.content
+                              }
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              {formatDateDisplay(leader.last_note.created_at)}
+                            </div>
                           </div>
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
-                      {sortedFollowUpLeaders.map((leader) => (
-                        <tr key={leader.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <button
-                                onClick={() => handleLeaderClick(leader.id)}
-                                className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline focus:outline-none focus:underline"
-                              >
-                                {leader.name}
-                              </button>
-                              <div className={`text-sm ${getStatusInfo(leader.status).color}`}>
-                                {getStatusInfo(leader.status).label}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <button
-                              onClick={() => handleFollowUpDateClick(leader)}
-                              className="text-left focus:outline-none hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded px-2 py-1 -mx-2 -my-1 transition-colors group"
-                              title="Click to edit follow-up date"
-                            >
-                              <div className="flex items-center">
-                                <div>
-                                  <div className="text-sm text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                                    {formatDateDisplay(leader.follow_up_date)}
-                                  </div>
-                                  {leader.follow_up_date && (
-                                    <div className={`text-xs ${
-                                      isFollowUpDateOverdue(leader.follow_up_date)
-                                        ? 'text-red-500 dark:text-red-400' 
-                                        : 'text-green-500 dark:text-green-400'
-                                    }`}>
-                                      {isFollowUpDateOverdue(leader.follow_up_date) ? 'Overdue' : 'Upcoming'}
-                                    </div>
-                                  )}
-                                </div>
-                                <svg className="w-4 h-4 ml-2 text-gray-400 group-hover:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
-                                </svg>
-                              </div>
-                            </button>
-                          </td>
-                          <td className="px-6 py-4">
-                            {leader.last_note ? (
-                              <div>
-                                <div className="text-sm text-gray-900 dark:text-white mb-1 line-clamp-2">
-                                  {leader.last_note.content.length > 100 
-                                    ? `${leader.last_note.content.substring(0, 100)}...`
-                                    : leader.last_note.content
-                                  }
-                                </div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  {formatDateDisplay(leader.last_note.created_at)}
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="text-sm text-gray-400 dark:text-gray-500 italic">
-                                No notes available
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex space-x-2">
-                              {/* Add Note Button */}
-                              {onAddNote && (
-                                <button
-                                  onClick={() => onAddNote(leader.id, leader.name)}
-                                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-md transition-colors"
-                                  title="Add Note"
-                                >
-                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                  </svg>
-                                  Note
-                                </button>
-                              )}
-                              
-                              {/* Clear Follow-Up Button */}
-                              {onClearFollowUp && (
-                                <button
-                                  onClick={() => onClearFollowUp(leader.id, leader.name)}
-                                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-md transition-colors"
-                                  title="Clear Follow-Up"
-                                >
-                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                  Clear
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                        ) : (
+                          <div className="text-sm text-gray-400 dark:text-gray-500 italic">
+                            No notes available
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex space-x-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+                        {/* Add Note Button */}
+                        {onAddNote && (
+                          <button
+                            onClick={() => onAddNote(leader.id, leader.name)}
+                            className="flex-1 inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-md transition-colors"
+                            title="Add Note"
+                          >
+                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Add Note
+                          </button>
+                        )}
+                        
+                        {/* Clear Follow-Up Button */}
+                        {onClearFollowUp && (
+                          <button
+                            onClick={() => onClearFollowUp(leader.id, leader.name)}
+                            className="flex-1 inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-md transition-colors"
+                            title="Clear Follow-Up"
+                          >
+                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            Clear Follow-Up
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
-                            )}
+              </>
+            )}
           </div>
         )}
       </div>

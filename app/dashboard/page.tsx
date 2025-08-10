@@ -747,68 +747,125 @@ export default function DashboardPage() {
               </div>
             </div>
             {recentNotesVisible && (
-              <div className="overflow-x-auto -mx-4 sm:mx-0">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-900/40">
-                    <tr>
-                      <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Circle Leader</th>
-                      <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
-                      <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Note</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {recentNotesLoading ? (
+              <>
+                {/* Desktop Table View */}
+                <div className="hidden sm:block overflow-x-auto -mx-4 sm:mx-0">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-900/40">
                       <tr>
-                        <td colSpan={3} className="px-4 sm:px-6 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                          <div className="flex items-center justify-center">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500 mr-2"></div>
-                            Loading recent notes...
-                          </div>
-                        </td>
+                        <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Circle Leader</th>
+                        <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
+                        <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Note</th>
                       </tr>
-                    ) : recentNotes.length === 0 ? (
-                      <tr>
-                        <td colSpan={3} className="px-4 sm:px-6 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                          No recent notes
-                        </td>
-                      </tr>
-                    ) : (
-                      recentNotes.map((note) => {
-                        const leader = circleLeaders.find(l => l.id === note.circle_leader_id);
-                        const leaderName = leader?.name || `Leader #${note.circle_leader_id}`;
-                        const dateStr = new Date(note.created_at).toLocaleString(undefined, {
-                          year: 'numeric',
-                          month: 'short',
-                          day: '2-digit',
-                          hour: 'numeric',
-                          minute: '2-digit'
-                        });
-                        return (
-                          <tr key={note.id}>
-                            <td className="px-4 sm:px-6 py-3 whitespace-nowrap">
+                    </thead>
+                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                      {recentNotesLoading ? (
+                        <tr>
+                          <td colSpan={3} className="px-4 sm:px-6 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                            <div className="flex items-center justify-center">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500 mr-2"></div>
+                              Loading recent notes...
+                            </div>
+                          </td>
+                        </tr>
+                      ) : recentNotes.length === 0 ? (
+                        <tr>
+                          <td colSpan={3} className="px-4 sm:px-6 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                            No recent notes
+                          </td>
+                        </tr>
+                      ) : (
+                        recentNotes.map((note) => {
+                          const leader = circleLeaders.find(l => l.id === note.circle_leader_id);
+                          const leaderName = leader?.name || `Leader #${note.circle_leader_id}`;
+                          const dateStr = new Date(note.created_at).toLocaleString(undefined, {
+                            year: 'numeric',
+                            month: 'short',
+                            day: '2-digit',
+                            hour: 'numeric',
+                            minute: '2-digit'
+                          });
+                          return (
+                            <tr key={note.id}>
+                              <td className="px-4 sm:px-6 py-3 whitespace-nowrap">
+                                {leader ? (
+                                  <Link href={`/circle/${note.circle_leader_id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                                    {leaderName}
+                                  </Link>
+                                ) : (
+                                  <span className="text-gray-700 dark:text-gray-300">{leaderName}</span>
+                                )}
+                              </td>
+                              <td className="px-4 sm:px-6 py-3 whitespace-nowrap text-gray-700 dark:text-gray-300">
+                                {dateStr}
+                              </td>
+                              <td className="px-4 sm:px-6 py-3 text-gray-800 dark:text-gray-200">
+                                <div className="max-w-3xl whitespace-pre-wrap break-words">
+                                  {note.content}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="sm:hidden space-y-4">
+                  {recentNotesLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500 mr-2"></div>
+                      <span className="text-sm text-gray-500 dark:text-gray-400">Loading recent notes...</span>
+                    </div>
+                  ) : recentNotes.length === 0 ? (
+                    <div className="text-center py-8">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">No recent notes</span>
+                    </div>
+                  ) : (
+                    recentNotes.map((note) => {
+                      const leader = circleLeaders.find(l => l.id === note.circle_leader_id);
+                      const leaderName = leader?.name || `Leader #${note.circle_leader_id}`;
+                      const dateStr = new Date(note.created_at).toLocaleString(undefined, {
+                        year: 'numeric',
+                        month: 'short',
+                        day: '2-digit',
+                        hour: 'numeric',
+                        minute: '2-digit'
+                      });
+                      return (
+                        <div key={note.id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                          {/* Circle Leader Name */}
+                          <div className="mb-2">
+                            <div className="font-medium text-gray-900 dark:text-white">
                               {leader ? (
                                 <Link href={`/circle/${note.circle_leader_id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
                                   {leaderName}
                                 </Link>
                               ) : (
-                                <span className="text-gray-700 dark:text-gray-300">{leaderName}</span>
+                                <span>{leaderName}</span>
                               )}
-                            </td>
-                            <td className="px-4 sm:px-6 py-3 whitespace-nowrap text-gray-700 dark:text-gray-300">
+                            </div>
+                          </div>
+                          
+                          {/* Date of Note */}
+                          <div className="mb-3">
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
                               {dateStr}
-                            </td>
-                            <td className="px-4 sm:px-6 py-3 text-gray-800 dark:text-gray-200">
-                              <div className="max-w-3xl whitespace-pre-wrap break-words">
-                                {note.content}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Note */}
+                          <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
+                            {note.content}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </>
             )}
           </div>
         </div>
