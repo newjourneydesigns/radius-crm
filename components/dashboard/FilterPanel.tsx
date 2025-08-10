@@ -605,7 +605,6 @@ export default function FilterPanel({
             </div>
             <div>
               <h3 className="text-lg font-medium text-gray-900 dark:text-white">Filters</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Search & Sort</p>
             </div>
           </div>
           
@@ -933,12 +932,6 @@ export default function FilterPanel({
               </div>
               <div>
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white">Follow Up Required</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {filters.campus.length > 0 
-                    ? `Circle leaders requiring follow-up in ${filters.campus.join(', ')}`
-                    : 'Select a campus to view follow-up leaders'
-                  }
-                </p>
               </div>
             </div>
             <button

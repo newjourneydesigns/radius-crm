@@ -1,4 +1,4 @@
-const CACHE_NAME = 'radius-v';
+const CACHE_NAME = 'radius-v1.0.0';
 
 // Simplified service worker that doesn't interfere with navigation
 // Install event - skip caching for now

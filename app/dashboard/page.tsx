@@ -532,9 +532,6 @@ export default function DashboardPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-                <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-400">
-                  Manage and track your Circle Leaders
-                </p>
               </div>
               <div className="mt-4 sm:mt-0">
                 <button
@@ -549,6 +546,139 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+
+        {/* Active Filter Tags - Sticky */}
+        <div className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 mb-6">
+          <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-3">
+            {(filters.campus.length > 0 || filters.acpd.length > 0 || filters.status.length > 0 || 
+              filters.meetingDay.length > 0 || filters.circleType.length > 0 || 
+              filters.eventSummary !== 'all' || filters.connected !== 'all') && (
+              <div className="flex items-center flex-wrap gap-2">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Active Filters:</span>
+                
+                {/* Campus Tags */}
+                {filters.campus.map(campus => (
+                  <span key={`campus-${campus}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                    Campus: {campus}
+                    <button
+                      onClick={() => updateFilters({...filters, campus: filters.campus.filter(c => c !== campus)})}
+                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-blue-400 hover:bg-blue-200 hover:text-blue-600 dark:hover:bg-blue-800"
+                    >
+                      <span className="sr-only">Remove {campus} filter</span>
+                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+
+                {/* ACPD Tags */}
+                {filters.acpd.map(acpd => (
+                  <span key={`acpd-${acpd}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                    ACPD: {acpd}
+                    <button
+                      onClick={() => updateFilters({...filters, acpd: filters.acpd.filter(a => a !== acpd)})}
+                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-purple-400 hover:bg-purple-200 hover:text-purple-600 dark:hover:bg-purple-800"
+                    >
+                      <span className="sr-only">Remove {acpd} filter</span>
+                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+
+                {/* Status Tags */}
+                {filters.status.map(status => (
+                  <span key={`status-${status}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                    Status: {status === 'follow-up' ? 'Follow Up' : status.charAt(0).toUpperCase() + status.slice(1)}
+                    <button
+                      onClick={() => updateFilters({...filters, status: filters.status.filter(s => s !== status)})}
+                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-green-400 hover:bg-green-200 hover:text-green-600 dark:hover:bg-green-800"
+                    >
+                      <span className="sr-only">Remove {status} filter</span>
+                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+
+                {/* Meeting Day Tags */}
+                {filters.meetingDay.map(day => (
+                  <span key={`day-${day}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                    Day: {day}
+                    <button
+                      onClick={() => updateFilters({...filters, meetingDay: filters.meetingDay.filter(d => d !== day)})}
+                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-orange-400 hover:bg-orange-200 hover:text-orange-600 dark:hover:bg-orange-800"
+                    >
+                      <span className="sr-only">Remove {day} filter</span>
+                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+
+                {/* Circle Type Tags */}
+                {filters.circleType.map(type => (
+                  <span key={`type-${type}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
+                    Type: {type}
+                    <button
+                      onClick={() => updateFilters({...filters, circleType: filters.circleType.filter(t => t !== type)})}
+                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-indigo-400 hover:bg-indigo-200 hover:text-indigo-600 dark:hover:bg-indigo-800"
+                    >
+                      <span className="sr-only">Remove {type} filter</span>
+                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+
+                {/* Event Summary Tags */}
+                {filters.eventSummary !== 'all' && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                    Event Summary: {filters.eventSummary === 'received' ? 'Received' : 'Not Received'}
+                    <button
+                      onClick={() => updateFilters({...filters, eventSummary: 'all'})}
+                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-yellow-400 hover:bg-yellow-200 hover:text-yellow-600 dark:hover:bg-yellow-800"
+                    >
+                      <span className="sr-only">Remove event summary filter</span>
+                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
+                      </svg>
+                    </button>
+                  </span>
+                )}
+
+                {/* Connected Tags */}
+                {filters.connected !== 'all' && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200">
+                    Connection: {filters.connected === 'connected' ? 'Connected' : 'Not Connected'}
+                    <button
+                      onClick={() => updateFilters({...filters, connected: 'all'})}
+                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-teal-400 hover:bg-teal-200 hover:text-teal-600 dark:hover:bg-teal-800"
+                    >
+                      <span className="sr-only">Remove connection filter</span>
+                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
+                      </svg>
+                    </button>
+                  </span>
+                )}
+
+                {/* Clear All Button */}
+                <button
+                  onClick={clearAllFilters}
+                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 ml-2"
+                >
+                  Clear All
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Filters */}
         <FilterPanel 
@@ -568,7 +698,6 @@ export default function DashboardPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <div className="mb-4">
               <h2 className="text-lg font-medium text-gray-900 dark:text-white">Status Overview</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Click on a segment to filter by status</p>
             </div>
             <CircleStatusBar
               data={statusData}
@@ -592,6 +721,12 @@ export default function DashboardPage() {
         <ConnectionsProgress
           filteredLeaderIds={filteredLeaders.map(leader => leader.id)}
           totalFilteredLeaders={filteredLeaders.length}
+        />
+
+        {/* Today's Circles */}
+        <TodayCircles 
+          todayCircles={todayCircles}
+          onOpenContactModal={openContactModal}
         />
 
         {/* Recent Notes */}
@@ -677,12 +812,6 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
-
-        {/* Today's Circles */}
-        <TodayCircles 
-          todayCircles={todayCircles}
-          onOpenContactModal={openContactModal}
-        />
 
         {/* Circle Leaders Grid */}
         <div className="mb-6">
