@@ -78,17 +78,9 @@ export default function TodayCircles({ todayCircles, onOpenContactModal }: Today
           </div>
           <button
             onClick={toggleVisibility}
-            className="flex items-center px-3 py-1 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors"
+            className="text-sm px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
           >
             {isVisible ? 'Hide' : 'Show'}
-            <svg
-              className={`ml-1 h-4 w-4 transition-transform duration-200 ${isVisible ? 'rotate-180' : 'rotate-0'}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-            </svg>
           </button>
         </div>
       </div>
