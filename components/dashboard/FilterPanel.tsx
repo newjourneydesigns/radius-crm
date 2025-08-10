@@ -612,17 +612,9 @@ export default function FilterPanel({
           <div className="flex items-center">
             <button
               onClick={toggleFilters}
-              className="flex items-center px-3 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 focus:outline-none"
+              className="text-sm px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
-              <span>{filtersVisible ? 'Hide Filters' : 'Edit Filters'}</span>
-              <svg 
-                className={`w-4 h-4 ml-2 transform transition-transform ${filtersVisible ? 'rotate-180' : ''}`} 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-              </svg>
+              {filtersVisible ? 'Hide' : 'Show'}
             </button>
           </div>
         </div>
@@ -951,17 +943,9 @@ export default function FilterPanel({
             </div>
             <button
               onClick={toggleFollowUpTable}
-              className="flex items-center px-3 py-2 text-sm font-medium text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 focus:outline-none"
+              className="text-sm px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
-              <span>{followUpTableVisible ? 'Hide Table' : 'Show Table'}</span>
-              <svg 
-                className={`w-4 h-4 ml-2 transform transition-transform ${followUpTableVisible ? 'rotate-180' : ''}`} 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-              </svg>
+              {followUpTableVisible ? 'Hide' : 'Show'}
             </button>
           </div>
         </div>

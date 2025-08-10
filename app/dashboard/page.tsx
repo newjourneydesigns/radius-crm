@@ -16,7 +16,8 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import ExportModal from '../../components/dashboard/ExportModal';
 import { useDashboardFilters } from '../../hooks/useDashboardFilters';
 import { useCircleLeaders } from '../../hooks/useCircleLeaders';
-import { CircleLeader, supabase } from '../../lib/supabase';
+import { CircleLeader, supabase, Note } from '../../lib/supabase';
+import Link from 'next/link';
 
 interface ContactModalData {
   isOpen: boolean;
@@ -48,9 +49,47 @@ export default function DashboardPage() {
 
   // State for tracking connected leaders this month
   const [connectedLeaderIds, setConnectedLeaderIds] = useState<Set<number>>(new Set());
+  const [connectionsLoading, setConnectionsLoading] = useState(false);
+
+  // Recent Notes state and visibility
+  type RecentNote = Pick<Note, 'id' | 'circle_leader_id' | 'content' | 'created_at'>;
+  const [recentNotes, setRecentNotes] = useState<RecentNote[]>([]);
+  const [recentNotesLoading, setRecentNotesLoading] = useState(false);
+  const [recentNotesVisible, setRecentNotesVisible] = useState(() => {
+    try {
+      const saved = localStorage.getItem('recentNotesVisible');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  // Load recent notes (latest 10)
+  const loadRecentNotes = async () => {
+    setRecentNotesLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('notes')
+        .select('id, circle_leader_id, content, created_at')
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if (error) {
+        console.error('Error loading recent notes:', error);
+        setRecentNotes([]);
+        return;
+      }
+      setRecentNotes((data as any) || []);
+    } catch (e) {
+      console.error('Error loading recent notes:', e);
+      setRecentNotes([]);
+    } finally {
+      setRecentNotesLoading(false);
+    }
+  };
 
   // Load connected leaders for this month
   const loadConnectedLeaders = async () => {
+    setConnectionsLoading(true);
     try {
       // Get current month boundaries
       const now = new Date();
@@ -77,6 +116,8 @@ export default function DashboardPage() {
       setConnectedLeaderIds(uniqueLeaderIds);
     } catch (error) {
       console.error('Error loading connected leaders:', error);
+    } finally {
+      setConnectionsLoading(false);
     }
   };
 
@@ -285,10 +326,33 @@ export default function DashboardPage() {
     ];
   }, [circleLeaders, filters.campus]);
 
+  // Toggle Recent Notes visibility and persist to localStorage
+  const toggleRecentNotesVisibility = () => {
+    setRecentNotesVisible(prev => {
+      const newVisible = !prev;
+      try {
+        localStorage.setItem('recentNotesVisible', newVisible.toString());
+      } catch (error) {
+        console.error('Failed to save recent notes visibility to localStorage:', error);
+      }
+      return newVisible;
+    });
+  };
+
   // Load data on component mount
   useEffect(() => {
     loadCircleLeaders();
   }, [loadCircleLeaders]);
+
+  // Load recent notes independently on mount with slight delay to prioritize main content
+  useEffect(() => {
+    // Small delay to prioritize loading circle leaders first
+    const timeoutId = setTimeout(() => {
+      loadRecentNotes();
+    }, 100);
+    
+    return () => clearTimeout(timeoutId);
+  }, []);
 
   // Event handlers
   const handleToggleEventSummary = async (leaderId: number, isChecked: boolean) => {
@@ -411,6 +475,7 @@ export default function DashboardPage() {
 
   const handleNoteAdded = () => {
     loadCircleLeaders(); // Refresh the data to show the new note
+    loadRecentNotes();   // Refresh recent notes table
     const messageText = addNoteModal.clearFollowUp ? 'Follow-up cleared and note added successfully.' : 'The note has been successfully added.';
     setShowAlert({
       isOpen: true,
@@ -428,6 +493,8 @@ export default function DashboardPage() {
   const handleConnectionLogged = () => {
     // Refresh the data to update connections progress
     loadCircleLeaders();
+    // Also refresh recent notes (connections create notes)
+    loadRecentNotes();
   };
 
   // For now, assume user is admin - in a real app, you'd get this from your auth context
@@ -526,6 +593,90 @@ export default function DashboardPage() {
           filteredLeaderIds={filteredLeaders.map(leader => leader.id)}
           totalFilteredLeaders={filteredLeaders.length}
         />
+
+        {/* Recent Notes */}
+        <div className="mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Recent Notes</h2>
+              <div className="flex items-center gap-2">
+                {recentNotesLoading && (
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Loading...</span>
+                )}
+                <button
+                  onClick={toggleRecentNotesVisibility}
+                  className="text-sm px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  {recentNotesVisible ? 'Hide' : 'Show'}
+                </button>
+              </div>
+            </div>
+            {recentNotesVisible && (
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-900/40">
+                    <tr>
+                      <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Circle Leader</th>
+                      <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
+                      <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Note</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {recentNotesLoading ? (
+                      <tr>
+                        <td colSpan={3} className="px-4 sm:px-6 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                          <div className="flex items-center justify-center">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500 mr-2"></div>
+                            Loading recent notes...
+                          </div>
+                        </td>
+                      </tr>
+                    ) : recentNotes.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="px-4 sm:px-6 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                          No recent notes
+                        </td>
+                      </tr>
+                    ) : (
+                      recentNotes.map((note) => {
+                        const leader = circleLeaders.find(l => l.id === note.circle_leader_id);
+                        const leaderName = leader?.name || `Leader #${note.circle_leader_id}`;
+                        const dateStr = new Date(note.created_at).toLocaleString(undefined, {
+                          year: 'numeric',
+                          month: 'short',
+                          day: '2-digit',
+                          hour: 'numeric',
+                          minute: '2-digit'
+                        });
+                        return (
+                          <tr key={note.id}>
+                            <td className="px-4 sm:px-6 py-3 whitespace-nowrap">
+                              {leader ? (
+                                <Link href={`/circle/${note.circle_leader_id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                                  {leaderName}
+                                </Link>
+                              ) : (
+                                <span className="text-gray-700 dark:text-gray-300">{leaderName}</span>
+                              )}
+                            </td>
+                            <td className="px-4 sm:px-6 py-3 whitespace-nowrap text-gray-700 dark:text-gray-300">
+                              {dateStr}
+                            </td>
+                            <td className="px-4 sm:px-6 py-3 text-gray-800 dark:text-gray-200">
+                              <div className="max-w-3xl whitespace-pre-wrap break-words">
+                                {note.content}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Today's Circles */}
         <TodayCircles 
