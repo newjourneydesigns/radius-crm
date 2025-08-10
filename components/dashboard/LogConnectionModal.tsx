@@ -175,7 +175,7 @@ export default function LogConnectionModal({
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800">
+      <div className="relative top-20 mx-4 sm:mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white dark:bg-gray-800 sm:w-96">
         <div className="mt-3">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
@@ -214,7 +214,7 @@ export default function LogConnectionModal({
                 id="connection-date"
                 value={formData.date}
                 onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
               />
             </div>
 
