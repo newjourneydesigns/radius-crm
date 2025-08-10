@@ -148,6 +148,7 @@ interface FilterPanelProps {
   receivedCount: number;
   onAddNote?: (leaderId: number, name: string) => void;
   onClearFollowUp?: (leaderId: number, name: string) => void;
+  refreshKey?: number; // Add refresh key to trigger data reload
 }
 
 export default function FilterPanel({
@@ -159,7 +160,8 @@ export default function FilterPanel({
   totalLeaders,
   receivedCount,
   onAddNote,
-  onClearFollowUp
+  onClearFollowUp,
+  refreshKey
 }: FilterPanelProps) {
   // Core Component State
   const [filtersVisible, setFiltersVisible] = useState(true);
@@ -326,10 +328,10 @@ export default function FilterPanel({
     setFollowUpTableVisible(savedFollowUp !== 'false');
   }, []);
 
-  // Load follow-up data when campus filter changes
+  // Load follow-up data when campus filter changes or when refresh is triggered
   useEffect(() => {
     loadFollowUpLeaders();
-  }, [filters.campus]); // Added missing dependency
+  }, [filters.campus, refreshKey]); // Added refreshKey dependency
 
   // Close bulk dropdown when clicking outside
   useEffect(() => {

@@ -47,11 +47,21 @@ export default function DashboardPage() {
     bulkUpdateStatus
   } = useCircleLeaders();
 
-  // State for tracking connected leaders this month
-  const [connectedLeaderIds, setConnectedLeaderIds] = useState<Set<number>>(new Set());
+    // State for tracking connected leaders this month
+  const [connectedThisMonth, setConnectedThisMonth] = useState<number[]>([]);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
+  
+  // Connections tracking state
   const [connectionsLoading, setConnectionsLoading] = useState(false);
-
-  // Recent Notes state and visibility
+  const [connectedLeaderIds, setConnectedLeaderIds] = useState<Set<number>>(new Set());
+  
+  // Refresh key for FilterPanel follow-up table
+  const [filterPanelRefreshKey, setFilterPanelRefreshKey] = useState(0);
+  
+  // State for modals
   type RecentNote = Pick<Note, 'id' | 'circle_leader_id' | 'content' | 'created_at'>;
   const [recentNotes, setRecentNotes] = useState<RecentNote[]>([]);
   const [recentNotesLoading, setRecentNotesLoading] = useState(false);
@@ -248,6 +258,20 @@ export default function DashboardPage() {
 
     return filtered;
   }, [circleLeaders, filters, connectedLeaderIds]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredLeaders.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedLeaders = useMemo(() => {
+    if (itemsPerPage === -1) return filteredLeaders; // Show all
+    return filteredLeaders.slice(startIndex, endIndex);
+  }, [filteredLeaders, startIndex, endIndex, itemsPerPage]);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters]);
 
   // Calculate today's circles
   const todayCircles = useMemo(() => {
@@ -476,6 +500,10 @@ export default function DashboardPage() {
   const handleNoteAdded = () => {
     loadCircleLeaders(); // Refresh the data to show the new note
     loadRecentNotes();   // Refresh recent notes table
+    // If a follow-up was cleared, refresh the FilterPanel follow-up table
+    if (addNoteModal.clearFollowUp) {
+      setFilterPanelRefreshKey(prev => prev + 1);
+    }
     const messageText = addNoteModal.clearFollowUp ? 'Follow-up cleared and note added successfully.' : 'The note has been successfully added.';
     setShowAlert({
       isOpen: true,
@@ -691,6 +719,7 @@ export default function DashboardPage() {
           receivedCount={eventSummaryProgress.received}
           onAddNote={(leaderId, name) => openAddNoteModal(leaderId, name)}
           onClearFollowUp={handleClearFollowUp}
+          refreshKey={filterPanelRefreshKey}
         />
 
         {/* Status Bar */}
@@ -872,16 +901,37 @@ export default function DashboardPage() {
 
         {/* Circle Leaders Grid */}
         <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Circle Leaders
-            </h2>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              {filteredLeaders.length} of {circleLeaders.length} leaders
-            </div>
-          </div>
-
-          {isLoading ? (
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                Circle Leaders
+              </h2>
+              <div className="flex items-center space-x-4">
+                {/* Items per page selector */}
+                <div className="flex items-center space-x-2">
+                  <label htmlFor="items-per-page" className="text-sm text-gray-600 dark:text-gray-400">
+                    Show:
+                  </label>
+                  <select
+                    id="items-per-page"
+                    value={itemsPerPage}
+                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                    className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                    <option value={-1}>All</option>
+                  </select>
+                </div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  {itemsPerPage === -1 ? (
+                    `${filteredLeaders.length} of ${circleLeaders.length} leaders`
+                  ) : (
+                    `${startIndex + 1}-${Math.min(endIndex, filteredLeaders.length)} of ${filteredLeaders.length} leaders`
+                  )}
+                </div>
+              </div>
+            </div>          {isLoading ? (
             <div className="space-y-4">
               {[...Array(6)].map((_, i) => (
                 <div key={i} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 animate-pulse">
@@ -928,7 +978,7 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredLeaders.map(leader => (
+              {paginatedLeaders.map(leader => (
                 <CircleLeaderCard
                   key={leader.id}
                   leader={leader}
@@ -942,6 +992,62 @@ export default function DashboardPage() {
                   isAdmin={isAdmin}
                 />
               ))}
+            </div>
+          )}
+          
+          {/* Pagination Controls */}
+          {itemsPerPage !== -1 && totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-between">
+              <div className="text-sm text-gray-700 dark:text-gray-300">
+                Page {currentPage} of {totalPages}
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  Previous
+                </button>
+                
+                {/* Page numbers */}
+                <div className="flex items-center space-x-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`px-3 py-2 text-sm font-medium rounded-md ${
+                          currentPage === pageNum
+                            ? 'bg-blue-600 text-white'
+                            : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                <button
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  Next
+                </button>
+              </div>
             </div>
           )}
         </div>
