@@ -109,6 +109,44 @@ ${leaders.map((leader, index) => buildLeaderBlock(leader, index)).join('\n\n')}`
     URL.revokeObjectURL(url);
   };
 
+  const generateCSV = () => {
+    const headers: string[] = ['Name'];
+    if (options.phone) headers.push('Phone');
+    if (options.email) headers.push('Email');
+    if (options.campus) headers.push('Campus');
+    if (options.meetingDay) headers.push('Meeting Day');
+    if (options.meetingTime) headers.push('Meeting Time');
+    if (options.status) headers.push('Status');
+
+    const csvData = leaders.map(leader => {
+      const row: string[] = [leader.name];
+      
+      if (options.phone) row.push(leader.phone || '');
+      if (options.email) row.push(leader.email || '');
+      if (options.campus) row.push(leader.campus || '');
+      if (options.meetingDay) row.push(leader.day || '');
+      if (options.meetingTime) row.push(formatTime(leader.time));
+      if (options.status) row.push(leader.status || '');
+      
+      return row.map(field => `"${field.replace(/"/g, '""')}"`).join(',');
+    });
+
+    return [headers.map(h => `"${h}"`).join(','), ...csvData].join('\n');
+  };
+
+  const handleDownloadCSV = () => {
+    const csvContent = generateCSV();
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `circle-leaders-export-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const toggleOption = (key: keyof typeof options) =>
     setOptions(prev => ({ ...prev, [key]: !prev[key] }));
 
@@ -187,6 +225,16 @@ ${leaders.map((leader, index) => buildLeaderBlock(leader, index)).join('\n\n')}`
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 Download as Text File
+              </button>
+
+              <button
+                onClick={handleDownloadCSV}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Download as CSV
               </button>
             </div>
           </div>
