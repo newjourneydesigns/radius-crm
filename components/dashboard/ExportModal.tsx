@@ -11,6 +11,14 @@ interface ExportModalProps {
 
 export default function ExportModal({ isOpen, onClose, leaders }: ExportModalProps) {
   const [copied, setCopied] = useState(false);
+  const [options, setOptions] = useState({
+    phone: true,
+    email: true,
+    campus: true,
+    meetingDay: true,
+    meetingTime: true,
+    status: true,
+  });
 
   if (!isOpen) return null;
 
@@ -37,15 +45,33 @@ export default function ExportModal({ isOpen, onClose, leaders }: ExportModalPro
     }
   };
 
-  const formatMeetingDetails = (leader: CircleLeader) => {
+  const buildMeetingLine = (leader: CircleLeader) => {
     const parts: string[] = [];
     
-    if (leader.day) parts.push(leader.day);
-    if (leader.time) parts.push(formatTime(leader.time));
+    if (options.meetingDay && leader.day) parts.push(leader.day);
+    if (options.meetingTime && leader.time) parts.push(formatTime(leader.time));
+    // Keep frequency and circle type always included (not part of requested toggles)
     if (leader.frequency) parts.push(leader.frequency);
     if (leader.circle_type) parts.push(leader.circle_type);
     
-    return parts.length > 0 ? parts.join(' • ') : 'Not specified';
+    if (parts.length === 0) return '';
+    return `   Meeting: ${parts.join(' • ')}`;
+  };
+
+  const buildLeaderBlock = (leader: CircleLeader, index: number) => {
+    const lines: string[] = [];
+    lines.push(`${index + 1}. ${leader.name || 'No Name'}`);
+    if (options.phone) lines.push(`   Phone: ${leader.phone || 'Not provided'}`);
+    if (options.email) lines.push(`   Email: ${leader.email || 'Not provided'}`);
+    if (options.campus) lines.push(`   Campus: ${leader.campus || 'Not specified'}`);
+    const meetingLine = buildMeetingLine(leader);
+    if (meetingLine) lines.push(meetingLine);
+    if (options.status) {
+      const status = leader.status ? leader.status.charAt(0).toUpperCase() + leader.status.slice(1) : 'Not specified';
+      const statusWithFollow = leader.follow_up_required ? `${status} (Follow-up Required)` : status;
+      lines.push(`   Status: ${statusWithFollow}`);
+    }
+    return lines.join('\n');
   };
 
   const exportText = `CIRCLE LEADERS EXPORT
@@ -59,17 +85,7 @@ Total Leaders: ${leaders.length}
 
 ${'='.repeat(80)}
 
-${leaders.map((leader, index) => 
-`${index + 1}. ${leader.name || 'No Name'}
-   Phone: ${leader.phone || 'Not provided'}
-   Email: ${leader.email || 'Not provided'}
-   Campus: ${leader.campus || 'Not specified'}
-   Meeting: ${formatMeetingDetails(leader)}
-   Status: ${leader.status ? leader.status.charAt(0).toUpperCase() + leader.status.slice(1) : 'Not specified'}${leader.follow_up_required ? ' (Follow-up Required)' : ''}
-`).join('\n')}
-
-${'='.repeat(80)}
-End of Export`;
+${leaders.map((leader, index) => buildLeaderBlock(leader, index)).join('\n\n')}`;
 
   const handleCopy = async () => {
     try {
@@ -92,6 +108,9 @@ End of Export`;
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+
+  const toggleOption = (key: keyof typeof options) =>
+    setOptions(prev => ({ ...prev, [key]: !prev[key] }));
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -117,6 +136,37 @@ End of Export`;
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               This export includes all currently filtered circle leaders with their contact information and meeting details.
             </p>
+
+            {/* Field Filters */}
+            <div className="mb-4">
+              <h3 className="text-sm font-medium text-gray-900 dark:text-white">Include fields</h3>
+              <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <label className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
+                  <input type="checkbox" checked={options.phone} onChange={() => toggleOption('phone')} className="rounded border-gray-300 dark:border-gray-600" />
+                  <span>Phone</span>
+                </label>
+                <label className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
+                  <input type="checkbox" checked={options.email} onChange={() => toggleOption('email')} className="rounded border-gray-300 dark:border-gray-600" />
+                  <span>Email</span>
+                </label>
+                <label className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
+                  <input type="checkbox" checked={options.campus} onChange={() => toggleOption('campus')} className="rounded border-gray-300 dark:border-gray-600" />
+                  <span>Campus</span>
+                </label>
+                <label className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
+                  <input type="checkbox" checked={options.meetingDay} onChange={() => toggleOption('meetingDay')} className="rounded border-gray-300 dark:border-gray-600" />
+                  <span>Meeting Day</span>
+                </label>
+                <label className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
+                  <input type="checkbox" checked={options.meetingTime} onChange={() => toggleOption('meetingTime')} className="rounded border-gray-300 dark:border-gray-600" />
+                  <span>Meeting Time</span>
+                </label>
+                <label className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
+                  <input type="checkbox" checked={options.status} onChange={() => toggleOption('status')} className="rounded border-gray-300 dark:border-gray-600" />
+                  <span>Status</span>
+                </label>
+              </div>
+            </div>
             
             <div className="flex gap-3">
               <button
