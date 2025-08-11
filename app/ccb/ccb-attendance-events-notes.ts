@@ -279,7 +279,7 @@ async function main() {
   if (withNotes && links.length) {
     // Throttle attendance_profile calls (sequential or light concurrency)
     const MAX_CONCURRENCY = 3;
-    const queue = [...links.entries()];
+    const queue = Array.from(links.entries());
     let active = 0;
 
     await new Promise<void>((resolve) => {
