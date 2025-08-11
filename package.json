@@ -9,17 +9,27 @@
     "lint": "next lint",
     "version:patch": "npm version patch",
     "version:minor": "npm version minor",
-    "version:major": "npm version major"
+    "version:major": "npm version major",
+    "ccb:test": "npx ts-node app/ccb/ccb-attendance-events-notes.ts --group 12345 --start 2025-08-01 --end 2025-09-01",
+    "ccb:test-notes": "npx ts-node app/ccb/ccb-attendance-events-notes.ts --group 12345 --start 2025-08-01 --end 2025-09-01 --withNotes",
+    "ccb:test-full": "npx ts-node app/ccb/ccb-attendance-events-notes.ts --group 12345 --start 2025-08-01 --end 2025-09-01 --withNotes --includeAttendees"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.53.0",
+    "@types/luxon": "^3.7.1",
+    "@types/yargs": "^17.0.33",
+    "axios": "^1.11.0",
+    "dotenv": "^17.2.1",
     "fast-xml-parser": "^4.5.3",
     "fuse.js": "^7.1.0",
+    "luxon": "^3.7.1",
     "next": "^14.2.30",
     "next-pwa": "^5.6.0",
     "react": "^18",
     "react-dom": "^18",
-    "xmldom": "^0.6.0"
+    "ts-node": "^10.9.2",
+    "xmldom": "^0.6.0",
+    "yargs": "^18.0.0"
   },
   "devDependencies": {
     "@types/node": "^20",

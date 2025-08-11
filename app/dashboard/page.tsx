@@ -16,7 +16,8 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import ExportModal from '../../components/dashboard/ExportModal';
 import { useDashboardFilters } from '../../hooks/useDashboardFilters';
 import { useCircleLeaders } from '../../hooks/useCircleLeaders';
-import { CircleLeader, supabase, Note } from '../../lib/supabase';
+import { CircleLeader, supabase, Note, UserNote } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 import Link from 'next/link';
 
 interface ContactModalData {
@@ -34,6 +35,7 @@ interface LogConnectionModalData {
 }
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const { filters, updateFilters, clearAllFilters } = useDashboardFilters();
   const { 
     circleLeaders, 
@@ -74,6 +76,22 @@ export default function DashboardPage() {
     }
   });
 
+  // Personal dashboard notes state
+  const [userNotes, setUserNotes] = useState<UserNote[]>([]);
+  const [userNotesLoading, setUserNotesLoading] = useState(false);
+  const [newNoteContent, setNewNoteContent] = useState('');
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
+  const [editingContent, setEditingContent] = useState('');
+  const [savingNoteId, setSavingNoteId] = useState<number | null>(null);
+  const [userNotesVisible, setUserNotesVisible] = useState(() => {
+    try {
+      const saved = localStorage.getItem('userNotesVisible');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
   // Load recent notes (latest 10)
   const loadRecentNotes = async () => {
     setRecentNotesLoading(true);
@@ -95,6 +113,114 @@ export default function DashboardPage() {
     } finally {
       setRecentNotesLoading(false);
     }
+  };
+
+  // Load user's personal dashboard notes
+  const loadUserNotes = async () => {
+    if (!user?.id) return;
+    
+    setUserNotesLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('user_notes')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error loading user notes:', error);
+        return;
+      }
+      
+      setUserNotes(data || []);
+    } catch (e) {
+      console.error('Error loading user notes:', e);
+    } finally {
+      setUserNotesLoading(false);
+    }
+  };
+
+  // Save a new user note
+  const saveNewUserNote = async () => {
+    if (!user?.id || !newNoteContent.trim()) return;
+    
+    setSavingNoteId(-1); // Use -1 for new note
+    try {
+      const { data, error } = await supabase
+        .from('user_notes')
+        .insert({ user_id: user.id, content: newNoteContent })
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error creating user note:', error);
+        return;
+      }
+      
+      setUserNotes(prev => [data, ...prev]);
+      setNewNoteContent('');
+    } catch (e) {
+      console.error('Error saving user note:', e);
+    } finally {
+      setSavingNoteId(null);
+    }
+  };
+
+  // Update an existing note
+  const updateUserNote = async (noteId: number, content: string) => {
+    setSavingNoteId(noteId);
+    try {
+      const { error } = await supabase
+        .from('user_notes')
+        .update({ content })
+        .eq('id', noteId);
+      
+      if (error) {
+        console.error('Error updating user note:', error);
+        return;
+      }
+      
+      setUserNotes(prev => prev.map(note => 
+        note.id === noteId ? { ...note, content } : note
+      ));
+      setEditingNoteId(null);
+      setEditingContent('');
+    } catch (e) {
+      console.error('Error updating user note:', e);
+    } finally {
+      setSavingNoteId(null);
+    }
+  };
+
+  // Delete a user note
+  const deleteUserNote = async (noteId: number) => {
+    try {
+      const { error } = await supabase
+        .from('user_notes')
+        .delete()
+        .eq('id', noteId);
+      
+      if (error) {
+        console.error('Error deleting user note:', error);
+        return;
+      }
+      
+      setUserNotes(prev => prev.filter(note => note.id !== noteId));
+    } catch (e) {
+      console.error('Error deleting user note:', e);
+    }
+  };
+
+  // Start editing a note
+  const startEditingNote = (noteId: number, content: string) => {
+    setEditingNoteId(noteId);
+    setEditingContent(content);
+  };
+
+  // Cancel editing
+  const cancelEditing = () => {
+    setEditingNoteId(null);
+    setEditingContent('');
   };
 
   // Load connected leaders for this month
@@ -363,6 +489,54 @@ export default function DashboardPage() {
     });
   };
 
+  // Toggle User Notes visibility and persist to localStorage
+  const toggleUserNotesVisibility = () => {
+    setUserNotesVisible(prev => {
+      const newVisible = !prev;
+      try {
+        localStorage.setItem('userNotesVisible', newVisible.toString());
+      } catch (error) {
+        console.error('Failed to save user notes visibility to localStorage:', error);
+      }
+      return newVisible;
+    });
+  };
+
+  // Function to convert URLs in text to clickable links
+  const linkifyText = (text: string) => {
+    if (!text) return text;
+    
+    // Regular expression to match URLs
+    const urlRegex = /(https?:\/\/[^\s<>"{}|\\^`[\]]+)/g;
+    
+    // Split text by URLs and create elements
+    const parts = text.split(urlRegex);
+    
+    return parts.map((part, index) => {
+      // Check if this part is a URL by testing the original regex
+      if (/^https?:\/\//.test(part)) {
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 dark:text-blue-400 hover:underline break-all"
+          >
+            {part}
+          </a>
+        );
+      }
+      // Return regular text, preserving line breaks
+      return part.split('\n').map((line, lineIndex, array) => (
+        <span key={`${index}-${lineIndex}`}>
+          {line}
+          {lineIndex < array.length - 1 && <br />}
+        </span>
+      ));
+    });
+  };
+
   // Load data on component mount
   useEffect(() => {
     loadCircleLeaders();
@@ -377,6 +551,13 @@ export default function DashboardPage() {
     
     return () => clearTimeout(timeoutId);
   }, []);
+
+  // Load user's personal notes on component mount
+  useEffect(() => {
+    if (user?.id) {
+      loadUserNotes();
+    }
+  }, [user?.id]);
 
   // Event handlers
   const handleToggleEventSummary = async (leaderId: number, isChecked: boolean) => {
@@ -572,6 +753,168 @@ export default function DashboardPage() {
                   Export
                 </button>
               </div>
+            </div>
+          </div>
+
+          {/* Personal Notes Section */}
+          <div className="mb-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Personal Notes
+                </h2>
+                <button
+                  onClick={toggleUserNotesVisibility}
+                  className="text-sm px-3 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 
+                           text-gray-700 dark:text-gray-300 rounded-md transition-colors"
+                >
+                  {userNotesVisible ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              
+              {userNotesVisible && (
+                <div className="space-y-4">
+                  {/* Add New Note */}
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <textarea
+                        value={newNoteContent}
+                        onChange={(e) => setNewNoteContent(e.target.value)}
+                        placeholder="Add a new personal note..."
+                        className="w-full min-h-[80px] max-h-[400px] p-3 border border-gray-300 dark:border-gray-600 rounded-md 
+                                 bg-white dark:bg-gray-700 text-gray-900 dark:text-white 
+                                 placeholder-gray-500 dark:placeholder-gray-400
+                                 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
+                                 resize-y transition-colors"
+                        rows={3}
+                        disabled={userNotesLoading || savingNoteId === -1}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {newNoteContent.length > 0 ? `${newNoteContent.length} characters` : ''}
+                      </div>
+                      <button
+                        onClick={saveNewUserNote}
+                        disabled={!newNoteContent.trim() || savingNoteId === -1}
+                        className="inline-flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 
+                                 text-white text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed"
+                      >
+                        {savingNoteId === -1 ? (
+                          <>
+                            <svg className="animate-spin h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Saving...
+                          </>
+                        ) : (
+                          'Save Note'
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Existing Notes */}
+                  {userNotesLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500 mr-2"></div>
+                      <span className="text-sm text-gray-500 dark:text-gray-400">Loading notes...</span>
+                    </div>
+                  ) : userNotes.length === 0 ? (
+                    <div className="text-center py-6">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">No notes yet. Add your first note above!</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {userNotes.map((note) => (
+                        <div key={note.id} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600">
+                          {editingNoteId === note.id ? (
+                            // Edit mode
+                            <div className="space-y-3">
+                              <textarea
+                                value={editingContent}
+                                onChange={(e) => setEditingContent(e.target.value)}
+                                className="w-full min-h-[80px] max-h-[400px] p-3 border border-gray-300 dark:border-gray-600 rounded-md 
+                                         bg-white dark:bg-gray-700 text-gray-900 dark:text-white 
+                                         focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
+                                         resize-y transition-colors"
+                                disabled={savingNoteId === note.id}
+                              />
+                              <div className="flex items-center justify-between">
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {editingContent.length} characters
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={cancelEditing}
+                                    disabled={savingNoteId === note.id}
+                                    className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 
+                                             disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    onClick={() => updateUserNote(note.id, editingContent)}
+                                    disabled={!editingContent.trim() || savingNoteId === note.id}
+                                    className="inline-flex items-center px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 
+                                             text-white text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed"
+                                  >
+                                    {savingNoteId === note.id ? (
+                                      <>
+                                        <svg className="animate-spin h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Saving...
+                                      </>
+                                    ) : (
+                                      'Save'
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            // View mode
+                            <div>
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {new Date(note.updated_at || note.created_at).toLocaleDateString('en-US', { 
+                                    month: 'short', 
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                    hour: 'numeric',
+                                    minute: '2-digit'
+                                  })}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => startEditingNote(note.id, note.content)}
+                                    className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => deleteUserNote(note.id)}
+                                    className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
+                                {linkifyText(note.content)}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
