@@ -117,12 +117,15 @@ CREATE TABLE IF NOT EXISTS user_notes (
   id SERIAL PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   content TEXT NOT NULL DEFAULT '',
+  pinned BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Create index for faster lookups by user_id
 CREATE INDEX IF NOT EXISTS idx_user_notes_user_id ON user_notes(user_id);
+-- Create index for faster lookups by pinned status
+CREATE INDEX IF NOT EXISTS idx_user_notes_pinned ON user_notes(user_id, pinned, created_at);
 
 -- Enable RLS for user_notes
 ALTER TABLE user_notes ENABLE ROW LEVEL SECURITY;

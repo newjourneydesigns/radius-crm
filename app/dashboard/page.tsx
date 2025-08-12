@@ -91,6 +91,15 @@ export default function DashboardPage() {
       return true;
     }
   });
+  const [deleteNoteModal, setDeleteNoteModal] = useState<{
+    isOpen: boolean;
+    noteId: number | null;
+    content: string;
+  }>({
+    isOpen: false,
+    noteId: null,
+    content: ''
+  });
 
   // Load recent notes (latest 10)
   const loadRecentNotes = async () => {
@@ -121,18 +130,48 @@ export default function DashboardPage() {
     
     setUserNotesLoading(true);
     try {
-      const { data, error } = await supabase
+      // First try to query with pinned column (for when migration is complete)
+      let { data, error } = await supabase
         .from('user_notes')
         .select('*')
         .eq('user_id', user.id)
+        .order('pinned', { ascending: false })
         .order('created_at', { ascending: false });
+      
+      // If column doesn't exist, fall back to original query
+      if (error && error.code === '42703') {
+        console.log('Pinned column not found, using fallback query');
+        const fallbackQuery = await supabase
+          .from('user_notes')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        
+        data = fallbackQuery.data;
+        error = fallbackQuery.error;
+        
+        // Add pinned: false to all notes for UI compatibility
+        if (data) {
+          data = data.map(note => ({ ...note, pinned: false }));
+        }
+      }
       
       if (error) {
         console.error('Error loading user notes:', error);
         return;
       }
       
-      setUserNotes(data || []);
+      // Sort notes to ensure pinned notes are always at the top
+      const sortedNotes = (data || []).sort((a, b) => {
+        // First sort by pinned status (pinned notes first)
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        
+        // Then sort by creation date (newest first)
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+      
+      setUserNotes(sortedNotes);
     } catch (e) {
       console.error('Error loading user notes:', e);
     } finally {
@@ -157,7 +196,21 @@ export default function DashboardPage() {
         return;
       }
       
-      setUserNotes(prev => [data, ...prev]);
+      // Add pinned: false for UI compatibility and sort the list
+      const newNote = { ...data, pinned: false };
+      setUserNotes(prev => {
+        const updatedNotes = [newNote, ...prev];
+        
+        // Sort to ensure pinned notes stay at the top
+        return updatedNotes.sort((a, b) => {
+          // First sort by pinned status (pinned notes first)
+          if (a.pinned && !b.pinned) return -1;
+          if (!a.pinned && b.pinned) return 1;
+          
+          // Then sort by creation date (newest first)
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+      });
       setNewNoteContent('');
     } catch (e) {
       console.error('Error saving user note:', e);
@@ -192,6 +245,53 @@ export default function DashboardPage() {
     }
   };
 
+  // Toggle pin status of a note
+  const togglePinNote = async (noteId: number) => {
+    try {
+      const note = userNotes.find(n => n.id === noteId);
+      if (!note) return;
+
+      const { error } = await supabase
+        .from('user_notes')
+        .update({ pinned: !note.pinned })
+        .eq('id', noteId);
+      
+      if (error) {
+        if (error.code === '42703') {
+          // Column doesn't exist yet, show a helpful message
+          setShowAlert({
+            isOpen: true,
+            type: 'info',
+            title: 'Feature Not Available',
+            message: 'The pin feature requires a database update. Please run the migration SQL first.'
+          });
+          return;
+        }
+        console.error('Error toggling pin status:', error);
+        return;
+      }
+      
+      // Update the note and re-sort the list
+      setUserNotes(prev => {
+        const updatedNotes = prev.map(n => 
+          n.id === noteId ? { ...n, pinned: !n.pinned } : n
+        );
+        
+        // Sort to ensure pinned notes stay at the top
+        return updatedNotes.sort((a, b) => {
+          // First sort by pinned status (pinned notes first)
+          if (a.pinned && !b.pinned) return -1;
+          if (!a.pinned && b.pinned) return 1;
+          
+          // Then sort by creation date (newest first)
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+      });
+    } catch (e) {
+      console.error('Error toggling pin status:', e);
+    }
+  };
+
   // Delete a user note
   const deleteUserNote = async (noteId: number) => {
     try {
@@ -211,10 +311,74 @@ export default function DashboardPage() {
     }
   };
 
+  // Open delete confirmation modal
+  const openDeleteNoteModal = (noteId: number, content: string) => {
+    setDeleteNoteModal({
+      isOpen: true,
+      noteId,
+      content
+    });
+  };
+
+  // Close delete confirmation modal
+  const closeDeleteNoteModal = () => {
+    setDeleteNoteModal({
+      isOpen: false,
+      noteId: null,
+      content: ''
+    });
+  };
+
+  // Copy note content to clipboard
+  const copyNoteToClipboard = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      // Close the delete modal if it's open
+      closeDeleteNoteModal();
+      setShowAlert({
+        isOpen: true,
+        type: 'success',
+        title: 'Copied',
+        message: 'Note content copied to clipboard successfully.'
+      });
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+      setShowAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Copy Failed',
+        message: 'Failed to copy note to clipboard. Please try again.'
+      });
+    }
+  };
+
+  // Confirm delete note
+  const confirmDeleteNote = async () => {
+    if (deleteNoteModal.noteId) {
+      await deleteUserNote(deleteNoteModal.noteId);
+      closeDeleteNoteModal();
+      setShowAlert({
+        isOpen: true,
+        type: 'success',
+        title: 'Note Deleted',
+        message: 'The note has been deleted successfully.'
+      });
+    }
+  };
+
   // Start editing a note
   const startEditingNote = (noteId: number, content: string) => {
     setEditingNoteId(noteId);
     setEditingContent(content);
+    
+    // Auto-resize textarea to fit content after a short delay
+    setTimeout(() => {
+      const textarea = document.querySelector(`textarea[data-editing-id="${noteId}"]`) as HTMLTextAreaElement;
+      if (textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.max(80, Math.min(600, textarea.scrollHeight)) + 'px';
+      }
+    }, 10);
   };
 
   // Cancel editing
@@ -222,6 +386,8 @@ export default function DashboardPage() {
     setEditingNoteId(null);
     setEditingContent('');
   };
+
+
 
   // Load connected leaders for this month
   const loadConnectedLeaders = async () => {
@@ -318,6 +484,8 @@ export default function DashboardPage() {
     message: ''
   });
 
+
+
   // Filter circle leaders based on current filters
   const filteredLeaders = useMemo(() => {
     let filtered = [...circleLeaders];
@@ -380,11 +548,6 @@ export default function DashboardPage() {
     if (filters.timeOfDay === 'am' || filters.timeOfDay === 'pm') {
       filtered = filtered.filter(leader => {
         if (!leader.time) return false;
-        
-        // Debug: Log time values (remove this later)
-        if (filtered.length < 5) {
-          console.log(`Debug - Leader: ${leader.name}, Time: "${leader.time}"`);
-        }
         
         // First try to parse 12-hour format with AM/PM (e.g., "7:00 PM", "10:30 AM")
         const ampmMatch = leader.time.match(/(\d{1,2}):?(\d{0,2})\s*(AM|PM)/i);
@@ -540,35 +703,66 @@ export default function DashboardPage() {
   const linkifyText = (text: string) => {
     if (!text) return text;
     
-    // Regular expression to match URLs
-    const urlRegex = /(https?:\/\/[^\s<>"{}|\\^`[\]]+)/g;
+    // First, handle markdown-style links [text](url)
+    const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
     
-    // Split text by URLs and create elements
-    const parts = text.split(urlRegex);
+    // Split by markdown links first
+    const parts = text.split(markdownLinkRegex);
+    const elements: React.ReactNode[] = [];
     
-    return parts.map((part, index) => {
-      // Check if this part is a URL by testing the original regex
-      if (/^https?:\/\//.test(part)) {
-        return (
+    for (let i = 0; i < parts.length; i += 3) {
+      const beforeText = parts[i];
+      const linkText = parts[i + 1];
+      const linkUrl = parts[i + 2];
+      
+      // Process the text before the link for regular URLs
+      if (beforeText) {
+        const urlRegex = /(https?:\/\/[^\s<>"{}|\\^`[\]]+)/g;
+        const urlParts = beforeText.split(urlRegex);
+        
+        urlParts.forEach((part, index) => {
+          if (/^https?:\/\//.test(part)) {
+            elements.push(
+              <a
+                key={`url-${i}-${index}`}
+                href={part}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 dark:text-blue-400 hover:underline break-all"
+              >
+                {part}
+              </a>
+            );
+          } else if (part) {
+            // Handle line breaks in regular text
+            const lines = part.split('\n');
+            lines.forEach((line, lineIndex) => {
+              elements.push(<span key={`text-${i}-${index}-${lineIndex}`}>{line}</span>);
+              if (lineIndex < lines.length - 1) {
+                elements.push(<br key={`br-${i}-${index}-${lineIndex}`} />);
+              }
+            });
+          }
+        });
+      }
+      
+      // Add the markdown link if it exists
+      if (linkText && linkUrl) {
+        elements.push(
           <a
-            key={index}
-            href={part}
+            key={`markdown-${i}`}
+            href={linkUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-600 dark:text-blue-400 hover:underline break-all"
+            className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
           >
-            {part}
+            {linkText}
           </a>
         );
       }
-      // Return regular text, preserving line breaks
-      return part.split('\n').map((line, lineIndex, array) => (
-        <span key={`${index}-${lineIndex}`}>
-          {line}
-          {lineIndex < array.length - 1 && <br />}
-        </span>
-      ));
-    });
+    }
+    
+    return elements.length > 0 ? elements : text;
   };
 
   // Load data on component mount
@@ -848,6 +1042,9 @@ export default function DashboardPage() {
                         )}
                       </button>
                     </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      💡 Tip: Type markdown-style links like [Display Text](URL) to create clickable links
+                    </div>
                   </div>
 
                   {/* Existing Notes */}
@@ -863,18 +1060,30 @@ export default function DashboardPage() {
                   ) : (
                     <div className="space-y-3">
                       {userNotes.map((note) => (
-                        <div key={note.id} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600">
+                        <div key={note.id} className={`p-3 rounded-md border transition-all ${
+                          note.pinned 
+                            ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800 shadow-md' 
+                            : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'
+                        }`}>
                           {editingNoteId === note.id ? (
                             // Edit mode
                             <div className="space-y-3">
                               <textarea
                                 value={editingContent}
-                                onChange={(e) => setEditingContent(e.target.value)}
-                                className="w-full min-h-[80px] max-h-[400px] p-3 border border-gray-300 dark:border-gray-600 rounded-md 
+                                onChange={(e) => {
+                                  setEditingContent(e.target.value);
+                                  // Auto-resize as user types
+                                  const textarea = e.target as HTMLTextAreaElement;
+                                  textarea.style.height = 'auto';
+                                  textarea.style.height = Math.max(80, Math.min(600, textarea.scrollHeight)) + 'px';
+                                }}
+                                data-editing-id={note.id}
+                                className="w-full min-h-[80px] max-h-[600px] p-3 border border-gray-300 dark:border-gray-600 rounded-md 
                                          bg-white dark:bg-gray-700 text-gray-900 dark:text-white 
                                          focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
                                          resize-y transition-colors"
                                 disabled={savingNoteId === note.id}
+                                style={{ height: 'auto' }}
                               />
                               <div className="flex items-center justify-between">
                                 <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -914,16 +1123,35 @@ export default function DashboardPage() {
                             // View mode
                             <div>
                               <div className="flex items-start justify-between mb-2">
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  {new Date(note.updated_at || note.created_at).toLocaleDateString('en-US', { 
-                                    month: 'short', 
-                                    day: 'numeric',
-                                    year: 'numeric',
-                                    hour: 'numeric',
-                                    minute: '2-digit'
-                                  })}
+                                <div className="flex items-center gap-2">
+                                  {note.pinned && (
+                                    <div className="flex items-center text-yellow-600 dark:text-yellow-400">
+                                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                                      </svg>
+                                    </div>
+                                  )}
+                                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                                    {new Date(note.updated_at || note.created_at).toLocaleDateString('en-US', { 
+                                      month: 'short', 
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                      hour: 'numeric',
+                                      minute: '2-digit'
+                                    })}
+                                  </div>
                                 </div>
                                 <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => togglePinNote(note.id)}
+                                    className={`text-xs ${note.pinned 
+                                      ? 'text-yellow-600 dark:text-yellow-400 hover:text-yellow-800 dark:hover:text-yellow-200' 
+                                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                                    }`}
+                                    title={note.pinned ? 'Unpin note' : 'Pin note to top'}
+                                  >
+                                    {note.pinned ? 'Unpin' : 'Pin'}
+                                  </button>
                                   <button
                                     onClick={() => startEditingNote(note.id, note.content)}
                                     className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
@@ -931,7 +1159,7 @@ export default function DashboardPage() {
                                     Edit
                                   </button>
                                   <button
-                                    onClick={() => deleteUserNote(note.id)}
+                                    onClick={() => openDeleteNoteModal(note.id, note.content)}
                                     className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
                                   >
                                     Delete
@@ -1501,6 +1729,75 @@ export default function DashboardPage() {
         onClose={() => setExportModal(false)}
         leaders={filteredLeaders}
       />
+
+      {/* Delete Note Confirmation Modal */}
+      {deleteNoteModal.isOpen && (
+        <div className="fixed inset-0 bg-gray-600 dark:bg-gray-900 bg-opacity-50 dark:bg-opacity-75 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800">
+            <div className="mt-3 text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/20">
+                <svg
+                  className="h-6 w-6 text-red-600 dark:text-red-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mt-4">
+                Delete Note
+              </h3>
+              <div className="mt-4 px-7 py-3">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Are you sure you want to delete this note? This action cannot be undone and the note will be deleted forever.
+                </p>
+                {deleteNoteModal.content && (
+                  <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-md border max-h-32 overflow-y-auto">
+                    <p className="text-xs text-gray-600 dark:text-gray-300 whitespace-pre-wrap break-words">
+                      {deleteNoteModal.content.length > 200 
+                        ? `${deleteNoteModal.content.substring(0, 200)}...` 
+                        : deleteNoteModal.content
+                      }
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-3 px-4 py-3">
+                <button
+                  onClick={() => copyNoteToClipboard(deleteNoteModal.content)}
+                  className="flex-1 inline-flex justify-center items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Copy Contents
+                </button>
+                <button
+                  onClick={confirmDeleteNote}
+                  className="flex-1 inline-flex justify-center items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md transition-colors"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Delete
+                </button>
+                <button
+                  onClick={closeDeleteNoteModal}
+                  className="flex-1 inline-flex justify-center items-center px-4 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-md transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </ProtectedRoute>
   );
