@@ -8,6 +8,7 @@ export interface DashboardFilters {
   circleType: string[];
   eventSummary: string;
   connected: string;
+  timeOfDay: string;
 }
 
 export const defaultFilters: DashboardFilters = {
@@ -17,7 +18,8 @@ export const defaultFilters: DashboardFilters = {
   meetingDay: [],
   circleType: [],
   eventSummary: 'all',
-  connected: 'all'
+  connected: 'all',
+  timeOfDay: 'all'
 };
 
 export const useDashboardFilters = () => {
@@ -44,7 +46,8 @@ export const useDashboardFilters = () => {
           meetingDay: filterState.meetingDay || [],
           circleType: filterState.circleType || [],
           eventSummary: filterState.eventSummary || 'all',
-          connected: filterState.connected || 'all'
+          connected: filterState.connected || 'all',
+          timeOfDay: filterState.timeOfDay || 'all'
         });
       }
     } catch (error) {

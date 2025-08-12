@@ -139,6 +139,7 @@ interface FilterPanelProps {
     circleType: string[];
     eventSummary: string;
     connected: string;
+    timeOfDay: string;
   };
   onFiltersChange: (filters: any) => void;
   onClearAllFilters: () => void;
@@ -544,7 +545,7 @@ export default function FilterPanel({
    * @param valueToRemove - The value to remove from the filter
    */
   const removeFilterValue = (filterKey: string, valueToRemove: string) => {
-    if (filterKey === 'eventSummary' || filterKey === 'connected') {
+    if (filterKey === 'eventSummary' || filterKey === 'connected' || filterKey === 'timeOfDay') {
       handleFilterChange(filterKey, 'all');
     } else {
       const currentValues = filters[filterKey as keyof typeof filters] as string[];
@@ -583,7 +584,8 @@ export default function FilterPanel({
            filters.meetingDay.length > 0 ||
            filters.circleType.length > 0 ||
            filters.eventSummary !== 'all' ||
-           filters.connected !== 'all';
+           filters.connected !== 'all' ||
+           filters.timeOfDay !== 'all';
   }, [filters]);
 
   /**
@@ -743,6 +745,20 @@ export default function FilterPanel({
                     <option value="not_connected">Not Connected</option>
                   </select>
                 </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="timeOfDayFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Time</label>
+                  <select 
+                    id="timeOfDayFilter"
+                    value={filters.timeOfDay}
+                    onChange={(e) => handleFilterChange('timeOfDay', e.target.value)}
+                    className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-10"
+                  >
+                    <option value="all">All</option>
+                    <option value="am">AM</option>
+                    <option value="pm">PM</option>
+                  </select>
+                </div>
               </div>
             </div>
           )}
@@ -859,6 +875,19 @@ export default function FilterPanel({
                     className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-800 dark:bg-teal-900/20 dark:text-teal-300 hover:bg-teal-200 dark:hover:bg-teal-900/30 transition-colors"
                   >
                     Connected: {filters.connected === 'connected' ? 'This Month' : 'Not This Month'}
+                    <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+
+                {/* Time of Day Tag */}
+                {filters.timeOfDay !== 'all' && (
+                  <button
+                    onClick={() => removeFilterValue('timeOfDay', '')}
+                    className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-pink-100 text-pink-800 dark:bg-pink-900/20 dark:text-pink-300 hover:bg-pink-200 dark:hover:bg-pink-900/30 transition-colors"
+                  >
+                    Time: {filters.timeOfDay === 'am' ? 'AM' : 'PM'}
                     <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>

@@ -272,7 +272,8 @@ export default function DashboardPage() {
       meetingDay: [],
       circleType: [],
       eventSummary: 'all',
-      connected: 'all'
+      connected: 'all',
+      timeOfDay: 'all'
     });
   };
 
@@ -373,6 +374,20 @@ export default function DashboardPage() {
       filtered = filtered.filter(leader => connectedLeaderIds.has(leader.id));
     } else if (filters.connected === 'not_connected') {
       filtered = filtered.filter(leader => !connectedLeaderIds.has(leader.id));
+    }
+
+    // Time of Day filter
+    if (filters.timeOfDay === 'am' || filters.timeOfDay === 'pm') {
+      filtered = filtered.filter(leader => {
+        if (!leader.time) return false;
+        
+        // Parse time string (e.g., "7:00 PM", "10:30 AM")
+        const timeMatch = leader.time.match(/(\d{1,2}):?(\d{0,2})\s*(AM|PM)/i);
+        if (!timeMatch) return false;
+        
+        const period = timeMatch[3].toUpperCase();
+        return filters.timeOfDay === 'am' ? period === 'AM' : period === 'PM';
+      });
     }
 
     // Sort by name
@@ -923,7 +938,7 @@ export default function DashboardPage() {
           <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-3">
             {(filters.campus.length > 0 || filters.acpd.length > 0 || filters.status.length > 0 || 
               filters.meetingDay.length > 0 || filters.circleType.length > 0 || 
-              filters.eventSummary !== 'all' || filters.connected !== 'all') && (
+              filters.eventSummary !== 'all' || filters.connected !== 'all' || filters.timeOfDay !== 'all') && (
               <div className="flex items-center flex-wrap gap-2">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Active Filters:</span>
                 
@@ -1032,6 +1047,22 @@ export default function DashboardPage() {
                       className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-teal-400 hover:bg-teal-200 hover:text-teal-600 dark:hover:bg-teal-800"
                     >
                       <span className="sr-only">Remove connection filter</span>
+                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
+                      </svg>
+                    </button>
+                  </span>
+                )}
+
+                {/* Time of Day Tags */}
+                {filters.timeOfDay !== 'all' && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200">
+                    Time: {filters.timeOfDay === 'am' ? 'AM' : 'PM'}
+                    <button
+                      onClick={() => updateFilters({...filters, timeOfDay: 'all'})}
+                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-pink-400 hover:bg-pink-200 hover:text-pink-600 dark:hover:bg-pink-800"
+                    >
+                      <span className="sr-only">Remove time filter</span>
                       <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
                         <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
                       </svg>
