@@ -635,7 +635,7 @@ export default function FilterPanel({
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-8 gap-4 sm:gap-6">
               {/* Campus Filter */}
               <div className="space-y-2">
                 <label htmlFor="campusFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Campus</label>
@@ -716,49 +716,49 @@ export default function FilterPanel({
                 </select>
               </div>
 
-              {/* Event Summary & Connected Filters - Stacked */}
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <label htmlFor="eventSummaryFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Event Summary</label>
-                  <select 
-                    id="eventSummaryFilter"
-                    value={filters.eventSummary}
-                    onChange={(e) => handleFilterChange('eventSummary', e.target.value)}
-                    className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-10"
-                  >
-                    <option value="all">All</option>
-                    <option value="received">Received</option>
-                    <option value="not_received">Not Received</option>
-                  </select>
-                </div>
+              {/* Event Summary Filter */}
+              <div className="space-y-2">
+                <label htmlFor="eventSummaryFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Event Summary</label>
+                <select 
+                  id="eventSummaryFilter"
+                  value={filters.eventSummary}
+                  onChange={(e) => handleFilterChange('eventSummary', e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-10"
+                >
+                  <option value="all">All</option>
+                  <option value="received">Received</option>
+                  <option value="not_received">Not Received</option>
+                </select>
+              </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="connectedFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Connected</label>
-                  <select 
-                    id="connectedFilter"
-                    value={filters.connected}
-                    onChange={(e) => handleFilterChange('connected', e.target.value)}
-                    className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-10"
-                  >
-                    <option value="all">All</option>
-                    <option value="connected">Connected</option>
-                    <option value="not_connected">Not Connected</option>
-                  </select>
-                </div>
+              {/* Connected Filter */}
+              <div className="space-y-2">
+                <label htmlFor="connectedFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Connected</label>
+                <select 
+                  id="connectedFilter"
+                  value={filters.connected}
+                  onChange={(e) => handleFilterChange('connected', e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-10"
+                >
+                  <option value="all">All</option>
+                  <option value="connected">Connected</option>
+                  <option value="not_connected">Not Connected</option>
+                </select>
+              </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="timeOfDayFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Time</label>
-                  <select 
-                    id="timeOfDayFilter"
-                    value={filters.timeOfDay}
-                    onChange={(e) => handleFilterChange('timeOfDay', e.target.value)}
-                    className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-10"
-                  >
-                    <option value="all">All</option>
-                    <option value="am">AM</option>
-                    <option value="pm">PM</option>
-                  </select>
-                </div>
+              {/* Time Filter */}
+              <div className="space-y-2">
+                <label htmlFor="timeOfDayFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Time</label>
+                <select 
+                  id="timeOfDayFilter"
+                  value={filters.timeOfDay}
+                  onChange={(e) => handleFilterChange('timeOfDay', e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-10"
+                >
+                  <option value="all">All</option>
+                  <option value="am">AM</option>
+                  <option value="pm">PM</option>
+                </select>
               </div>
             </div>
           )}

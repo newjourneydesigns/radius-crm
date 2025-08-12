@@ -381,12 +381,31 @@ export default function DashboardPage() {
       filtered = filtered.filter(leader => {
         if (!leader.time) return false;
         
-        // Parse time string (e.g., "7:00 PM", "10:30 AM")
-        const timeMatch = leader.time.match(/(\d{1,2}):?(\d{0,2})\s*(AM|PM)/i);
-        if (!timeMatch) return false;
+        // Debug: Log time values (remove this later)
+        if (filtered.length < 5) {
+          console.log(`Debug - Leader: ${leader.name}, Time: "${leader.time}"`);
+        }
         
-        const period = timeMatch[3].toUpperCase();
-        return filters.timeOfDay === 'am' ? period === 'AM' : period === 'PM';
+        // First try to parse 12-hour format with AM/PM (e.g., "7:00 PM", "10:30 AM")
+        const ampmMatch = leader.time.match(/(\d{1,2}):?(\d{0,2})\s*(AM|PM)/i);
+        if (ampmMatch) {
+          const period = ampmMatch[3].toUpperCase();
+          return filters.timeOfDay === 'am' ? period === 'AM' : period === 'PM';
+        }
+        
+        // Try to parse 24-hour format (e.g., "19:00", "18:30", "07:30")
+        const time24Match = leader.time.match(/^(\d{1,2}):(\d{2})$/);
+        if (time24Match) {
+          const hour = parseInt(time24Match[1], 10);
+          // 0-11 hours = AM, 12-23 hours = PM
+          if (filters.timeOfDay === 'am') {
+            return hour >= 0 && hour < 12;
+          } else {
+            return hour >= 12 && hour <= 23;
+          }
+        }
+        
+        return false;
       });
     }
 
