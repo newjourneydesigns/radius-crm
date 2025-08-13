@@ -919,7 +919,7 @@ export default function FilterPanel({
                   </button>
 
                   {showBulkDropdown && (
-                    <div className="absolute top-full left-0 mt-1 w-full sm:w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md shadow-lg z-50">
+                    <div className="absolute top-full left-0 mt-1 w-full sm:w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md shadow-lg z-[1001]">
                       {statusOptions.map((status) => (
                         <button
                           key={status.value}
@@ -952,7 +952,7 @@ export default function FilterPanel({
       )}
 
       {/* Follow Up Table */}
-      <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow">
+      <div id="follow-up" className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex items-center">

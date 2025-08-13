@@ -9,7 +9,6 @@ import { useAuth } from '../../../contexts/AuthContext';
 import AlertModal from '../../../components/ui/AlertModal';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 import LogConnectionModal from '../../../components/dashboard/LogConnectionModal';
-import CircleVisitsSection from '../../../components/circle/CircleVisitsSection';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 
 // Helper function to format time to AM/PM
@@ -1075,6 +1074,7 @@ export default function CircleLeaderProfilePage() {
                 )}
                 
                 <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Left Column */}
                   <div>
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Name</dt>
                     <dd className="mt-1">
@@ -1088,80 +1088,6 @@ export default function CircleLeaderProfilePage() {
                         />
                       ) : (
                         <span className="text-sm text-gray-900 dark:text-white">{leader.name || 'Not provided'}</span>
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Email</dt>
-                    <dd className="mt-1">
-                      {isEditing ? (
-                        <input
-                          type="email"
-                          value={editedLeader.email || ''}
-                          onChange={(e) => handleLeaderFieldChange('email', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="Enter email"
-                        />
-                      ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{leader.email || 'Not provided'}</span>
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone</dt>
-                    <dd className="mt-1">
-                      {isEditing ? (
-                        <input
-                          type="tel"
-                          value={editedLeader.phone || ''}
-                          onChange={(e) => handleLeaderFieldChange('phone', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="Enter phone"
-                        />
-                      ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{leader.phone || 'Not provided'}</span>
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Campus</dt>
-                    <dd className="mt-1">
-                      {isEditing ? (
-                        <select
-                          value={editedLeader.campus || ''}
-                          onChange={(e) => handleLeaderFieldChange('campus', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                          <option value="">Select Campus</option>
-                          {campuses.map((campus) => (
-                            <option key={campus.id} value={campus.value}>
-                              {campus.value}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{leader.campus || 'Not specified'}</span>
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Director</dt>
-                    <dd className="mt-1">
-                      {isEditing ? (
-                        <select
-                          value={editedLeader.acpd || ''}
-                          onChange={(e) => handleLeaderFieldChange('acpd', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                          <option value="">Select Director</option>
-                          {directors.map((director) => (
-                            <option key={director.id} value={director.name}>
-                              {director.name}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{leader.acpd || 'Not assigned'}</span>
                       )}
                     </dd>
                   </div>
@@ -1202,6 +1128,22 @@ export default function CircleLeaderProfilePage() {
                     </dd>
                   </div>
                   <div>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="tel"
+                          value={editedLeader.phone || ''}
+                          onChange={(e) => handleLeaderFieldChange('phone', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Enter phone"
+                        />
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{leader.phone || 'Not provided'}</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Circle Type</dt>
                     <dd className="mt-1">
                       {isEditing ? (
@@ -1219,6 +1161,22 @@ export default function CircleLeaderProfilePage() {
                         </select>
                       ) : (
                         <span className="text-sm text-gray-900 dark:text-white">{leader.circle_type || 'Not specified'}</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Email</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="email"
+                          value={editedLeader.email || ''}
+                          onChange={(e) => handleLeaderFieldChange('email', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Enter email"
+                        />
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{leader.email || 'Not provided'}</span>
                       )}
                     </dd>
                   </div>
@@ -1246,6 +1204,27 @@ export default function CircleLeaderProfilePage() {
                     </dd>
                   </div>
                   <div>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Campus</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <select
+                          value={editedLeader.campus || ''}
+                          onChange={(e) => handleLeaderFieldChange('campus', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="">Select Campus</option>
+                          {campuses.map((campus) => (
+                            <option key={campus.id} value={campus.value}>
+                              {campus.value}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{leader.campus || 'Not specified'}</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Meeting Time</dt>
                     <dd className="mt-1">
                       {isEditing ? (
@@ -1259,6 +1238,27 @@ export default function CircleLeaderProfilePage() {
                         />
                       ) : (
                         <span className="text-sm text-gray-900 dark:text-white">{formatTimeToAMPM(leader.time || '') || 'Not specified'}</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Director</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <select
+                          value={editedLeader.acpd || ''}
+                          onChange={(e) => handleLeaderFieldChange('acpd', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="">Select Director</option>
+                          {directors.map((director) => (
+                            <option key={director.id} value={director.name}>
+                              {director.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{leader.acpd || 'Not assigned'}</span>
                       )}
                     </dd>
                   </div>
@@ -1503,19 +1503,6 @@ export default function CircleLeaderProfilePage() {
                   Log Connection
                 </button>
               </div>
-            </div>
-          </div>
-
-          {/* Circle Visits Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow mt-8">
-            <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Circle Visits</h2>
-            </div>
-            <div className="p-4 sm:p-6">
-              <CircleVisitsSection 
-                leaderId={leader?.id || 0}
-                leaderName={leader?.name || ''}
-              />
             </div>
           </div>
 

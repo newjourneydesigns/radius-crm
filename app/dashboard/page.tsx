@@ -81,8 +81,8 @@ export default function DashboardPage() {
   // Refresh key for FilterPanel follow-up table
   const [filterPanelRefreshKey, setFilterPanelRefreshKey] = useState(0);
   
-  // Tab state for dashboard sections
-  const [activeTab, setActiveTab] = useState<'leaders' | 'visits'>('leaders');
+  // Active section tracking for sticky navigation
+  const [activeSection, setActiveSection] = useState('personal-notes');
   
   // State for modals
   type RecentNote = Pick<Note, 'id' | 'circle_leader_id' | 'content' | 'created_at'>;
@@ -826,6 +826,63 @@ export default function DashboardPage() {
     }
   }, [user?.id]);
 
+  // Scroll spy effect to track active section
+  useEffect(() => {
+    const handleScroll = () => {
+      const sections = ['personal-notes', 'filters', 'follow-up', 'status-overview', 'recent-notes', 'circle-leaders'];
+      const currentSection = sections.find(section => {
+        const element = document.getElementById(section);
+        if (element) {
+          const rect = element.getBoundingClientRect();
+          // Consider section active if it's in the top half of the viewport
+          return rect.top <= 120 && rect.bottom >= 120;
+        }
+        return false;
+      });
+      
+      if (currentSection) {
+        setActiveSection(currentSection);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    handleScroll(); // Check initial state
+    
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Custom scroll function to handle offset and show hidden sections
+  const scrollToSection = (sectionId: string) => {
+    // Auto-show hidden sections when navigating to them
+    if (sectionId === 'recent-notes' && !recentNotesVisible) {
+      setRecentNotesVisible(true);
+      try {
+        localStorage.setItem('recentNotesVisible', 'true');
+      } catch (error) {
+        // Ignore localStorage errors
+      }
+    }
+    
+    if (sectionId === 'personal-notes' && !userNotesVisible) {
+      setUserNotesVisible(true);
+      try {
+        localStorage.setItem('userNotesVisible', 'true');
+      } catch (error) {
+        // Ignore localStorage errors
+      }
+    }
+    
+    // Small delay to allow section to expand before scrolling
+    setTimeout(() => {
+      const element = document.getElementById(sectionId);
+      if (element) {
+        const yOffset = -125; // Offset for sticky headers (nav + active filters)
+        const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+        window.scrollTo({ top: y, behavior: 'smooth' });
+      }
+    }, sectionId === 'recent-notes' || sectionId === 'personal-notes' ? 100 : 0);
+  };
+
   // Event handlers
   const handleToggleEventSummary = async (leaderId: number, isChecked: boolean) => {
     try {
@@ -1030,38 +1087,97 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Tab Navigation */}
-          <div className="mb-6">
-            <div className="border-b border-gray-200 dark:border-gray-700">
-              <nav className="-mb-px flex space-x-8">
+          {/* Sticky Section Navigation */}
+          <div className="sticky top-0 z-[1000] bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 -mx-3 sm:-mx-4 lg:-mx-8 px-3 sm:px-4 lg:px-8 shadow-sm">
+              <nav className="flex space-x-6 overflow-x-auto py-3">
                 <button
-                  onClick={() => setActiveTab('leaders')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'leaders'
-                      ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                  onClick={() => scrollToSection('personal-notes')}
+                  className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    activeSection === 'personal-notes'
+                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
                   }`}
                 >
-                  Circle Leaders
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  Personal Notes
                 </button>
+
                 <button
-                  onClick={() => setActiveTab('visits')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'visits'
-                      ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                  onClick={() => scrollToSection('filters')}
+                  className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    activeSection === 'filters'
+                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
                   }`}
                 >
-                  Circle Visits
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                  Filters
+                </button>
+
+                <button
+                  onClick={() => scrollToSection('follow-up')}
+                  className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    activeSection === 'follow-up'
+                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                  }`}
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Follow Up
+                </button>
+                
+                <button
+                  onClick={() => scrollToSection('status-overview')}
+                  className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    activeSection === 'status-overview'
+                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                  }`}
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  Status
+                </button>
+
+                <button
+                  onClick={() => scrollToSection('recent-notes')}
+                  className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    activeSection === 'recent-notes'
+                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                  }`}
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Recent Notes
+                </button>
+
+                <button
+                  onClick={() => scrollToSection('circle-leaders')}
+                  className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    activeSection === 'circle-leaders'
+                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                  }`}
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  Leaders
                 </button>
               </nav>
             </div>
-          </div>
 
           {/* Tab Content */}
-          {activeTab === 'leaders' && (
-            <>
-              {/* First Visit Message - Campus Selection Required */}
+          {/* First Visit Message - Campus Selection Required */}
               {isFirstVisit && filters.campus.length === 0 && (
                 <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
                   <div className="flex items-start">
@@ -1100,7 +1216,7 @@ export default function DashboardPage() {
               )}
 
               {/* Personal Notes Section */}
-              <div className="mb-6">
+              <div id="personal-notes">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -1296,7 +1412,7 @@ export default function DashboardPage() {
           </div>
 
         {/* Active Filter Tags - Sticky */}
-        <div className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 mb-6">
+        <div className="sticky top-[61px] z-[999] bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
           <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-3">
             {(filters.campus.length > 0 || filters.acpd.length > 0 || filters.status.length > 0 || 
               filters.meetingDay.length > 0 || filters.circleType.length > 0 || 
@@ -1445,7 +1561,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Filters */}
-        <div data-testid="filters-section">
+        <div id="filters" data-testid="filters-section" className="mt-6">
           <FilterPanel 
             filters={filters}
             onFiltersChange={updateFilters}
@@ -1461,7 +1577,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Status Bar */}
-        <div className="mb-6">
+        <div id="status-overview" className="mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <div className="mb-4">
               <h2 className="text-lg font-medium text-gray-900 dark:text-white">Status Overview</h2>
@@ -1477,27 +1593,32 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Event Summary Progress */}
-        <EventSummaryProgress
-          receivedCount={eventSummaryProgress.received}
-          totalCount={eventSummaryProgress.total}
-          onResetCheckboxes={handleResetCheckboxes}
-        />
+        {/* Progress Section */}
+        <div id="progress">
+          {/* Event Summary Progress */}
+          <EventSummaryProgress
+            receivedCount={eventSummaryProgress.received}
+            totalCount={eventSummaryProgress.total}
+            onResetCheckboxes={handleResetCheckboxes}
+          />
 
-        {/* Connections Progress */}
-        <ConnectionsProgress
-          filteredLeaderIds={filteredLeaders.map(leader => leader.id)}
-          totalFilteredLeaders={filteredLeaders.length}
-        />
+          {/* Connections Progress */}
+          <ConnectionsProgress
+            filteredLeaderIds={filteredLeaders.map(leader => leader.id)}
+            totalFilteredLeaders={filteredLeaders.length}
+          />
+        </div>
 
         {/* Today's Circles */}
-        <TodayCircles 
-          todayCircles={todayCircles}
-          onOpenContactModal={openContactModal}
-        />
+        <div id="today-circles">
+          <TodayCircles 
+            todayCircles={todayCircles}
+            onOpenContactModal={openContactModal}
+          />
+        </div>
 
         {/* Recent Notes */}
-        <div className="mb-6">
+        <div id="recent-notes" className="mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <div className="mb-4 flex items-center justify-between">
               <div>
@@ -1641,11 +1762,9 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
-        </>
-        )}
 
         {/* Circle Leaders Grid */}
-        <div className="mb-6">
+        <div id="circle-leaders" className="mb-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 Circle Leaders
@@ -1798,13 +1917,14 @@ export default function DashboardPage() {
           )}
         </div>
 
-            {/* Circle Visits Tab */}
+            {/* Circle Visits Tab - Commented out for now
             {activeTab === 'visits' && (
               <CircleVisitsDashboard 
                 campusFilter={filters.campus}
                 acpdFilter={filters.acpd}
               />
             )}
+            */}
       </div>
 
       {/* Contact Modal */}
