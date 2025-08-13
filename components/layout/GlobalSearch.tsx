@@ -240,13 +240,13 @@ export default function GlobalSearch() {
 
       {/* Search Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
+        <div className="fixed inset-0 z-[9999] overflow-y-auto">
           <div className="flex min-h-screen items-start justify-center p-4 pt-16">
-            <div className="fixed inset-0 bg-black bg-opacity-25 dark:bg-opacity-50" />
+            <div className="fixed inset-0 bg-black bg-opacity-25 dark:bg-opacity-50 z-[9998]" />
             
             <div 
               ref={searchRef}
-              className="relative w-full max-w-lg bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700"
+              className="relative w-full max-w-lg bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-[9999]"
             >
               {/* Search Input */}
               <div className="flex items-center border-b border-gray-200 dark:border-gray-700 px-4">

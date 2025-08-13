@@ -1216,7 +1216,7 @@ export default function DashboardPage() {
               )}
 
               {/* Personal Notes Section */}
-              <div id="personal-notes">
+              <div id="personal-notes" className="mt-8">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -1412,7 +1412,7 @@ export default function DashboardPage() {
           </div>
 
         {/* Active Filter Tags - Sticky */}
-        <div className="sticky top-[61px] z-[999] bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+        <div className="sticky top-[60px] z-[999] bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
           <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-3">
             {(filters.campus.length > 0 || filters.acpd.length > 0 || filters.status.length > 0 || 
               filters.meetingDay.length > 0 || filters.circleType.length > 0 || 
@@ -1985,7 +1985,7 @@ export default function DashboardPage() {
 
       {/* Delete Note Confirmation Modal */}
       {deleteNoteModal.isOpen && (
-        <div className="fixed inset-0 bg-gray-600 dark:bg-gray-900 bg-opacity-50 dark:bg-opacity-75 overflow-y-auto h-full w-full z-50">
+        <div className="fixed inset-0 bg-gray-600 dark:bg-gray-900 bg-opacity-50 dark:bg-opacity-75 overflow-y-auto h-full w-full z-[9999]">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800">
             <div className="mt-3 text-center">
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/20">
