@@ -14,6 +14,7 @@ import ConfirmModal from '../../components/ui/ConfirmModal';
 import AlertModal from '../../components/ui/AlertModal';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import ExportModal from '../../components/dashboard/ExportModal';
+import CircleVisitsDashboard from '../../components/dashboard/CircleVisitsDashboard';
 import { useDashboardFilters } from '../../hooks/useDashboardFilters';
 import { useCircleLeaders, CircleLeaderFilters } from '../../hooks/useCircleLeaders';
 import { useTodayCircles } from '../../hooks/useTodayCircles';
@@ -37,7 +38,7 @@ interface LogConnectionModalData {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { filters, updateFilters, clearAllFilters } = useDashboardFilters();
+  const { filters, updateFilters, clearAllFilters, isInitialized, isFirstVisit } = useDashboardFilters();
   const { 
     circleLeaders, 
     isLoading, 
@@ -57,7 +58,14 @@ export default function DashboardPage() {
     todayCircles, 
     isLoading: todayCirclesLoading, 
     refreshTodayCircles 
-  } = useTodayCircles(filters.campus); // Pass campus filter to Today's Circles
+  } = useTodayCircles({
+    campus: filters.campus,
+    acpd: filters.acpd,
+    status: filters.status,
+    circleType: filters.circleType,
+    eventSummary: filters.eventSummary,
+    timeOfDay: filters.timeOfDay
+  }, isInitialized && !isFirstVisit && filters.campus.length > 0); // Only load if not first visit and campus selected
 
     // State for tracking connected leaders this month
   const [connectedThisMonth, setConnectedThisMonth] = useState<number[]>([]);
@@ -72,6 +80,9 @@ export default function DashboardPage() {
   
   // Refresh key for FilterPanel follow-up table
   const [filterPanelRefreshKey, setFilterPanelRefreshKey] = useState(0);
+  
+  // Tab state for dashboard sections
+  const [activeTab, setActiveTab] = useState<'leaders' | 'visits'>('leaders');
   
   // State for modals
   type RecentNote = Pick<Note, 'id' | 'circle_leader_id' | 'content' | 'created_at'>;
@@ -781,8 +792,22 @@ export default function DashboardPage() {
 
   // Load data on component mount and when filters change
   useEffect(() => {
-    loadCircleLeaders(getServerFilters());
-  }, [loadCircleLeaders, filters]);
+    if (isInitialized && !isFirstVisit) {
+      // Only load data if not first visit or if user has selected at least one campus
+      if (filters.campus.length > 0 || !isFirstVisit) {
+        loadCircleLeaders(getServerFilters());
+      }
+    }
+  }, [loadCircleLeaders, isInitialized, isFirstVisit,
+      JSON.stringify(filters.campus),
+      JSON.stringify(filters.acpd),
+      JSON.stringify(filters.status), 
+      JSON.stringify(filters.meetingDay),
+      JSON.stringify(filters.circleType),
+      filters.eventSummary,
+      filters.connected,
+      filters.timeOfDay
+  ]);
 
   // Load recent notes when filtered leaders change
   useEffect(() => {
@@ -1005,8 +1030,77 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Personal Notes Section */}
+          {/* Tab Navigation */}
           <div className="mb-6">
+            <div className="border-b border-gray-200 dark:border-gray-700">
+              <nav className="-mb-px flex space-x-8">
+                <button
+                  onClick={() => setActiveTab('leaders')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'leaders'
+                      ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                  }`}
+                >
+                  Circle Leaders
+                </button>
+                <button
+                  onClick={() => setActiveTab('visits')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'visits'
+                      ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                  }`}
+                >
+                  Circle Visits
+                </button>
+              </nav>
+            </div>
+          </div>
+
+          {/* Tab Content */}
+          {activeTab === 'leaders' && (
+            <>
+              {/* First Visit Message - Campus Selection Required */}
+              {isFirstVisit && filters.campus.length === 0 && (
+                <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <svg className="h-6 w-6 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-lg font-medium text-blue-800 dark:text-blue-200">
+                        Welcome to the Dashboard!
+                      </h3>
+                      <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
+                        <p>
+                          To get started, please select at least one <strong>Campus</strong> from the filters above to view Circle Leaders. 
+                          This helps ensure you see relevant data for your area.
+                        </p>
+                      </div>
+                      <div className="mt-4">
+                        <button
+                          onClick={() => {
+                            // Scroll to filters section
+                            const filtersElement = document.querySelector('[data-testid="filters-section"]');
+                            if (filtersElement) {
+                              filtersElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }
+                          }}
+                          className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
+                        >
+                          Go to Filters
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Personal Notes Section */}
+              <div className="mb-6">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -1351,18 +1445,20 @@ export default function DashboardPage() {
         </div>
 
         {/* Filters */}
-        <FilterPanel 
-          filters={filters}
-          onFiltersChange={updateFilters}
-          onClearAllFilters={clearAllFilters}
-          onBulkUpdateStatus={handleBulkUpdateStatus}
-          onResetCheckboxes={handleResetCheckboxes}
-          totalLeaders={filteredLeaders.length}
-          receivedCount={eventSummaryProgress.received}
-          onAddNote={(leaderId, name) => openAddNoteModal(leaderId, name)}
-          onClearFollowUp={handleClearFollowUp}
-          refreshKey={filterPanelRefreshKey}
-        />
+        <div data-testid="filters-section">
+          <FilterPanel 
+            filters={filters}
+            onFiltersChange={updateFilters}
+            onClearAllFilters={clearAllFilters}
+            onBulkUpdateStatus={handleBulkUpdateStatus}
+            onResetCheckboxes={handleResetCheckboxes}
+            totalLeaders={filteredLeaders.length}
+            receivedCount={eventSummaryProgress.received}
+            onAddNote={(leaderId, name) => openAddNoteModal(leaderId, name)}
+            onClearFollowUp={handleClearFollowUp}
+            refreshKey={filterPanelRefreshKey}
+          />
+        </div>
 
         {/* Status Bar */}
         <div className="mb-6">
@@ -1477,7 +1573,7 @@ export default function DashboardPage() {
                               </td>
                               <td className="px-4 sm:px-6 py-3 text-gray-800 dark:text-gray-200">
                                 <div className="max-w-3xl whitespace-pre-wrap break-words">
-                                  {note.content}
+                                  {linkifyText(note.content)}
                                 </div>
                               </td>
                             </tr>
@@ -1534,7 +1630,7 @@ export default function DashboardPage() {
                           
                           {/* Note */}
                           <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
-                            {note.content}
+                            {linkifyText(note.content)}
                           </div>
                         </div>
                       );
@@ -1545,6 +1641,8 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
+        </>
+        )}
 
         {/* Circle Leaders Grid */}
         <div className="mb-6">
@@ -1687,6 +1785,7 @@ export default function DashboardPage() {
                   })}
                 </div>
                 
+                
                 <button
                   onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
@@ -1698,6 +1797,14 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+
+            {/* Circle Visits Tab */}
+            {activeTab === 'visits' && (
+              <CircleVisitsDashboard 
+                campusFilter={filters.campus}
+                acpdFilter={filters.acpd}
+              />
+            )}
       </div>
 
       {/* Contact Modal */}

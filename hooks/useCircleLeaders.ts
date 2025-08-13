@@ -80,12 +80,6 @@ export const useCircleLeaders = () => {
     const cachedEntry = cache.get(cacheKey);
     
     if (cachedEntry && isCacheValid(cachedEntry)) {
-      console.log('✅ Cache HIT - Loading circle leaders from cache...', { 
-        cacheKey, 
-        dataLength: cachedEntry.data.length,
-        cacheAge: `${Math.round((Date.now() - cachedEntry.timestamp) / 1000)}s ago`,
-        ...getCacheStats()
-      });
       setCircleLeaders(cachedEntry.data);
       setIsLoading(false);
       setError(null);
@@ -99,20 +93,12 @@ export const useCircleLeaders = () => {
       }
     });
 
-    console.log('❌ Cache MISS - Loading circle leaders from database...', { 
-      cacheKey, 
-      filters,
-      reason: cachedEntry ? 'expired' : 'not found',
-      ...getCacheStats()
-    });
-    
     loadingRef.current = true;
     setIsLoading(true);
     setError(null);
 
     try {
       // Build the base query
-      console.log('Querying circle_leaders table with filters...', filters);
       let query = supabase
         .from('circle_leaders')
         .select('id, name, email, phone, campus, acpd, status, day, time, frequency, circle_type, event_summary_received, follow_up_required, follow_up_date, ccb_profile_link');
@@ -166,8 +152,6 @@ export const useCircleLeaders = () => {
         console.error('Error loading circle leaders:', leadersError);
         throw leadersError;
       }
-
-      console.log('Loaded', leaders?.length || 0, 'circle leaders (server-filtered)');
 
       // Load notes only for the filtered leaders (much more efficient)
       let allNotes: any[] = [];

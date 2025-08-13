@@ -9,6 +9,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import AlertModal from '../../../components/ui/AlertModal';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 import LogConnectionModal from '../../../components/dashboard/LogConnectionModal';
+import CircleVisitsSection from '../../../components/circle/CircleVisitsSection';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 
 // Helper function to format time to AM/PM
@@ -1502,6 +1503,19 @@ export default function CircleLeaderProfilePage() {
                   Log Connection
                 </button>
               </div>
+            </div>
+          </div>
+
+          {/* Circle Visits Section */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow mt-8">
+            <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Circle Visits</h2>
+            </div>
+            <div className="p-4 sm:p-6">
+              <CircleVisitsSection 
+                leaderId={leader?.id || 0}
+                leaderName={leader?.name || ''}
+              />
             </div>
           </div>
 

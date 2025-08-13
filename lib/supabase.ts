@@ -144,3 +144,21 @@ export interface UserNote {
   created_at: string;
   updated_at: string;
 }
+
+export interface CircleVisit {
+  id: string;
+  leader_id: number;
+  visit_date: string;
+  status: 'scheduled' | 'completed' | 'canceled';
+  scheduled_by: string;
+  scheduled_at: string;
+  completed_at?: string;
+  completed_by?: string;
+  canceled_at?: string;
+  canceled_by?: string;
+  cancel_reason?: string;
+  previsit_note?: string;
+  created_at: string;
+  updated_at: string;
+  circle_leader?: CircleLeader; // For joined queries
+}
