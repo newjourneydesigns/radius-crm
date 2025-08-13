@@ -55,21 +55,21 @@ export default function ExportModal({ isOpen, onClose, leaders }: ExportModalPro
     if (leader.circle_type) parts.push(leader.circle_type);
     
     if (parts.length === 0) return '';
-    return `   Meeting: ${parts.join(' • ')}`;
+    return `Meeting: ${parts.join(' • ')}`;
   };
 
   const buildLeaderBlock = (leader: CircleLeader, index: number) => {
     const lines: string[] = [];
-    lines.push(`${index + 1}. ${leader.name || 'No Name'}`);
-    if (options.phone) lines.push(`   Phone: ${leader.phone || 'Not provided'}`);
-    if (options.email) lines.push(`   Email: ${leader.email || 'Not provided'}`);
-    if (options.campus) lines.push(`   Campus: ${leader.campus || 'Not specified'}`);
+    lines.push(`${leader.name || 'No Name'}`);
+    if (options.phone) lines.push(`Phone: ${leader.phone || 'Not provided'}`);
+    if (options.email) lines.push(`Email: ${leader.email || 'Not provided'}`);
+    if (options.campus) lines.push(`Campus: ${leader.campus || 'Not specified'}`);
     const meetingLine = buildMeetingLine(leader);
     if (meetingLine) lines.push(meetingLine);
     if (options.status) {
       const status = leader.status ? leader.status.charAt(0).toUpperCase() + leader.status.slice(1) : 'Not specified';
       const statusWithFollow = leader.follow_up_required ? `${status} (Follow-up Required)` : status;
-      lines.push(`   Status: ${statusWithFollow}`);
+      lines.push(`Status: ${statusWithFollow}`);
     }
     return lines.join('\n');
   };

@@ -72,6 +72,7 @@ export interface Note {
   note?: string;
   follow_up_date?: string;
   created_by?: string;
+  pinned?: boolean;
   users?: {
     name: string;
   };

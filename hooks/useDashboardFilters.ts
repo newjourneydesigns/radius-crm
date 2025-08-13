@@ -11,11 +11,18 @@ export interface DashboardFilters {
   timeOfDay: string;
 }
 
+// Get today's day name for default filter
+const getTodayDayName = (): string => {
+  const today = new Date();
+  const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  return daysOfWeek[today.getDay()];
+};
+
 export const defaultFilters: DashboardFilters = {
   campus: [],
   acpd: [],
   status: [],
-  meetingDay: [],
+  meetingDay: [getTodayDayName()], // Default to today's circles
   circleType: [],
   eventSummary: 'all',
   connected: 'all',

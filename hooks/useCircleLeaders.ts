@@ -1,53 +1,197 @@
 import { useState, useCallback, useRef } from 'react';
 import { supabase, CircleLeader } from '../lib/supabase';
 
+export interface CircleLeaderFilters {
+  campus?: string[];
+  acpd?: string[];
+  status?: string[];
+  meetingDay?: string[];
+  circleType?: string[];
+  eventSummary?: string;
+  timeOfDay?: string;
+}
+
+// Cache management
+interface CacheEntry {
+  data: CircleLeader[];
+  timestamp: number;
+  filterKey: string;
+}
+
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+const cache = new Map<string, CacheEntry>();
+
+// Generate cache key from filters
+const generateCacheKey = (filters?: CircleLeaderFilters): string => {
+  if (!filters) return 'no-filters';
+  
+  const sortedFilters = {
+    campus: filters.campus?.sort().join(',') || '',
+    acpd: filters.acpd?.sort().join(',') || '',
+    status: filters.status?.sort().join(',') || '',
+    meetingDay: filters.meetingDay?.sort().join(',') || '',
+    circleType: filters.circleType?.sort().join(',') || '',
+    eventSummary: filters.eventSummary || '',
+    timeOfDay: filters.timeOfDay || ''
+  };
+  
+  return JSON.stringify(sortedFilters);
+};
+
+// Check if cache entry is valid
+const isCacheValid = (entry: CacheEntry): boolean => {
+  return Date.now() - entry.timestamp < CACHE_DURATION;
+};
+
+// Clear all cache entries (used when data is modified)
+const clearCache = () => {
+  const cacheSize = cache.size;
+  cache.clear();
+  console.log(`Cache cleared due to data modification (${cacheSize} entries removed)`);
+};
+
+// Get cache statistics for debugging
+const getCacheStats = () => {
+  const validEntries = Array.from(cache.values()).filter(entry => isCacheValid(entry));
+  const expiredEntries = Array.from(cache.values()).filter(entry => !isCacheValid(entry));
+  
+  return {
+    totalEntries: cache.size,
+    validEntries: validEntries.length,
+    expiredEntries: expiredEntries.length,
+    keys: Array.from(cache.keys())
+  };
+};
+
 export const useCircleLeaders = () => {
   const [circleLeaders, setCircleLeaders] = useState<CircleLeader[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const loadingRef = useRef(false);
 
-  const loadCircleLeaders = useCallback(async () => {
+  const loadCircleLeaders = useCallback(async (filters?: CircleLeaderFilters) => {
     if (loadingRef.current) {
       console.log('Load already in progress, skipping');
       return;
     }
 
-    console.log('Starting to load circle leaders...');
+    // Check cache first
+    const cacheKey = generateCacheKey(filters);
+    const cachedEntry = cache.get(cacheKey);
+    
+    if (cachedEntry && isCacheValid(cachedEntry)) {
+      console.log('✅ Cache HIT - Loading circle leaders from cache...', { 
+        cacheKey, 
+        dataLength: cachedEntry.data.length,
+        cacheAge: `${Math.round((Date.now() - cachedEntry.timestamp) / 1000)}s ago`,
+        ...getCacheStats()
+      });
+      setCircleLeaders(cachedEntry.data);
+      setIsLoading(false);
+      setError(null);
+      return;
+    }
+
+    // Clean up expired entries
+    cache.forEach((entry, key) => {
+      if (!isCacheValid(entry)) {
+        cache.delete(key);
+      }
+    });
+
+    console.log('❌ Cache MISS - Loading circle leaders from database...', { 
+      cacheKey, 
+      filters,
+      reason: cachedEntry ? 'expired' : 'not found',
+      ...getCacheStats()
+    });
     
     loadingRef.current = true;
     setIsLoading(true);
     setError(null);
 
     try {
-      // Load circle leaders with only needed fields
-      console.log('Querying circle_leaders table...');
-      const { data: leaders, error: leadersError } = await supabase
+      // Build the base query
+      console.log('Querying circle_leaders table with filters...', filters);
+      let query = supabase
         .from('circle_leaders')
-        .select('id, name, email, phone, campus, acpd, status, day, time, frequency, circle_type, event_summary_received, follow_up_required, follow_up_date, ccb_profile_link')
-        .order('name');
+        .select('id, name, email, phone, campus, acpd, status, day, time, frequency, circle_type, event_summary_received, follow_up_required, follow_up_date, ccb_profile_link');
+
+      // Apply filters server-side
+      if (filters) {
+        // Campus filter
+        if (filters.campus && filters.campus.length > 0) {
+          query = query.in('campus', filters.campus);
+        }
+
+        // ACPD filter
+        if (filters.acpd && filters.acpd.length > 0) {
+          query = query.in('acpd', filters.acpd);
+        }
+
+        // Status filter (excluding follow-up for now, handled separately)
+        if (filters.status && filters.status.length > 0) {
+          const regularStatuses = filters.status.filter(s => s !== 'follow-up');
+          if (regularStatuses.length > 0) {
+            query = query.in('status', regularStatuses);
+          }
+          // Note: follow-up filter will be applied client-side since it's based on follow_up_required
+        }
+
+        // Meeting Day filter
+        if (filters.meetingDay && filters.meetingDay.length > 0) {
+          query = query.in('day', filters.meetingDay);
+        }
+
+        // Circle Type filter
+        if (filters.circleType && filters.circleType.length > 0) {
+          query = query.in('circle_type', filters.circleType);
+        }
+
+        // Event Summary filter
+        if (filters.eventSummary === 'received') {
+          query = query.eq('event_summary_received', true);
+        } else if (filters.eventSummary === 'not_received') {
+          query = query.neq('event_summary_received', true);
+        }
+
+        // Time of Day filter - complex logic, keeping client-side for now
+        // This would require database functions to parse time strings
+      }
+
+      // Execute the query
+      const { data: leaders, error: leadersError } = await query.order('name');
 
       if (leadersError) {
         console.error('Error loading circle leaders:', leadersError);
         throw leadersError;
       }
 
-      console.log('Loaded', leaders?.length || 0, 'circle leaders');
+      console.log('Loaded', leaders?.length || 0, 'circle leaders (server-filtered)');
 
-      // Get all notes in one query and map to leaders
-      const { data: allNotes, error: notesError } = await supabase
-        .from('notes')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Load notes only for the filtered leaders (much more efficient)
+      let allNotes: any[] = [];
+      if (leaders && leaders.length > 0) {
+        const leaderIds = leaders.map(leader => leader.id);
+        const { data: notesData, error: notesError } = await supabase
+          .from('notes')
+          .select('*')
+          .in('circle_leader_id', leaderIds)
+          .order('created_at', { ascending: false });
 
-      if (notesError) {
-        console.error('Error loading notes:', notesError);
+        if (notesError) {
+          console.error('Error loading notes:', notesError);
+        } else {
+          allNotes = notesData || [];
+        }
       }
+
+      console.log('Loaded', allNotes.length, 'notes for filtered leaders');
 
       // Create a map of leader_id to their latest note
       const latestNotesMap = new Map();
-      if (allNotes) {
-        allNotes.forEach(note => {
+      if (allNotes && allNotes.length > 0) {
+        allNotes.forEach((note: any) => {
           if (!latestNotesMap.has(note.circle_leader_id)) {
             latestNotesMap.set(note.circle_leader_id, note);
           }
@@ -59,6 +203,15 @@ export const useCircleLeaders = () => {
         ...leader,
         last_note: latestNotesMap.get(leader.id) || null
       }));
+
+      // Store in cache
+      cache.set(cacheKey, {
+        data: leadersWithNotes,
+        timestamp: Date.now(),
+        filterKey: cacheKey
+      });
+
+      console.log('Data cached successfully', { cacheKey, dataLength: leadersWithNotes.length });
 
       setCircleLeaders(leadersWithNotes);
 
@@ -83,6 +236,9 @@ export const useCircleLeaders = () => {
         console.error('Error updating event summary:', error);
         throw error;
       }
+
+      // Clear cache since data was modified
+      clearCache();
 
       // Update local state
       setCircleLeaders(prev => 
@@ -113,6 +269,9 @@ export const useCircleLeaders = () => {
         throw error;
       }
 
+      // Clear cache since data was modified
+      clearCache();
+
       // Update local state
       setCircleLeaders(prev => 
         prev.map(leader => 
@@ -141,6 +300,9 @@ export const useCircleLeaders = () => {
         console.error('Error updating follow-up status:', error);
         throw error;
       }
+
+      // Clear cache since data was modified
+      clearCache();
 
       // Update local state
       setCircleLeaders(prev => 
@@ -184,6 +346,9 @@ export const useCircleLeaders = () => {
         console.error('Error updating status:', error);
         throw error;
       }
+
+      // Clear cache since data was modified
+      clearCache();
 
       // Update local state
       setCircleLeaders(prev => 
@@ -241,6 +406,9 @@ export const useCircleLeaders = () => {
           throw error;
         }
 
+        // Clear cache since data was modified
+        clearCache();
+
         // Update local state
         setCircleLeaders(prev => 
           prev.map(leader => 
@@ -292,6 +460,19 @@ export const useCircleLeaders = () => {
     }
   };
 
+  // Expose cache invalidation for external use (when notes/connections are added)
+  const invalidateCache = useCallback(() => {
+    clearCache();
+  }, []);
+
+  // Expose cache stats for debugging in development
+  const getCacheDebugInfo = useCallback(() => {
+    if (process.env.NODE_ENV === 'development') {
+      return getCacheStats();
+    }
+    return null;
+  }, []);
+
   return {
     circleLeaders,
     isLoading,
@@ -302,6 +483,8 @@ export const useCircleLeaders = () => {
     toggleFollowUp,
     updateStatus,
     bulkUpdateStatus,
-    deleteCircleLeader
+    deleteCircleLeader,
+    invalidateCache,
+    getCacheDebugInfo
   };
 };

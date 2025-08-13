@@ -15,7 +15,8 @@ import AlertModal from '../../components/ui/AlertModal';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import ExportModal from '../../components/dashboard/ExportModal';
 import { useDashboardFilters } from '../../hooks/useDashboardFilters';
-import { useCircleLeaders } from '../../hooks/useCircleLeaders';
+import { useCircleLeaders, CircleLeaderFilters } from '../../hooks/useCircleLeaders';
+import { useTodayCircles } from '../../hooks/useTodayCircles';
 import { CircleLeader, supabase, Note, UserNote } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import Link from 'next/link';
@@ -46,8 +47,17 @@ export default function DashboardPage() {
     resetEventSummaryCheckboxes,
     toggleFollowUp,
     updateStatus,
-    bulkUpdateStatus
+    bulkUpdateStatus,
+    invalidateCache,
+    getCacheDebugInfo
   } = useCircleLeaders();
+
+  // Load today's circles separately for better performance
+  const { 
+    todayCircles, 
+    isLoading: todayCirclesLoading, 
+    refreshTodayCircles 
+  } = useTodayCircles(filters.campus); // Pass campus filter to Today's Circles
 
     // State for tracking connected leaders this month
   const [connectedThisMonth, setConnectedThisMonth] = useState<number[]>([]);
@@ -101,13 +111,23 @@ export default function DashboardPage() {
     content: ''
   });
 
-  // Load recent notes (latest 10)
+  // Load recent notes (latest 10) filtered by current dashboard filters
   const loadRecentNotes = async () => {
     setRecentNotesLoading(true);
     try {
+      // Get the filtered leader IDs to filter notes by
+      const filteredLeaderIds = filteredLeaders.map(leader => leader.id);
+      
+      // If no filtered leaders, don't show any notes
+      if (filteredLeaderIds.length === 0) {
+        setRecentNotes([]);
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('notes')
         .select('id, circle_leader_id, content, created_at')
+        .in('circle_leader_id', filteredLeaderIds)
         .order('created_at', { ascending: false })
         .limit(10);
       if (error) {
@@ -486,65 +506,40 @@ export default function DashboardPage() {
 
 
 
-  // Filter circle leaders based on current filters
+  // Filter circle leaders - now mostly client-side for complex logic
   const filteredLeaders = useMemo(() => {
     let filtered = [...circleLeaders];
 
-    // Campus filter
-    if (filters.campus.length > 0) {
-      filtered = filtered.filter(leader => 
-        filters.campus.includes(leader.campus || '')
-      );
+    // Most filtering is now done server-side, but we still need client-side for:
+    // 1. Follow-up status (complex logic)
+    // 2. Connected status (requires connections data)
+    // 3. Time of day (complex parsing logic)
+
+    // Follow-up status filter (client-side only)
+    if (filters.status.length > 0 && filters.status.includes('follow-up')) {
+      // If only follow-up is selected, show only follow-up required
+      if (filters.status.length === 1 && filters.status[0] === 'follow-up') {
+        filtered = filtered.filter(leader => leader.follow_up_required);
+      } else {
+        // If follow-up is mixed with other statuses, include follow-up required leaders
+        filtered = filtered.filter(leader => {
+          const statusMatch = filters.status.some(status => 
+            status !== 'follow-up' && status === leader.status
+          );
+          const followUpMatch = leader.follow_up_required;
+          return statusMatch || followUpMatch;
+        });
+      }
     }
 
-    // ACPD filter
-    if (filters.acpd.length > 0) {
-      filtered = filtered.filter(leader => 
-        filters.acpd.includes(leader.acpd || '')
-      );
-    }
-
-    // Status filter
-    if (filters.status.length > 0) {
-      filtered = filtered.filter(leader => {
-        // Check if regular status is selected
-        const statusMatch = filters.status.includes(leader.status || '');
-        // Check if follow-up is selected and leader has follow-up required
-        const followUpMatch = filters.status.includes('follow-up') && leader.follow_up_required;
-        
-        return statusMatch || followUpMatch;
-      });
-    }
-
-    // Meeting Day filter
-    if (filters.meetingDay.length > 0) {
-      filtered = filtered.filter(leader => 
-        filters.meetingDay.includes(leader.day || '')
-      );
-    }
-
-    // Circle Type filter
-    if (filters.circleType.length > 0) {
-      filtered = filtered.filter(leader => 
-        filters.circleType.includes(leader.circle_type || '')
-      );
-    }
-
-    // Event Summary filter
-    if (filters.eventSummary === 'received') {
-      filtered = filtered.filter(leader => leader.event_summary_received === true);
-    } else if (filters.eventSummary === 'not_received') {
-      filtered = filtered.filter(leader => leader.event_summary_received !== true);
-    }
-
-    // Connected filter
+    // Connected filter (client-side - requires connections data)
     if (filters.connected === 'connected') {
       filtered = filtered.filter(leader => connectedLeaderIds.has(leader.id));
     } else if (filters.connected === 'not_connected') {
       filtered = filtered.filter(leader => !connectedLeaderIds.has(leader.id));
     }
 
-    // Time of Day filter
+    // Time of Day filter (client-side - complex parsing)
     if (filters.timeOfDay === 'am' || filters.timeOfDay === 'pm') {
       filtered = filtered.filter(leader => {
         if (!leader.time) return false;
@@ -572,7 +567,7 @@ export default function DashboardPage() {
       });
     }
 
-    // Sort by name
+    // Sort by name (always client-side)
     filtered.sort((a, b) => {
       const aName = a.name || '';
       const bName = b.name || '';
@@ -595,24 +590,6 @@ export default function DashboardPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [filters]);
-
-  // Calculate today's circles
-  const todayCircles = useMemo(() => {
-    const today = new Date();
-    const daysOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const todayName = daysOfWeek[today.getDay()].toLowerCase();
-    
-    return filteredLeaders.filter(leader => {
-      if (!leader.day || !leader.frequency) return false;
-      
-      const meetingDay = leader.day.toLowerCase();
-      if (meetingDay !== todayName) return false;
-      
-      // For now, show all leaders that meet today regardless of frequency
-      // In a real implementation, you'd calculate based on actual meeting schedule
-      return true;
-    });
-  }, [filteredLeaders]);
 
   // Calculate event summary progress
   const eventSummaryProgress = useMemo(() => {
@@ -765,20 +742,57 @@ export default function DashboardPage() {
     return elements.length > 0 ? elements : text;
   };
 
-  // Load data on component mount
-  useEffect(() => {
-    loadCircleLeaders();
-  }, [loadCircleLeaders]);
+  // Helper function to convert dashboard filters to server-side filters
+  const getServerFilters = (): CircleLeaderFilters => {
+    const serverFilters: CircleLeaderFilters = {};
+    
+    // Campus filter
+    if (filters.campus.length > 0) {
+      serverFilters.campus = filters.campus;
+    }
+    
+    // ACPD filter
+    if (filters.acpd.length > 0) {
+      serverFilters.acpd = filters.acpd;
+    }
+    
+    // Status filter
+    if (filters.status.length > 0) {
+      serverFilters.status = filters.status;
+    }
+    
+    // Meeting day filter
+    if (filters.meetingDay.length > 0) {
+      serverFilters.meetingDay = filters.meetingDay;
+    }
+    
+    // Circle type filter
+    if (filters.circleType.length > 0) {
+      serverFilters.circleType = filters.circleType;
+    }
+    
+    // Event summary filter (convert to string)
+    if (filters.eventSummary !== 'all') {
+      serverFilters.eventSummary = filters.eventSummary;
+    }
+    
+    return serverFilters;
+  };
 
-  // Load recent notes independently on mount with slight delay to prioritize main content
+  // Load data on component mount and when filters change
   useEffect(() => {
-    // Small delay to prioritize loading circle leaders first
+    loadCircleLeaders(getServerFilters());
+  }, [loadCircleLeaders, filters]);
+
+  // Load recent notes when filtered leaders change
+  useEffect(() => {
+    // Small delay to ensure filteredLeaders has been calculated
     const timeoutId = setTimeout(() => {
       loadRecentNotes();
     }, 100);
     
     return () => clearTimeout(timeoutId);
-  }, []);
+  }, [filteredLeaders]);
 
   // Load user's personal notes on component mount
   useEffect(() => {
@@ -792,7 +806,7 @@ export default function DashboardPage() {
     try {
       await toggleEventSummary(leaderId, isChecked);
       // Refresh the data
-      loadCircleLeaders();
+      loadCircleLeaders(getServerFilters());
     } catch (error) {
       console.error('Error toggling event summary:', error);
     }
@@ -811,7 +825,7 @@ export default function DashboardPage() {
       const leaderIds = filteredLeaders.map(leader => leader.id);
       await bulkUpdateStatus(leaderIds, status);
       // Refresh the data
-      loadCircleLeaders();
+      loadCircleLeaders(getServerFilters());
     } catch (error) {
       console.error('Error bulk updating status:', error);
       setShowAlert({
@@ -826,7 +840,7 @@ export default function DashboardPage() {
   const handleUpdateStatus = async (leaderId: number, newStatus: string, followUpDate?: string) => {
     try {
       await updateStatus(leaderId, newStatus, followUpDate);
-      loadCircleLeaders();
+      loadCircleLeaders(getServerFilters());
     } catch (error) {
       console.error('Error updating status:', error);
     }
@@ -907,8 +921,11 @@ export default function DashboardPage() {
   };
 
   const handleNoteAdded = () => {
-    loadCircleLeaders(); // Refresh the data to show the new note
+    // Clear cache since notes affect last_note data
+    invalidateCache();
+    loadCircleLeaders(getServerFilters()); // Refresh the data to show the new note
     loadRecentNotes();   // Refresh recent notes table
+    refreshTodayCircles(); // Refresh today's circles since notes affect them too
     // If a follow-up was cleared, refresh the FilterPanel follow-up table
     if (addNoteModal.clearFollowUp) {
       setFilterPanelRefreshKey(prev => prev + 1);
@@ -928,10 +945,14 @@ export default function DashboardPage() {
   };
 
   const handleConnectionLogged = () => {
+    // Clear cache since connections create notes which affect last_note data
+    invalidateCache();
     // Refresh the data to update connections progress
-    loadCircleLeaders();
+    loadCircleLeaders(getServerFilters());
     // Also refresh recent notes (connections create notes)
     loadRecentNotes();
+    // Refresh today's circles since connections create notes
+    refreshTodayCircles();
   };
 
   // For now, assume user is admin - in a real app, you'd get this from your auth context
@@ -948,7 +969,7 @@ export default function DashboardPage() {
             </div>
             <div className="mt-4">
               <button
-                onClick={() => loadCircleLeaders()}
+                onClick={() => loadCircleLeaders(getServerFilters())}
                 className="bg-red-100 px-3 py-2 rounded-md text-sm font-medium text-red-800 hover:bg-red-200"
               >
                 Try Again
@@ -1383,7 +1404,12 @@ export default function DashboardPage() {
         <div className="mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Recent Notes</h2>
+              <div>
+                <h2 className="text-lg font-medium text-gray-900 dark:text-white">Recent Notes</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Filtered by current dashboard settings ({filteredLeaders.length} leaders)
+                </p>
+              </div>
               <div className="flex items-center gap-2">
                 {recentNotesLoading && (
                   <span className="text-sm text-gray-500 dark:text-gray-400">Loading...</span>
