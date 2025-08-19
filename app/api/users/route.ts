@@ -101,10 +101,17 @@ export async function POST(request: NextRequest) {
     console.log('Create user request body:', body);
     const { email, password } = body;
 
-    // Validate input
+    // Validate input more thoroughly
     if (!email || !password) {
       console.error('Missing email or password:', { email: !!email, password: !!password });
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      console.error('Invalid email format:', email);
+      return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
     }
 
     if (password.length < 6) {
@@ -113,7 +120,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if we have a valid service role key
-    if (!process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY === 'demo-key') {
+    const hasServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY !== 'demo-key';
+    console.log('Service role key status:', {
+      exists: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      isDemo: process.env.SUPABASE_SERVICE_ROLE_KEY === 'demo-key',
+      hasValidKey: hasServiceKey,
+      keyLength: process.env.SUPABASE_SERVICE_ROLE_KEY?.length || 0
+    });
+
+    if (!hasServiceKey) {
       console.log('Demo mode - returning mock user creation');
       // Return mock success for demo
       return NextResponse.json({ 
@@ -127,6 +142,19 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('Creating user with Supabase admin client...');
+    
+    // First check if user already exists
+    try {
+      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+      const existingUser = existingUsers.users.find(u => u.email === email);
+      if (existingUser) {
+        console.error('User already exists:', email);
+        return NextResponse.json({ error: 'A user with this email already exists' }, { status: 400 });
+      }
+    } catch (checkError) {
+      console.warn('Could not check for existing users:', checkError);
+    }
+
     // Create user with admin client
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -135,8 +163,13 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
-      console.error('Supabase auth error creating user:', error);
-      return NextResponse.json({ error: `Database error creating new user: ${error.message}` }, { status: 400 });
+      console.error('Supabase auth error creating user:', {
+        message: error.message,
+        status: error.status,
+        code: error.code || 'unknown',
+        details: error
+      });
+      return NextResponse.json({ error: `Auth error: ${error.message} (Code: ${error.code || 'unknown'})` }, { status: 400 });
     }
 
     console.log('User created in auth, creating profile...', data.user.id);
