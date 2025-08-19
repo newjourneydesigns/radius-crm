@@ -433,19 +433,26 @@ export default function DashboardPage() {
     try {
       const response = await fetch('/api/reference-data/');
       
-      if (!response.ok) {
-        throw new Error('Failed to fetch reference data');
-      }
-      
       const data = await response.json();
 
-      if (data.directors) setDirectors(data.directors);
-      if (data.campuses) setCampuses(data.campuses);
-      if (data.statuses) setStatuses(data.statuses);
-      if (data.circleTypes) setCircleTypes(data.circleTypes);
-      if (data.frequencies) setFrequencies(data.frequencies);
+      // Always set the data arrays, even if they're empty (graceful fallback)
+      setDirectors(data.directors || []);
+      setCampuses(data.campuses || []);
+      setStatuses(data.statuses || []);
+      setCircleTypes(data.circleTypes || []);
+      setFrequencies(data.frequencies || []);
+
+      if (!response.ok) {
+        console.warn('Reference data API returned non-OK status, using fallback empty arrays');
+      }
     } catch (error) {
       console.error('Error loading reference data:', error);
+      // Set empty arrays as fallback
+      setDirectors([]);
+      setCampuses([]);
+      setStatuses([]);
+      setCircleTypes([]);
+      setFrequencies([]);
     } finally {
       setReferenceDataLoading(false);
     }
