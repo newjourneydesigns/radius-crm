@@ -93,22 +93,28 @@ export async function POST(request: NextRequest) {
     const { isAdmin, error: adminAuthError } = await verifyAdminAccessDemo(request);
     
     if (!isAdmin) {
+      console.error('Admin access denied:', adminAuthError);
       return NextResponse.json({ error: adminAuthError || 'Admin access required' }, { status: 403 });
     }
 
-    const { email, password } = await request.json();
+    const body = await request.json();
+    console.log('Create user request body:', body);
+    const { email, password } = body;
 
     // Validate input
     if (!email || !password) {
+      console.error('Missing email or password:', { email: !!email, password: !!password });
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
     }
 
     if (password.length < 6) {
+      console.error('Password too short:', password.length);
       return NextResponse.json({ error: 'Password must be at least 6 characters long' }, { status: 400 });
     }
 
     // Check if we have a valid service role key
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY === 'demo-key') {
+      console.log('Demo mode - returning mock user creation');
       // Return mock success for demo
       return NextResponse.json({ 
         message: 'User created successfully (Demo Mode)',
@@ -120,6 +126,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    console.log('Creating user with Supabase admin client...');
     // Create user with admin client
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -128,10 +135,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
-      console.error('Error creating user:', error);
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      console.error('Supabase auth error creating user:', error);
+      return NextResponse.json({ error: `Database error creating new user: ${error.message}` }, { status: 400 });
     }
 
+    console.log('User created in auth, creating profile...', data.user.id);
     // Create user profile in public.users table
     const { error: profileError } = await supabaseAdmin
       .from('users')
@@ -144,10 +152,10 @@ export async function POST(request: NextRequest) {
 
     if (profileError) {
       console.error('Error creating user profile:', profileError);
-      // User was created in auth but profile creation failed
-      // We could clean up or let the trigger handle it
+      return NextResponse.json({ error: `Database error creating user profile: ${profileError.message}` }, { status: 400 });
     }
 
+    console.log('User and profile created successfully');
     return NextResponse.json({ 
       message: 'User created successfully',
       user: {
@@ -159,6 +167,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Error in create user API:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: `Internal server error: ${error}` }, { status: 500 });
   }
 }
