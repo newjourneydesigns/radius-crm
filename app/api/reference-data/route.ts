@@ -13,6 +13,12 @@ export async function GET() {
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
+    console.log('Environment check:', {
+      hasServiceKey: !!serviceKey,
+      hasAnonKey: !!anonKey,
+      supabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL
+    });
+    
     if (!serviceKey && !anonKey) {
       console.error('Neither SUPABASE_SERVICE_ROLE_KEY nor NEXT_PUBLIC_SUPABASE_ANON_KEY is available');
       return NextResponse.json({ error: 'Configuration error' }, { status: 500 });
@@ -31,6 +37,21 @@ export async function GET() {
       supabase.from('circle_types').select('id, value').order('value'),
       supabase.from('frequencies').select('id, value').order('value')
     ]);
+
+    console.log('API Results:', {
+      directors: directorsRes.data?.length || 0,
+      campuses: campusesRes.data?.length || 0,
+      statuses: statusesRes.data?.length || 0,
+      circleTypes: circleTypesRes.data?.length || 0,
+      frequencies: frequenciesRes.data?.length || 0,
+      errors: {
+        directors: directorsRes.error,
+        campuses: campusesRes.error,
+        statuses: statusesRes.error,
+        circleTypes: circleTypesRes.error,
+        frequencies: frequenciesRes.error
+      }
+    });
 
     const referenceData = {
       directors: directorsRes.data || [],
