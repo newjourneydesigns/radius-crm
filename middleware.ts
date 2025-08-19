@@ -10,6 +10,7 @@ export async function middleware(request: NextRequest) {
     '/login',
     '/logout',
     '/',
+    '/search',
     '/api',
     '/_next',
     '/favicon.ico',

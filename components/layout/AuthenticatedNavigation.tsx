@@ -8,6 +8,11 @@ import GlobalSearch from './GlobalSearch';
 export default function AuthenticatedNavigation() {
   const { user, signOut, isAuthenticated } = useAuth();
 
+  // Don't render navigation if user is not authenticated
+  if (!isAuthenticated()) {
+    return null;
+  }
+
   return (
     <nav className="hidden md:block bg-white dark:bg-gray-800 shadow-lg border-b border-gray-200 dark:border-gray-700">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -42,13 +47,6 @@ export default function AuthenticatedNavigation() {
               className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
             >
               Users
-            </Link>
-            
-            <Link 
-              href="/ccb-events" 
-              className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-            >
-              CCB Events
             </Link>
             
             <Link 

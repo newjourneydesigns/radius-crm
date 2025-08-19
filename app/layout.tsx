@@ -3,6 +3,7 @@
 import "../styles/globals.css";
 import MobileNavigation from "../components/layout/MobileNavigation";
 import AuthenticatedNavigation from "../components/layout/AuthenticatedNavigation";
+import PublicNavigation from "../components/layout/PublicNavigation";
 import Footer from "../components/layout/Footer";
 import { AuthProvider } from "../contexts/AuthContext";
 
@@ -85,6 +86,9 @@ export default function RootLayout({
           
           {/* Desktop Navigation */}
           <AuthenticatedNavigation />
+          
+          {/* Public Navigation (shown when not authenticated) */}
+          <PublicNavigation />
           
           {/* Main Content */}
           <main>{children}</main>

@@ -20,6 +20,11 @@ export default function MobileNavigation() {
 
   const isActive = (href: string) => pathname === href;
 
+  // Don't render navigation if user is not authenticated
+  if (!isAuthenticated()) {
+    return null;
+  }
+
   return (
     <nav className="md:hidden bg-white dark:bg-gray-800 shadow-lg border-b border-gray-200 dark:border-gray-700">
       <div className="px-4 sm:px-6 lg:px-8">

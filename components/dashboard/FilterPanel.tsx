@@ -14,16 +14,20 @@ const ORDERED_STATUSES = [
   { value: 'follow-up', label: 'Follow Up' },
   { value: 'invited', label: 'Invited' },
   { value: 'pipeline', label: 'Pipeline' },
+  { value: 'on-boarding', label: 'On-Boarding' },
   { value: 'paused', label: 'Paused' },
-  { value: 'off-boarding', label: 'Off Boarding' }
+  { value: 'off-boarding', label: 'Off Boarding' },
+  { value: 'archive', label: 'Archive' }
 ] as const;
 
 const STATUS_OPTIONS = [
   { value: 'invited', label: 'Invited', color: 'text-blue-700' },
   { value: 'pipeline', label: 'Pipeline', color: 'text-indigo-700' },
+  { value: 'on-boarding', label: 'On-Boarding', color: 'text-purple-700' },
   { value: 'active', label: 'Active', color: 'text-green-700' },
   { value: 'paused', label: 'Paused', color: 'text-yellow-700' },
   { value: 'off-boarding', label: 'Off-boarding', color: 'text-red-700' },
+  { value: 'archive', label: 'Archive', color: 'text-gray-700' },
   { value: 'follow-up', label: 'Follow Up', color: 'text-orange-700' }
 ] as const;
 
@@ -33,6 +37,8 @@ const STATUS_MAP = {
   'off-boarding': { label: 'Off Boarding', color: 'text-red-600 dark:text-red-400' },
   'invited': { label: 'Invited', color: 'text-blue-600 dark:text-blue-400' },
   'pipeline': { label: 'Pipeline', color: 'text-indigo-600 dark:text-indigo-400' },
+  'on-boarding': { label: 'On-Boarding', color: 'text-purple-600 dark:text-purple-400' },
+  'archive': { label: 'Archive', color: 'text-gray-600 dark:text-gray-400' },
   'follow-up': { label: 'Follow Up', color: 'text-orange-600 dark:text-orange-400' }
 } as const;
 
@@ -150,6 +156,12 @@ interface FilterPanelProps {
   onAddNote?: (leaderId: number, name: string) => void;
   onClearFollowUp?: (leaderId: number, name: string) => void;
   refreshKey?: number; // Add refresh key to trigger data reload
+  // Reference data props
+  directors: Array<{id: number; name: string}>;
+  campuses: Array<{id: number; value: string}>;
+  statuses: Array<{id: number; value: string}>;
+  circleTypes: Array<{id: number; value: string}>;
+  frequencies: Array<{id: number; value: string}>;
 }
 
 export default function FilterPanel({
@@ -162,7 +174,12 @@ export default function FilterPanel({
   receivedCount,
   onAddNote,
   onClearFollowUp,
-  refreshKey
+  refreshKey,
+  directors,
+  campuses,
+  statuses,
+  circleTypes,
+  frequencies
 }: FilterPanelProps) {
   // Core Component State
   const [filtersVisible, setFiltersVisible] = useState(true);
@@ -181,52 +198,11 @@ export default function FilterPanel({
   
   const router = useRouter();
   
-  // Reference data state
-  const [campuses, setCampuses] = useState<SettingsItem[]>([]);
-  const [directors, setDirectors] = useState<SettingsItem[]>([]);
-  const [statuses, setStatuses] = useState<SettingsItem[]>([]);
-  const [circleTypes, setCircleTypes] = useState<SettingsItem[]>([]);
-  const [frequencies, setFrequencies] = useState<SettingsItem[]>([]);
-  
   // Bulk actions state
   const [showBulkDropdown, setShowBulkDropdown] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<{value: string, label: string} | null>(null);
   const bulkDropdownRef = useRef<HTMLDivElement>(null);
-
-  // Load reference data from database
-  const loadReferenceData = async () => {
-    try {
-      // Load each table individually with error handling
-      const directorsResult = await supabase.from('acpd_list').select('*').eq('active', true).order('name');
-      
-      const campusesResult = await supabase.from('campuses').select('*').order('value');
-      
-      const statusesResult = await supabase.from('statuses').select('*').order('value');
-      
-      const circleTypesResult = await supabase.from('circle_types').select('*').order('value');
-      
-      const frequenciesResult = await supabase.from('frequencies').select('*').order('value');
-
-      if (directorsResult.data) {
-        const formattedDirectors = directorsResult.data.map(director => ({
-          id: director.id,
-          value: director.name
-        }));
-        setDirectors(formattedDirectors);
-      }
-      
-      if (campusesResult.data) setCampuses(campusesResult.data);
-      if (statusesResult.data) setStatuses(statusesResult.data);
-      if (circleTypesResult.data) setCircleTypes(circleTypesResult.data);
-      if (frequenciesResult.data) setFrequencies(frequenciesResult.data);
-      
-    } catch (error) {
-      console.error('FilterPanel: Error loading reference data:', error);
-    } finally {
-      setIsLoadingData(false);
-    }
-  };
 
   // Load follow-up leaders based on selected campus with validation
   const loadFollowUpLeaders = useCallback(async () => {
@@ -314,10 +290,6 @@ export default function FilterPanel({
       setIsLoadingFollowUp(false);
     }
   }, [filters.campus]);
-
-  useEffect(() => {
-    loadReferenceData();
-  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem('filtersVisible');
@@ -554,8 +526,47 @@ export default function FilterPanel({
     }
   };
 
-  // Bulk status update actions using constants
-  const statusOptions = STATUS_OPTIONS;
+  // Bulk status update actions using database data
+  const statusOptions = useMemo(() => {
+    if (statuses.length === 0) {
+      // Fallback to hardcoded options if database hasn't loaded yet
+      return STATUS_OPTIONS;
+    }
+    
+    // Map database statuses to include colors and labels
+    return statuses.map(status => {
+      // Define colors for each status - you can customize these
+      let color = 'text-gray-700';
+      switch(status.value) {
+        case 'active':
+          color = 'text-green-700';
+          break;
+        case 'invited':
+          color = 'text-blue-700';
+          break;
+        case 'pipeline':
+          color = 'text-indigo-700';
+          break;
+        case 'paused':
+          color = 'text-yellow-700';
+          break;
+        case 'off-boarding':
+          color = 'text-red-700';
+          break;
+        case 'follow-up':
+          color = 'text-orange-700';
+          break;
+        default:
+          color = 'text-gray-700';
+      }
+      
+      return {
+        value: status.value,
+        label: status.value.charAt(0).toUpperCase() + status.value.slice(1).replace('-', ' '),
+        color: color
+      };
+    });
+  }, [statuses]);
 
   const handleStatusSelect = (status: string, label: string) => {
     setPendingStatus({ value: status, label });
@@ -663,7 +674,7 @@ export default function FilterPanel({
                   className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-32 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 dark:[&::-webkit-scrollbar-track]:bg-gray-600 [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-500 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent"
                 >
                   {directors.map(director => (
-                    <option key={director.id} value={director.value}>{director.value}</option>
+                    <option key={director.id} value={director.name}>{director.name}</option>
                   ))}
                 </select>
               </div>
@@ -678,8 +689,10 @@ export default function FilterPanel({
                   onChange={(e) => handleMultiSelectChange('status', e.target)}
                   className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-32 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 dark:[&::-webkit-scrollbar-track]:bg-gray-600 [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-500 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent"
                 >
-                  {ORDERED_STATUSES.map(status => (
-                    <option key={status.value} value={status.value}>{status.label}</option>
+                  {statuses.map(status => (
+                    <option key={status.id} value={status.value}>
+                      {status.value.charAt(0).toUpperCase() + status.value.slice(1).replace('-', ' ')}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -810,8 +823,10 @@ export default function FilterPanel({
 
                 {/* Status Tags */}
                 {filters.status.map(status => {
-                  const statusObj = ORDERED_STATUSES.find(s => s.value === status);
-                  const displayLabel = statusObj ? statusObj.label : status.charAt(0).toUpperCase() + status.slice(1);
+                  const statusObj = statuses.find(s => s.value === status);
+                  const displayLabel = statusObj ? 
+                    statusObj.value.charAt(0).toUpperCase() + statusObj.value.slice(1).replace('-', ' ') : 
+                    status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' ');
                   
                   return (
                     <button

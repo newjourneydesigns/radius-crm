@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import ConfirmModal from '../../components/ui/ConfirmModal';
 import AlertModal from '../../components/ui/AlertModal';
 import ServiceWorkerUtils from '../../components/ServiceWorkerUtils';
+import ProtectedRoute from '../../components/ProtectedRoute';
 
 interface Director {
   id: number;
@@ -29,6 +30,18 @@ export default function SettingsPage() {
   const [statuses, setStatuses] = useState<SettingsItem[]>([]);
   const [frequencies, setFrequencies] = useState<SettingsItem[]>([]);
   const [campuses, setCampuses] = useState<SettingsItem[]>([]);
+  
+  // New item state for each category
+  const [newCircleType, setNewCircleType] = useState('');
+  const [newStatus, setNewStatus] = useState('');
+  const [newFrequency, setNewFrequency] = useState('');
+  const [newCampus, setNewCampus] = useState('');
+  
+  // Editing state for each category
+  const [editingCircleType, setEditingCircleType] = useState<SettingsItem | null>(null);
+  const [editingStatus, setEditingStatus] = useState<SettingsItem | null>(null);
+  const [editingFrequency, setEditingFrequency] = useState<SettingsItem | null>(null);
+  const [editingCampus, setEditingCampus] = useState<SettingsItem | null>(null);
   
   // UI state
   const [isLoading, setIsLoading] = useState(true);
@@ -321,6 +334,111 @@ export default function SettingsPage() {
     setShowDeleteConfirm({ isOpen: true, type, id, name });
   };
 
+  // Settings item management functions
+  const handleAddSettingItem = async (table: string, value: string, setNewValue: (value: string) => void, setItems: React.Dispatch<React.SetStateAction<SettingsItem[]>>) => {
+    if (!value.trim()) return;
+
+    try {
+      const { data, error } = await supabase
+        .from(table)
+        .insert([{ value: value.trim() }])
+        .select()
+        .single();
+
+      if (data && !error) {
+        setItems(prev => [...prev, data]);
+        setNewValue('');
+        showAlertMessage('success', 'Success', `${table.replace('_', ' ')} added successfully`);
+      } else {
+        throw new Error(error?.message || `Failed to add ${table}`);
+      }
+    } catch (error) {
+      console.error(`Error adding ${table}:`, error);
+      showAlertMessage('error', 'Error', `Failed to add ${table.replace('_', ' ')}`);
+    }
+  };
+
+  const handleEditSettingItem = async (table: string, item: SettingsItem, setEditingItem: (item: SettingsItem | null) => void, setItems: React.Dispatch<React.SetStateAction<SettingsItem[]>>) => {
+    if (!item.value.trim()) return;
+
+    try {
+      const { data, error } = await supabase
+        .from(table)
+        .update({ value: item.value.trim() })
+        .eq('id', item.id)
+        .select()
+        .single();
+
+      if (data && !error) {
+        setItems(prev => prev.map(i => i.id === item.id ? data : i));
+        setEditingItem(null);
+        showAlertMessage('success', 'Success', `${table.replace('_', ' ')} updated successfully`);
+      } else {
+        throw new Error(error?.message || `Failed to update ${table}`);
+      }
+    } catch (error) {
+      console.error(`Error updating ${table}:`, error);
+      showAlertMessage('error', 'Error', `Failed to update ${table.replace('_', ' ')}`);
+    }
+  };
+
+  const handleDeleteSettingItem = async (table: string, id: number, setItems: React.Dispatch<React.SetStateAction<SettingsItem[]>>) => {
+    try {
+      const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq('id', id);
+
+      if (!error) {
+        setItems(prev => prev.filter(i => i.id !== id));
+        showAlertMessage('success', 'Success', `${table.replace('_', ' ')} deleted successfully`);
+      } else {
+        throw new Error(error?.message || `Failed to delete ${table}`);
+      }
+    } catch (error) {
+      console.error(`Error deleting ${table}:`, error);
+      showAlertMessage('error', 'Error', `Failed to delete ${table.replace('_', ' ')}`);
+    } finally {
+      setShowDeleteConfirm({ isOpen: false, type: '', id: 0, name: '' });
+    }
+  };
+
+  // Specific handlers for each setting type
+  const handleAddCircleType = () => handleAddSettingItem('circle_types', newCircleType, setNewCircleType, setCircleTypes);
+  const handleAddStatus = () => handleAddSettingItem('statuses', newStatus, setNewStatus, setStatuses);
+  const handleAddFrequency = () => handleAddSettingItem('frequencies', newFrequency, setNewFrequency, setFrequencies);
+  const handleAddCampus = () => handleAddSettingItem('campuses', newCampus, setNewCampus, setCampuses);
+
+  const handleEditCircleType = (item: SettingsItem) => handleEditSettingItem('circle_types', item, setEditingCircleType, setCircleTypes);
+  const handleEditStatus = (item: SettingsItem) => handleEditSettingItem('statuses', item, setEditingStatus, setStatuses);
+  const handleEditFrequency = (item: SettingsItem) => handleEditSettingItem('frequencies', item, setEditingFrequency, setFrequencies);
+  const handleEditCampus = (item: SettingsItem) => handleEditSettingItem('campuses', item, setEditingCampus, setCampuses);
+
+  const handleDeleteItem = async () => {
+    const { type, id } = showDeleteConfirm;
+    
+    switch(type) {
+      case 'director':
+        await handleDeleteDirector();
+        break;
+      case 'circle-type':
+        await handleDeleteSettingItem('circle_types', id, setCircleTypes);
+        break;
+      case 'status':
+        await handleDeleteSettingItem('statuses', id, setStatuses);
+        break;
+      case 'frequency':
+        await handleDeleteSettingItem('frequencies', id, setFrequencies);
+        break;
+      case 'campus':
+        await handleDeleteSettingItem('campuses', id, setCampuses);
+        break;
+      default:
+        console.error('Unknown delete type:', type);
+        setShowDeleteConfirm({ isOpen: false, type: '', id: 0, name: '' });
+    }
+  };
+
   const tabs = [
     { id: 'directors', label: 'Directors', icon: '👥' },
     { id: 'circles', label: 'Circle Types', icon: '🔵' },
@@ -342,15 +460,16 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-6xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
-        {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Organization Settings</h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Manage directors, circle types, statuses, and other organizational data
-          </p>
-        </div>
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
+          {/* Header */}
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Organization Settings</h1>
+            <p className="mt-2 text-gray-600 dark:text-gray-400">
+              Manage directors, circle types, statuses, and other organizational data
+            </p>
+          </div>
 
         {/* Tabs */}
         <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
@@ -506,25 +625,97 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Other tabs show simple lists for now */}
+          {/* Circle Types Tab */}
           {activeTab === 'circles' && (
             <div className="p-6">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Circle Types</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Manage circle types used throughout the application.</p>
-              
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-white">Circle Types</h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Manage circle types used throughout the application</p>
+                </div>
+              </div>
+
+              {/* Add New Circle Type Form */}
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-6">
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Add New Circle Type</h3>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    placeholder="Circle Type Name *"
+                    value={newCircleType}
+                    onChange={(e) => setNewCircleType(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddCircleType()}
+                  />
+                  <button
+                    onClick={handleAddCircleType}
+                    disabled={!newCircleType.trim()}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    Add Type
+                  </button>
+                </div>
+              </div>
+
+              {/* Circle Types List */}
               {circleTypes.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-gray-500 dark:text-gray-400">No circle types found in database.</p>
-                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-                    Expected table: <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">circle_types</code> with columns: <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">id, value</code>
-                  </p>
+                  <p className="text-gray-500 dark:text-gray-400">No circle types found.</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">Add your first circle type above.</p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {circleTypes.map((type) => (
-                    <div key={type.id} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-600 rounded-lg">
-                      <span className="text-gray-900 dark:text-white">{type.value}</span>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">Database</span>
+                    <div key={type.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-600 rounded-lg">
+                      {editingCircleType?.id === type.id ? (
+                        <div className="flex-1 mr-4">
+                          <input
+                            type="text"
+                            value={editingCircleType.value}
+                            onChange={(e) => setEditingCircleType(prev => prev ? { ...prev, value: e.target.value } : null)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onKeyDown={(e) => e.key === 'Enter' && handleEditCircleType(editingCircleType)}
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex-1">
+                          <span className="text-gray-900 dark:text-white font-medium">{type.value}</span>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center space-x-2">
+                        {editingCircleType?.id === type.id ? (
+                          <>
+                            <button
+                              onClick={() => handleEditCircleType(editingCircleType)}
+                              className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingCircleType(null)}
+                              className="text-gray-600 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => setEditingCircleType(type)}
+                              className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => confirmDelete('circle-type', type.id, type.value)}
+                              className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -532,24 +723,97 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {/* Statuses Tab */}
           {activeTab === 'statuses' && (
             <div className="p-6">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Circle Leader Statuses</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Manage available statuses for circle leaders in the system.</p>
-              
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-white">Circle Leader Statuses</h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Manage available statuses for circle leaders in the system</p>
+                </div>
+              </div>
+
+              {/* Add New Status Form */}
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-6">
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Add New Status</h3>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    placeholder="Status Name *"
+                    value={newStatus}
+                    onChange={(e) => setNewStatus(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddStatus()}
+                  />
+                  <button
+                    onClick={handleAddStatus}
+                    disabled={!newStatus.trim()}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    Add Status
+                  </button>
+                </div>
+              </div>
+
+              {/* Statuses List */}
               {statuses.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-gray-500 dark:text-gray-400">No statuses found in database.</p>
-                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-                    Expected table: <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">statuses</code> with columns: <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">id, value</code>
-                  </p>
+                  <p className="text-gray-500 dark:text-gray-400">No statuses found.</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">Add your first status above.</p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {statuses.map((status) => (
-                    <div key={status.id} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-600 rounded-lg">
-                      <span className="text-gray-900 dark:text-white capitalize">{status.value}</span>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">Database</span>
+                    <div key={status.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-600 rounded-lg">
+                      {editingStatus?.id === status.id ? (
+                        <div className="flex-1 mr-4">
+                          <input
+                            type="text"
+                            value={editingStatus.value}
+                            onChange={(e) => setEditingStatus(prev => prev ? { ...prev, value: e.target.value } : null)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onKeyDown={(e) => e.key === 'Enter' && handleEditStatus(editingStatus)}
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex-1">
+                          <span className="text-gray-900 dark:text-white font-medium capitalize">{status.value}</span>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center space-x-2">
+                        {editingStatus?.id === status.id ? (
+                          <>
+                            <button
+                              onClick={() => handleEditStatus(editingStatus)}
+                              className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingStatus(null)}
+                              className="text-gray-600 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => setEditingStatus(status)}
+                              className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => confirmDelete('status', status.id, status.value)}
+                              className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -557,24 +821,97 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {/* Frequencies Tab */}
           {activeTab === 'frequencies' && (
             <div className="p-6">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Meeting Frequencies</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Manage available meeting frequency options.</p>
-              
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-white">Meeting Frequencies</h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Manage available meeting frequency options</p>
+                </div>
+              </div>
+
+              {/* Add New Frequency Form */}
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-6">
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Add New Frequency</h3>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    placeholder="Frequency Name *"
+                    value={newFrequency}
+                    onChange={(e) => setNewFrequency(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddFrequency()}
+                  />
+                  <button
+                    onClick={handleAddFrequency}
+                    disabled={!newFrequency.trim()}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    Add Frequency
+                  </button>
+                </div>
+              </div>
+
+              {/* Frequencies List */}
               {frequencies.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-gray-500 dark:text-gray-400">No frequencies found in database.</p>
-                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-                    Expected table: <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">frequencies</code> with columns: <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">id, value</code>
-                  </p>
+                  <p className="text-gray-500 dark:text-gray-400">No frequencies found.</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">Add your first frequency above.</p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {frequencies.map((frequency) => (
-                    <div key={frequency.id} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-600 rounded-lg">
-                      <span className="text-gray-900 dark:text-white">{frequency.value}</span>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">Database</span>
+                    <div key={frequency.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-600 rounded-lg">
+                      {editingFrequency?.id === frequency.id ? (
+                        <div className="flex-1 mr-4">
+                          <input
+                            type="text"
+                            value={editingFrequency.value}
+                            onChange={(e) => setEditingFrequency(prev => prev ? { ...prev, value: e.target.value } : null)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onKeyDown={(e) => e.key === 'Enter' && handleEditFrequency(editingFrequency)}
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex-1">
+                          <span className="text-gray-900 dark:text-white font-medium">{frequency.value}</span>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center space-x-2">
+                        {editingFrequency?.id === frequency.id ? (
+                          <>
+                            <button
+                              onClick={() => handleEditFrequency(editingFrequency)}
+                              className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingFrequency(null)}
+                              className="text-gray-600 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => setEditingFrequency(frequency)}
+                              className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => confirmDelete('frequency', frequency.id, frequency.value)}
+                              className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -582,24 +919,97 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {/* Campuses Tab */}
           {activeTab === 'campuses' && (
             <div className="p-6">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Campus Locations</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Manage available campus locations for circle leaders.</p>
-              
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-white">Campus Locations</h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Manage available campus locations for circle leaders</p>
+                </div>
+              </div>
+
+              {/* Add New Campus Form */}
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-6">
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Add New Campus</h3>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    placeholder="Campus Name *"
+                    value={newCampus}
+                    onChange={(e) => setNewCampus(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddCampus()}
+                  />
+                  <button
+                    onClick={handleAddCampus}
+                    disabled={!newCampus.trim()}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    Add Campus
+                  </button>
+                </div>
+              </div>
+
+              {/* Campuses List */}
               {campuses.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-gray-500 dark:text-gray-400">No campuses found in database.</p>
-                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-                    Expected table: <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">campuses</code> with columns: <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">id, value</code>
-                  </p>
+                  <p className="text-gray-500 dark:text-gray-400">No campuses found.</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">Add your first campus above.</p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {campuses.map((campus) => (
-                    <div key={campus.id} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-600 rounded-lg">
-                      <span className="text-gray-900 dark:text-white">{campus.value}</span>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">Database</span>
+                    <div key={campus.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-600 rounded-lg">
+                      {editingCampus?.id === campus.id ? (
+                        <div className="flex-1 mr-4">
+                          <input
+                            type="text"
+                            value={editingCampus.value}
+                            onChange={(e) => setEditingCampus(prev => prev ? { ...prev, value: e.target.value } : null)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onKeyDown={(e) => e.key === 'Enter' && handleEditCampus(editingCampus)}
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex-1">
+                          <span className="text-gray-900 dark:text-white font-medium">{campus.value}</span>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center space-x-2">
+                        {editingCampus?.id === campus.id ? (
+                          <>
+                            <button
+                              onClick={() => handleEditCampus(editingCampus)}
+                              className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingCampus(null)}
+                              className="text-gray-600 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => setEditingCampus(campus)}
+                              className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => confirmDelete('campus', campus.id, campus.value)}
+                              className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -624,8 +1034,8 @@ export default function SettingsPage() {
       <ConfirmModal
         isOpen={showDeleteConfirm.isOpen}
         onClose={() => setShowDeleteConfirm({ isOpen: false, type: '', id: 0, name: '' })}
-        onConfirm={handleDeleteDirector}
-        title={`Delete ${showDeleteConfirm.type}`}
+        onConfirm={handleDeleteItem}
+        title={`Delete ${showDeleteConfirm.type.replace('-', ' ')}`}
         message={`Are you sure you want to delete "${showDeleteConfirm.name}"? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
@@ -640,5 +1050,6 @@ export default function SettingsPage() {
         message={showAlert.message}
       />
     </div>
+    </ProtectedRoute>
   );
 }

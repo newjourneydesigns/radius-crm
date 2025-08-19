@@ -27,6 +27,44 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 });
 
+// Helper function to load reference data with service key (server-side only)
+export const loadReferenceData = async () => {
+  // This should only be called server-side or in API routes
+  if (typeof window !== 'undefined') {
+    console.warn('⚠️ loadReferenceData should not be called client-side');
+    return null;
+  }
+  
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) {
+    console.warn('⚠️ No service key found for reference data loading');
+    return null;
+  }
+  
+  const serviceSupabase = createClient(supabaseUrl, serviceKey);
+  
+  try {
+    const [directorsRes, campusesRes, statusesRes, circleTypesRes, frequenciesRes] = await Promise.all([
+      serviceSupabase.from('acpd_list').select('id, name').order('name'),
+      serviceSupabase.from('campuses').select('id, value').order('value'),
+      serviceSupabase.from('statuses').select('id, value').order('value'),
+      serviceSupabase.from('circle_types').select('id, value').order('value'),
+      serviceSupabase.from('frequencies').select('id, value').order('value')
+    ]);
+
+    return {
+      directors: directorsRes.data || [],
+      campuses: campusesRes.data || [],
+      statuses: statusesRes.data || [],
+      circleTypes: circleTypesRes.data || [],
+      frequencies: frequenciesRes.data || []
+    };
+  } catch (error) {
+    console.error('Error loading reference data:', error);
+    return null;
+  }
+};
+
 // Types for our database tables based on actual schema
 export interface CircleLeader {
   id: number;

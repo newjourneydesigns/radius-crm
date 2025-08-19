@@ -17,9 +17,11 @@ const STATUS_COLORS = {
 const STATUS_OPTIONS = [
   { value: 'invited', label: 'Invited' },
   { value: 'pipeline', label: 'Pipeline' },
+  { value: 'on-boarding', label: 'On-Boarding' },
   { value: 'active', label: 'Active' },
   { value: 'paused', label: 'Paused' },
-  { value: 'off-boarding', label: 'Off-boarding' }
+  { value: 'off-boarding', label: 'Off-boarding' },
+  { value: 'archive', label: 'Archive' }
 ] as const;
 
 const TIME_FORMAT_REGEX = /^(\d{1,2}):(\d{2})$/;
@@ -147,6 +149,7 @@ interface CircleLeaderCardProps {
   onToggleFollowUp?: (leaderId: number, isRequired: boolean) => void;
   onUpdateFollowUpDate?: (leaderId: number, followUpDate: string) => void;
   onClearFollowUp?: (leaderId: number, name: string) => void;
+  statuses: Array<{id: number; value: string}>;
 }
 
 /**
@@ -163,7 +166,8 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
   onUpdateStatus,
   onToggleFollowUp,
   onUpdateFollowUpDate,
-  onClearFollowUp
+  onClearFollowUp,
+  statuses
 }: CircleLeaderCardProps) {
   // Validate leader data
   if (!validateLeaderData(leader)) {
@@ -200,6 +204,19 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
     const stripped = stripHtmlTags(leader.last_note.content);
     return stripped.length > 150 ? `${stripped.substring(0, 150)}...` : stripped;
   }, [leader.last_note?.content]);
+
+  const statusOptions = useMemo(() => {
+    // Fallback to hardcoded options if statuses not loaded yet
+    if (statuses.length === 0) {
+      return STATUS_OPTIONS;
+    }
+    
+    // Map database statuses to match the expected format
+    return statuses.map(status => ({
+      value: status.value,
+      label: status.value.charAt(0).toUpperCase() + status.value.slice(1).replace('-', ' ')
+    }));
+  }, [statuses]);
 
   const statusColor = useMemo(() => 
     STATUS_COLORS[leader.status as keyof typeof STATUS_COLORS] || STATUS_COLORS['paused'],
@@ -368,7 +385,7 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
                     
                     {showStatusDropdown && (
                       <div className="absolute top-full left-0 mt-1 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10">
-                        {STATUS_OPTIONS.map((option) => (
+                        {statusOptions.map((option) => (
                           <button
                             key={option.value}
                             onClick={() => handleStatusChange(option.value)}
@@ -609,7 +626,7 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
                     
                     {showStatusDropdown && (
                       <div className="absolute top-full left-0 mt-1 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10">
-                        {STATUS_OPTIONS.map((option) => (
+                        {statusOptions.map((option) => (
                           <button
                             key={option.value}
                             onClick={() => handleStatusChange(option.value)}

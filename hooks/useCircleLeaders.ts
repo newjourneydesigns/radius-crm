@@ -5,6 +5,7 @@ export interface CircleLeaderFilters {
   campus?: string[];
   acpd?: string[];
   status?: string[];
+  statusExclude?: string[];
   meetingDay?: string[];
   circleType?: string[];
   eventSummary?: string;
@@ -122,6 +123,14 @@ export const useCircleLeaders = () => {
             query = query.in('status', regularStatuses);
           }
           // Note: follow-up filter will be applied client-side since it's based on follow_up_required
+        }
+
+        // Status exclusion filter - exclude specific statuses unless explicitly included
+        if (filters.statusExclude && filters.statusExclude.length > 0) {
+          // Only apply exclusion if no explicit status filter is set
+          if (!filters.status || filters.status.length === 0) {
+            query = query.not('status', 'in', `(${filters.statusExclude.map(s => `'${s}'`).join(',')})`);
+          }
         }
 
         // Meeting Day filter

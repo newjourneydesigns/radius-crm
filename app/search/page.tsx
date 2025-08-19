@@ -1,0 +1,549 @@
+'use client';
+
+import { useState, useEffect, useMemo } from 'react';
+import { supabase } from '../../lib/supabase';
+
+interface CircleSearchResult {
+  id: number;
+  name: string;
+  campus: string;
+  day: string;
+  time: string;
+  circle_type: string;
+  phone: string;
+  email: string;
+}
+
+interface ReferenceData {
+  campuses: Array<{id: number; value: string}>;
+  circleTypes: Array<{id: number; value: string}>;
+}
+
+export default function SearchPage() {
+  // State for circle data
+  const [circles, setCircles] = useState<CircleSearchResult[]>([]);
+  const [filteredCircles, setFilteredCircles] = useState<CircleSearchResult[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  // State for reference data
+  const [referenceData, setReferenceData] = useState<ReferenceData>({
+    campuses: [],
+    circleTypes: []
+  });
+
+  // State for filters
+  const [filters, setFilters] = useState({
+    campus: '',
+    type: '',
+    day: '',
+    time: ''
+  });
+
+  // State for search
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // State for sorting
+  const [sortConfig, setSortConfig] = useState<{
+    key: keyof CircleSearchResult | null;
+    direction: 'asc' | 'desc';
+  }>({
+    key: 'name',
+    direction: 'asc'
+  });
+
+  // Available days and times for filters
+  const availableDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const availableTimes = ['AM', 'PM'];
+
+  // Ensure client-side hydration
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Load active circles
+  useEffect(() => {
+    if (!isClient) return;
+    
+    const loadCircles = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const { data: allData, error: allError } = await supabase
+          .from('circle_leaders')
+          .select('id, name, campus, day, time, circle_type, phone, email, status')
+          .order('name');
+
+        if (allError) {
+          throw allError;
+        }
+
+        // Filter for circles excluding archived ones
+        const visibleCircles = allData?.filter(circle => 
+          circle.status !== 'archive'
+        ) || [];
+
+        setCircles(visibleCircles);
+        setFilteredCircles(visibleCircles);
+      } catch (error) {
+        console.error('Error loading circles:', error);
+        setError('Failed to load circles. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadCircles();
+  }, [isClient]);
+
+  // Apply filters and search
+  useEffect(() => {
+    let filtered = circles;
+
+    // Apply search term
+    if (searchTerm.trim()) {
+      filtered = filtered.filter(circle =>
+        circle.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        circle.campus.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        circle.circle_type.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Apply filters
+    if (filters.campus) {
+      filtered = filtered.filter(circle => circle.campus === filters.campus);
+    }
+
+    if (filters.type) {
+      filtered = filtered.filter(circle => circle.circle_type === filters.type);
+    }
+
+    if (filters.day) {
+      filtered = filtered.filter(circle => circle.day === filters.day);
+    }
+
+    if (filters.time) {
+      filtered = filtered.filter(circle => {
+        if (!circle.time) return false;
+        
+        const formattedTime = formatTime(circle.time);
+        return formattedTime.includes(filters.time);
+      });
+    }
+
+    // Apply sorting
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        const aValue = a[sortConfig.key!];
+        const bValue = b[sortConfig.key!];
+        
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    setFilteredCircles(filtered);
+  }, [circles, searchTerm, filters, sortConfig]);
+
+  // Get unique values for filters from actual data
+  const uniqueCampuses = useMemo(() => {
+    const campuses = Array.from(new Set(circles.map(circle => circle.campus).filter(Boolean)));
+    return campuses.sort();
+  }, [circles]);
+
+  const uniqueCircleTypes = useMemo(() => {
+    const types = Array.from(new Set(circles.map(circle => circle.circle_type).filter(Boolean)));
+    return types.sort();
+  }, [circles]);
+
+  // Handle filter changes
+  const handleFilterChange = (filterType: keyof typeof filters, value: string) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterType]: value
+    }));
+  };
+
+  // Handle sorting
+  const handleSort = (key: keyof CircleSearchResult) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({
+      campus: '',
+      type: '',
+      day: '',
+      time: ''
+    });
+    setSearchTerm('');
+  };
+
+  // Format time display - convert 24hr to 12hr AM/PM format
+  const formatTime = (time: string | null | undefined): string => {
+    if (!time) return '';
+    
+    // If already in AM/PM format, return as is
+    if (time.toLowerCase().includes('am') || time.toLowerCase().includes('pm')) {
+      return time;
+    }
+    
+    // Handle 24-hour format (HH:MM)
+    const timeMatch = time.match(/^(\d{1,2}):(\d{2})$/);
+    if (timeMatch) {
+      let hours = parseInt(timeMatch[1]);
+      const minutes = timeMatch[2];
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      
+      // Convert to 12-hour format
+      if (hours === 0) {
+        hours = 12; // 00:xx becomes 12:xx AM
+      } else if (hours > 12) {
+        hours = hours - 12; // 13:xx becomes 1:xx PM
+      }
+      
+      return `${hours}:${minutes} ${ampm}`;
+    }
+    
+    // If format is not recognized, return as is
+    return time;
+  };
+
+  // Format phone number
+  const formatPhone = (phone: string | null | undefined): string => {
+    if (!phone) return '';
+    return phone;
+  };
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                  Error Loading Circles
+                </h3>
+                <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                  <p>{error}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="bg-white dark:bg-gray-800 shadow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="py-6">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              Find a Circle
+            </h1>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              Search for active circles in your area
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Search and Filters */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
+          <div className="p-6">
+            {/* Search Bar */}
+            <div className="mb-6">
+              <label htmlFor="search" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Search Circles
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  id="search"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search by leader name, campus, or circle type..."
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            {/* Filters */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+              {/* Campus Filter */}
+              <div>
+                <label htmlFor="campus-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Campus
+                </label>
+                <select
+                  id="campus-filter"
+                  value={filters.campus}
+                  onChange={(e) => handleFilterChange('campus', e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">All Campuses</option>
+                  {uniqueCampuses.map((campus) => (
+                    <option key={campus} value={campus}>
+                      {campus}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Type Filter */}
+              <div>
+                <label htmlFor="type-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Circle Type
+                </label>
+                <select
+                  id="type-filter"
+                  value={filters.type}
+                  onChange={(e) => handleFilterChange('type', e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">All Types</option>
+                  {uniqueCircleTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Day Filter */}
+              <div>
+                <label htmlFor="day-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Day
+                </label>
+                <select
+                  id="day-filter"
+                  value={filters.day}
+                  onChange={(e) => handleFilterChange('day', e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">All Days</option>
+                  {availableDays.map((day) => (
+                    <option key={day} value={day}>
+                      {day}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Time Filter */}
+              <div>
+                <label htmlFor="time-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Time of Day
+                </label>
+                <select
+                  id="time-filter"
+                  value={filters.time}
+                  onChange={(e) => handleFilterChange('time', e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">All Times</option>
+                  {availableTimes.map((time) => (
+                    <option key={time} value={time}>
+                      {time}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Clear Filters Button */}
+            <div className="flex justify-between items-center">
+              <button
+                onClick={clearFilters}
+                className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                Clear all filters
+              </button>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                {filteredCircles.length} circles found
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Results */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          {isLoading ? (
+            <div className="p-8 text-center">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading circles...</p>
+            </div>
+          ) : filteredCircles.length === 0 ? (
+            <div className="p-8 text-center">
+              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No circles found</h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Try adjusting your search criteria or filters.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th 
+                      scope="col" 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                      onClick={() => handleSort('name')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Circle Leader</span>
+                        {sortConfig.key === 'name' && (
+                          <span className="text-blue-500">
+                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                    <th 
+                      scope="col" 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                      onClick={() => handleSort('campus')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Campus</span>
+                        {sortConfig.key === 'campus' && (
+                          <span className="text-blue-500">
+                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                    <th 
+                      scope="col" 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                      onClick={() => handleSort('day')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Day</span>
+                        {sortConfig.key === 'day' && (
+                          <span className="text-blue-500">
+                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                    <th 
+                      scope="col" 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                      onClick={() => handleSort('time')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Time</span>
+                        {sortConfig.key === 'time' && (
+                          <span className="text-blue-500">
+                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                    <th 
+                      scope="col" 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                      onClick={() => handleSort('circle_type')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Type</span>
+                        {sortConfig.key === 'circle_type' && (
+                          <span className="text-blue-500">
+                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Contact
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {filteredCircles.map((circle) => (
+                    <tr key={circle.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          {circle.name || 'Unknown'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-white">
+                          {circle.campus || '-'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-white">
+                          {circle.day || '-'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-white">
+                          {formatTime(circle.time) || '-'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-white">
+                          {circle.circle_type || '-'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        <div className="space-y-1">
+                          {circle.phone && (
+                            <div>
+                              <a href={`tel:${circle.phone}`} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
+                                {formatPhone(circle.phone)}
+                              </a>
+                            </div>
+                          )}
+                          {circle.email && (
+                            <div>
+                              <a href={`mailto:${circle.email}`} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
+                                {circle.email}
+                              </a>
+                            </div>
+                          )}
+                          {!circle.phone && !circle.email && '-'}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

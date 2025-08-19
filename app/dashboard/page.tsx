@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import FilterPanel from '../../components/dashboard/FilterPanel';
+import FilterPanel from '../../components/dashboard/FilterPanel-new';
 import CircleLeaderCard from '../../components/dashboard/CircleLeaderCard';
 import CircleStatusBar from '../../components/dashboard/CircleStatusBar';
 import TodayCircles from '../../components/dashboard/TodayCircles';
@@ -418,7 +418,38 @@ export default function DashboardPage() {
     setEditingContent('');
   };
 
+  // Reference data state
+  const [directors, setDirectors] = useState<Array<{id: number; name: string}>>([]);
+  const [campuses, setCampuses] = useState<Array<{id: number; value: string}>>([]);
+  const [statuses, setStatuses] = useState<Array<{id: number; value: string}>>([]);
+  const [circleTypes, setCircleTypes] = useState<Array<{id: number; value: string}>>([]);
+  const [frequencies, setFrequencies] = useState<Array<{id: number; value: string}>>([]);
+  const [referenceDataLoading, setReferenceDataLoading] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
+  // Load reference data
+  const loadReferenceData = async () => {
+    setReferenceDataLoading(true);
+    try {
+      const response = await fetch('/api/reference-data/');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch reference data');
+      }
+      
+      const data = await response.json();
+
+      if (data.directors) setDirectors(data.directors);
+      if (data.campuses) setCampuses(data.campuses);
+      if (data.statuses) setStatuses(data.statuses);
+      if (data.circleTypes) setCircleTypes(data.circleTypes);
+      if (data.frequencies) setFrequencies(data.frequencies);
+    } catch (error) {
+      console.error('Error loading reference data:', error);
+    } finally {
+      setReferenceDataLoading(false);
+    }
+  };
 
   // Load connected leaders for this month
   const loadConnectedLeaders = async () => {
@@ -460,6 +491,16 @@ export default function DashboardPage() {
       loadConnectedLeaders();
     }
   }, [circleLeaders]);
+
+  // Load reference data when component mounts
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isClient) return;
+    loadReferenceData();
+  }, [isClient]);
 
   const clearFilters = () => {
     updateFilters({
@@ -587,6 +628,11 @@ export default function DashboardPage() {
 
     return filtered;
   }, [circleLeaders, filters, connectedLeaderIds]);
+
+  // Memoize filtered leader IDs to prevent unnecessary ConnectionsProgress re-renders
+  const filteredLeaderIds = useMemo(() => {
+    return filteredLeaders.map(leader => leader.id);
+  }, [filteredLeaders]);
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredLeaders.length / itemsPerPage);
@@ -767,9 +813,13 @@ export default function DashboardPage() {
       serverFilters.acpd = filters.acpd;
     }
     
-    // Status filter
+    // Status filter - with special archive handling
     if (filters.status.length > 0) {
       serverFilters.status = filters.status;
+    } else {
+      // If no status filter is explicitly selected, exclude archive by default
+      // This ensures archived circles don't show up unless explicitly selected
+      serverFilters.statusExclude = ['archive'];
     }
     
     // Meeting day filter
@@ -1562,7 +1612,16 @@ export default function DashboardPage() {
 
         {/* Filters */}
         <div id="filters" data-testid="filters-section" className="mt-6">
-          <FilterPanel 
+          {/* Show loading state while reference data is loading */}
+          {referenceDataLoading && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <p className="text-gray-600 dark:text-gray-400">Loading filters...</p>
+            </div>
+          )}
+          
+          {/* Show FilterPanel when data is loaded */}
+          {!referenceDataLoading && (
+            <FilterPanel 
             filters={filters}
             onFiltersChange={updateFilters}
             onClearAllFilters={clearAllFilters}
@@ -1573,7 +1632,13 @@ export default function DashboardPage() {
             onAddNote={(leaderId, name) => openAddNoteModal(leaderId, name)}
             onClearFollowUp={handleClearFollowUp}
             refreshKey={filterPanelRefreshKey}
+            directors={directors}
+            campuses={campuses}
+            statuses={statuses}
+            circleTypes={circleTypes}
+            frequencies={frequencies}
           />
+          )}
         </div>
 
         {/* Status Bar */}
@@ -1604,7 +1669,7 @@ export default function DashboardPage() {
 
           {/* Connections Progress */}
           <ConnectionsProgress
-            filteredLeaderIds={filteredLeaders.map(leader => leader.id)}
+            filteredLeaderIds={filteredLeaderIds}
             totalFilteredLeaders={filteredLeaders.length}
           />
         </div>
@@ -1854,6 +1919,7 @@ export default function DashboardPage() {
                   onUpdateStatus={handleUpdateStatus}
                   onToggleFollowUp={toggleFollowUp}
                   isAdmin={isAdmin}
+                  statuses={statuses}
                 />
               ))}
             </div>
