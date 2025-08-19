@@ -88,6 +88,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  console.log('🚀 User creation API called at:', new Date().toISOString());
   try {
     // Verify admin access
     const { isAdmin, error: adminAuthError } = await verifyAdminAccessDemo(request);
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
     // First check if user already exists
     try {
       const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-      const existingUser = existingUsers.users.find(u => u.email === email);
+      const existingUser = existingUsers?.users?.find((u: any) => u.email === email);
       if (existingUser) {
         console.error('User already exists:', email);
         return NextResponse.json({ error: 'A user with this email already exists' }, { status: 400 });
@@ -163,13 +164,17 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
-      console.error('Supabase auth error creating user:', {
+      console.error('🔥 Supabase auth error creating user (v2.0):', {
         message: error.message,
         status: error.status,
         code: error.code || 'unknown',
-        details: error
+        details: error,
+        timestamp: new Date().toISOString()
       });
-      return NextResponse.json({ error: `Auth error: ${error.message} (Code: ${error.code || 'unknown'})` }, { status: 400 });
+      return NextResponse.json({ 
+        error: `Auth error v2.0: ${error.message} (Code: ${error.code || 'unknown'})`,
+        timestamp: new Date().toISOString()
+      }, { status: 400 });
     }
 
     console.log('User created in auth, creating profile...', data.user.id);
@@ -184,8 +189,11 @@ export async function POST(request: NextRequest) {
       });
 
     if (profileError) {
-      console.error('Error creating user profile:', profileError);
-      return NextResponse.json({ error: `Database error creating user profile: ${profileError.message}` }, { status: 400 });
+      console.error('Error creating user profile (v2.0):', profileError);
+      return NextResponse.json({ 
+        error: `Database error creating user profile v2.0: ${profileError.message}`,
+        timestamp: new Date().toISOString()
+      }, { status: 400 });
     }
 
     console.log('User and profile created successfully');
