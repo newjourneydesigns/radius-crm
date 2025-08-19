@@ -6,10 +6,9 @@ import { CircleLeader } from '../../lib/supabase';
 
 interface TodayCirclesProps {
   todayCircles: CircleLeader[];
-  onOpenContactModal: (leaderId: number, name: string, email: string, phone: string) => void;
 }
 
-export default function TodayCircles({ todayCircles, onOpenContactModal }: TodayCirclesProps) {
+export default function TodayCircles({ todayCircles }: TodayCirclesProps) {
   const [isVisible, setIsVisible] = useState(true);
 
   // Load visibility state from localStorage on component mount
@@ -50,10 +49,6 @@ export default function TodayCircles({ todayCircles, onOpenContactModal }: Today
       console.error('Error formatting time:', error);
       return timeString;
     }
-  };
-
-  const handleContactClick = (leader: CircleLeader) => {
-    onOpenContactModal(leader.id, leader.name, leader.email || '', leader.phone || '');
   };
 
   return (
@@ -111,9 +106,6 @@ export default function TodayCircles({ todayCircles, onOpenContactModal }: Today
                   <th className="px-3 py-3 sm:px-6 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hidden lg:table-cell">
                     CCB
                   </th>
-                  <th className="px-3 py-3 sm:px-6 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Contact
-                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -155,18 +147,6 @@ export default function TodayCircles({ todayCircles, onOpenContactModal }: Today
                         </a>
                       ) : (
                         <span className="text-xs text-gray-400 dark:text-gray-500">No link</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-4 sm:px-6 whitespace-nowrap text-sm font-medium">
-                      {(leader.email || leader.phone) ? (
-                        <button 
-                          onClick={() => handleContactClick(leader)}
-                          className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-blue-600 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          Contact
-                        </button>
-                      ) : (
-                        <span className="text-gray-400 dark:text-gray-500 text-xs">No contact info</span>
                       )}
                     </td>
                   </tr>

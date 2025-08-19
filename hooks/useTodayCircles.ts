@@ -10,7 +10,7 @@ export const useTodayCircles = (filters: CircleLeaderFilters = {}, isReady: bool
   const [error, setError] = useState<string | null>(null);
   const loadingRef = useRef(false);
 
-  // Create stable filter dependencies by JSON stringifying the values
+  // Create stable filter dependencies by JSON stringifying only the values we actually use
   const filterKey = JSON.stringify({
     campus: filters.campus || [],
     acpd: filters.acpd || [],
@@ -39,7 +39,7 @@ export const useTodayCircles = (filters: CircleLeaderFilters = {}, isReady: bool
       // Build query for circle leaders that meet today
       let query = supabase
         .from('circle_leaders')
-        .select('id, name, email, phone, campus, acpd, status, day, time, frequency, circle_type, event_summary_received, follow_up_required, follow_up_date, ccb_profile_link')
+        .select('id, name, campus, acpd, status, day, time, frequency, circle_type, ccb_profile_link')
         .eq('day', todayName);
 
       // Apply dashboard filters
@@ -73,38 +73,7 @@ export const useTodayCircles = (filters: CircleLeaderFilters = {}, isReady: bool
         throw leadersError;
       }
 
-      // Load notes only for today's leaders
-      let allNotes: any[] = [];
-      if (leaders && leaders.length > 0) {
-        const leaderIds = leaders.map(leader => leader.id);
-        const { data: notesData, error: notesError } = await supabase
-          .from('notes')
-          .select('*')
-          .in('circle_leader_id', leaderIds)
-          .order('created_at', { ascending: false });
-
-        if (!notesError && notesData) {
-          allNotes = notesData;
-        }
-      }
-
-      // Create a map of leader_id to their latest note
-      const latestNotesMap = new Map();
-      if (allNotes && allNotes.length > 0) {
-        allNotes.forEach((note: any) => {
-          if (!latestNotesMap.has(note.circle_leader_id)) {
-            latestNotesMap.set(note.circle_leader_id, note);
-          }
-        });
-      }
-
-      // Combine leaders with their latest notes
-      const leadersWithNotes = (leaders || []).map(leader => ({
-        ...leader,
-        last_note: latestNotesMap.get(leader.id) || null
-      }));
-
-      setTodayCircles(leadersWithNotes);
+      setTodayCircles(leaders || []);
 
     } catch (error: any) {
       console.error("Error loading today's circles:", error);

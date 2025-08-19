@@ -1722,7 +1722,6 @@ export default function DashboardPage() {
         <div id="today-circles">
           <TodayCircles 
             todayCircles={todayCircles}
-            onOpenContactModal={openContactModal}
           />
         </div>
 
