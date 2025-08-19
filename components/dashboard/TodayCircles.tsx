@@ -108,6 +108,9 @@ export default function TodayCircles({ todayCircles, onOpenContactModal }: Today
                   <th className="px-3 py-3 sm:px-6 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hidden md:table-cell">
                     Frequency
                   </th>
+                  <th className="px-3 py-3 sm:px-6 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hidden lg:table-cell">
+                    CCB
+                  </th>
                   <th className="px-3 py-3 sm:px-6 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Contact
                   </th>
@@ -135,6 +138,24 @@ export default function TodayCircles({ todayCircles, onOpenContactModal }: Today
                       <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
                         {leader.frequency || 'Not set'}
                       </span>
+                    </td>
+                    <td className="px-3 py-4 sm:px-6 whitespace-nowrap hidden lg:table-cell">
+                      {leader.ccb_profile_link ? (
+                        <a
+                          href={leader.ccb_profile_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center px-2 py-1 text-xs font-medium text-orange-600 bg-orange-100 hover:bg-orange-200 dark:bg-orange-900 dark:text-orange-300 dark:hover:bg-orange-800 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 transition-colors"
+                          title="View CCB Profile"
+                        >
+                          <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                          </svg>
+                          CCB
+                        </a>
+                      ) : (
+                        <span className="text-xs text-gray-400 dark:text-gray-500">No link</span>
+                      )}
                     </td>
                     <td className="px-3 py-4 sm:px-6 whitespace-nowrap text-sm font-medium">
                       {(leader.email || leader.phone) ? (

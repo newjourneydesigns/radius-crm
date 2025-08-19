@@ -10,8 +10,6 @@ interface CircleSearchResult {
   day: string;
   time: string;
   circle_type: string;
-  phone: string;
-  email: string;
 }
 
 interface ReferenceData {
@@ -73,7 +71,7 @@ export default function SearchPage() {
       try {
         const { data: allData, error: allError } = await supabase
           .from('circle_leaders')
-          .select('id, name, campus, day, time, circle_type, phone, email, status')
+          .select('id, name, campus, day, time, circle_type, status')
           .order('name');
 
         if (allError) {
@@ -219,12 +217,6 @@ export default function SearchPage() {
     
     // If format is not recognized, return as is
     return time;
-  };
-
-  // Format phone number
-  const formatPhone = (phone: string | null | undefined): string => {
-    if (!phone) return '';
-    return phone;
   };
 
   if (error) {
@@ -518,23 +510,7 @@ export default function SearchPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        <div className="space-y-1">
-                          {circle.phone && (
-                            <div>
-                              <a href={`tel:${circle.phone}`} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
-                                {formatPhone(circle.phone)}
-                              </a>
-                            </div>
-                          )}
-                          {circle.email && (
-                            <div>
-                              <a href={`mailto:${circle.email}`} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
-                                {circle.email}
-                              </a>
-                            </div>
-                          )}
-                          {!circle.phone && !circle.email && '-'}
-                        </div>
+                        <span className="text-gray-500 dark:text-gray-400">Contact leader directly</span>
                       </td>
                     </tr>
                   ))}
