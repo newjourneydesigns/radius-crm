@@ -5,6 +5,7 @@ import FilterPanel from '../../components/dashboard/FilterPanel-new';
 import CircleLeaderCard from '../../components/dashboard/CircleLeaderCard';
 import CircleStatusBar from '../../components/dashboard/CircleStatusBar';
 import TodayCircles from '../../components/dashboard/TodayCircles';
+import FollowUpTable from '../../components/dashboard/FollowUpTable';
 import ContactModal from '../../components/dashboard/ContactModal';
 import EventSummaryProgress from '../../components/dashboard/EventSummaryProgress';
 import ConnectionsProgress from '../../components/dashboard/ConnectionsProgress';
@@ -886,20 +887,46 @@ export default function DashboardPage() {
   // Scroll spy effect to track active section
   useEffect(() => {
     const handleScroll = () => {
-      const sections = ['personal-notes', 'filters', 'follow-up', 'status-overview', 'recent-notes', 'circle-leaders'];
-      const currentSection = sections.find(section => {
-        const element = document.getElementById(section);
+      const sections = ['personal-notes', 'filters', 'status-overview', 'follow-up', 'recent-notes', 'circle-leaders'];
+      
+      // Get current scroll position
+      const scrollY = window.scrollY;
+      
+      // If we're at the very top of the page (within 200px), always highlight the first section
+      if (scrollY <= 200) {
+        setActiveSection('personal-notes');
+        return;
+      }
+      
+      // Find the section that's currently most visible in the viewport
+      let activeSection = 'personal-notes'; // default
+      let maxVisibility = 0;
+      
+      sections.forEach(sectionId => {
+        const element = document.getElementById(sectionId);
         if (element) {
           const rect = element.getBoundingClientRect();
-          // Consider section active if it's in the top half of the viewport
-          return rect.top <= 120 && rect.bottom >= 120;
+          const viewportHeight = window.innerHeight;
+          
+          // Calculate how much of the section is visible
+          const visibleTop = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(0, rect.top));
+          const sectionHeight = rect.height;
+          const visibilityRatio = visibleTop / Math.max(1, sectionHeight);
+          
+          // Prefer sections that are near the top of the viewport (within 300px from top)
+          const distanceFromTop = Math.abs(rect.top);
+          const topBonus = distanceFromTop < 300 ? 1.5 : 1;
+          
+          const score = visibilityRatio * topBonus;
+          
+          if (score > maxVisibility) {
+            maxVisibility = score;
+            activeSection = sectionId;
+          }
         }
-        return false;
       });
       
-      if (currentSection) {
-        setActiveSection(currentSection);
-      }
+      setActiveSection(activeSection);
     };
 
     window.addEventListener('scroll', handleScroll);
@@ -1176,20 +1203,6 @@ export default function DashboardPage() {
                 </button>
 
                 <button
-                  onClick={() => scrollToSection('follow-up')}
-                  className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                    activeSection === 'follow-up'
-                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                  }`}
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Follow Up
-                </button>
-                
-                <button
                   onClick={() => scrollToSection('status-overview')}
                   className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                     activeSection === 'status-overview'
@@ -1201,6 +1214,20 @@ export default function DashboardPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                   Status
+                </button>
+                
+                <button
+                  onClick={() => scrollToSection('follow-up')}
+                  className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    activeSection === 'follow-up'
+                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                  }`}
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Follow Up
                 </button>
 
                 <button
@@ -1678,6 +1705,16 @@ export default function DashboardPage() {
           <ConnectionsProgress
             filteredLeaderIds={filteredLeaderIds}
             totalFilteredLeaders={filteredLeaders.length}
+          />
+        </div>
+
+        {/* Follow Up Section */}
+        <div id="follow-up">
+          <FollowUpTable
+            selectedCampuses={filters.campus}
+            onAddNote={(leaderId, name) => openAddNoteModal(leaderId, name)}
+            onClearFollowUp={handleClearFollowUp}
+            refreshKey={filterPanelRefreshKey}
           />
         </div>
 
