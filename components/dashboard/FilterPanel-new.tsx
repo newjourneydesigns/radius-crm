@@ -101,16 +101,16 @@ export default function FilterPanelNew({
             {hasActiveFilters && (
               <button
                 onClick={onClearAllFilters}
-                className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                className="text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
               >
                 Clear All
               </button>
             )}
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              className="text-sm px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
-              {isExpanded ? '−' : '+'}
+              {isExpanded ? 'Hide' : 'Show'}
             </button>
           </div>
         </div>
