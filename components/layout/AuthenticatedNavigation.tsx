@@ -4,17 +4,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "../../contexts/AuthContext";
 import { useSearchParams, usePathname } from "next/navigation";
+import { Suspense } from "react";
 import GlobalSearch from './GlobalSearch';
 
-export default function AuthenticatedNavigation() {
-  const { user, signOut, isAuthenticated } = useAuth();
+// Component that uses useSearchParams wrapped in Suspense
+function EventSummariesLink() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
-
-  // Don't render navigation if user is not authenticated
-  if (!isAuthenticated()) {
-    return null;
-  }
 
   // Build Event Summaries URL with current filters if we're on dashboard
   const buildEventSummariesUrl = () => {
@@ -40,6 +36,24 @@ export default function AuthenticatedNavigation() {
     const queryString = currentFilters.toString();
     return queryString ? `${baseUrl}?${queryString}` : baseUrl;
   };
+
+  return (
+    <Link 
+      href={buildEventSummariesUrl()}
+      className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+    >
+      Event Summaries
+    </Link>
+  );
+}
+
+export default function AuthenticatedNavigation() {
+  const { user, signOut, isAuthenticated } = useAuth();
+
+  // Don't render navigation if user is not authenticated
+  if (!isAuthenticated()) {
+    return null;
+  }
 
   return (
     <nav className="hidden md:block bg-white dark:bg-gray-800 shadow-lg border-b border-gray-200 dark:border-gray-700">
@@ -80,12 +94,16 @@ export default function AuthenticatedNavigation() {
             >
               Settings
             </Link>
-            <Link 
-              href={buildEventSummariesUrl()}
-              className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-            >
-              Event Summaries
-            </Link>
+            <Suspense fallback={
+              <Link 
+                href="/dashboard/event-summaries"
+                className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+              >
+                Event Summaries
+              </Link>
+            }>
+              <EventSummariesLink />
+            </Suspense>
             <button
               onClick={signOut}
               className="text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
