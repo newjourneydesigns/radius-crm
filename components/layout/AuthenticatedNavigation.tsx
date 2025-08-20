@@ -82,18 +82,6 @@ export default function AuthenticatedNavigation() {
             >
               Dashboard
             </Link>
-            <Link 
-              href="/users" 
-              className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-            >
-              Users
-            </Link>
-            <Link 
-              href="/settings" 
-              className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-            >
-              Settings
-            </Link>
             <Suspense fallback={
               <Link 
                 href="/dashboard/event-summaries"
@@ -104,6 +92,12 @@ export default function AuthenticatedNavigation() {
             }>
               <EventSummariesLink />
             </Suspense>
+            <Link 
+              href="/settings" 
+              className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+            >
+              Settings
+            </Link>
             <button
               onClick={signOut}
               className="text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
