@@ -5,6 +5,15 @@ import { useCircleLeaders } from "../../../hooks/useCircleLeaders";
 import EventSummariesSimpleFilter from "./EventSummariesSimpleFilter";
 import { STATUS_OPTIONS } from "../../../lib/circleLeaderConstants";
 import { ReadonlyURLSearchParams } from 'next/navigation';
+import ContactModal from "../../../components/dashboard/ContactModal-new";
+
+interface ContactModalData {
+  isOpen: boolean;
+  leaderId: number;
+  name: string;
+  email: string;
+  phone: string;
+}
 
 interface EventSummariesPanelProps {
   searchParams?: ReadonlyURLSearchParams | null;
@@ -69,8 +78,15 @@ export default function EventSummariesPanel({ searchParams }: EventSummariesPane
 
   const [filters, setFilters] = useState(getInitialFilters);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortKey, setSortKey] = useState<'name'|'campus'|'status'|'day'>('name');
+  const [sortKey, setSortKey] = useState<'name'|'status'|'day'>('name');
   const [sortAsc, setSortAsc] = useState(true);
+  const [contactModal, setContactModal] = useState<ContactModalData>({
+    isOpen: false,
+    leaderId: 0,
+    name: '',
+    email: '',
+    phone: ''
+  });
   const {
     circleLeaders,
     isLoading,
@@ -134,6 +150,27 @@ export default function EventSummariesPanel({ searchParams }: EventSummariesPane
     resetEventSummaryCheckboxes(ids);
   };
 
+  // Contact modal handlers
+  const openContactModal = (leaderId: number, name: string, email: string, phone: string) => {
+    setContactModal({
+      isOpen: true,
+      leaderId,
+      name,
+      email,
+      phone
+    });
+  };
+
+  const closeContactModal = () => {
+    setContactModal({
+      isOpen: false,
+      leaderId: 0,
+      name: '',
+      email: '',
+      phone: ''
+    });
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 md:p-8 mb-8">
       <h2 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white mb-4">Event Summaries Tracker</h2>
@@ -176,10 +213,10 @@ export default function EventSummariesPanel({ searchParams }: EventSummariesPane
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
               <th className="px-4 py-2 text-left cursor-pointer" onClick={() => { setSortKey('name'); setSortAsc(k => sortKey === 'name' ? !k : true); }}>Circle Leader</th>
-              <th className="px-4 py-2 text-left cursor-pointer" onClick={() => { setSortKey('campus'); setSortAsc(k => sortKey === 'campus' ? !k : true); }}>Campus</th>
               <th className="px-4 py-2 text-left cursor-pointer" onClick={() => { setSortKey('day'); setSortAsc(k => sortKey === 'day' ? !k : true); }}>Meeting Day</th>
               <th className="px-4 py-2 text-left cursor-pointer" onClick={() => { setSortKey('status'); setSortAsc(k => sortKey === 'status' ? !k : true); }}>Status</th>
               <th className="px-4 py-2 text-left">CCB Link</th>
+              <th className="px-4 py-2 text-left">Contact</th>
               <th className="px-4 py-2">Event Summary</th>
             </tr>
           </thead>
@@ -192,7 +229,6 @@ export default function EventSummariesPanel({ searchParams }: EventSummariesPane
                   <td className="px-4 py-2">
                     <Link href={`/circle/${l.id}`} className="text-blue-600 hover:underline dark:text-blue-400">{l.name}</Link>
                   </td>
-                  <td className="px-4 py-2">{l.campus}</td>
                   <td className="px-4 py-2">{l.day || 'Not set'}</td>
                   <td className="px-4 py-2">
                     <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 dark:bg-gray-900 ${badgeColor}`}>{statusObj ? statusObj.label : l.status}</span>
@@ -202,6 +238,18 @@ export default function EventSummariesPanel({ searchParams }: EventSummariesPane
                       <a href={l.ccb_profile_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline dark:text-blue-400">CCB</a>
                     ) : (
                       <span className="text-gray-400">No link</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2">
+                    {(l.email || l.phone) ? (
+                      <button
+                        onClick={() => openContactModal(l.id, l.name, l.email || '', l.phone || '')}
+                        className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded transition-colors duration-200"
+                      >
+                        Contact
+                      </button>
+                    ) : (
+                      <span className="text-gray-400 text-xs">No contact info</span>
                     )}
                   </td>
                   <td className="px-4 py-2 text-center">
@@ -226,8 +274,8 @@ export default function EventSummariesPanel({ searchParams }: EventSummariesPane
           const badgeColor = statusObj?.color || 'text-gray-600';
           return (
             <div key={l.id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-              {/* Main row: Circle Leader, CCB Link, Checkbox */}
-              <div className="flex items-center justify-between">
+              {/* Main row: Circle Leader */}
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex-1 min-w-0">
                   <Link 
                     href={`/circle/${l.id}`} 
@@ -235,11 +283,20 @@ export default function EventSummariesPanel({ searchParams }: EventSummariesPane
                   >
                     {l.name}
                   </Link>
-                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    {l.campus} {l.day && `• ${l.day}`}
-                  </div>
                 </div>
-                <div className="flex items-center space-x-4 flex-shrink-0 ml-4">
+              </div>
+              
+              {/* Second row: Meeting Day */}
+              <div className="mb-3">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  <span className="font-medium">Meeting Day:</span> {l.day || 'Not set'}
+                </div>
+              </div>
+              
+              {/* Third row: Action buttons - CCB, Contact, Checkbox */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  {/* CCB Link */}
                   {l.ccb_profile_link ? (
                     <a 
                       href={l.ccb_profile_link} 
@@ -250,17 +307,31 @@ export default function EventSummariesPanel({ searchParams }: EventSummariesPane
                       CCB
                     </a>
                   ) : (
-                    <span className="text-gray-400 text-xs">No link</span>
+                    <span className="text-gray-400 text-xs px-2 py-1">No CCB</span>
                   )}
-                  <div className="flex flex-col items-center">
-                    <input
-                      type="checkbox"
-                      checked={!!l.event_summary_received}
-                      onChange={e => toggleEventSummary(l.id, e.target.checked)}
-                      className="w-6 h-6 accent-blue-600"
-                    />
-                    <span className="text-xs text-gray-500 mt-1">Summary</span>
-                  </div>
+                  
+                  {/* Contact Button */}
+                  {(l.email || l.phone) ? (
+                    <button
+                      onClick={() => openContactModal(l.id, l.name, l.email || '', l.phone || '')}
+                      className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded transition-colors duration-200"
+                    >
+                      Contact
+                    </button>
+                  ) : (
+                    <span className="text-gray-400 text-xs px-2 py-1">No contact</span>
+                  )}
+                </div>
+                
+                {/* Checkbox */}
+                <div className="flex flex-col items-center">
+                  <input
+                    type="checkbox"
+                    checked={!!l.event_summary_received}
+                    onChange={e => toggleEventSummary(l.id, e.target.checked)}
+                    className="w-6 h-6 accent-blue-600"
+                  />
+                  <span className="text-xs text-gray-500 mt-1">Summary</span>
                 </div>
               </div>
             </div>
@@ -269,6 +340,15 @@ export default function EventSummariesPanel({ searchParams }: EventSummariesPane
       </div>
       
       {isLoading && <div className="text-center py-4 text-blue-500">Loading...</div>}
+      
+      {/* Contact Modal */}
+      <ContactModal 
+        isOpen={contactModal.isOpen}
+        name={contactModal.name}
+        email={contactModal.email}
+        phone={contactModal.phone}
+        onClose={closeContactModal}
+      />
     </div>
   );
 }
