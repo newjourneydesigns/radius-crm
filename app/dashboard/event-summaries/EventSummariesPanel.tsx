@@ -11,6 +11,9 @@ interface EventSummariesPanelProps {
 }
 
 export default function EventSummariesPanel({ searchParams }: EventSummariesPanelProps) {
+  // Day of week sorting order
+  const dayOrder = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  
   // Initialize filters from URL parameters
   const getInitialFilters = () => {
     const initialFilters = {
@@ -66,7 +69,7 @@ export default function EventSummariesPanel({ searchParams }: EventSummariesPane
 
   const [filters, setFilters] = useState(getInitialFilters);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortKey, setSortKey] = useState<'name'|'campus'|'status'>('name');
+  const [sortKey, setSortKey] = useState<'name'|'campus'|'status'|'day'>('name');
   const [sortAsc, setSortAsc] = useState(true);
   const {
     circleLeaders,
@@ -78,22 +81,41 @@ export default function EventSummariesPanel({ searchParams }: EventSummariesPane
 
   useEffect(() => {
       // Convert single-select filters to arrays for useCircleLeaders
+      // Filter out Invited, Pipeline, and Archived statuses
       const arrayFilters = {
         campus: filters.campus ? [filters.campus] : [],
         circleType: filters.type ? [filters.type] : [],
         meetingDay: filters.day ? [filters.day] : [],
         timeOfDay: filters.time || '',
+        statusAlwaysExclude: ['invited', 'pipeline', 'archived'],
       };
       loadCircleLeaders(arrayFilters);
     }, [filters, loadCircleLeaders]);
 
   // Sorting
   const sortedLeaders = [...circleLeaders].sort((a, b) => {
-    const aVal = a[sortKey] ?? '';
-    const bVal = b[sortKey] ?? '';
-    if (aVal < bVal) return sortAsc ? -1 : 1;
-    if (aVal > bVal) return sortAsc ? 1 : -1;
-    return 0;
+    if (sortKey === 'day') {
+      // Custom day sorting: Sunday to Saturday
+      const aDay = a.day || '';
+      const bDay = b.day || '';
+      const aIndex = dayOrder.indexOf(aDay);
+      const bIndex = dayOrder.indexOf(bDay);
+      
+      // If day not found in order array, put it at the end
+      const aOrder = aIndex === -1 ? 999 : aIndex;
+      const bOrder = bIndex === -1 ? 999 : bIndex;
+      
+      if (aOrder < bOrder) return sortAsc ? -1 : 1;
+      if (aOrder > bOrder) return sortAsc ? 1 : -1;
+      return 0;
+    } else {
+      // Standard sorting for other columns
+      const aVal = a[sortKey] ?? '';
+      const bVal = b[sortKey] ?? '';
+      if (aVal < bVal) return sortAsc ? -1 : 1;
+      if (aVal > bVal) return sortAsc ? 1 : -1;
+      return 0;
+    }
   });
 
   // Progress bar
@@ -155,6 +177,7 @@ export default function EventSummariesPanel({ searchParams }: EventSummariesPane
             <tr>
               <th className="px-4 py-2 text-left cursor-pointer" onClick={() => { setSortKey('name'); setSortAsc(k => sortKey === 'name' ? !k : true); }}>Circle Leader</th>
               <th className="px-4 py-2 text-left cursor-pointer" onClick={() => { setSortKey('campus'); setSortAsc(k => sortKey === 'campus' ? !k : true); }}>Campus</th>
+              <th className="px-4 py-2 text-left cursor-pointer" onClick={() => { setSortKey('day'); setSortAsc(k => sortKey === 'day' ? !k : true); }}>Meeting Day</th>
               <th className="px-4 py-2 text-left cursor-pointer" onClick={() => { setSortKey('status'); setSortAsc(k => sortKey === 'status' ? !k : true); }}>Status</th>
               <th className="px-4 py-2 text-left">CCB Link</th>
               <th className="px-4 py-2">Event Summary</th>
@@ -170,6 +193,7 @@ export default function EventSummariesPanel({ searchParams }: EventSummariesPane
                     <Link href={`/circle/${l.id}`} className="text-blue-600 hover:underline dark:text-blue-400">{l.name}</Link>
                   </td>
                   <td className="px-4 py-2">{l.campus}</td>
+                  <td className="px-4 py-2">{l.day || 'Not set'}</td>
                   <td className="px-4 py-2">
                     <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 dark:bg-gray-900 ${badgeColor}`}>{statusObj ? statusObj.label : l.status}</span>
                   </td>
@@ -212,7 +236,7 @@ export default function EventSummariesPanel({ searchParams }: EventSummariesPane
                     {l.name}
                   </Link>
                   <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    {l.campus}
+                    {l.campus} {l.day && `• ${l.day}`}
                   </div>
                 </div>
                 <div className="flex items-center space-x-4 flex-shrink-0 ml-4">

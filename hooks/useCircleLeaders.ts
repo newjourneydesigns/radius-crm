@@ -6,6 +6,7 @@ export interface CircleLeaderFilters {
   acpd?: string[];
   status?: string[];
   statusExclude?: string[];
+  statusAlwaysExclude?: string[]; // Always exclude these statuses regardless of other filters
   meetingDay?: string[];
   circleType?: string[];
   eventSummary?: string;
@@ -30,6 +31,8 @@ const generateCacheKey = (filters?: CircleLeaderFilters): string => {
     campus: filters.campus?.sort().join(',') || '',
     acpd: filters.acpd?.sort().join(',') || '',
     status: filters.status?.sort().join(',') || '',
+    statusExclude: filters.statusExclude?.sort().join(',') || '',
+    statusAlwaysExclude: filters.statusAlwaysExclude?.sort().join(',') || '',
     meetingDay: filters.meetingDay?.sort().join(',') || '',
     circleType: filters.circleType?.sort().join(',') || '',
     eventSummary: filters.eventSummary || '',
@@ -165,6 +168,12 @@ export const useCircleLeaders = () => {
         ) {
           console.log('Status exclusion filter:', filters.statusExclude);
           query = query.not('status', 'in', `(${filters.statusExclude.map(s => `'${s}'`).join(',')})`);
+        }
+
+        // Always exclude certain statuses (regardless of other filters)
+        if (filters.statusAlwaysExclude && filters.statusAlwaysExclude.length > 0) {
+          console.log('Always excluding statuses:', filters.statusAlwaysExclude);
+          query = query.not('status', 'in', `(${filters.statusAlwaysExclude.map(s => `'${s}'`).join(',')})`);
         }
 
         // Meeting Day filter
