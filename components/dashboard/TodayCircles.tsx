@@ -25,15 +25,19 @@ export default function TodayCircles({ todayCircles }: TodayCirclesProps) {
     setIsVisible(newVisibility);
     localStorage.setItem('todayCirclesVisible', JSON.stringify(newVisibility));
   };
+
+  // Filter out Invited, Pipeline, and Archive state Circle Leaders
+  const filteredCircles = todayCircles.filter(
+    (leader) => !['invited', 'pipeline', 'archive'].includes((leader.status || '').toLowerCase())
+  );
+
   const formatTime = (timeString?: string) => {
     if (!timeString) return 'Not set';
-    
     try {
       if (timeString.includes(':')) {
         const [hours, minutes] = timeString.split(':');
         const hour = parseInt(hours);
         const min = minutes.padStart(2, '0');
-        
         if (hour === 0) {
           return `12:${min} AM`;
         } else if (hour < 12) {
@@ -82,7 +86,7 @@ export default function TodayCircles({ todayCircles }: TodayCirclesProps) {
       
       {isVisible && (
         <div className="overflow-x-auto">
-          {todayCircles.length === 0 ? (
+          {filteredCircles.length === 0 ? (
             <div className="p-6 text-center">
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -109,7 +113,7 @@ export default function TodayCircles({ todayCircles }: TodayCirclesProps) {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {todayCircles.map(leader => (
+                {filteredCircles.map(leader => (
                   <tr key={leader.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-3 py-4 sm:px-6 whitespace-nowrap">
                       <div className="flex items-center">
