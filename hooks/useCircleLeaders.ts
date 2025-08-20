@@ -33,9 +33,8 @@ const generateCacheKey = (filters?: CircleLeaderFilters): string => {
     meetingDay: filters.meetingDay?.sort().join(',') || '',
     circleType: filters.circleType?.sort().join(',') || '',
     eventSummary: filters.eventSummary || '',
-    timeOfDay: filters.timeOfDay || ''
+    timeOfDay: (filters.timeOfDay || '').trim().toUpperCase() // Ensure cache key includes normalized timeOfDay
   };
-  
   return JSON.stringify(sortedFilters);
 };
 
@@ -212,10 +211,58 @@ export const useCircleLeaders = () => {
         throw leadersError;
       }
 
+      // --- Time of Day AM/PM filter (client-side) ---
+      let filteredLeaders = leaders || [];
+      const period = (filters?.timeOfDay || '').trim().toUpperCase();
+      if (period === 'AM' || period === 'PM') {
+        const beforeCount = filteredLeaders.length;
+        filteredLeaders = filteredLeaders.filter(l => {
+          if (!l.time) return false;
+          const raw = String(l.time);
+          const timeStr = raw.trim().toUpperCase();
+
+          // Handle special words
+          if (timeStr === 'NOON') return period === 'PM'; // 12:00 PM
+          if (timeStr === 'MIDNIGHT') return period === 'AM'; // 12:00 AM
+
+          // Match AM/PM formats like "7", "7P", "7 PM", "7:30PM", "10:05 am"
+          const ampmMatch = timeStr.match(/^(\d{1,2})(?::?(\d{2}))?\s*(AM|PM|A|P)$/i);
+          if (ampmMatch) {
+            const suffix = ampmMatch[3].toUpperCase();
+            const normalized = suffix === 'A' ? 'AM' : suffix === 'P' ? 'PM' : suffix;
+            return normalized === period;
+          }
+
+          // Match 24-hour format (e.g., "07:30", "19:00", "7:00")
+          const time24Match = timeStr.match(/^(\d{1,2}):(\d{2})$/);
+          if (time24Match) {
+            const hour = parseInt(time24Match[1], 10);
+            if (period === 'AM') {
+              return hour >= 0 && hour < 12; // 00:00 - 11:59
+            } else {
+              return hour >= 12 && hour <= 23; // 12:00 - 23:59
+            }
+          }
+
+          // If the format is just an hour (e.g., "7"), assume AM by default
+          const hourOnly = timeStr.match(/^(\d{1,2})$/);
+          if (hourOnly) {
+            // Treat 1-11 as AM, 12 as PM by convention if no suffix is given
+            const hour = parseInt(hourOnly[1], 10);
+            const assumed = hour === 12 ? 'PM' : 'AM';
+            return assumed === period;
+          }
+
+          return false; // Unrecognized format => filter out
+        });
+        const afterCount = filteredLeaders.length;
+        console.log(`[TimeOfDay Filter] Applied period: ${period}. Leaders before: ${beforeCount}, after: ${afterCount}`);
+      }
+
       // Load notes only for the filtered leaders (much more efficient)
       let allNotes: any[] = [];
-      if (leaders && leaders.length > 0) {
-        const leaderIds = leaders.map(leader => leader.id);
+      if (filteredLeaders.length > 0) {
+        const leaderIds = filteredLeaders.map(leader => leader.id);
         const { data: notesData, error: notesError } = await supabase
           .from('notes')
           .select('*')
@@ -242,7 +289,7 @@ export const useCircleLeaders = () => {
       }
 
       // Combine leaders with their latest notes
-      const leadersWithNotes = (leaders || []).map(leader => ({
+      const leadersWithNotes = filteredLeaders.map(leader => ({
         ...leader,
         last_note: latestNotesMap.get(leader.id) || null
       }));

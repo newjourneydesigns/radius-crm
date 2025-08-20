@@ -3,12 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { supabase, CircleLeader, Note } from '../../../lib/supabase';
+import { supabase, CircleLeader, Note, NoteTemplate } from '../../../lib/supabase';
 import { useCircleLeaders } from '../../../hooks/useCircleLeaders';
 import { useAuth } from '../../../contexts/AuthContext';
 import AlertModal from '../../../components/ui/AlertModal';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 import LogConnectionModal from '../../../components/dashboard/LogConnectionModal';
+import NoteTemplateModal from '../../../components/dashboard/NoteTemplateModal';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 
 // Helper function to format time to AM/PM
@@ -222,6 +223,7 @@ export default function CircleLeaderProfilePage() {
   });
   const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null);
   const [isDeletingNote, setIsDeletingNote] = useState(false);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [editedLeader, setEditedLeader] = useState<Partial<CircleLeader>>({});
   const [isSavingLeader, setIsSavingLeader] = useState(false);
   const [leaderError, setLeaderError] = useState('');
@@ -422,6 +424,15 @@ export default function CircleLeaderProfilePage() {
       e.preventDefault();
       handleAddNote();
     }
+  };
+
+  const handleTemplateSelect = (template: NoteTemplate) => {
+    setNewNote(template.content);
+    setIsTemplateModalOpen(false);
+  };
+
+  const openTemplateModal = () => {
+    setIsTemplateModalOpen(true);
   };
 
   const handleEditNote = (note: Note) => {
@@ -1514,9 +1525,18 @@ export default function CircleLeaderProfilePage() {
           <div className="p-4 sm:p-6">
             {/* Add Note */}
             <div className="mb-6 sm:mb-8">
-              <label htmlFor="newNote" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                Add a note
-              </label>
+              <div className="flex justify-between items-center mb-3">
+                <label htmlFor="newNote" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Add a note
+                </label>
+                <button
+                  type="button"
+                  onClick={openTemplateModal}
+                  className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                >
+                  Use Template
+                </button>
+              </div>
               <div className="space-y-4">
                 <textarea
                   id="newNote"
@@ -1750,6 +1770,14 @@ export default function CircleLeaderProfilePage() {
         cancelText="Cancel"
         type="danger"
         isLoading={isDeletingLeader}
+      />
+
+      {/* Note Template Modal */}
+      <NoteTemplateModal
+        isOpen={isTemplateModalOpen}
+        onClose={() => setIsTemplateModalOpen(false)}
+        onTemplateSelect={handleTemplateSelect}
+        mode="select"
       />
     </ProtectedRoute>
   );

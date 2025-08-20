@@ -183,6 +183,15 @@ export interface UserNote {
   updated_at: string;
 }
 
+export interface NoteTemplate {
+  id: number;
+  user_id: string;
+  name: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface CircleVisit {
   id: string;
   leader_id: number;

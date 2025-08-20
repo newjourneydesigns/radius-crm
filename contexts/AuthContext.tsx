@@ -58,11 +58,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               
               // Fallback: Create a basic user object from auth data
               console.log('🔄 AuthContext: Using fallback user data from auth');
+              // If valleycreek.org email, assign ACPD role (admin)
+              const isValleyCreek = session.user.email?.endsWith('@valleycreek.org');
               const fallbackUser = {
                 id: session.user.id,
                 email: session.user.email || '',
                 name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-                role: 'Viewer' as const // Default role
+                role: (isValleyCreek ? 'ACPD' : 'Viewer') as 'ACPD' | 'Viewer'
               };
               setUser(fallbackUser);
             }
@@ -71,11 +73,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             console.log('🔄 AuthContext: Creating fallback user from initial session data');
             
             // Fallback: Create a basic user object from auth data
+            // If valleycreek.org email, assign ACPD role (admin)
+            const isValleyCreek = session.user.email?.endsWith('@valleycreek.org');
             const fallbackUser = {
               id: session.user.id,
               email: session.user.email || '',
               name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-              role: 'Viewer' as const // Default role
+              role: (isValleyCreek ? 'ACPD' : 'Viewer') as 'ACPD' | 'Viewer'
             };
             console.log('✅ AuthContext: Initial fallback user created:', fallbackUser.name);
             setUser(fallbackUser);

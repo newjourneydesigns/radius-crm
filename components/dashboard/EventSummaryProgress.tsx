@@ -1,18 +1,61 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
+
 interface ProgressBarProps {
   receivedCount: number;
   totalCount: number;
   onResetCheckboxes: () => void;
+  filters?: any; // Dashboard filters to pass to event summaries page
 }
 
 export default function EventSummaryProgress({ 
   receivedCount, 
   totalCount, 
-  onResetCheckboxes 
+  onResetCheckboxes,
+  filters 
 }: ProgressBarProps) {
+  const router = useRouter();
   const percentage = totalCount > 0 ? Math.round((receivedCount / totalCount) * 100) : 0;
   
+  const handleUpdateClick = () => {
+    // Navigate to event summaries page with current filters
+    const searchParams = new URLSearchParams();
+    
+    if (filters) {
+      // Pass relevant filters as URL params
+      if (filters.campus && filters.campus.length > 0) {
+        searchParams.set('campus', JSON.stringify(filters.campus));
+      }
+      if (filters.acpd && filters.acpd.length > 0) {
+        searchParams.set('acpd', JSON.stringify(filters.acpd));
+      }
+      if (filters.status && filters.status.length > 0) {
+        searchParams.set('status', JSON.stringify(filters.status));
+      }
+      if (filters.circleType && filters.circleType.length > 0) {
+        searchParams.set('circleType', JSON.stringify(filters.circleType));
+      }
+      if (filters.meetingDay && filters.meetingDay.length > 0) {
+        searchParams.set('meetingDay', JSON.stringify(filters.meetingDay));
+      }
+      if (filters.eventSummary && filters.eventSummary !== 'all') {
+        searchParams.set('eventSummary', filters.eventSummary);
+      }
+      if (filters.connected && filters.connected !== 'all') {
+        searchParams.set('connected', filters.connected);
+      }
+      if (filters.timeOfDay && filters.timeOfDay !== 'all') {
+        searchParams.set('timeOfDay', filters.timeOfDay);
+      }
+    }
+    
+    const queryString = searchParams.toString();
+    const url = queryString ? `/dashboard/event-summaries?${queryString}` : '/dashboard/event-summaries';
+    
+    router.push(url);
+  };
+
   const getProgressColor = () => {
     if (percentage === 100) return 'bg-gradient-to-r from-green-500 to-green-600';
     if (percentage >= 75) return 'bg-gradient-to-r from-blue-500 to-blue-600';
@@ -132,13 +175,13 @@ export default function EventSummaryProgress({
               {totalCount - receivedCount} remaining
             </span>
             <button
-              onClick={onResetCheckboxes}
-              className="flex items-center px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded border border-red-300 dark:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-500 transition-colors"
+              onClick={handleUpdateClick}
+              className="flex items-center px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded border border-blue-300 dark:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
             >
               <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
               </svg>
-              Reset
+              Update
             </button>
           </div>
         </div>

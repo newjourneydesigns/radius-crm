@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
+import DashboardFilterAdapter from '../../components/dashboard/DashboardFilterAdapter';
 
 interface CircleSearchResult {
   id: number;
@@ -12,9 +13,16 @@ interface CircleSearchResult {
   circle_type: string;
 }
 
-interface ReferenceData {
-  campuses: Array<{id: number; value: string}>;
-  circleTypes: Array<{id: number; value: string}>;
+interface DashboardFilters {
+  campus: string[];
+  acpd?: string[];
+  status?: string[];
+  meetingDay: string[];
+  circleType: string[];
+  eventSummary?: string;
+  connected?: string;
+  timeOfDay: string;
+  searchTerm?: string;
 }
 
 export default function SearchPage() {
@@ -25,22 +33,14 @@ export default function SearchPage() {
   const [error, setError] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
 
-  // State for reference data
-  const [referenceData, setReferenceData] = useState<ReferenceData>({
-    campuses: [],
-    circleTypes: []
+  // State for filters - using dashboard filter structure
+  const [filters, setFilters] = useState<DashboardFilters>({
+    campus: [],
+    meetingDay: [],
+    circleType: [],
+    timeOfDay: 'all',
+    searchTerm: ''
   });
-
-  // State for filters
-  const [filters, setFilters] = useState({
-    campus: '',
-    type: '',
-    day: '',
-    time: ''
-  });
-
-  // State for search
-  const [searchTerm, setSearchTerm] = useState('');
 
   // State for sorting
   const [sortConfig, setSortConfig] = useState<{
@@ -50,10 +50,6 @@ export default function SearchPage() {
     key: 'name',
     direction: 'asc'
   });
-
-  // Available days and times for filters
-  const availableDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const availableTimes = ['AM', 'PM'];
 
   // Ensure client-side hydration
   useEffect(() => {
@@ -101,33 +97,36 @@ export default function SearchPage() {
     let filtered = circles;
 
     // Apply search term
-    if (searchTerm.trim()) {
+    if (filters.searchTerm && filters.searchTerm.trim()) {
       filtered = filtered.filter(circle =>
-        circle.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        circle.campus.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        circle.circle_type.toLowerCase().includes(searchTerm.toLowerCase())
+        circle.name.toLowerCase().includes(filters.searchTerm!.toLowerCase()) ||
+        circle.campus.toLowerCase().includes(filters.searchTerm!.toLowerCase()) ||
+        circle.circle_type.toLowerCase().includes(filters.searchTerm!.toLowerCase())
       );
     }
 
-    // Apply filters
-    if (filters.campus) {
-      filtered = filtered.filter(circle => circle.campus === filters.campus);
+    // Apply campus filter
+    if (filters.campus && filters.campus.length > 0) {
+      filtered = filtered.filter(circle => filters.campus.includes(circle.campus));
     }
 
-    if (filters.type) {
-      filtered = filtered.filter(circle => circle.circle_type === filters.type);
+    // Apply circle type filter
+    if (filters.circleType && filters.circleType.length > 0) {
+      filtered = filtered.filter(circle => filters.circleType.includes(circle.circle_type));
     }
 
-    if (filters.day) {
-      filtered = filtered.filter(circle => circle.day === filters.day);
+    // Apply meeting day filter
+    if (filters.meetingDay && filters.meetingDay.length > 0) {
+      filtered = filtered.filter(circle => filters.meetingDay.includes(circle.day));
     }
 
-    if (filters.time) {
+    // Apply time of day filter
+    if (filters.timeOfDay && filters.timeOfDay !== 'all') {
       filtered = filtered.filter(circle => {
         if (!circle.time) return false;
         
         const formattedTime = formatTime(circle.time);
-        return formattedTime.includes(filters.time);
+        return formattedTime.toLowerCase().includes(filters.timeOfDay.toLowerCase());
       });
     }
 
@@ -148,24 +147,13 @@ export default function SearchPage() {
     }
 
     setFilteredCircles(filtered);
-  }, [circles, searchTerm, filters, sortConfig]);
+  }, [circles, filters, sortConfig]);
 
-  // Get unique values for filters from actual data
-  const uniqueCampuses = useMemo(() => {
-    const campuses = Array.from(new Set(circles.map(circle => circle.campus).filter(Boolean)));
-    return campuses.sort();
-  }, [circles]);
-
-  const uniqueCircleTypes = useMemo(() => {
-    const types = Array.from(new Set(circles.map(circle => circle.circle_type).filter(Boolean)));
-    return types.sort();
-  }, [circles]);
-
-  // Handle filter changes
-  const handleFilterChange = (filterType: keyof typeof filters, value: string) => {
+  // Handle filter changes (using dashboard filter structure)
+  const handleFiltersChange = (newFilters: Partial<DashboardFilters>) => {
     setFilters(prev => ({
       ...prev,
-      [filterType]: value
+      ...newFilters
     }));
   };
 
@@ -179,14 +167,14 @@ export default function SearchPage() {
   };
 
   // Clear all filters
-  const clearFilters = () => {
+  const clearAllFilters = () => {
     setFilters({
-      campus: '',
-      type: '',
-      day: '',
-      time: ''
+      campus: [],
+      meetingDay: [],
+      circleType: [],
+      timeOfDay: 'all',
+      searchTerm: ''
     });
-    setSearchTerm('');
   };
 
   // Format time display - convert 24hr to 12hr AM/PM format
@@ -261,128 +249,14 @@ export default function SearchPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Search and Filters */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
-          <div className="p-6">
-            {/* Search Bar */}
-            <div className="mb-6">
-              <label htmlFor="search" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Search Circles
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-                <input
-                  type="text"
-                  id="search"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search by leader name, campus, or circle type..."
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-            </div>
-
-            {/* Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              {/* Campus Filter */}
-              <div>
-                <label htmlFor="campus-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Campus
-                </label>
-                <select
-                  id="campus-filter"
-                  value={filters.campus}
-                  onChange={(e) => handleFilterChange('campus', e.target.value)}
-                  className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">All Campuses</option>
-                  {uniqueCampuses.map((campus) => (
-                    <option key={campus} value={campus}>
-                      {campus}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Type Filter */}
-              <div>
-                <label htmlFor="type-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Circle Type
-                </label>
-                <select
-                  id="type-filter"
-                  value={filters.type}
-                  onChange={(e) => handleFilterChange('type', e.target.value)}
-                  className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">All Types</option>
-                  {uniqueCircleTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Day Filter */}
-              <div>
-                <label htmlFor="day-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Day
-                </label>
-                <select
-                  id="day-filter"
-                  value={filters.day}
-                  onChange={(e) => handleFilterChange('day', e.target.value)}
-                  className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">All Days</option>
-                  {availableDays.map((day) => (
-                    <option key={day} value={day}>
-                      {day}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Time Filter */}
-              <div>
-                <label htmlFor="time-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Time of Day
-                </label>
-                <select
-                  id="time-filter"
-                  value={filters.time}
-                  onChange={(e) => handleFilterChange('time', e.target.value)}
-                  className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">All Times</option>
-                  {availableTimes.map((time) => (
-                    <option key={time} value={time}>
-                      {time}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Clear Filters Button */}
-            <div className="flex justify-between items-center">
-              <button
-                onClick={clearFilters}
-                className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-              >
-                Clear all filters
-              </button>
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                {filteredCircles.length} circles found
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Filters using Dashboard Filter Component */}
+        <DashboardFilterAdapter
+          filters={filters}
+          onFiltersChange={handleFiltersChange}
+          onClearAllFilters={clearAllFilters}
+          totalLeaders={filteredCircles.length}
+          allLeaders={circles}
+        />
 
         {/* Results */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">

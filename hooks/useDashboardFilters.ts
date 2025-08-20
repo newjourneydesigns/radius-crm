@@ -31,7 +31,7 @@ export const defaultFilters: DashboardFilters = {
 
 export const useDashboardFilters = () => {
   const [filters, setFilters] = useState<DashboardFilters>(defaultFilters);
-  const [isInitialized, setIsInitialized] = useState(true); // Start initialized
+  const [isInitialized, setIsInitialized] = useState(false); // Start uninitialized until localStorage is checked
   const [isFirstVisit, setIsFirstVisit] = useState(false);
 
   // Load saved filters on mount
@@ -39,9 +39,10 @@ export const useDashboardFilters = () => {
     try {
       const savedState = localStorage.getItem('radiusDashboardFilters');
       if (savedState) {
+        console.log('📂 [useDashboardFilters] Loading saved filters from localStorage:', savedState);
         const filterState = JSON.parse(savedState);
         const newFilters = {
-          campus: filterState.campus || [],
+          campus: (filterState.campus || []).filter((c: string) => c && c !== '__ALL_CAMPUSES__'),
           acpd: filterState.acpd || [],
           status: filterState.status || [],
           meetingDay: filterState.meetingDay || [],
@@ -50,21 +51,36 @@ export const useDashboardFilters = () => {
           connected: filterState.connected || 'all',
           timeOfDay: filterState.timeOfDay || 'all'
         };
+        console.log('📂 [useDashboardFilters] Parsed and cleaned filters:', newFilters);
         setFilters(newFilters);
       } else {
+        console.log('📂 [useDashboardFilters] No saved filters found, marking as first visit');
         setIsFirstVisit(true);
       }
+      // Mark as initialized whether we found saved data or not
+      console.log('🚀 [useDashboardFilters] Setting isInitialized to true');
+      setIsInitialized(true);
     } catch (error) {
       console.error('Error loading filter state:', error);
+      console.log('🚀 [useDashboardFilters] Setting isInitialized to true (after error)');
+      setIsInitialized(true); // Still mark as initialized even on error
     }
   }, []);
 
   // Save filters to localStorage whenever they change
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('radiusDashboardFilters', JSON.stringify(filters));
+    if (typeof window !== 'undefined' && isInitialized) {
+      console.log('💾 [useDashboardFilters] Saving filters to localStorage:', filters);
+      try {
+        localStorage.setItem('radiusDashboardFilters', JSON.stringify(filters));
+        console.log('✅ [useDashboardFilters] Successfully saved to localStorage');
+      } catch (error) {
+        console.error('❌ [useDashboardFilters] Failed to save to localStorage:', error);
+      }
+    } else if (!isInitialized) {
+      console.log('⏳ [useDashboardFilters] Skipping save - not initialized yet');
     }
-  }, [filters]);
+  }, [filters, isInitialized]);
 
   const updateFilters = useCallback((newFilters: Partial<DashboardFilters>) => {
     setFilters(prev => ({ ...prev, ...newFilters }));

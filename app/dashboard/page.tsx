@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import FilterPanel from '../../components/dashboard/FilterPanel-new';
+import FilterPanel from '../../components/dashboard/DashboardFilterAdapter';
+import { DashboardFilters } from '../../hooks/useDashboardFilters';
 import CircleLeaderCard from '../../components/dashboard/CircleLeaderCard';
 import CircleStatusBar from '../../components/dashboard/CircleStatusBar';
 import TodayCircles from '../../components/dashboard/TodayCircles';
@@ -55,6 +56,12 @@ export default function DashboardPage() {
     getCacheDebugInfo
   } = useCircleLeaders();
 
+  // Separate hook call for status overview - load all data without filters for accurate status counts
+  const { 
+    circleLeaders: allCircleLeaders,
+    loadCircleLeaders: loadAllCircleLeaders
+  } = useCircleLeaders();
+
   // Load today's circles separately for better performance
   const { 
     todayCircles, 
@@ -82,6 +89,9 @@ export default function DashboardPage() {
   
   // Refresh key for FilterPanel follow-up table
   const [filterPanelRefreshKey, setFilterPanelRefreshKey] = useState(0);
+  
+  // State to track if user has made initial campus selection (for lazy loading)
+  const [hasCampusSelection, setHasCampusSelection] = useState(false);
   
   // Active section tracking for sticky navigation
   const [activeSection, setActiveSection] = useState('personal-notes');
@@ -511,6 +521,32 @@ export default function DashboardPage() {
     loadReferenceData();
   }, [isClient]);
 
+  // Set hasCampusSelection to true if filters are loaded from localStorage with campus selection
+  // OR if this is a first visit (so all data loads by default for new users)
+  useEffect(() => {
+    if (isInitialized && filters.campus.length > 0) {
+      console.log('🎯 [DashboardPage] Setting hasCampusSelection to true due to persisted filters:', filters.campus);
+      setHasCampusSelection(true);
+    } else if (isInitialized && filters.campus.length === 0) {
+      if (isFirstVisit) {
+        console.log('🎯 [DashboardPage] First visit - setting hasCampusSelection to true to load all data');
+        setHasCampusSelection(true);
+      } else {
+        console.log('🎯 [DashboardPage] No campus in persisted filters, keeping hasCampusSelection false');
+      }
+    }
+  }, [isInitialized, filters.campus.length, isFirstVisit]);
+
+  // Load all circle leaders without filters for accurate status overview counts
+  // Only load if user has made a campus selection to improve performance
+  useEffect(() => {
+    if (!isClient) return;
+    if (!hasCampusSelection) return; // Don't load data until user makes campus selection
+    
+    // Load all data with no filters to get accurate status counts
+    loadAllCircleLeaders({});
+  }, [isClient, loadAllCircleLeaders, hasCampusSelection]);
+
   const clearFilters = () => {
     updateFilters({
       campus: [],
@@ -522,6 +558,15 @@ export default function DashboardPage() {
       connected: 'all',
       timeOfDay: 'all'
     });
+  };
+
+  // Wrapper function to track campus selection for lazy loading
+  const handleFiltersChange = (newFilters: Partial<DashboardFilters>) => {
+    // If campus is being changed, mark as having made a selection
+    if (newFilters.campus !== undefined && !hasCampusSelection) {
+      setHasCampusSelection(true);
+    }
+    updateFilters(newFilters);
   };
 
   const [contactModal, setContactModal] = useState<ContactModalData>({
@@ -681,8 +726,8 @@ export default function DashboardPage() {
       'Off-Boarding': 0
     };
 
-    // Filter leaders by campus only for status overview
-    let leadersForStatusOverview = [...circleLeaders];
+    // Use unfiltered data for status overview, only apply campus filter
+    let leadersForStatusOverview = [...allCircleLeaders];
     if (filters.campus.length > 0) {
       // Normalize both filter and leader campus values for comparison
       const normalizedFilterCampuses = filters.campus.map(c => c.trim().toLowerCase());
@@ -717,7 +762,7 @@ export default function DashboardPage() {
       { status: 'Paused' as const, count: statusCounts['Paused'], color: 'bg-yellow-500' },
       { status: 'Off-Boarding' as const, count: statusCounts['Off-Boarding'], color: 'bg-red-500' }
     ];
-  }, [circleLeaders, filters.campus]);
+  }, [allCircleLeaders, filters.campus]);
 
   // Toggle Recent Notes visibility and persist to localStorage
   const toggleRecentNotesVisibility = () => {
@@ -853,11 +898,15 @@ export default function DashboardPage() {
   };
 
   // Load data on component mount and when filters change
+  // Only load if user has made a campus selection to improve performance
   useEffect(() => {
+    if (!hasCampusSelection) return; // Don't load data until user makes campus selection
+    
     const serverFilters = getServerFilters();
     console.log('🟦 [DashboardPage] Filters passed to loadCircleLeaders:', serverFilters);
     loadCircleLeaders(serverFilters);
   }, [loadCircleLeaders, 
+      hasCampusSelection,
       JSON.stringify(filters.campus),
       JSON.stringify(filters.acpd),
       JSON.stringify(filters.status), 
@@ -888,7 +937,7 @@ export default function DashboardPage() {
   // Scroll spy effect to track active section
   useEffect(() => {
     const handleScroll = () => {
-      const sections = ['personal-notes', 'filters', 'status-overview', 'follow-up', 'recent-notes', 'circle-leaders'];
+      const sections = ['personal-notes', 'filters', 'status-overview', 'follow-up', 'recent-notes', 'circle-leaders', 'progress'];
       
       // Get current scroll position
       const scrollY = window.scrollY;
@@ -1217,6 +1266,20 @@ export default function DashboardPage() {
                   </svg>
                   Status
                 </button>
+
+                <button
+                  onClick={() => scrollToSection('progress')}
+                  className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    activeSection === 'progress'
+                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                  }`}
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  Event Summaries
+                </button>
                 
                 <button
                   onClick={() => scrollToSection('follow-up')}
@@ -1263,8 +1326,8 @@ export default function DashboardPage() {
             </div>
 
           {/* Tab Content */}
-          {/* First Visit Message - Campus Selection Required */}
-              {isFirstVisit && filters.campus.length === 0 && (
+          {/* First Visit Message - Welcome */}
+              {isFirstVisit && (
                 <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
                   <div className="flex items-start">
                     <div className="flex-shrink-0">
@@ -1278,8 +1341,7 @@ export default function DashboardPage() {
                       </h3>
                       <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
                         <p>
-                          To get started, please select at least one <strong>Campus</strong> from the filters above to view Circle Leaders. 
-                          This helps ensure you see relevant data for your area.
+                          You're viewing all Circle Leaders. Use the filters above to narrow down the view by Campus, Status, Circle Type, or other criteria to focus on specific groups.
                         </p>
                       </div>
                       <div className="mt-4">
@@ -1495,7 +1557,7 @@ export default function DashboardPage() {
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Active Filters:</span>
                 
                 {/* Campus Tags */}
-                {filters.campus.map(campus => (
+                {filters.campus.filter(campus => campus && campus !== 'all' && campus !== '__ALL_CAMPUSES__').map(campus => (
                   <span key={`campus-${campus}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                     Campus: {campus}
                     <button
@@ -1527,28 +1589,76 @@ export default function DashboardPage() {
                 ))}
 
                 {/* Status Tags */}
-                {filters.status.map(status => (
-                  <span key={`status-${status}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                    Status: {status === 'follow-up' ? 'Follow Up' : status.charAt(0).toUpperCase() + status.slice(1)}
-                    <button
-                      onClick={() => updateFilters({...filters, status: filters.status.filter(s => s !== status)})}
-                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-green-400 hover:bg-green-200 hover:text-green-600 dark:hover:bg-green-800"
+                {filters.status.map(status => {
+                  // Map status to colors that match the status overview table
+                  const getStatusColors = (statusValue: string) => {
+                    switch (statusValue) {
+                      case 'invited':
+                        return {
+                          bg: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+                          button: 'text-blue-400 hover:bg-blue-200 hover:text-blue-600 dark:hover:bg-blue-800'
+                        };
+                      case 'pipeline':
+                        return {
+                          bg: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+                          button: 'text-indigo-400 hover:bg-indigo-200 hover:text-indigo-600 dark:hover:bg-indigo-800'
+                        };
+                      case 'active':
+                        return {
+                          bg: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+                          button: 'text-green-400 hover:bg-green-200 hover:text-green-600 dark:hover:bg-green-800'
+                        };
+                      case 'follow-up':
+                        return {
+                          bg: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+                          button: 'text-orange-400 hover:bg-orange-200 hover:text-orange-600 dark:hover:bg-orange-800'
+                        };
+                      case 'paused':
+                        return {
+                          bg: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+                          button: 'text-yellow-400 hover:bg-yellow-200 hover:text-yellow-600 dark:hover:bg-yellow-800'
+                        };
+                      case 'off-boarding':
+                        return {
+                          bg: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+                          button: 'text-red-400 hover:bg-red-200 hover:text-red-600 dark:hover:bg-red-800'
+                        };
+                      default:
+                        return {
+                          bg: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
+                          button: 'text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-800'
+                        };
+                    }
+                  };
+                  
+                  const colors = getStatusColors(status);
+                  
+                  return (
+                    <span 
+                      key={`status-${status}`} 
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors.bg}`}
                     >
-                      <span className="sr-only">Remove {status} filter</span>
-                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
-                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
-                      </svg>
-                    </button>
-                  </span>
-                ))}
+                      Status: {status === 'follow-up' ? 'Follow Up' : status.charAt(0).toUpperCase() + status.slice(1)}
+                      <button
+                        onClick={() => updateFilters({...filters, status: filters.status.filter(s => s !== status)})}
+                        className={`ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center ${colors.button}`}
+                      >
+                        <span className="sr-only">Remove {status} filter</span>
+                        <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                          <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
+                        </svg>
+                      </button>
+                    </span>
+                  );
+                })}
 
                 {/* Meeting Day Tags */}
                 {filters.meetingDay.map(day => (
-                  <span key={`day-${day}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                  <span key={`day-${day}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                     Day: {day}
                     <button
                       onClick={() => updateFilters({...filters, meetingDay: filters.meetingDay.filter(d => d !== day)})}
-                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-orange-400 hover:bg-orange-200 hover:text-orange-600 dark:hover:bg-orange-800"
+                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-blue-400 hover:bg-blue-200 hover:text-blue-600 dark:hover:bg-blue-800"
                     >
                       <span className="sr-only">Remove {day} filter</span>
                       <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
@@ -1647,11 +1757,12 @@ export default function DashboardPage() {
           {!referenceDataLoading && (
             <FilterPanel 
             filters={filters}
-            onFiltersChange={updateFilters}
+            onFiltersChange={handleFiltersChange}
             onClearAllFilters={clearAllFilters}
             onBulkUpdateStatus={handleBulkUpdateStatus}
             onResetCheckboxes={handleResetCheckboxes}
             totalLeaders={filteredLeaders.length}
+            allLeaders={allCircleLeaders}
             receivedCount={eventSummaryProgress.received}
             onAddNote={(leaderId, name) => openAddNoteModal(leaderId, name)}
             onClearFollowUp={handleClearFollowUp}
@@ -1674,8 +1785,12 @@ export default function DashboardPage() {
             <CircleStatusBar
               data={statusData}
               total={filters.campus.length > 0 ? 
-                circleLeaders.filter(leader => filters.campus.includes(leader.campus || '')).length : 
-                circleLeaders.length
+                allCircleLeaders.filter(leader => {
+                  const normalizedFilterCampuses = filters.campus.map(c => c.trim().toLowerCase());
+                  const leaderCampus = (leader.campus || '').trim().toLowerCase();
+                  return normalizedFilterCampuses.includes(leaderCampus);
+                }).length : 
+                allCircleLeaders.length
               }
               onStatusClick={handleStatusBarClick}
             />
@@ -1689,6 +1804,7 @@ export default function DashboardPage() {
             receivedCount={eventSummaryProgress.received}
             totalCount={eventSummaryProgress.total}
             onResetCheckboxes={handleResetCheckboxes}
+            filters={filters}
           />
 
           {/* Connections Progress */}

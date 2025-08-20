@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
-import { supabase } from '../../lib/supabase';
+import { supabase, NoteTemplate } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import NoteTemplateModal from './NoteTemplateModal';
 
 interface AddNoteModalProps {
   isOpen: boolean;
@@ -33,6 +34,7 @@ export default function AddNoteModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingLeaders, setIsLoadingLeaders] = useState(false);
   const [error, setError] = useState('');
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const { user } = useAuth();
 
   // Load circle leaders when modal opens and no specific leader is provided
@@ -137,6 +139,15 @@ export default function AddNoteModal({
     }
   };
 
+  const handleTemplateSelect = (template: NoteTemplate) => {
+    setContent(template.content);
+    setIsTemplateModalOpen(false);
+  };
+
+  const openTemplateSelector = () => {
+    setIsTemplateModalOpen(true);
+  };
+
   const getModalTitle = () => {
     if (clearFollowUp) {
       return circleLeaderName ? `Clear Follow-Up - ${circleLeaderName}` : 'Clear Follow-Up';
@@ -201,9 +212,27 @@ export default function AddNoteModal({
         )}
 
         <div>
-          <label htmlFor="note-content" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            {clearFollowUp ? 'Resolution Note' : 'Note Content'} <span className="text-red-500">*</span>
-          </label>
+          <div className="flex justify-between items-center mb-2">
+            <label htmlFor="note-content" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {clearFollowUp ? 'Resolution Note' : 'Note Content'} <span className="text-red-500">*</span>
+            </label>
+            {!clearFollowUp && (
+              <div className="flex space-x-2">
+                <button
+                  type="button"
+                  onClick={openTemplateSelector}
+                  className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                  disabled={isSubmitting}
+                >
+                  Use Template
+                </button>
+                <span className="text-xs text-gray-400">|</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Manage templates in Settings
+                </span>
+              </div>
+            )}
+          </div>
           <textarea
             id="note-content"
             value={content}
@@ -248,6 +277,13 @@ export default function AddNoteModal({
           </button>
         </div>
       </form>
+
+      <NoteTemplateModal
+        isOpen={isTemplateModalOpen}
+        onClose={() => setIsTemplateModalOpen(false)}
+        onTemplateSelect={handleTemplateSelect}
+        mode="select"
+      />
     </Modal>
   );
 }
