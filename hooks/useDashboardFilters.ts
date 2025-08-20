@@ -31,55 +31,39 @@ export const defaultFilters: DashboardFilters = {
 
 export const useDashboardFilters = () => {
   const [filters, setFilters] = useState<DashboardFilters>(defaultFilters);
-  const [isClient, setIsClient] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(true); // Start initialized
   const [isFirstVisit, setIsFirstVisit] = useState(false);
 
-  // Set client flag after hydration
+  // Load saved filters on mount
   useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  // Load saved filters from localStorage only on client
-  useEffect(() => {
-    if (!isClient) return; // Skip during SSR
-    
     try {
       const savedState = localStorage.getItem('radiusDashboardFilters');
-      
       if (savedState) {
         const filterState = JSON.parse(savedState);
-        
         const newFilters = {
           campus: filterState.campus || [],
           acpd: filterState.acpd || [],
           status: filterState.status || [],
-          meetingDay: filterState.meetingDay || [], // Don't default to today - use saved value or empty
+          meetingDay: filterState.meetingDay || [],
           circleType: filterState.circleType || [],
           eventSummary: filterState.eventSummary || 'all',
           connected: filterState.connected || 'all',
           timeOfDay: filterState.timeOfDay || 'all'
         };
-        
         setFilters(newFilters);
-        setIsFirstVisit(false); // Not first visit if we have saved filters
       } else {
-        // First visit - no saved filters
         setIsFirstVisit(true);
       }
-      setIsInitialized(true);
     } catch (error) {
       console.error('Error loading filter state:', error);
-      setFilters(defaultFilters);
-      setIsFirstVisit(true); // Treat as first visit on error
-      setIsInitialized(true);
     }
-  }, [isClient]);
+  }, []);
 
-  // Save filters to localStorage whenever they change (only on client)
+  // Save filters to localStorage whenever they change
   useEffect(() => {
-    if (!isClient) return; // Skip during SSR
-    localStorage.setItem('radiusDashboardFilters', JSON.stringify(filters));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('radiusDashboardFilters', JSON.stringify(filters));
+    }
   }, [filters]);
 
   const updateFilters = useCallback((newFilters: Partial<DashboardFilters>) => {

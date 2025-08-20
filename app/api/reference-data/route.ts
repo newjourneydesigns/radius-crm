@@ -30,12 +30,14 @@ export async function GET() {
       serviceKey || anonKey!
     );
 
-    const [directorsRes, campusesRes, statusesRes, circleTypesRes, frequenciesRes] = await Promise.all([
+    const [directorsRes, campusesRes, statusesRes, circleTypesRes, frequenciesRes, actualDataRes] = await Promise.all([
       supabase.from('acpd_list').select('id, name').order('name'),
       supabase.from('campuses').select('id, value').order('value'),
       supabase.from('statuses').select('id, value').order('value'),
       supabase.from('circle_types').select('id, value').order('value'),
-      supabase.from('frequencies').select('id, value').order('value')
+      supabase.from('frequencies').select('id, value').order('value'),
+      // Also get unique values from actual circle leaders data
+      supabase.from('circle_leaders').select('campus, acpd, circle_type').order('campus')
     ]);
 
     console.log('API Results:', {
@@ -44,20 +46,57 @@ export async function GET() {
       statuses: statusesRes.data?.length || 0,
       circleTypes: circleTypesRes.data?.length || 0,
       frequencies: frequenciesRes.data?.length || 0,
+      actualDataCount: actualDataRes.data?.length || 0,
       errors: {
         directors: directorsRes.error,
         campuses: campusesRes.error,
         statuses: statusesRes.error,
         circleTypes: circleTypesRes.error,
-        frequencies: frequenciesRes.error
+        frequencies: frequenciesRes.error,
+        actualData: actualDataRes.error
+      }
+    });
+
+    // Get unique values from actual circle leaders data
+    const actualData = actualDataRes.data || [];
+    const uniqueCampuses = Array.from(new Set(actualData.map(item => item.campus).filter(Boolean)));
+    const uniqueACPDs = Array.from(new Set(actualData.map(item => item.acpd).filter(Boolean)));
+    const uniqueCircleTypes = Array.from(new Set(actualData.map(item => item.circle_type).filter(Boolean)));
+
+    // Merge reference data with actual data
+    const existingCampusValues = new Set((campusesRes.data || []).map(c => c.value));
+    const existingDirectorNames = new Set((directorsRes.data || []).map(d => d.name));
+    const existingCircleTypeValues = new Set((circleTypesRes.data || []).map(ct => ct.value));
+
+    // Add missing campuses from actual data
+    const mergedCampuses = [...(campusesRes.data || [])];
+    uniqueCampuses.forEach((campus, index) => {
+      if (!existingCampusValues.has(campus)) {
+        mergedCampuses.push({ id: 1000 + index, value: campus });
+      }
+    });
+
+    // Add missing directors from actual data  
+    const mergedDirectors = [...(directorsRes.data || [])];
+    uniqueACPDs.forEach((acpd, index) => {
+      if (!existingDirectorNames.has(acpd)) {
+        mergedDirectors.push({ id: 1000 + index, name: acpd });
+      }
+    });
+
+    // Add missing circle types from actual data
+    const mergedCircleTypes = [...(circleTypesRes.data || [])];
+    uniqueCircleTypes.forEach((circleType, index) => {
+      if (!existingCircleTypeValues.has(circleType)) {
+        mergedCircleTypes.push({ id: 1000 + index, value: circleType });
       }
     });
 
     const referenceData = {
-      directors: directorsRes.data || [],
-      campuses: campusesRes.data || [],
+      directors: mergedDirectors,
+      campuses: mergedCampuses,
       statuses: statusesRes.data || [],
-      circleTypes: circleTypesRes.data || [],
+      circleTypes: mergedCircleTypes,
       frequencies: frequenciesRes.data || []
     };
 

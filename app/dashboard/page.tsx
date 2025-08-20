@@ -40,6 +40,7 @@ interface LogConnectionModalData {
 export default function DashboardPage() {
   const { user } = useAuth();
   const { filters, updateFilters, clearAllFilters, isInitialized, isFirstVisit } = useDashboardFilters();
+  
   const { 
     circleLeaders, 
     isLoading, 
@@ -683,9 +684,12 @@ export default function DashboardPage() {
     // Filter leaders by campus only for status overview
     let leadersForStatusOverview = [...circleLeaders];
     if (filters.campus.length > 0) {
-      leadersForStatusOverview = leadersForStatusOverview.filter(leader => 
-        filters.campus.includes(leader.campus || '')
-      );
+      // Normalize both filter and leader campus values for comparison
+      const normalizedFilterCampuses = filters.campus.map(c => c.trim().toLowerCase());
+      leadersForStatusOverview = leadersForStatusOverview.filter(leader => {
+        const leaderCampus = (leader.campus || '').trim().toLowerCase();
+        return normalizedFilterCampuses.includes(leaderCampus);
+      });
     }
 
     // Count statuses from campus-filtered leaders
@@ -850,13 +854,10 @@ export default function DashboardPage() {
 
   // Load data on component mount and when filters change
   useEffect(() => {
-    if (isInitialized && !isFirstVisit) {
-      // Only load data if not first visit or if user has selected at least one campus
-      if (filters.campus.length > 0 || !isFirstVisit) {
-        loadCircleLeaders(getServerFilters());
-      }
-    }
-  }, [loadCircleLeaders, isInitialized, isFirstVisit,
+    const serverFilters = getServerFilters();
+    console.log('🟦 [DashboardPage] Filters passed to loadCircleLeaders:', serverFilters);
+    loadCircleLeaders(serverFilters);
+  }, [loadCircleLeaders, 
       JSON.stringify(filters.campus),
       JSON.stringify(filters.acpd),
       JSON.stringify(filters.status), 
@@ -1157,7 +1158,8 @@ export default function DashboardPage() {
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
               </div>
-              <div className="mt-4 sm:mt-0">
+              <div className="mt-4 sm:mt-0 flex space-x-3">
+                {/* Import CSV and Add A Circle buttons moved to Settings page */}
                 <button
                   onClick={() => setExportModal(true)}
                   className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors"
@@ -1267,7 +1269,7 @@ export default function DashboardPage() {
                   <div className="flex items-start">
                     <div className="flex-shrink-0">
                       <svg className="h-6 w-6 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
                     <div className="ml-3">
@@ -1324,20 +1326,8 @@ export default function DashboardPage() {
                         value={newNoteContent}
                         onChange={(e) => setNewNoteContent(e.target.value)}
                         placeholder="Add a new personal note..."
-                        className="w-full min-h-[80px] max-h-[400px] p-3 border border-gray-300 dark:border-gray-600 rounded-md 
-                                 bg-white dark:bg-gray-700 text-gray-900 dark:text-white 
-                                 placeholder-gray-500 dark:placeholder-gray-400
-                                 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
-                                 resize-y transition-colors"
-                        rows={3}
-                        disabled={userNotesLoading || savingNoteId === -1}
+                        className="w-full p-2 border rounded-md"
                       />
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {newNoteContent.length > 0 ? `${newNoteContent.length} characters` : ''}
-                      </div>
                       <button
                         onClick={saveNewUserNote}
                         disabled={!newNoteContent.trim() || savingNoteId === -1}

@@ -71,6 +71,9 @@ export const useCircleLeaders = () => {
   const loadingRef = useRef(false);
 
   const loadCircleLeaders = useCallback(async (filters?: CircleLeaderFilters) => {
+    // Debug: Log incoming filters on every load
+    console.log('🔄 [useCircleLeaders] loadCircleLeaders called with filters:', filters);
+
     if (loadingRef.current) {
       console.log('Load already in progress, skipping');
       return;
@@ -78,9 +81,11 @@ export const useCircleLeaders = () => {
 
     // Check cache first
     const cacheKey = generateCacheKey(filters);
+    console.log('🗝️ [useCircleLeaders] Generated cacheKey:', cacheKey);
     const cachedEntry = cache.get(cacheKey);
-    
+
     if (cachedEntry && isCacheValid(cachedEntry)) {
+      console.log('✅ [useCircleLeaders] Using cached data for cacheKey:', cacheKey);
       setCircleLeaders(cachedEntry.data);
       setIsLoading(false);
       setError(null);
@@ -99,6 +104,20 @@ export const useCircleLeaders = () => {
     setError(null);
 
     try {
+
+      // DEBUG: Log all distinct campus values in the database before filtering
+      const { data: campusValues, error: campusError } = await supabase
+        .from('circle_leaders')
+        .select('campus')
+        .neq('campus', '')
+        .neq('campus', null);
+      if (campusError) {
+        console.error('Error fetching campus values:', campusError);
+      } else {
+        const uniqueCampuses = Array.from(new Set((campusValues || []).map(row => row.campus)));
+        console.log('🟢 Distinct campus values in DB:', uniqueCampuses);
+      }
+
       // Build the base query
       let query = supabase
         .from('circle_leaders')
@@ -108,7 +127,16 @@ export const useCircleLeaders = () => {
       if (filters) {
         // Campus filter
         if (filters.campus && filters.campus.length > 0) {
-          query = query.in('campus', filters.campus);
+          // Remove empty strings/nulls from campus filter
+          const validCampuses = filters.campus.filter(c => c && c.trim() !== '');
+          console.log('Campus filter:', validCampuses);
+          console.log('All filters:', filters);
+          // Use eq for single campus selection
+          if (validCampuses.length === 1) {
+            query = query.eq('campus', validCampuses[0]);
+          } else if (validCampuses.length > 1) {
+            query = query.in('campus', validCampuses);
+          }
         }
 
         // ACPD filter
@@ -126,11 +154,18 @@ export const useCircleLeaders = () => {
         }
 
         // Status exclusion filter - exclude specific statuses unless explicitly included
-        if (filters.statusExclude && filters.statusExclude.length > 0) {
-          // Only apply exclusion if no explicit status filter is set
-          if (!filters.status || filters.status.length === 0) {
-            query = query.not('status', 'in', `(${filters.statusExclude.map(s => `'${s}'`).join(',')})`);
-          }
+        if (
+          filters.statusExclude && filters.statusExclude.length > 0 &&
+          (!filters.status || filters.status.length === 0) &&
+          (!filters.campus || filters.campus.length === 0) &&
+          (!filters.acpd || filters.acpd.length === 0) &&
+          (!filters.meetingDay || filters.meetingDay.length === 0) &&
+          (!filters.circleType || filters.circleType.length === 0) &&
+          (!filters.eventSummary || filters.eventSummary === '') &&
+          (!filters.timeOfDay || filters.timeOfDay === '')
+        ) {
+          console.log('Status exclusion filter:', filters.statusExclude);
+          query = query.not('status', 'in', `(${filters.statusExclude.map(s => `'${s}'`).join(',')})`);
         }
 
         // Meeting Day filter
@@ -154,8 +189,23 @@ export const useCircleLeaders = () => {
         // This would require database functions to parse time strings
       }
 
+      // Log the final query object for debugging
+      console.log('Final Supabase query object:', query);
       // Execute the query
+      console.log('Executing Supabase query...');
       const { data: leaders, error: leadersError } = await query.order('name');
+
+      console.log('🔍 Query results:', {
+        totalFound: leaders?.length || 0,
+        filters: filters,
+        sampleLeaders: leaders?.slice(0, 3).map(l => ({
+          name: l.name,
+          campus: l.campus,
+          status: l.status,
+          acpd: l.acpd
+        })),
+        raw: leaders
+      });
 
       if (leadersError) {
         console.error('Error loading circle leaders:', leadersError);

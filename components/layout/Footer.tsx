@@ -23,7 +23,14 @@ export default function Footer() {
           <div className="text-lg font-medium text-gray-900 dark:text-white">
             Shepherd the Flock | Develop Leaders and Teams | Advance the Culture
           </div>
-          
+
+          {/* Legal Links */}
+          <div className="text-sm text-gray-600 dark:text-gray-400 flex flex-col sm:flex-row justify-center gap-2 sm:gap-6 mb-2">
+            <a href="/privacy-policy" className="underline hover:text-blue-600 dark:hover:text-blue-400">Privacy Policy</a>
+            <span className="hidden sm:inline">|</span>
+            <a href="/terms" className="underline hover:text-blue-600 dark:hover:text-blue-400">Terms of Service</a>
+          </div>
+
           {/* Attribution */}
           <div className="text-sm text-gray-600 dark:text-gray-400">
             Created to bless His church by{' '}
@@ -37,7 +44,7 @@ export default function Footer() {
             </a>{' '}
             © {currentYear}
           </div>
-          
+
           {/* Version */}
           <div className="text-xs text-gray-500 dark:text-gray-500">
             Version {version}
