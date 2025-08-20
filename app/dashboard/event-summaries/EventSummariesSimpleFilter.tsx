@@ -44,17 +44,17 @@ export default function EventSummariesSimpleFilter({
   const activeFilterCount = Object.values(filters).filter(value => value !== '').length;
 
   return (
-    <div className="bg-white border-b border-gray-200">
+    <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
       {/* Mobile Toggle Button */}
       <div className="md:hidden">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full px-4 py-3 flex items-center justify-between text-left text-gray-700 hover:bg-gray-50"
+          className="w-full px-4 py-3 flex items-center justify-between text-left text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
         >
           <div className="flex items-center gap-2">
             <span className="font-medium">Filters</span>
             {activeFilterCount > 0 && (
-              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+              <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full text-xs font-medium">
                 {activeFilterCount}
               </span>
             )}
@@ -72,13 +72,13 @@ export default function EventSummariesSimpleFilter({
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Campus Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Campus
             </label>
             <select
               value={filters.campus}
               onChange={(e) => onFilterChange('campus', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="">All Campuses</option>
               {campuses.map(campus => (
@@ -89,13 +89,13 @@ export default function EventSummariesSimpleFilter({
 
           {/* Circle Type Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Circle Type
             </label>
             <select
               value={filters.type}
               onChange={(e) => onFilterChange('type', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="">All Types</option>
               {types.map(type => (
@@ -106,13 +106,13 @@ export default function EventSummariesSimpleFilter({
 
           {/* Meeting Day Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Meeting Day
             </label>
             <select
               value={filters.day}
               onChange={(e) => onFilterChange('day', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="">All Days</option>
               {days.map(day => (
@@ -123,13 +123,13 @@ export default function EventSummariesSimpleFilter({
 
           {/* Time Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Time
             </label>
             <select
               value={filters.time}
               onChange={(e) => onFilterChange('time', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="">All Times</option>
               {times.map(time => (
@@ -144,7 +144,7 @@ export default function EventSummariesSimpleFilter({
           <div className="mt-4 flex justify-end">
             <button
               onClick={onClearFilters}
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+              className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
             >
               Clear All Filters
             </button>
