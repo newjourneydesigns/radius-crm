@@ -61,18 +61,27 @@ export default function FilterPanelNew({
   // Helper function to handle multi-select changes
   const handleMultiSelectChange = (filterType: string, target: HTMLSelectElement) => {
     const selectedOptions = Array.from(target.selectedOptions).map(option => option.value);
-    onFiltersChange({
+    const updatedFilters = {
       ...filters,
       [filterType]: selectedOptions
-    });
+    };
+    onFiltersChange(updatedFilters);
+    console.log('FilterPanelNew multi-select change:', updatedFilters);
   };
 
   // Helper function to handle single select changes
   const handleSingleSelectChange = (filterType: string, value: string) => {
-    onFiltersChange({
+    // Normalize Time of Day to uppercase if needed
+    let normalizedValue = value;
+    if (filterType === 'timeOfDay' && value) {
+      normalizedValue = value.toUpperCase();
+    }
+    const updatedFilters = {
       ...filters,
-      [filterType]: value
-    });
+      [filterType]: normalizedValue
+    };
+    onFiltersChange(updatedFilters);
+    console.log('FilterPanelNew single-select change:', updatedFilters);
   };
 
   // Check if any filters are active
@@ -234,6 +243,31 @@ export default function FilterPanelNew({
               </select>
             </div>
 
+            {/* Time of Day Filter */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Time of Day
+              </label>
+              <select
+                value={filters.timeOfDay || ''}
+                onChange={e => {
+                  const rawValue = e.target.value;
+                  const normalized = rawValue ? rawValue.toUpperCase() : '';
+                  const updatedFilters = {
+                    ...filters,
+                    timeOfDay: normalized
+                  };
+                  onFiltersChange(updatedFilters);
+                  console.log('FilterPanelNew timeOfDay change:', updatedFilters);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">All</option>
+                <option value="AM">AM</option>
+                <option value="PM">PM</option>
+              </select>
+            </div>
+
             {/* Event Summary Filter */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -266,22 +300,6 @@ export default function FilterPanelNew({
               </select>
             </div>
 
-            {/* Time of Day Filter */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Time of Day
-              </label>
-              <select
-                value={filters.timeOfDay}
-                onChange={(e) => handleSingleSelectChange('timeOfDay', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">All</option>
-                <option value="morning">Morning</option>
-                <option value="afternoon">Afternoon</option>
-                <option value="evening">Evening</option>
-              </select>
-            </div>
           </div>
 
           {/* Bulk Actions */}
