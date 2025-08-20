@@ -114,7 +114,7 @@ export default function NoteTemplateModal({
     >
       <div className="space-y-4">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <div className="bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-200 px-4 py-3 rounded">
             {error}
           </div>
         )}
@@ -123,27 +123,27 @@ export default function NoteTemplateModal({
           // Create/Edit Form
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Template Name
               </label>
               <input
                 type="text"
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Enter template name..."
                 maxLength={255}
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Template Content
               </label>
               <textarea
                 value={templateContent}
                 onChange={(e) => setTemplateContent(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 rows={8}
                 placeholder="Enter template content..."
               />
@@ -152,7 +152,7 @@ export default function NoteTemplateModal({
             <div className="flex justify-end space-x-3 pt-4">
               <button
                 onClick={handleCancel}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
                 disabled={isSubmitting}
               >
                 Cancel
@@ -181,15 +181,15 @@ export default function NoteTemplateModal({
             )}
 
             {isLoading ? (
-              <div className="text-center py-8 text-gray-500">Loading templates...</div>
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">Loading templates...</div>
             ) : templates.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                 {mode === 'select' ? 'No templates available' : 'No templates created yet'}
                 {mode === 'manage' && (
                   <div className="mt-2">
                     <button
                       onClick={handleCreateNew}
-                      className="text-blue-600 hover:text-blue-800 underline"
+                      className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline"
                     >
                       Create your first template
                     </button>
@@ -199,27 +199,27 @@ export default function NoteTemplateModal({
             ) : (
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {templates.map((template) => (
-                  <div key={template.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                  <div key={template.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
                     <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-medium text-gray-900">{template.name}</h3>
+                      <h3 className="font-medium text-gray-900 dark:text-white">{template.name}</h3>
                       {mode === 'manage' && (
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleEdit(template)}
-                            className="text-sm text-blue-600 hover:text-blue-800"
+                            className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
                           >
                             Edit
                           </button>
                           <button
                             onClick={() => handleDelete(template)}
-                            className="text-sm text-red-600 hover:text-red-800"
+                            className="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
                           >
                             Delete
                           </button>
                         </div>
                       )}
                     </div>
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-3">
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 line-clamp-3">
                       {template.content}
                     </p>
                     {mode === 'select' && (
