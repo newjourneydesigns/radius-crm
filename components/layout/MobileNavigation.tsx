@@ -14,8 +14,9 @@ export default function MobileNavigation() {
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard' },
-    { name: 'Users', href: '/users' },
+    { name: 'Event Summaries', href: '/dashboard/event-summaries' },
     { name: 'Settings', href: '/settings' },
+    { name: 'Help', href: '/help' },
   ];
 
   const isActive = (href: string) => pathname === href;

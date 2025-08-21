@@ -306,16 +306,16 @@ export default function CircleLeaderProfilePage() {
         // Load notes with user information
         const { data: notesData, error: notesError } = await supabase
           .from('notes')
-          .select(`
-            *,
-            users (name)
-          `)
+          .select('*')
           .eq('circle_leader_id', leaderId)
           .order('created_at', { ascending: false });
 
         if (notesData && !notesError) {
           setNotes(notesData);
         } else {
+          if (notesError) {
+            console.error('🚨 Notes loading error:', notesError);
+          }
           // Fallback to mock notes
           setNotes([
             {
@@ -553,7 +553,22 @@ export default function CircleLeaderProfilePage() {
 
   // Quick Action Handlers
   const handleSendEmail = () => {
-    if (!leader?.email) {
+    if (!leader) return;
+    
+    const emails: string[] = [];
+    const names: string[] = [];
+    
+    if (leader.email) {
+      emails.push(leader.email);
+      names.push(leader.name.split(' ')[0]);
+    }
+    
+    if (leader.additional_leader_email) {
+      emails.push(leader.additional_leader_email);
+      names.push(leader.additional_leader_name?.split(' ')[0] || 'there');
+    }
+    
+    if (emails.length === 0) {
       setShowAlert({
         isOpen: true,
         type: 'warning',
@@ -564,15 +579,29 @@ export default function CircleLeaderProfilePage() {
     }
     
     const subject = `Circle Leader Communication - ${leader.name}`;
-    const firstName = leader.name.split(' ')[0];
-    const body = `Hi ${firstName}!`;
-    const mailtoUrl = `mailto:${leader.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const greeting = names.length > 1 ? `Hi ${names.join(' and ')}!` : `Hi ${names[0]}!`;
+    const mailtoUrl = `mailto:${emails.join(',')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(greeting)}`;
     
     window.open(mailtoUrl, '_blank');
   };
 
   const handleSendSMS = () => {
-    if (!leader?.phone) {
+    if (!leader) return;
+    
+    const phones: string[] = [];
+    const names: string[] = [];
+    
+    if (leader.phone) {
+      phones.push(leader.phone.replace(/\D/g, ''));
+      names.push(leader.name.split(' ')[0]);
+    }
+    
+    if (leader.additional_leader_phone) {
+      phones.push(leader.additional_leader_phone.replace(/\D/g, ''));
+      names.push(leader.additional_leader_name?.split(' ')[0] || 'there');
+    }
+    
+    if (phones.length === 0) {
       setShowAlert({
         isOpen: true,
         type: 'warning',
@@ -582,17 +611,36 @@ export default function CircleLeaderProfilePage() {
       return;
     }
     
-    // Clean phone number (remove formatting)
-    const cleanPhone = leader.phone.replace(/\D/g, '');
-    const firstName = leader.name.split(' ')[0];
-    const message = `Hi ${firstName}!`;
-    const smsUrl = `sms:${cleanPhone}?body=${encodeURIComponent(message)}`;
+    const greeting = names.length > 1 ? `Hi ${names.join(' and ')}!` : `Hi ${names[0]}!`;
     
-    window.open(smsUrl, '_blank');
+    if (phones.length === 1) {
+      // Single SMS
+      const smsUrl = `sms:${phones[0]}?body=${encodeURIComponent(greeting)}`;
+      window.open(smsUrl, '_blank');
+    } else {
+      // Multiple SMS - open each separately
+      phones.forEach((phone, index) => {
+        const individualGreeting = `Hi ${names[index]}!`;
+        const smsUrl = `sms:${phone}?body=${encodeURIComponent(individualGreeting)}`;
+        setTimeout(() => window.open(smsUrl, '_blank'), index * 100); // Slight delay to avoid conflicts
+      });
+    }
   };
 
   const handleCallLeader = () => {
-    if (!leader?.phone) {
+    if (!leader) return;
+    
+    const phones: string[] = [];
+    
+    if (leader.phone) {
+      phones.push(leader.phone.replace(/\D/g, ''));
+    }
+    
+    if (leader.additional_leader_phone) {
+      phones.push(leader.additional_leader_phone.replace(/\D/g, ''));
+    }
+    
+    if (phones.length === 0) {
       setShowAlert({
         isOpen: true,
         type: 'warning',
@@ -602,15 +650,32 @@ export default function CircleLeaderProfilePage() {
       return;
     }
     
-    // Clean phone number (remove formatting)
-    const cleanPhone = leader.phone.replace(/\D/g, '');
-    const telUrl = `tel:${cleanPhone}`;
-    
-    window.open(telUrl, '_self');
+    if (phones.length === 1) {
+      // Single call
+      const telUrl = `tel:${phones[0]}`;
+      window.open(telUrl, '_self');
+    } else {
+      // Multiple phones - let user choose
+      const primaryName = leader.name.split(' ')[0];
+      const additionalName = leader.additional_leader_name?.split(' ')[0] || 'Additional Leader';
+      const choice = window.confirm(`Choose who to call:\nOK = ${primaryName} (${leader.phone})\nCancel = ${additionalName} (${leader.additional_leader_phone})`);
+      
+      const selectedPhone = choice ? phones[0] : phones[1];
+      const telUrl = `tel:${selectedPhone}`;
+      window.open(telUrl, '_self');
+    }
   };
 
   const handleContactClick = () => {
-    if (!leader?.email && !leader?.phone) {
+    const hasMainEmail = !!leader?.email;
+    const hasMainPhone = !!leader?.phone;
+    const hasAdditionalEmail = !!leader?.additional_leader_email;
+    const hasAdditionalPhone = !!leader?.additional_leader_phone;
+    
+    const hasAnyEmail = hasMainEmail || hasAdditionalEmail;
+    const hasAnyPhone = hasMainPhone || hasAdditionalPhone;
+    
+    if (!hasAnyEmail && !hasAnyPhone) {
       setShowAlert({
         isOpen: true,
         type: 'warning',
@@ -621,16 +686,16 @@ export default function CircleLeaderProfilePage() {
     }
     
     // If both email and phone exist, show options
-    if (leader?.email && leader?.phone) {
+    if (hasAnyEmail && hasAnyPhone) {
       const choice = window.confirm('Choose contact method:\nOK = Email\nCancel = Phone');
       if (choice) {
         handleSendEmail();
       } else {
         handleCallLeader();
       }
-    } else if (leader?.email) {
+    } else if (hasAnyEmail) {
       handleSendEmail();
-    } else if (leader?.phone) {
+    } else if (hasAnyPhone) {
       handleCallLeader();
     }
   };
@@ -848,7 +913,10 @@ export default function CircleLeaderProfilePage() {
       circle_type: leader.circle_type,
       follow_up_required: leader.follow_up_required,
       follow_up_date: leader.follow_up_date,
-      ccb_profile_link: leader.ccb_profile_link
+      ccb_profile_link: leader.ccb_profile_link,
+      additional_leader_name: leader.additional_leader_name,
+      additional_leader_phone: leader.additional_leader_phone,
+      additional_leader_email: leader.additional_leader_email
     };
     
     setEditedLeader(editData);
@@ -876,7 +944,10 @@ export default function CircleLeaderProfilePage() {
           circle_type: editedLeader.circle_type || null,
           follow_up_required: editedLeader.follow_up_required || false,
           follow_up_date: editedLeader.follow_up_date || null,
-          ccb_profile_link: editedLeader.ccb_profile_link || null
+          ccb_profile_link: editedLeader.ccb_profile_link || null,
+          additional_leader_name: editedLeader.additional_leader_name || null,
+          additional_leader_phone: editedLeader.additional_leader_phone || null,
+          additional_leader_email: editedLeader.additional_leader_email || null
         })
         .eq('id', leaderId)
         .select()
@@ -1395,6 +1466,66 @@ export default function CircleLeaderProfilePage() {
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* Additional Leader Information */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                <h2 className="text-lg font-medium text-gray-900 dark:text-white">Additional Leader</h2>
+                <span className="text-sm text-gray-500 dark:text-gray-400">Optional Co-Leader/Spouse</span>
+              </div>
+              <div className="p-6">
+                <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Name</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editedLeader.additional_leader_name !== undefined ? editedLeader.additional_leader_name : (leader.additional_leader_name || '')}
+                          onChange={(e) => handleLeaderFieldChange('additional_leader_name', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Enter additional leader name"
+                        />
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{leader.additional_leader_name || 'Not provided'}</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="tel"
+                          value={editedLeader.additional_leader_phone !== undefined ? editedLeader.additional_leader_phone : (leader.additional_leader_phone || '')}
+                          onChange={(e) => handleLeaderFieldChange('additional_leader_phone', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Enter phone number"
+                        />
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{leader.additional_leader_phone || 'Not provided'}</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Email</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="email"
+                          value={editedLeader.additional_leader_email !== undefined ? editedLeader.additional_leader_email : (leader.additional_leader_email || '')}
+                          onChange={(e) => handleLeaderFieldChange('additional_leader_email', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Enter email address"
+                        />
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{leader.additional_leader_email || 'Not provided'}</span>
+                      )}
+                    </dd>
+                  </div>
+                </dl>
               </div>
             </div>
           </div>

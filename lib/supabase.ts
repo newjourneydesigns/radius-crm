@@ -83,6 +83,9 @@ export interface CircleLeader {
   follow_up_date?: string;
   follow_up_note?: string;
   ccb_profile_link?: string;
+  additional_leader_name?: string;
+  additional_leader_phone?: string;
+  additional_leader_email?: string;
   uuid?: string;
   created_at?: string;
   updated_at?: string;
