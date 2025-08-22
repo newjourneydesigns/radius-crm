@@ -76,6 +76,40 @@ export default function RootLayout({
                 }
               });
             }
+
+            // PWA Install Prompt
+            let deferredPrompt;
+            let installButton = null;
+
+            window.addEventListener('beforeinstallprompt', (e) => {
+              console.log('PWA install prompt available');
+              e.preventDefault();
+              deferredPrompt = e;
+              
+              // Show install button in navigation
+              window.dispatchEvent(new CustomEvent('pwaInstallAvailable'));
+            });
+
+            window.addEventListener('appinstalled', (evt) => {
+              console.log('PWA installed successfully');
+              deferredPrompt = null;
+              window.dispatchEvent(new CustomEvent('pwaInstalled'));
+            });
+
+            // Function to trigger install
+            window.installPWA = function() {
+              if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                  if (choiceResult.outcome === 'accepted') {
+                    console.log('User accepted the install prompt');
+                  } else {
+                    console.log('User dismissed the install prompt');
+                  }
+                  deferredPrompt = null;
+                });
+              }
+            };
           `
         }} />
       </head>
