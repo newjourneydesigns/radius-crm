@@ -14,7 +14,11 @@ export default function MobileNavigation() {
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard' },
-    { name: 'Event Summaries', href: '/dashboard/event-summaries' },
+    { name: 'Summaries', href: '/dashboard/event-summaries' },
+    { name: 'Leaders', href: '/leaders' },
+  ];
+
+  const hamburgerMenu = [
     { name: 'Settings', href: '/settings' },
     { name: 'Help', href: '/help' },
   ];
@@ -45,14 +49,29 @@ export default function MobileNavigation() {
             </Link>
           </div>
 
-          <div className="flex items-center space-x-4">
+          {/* Main navigation items visible on mobile */}
+          <div className="flex items-center space-x-1">
             <GlobalSearch />
+            
+            {navigation.map((item) => (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={`px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap ${
+                  isActive(item.href)
+                    ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                    : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
+              >
+                {item.name}
+              </Link>
+            ))}
             
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 p-2"
+              className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 p-1 ml-1"
             >
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
@@ -61,7 +80,7 @@ export default function MobileNavigation() {
 
         {isOpen && (
           <div className="pb-3 space-y-1">
-            {navigation.map((item) => (
+            {hamburgerMenu.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}

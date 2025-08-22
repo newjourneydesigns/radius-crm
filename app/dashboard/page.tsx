@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import FilterPanel from '../../components/dashboard/DashboardFilterAdapter';
+import FilterPanel from '../../components/dashboard/SimpleCampusFilter';
 import { DashboardFilters } from '../../hooks/useDashboardFilters';
 import CircleLeaderCard from '../../components/dashboard/CircleLeaderCard';
 import CircleStatusBar from '../../components/dashboard/CircleStatusBar';
@@ -612,68 +612,11 @@ export default function DashboardPage() {
 
 
 
-  // Filter circle leaders - now mostly client-side for complex logic
+  // Filter circle leaders - simplified to only campus filtering (handled server-side)
   const filteredLeaders = useMemo(() => {
-    let filtered = [...circleLeaders];
-
-    // Most filtering is now done server-side, but we still need client-side for:
-    // 1. Follow-up status (complex logic)
-    // 2. Connected status (requires connections data)
-    // 3. Time of day (complex parsing logic)
-
-    // Follow-up status filter (client-side only)
-    if (filters.status.length > 0 && filters.status.includes('follow-up')) {
-      // If only follow-up is selected, show only follow-up required
-      if (filters.status.length === 1 && filters.status[0] === 'follow-up') {
-        filtered = filtered.filter(leader => leader.follow_up_required);
-      } else {
-        // If follow-up is mixed with other statuses, include follow-up required leaders
-        filtered = filtered.filter(leader => {
-          const statusMatch = filters.status.some(status => 
-            status !== 'follow-up' && status === leader.status
-          );
-          const followUpMatch = leader.follow_up_required;
-          return statusMatch || followUpMatch;
-        });
-      }
-    }
-
-    // Connected filter (client-side - requires connections data)
-    if (filters.connected === 'connected') {
-      filtered = filtered.filter(leader => connectedLeaderIds.has(leader.id));
-    } else if (filters.connected === 'not_connected') {
-      filtered = filtered.filter(leader => !connectedLeaderIds.has(leader.id));
-    }
-
-    // Time of Day filter (client-side - complex parsing)
-    if (filters.timeOfDay === 'am' || filters.timeOfDay === 'pm') {
-      filtered = filtered.filter(leader => {
-        if (!leader.time) return false;
-        
-        // First try to parse 12-hour format with AM/PM (e.g., "7:00 PM", "10:30 AM")
-        const ampmMatch = leader.time.match(/(\d{1,2}):?(\d{0,2})\s*(AM|PM)/i);
-        if (ampmMatch) {
-          const period = ampmMatch[3].toUpperCase();
-          return filters.timeOfDay === 'am' ? period === 'AM' : period === 'PM';
-        }
-        
-        // Try to parse 24-hour format (e.g., "19:00", "18:30", "07:30")
-        const time24Match = leader.time.match(/^(\d{1,2}):(\d{2})$/);
-        if (time24Match) {
-          const hour = parseInt(time24Match[1], 10);
-          // 0-11 hours = AM, 12-23 hours = PM
-          if (filters.timeOfDay === 'am') {
-            return hour >= 0 && hour < 12;
-          } else {
-            return hour >= 12 && hour <= 23;
-          }
-        }
-        
-        return false;
-      });
-    }
-
-    // Sort by name (always client-side)
+    // Campus filtering is handled server-side by useCircleLeaders hook
+    // Just sort by name for consistent display
+    const filtered = [...circleLeaders];
     filtered.sort((a, b) => {
       const aName = a.name || '';
       const bName = b.name || '';
@@ -681,7 +624,7 @@ export default function DashboardPage() {
     });
 
     return filtered;
-  }, [circleLeaders, filters, connectedLeaderIds]);
+  }, [circleLeaders]);
 
   // Memoize filtered leader IDs to prevent unnecessary ConnectionsProgress re-renders
   const filteredLeaderIds = useMemo(() => {
@@ -860,41 +803,26 @@ export default function DashboardPage() {
   const getServerFilters = (): CircleLeaderFilters => {
     const serverFilters: CircleLeaderFilters = {};
     
-    // Campus filter
+    // Campus filter - only filter we need
     if (filters.campus.length > 0) {
       serverFilters.campus = filters.campus;
     }
     
-    // ACPD filter
-    if (filters.acpd.length > 0) {
-      serverFilters.acpd = filters.acpd;
-    }
+    // Always exclude archive status by default unless explicitly showing all
+    serverFilters.statusExclude = ['archive'];
     
-    // Status filter - with special archive handling
-    if (filters.status.length > 0) {
-      serverFilters.status = filters.status;
-    } else {
-      // If no status filter is explicitly selected, exclude archive by default
-      // This ensures archived circles don't show up unless explicitly selected
-      serverFilters.statusExclude = ['archive'];
-    }
-    
-    // Meeting day filter
-    if (filters.meetingDay.length > 0) {
-      serverFilters.meetingDay = filters.meetingDay;
-    }
-    
-    // Circle type filter
-    if (filters.circleType.length > 0) {
-      serverFilters.circleType = filters.circleType;
-    }
-    
-    // Event summary filter (convert to string)
-    if (filters.eventSummary !== 'all') {
-      serverFilters.eventSummary = filters.eventSummary;
-    }
-    
+    console.log('🎯 [DashboardPage] Server filters (campus only):', serverFilters);
     return serverFilters;
+  };
+
+  // Helper function to get current filter parameters as URL string - simplified for campus only
+  const getFilterParams = (): string => {
+    const params = new URLSearchParams();
+    
+    filters.campus.forEach(campus => params.append('campus', campus));
+    
+    const queryString = params.toString();
+    return queryString ? `?${queryString}` : '';
   };
 
   // Load data on component mount and when filters change
@@ -937,7 +865,7 @@ export default function DashboardPage() {
   // Scroll spy effect to track active section
   useEffect(() => {
     const handleScroll = () => {
-      const sections = ['personal-notes', 'filters', 'status-overview', 'follow-up', 'recent-notes', 'circle-leaders', 'progress'];
+      const sections = ['personal-notes', 'filters', 'status-overview', 'follow-up', 'recent-notes', 'progress'];
       
       // Get current scroll position
       const scrollY = window.scrollY;
@@ -1308,20 +1236,6 @@ export default function DashboardPage() {
                   </svg>
                   Recent Notes
                 </button>
-
-                <button
-                  onClick={() => scrollToSection('circle-leaders')}
-                  className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                    activeSection === 'circle-leaders'
-                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                  }`}
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                  Leaders
-                </button>
               </nav>
             </div>
 
@@ -1404,7 +1318,7 @@ export default function DashboardPage() {
                         ) : (
                           <>
                             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                             </svg>
                             Add Note
                           </>
@@ -1549,12 +1463,10 @@ export default function DashboardPage() {
             </div>
           </div>
 
-        {/* Active Filter Tags - Sticky */}
+        {/* Active Filter Tags - Simplified for campus only */}
         <div className="sticky top-[60px] z-[999] bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
           <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-3">
-            {(filters.campus.length > 0 || filters.acpd.length > 0 || filters.status.length > 0 || 
-              filters.meetingDay.length > 0 || filters.circleType.length > 0 || 
-              filters.eventSummary !== 'all' || filters.connected !== 'all' || filters.timeOfDay !== 'all') && (
+            {filters.campus.length > 0 && (
               <div className="flex items-center flex-wrap gap-2">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Active Filters:</span>
                 
@@ -1574,166 +1486,6 @@ export default function DashboardPage() {
                   </span>
                 ))}
 
-                {/* ACPD Tags */}
-                {filters.acpd.map(acpd => (
-                  <span key={`acpd-${acpd}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                    ACPD: {acpd}
-                    <button
-                      onClick={() => updateFilters({...filters, acpd: filters.acpd.filter(a => a !== acpd)})}
-                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-purple-400 hover:bg-purple-200 hover:text-purple-600 dark:hover:bg-purple-800"
-                    >
-                      <span className="sr-only">Remove {acpd} filter</span>
-                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
-                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
-                      </svg>
-                    </button>
-                  </span>
-                ))}
-
-                {/* Status Tags */}
-                {filters.status.map(status => {
-                  // Map status to colors that match the status overview table
-                  const getStatusColors = (statusValue: string) => {
-                    switch (statusValue) {
-                      case 'invited':
-                        return {
-                          bg: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-                          button: 'text-blue-400 hover:bg-blue-200 hover:text-blue-600 dark:hover:bg-blue-800'
-                        };
-                      case 'pipeline':
-                        return {
-                          bg: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
-                          button: 'text-indigo-400 hover:bg-indigo-200 hover:text-indigo-600 dark:hover:bg-indigo-800'
-                        };
-                      case 'active':
-                        return {
-                          bg: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-                          button: 'text-green-400 hover:bg-green-200 hover:text-green-600 dark:hover:bg-green-800'
-                        };
-                      case 'follow-up':
-                        return {
-                          bg: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-                          button: 'text-orange-400 hover:bg-orange-200 hover:text-orange-600 dark:hover:bg-orange-800'
-                        };
-                      case 'paused':
-                        return {
-                          bg: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-                          button: 'text-yellow-400 hover:bg-yellow-200 hover:text-yellow-600 dark:hover:bg-yellow-800'
-                        };
-                      case 'off-boarding':
-                        return {
-                          bg: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-                          button: 'text-red-400 hover:bg-red-200 hover:text-red-600 dark:hover:bg-red-800'
-                        };
-                      default:
-                        return {
-                          bg: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
-                          button: 'text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-800'
-                        };
-                    }
-                  };
-                  
-                  const colors = getStatusColors(status);
-                  
-                  return (
-                    <span 
-                      key={`status-${status}`} 
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors.bg}`}
-                    >
-                      Status: {status === 'follow-up' ? 'Follow Up' : status.charAt(0).toUpperCase() + status.slice(1)}
-                      <button
-                        onClick={() => updateFilters({...filters, status: filters.status.filter(s => s !== status)})}
-                        className={`ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center ${colors.button}`}
-                      >
-                        <span className="sr-only">Remove {status} filter</span>
-                        <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
-                          <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
-                        </svg>
-                      </button>
-                    </span>
-                  );
-                })}
-
-                {/* Meeting Day Tags */}
-                {filters.meetingDay.map(day => (
-                  <span key={`day-${day}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                    Day: {day}
-                    <button
-                      onClick={() => updateFilters({...filters, meetingDay: filters.meetingDay.filter(d => d !== day)})}
-                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-blue-400 hover:bg-blue-200 hover:text-blue-600 dark:hover:bg-blue-800"
-                    >
-                      <span className="sr-only">Remove {day} filter</span>
-                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
-                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
-                      </svg>
-                    </button>
-                  </span>
-                ))}
-
-                {/* Circle Type Tags */}
-                {filters.circleType.map(type => (
-                  <span key={`type-${type}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
-                    Type: {type}
-                    <button
-                      onClick={() => updateFilters({...filters, circleType: filters.circleType.filter(t => t !== type)})}
-                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-indigo-400 hover:bg-indigo-200 hover:text-indigo-600 dark:hover:bg-indigo-800"
-                    >
-                      <span className="sr-only">Remove {type} filter</span>
-                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
-                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
-                      </svg>
-                    </button>
-                  </span>
-                ))}
-
-                {/* Event Summary Tags */}
-                {filters.eventSummary !== 'all' && (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                    Event Summary: {filters.eventSummary === 'received' ? 'Received' : 'Not Received'}
-                    <button
-                      onClick={() => updateFilters({...filters, eventSummary: 'all'})}
-                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-yellow-400 hover:bg-yellow-200 hover:text-yellow-600 dark:hover:bg-yellow-800"
-                    >
-                      <span className="sr-only">Remove event summary filter</span>
-                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
-                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
-                      </svg>
-                    </button>
-                  </span>
-                )}
-
-                {/* Connected Tags */}
-                {filters.connected !== 'all' && (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200">
-                    Connection: {filters.connected === 'connected' ? 'Connected' : 'Not Connected'}
-                    <button
-                      onClick={() => updateFilters({...filters, connected: 'all'})}
-                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-teal-400 hover:bg-teal-200 hover:text-teal-600 dark:hover:bg-teal-800"
-                    >
-                      <span className="sr-only">Remove connection filter</span>
-                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
-                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
-                      </svg>
-                    </button>
-                  </span>
-                )}
-
-                {/* Time of Day Tags */}
-                {filters.timeOfDay !== 'all' && (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200">
-                    Time: {filters.timeOfDay === 'am' ? 'AM' : 'PM'}
-                    <button
-                      onClick={() => updateFilters({...filters, timeOfDay: 'all'})}
-                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-pink-400 hover:bg-pink-200 hover:text-pink-600 dark:hover:bg-pink-800"
-                    >
-                      <span className="sr-only">Remove time filter</span>
-                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
-                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
-                      </svg>
-                    </button>
-                  </span>
-                )}
-
                 {/* Clear All Button */}
                 <button
                   onClick={clearAllFilters}
@@ -1741,6 +1493,7 @@ export default function DashboardPage() {
                 >
                   Clear All
                 </button>
+
               </div>
             )}
           </div>
@@ -1758,23 +1511,12 @@ export default function DashboardPage() {
           {/* Show FilterPanel when data is loaded */}
           {!referenceDataLoading && (
             <FilterPanel 
-            filters={filters}
-            onFiltersChange={handleFiltersChange}
-            onClearAllFilters={clearAllFilters}
-            onBulkUpdateStatus={handleBulkUpdateStatus}
-            onResetCheckboxes={handleResetCheckboxes}
-            totalLeaders={filteredLeaders.length}
-            allLeaders={allCircleLeaders}
-            receivedCount={eventSummaryProgress.received}
-            onAddNote={(leaderId, name) => openAddNoteModal(leaderId, name)}
-            onClearFollowUp={handleClearFollowUp}
-            refreshKey={filterPanelRefreshKey}
-            directors={directors}
-            campuses={campuses}
-            statuses={statuses}
-            circleTypes={circleTypes}
-            frequencies={frequencies}
-          />
+              filters={{ campus: filters.campus }}
+              onFiltersChange={(newFilters) => handleFiltersChange({ ...filters, ...newFilters })}
+              onClearAllFilters={clearAllFilters}
+              totalLeaders={filteredLeaders.length}
+              campuses={campuses}
+            />
           )}
         </div>
 
@@ -1977,161 +1719,6 @@ export default function DashboardPage() {
               </>
             )}
           </div>
-        </div>
-
-        {/* Circle Leaders Grid */}
-        <div id="circle-leaders" className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Circle Leaders
-              </h2>
-              <div className="flex items-center space-x-4">
-                {/* Items per page selector */}
-                <div className="flex items-center space-x-2">
-                  <label htmlFor="items-per-page" className="text-sm text-gray-600 dark:text-gray-400">
-                    Show:
-                  </label>
-                  <select
-                    id="items-per-page"
-                    value={itemsPerPage}
-                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                    className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  >
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                    <option value={-1}>All</option>
-                  </select>
-                </div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                  {itemsPerPage === -1 ? (
-                    `${filteredLeaders.length} of ${circleLeaders.length} leaders`
-                  ) : (
-                    `${startIndex + 1}-${Math.min(endIndex, filteredLeaders.length)} of ${filteredLeaders.length} leaders`
-                  )}
-                </div>
-              </div>
-            </div>          {isLoading ? (
-            <div className="space-y-4">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 animate-pulse">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1 pr-6">
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-2"></div>
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-2"></div>
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
-                    </div>
-                    <div className="flex-1 px-6">
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-                    </div>
-                    <div className="flex space-x-2">
-                      <div className="h-8 w-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                      <div className="h-8 w-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                      <div className="h-8 w-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : filteredLeaders.length === 0 ? (
-            <div className="text-center py-8 sm:py-12">
-              <svg 
-                className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-gray-400" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth="2" 
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                />
-              </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
-                No Circle Leaders found
-              </h3>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Try adjusting your filters or search terms.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {paginatedLeaders.map(leader => (
-                <CircleLeaderCard
-                  key={leader.id}
-                  leader={leader}
-                  onToggleEventSummary={handleToggleEventSummary}
-                  onOpenContactModal={openContactModal}
-                  onLogConnection={openLogConnectionModal}
-                  onAddNote={(leaderId, name) => openAddNoteModal(leaderId, name)}
-                  onClearFollowUp={handleClearFollowUp}
-                  onUpdateStatus={handleUpdateStatus}
-                  onToggleFollowUp={toggleFollowUp}
-                  isAdmin={isAdmin}
-                  statuses={statuses}
-                />
-              ))}
-            </div>
-          )}
-          
-          {/* Pagination Controls */}
-          {itemsPerPage !== -1 && totalPages > 1 && (
-            <div className="mt-6 flex items-center justify-between">
-              <div className="text-sm text-gray-700 dark:text-gray-300">
-                Page {currentPage} of {totalPages}
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-                >
-                  Previous
-                </button>
-                
-                {/* Page numbers */}
-                <div className="flex items-center space-x-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-                    
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`px-3 py-2 text-sm font-medium rounded-md ${
-                          currentPage === pageNum
-                            ? 'bg-blue-600 text-white'
-                            : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-                </div>
-                
-                
-                <button
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
             {/* Circle Visits Tab - Commented out for now

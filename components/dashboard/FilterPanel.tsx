@@ -320,6 +320,13 @@ export default function FilterPanel({
     };
   }, []);
 
+  // Set loading to false when reference data props are available
+  useEffect(() => {
+    if (campuses.length > 0 || directors.length > 0 || statuses.length > 0) {
+      setIsLoadingData(false);
+    }
+  }, [campuses, directors, statuses]);
+
   const toggleFilters = () => {
     const newVisible = !filtersVisible;
     setFiltersVisible(newVisible);

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import ProtectedRoute from '../../components/ProtectedRoute';
 
 export default function HelpPage() {
   const [activeSection, setActiveSection] = useState<string>('overview');
@@ -9,12 +10,12 @@ export default function HelpPage() {
   const sections = [
     { id: 'overview', title: 'Overview', icon: '🏠' },
     { id: 'dashboard', title: 'Dashboard', icon: '📊' },
+    { id: 'leaders', title: 'Circle Leaders Page', icon: '👥' },
     { id: 'circle-profiles', title: 'Circle Leader Profiles', icon: '👤' },
     { id: 'event-summaries', title: 'Event Summaries', icon: '📋' },
     { id: 'notes', title: 'Notes & Templates', icon: '📝' },
     { id: 'filters', title: 'Filtering & Search', icon: '🔍' },
-    { id: 'contact', title: 'Contact Features', icon: '📞' },
-    { id: 'shortcuts', title: 'Keyboard Shortcuts', icon: '⌨️' }
+    { id: 'contact', title: 'Contact Features', icon: '📞' }
   ];
 
   const scrollToSection = (sectionId: string) => {
@@ -26,22 +27,33 @@ export default function HelpPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            RADIUS Help Center
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Complete guide to using RADIUS Circle Leader Management System
-          </p>
-        </div>
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
+          {/* Header */}
+          <div className="mb-6 sm:mb-8">
+            <div className="flex items-center space-x-3 mb-4">
+              <Link 
+                href="/dashboard" 
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </Link>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                RADIUS Help Center
+              </h1>
+            </div>
+            <p className="text-gray-600 dark:text-gray-400">
+              Complete guide to using RADIUS Circle Leader Management System
+            </p>
+          </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Sidebar Navigation */}
-          <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 sticky top-4">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
+            {/* Sidebar Navigation */}
+            <div className="lg:col-span-1">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sticky top-4">
               <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Contents</h3>
               <nav className="space-y-2">
                 {sections.map((section) => (
@@ -64,10 +76,10 @@ export default function HelpPage() {
 
           {/* Main Content */}
           <div className="lg:col-span-3">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
               
               {/* Overview Section */}
-              <section id="overview" className="p-8 border-b border-gray-200 dark:border-gray-700">
+              <section id="overview" className="p-6 sm:p-8 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                   <span className="mr-3">🏠</span>Overview
                 </h2>
@@ -81,63 +93,137 @@ export default function HelpPage() {
                     <li>Circle leader profile management with detailed contact information</li>
                     <li>Event summary tracking and progress monitoring</li>
                     <li>Note-taking with templates for consistent communication</li>
+                    <li>Connection logging to track interactions and engagement</li>
                     <li>Advanced filtering and search capabilities</li>
                     <li>Direct contact integration (phone, text, email)</li>
                     <li>Status tracking and follow-up management</li>
                     <li>CCB integration for external profile links</li>
+                    <li>Mobile-responsive design with navigation optimized for all devices</li>
                   </ul>
 
                   <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                     <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">Getting Started</h4>
                     <p className="text-blue-700 dark:text-blue-300 text-sm">
-                      Start by exploring the Dashboard to get an overview of all circle leaders, then use the filters to find specific groups or individuals you need to work with.
+                      Start by exploring the Dashboard for a simplified campus-filtered view, or visit the Leaders page for comprehensive filtering options. Use the global search in the navigation to quickly find specific leaders.
                     </p>
                   </div>
                 </div>
               </section>
 
               {/* Dashboard Section */}
-              <section id="dashboard" className="p-8 border-b border-gray-200 dark:border-gray-700">
+              <section id="dashboard" className="p-6 sm:p-8 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                   <span className="mr-3">📊</span>Dashboard
                 </h2>
                 
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Dashboard Overview</h3>
                 <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  The Dashboard is your central hub for managing all circle leaders. It provides a comprehensive view with powerful filtering and status tracking.
+                  The Dashboard provides a streamlined view of circle leaders with simplified campus-based filtering for quick access to essential information.
                 </p>
 
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Status Cards</h4>
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Navigation Structure</h4>
                 <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                  <li><strong>Invited:</strong> Leaders who have been invited but haven't started yet</li>
-                  <li><strong>Pipeline:</strong> Leaders in the onboarding process</li>
-                  <li><strong>Active:</strong> Currently leading circles</li>
-                  <li><strong>Follow-Up:</strong> Leaders requiring immediate attention</li>
-                  <li><strong>Paused:</strong> Temporarily inactive leaders</li>
-                  <li><strong>Off-Boarding:</strong> Leaders transitioning out</li>
+                  <li><strong>Search:</strong> Global search functionality accessible from the navigation bar</li>
+                  <li><strong>Dashboard:</strong> Main dashboard view with simplified campus filtering</li>
+                  <li><strong>Summaries:</strong> Quick access to event summaries tracking</li>
+                  <li><strong>Leaders:</strong> Dedicated page for comprehensive leader management with full filtering</li>
+                  <li><strong>Settings/Help/Logout:</strong> Available in the hamburger menu for desktop, or main navigation on mobile</li>
                 </ul>
 
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Campus Filter</h4>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  The dashboard features a clean campus filter that allows you to view leaders from specific campuses. 
+                  You can select or deselect campuses to customize your view, with options to show/hide the filter panel and clear all selections easily.
+                </p>
+
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Dashboard Display</h4>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  The dashboard provides a simplified view focused on campus-based filtering. For detailed circle leader management, 
+                  including individual leader cards and comprehensive quick actions, use the dedicated Leaders page.
+                </p>
+
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Mobile Experience</h4>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  The dashboard is optimized for mobile devices with touch-friendly interfaces, responsive design, 
+                  and a navigation structure that prioritizes frequently used functions.
+                </p>
+
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">💡 Navigation Tip</h4>
+                  <p className="text-blue-700 dark:text-blue-300 text-sm">
+                    For comprehensive leader management including detailed circle leader cards, quick actions, contact features, 
+                    and advanced filtering options (status, meeting day, circle type, etc.), click "Leaders" in the navigation.
+                  </p>
+                </div>
+              </section>
+
+              {/* Circle Leaders Page Section */}
+              <section id="leaders" className="p-6 sm:p-8 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                  <span className="mr-3">👥</span>Circle Leaders Page
+                </h2>
+                
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  The dedicated Circle Leaders page provides comprehensive filtering and management capabilities with detailed circle leader cards and extensive quick actions.
+                </p>
+
                 <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Circle Leader Cards</h4>
-                <p className="text-gray-600 dark:text-gray-400 mb-2">Each leader card displays:</p>
+                <p className="text-gray-600 dark:text-gray-400 mb-2">Each leader card displays comprehensive information:</p>
                 <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                  <li>Name (clickable link to full profile)</li>
-                  <li>Campus and meeting details</li>
-                  <li>Current status with color coding</li>
-                  <li>Last note preview</li>
-                  <li>Action buttons (Contact, CCB, Quick Actions)</li>
+                  <li>Name with direct link to full profile</li>
+                  <li>Campus and meeting details (day, time, type)</li>
+                  <li>Current status with color-coded indicators</li>
+                  <li>Follow-up indicators when attention is needed</li>
+                  <li>Last note preview for quick context</li>
+                  <li>Event summary tracking status</li>
+                  <li>Action buttons for immediate management tasks</li>
                 </ul>
 
                 <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Quick Actions</h4>
-                <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400">
-                  <li><strong>Add Note:</strong> Quickly add a note without opening the full profile</li>
-                  <li><strong>Change Status:</strong> Update leader status directly from the card</li>
-                  <li><strong>Contact:</strong> Access phone, text, and email options</li>
-                  <li><strong>CCB Link:</strong> Open external CCB profile in new tab</li>
+                <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
+                  <li><strong>Contact:</strong> Direct access to phone, text, and email options</li>
+                  <li><strong>Log Connection:</strong> Record interactions and communications</li>
+                  <li><strong>Add Note:</strong> Quickly add notes without opening the full profile</li>
+                  <li><strong>Status Changes:</strong> Update leader status directly from the card</li>
+                  <li><strong>Toggle Follow-Up:</strong> Mark or clear follow-up requirements</li>
+                  <li><strong>Event Summary Toggle:</strong> Mark event summaries as received</li>
+                  <li><strong>Clear Follow-Up:</strong> Remove follow-up flags when issues are resolved</li>
                 </ul>
+
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Advanced Filtering</h4>
+                <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
+                  <li><strong>Status:</strong> Filter by current leader status, including a special "follow-up" filter</li>
+                  <li><strong>Campus:</strong> Show leaders from specific campuses</li>
+                  <li><strong>Circle Type:</strong> Filter by Men's, Women's, Young Adult, etc.</li>
+                  <li><strong>Meeting Day:</strong> Show leaders who meet on specific days</li>
+                  <li><strong>Time of Day:</strong> Filter by AM or PM meeting times</li>
+                  <li><strong>Connected:</strong> Show leaders with or without recent connections</li>
+                  <li><strong>Event Summary:</strong> Filter by event summary submission status</li>
+                </ul>
+
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Active Filter Tags</h4>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  Applied filters are displayed as removable tags above the results, making it easy to see what filters are active 
+                  and remove specific filters without clearing everything.
+                </p>
+
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Pagination & Export</h4>
+                <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
+                  <li>Choose to display 25, 50, 100, or all leaders per page</li>
+                  <li>Pagination controls for easy navigation through large datasets</li>
+                  <li>Export functionality to download filtered results</li>
+                </ul>
+
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                  <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">🎯 Pro Tip</h4>
+                  <p className="text-green-700 dark:text-green-300 text-sm">
+                    Use the "follow-up" status filter to quickly find leaders who need immediate attention. This filter works differently from other status filters and can be combined with them. The Leaders page is where all detailed leader management happens.
+                  </p>
+                </div>
               </section>
 
               {/* Circle Profiles Section */}
-              <section id="circle-profiles" className="p-8 border-b border-gray-200 dark:border-gray-700">
+              <section id="circle-profiles" className="p-6 sm:p-8 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                   <span className="mr-3">👤</span>Circle Leader Profiles
                 </h2>
@@ -151,17 +237,19 @@ export default function HelpPage() {
                   <li>Contact details (email, phone)</li>
                   <li>Campus and circle type</li>
                   <li>Meeting day and time</li>
-                  <li>Current status</li>
+                  <li>Current status with follow-up indicators</li>
                   <li>CCB profile integration</li>
+                  <li>Event summary tracking status</li>
                 </ul>
 
                 <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Notes Section</h4>
                 <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                  <li>Complete note history with timestamps</li>
+                  <li>Complete note history with timestamps and user attribution</li>
                   <li>Add new notes with rich text editing</li>
                   <li>Save notes as templates for reuse</li>
                   <li>Use existing note templates</li>
                   <li>Follow-up date and requirement tracking</li>
+                  <li>Connection logging with detailed tracking</li>
                 </ul>
 
                 <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Quick Actions Panel</h4>
@@ -170,11 +258,13 @@ export default function HelpPage() {
                   <li><strong>Status updates:</strong> Change leader status with dropdown</li>
                   <li><strong>CCB link:</strong> Quick access to external profile</li>
                   <li><strong>Event summary toggle:</strong> Mark if event summary received</li>
+                  <li><strong>Follow-up toggle:</strong> Mark or clear follow-up requirements</li>
+                  <li><strong>Connection logging:</strong> Record interactions and communications</li>
                 </ul>
               </section>
 
               {/* Event Summaries Section */}
-              <section id="event-summaries" className="p-8 border-b border-gray-200 dark:border-gray-700">
+              <section id="event-summaries" className="p-6 sm:p-8 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                   <span className="mr-3">📋</span>Event Summaries
                 </h2>
@@ -215,7 +305,7 @@ export default function HelpPage() {
               </section>
 
               {/* Notes & Templates Section */}
-              <section id="notes" className="p-8 border-b border-gray-200 dark:border-gray-700">
+              <section id="notes" className="p-6 sm:p-8 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                   <span className="mr-3">📝</span>Notes & Templates
                 </h2>
@@ -226,6 +316,7 @@ export default function HelpPage() {
                   <li>Add detailed notes from individual leader profiles</li>
                   <li>Notes automatically include timestamp and your user information</li>
                   <li>Set follow-up requirements and dates</li>
+                  <li>Connect notes to logged interactions and communications</li>
                 </ul>
 
                 <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Note Templates</h4>
@@ -253,7 +344,7 @@ export default function HelpPage() {
               </section>
 
               {/* Filters & Search Section */}
-              <section id="filters" className="p-8 border-b border-gray-200 dark:border-gray-700">
+              <section id="filters" className="p-6 sm:p-8 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                   <span className="mr-3">🔍</span>Filtering & Search
                 </h2>
@@ -265,14 +356,21 @@ export default function HelpPage() {
                   <li>Results show matching leaders with direct links to profiles</li>
                 </ul>
 
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Dashboard Filters</h4>
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Dashboard Filters (Simplified)</h4>
                 <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                  <li><strong>Status:</strong> Filter by current leader status</li>
+                  <li><strong>Campus:</strong> Show leaders from specific campuses only</li>
+                  <li>Simple show/hide toggle for the filter panel</li>
+                  <li>"Clear All" button to reset campus selections</li>
+                </ul>
+
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Leaders Page Filters (Full Featured)</h4>
+                <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
+                  <li><strong>Status:</strong> Filter by current leader status, including special "follow-up" option</li>
                   <li><strong>Campus:</strong> Show leaders from specific campuses</li>
                   <li><strong>Circle Type:</strong> Filter by Men's, Women's, Young Adult, etc.</li>
                   <li><strong>Meeting Day:</strong> Show leaders who meet on specific days</li>
                   <li><strong>Time of Day:</strong> Filter by AM or PM meeting times</li>
-                  <li><strong>Connected:</strong> Show leaders with or without recent contact</li>
+                  <li><strong>Connected:</strong> Show leaders with or without recent connections</li>
                   <li><strong>Event Summary:</strong> Filter by event summary submission status</li>
                 </ul>
 
@@ -286,14 +384,14 @@ export default function HelpPage() {
                 <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Filter Tips</h4>
                 <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400">
                   <li>Combine multiple filters for precise results</li>
-                  <li>Filters persist when navigating between Dashboard and Event Summaries</li>
-                  <li>Use "Clear Filters" to reset to show all leaders</li>
-                  <li>Status filter automatically updates counts in status cards</li>
+                  <li>Filters persist in URL parameters when navigating</li>
+                  <li>Use "Clear All" buttons to reset filter selections</li>
+                  <li>Active filters are shown as removable tags</li>
                 </ul>
               </section>
 
               {/* Contact Features Section */}
-              <section id="contact" className="p-8 border-b border-gray-200 dark:border-gray-700">
+              <section id="contact" className="p-6 sm:p-8">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                   <span className="mr-3">📞</span>Contact Features
                 </h2>
@@ -308,65 +406,23 @@ export default function HelpPage() {
                   <li><strong>Email:</strong> Opens your email client with a new message</li>
                 </ul>
 
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Contact Information Display</h4>
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Connection Logging</h4>
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  Track your interactions with circle leaders using the "Log Connection" feature:
+                </p>
                 <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
+                  <li>Record the type of communication (call, text, email, in-person)</li>
+                  <li>Add notes about the interaction</li>
+                  <li>Automatic timestamping and user attribution</li>
+                  <li>Helps track engagement and follow-up needs</li>
+                </ul>
+
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Contact Information Display</h4>
+                <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-6">
                   <li>Contact buttons only appear when phone or email is available</li>
                   <li>Missing contact info is clearly indicated</li>
                   <li>Contact modal shows both phone and email when available</li>
                 </ul>
-
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">CCB Integration</h4>
-                <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400">
-                  <li>CCB links open external Church Community Builder profiles</li>
-                  <li>Opens in new tab to preserve your RADIUS session</li>
-                  <li>Available on dashboard cards, profiles, and event summaries</li>
-                  <li>Clearly marked when CCB profile is not available</li>
-                </ul>
-              </section>
-
-              {/* Keyboard Shortcuts Section */}
-              <section id="shortcuts" className="p-8">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                  <span className="mr-3">⌨️</span>Keyboard Shortcuts
-                </h2>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Navigation</h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
-                        <span className="text-gray-600 dark:text-gray-400">Go to Dashboard</span>
-                        <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-600 rounded text-xs font-mono">Cmd+1</kbd>
-                      </div>
-                      <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
-                        <span className="text-gray-600 dark:text-gray-400">Go to Event Summaries</span>
-                        <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-600 rounded text-xs font-mono">Cmd+2</kbd>
-                      </div>
-                      <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
-                        <span className="text-gray-600 dark:text-gray-400">Global Search</span>
-                        <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-600 rounded text-xs font-mono">Cmd+K</kbd>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Actions</h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
-                        <span className="text-gray-600 dark:text-gray-400">Add Note (on profile)</span>
-                        <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-600 rounded text-xs font-mono">Cmd+N</kbd>
-                      </div>
-                      <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
-                        <span className="text-gray-600 dark:text-gray-400">Save Note</span>
-                        <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-600 rounded text-xs font-mono">Cmd+S</kbd>
-                      </div>
-                      <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
-                        <span className="text-gray-600 dark:text-gray-400">Close Modal</span>
-                        <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-600 rounded text-xs font-mono">Esc</kbd>
-                      </div>
-                    </div>
-                  </div>
-                </div>
 
                 <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                   <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">📚 Need More Help?</h4>
@@ -399,5 +455,6 @@ export default function HelpPage() {
         </div>
       </div>
     </div>
+    </ProtectedRoute>
   );
 }
