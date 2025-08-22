@@ -6,7 +6,7 @@ interface ProgressBarProps {
   receivedCount: number;
   totalCount: number;
   onResetCheckboxes: () => void;
-  filters?: any; // Dashboard filters to pass to event summaries page
+  filters?: any; // Dashboard filters to pass to leaders page
 }
 
 export default function EventSummaryProgress({ 
@@ -19,29 +19,41 @@ export default function EventSummaryProgress({
   const percentage = totalCount > 0 ? Math.round((receivedCount / totalCount) * 100) : 0;
   
   const handleUpdateClick = () => {
-    // Navigate to event summaries page with current filters
+    // Navigate to leaders page with filters for "not received" event summaries
     const searchParams = new URLSearchParams();
     
+    // Set event summary filter to show "not received" only
+    searchParams.set('eventSummary', 'not_received');
+    
+    // Pass current dashboard filters to leaders page
     if (filters) {
-      // Pass relevant filters as URL params
+      // Handle array filters by appending each value separately
       if (filters.campus && filters.campus.length > 0) {
-        searchParams.set('campus', JSON.stringify(filters.campus));
+        filters.campus.forEach((campus: string) => {
+          searchParams.append('campus', campus);
+        });
       }
       if (filters.acpd && filters.acpd.length > 0) {
-        searchParams.set('acpd', JSON.stringify(filters.acpd));
+        filters.acpd.forEach((acpd: string) => {
+          searchParams.append('acpd', acpd);
+        });
       }
       if (filters.status && filters.status.length > 0) {
-        searchParams.set('status', JSON.stringify(filters.status));
+        filters.status.forEach((status: string) => {
+          searchParams.append('status', status);
+        });
       }
       if (filters.circleType && filters.circleType.length > 0) {
-        searchParams.set('circleType', JSON.stringify(filters.circleType));
+        filters.circleType.forEach((circleType: string) => {
+          searchParams.append('circleType', circleType);
+        });
       }
       if (filters.meetingDay && filters.meetingDay.length > 0) {
-        searchParams.set('meetingDay', JSON.stringify(filters.meetingDay));
+        filters.meetingDay.forEach((meetingDay: string) => {
+          searchParams.append('meetingDay', meetingDay);
+        });
       }
-      if (filters.eventSummary && filters.eventSummary !== 'all') {
-        searchParams.set('eventSummary', filters.eventSummary);
-      }
+      // Handle single value filters
       if (filters.connected && filters.connected !== 'all') {
         searchParams.set('connected', filters.connected);
       }
@@ -51,7 +63,7 @@ export default function EventSummaryProgress({
     }
     
     const queryString = searchParams.toString();
-    const url = queryString ? `/dashboard/event-summaries?${queryString}` : '/dashboard/event-summaries';
+    const url = queryString ? `/leaders?${queryString}` : '/leaders?eventSummary=not_received';
     
     router.push(url);
   };

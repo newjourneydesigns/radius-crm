@@ -4,20 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../contexts/AuthContext";
-import { Suspense } from "react";
 import GlobalSearch from './GlobalSearch';
-
-// Simplified Event Summaries Link component
-function EventSummariesLinkSimple() {
-  return (
-    <Link 
-      href="/dashboard/event-summaries"
-      className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-    >
-      Summaries
-    </Link>
-  );
-}
 
 export default function AuthenticatedNavigation() {
   const { user, signOut, isAuthenticated } = useAuth();
@@ -70,16 +57,6 @@ export default function AuthenticatedNavigation() {
             >
               Dashboard
             </Link>
-            <Suspense fallback={
-              <Link 
-                href="/dashboard/event-summaries"
-                className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-              >
-                Summaries
-              </Link>
-            }>
-              <EventSummariesLinkSimple />
-            </Suspense>
             <Link 
               href="/leaders" 
               className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"

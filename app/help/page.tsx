@@ -12,7 +12,6 @@ export default function HelpPage() {
     { id: 'dashboard', title: 'Dashboard', icon: '📊' },
     { id: 'leaders', title: 'Circle Leaders Page', icon: '👥' },
     { id: 'circle-profiles', title: 'Circle Leader Profiles', icon: '👤' },
-    { id: 'event-summaries', title: 'Event Summaries', icon: '📋' },
     { id: 'notes', title: 'Notes & Templates', icon: '📝' },
     { id: 'filters', title: 'Filtering & Search', icon: '🔍' },
     { id: 'contact', title: 'Contact Features', icon: '📞' }
@@ -261,47 +260,6 @@ export default function HelpPage() {
                   <li><strong>Follow-up toggle:</strong> Mark or clear follow-up requirements</li>
                   <li><strong>Connection logging:</strong> Record interactions and communications</li>
                 </ul>
-              </section>
-
-              {/* Event Summaries Section */}
-              <section id="event-summaries" className="p-6 sm:p-8 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                  <span className="mr-3">📋</span>Event Summaries
-                </h2>
-                
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  Track event summary submissions from circle leaders with a dedicated tracking interface.
-                </p>
-
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Progress Tracking</h4>
-                <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                  <li>Visual progress bar showing completion percentage</li>
-                  <li>Total count of submitted vs. pending summaries</li>
-                  <li>Automatic filtering of inactive leaders (invited, pipeline, archived)</li>
-                </ul>
-
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Table Features</h4>
-                <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                  <li><strong>Sortable columns:</strong> Name, Meeting Day (Sun-Sat order), Status</li>
-                  <li><strong>Meeting Day column:</strong> Shows when each circle meets</li>
-                  <li><strong>Status indicators:</strong> Color-coded status badges</li>
-                  <li><strong>Contact buttons:</strong> Direct communication access</li>
-                  <li><strong>Checkboxes:</strong> Mark summaries as received</li>
-                </ul>
-
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Mobile View</h4>
-                <p className="text-gray-600 dark:text-gray-400 mb-2">On mobile devices, information is organized in cards showing:</p>
-                <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                  <li>Circle Leader name (with profile link)</li>
-                  <li>Meeting day information</li>
-                  <li>CCB and Contact buttons</li>
-                  <li>Event summary checkbox</li>
-                </ul>
-
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Reset Functionality</h4>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Use the "Reset All Event Summaries" button to clear all checkboxes when starting a new tracking period.
-                </p>
               </section>
 
               {/* Notes & Templates Section */}

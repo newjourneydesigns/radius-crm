@@ -15,7 +15,6 @@ export default function MobileNavigation() {
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard' },
-    { name: 'Summaries', href: '/dashboard/event-summaries' },
     { name: 'Leaders', href: '/leaders' },
   ];
 

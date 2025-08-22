@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 
-export interface DashboardFilters {
+export interface LeaderFilters {
   campus: string[];
   acpd: string[];
   status: string[];
@@ -12,39 +12,31 @@ export interface DashboardFilters {
   timeOfDay: string;
 }
 
-// Get today's day name for default filter
-const getTodayDayName = (): string => {
-  const today = new Date();
-  const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  return daysOfWeek[today.getDay()];
-};
-
-export const defaultFilters: DashboardFilters = {
+export const defaultLeaderFilters: LeaderFilters = {
   campus: [],
   acpd: [],
   status: [],
-  meetingDay: [], // No default filter - show all days
+  meetingDay: [],
   circleType: [],
   eventSummary: 'all',
   connected: 'all',
   timeOfDay: 'all'
 };
 
-export const useDashboardFilters = () => {
-  const [filters, setFilters] = useState<DashboardFilters>(defaultFilters);
-  const [isInitialized, setIsInitialized] = useState(false); // Start uninitialized until localStorage is checked
-  const [isFirstVisit, setIsFirstVisit] = useState(false);
+export const useLeaderFilters = () => {
+  const [filters, setFilters] = useState<LeaderFilters>(defaultLeaderFilters);
+  const [isInitialized, setIsInitialized] = useState(false);
   const searchParams = useSearchParams();
+  const router = useRouter();
 
-  // Load saved filters on mount - check URL params first, then localStorage
+  // Initialize filters from URL parameters first, then localStorage
   useEffect(() => {
     try {
-      let initialFilters = { ...defaultFilters };
+      let initialFilters = { ...defaultLeaderFilters };
       let hasUrlParams = false;
 
-      // Parse URL parameters first
+      // Parse URL parameters
       if (searchParams) {
-        console.log('🔗 [useDashboardFilters] searchParams detected:', searchParams.toString());
         const urlCampus = searchParams.getAll('campus').filter(c => c && c !== '__ALL_CAMPUSES__');
         const urlAcpd = searchParams.getAll('acpd');
         const urlStatus = searchParams.getAll('status');
@@ -53,11 +45,6 @@ export const useDashboardFilters = () => {
         const urlEventSummary = searchParams.get('eventSummary');
         const urlConnected = searchParams.get('connected');
         const urlTimeOfDay = searchParams.get('timeOfDay');
-
-        console.log('🔗 [useDashboardFilters] Parsed URL params:', {
-          urlCampus, urlAcpd, urlStatus, urlMeetingDay, urlCircleType,
-          urlEventSummary, urlConnected, urlTimeOfDay
-        });
 
         if (urlCampus.length > 0 || urlAcpd.length > 0 || urlStatus.length > 0 || 
             urlMeetingDay.length > 0 || urlCircleType.length > 0 || 
@@ -75,19 +62,15 @@ export const useDashboardFilters = () => {
             timeOfDay: urlTimeOfDay || 'all'
           };
           
-          console.log('📄 [useDashboardFilters] Loaded filters from URL:', initialFilters);
-        } else {
-          console.log('🔗 [useDashboardFilters] No URL parameters found');
+          console.log('📄 [useLeaderFilters] Loaded filters from URL:', initialFilters);
         }
-      } else {
-        console.log('🔗 [useDashboardFilters] No searchParams available');
       }
 
       // If no URL params, try localStorage
       if (!hasUrlParams) {
-        const savedState = localStorage.getItem('radiusDashboardFilters');
+        const savedState = localStorage.getItem('radiusLeaderFilters');
         if (savedState) {
-          console.log('📂 [useDashboardFilters] Loading saved filters from localStorage:', savedState);
+          console.log('📂 [useLeaderFilters] Loading saved filters from localStorage:', savedState);
           const filterState = JSON.parse(savedState);
           initialFilters = {
             campus: (filterState.campus || []).filter((c: string) => c && c !== '__ALL_CAMPUSES__'),
@@ -99,50 +82,42 @@ export const useDashboardFilters = () => {
             connected: filterState.connected || 'all',
             timeOfDay: filterState.timeOfDay || 'all'
           };
-          console.log('📂 [useDashboardFilters] Parsed and cleaned filters:', initialFilters);
-        } else {
-          console.log('📂 [useDashboardFilters] No saved filters found, marking as first visit');
-          setIsFirstVisit(true);
+          console.log('📂 [useLeaderFilters] Parsed and cleaned filters:', initialFilters);
         }
       }
 
       setFilters(initialFilters);
-      // Mark as initialized whether we found saved data or not
-      console.log('🚀 [useDashboardFilters] Setting isInitialized to true');
       setIsInitialized(true);
+      console.log('🚀 [useLeaderFilters] Initialization complete');
     } catch (error) {
       console.error('Error loading filter state:', error);
-      console.log('🚀 [useDashboardFilters] Setting isInitialized to true (after error)');
-      setIsInitialized(true); // Still mark as initialized even on error
+      setFilters(defaultLeaderFilters);
+      setIsInitialized(true);
     }
   }, [searchParams]);
 
-  // Save filters to localStorage whenever they change
+  // Save filters to localStorage whenever they change (but not URL params)
   useEffect(() => {
     if (typeof window !== 'undefined' && isInitialized) {
-      console.log('💾 [useDashboardFilters] Saving filters to localStorage:', filters);
+      console.log('💾 [useLeaderFilters] Saving filters to localStorage:', filters);
       try {
-        localStorage.setItem('radiusDashboardFilters', JSON.stringify(filters));
-        console.log('✅ [useDashboardFilters] Successfully saved to localStorage');
+        localStorage.setItem('radiusLeaderFilters', JSON.stringify(filters));
+        console.log('✅ [useLeaderFilters] Successfully saved to localStorage');
       } catch (error) {
-        console.error('❌ [useDashboardFilters] Failed to save to localStorage:', error);
+        console.error('❌ [useLeaderFilters] Failed to save to localStorage:', error);
       }
-    } else if (!isInitialized) {
-      console.log('⏳ [useDashboardFilters] Skipping save - not initialized yet');
     }
   }, [filters, isInitialized]);
 
-  const updateFilters = useCallback((newFilters: Partial<DashboardFilters>) => {
+  const updateFilters = useCallback((newFilters: Partial<LeaderFilters>) => {
     setFilters(prev => ({ ...prev, ...newFilters }));
-    // Once user selects filters, it's no longer first visit
-    if (isFirstVisit) {
-      setIsFirstVisit(false);
-    }
-  }, [isFirstVisit]);
+  }, []);
 
   const clearAllFilters = useCallback(() => {
-    setFilters(defaultFilters);
-  }, []);
+    setFilters(defaultLeaderFilters);
+    // Clear URL parameters
+    router.push('/leaders');
+  }, [router]);
 
   // Memoize the filters object to prevent unnecessary re-renders
   const memoizedFilters = useMemo(() => filters, [
@@ -156,5 +131,10 @@ export const useDashboardFilters = () => {
     filters.timeOfDay
   ]);
 
-  return { filters: memoizedFilters, updateFilters, clearAllFilters, isInitialized, isFirstVisit };
+  return { 
+    filters: memoizedFilters, 
+    updateFilters, 
+    clearAllFilters, 
+    isInitialized 
+  };
 };

@@ -10,7 +10,7 @@ import ContactModal from '../../components/dashboard/ContactModal';
 import LogConnectionModal from '../../components/dashboard/LogConnectionModal';
 import AddNoteModal from '../../components/dashboard/AddNoteModal';
 import ExportModal from '../../components/dashboard/ExportModal';
-import { useDashboardFilters } from '../../hooks/useDashboardFilters';
+import { useLeaderFilters } from '../../hooks/useLeaderFilters';
 import { useCircleLeaders } from '../../hooks/useCircleLeaders';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -22,7 +22,7 @@ function LeadersContent() {
   const { user } = useAuth();
   
   // Initialize filters
-  const { filters, updateFilters, clearAllFilters, isInitialized } = useDashboardFilters();
+  const { filters, updateFilters, clearAllFilters, isInitialized } = useLeaderFilters();
   
   // Get circle leaders data
   const {
@@ -264,6 +264,25 @@ function LeadersContent() {
     setAddNoteModal({ isOpen: false, leaderId: 0, name: '', clearFollowUp: false });
   };
 
+  // Create dashboard URL with current campus filters
+  const getDashboardUrl = () => {
+    const url = '/dashboard';
+    if (filters.campus.length === 0) {
+      console.log('🔗 [Leaders] getDashboardUrl: No campus filters, returning:', url);
+      return url;
+    }
+    
+    const searchParams = new URLSearchParams();
+    filters.campus.forEach(campus => {
+      searchParams.append('campus', campus);
+    });
+    
+    const fullUrl = `${url}?${searchParams.toString()}`;
+    console.log('🔗 [Leaders] getDashboardUrl: Campus filters found, returning:', fullUrl);
+    console.log('🔗 [Leaders] Current filters.campus:', filters.campus);
+    return fullUrl;
+  };
+
   const handleFiltersChange = (newFilters: any) => {
     updateFilters(newFilters);
   };
@@ -308,7 +327,7 @@ function LeadersContent() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center space-x-3">
                 <Link 
-                  href="/dashboard" 
+                  href={getDashboardUrl()} 
                   className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -331,11 +350,11 @@ function LeadersContent() {
             </div>
           </div>
 
-          {/* Active Filter Tags */}
+          {/* Sticky Active Filter Tags */}
           {(filters.campus.length > 0 || filters.acpd.length > 0 || filters.status.length > 0 || 
             filters.meetingDay.length > 0 || filters.circleType.length > 0 || 
             filters.eventSummary !== 'all' || filters.connected !== 'all' || filters.timeOfDay !== 'all') && (
-            <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div className="sticky top-0 z-[999] bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 -mx-3 sm:-mx-4 lg:-mx-8 px-3 sm:px-4 lg:px-8 py-3 mb-6">
               <div className="flex items-center flex-wrap gap-2">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Active Filters:</span>
                 
@@ -354,6 +373,118 @@ function LeadersContent() {
                     </button>
                   </span>
                 ))}
+
+                {/* ACPD Tags */}
+                {filters.acpd.map(acpd => (
+                  <span key={`acpd-${acpd}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                    ACPD: {acpd}
+                    <button
+                      onClick={() => updateFilters({...filters, acpd: filters.acpd.filter(a => a !== acpd)})}
+                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-purple-400 hover:bg-purple-200 hover:text-purple-600 dark:hover:bg-purple-800"
+                    >
+                      <span className="sr-only">Remove {acpd} filter</span>
+                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+
+                {/* Status Tags */}
+                {filters.status.map(status => (
+                  <span key={`status-${status}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                    Status: {status}
+                    <button
+                      onClick={() => updateFilters({...filters, status: filters.status.filter(s => s !== status)})}
+                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-green-400 hover:bg-green-200 hover:text-green-600 dark:hover:bg-green-800"
+                    >
+                      <span className="sr-only">Remove {status} filter</span>
+                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+
+                {/* Meeting Day Tags */}
+                {filters.meetingDay.map(day => (
+                  <span key={`meetingDay-${day}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
+                    Meeting Day: {day}
+                    <button
+                      onClick={() => updateFilters({...filters, meetingDay: filters.meetingDay.filter(d => d !== day)})}
+                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-indigo-400 hover:bg-indigo-200 hover:text-indigo-600 dark:hover:bg-indigo-800"
+                    >
+                      <span className="sr-only">Remove {day} filter</span>
+                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+
+                {/* Circle Type Tags */}
+                {filters.circleType.map(type => (
+                  <span key={`circleType-${type}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200">
+                    Circle Type: {type}
+                    <button
+                      onClick={() => updateFilters({...filters, circleType: filters.circleType.filter(t => t !== type)})}
+                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-pink-400 hover:bg-pink-200 hover:text-pink-600 dark:hover:bg-pink-800"
+                    >
+                      <span className="sr-only">Remove {type} filter</span>
+                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+
+                {/* Event Summary Tag */}
+                {filters.eventSummary !== 'all' && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                    Event Summary: {filters.eventSummary === 'received' ? 'Received' : 'Not Received'}
+                    <button
+                      onClick={() => updateFilters({...filters, eventSummary: 'all'})}
+                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-yellow-400 hover:bg-yellow-200 hover:text-yellow-600 dark:hover:bg-yellow-800"
+                    >
+                      <span className="sr-only">Remove event summary filter</span>
+                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
+                      </svg>
+                    </button>
+                  </span>
+                )}
+
+                {/* Connected Tag */}
+                {filters.connected !== 'all' && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200">
+                    Connected: {filters.connected === 'yes' ? 'Yes' : 'No'}
+                    <button
+                      onClick={() => updateFilters({...filters, connected: 'all'})}
+                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-teal-400 hover:bg-teal-200 hover:text-teal-600 dark:hover:bg-teal-800"
+                    >
+                      <span className="sr-only">Remove connected filter</span>
+                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
+                      </svg>
+                    </button>
+                  </span>
+                )}
+
+                {/* Time of Day Tag */}
+                {filters.timeOfDay !== 'all' && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200">
+                    Time of Day: {filters.timeOfDay}
+                    <button
+                      onClick={() => updateFilters({...filters, timeOfDay: 'all'})}
+                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-cyan-400 hover:bg-cyan-200 hover:text-cyan-600 dark:hover:bg-cyan-800"
+                    >
+                      <span className="sr-only">Remove time of day filter</span>
+                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
+                      </svg>
+                    </button>
+                  </span>
+                )}
                 
                 {/* Clear All Button */}
                 <button
