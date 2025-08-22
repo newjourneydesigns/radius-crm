@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import ProtectedRoute from '../../components/ProtectedRoute';
@@ -15,7 +15,8 @@ import { useCircleLeaders } from '../../hooks/useCircleLeaders';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 
-export default function LeadersPage() {
+// Separate component that uses useSearchParams
+function LeadersContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -300,9 +301,8 @@ export default function LeadersPage() {
   };
 
   return (
-    <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
           {/* Header */}
           <div className="mb-6 sm:mb-8">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
@@ -581,6 +581,23 @@ export default function LeadersPage() {
           leaders={filteredLeaders}
         />
       </div>
+    );
+  }
+
+// Main component with Suspense boundary
+export default function LeadersPage() {
+  return (
+    <ProtectedRoute>
+      <Suspense fallback={
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+          </div>
+        </div>
+      }>
+        <LeadersContent />
+      </Suspense>
     </ProtectedRoute>
   );
 }
