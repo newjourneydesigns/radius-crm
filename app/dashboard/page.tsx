@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import FilterPanel from '../../components/dashboard/SimpleCampusFilter';
 import { DashboardFilters } from '../../hooks/useDashboardFilters';
 import CircleLeaderCard from '../../components/dashboard/CircleLeaderCard';
@@ -38,7 +38,8 @@ interface LogConnectionModalData {
   name: string;
 }
 
-export default function DashboardPage() {
+// Separate component that uses useSearchParams
+function DashboardContent() {
   const { user } = useAuth();
   const { filters, updateFilters, clearAllFilters, isInitialized, isFirstVisit } = useDashboardFilters();
   
@@ -1857,5 +1858,20 @@ export default function DashboardPage() {
       )}
       </div>
     </ProtectedRoute>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading dashboard...</p>
+        </div>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   );
 }
