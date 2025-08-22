@@ -5,6 +5,7 @@ import MobileNavigation from "../components/layout/MobileNavigation";
 import AuthenticatedNavigation from "../components/layout/AuthenticatedNavigation";
 import PublicNavigation from "../components/layout/PublicNavigation";
 import Footer from "../components/layout/Footer";
+import ScrollToTop from "../components/ui/ScrollToTop";
 import { AuthProvider } from "../contexts/AuthContext";
 
 export default function RootLayout({ 
@@ -129,6 +130,9 @@ export default function RootLayout({
           
           {/* Footer */}
           <Footer />
+          
+          {/* Scroll to Top Button */}
+          <ScrollToTop />
         </AuthProvider>
       </body>
     </html>
