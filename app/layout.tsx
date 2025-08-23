@@ -114,7 +114,7 @@ export default function RootLayout({
           `
         }} />
       </head>
-      <body className="font-sans bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
+      <body className="font-sans">
         <AuthProvider>
           {/* Mobile Navigation */}
           <MobileNavigation />
