@@ -29,9 +29,9 @@ export default function RootLayout({
         <meta name="format-detection" content="telephone=no" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
-        <meta name="msapplication-TileColor" content="#1e3a8a" />
+        <meta name="msapplication-TileColor" content="#091b34" />
         <meta name="msapplication-tap-highlight" content="no" />
-        <meta name="theme-color" content="#1e3a8a" />
+        <meta name="theme-color" content="#091b34" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 
         {/* Favicon Links */}
@@ -46,25 +46,22 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         
-        {/* Force Dark Mode Script - runs immediately */}
+        {/* Dark Green Theme Force Script */}
         <script dangerouslySetInnerHTML={{
           __html: `
-            // Force dark mode immediately before any rendering
             (function() {
+              // Force dark green theme immediately
               const html = document.documentElement;
               html.classList.add('dark');
-              html.style.colorScheme = 'dark';
-              html.style.backgroundColor = '#1e3a8a';
-              document.body.style.backgroundColor = '#2563eb';
-              document.body.style.color = 'white';
+              html.style.cssText = 'color-scheme: dark !important; background: linear-gradient(135deg, #091b34 0%, #0b2545 25%, #4c6785 75%, #8da9c4 100%) !important; background-attachment: fixed !important; min-height: 100vh !important; color: #eef4ed !important;';
               
-              // Force dark mode preference
-              localStorage.setItem('theme', 'dark');
-              
-              // Override any Tailwind or framework theme detection
-              if (window.matchMedia) {
-                window.matchMedia('(prefers-color-scheme: dark)').matches = true;
+              if (document.body) {
+                document.body.style.cssText = 'background: linear-gradient(135deg, #091b34 0%, #0b2545 25%, #4c6785 75%, #8da9c4 100%) !important; background-attachment: fixed !important; background-repeat: no-repeat !important; background-size: cover !important; min-height: 100vh !important; color: #eef4ed !important; color-scheme: dark !important;';
               }
+              
+              // Force theme preference
+              localStorage.setItem('theme', 'dark');
+              localStorage.setItem('color-scheme', 'dark');
             })();
           `
         }} />
@@ -138,14 +135,14 @@ export default function RootLayout({
           `
         }} />
       </head>
-      <body className="font-sans dark bg-gradient-to-br from-blue-800 via-blue-700 to-blue-500 text-white min-h-screen" style={{
-        backgroundColor: '#2563eb',
-        background: 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 25%, #2563eb 75%, #3b82f6 100%)',
+      <body className="font-sans dark" style={{
+        backgroundColor: '#0b2545',
+        background: 'linear-gradient(135deg, #091b34 0%, #0b2545 25%, #4c6785 75%, #8da9c4 100%)',
         minHeight: '100vh',
         backgroundAttachment: 'fixed',
         backgroundRepeat: 'no-repeat',
         backgroundSize: 'cover',
-        color: 'white',
+        color: '#eef4ed',
         colorScheme: 'dark'
       }}>
         <AuthProvider>

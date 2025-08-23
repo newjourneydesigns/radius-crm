@@ -2,115 +2,122 @@
 @tailwind components;
 @tailwind utilities;
 
-/* FORCE DARK MODE EVERYWHERE - Override any light mode styles */
+/* Dark Green Theme - Custom gradient background */
 * {
   color-scheme: dark !important;
 }
 
-*,
-*::before,
-*::after {
-  color-scheme: dark !important;
-}
-
 html {
-  background-color: #1e3a8a !important;
+  background-color: #091b34 !important;
   color-scheme: dark !important;
-  filter: invert(0) !important; /* Prevent any inversion */
 }
 
 html.dark {
   color-scheme: dark !important;
 }
 
-/* Force dark mode on body and override any framework defaults */
 body {
-  /* Fallback solid color for browsers that don't support gradients */
-  background-color: #2563eb !important; /* blue-600 */
+  /* Fallback solid color */
+  background-color: #0b2545 !important;
   
-  /* Beautiful gradient from darker blue at top to normal blue at bottom */
+  /* Beautiful dark green gradient */
   background: linear-gradient(
     135deg,
-    #1e3a8a 0%,     /* blue-800 - darker at top */
-    #1e40af 25%,    /* blue-700 - medium-dark */
-    #2563eb 75%,    /* blue-600 - your Personal Notes button color */
-    #3b82f6 100%    /* blue-500 - slightly lighter at bottom */
+    #091b34 0%,     /* Very dark blue-green - darkest at top */
+    #0b2545 25%,    /* Dark blue-green */
+    #4c6785 75%,    /* Medium blue-green */
+    #8da9c4 100%    /* Light blue-green - lighter at bottom */
   ) !important;
   
   /* Ensure the gradient covers the full height */
   min-height: 100vh !important;
   
-  /* Make sure the gradient is fixed so it doesn't move with content */
+  /* Make sure the gradient is fixed */
   background-attachment: fixed !important;
   background-repeat: no-repeat !important;
   background-size: cover !important;
   
-  /* Text color adjustments for better contrast */
-  color: white !important;
-  color-scheme: dark !important;
+  /* Light text on dark background */
+  color: #eef4ed !important;
 }
 
-/* Force dark mode classes everywhere */
+/* Force dark mode classes */
 .dark {
   color-scheme: dark !important;
 }
 
-/* Override any light backgrounds that might appear */
-.bg-white {
-  background-color: rgba(31, 41, 55, 0.95) !important;
-  backdrop-filter: blur(10px) !important;
-}
-
+/* Dark Green Theme Component Overrides */
 .bg-gray-50 {
-  background-color: rgba(17, 24, 39, 0.95) !important;
+  background-color: rgba(11, 37, 69, 0.95) !important; /* #0b2545 with transparency */
   backdrop-filter: blur(10px) !important;
+  color: #eef4ed !important;
 }
 
 .dark .bg-gray-900 {
-  background-color: rgba(17, 24, 39, 0.95) !important;
+  background-color: rgba(9, 27, 52, 0.95) !important; /* #091b34 with transparency */
   backdrop-filter: blur(10px) !important;
+  color: #eef4ed !important;
+}
+
+/* Card and panel backgrounds */
+.bg-white {
+  background-color: rgba(11, 37, 69, 0.85) !important; /* #0b2545 with more transparency */
+  backdrop-filter: blur(10px) !important;
+  color: #eef4ed !important;
+  border: 1px solid rgba(76, 103, 133, 0.3) !important; /* #4c6785 border */
 }
 
 .dark .bg-gray-800 {
-  background-color: rgba(31, 41, 55, 0.95) !important;
+  background-color: rgba(76, 103, 133, 0.9) !important; /* #4c6785 with transparency */
   backdrop-filter: blur(10px) !important;
+  color: #eef4ed !important;
 }
 
-/* Force text colors to be appropriate for dark mode */
-.text-gray-900 {
-  color: #f9fafb !important;
+/* Navigation and buttons - using your color palette */
+button,
+.btn {
+  background-color: rgba(76, 103, 133, 0.8) !important; /* #4c6785 */
+  color: #eef4ed !important;
+  border-color: rgba(141, 169, 196, 0.3) !important; /* #8da9c4 */
 }
 
-.text-gray-800 {
-  color: #f3f4f6 !important;
+button:hover,
+.btn:hover {
+  background-color: rgba(141, 169, 196, 0.9) !important; /* #8da9c4 on hover */
 }
 
-.text-gray-700 {
-  color: #e5e7eb !important;
+/* Input fields */
+input,
+textarea,
+select {
+  background-color: rgba(11, 37, 69, 0.6) !important; /* #0b2545 */
+  color: #eef4ed !important;
+  border-color: rgba(76, 103, 133, 0.5) !important; /* #4c6785 */
 }
 
+input::placeholder,
+textarea::placeholder {
+  color: rgba(238, 244, 237, 0.7) !important; /* #eef4ed with opacity */
+}
+
+/* Text colors for better contrast */
+.text-gray-900,
+.text-gray-800,
+.text-gray-700,
 .text-black {
-  color: #f9fafb !important;
+  color: #eef4ed !important;
 }
 
-/* Ensure content areas have proper backgrounds to maintain readability */
-.bg-gray-50 {
-  background-color: rgba(249, 250, 251, 0.95) !important;
-  backdrop-filter: blur(10px);
+.text-gray-600,
+.text-gray-500 {
+  color: rgba(238, 244, 237, 0.8) !important;
 }
 
-.dark .bg-gray-900 {
-  background-color: rgba(17, 24, 39, 0.95) !important;
-  backdrop-filter: blur(10px);
+/* Links and accents */
+a {
+  color: #8da9c4 !important; /* Light blue-green for links */
 }
 
-/* Card and panel backgrounds for better contrast */
-.bg-white {
-  background-color: rgba(255, 255, 255, 0.95) !important;
-  backdrop-filter: blur(10px);
-}
-
-.dark .bg-gray-800 {
-  background-color: rgba(31, 41, 55, 0.95) !important;
-  backdrop-filter: blur(10px);
+a:hover {
+  color: #eef4ed !important; /* Light on hover */
 }
