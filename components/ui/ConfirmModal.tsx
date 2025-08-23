@@ -33,11 +33,11 @@ export default function ConfirmModal({
   const getConfirmButtonStyles = () => {
     switch (type) {
       case 'danger':
-        return 'bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white';
+        return 'bg-red-600/90 hover:bg-red-600 focus:ring-red-500/20 text-white font-medium';
       case 'warning':
-        return 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500 text-white';
+        return 'bg-yellow-600/90 hover:bg-yellow-600 focus:ring-yellow-500/20 text-white font-medium';
       default:
-        return 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500 text-white';
+        return 'bg-blue-600/90 hover:bg-blue-600 focus:ring-blue-500/20 text-white font-medium';
     }
   };
 
@@ -72,18 +72,18 @@ export default function ConfirmModal({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} size="sm">
-      <div className="text-center">
+      <div className="text-center py-2">
         {getIcon()}
         
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+        <p className="text-sm text-gray-600 dark:text-gray-300 mb-8 leading-relaxed px-2">
           {message}
         </p>
         
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-6 py-2.5 border border-gray-300/30 dark:border-gray-600/30 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-50/50 dark:bg-gray-700/30 hover:bg-gray-100/60 dark:hover:bg-gray-600/40 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] backdrop-blur-sm"
           >
             {cancelText}
           </button>
@@ -91,15 +91,15 @@ export default function ConfirmModal({
           <button
             onClick={handleConfirm}
             disabled={isLoading}
-            className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${getConfirmButtonStyles()}`}
+            className={`px-6 py-2.5 border border-transparent rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl ${getConfirmButtonStyles()}`}
           >
             {isLoading ? (
-              <div className="flex items-center">
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <div className="flex items-center justify-center">
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Loading...
+                <span>Loading...</span>
               </div>
             ) : confirmText}
           </button>

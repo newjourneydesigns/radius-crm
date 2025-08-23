@@ -121,3 +121,213 @@ a {
 a:hover {
   color: #eef4ed !important; /* Light on hover */
 }
+
+/* Apple-inspired Design System Enhancements */
+
+/* Modal and overlay fixes for new theme - Enhanced with Mobile Support */
+.fixed {
+  position: fixed !important;
+}
+
+[role="dialog"] {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 99999 !important;
+}
+
+/* Ensure modals always appear on top */
+[aria-modal="true"] {
+  z-index: 99999 !important;
+  position: fixed !important;
+  inset: 0 !important;
+}
+
+/* Override any transform or positioning that might interfere */
+[aria-modal="true"] > div {
+  position: relative !important;
+  z-index: 100000 !important;
+  margin: auto !important;
+}
+
+/* Prevent body scroll when modal is open */
+body.modal-open,
+html.modal-open {
+  overflow: hidden !important;
+  position: fixed !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Mobile-specific modal enhancements */
+@media (max-width: 640px) {
+  [aria-modal="true"] {
+    /* Use viewport units for better mobile support */
+    height: 100vh !important;
+    height: 100dvh !important; /* Dynamic viewport height for mobile browsers */
+  }
+  
+  [aria-modal="true"] > div {
+    /* Better mobile positioning */
+    max-height: 95vh !important;
+    max-height: 95dvh !important;
+    width: calc(100% - 16px) !important;
+    margin: 8px auto !important;
+  }
+  
+  /* Improve touch targets on mobile */
+  [aria-modal="true"] button {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    touch-action: manipulation !important;
+  }
+  
+  /* Prevent zoom on inputs in iOS */
+  [aria-modal="true"] input,
+  [aria-modal="true"] select,
+  [aria-modal="true"] textarea {
+    font-size: 16px !important;
+  }
+  
+  /* Sticky header for scrollable modals */
+  [aria-modal="true"] .sticky {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 10 !important;
+  }
+}
+
+/* iOS Safari viewport fix */
+@supports (-webkit-touch-callout: none) {
+  [aria-modal="true"] {
+    height: -webkit-fill-available !important;
+  }
+}
+
+/* Apple-style smooth animations */
+@keyframes animate-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from { 
+    opacity: 0; 
+  }
+  to { 
+    opacity: 1; 
+  }
+}
+
+@keyframes zoom-in-95 {
+  from { 
+    transform: scale(0.95); 
+  }
+  to { 
+    transform: scale(1); 
+  }
+}
+
+.animate-in {
+  animation: animate-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.fade-in {
+  animation: fade-in 0.15s ease-out;
+}
+
+.zoom-in-95 {
+  animation: zoom-in-95 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.duration-200 {
+  animation-duration: 0.2s;
+}
+
+/* Apple-style focus rings with custom colors */
+.focus\:ring-2:focus {
+  --tw-ring-color: rgba(141, 169, 196, 0.5); /* #8da9c4 with opacity */
+  --tw-ring-offset-width: 2px;
+  --tw-ring-width: 2px;
+  outline: none;
+  box-shadow: 0 0 0 var(--tw-ring-offset-width) rgba(11, 37, 69, 1), 
+              0 0 0 calc(var(--tw-ring-width) + var(--tw-ring-offset-width)) var(--tw-ring-color);
+}
+
+/* Enhanced backdrop blur */
+.backdrop-blur-sm {
+  backdrop-filter: blur(4px) saturate(150%);
+  -webkit-backdrop-filter: blur(4px) saturate(150%);
+}
+
+/* Apple-style button enhancements */
+button {
+  font-weight: 500 !important;
+  letter-spacing: -0.01em !important;
+  transition: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1) !important;
+  border-radius: 8px !important;
+}
+
+button:hover {
+  transform: translateY(-1px) !important;
+  filter: brightness(1.1) !important;
+}
+
+button:active {
+  transform: translateY(0) !important;
+  transition-duration: 0.1s !important;
+}
+
+/* Modern card shadows */
+.shadow-xl {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 
+              0 10px 10px -5px rgba(0, 0, 0, 0.1),
+              0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+}
+
+.shadow-2xl {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25),
+              0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Rounded corners following Apple's design language */
+.rounded-xl {
+  border-radius: 12px !important;
+}
+
+.rounded-lg {
+  border-radius: 8px !important;
+}
+
+/* Enhanced glass morphism for modals */
+.bg-white.dark\:bg-gray-900,
+.dark .bg-gray-900 {
+  background: rgba(9, 27, 52, 0.85) !important;
+  backdrop-filter: blur(20px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(150%) !important;
+  border: 1px solid rgba(76, 103, 133, 0.2) !important;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth !important;
+}
+
+/* Better text rendering */
+* {
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+}
+
+/* Improved transition for all interactive elements */
+a, button, input, select, textarea {
+  transition: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1) !important;
+}

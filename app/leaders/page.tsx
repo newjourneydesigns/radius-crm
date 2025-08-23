@@ -376,11 +376,11 @@ function LeadersContent() {
 
                 {/* ACPD Tags */}
                 {filters.acpd.map(acpd => (
-                  <span key={`acpd-${acpd}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                  <span key={`acpd-${acpd}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100/80 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200 backdrop-blur-sm">
                     ACPD: {acpd}
                     <button
                       onClick={() => updateFilters({...filters, acpd: filters.acpd.filter(a => a !== acpd)})}
-                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-purple-400 hover:bg-purple-200 hover:text-purple-600 dark:hover:bg-purple-800"
+                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-blue-400 hover:bg-blue-200/80 hover:text-blue-600 dark:hover:bg-blue-800/50"
                     >
                       <span className="sr-only">Remove {acpd} filter</span>
                       <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">

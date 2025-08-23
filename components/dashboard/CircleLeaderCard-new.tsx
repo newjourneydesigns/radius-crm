@@ -195,7 +195,7 @@ export default function CircleLeaderCard({
                   href={leader.ccb_profile_link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center px-4 py-2 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-lg transition-colors text-sm font-medium"
+                  className="flex items-center justify-center px-4 py-2 bg-gray-100/80 dark:bg-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-gray-200/80 dark:hover:bg-gray-600/60 rounded-xl transition-all duration-200 text-sm font-medium hover:scale-[1.02] active:scale-[0.98] backdrop-blur-sm"
                 >
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -328,7 +328,7 @@ export default function CircleLeaderCard({
                   href={leader.ccb_profile_link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center px-3 py-2 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
+                  className="flex items-center px-3 py-2 bg-gray-100/80 dark:bg-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-gray-200/80 dark:hover:bg-gray-600/60 rounded-xl transition-all duration-200 text-sm font-medium whitespace-nowrap hover:scale-[1.02] active:scale-[0.98] backdrop-blur-sm"
                 >
                   <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />

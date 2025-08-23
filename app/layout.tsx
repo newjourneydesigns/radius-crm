@@ -42,9 +42,10 @@ export default function RootLayout({
         <link rel="icon" type="image/png" sizes="16x16" href="/icon-16x16.png" />
         <link rel="shortcut icon" href="/icon-32x32.png" />
 
-        {/* Apple Splash Screen */}
+        {/* Apple PWA Configuration - No Splash */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="RADIUS CRM" />
         
         {/* Dark Green Theme Force Script */}
         <script dangerouslySetInnerHTML={{

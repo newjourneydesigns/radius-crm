@@ -88,7 +88,7 @@ export default function FollowUpDateModal({
               }}
               min={minDate}
               max={maxDateString}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-4 py-3 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-200"
               required
             />
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -105,17 +105,17 @@ export default function FollowUpDateModal({
             </div>
           )}
 
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="flex justify-end space-x-2 pt-6">
             <button
               type="button"
               onClick={handleClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-6 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-50/50 dark:bg-gray-700/30 border border-gray-300/30 dark:border-gray-600/30 rounded-xl hover:bg-gray-100/60 dark:hover:bg-gray-600/40 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] backdrop-blur-sm"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="px-6 py-2.5 text-sm font-medium text-white bg-orange-600/90 hover:bg-orange-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl"
             >
               {isEditing ? 'Update Follow-Up' : 'Set Follow-Up'}
             </button>
