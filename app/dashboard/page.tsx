@@ -1790,33 +1790,43 @@ function DashboardContent() {
 
       {/* Delete Note Confirmation Modal */}
       {deleteNoteModal.isOpen && (
-        <div className="fixed inset-0 bg-gray-600 dark:bg-gray-900 bg-opacity-50 dark:bg-opacity-75 overflow-y-auto h-full w-full z-[9999]">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800">
-            <div className="mt-3 text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/20">
-                <svg
-                  className="h-6 w-6 text-red-600 dark:text-red-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z"
-                  />
-                </svg>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[99999] p-4 animate-in fade-in duration-200">
+          <div 
+            className="w-full max-w-md mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200/20 dark:border-gray-700/50 transform transition-all animate-in zoom-in-95 duration-200"
+            style={{
+              position: 'relative',
+              zIndex: 100000
+            }}
+          >
+            <div className="p-6">
+              <div className="flex items-center justify-center mb-4">
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/20">
+                  <svg
+                    className="h-6 w-6 text-red-600 dark:text-red-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z"
+                    />
+                  </svg>
+                </div>
               </div>
-              <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mt-4">
+              
+              <h3 className="text-lg leading-6 font-semibold text-gray-900 dark:text-white text-center mb-4">
                 Delete Note
               </h3>
-              <div className="mt-4 px-7 py-3">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+              
+              <div className="mb-6">
+                <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
                   Are you sure you want to delete this note? This action cannot be undone and the note will be deleted forever.
                 </p>
                 {deleteNoteModal.content && (
-                  <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-md border max-h-32 overflow-y-auto">
+                  <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border max-h-32 overflow-y-auto">
                     <p className="text-xs text-gray-600 dark:text-gray-300 whitespace-pre-wrap break-words">
                       {deleteNoteModal.content.length > 200 
                         ? `${deleteNoteModal.content.substring(0, 200)}...` 
@@ -1826,10 +1836,11 @@ function DashboardContent() {
                   </div>
                 )}
               </div>
-              <div className="flex gap-3 px-4 py-3">
+              
+              <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={() => copyNoteToClipboard(deleteNoteModal.content)}
-                  className="flex-1 inline-flex justify-center items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
+                  className="flex-1 inline-flex justify-center items-center px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors touch-manipulation"
                 >
                   <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -1838,7 +1849,7 @@ function DashboardContent() {
                 </button>
                 <button
                   onClick={confirmDeleteNote}
-                  className="flex-1 inline-flex justify-center items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md transition-colors"
+                  className="flex-1 inline-flex justify-center items-center px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors touch-manipulation"
                 >
                   <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1847,7 +1858,7 @@ function DashboardContent() {
                 </button>
                 <button
                   onClick={closeDeleteNoteModal}
-                  className="flex-1 inline-flex justify-center items-center px-4 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-md transition-colors"
+                  className="flex-1 inline-flex justify-center items-center px-4 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg transition-colors touch-manipulation"
                 >
                   Cancel
                 </button>

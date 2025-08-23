@@ -68,9 +68,16 @@ const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-        <h3 className="text-lg font-semibold mb-4">Schedule Circle Visit</h3>
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div 
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md mx-auto border border-gray-200/20 dark:border-gray-700/50 transform transition-all animate-in zoom-in-95 duration-200"
+        style={{
+          position: 'relative',
+          zIndex: 100000
+        }}
+      >
+        <div className="p-6">
+          <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Schedule Circle Visit</h3>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -105,19 +112,20 @@ const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              className="px-4 py-2 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 touch-manipulation"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading || !visitDate}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 touch-manipulation"
             >
               {isLoading ? 'Scheduling...' : 'Schedule Visit'}
             </button>
           </div>
         </form>
+        </div>
       </div>
     </div>
   );
@@ -156,10 +164,17 @@ const CompleteVisitModal: React.FC<CompleteVisitModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-        <h3 className="text-lg font-semibold mb-4">Complete Circle Visit</h3>
-        <p className="text-sm text-gray-600 mb-4">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div 
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md mx-auto border border-gray-200/20 dark:border-gray-700/50 transform transition-all animate-in zoom-in-95 duration-200"
+        style={{
+          position: 'relative',
+          zIndex: 100000
+        }}
+      >
+        <div className="p-6">
+          <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Complete Circle Visit</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
           Visit Date: {new Date(visitDate).toLocaleDateString()}
         </p>
         
@@ -186,19 +201,20 @@ const CompleteVisitModal: React.FC<CompleteVisitModalProps> = ({
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              className="px-4 py-2 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 touch-manipulation"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading || !visitNote.trim()}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 touch-manipulation"
             >
               {isLoading ? 'Completing...' : 'Complete Visit'}
             </button>
           </div>
         </form>
+        </div>
       </div>
     </div>
   );

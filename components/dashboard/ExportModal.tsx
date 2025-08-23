@@ -151,8 +151,14 @@ ${leaders.map((leader, index) => buildLeaderBlock(leader, index)).join('\n\n')}`
     setOptions(prev => ({ ...prev, [key]: !prev[key] }));
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9999]">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[99999] p-4 animate-in fade-in duration-200">
+      <div 
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] flex flex-col mx-4 sm:mx-auto border border-gray-200/20 dark:border-gray-700/50 transform transition-all animate-in zoom-in-95 duration-200"
+        style={{
+          position: 'relative',
+          zIndex: 100000
+        }}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">

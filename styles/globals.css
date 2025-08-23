@@ -152,6 +152,15 @@ a:hover {
   margin: auto !important;
 }
 
+/* Fix for search modals and other high z-index elements */
+.z-\[99999\] {
+  z-index: 99999 !important;
+}
+
+.z-\[100000\] {
+  z-index: 100000 !important;
+}
+
 /* Prevent body scroll when modal is open */
 body.modal-open,
 html.modal-open {

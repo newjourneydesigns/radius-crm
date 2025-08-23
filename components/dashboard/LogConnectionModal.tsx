@@ -174,9 +174,15 @@ export default function LogConnectionModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[9999]">
-      <div className="relative top-20 mx-4 sm:mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white dark:bg-gray-800 sm:w-96">
-        <div className="mt-3">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[99999] p-4 animate-in fade-in duration-200">
+      <div 
+        className="w-full max-w-md mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200/20 dark:border-gray-700/50 transform transition-all animate-in zoom-in-95 duration-200"
+        style={{
+          position: 'relative',
+          zIndex: 100000
+        }}
+      >
+        <div className="p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white">

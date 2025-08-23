@@ -239,14 +239,26 @@ export default function GlobalSearch() {
       </button>
 
       {/* Search Modal */}
-      {isOpen && (
-        <div className="fixed inset-0 z-[9999] overflow-y-auto">
-          <div className="flex min-h-screen items-start justify-center p-4 pt-16">
-            <div className="fixed inset-0 bg-black bg-opacity-25 dark:bg-opacity-50 z-[9998]" />
-            
+      {isOpen && createPortal(
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[99999] p-4 animate-in fade-in duration-200"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 99999
+          }}
+        >
+          <div className="w-full max-w-lg mx-4 sm:mx-auto max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
             <div 
               ref={searchRef}
-              className="relative w-full max-w-lg bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-[9999]"
+              className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200/20 dark:border-gray-700/50 overflow-hidden transform transition-all animate-in zoom-in-95 duration-200"
+              style={{
+                position: 'relative',
+                zIndex: 100000
+              }}
             >
               {/* Search Input */}
               <div className="flex items-center border-b border-gray-200 dark:border-gray-700 px-4">
@@ -347,7 +359,8 @@ export default function GlobalSearch() {
               </div>
             </div>
           </div>
-        </div>
+        </div>, 
+        document.body
       )}
     </>
   );
