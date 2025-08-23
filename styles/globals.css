@@ -2,10 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom gradient background for the PWA */
+/* Force dark mode and custom gradient background for the PWA */
+* {
+  /* Force dark mode */
+  color-scheme: dark;
+}
+
+html {
+  /* Ensure dark mode is applied */
+  background-color: #1e3a8a !important;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
 body {
   /* Fallback solid color for browsers that don't support gradients */
-  background-color: #2563eb; /* blue-600 */
+  background-color: #2563eb !important; /* blue-600 */
   
   /* Beautiful gradient from darker blue at top to normal blue at bottom */
   background: linear-gradient(
@@ -14,7 +28,7 @@ body {
     #1e40af 25%,    /* blue-700 - medium-dark */
     #2563eb 75%,    /* blue-600 - your Personal Notes button color */
     #3b82f6 100%    /* blue-500 - slightly lighter at bottom */
-  );
+  ) !important;
   
   /* Ensure the gradient covers the full height */
   min-height: 100vh;
@@ -25,7 +39,12 @@ body {
   background-size: cover;
   
   /* Text color adjustments for better contrast */
-  @apply text-white;
+  color: white !important;
+}
+
+/* Force dark mode classes */
+.dark {
+  color-scheme: dark;
 }
 
 /* Ensure content areas have proper backgrounds to maintain readability */
