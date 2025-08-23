@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import ProtectedRoute from '../components/ProtectedRoute'
 
-function LoadingPage() {
+function SplashScreen() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center text-center px-6">
       {/* Logo */}
@@ -32,9 +32,9 @@ function LoadingPage() {
 
 export default function Page() {
   return (
-    <Suspense fallback={<LoadingPage />}>
+    <Suspense fallback={<SplashScreen />}>
       <ProtectedRoute>
-        <LoadingPage />
+        <SplashScreen />
       </ProtectedRoute>
     </Suspense>
   )

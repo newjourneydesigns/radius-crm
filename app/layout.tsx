@@ -14,23 +14,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
         <title>RADIUS Circle Leader Management</title>
         <meta name="description" content="Circle Leader Management System for RADIUS" />
         <link rel="manifest" href="/manifest.json" />
+        <meta name="color-scheme" content="dark" />
         
         {/* PWA Meta Tags */}
         <meta name="application-name" content="RADIUS" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="RADIUS" />
         <meta name="format-detection" content="telephone=no" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
-        <meta name="msapplication-TileColor" content="#2563eb" />
+        <meta name="msapplication-TileColor" content="#1e3a8a" />
         <meta name="msapplication-tap-highlight" content="no" />
-        <meta name="theme-color" content="#2563eb" />
+        <meta name="theme-color" content="#1e3a8a" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 
         {/* Favicon Links */}

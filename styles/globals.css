@@ -5,16 +5,17 @@
 /* Force dark mode and custom gradient background for the PWA */
 * {
   /* Force dark mode */
-  color-scheme: dark;
+  color-scheme: dark !important;
 }
 
 html {
   /* Ensure dark mode is applied */
   background-color: #1e3a8a !important;
+  color-scheme: dark !important;
 }
 
 html.dark {
-  color-scheme: dark;
+  color-scheme: dark !important;
 }
 
 body {
@@ -31,12 +32,12 @@ body {
   ) !important;
   
   /* Ensure the gradient covers the full height */
-  min-height: 100vh;
+  min-height: 100vh !important;
   
   /* Make sure the gradient is fixed so it doesn't move with content */
-  background-attachment: fixed;
-  background-repeat: no-repeat;
-  background-size: cover;
+  background-attachment: fixed !important;
+  background-repeat: no-repeat !important;
+  background-size: cover !important;
   
   /* Text color adjustments for better contrast */
   color: white !important;
@@ -44,7 +45,7 @@ body {
 
 /* Force dark mode classes */
 .dark {
-  color-scheme: dark;
+  color-scheme: dark !important;
 }
 
 /* Ensure content areas have proper backgrounds to maintain readability */
