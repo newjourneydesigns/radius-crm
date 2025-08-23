@@ -46,6 +46,29 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         
+        {/* Force Dark Mode Script - runs immediately */}
+        <script dangerouslySetInnerHTML={{
+          __html: `
+            // Force dark mode immediately before any rendering
+            (function() {
+              const html = document.documentElement;
+              html.classList.add('dark');
+              html.style.colorScheme = 'dark';
+              html.style.backgroundColor = '#1e3a8a';
+              document.body.style.backgroundColor = '#2563eb';
+              document.body.style.color = 'white';
+              
+              // Force dark mode preference
+              localStorage.setItem('theme', 'dark');
+              
+              // Override any Tailwind or framework theme detection
+              if (window.matchMedia) {
+                window.matchMedia('(prefers-color-scheme: dark)').matches = true;
+              }
+            })();
+          `
+        }} />
+        
         {/* Service Worker Registration */}
         <script dangerouslySetInnerHTML={{
           __html: `
@@ -115,7 +138,16 @@ export default function RootLayout({
           `
         }} />
       </head>
-      <body className="font-sans">
+      <body className="font-sans dark bg-gradient-to-br from-blue-800 via-blue-700 to-blue-500 text-white min-h-screen" style={{
+        backgroundColor: '#2563eb',
+        background: 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 25%, #2563eb 75%, #3b82f6 100%)',
+        minHeight: '100vh',
+        backgroundAttachment: 'fixed',
+        backgroundRepeat: 'no-repeat',
+        backgroundSize: 'cover',
+        color: 'white',
+        colorScheme: 'dark'
+      }}>
         <AuthProvider>
           {/* Mobile Navigation */}
           <MobileNavigation />

@@ -2,22 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Force dark mode and custom gradient background for the PWA */
+/* FORCE DARK MODE EVERYWHERE - Override any light mode styles */
 * {
-  /* Force dark mode */
+  color-scheme: dark !important;
+}
+
+*,
+*::before,
+*::after {
   color-scheme: dark !important;
 }
 
 html {
-  /* Ensure dark mode is applied */
   background-color: #1e3a8a !important;
   color-scheme: dark !important;
+  filter: invert(0) !important; /* Prevent any inversion */
 }
 
 html.dark {
   color-scheme: dark !important;
 }
 
+/* Force dark mode on body and override any framework defaults */
 body {
   /* Fallback solid color for browsers that don't support gradients */
   background-color: #2563eb !important; /* blue-600 */
@@ -41,11 +47,50 @@ body {
   
   /* Text color adjustments for better contrast */
   color: white !important;
+  color-scheme: dark !important;
 }
 
-/* Force dark mode classes */
+/* Force dark mode classes everywhere */
 .dark {
   color-scheme: dark !important;
+}
+
+/* Override any light backgrounds that might appear */
+.bg-white {
+  background-color: rgba(31, 41, 55, 0.95) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+.bg-gray-50 {
+  background-color: rgba(17, 24, 39, 0.95) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+.dark .bg-gray-900 {
+  background-color: rgba(17, 24, 39, 0.95) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+.dark .bg-gray-800 {
+  background-color: rgba(31, 41, 55, 0.95) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+/* Force text colors to be appropriate for dark mode */
+.text-gray-900 {
+  color: #f9fafb !important;
+}
+
+.text-gray-800 {
+  color: #f3f4f6 !important;
+}
+
+.text-gray-700 {
+  color: #e5e7eb !important;
+}
+
+.text-black {
+  color: #f9fafb !important;
 }
 
 /* Ensure content areas have proper backgrounds to maintain readability */
