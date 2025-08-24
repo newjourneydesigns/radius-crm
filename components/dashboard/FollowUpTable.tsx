@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 
@@ -50,8 +49,6 @@ export default function FollowUpTable({
       return true;
     }
   });
-
-  const router = useRouter();
 
   const loadFollowUpLeaders = useCallback(async () => {
     if (!selectedCampuses || selectedCampuses.length === 0) {
@@ -223,10 +220,6 @@ export default function FollowUpTable({
     }
   };
 
-  const handleLeaderClick = (leaderId: number) => {
-    router.push(`/circle/${leaderId}`);
-  };
-
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -355,12 +348,14 @@ export default function FollowUpTable({
                         <tr key={leader.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div>
-                              <button
-                                onClick={() => handleLeaderClick(leader.id)}
-                                className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline focus:outline-none focus:underline"
-                              >
-                                {leader.name}
-                              </button>
+                              <div className="text-sm font-medium">
+                                <Link
+                                  href={`/circle/${leader.id}`}
+                                  className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 hover:underline cursor-pointer text-left"
+                                >
+                                  {leader.name}
+                                </Link>
+                              </div>
                               <div className={`text-sm ${getStatusInfo(leader.status).color}`}>
                                 {getStatusInfo(leader.status).label}
                               </div>
@@ -438,12 +433,12 @@ export default function FollowUpTable({
                     {/* Header - Leader Name and Status */}
                     <div className="flex items-center justify-between mb-3">
                       <div>
-                        <button
-                          onClick={() => handleLeaderClick(leader.id)}
-                          className="text-lg font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline focus:outline-none focus:underline"
+                        <Link
+                          href={`/circle/${leader.id}`}
+                          className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 hover:underline cursor-pointer text-left text-lg font-medium"
                         >
                           {leader.name}
-                        </button>
+                        </Link>
                         <div className={`text-sm ${getStatusInfo(leader.status).color} mt-1`}>
                           {getStatusInfo(leader.status).label}
                         </div>
