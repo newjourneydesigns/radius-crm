@@ -68,15 +68,15 @@ const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-4 animate-in fade-in duration-200 overflow-y-auto">
       <div 
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md mx-auto border border-gray-200/20 dark:border-gray-700/50 transform transition-all animate-in zoom-in-95 duration-200"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md mx-auto border border-gray-200/20 dark:border-gray-700/50 transform transition-all animate-in zoom-in-95 duration-200 my-4 sm:my-auto max-h-[90vh] overflow-y-auto"
         style={{
           position: 'relative',
           zIndex: 100000
         }}
       >
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Schedule Circle Visit</h3>
         
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -164,15 +164,15 @@ const CompleteVisitModal: React.FC<CompleteVisitModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-4 animate-in fade-in duration-200 overflow-y-auto">
       <div 
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md mx-auto border border-gray-200/20 dark:border-gray-700/50 transform transition-all animate-in zoom-in-95 duration-200"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md mx-auto border border-gray-200/20 dark:border-gray-700/50 transform transition-all animate-in zoom-in-95 duration-200 my-4 sm:my-auto max-h-[90vh] overflow-y-auto"
         style={{
           position: 'relative',
           zIndex: 100000
         }}
       >
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Complete Circle Visit</h3>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
           Visit Date: {new Date(visitDate).toLocaleDateString()}

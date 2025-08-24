@@ -1810,15 +1810,15 @@ function DashboardContent() {
 
       {/* Delete Note Confirmation Modal */}
       {deleteNoteModal.isOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[99999] p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[99999] p-4 sm:p-4 animate-in fade-in duration-200 overflow-y-auto">
           <div 
-            className="w-full max-w-md mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200/20 dark:border-gray-700/50 transform transition-all animate-in zoom-in-95 duration-200"
+            className="w-full max-w-md mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200/20 dark:border-gray-700/50 transform transition-all animate-in zoom-in-95 duration-200 my-4 sm:my-auto"
             style={{
               position: 'relative',
               zIndex: 100000
             }}
           >
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <div className="flex items-center justify-center mb-4">
                 <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/20">
                   <svg

@@ -241,7 +241,7 @@ export default function GlobalSearch() {
       {/* Search Modal */}
       {isOpen && createPortal(
         <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[99999] p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[99999] p-4 sm:p-4 animate-in fade-in duration-200 overflow-y-auto"
           style={{
             position: 'fixed',
             top: 0,
@@ -251,7 +251,7 @@ export default function GlobalSearch() {
             zIndex: 99999
           }}
         >
-          <div className="w-full max-w-lg mx-4 sm:mx-auto max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
+          <div className="w-full max-w-lg mx-auto max-h-[90vh] overflow-hidden my-4 sm:my-auto">
             <div 
               ref={searchRef}
               className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200/20 dark:border-gray-700/50 overflow-hidden transform transition-all animate-in zoom-in-95 duration-200"
