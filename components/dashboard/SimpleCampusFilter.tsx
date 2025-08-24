@@ -58,7 +58,7 @@ export default function SimpleCampusFilter({
             {hasActiveFilters && (
               <button
                 onClick={onClearAllFilters}
-                className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium"
+                className="px-3 py-1 text-sm font-medium text-red-600 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200 border border-red-300 dark:border-red-600 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20"
               >
                 Clear All
               </button>
