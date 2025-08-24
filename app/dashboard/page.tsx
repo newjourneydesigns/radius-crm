@@ -1425,27 +1425,47 @@ function DashboardContent() {
                                     })}
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1">
                                   <button
                                     onClick={() => togglePinNote(note.id)}
-                                    className={`text-xs ${note.pinned 
-                                      ? 'text-yellow-600 dark:text-yellow-400 hover:text-yellow-800 dark:hover:text-yellow-200' 
-                                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                                    className={`inline-flex items-center px-2 py-1 text-sm font-medium rounded-md transition-colors ${note.pinned 
+                                      ? 'text-yellow-700 dark:text-yellow-300 bg-yellow-100 dark:bg-yellow-900/30 hover:bg-yellow-200 dark:hover:bg-yellow-900/50' 
+                                      : 'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500'
                                     }`}
                                     title={note.pinned ? 'Unpin note' : 'Pin note to top'}
                                   >
-                                    {note.pinned ? 'Unpin' : 'Pin'}
+                                    {note.pinned ? (
+                                      <>
+                                        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                          <path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                                        </svg>
+                                        Unpin
+                                      </>
+                                    ) : (
+                                      <>
+                                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16a2 2 0 01-2 2H7a2 2 0 01-2-2V5z" />
+                                        </svg>
+                                        Pin
+                                      </>
+                                    )}
                                   </button>
                                   <button
                                     onClick={() => startEditingNote(note.id, note.content)}
-                                    className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
+                                    className="inline-flex items-center px-2 py-1 text-sm font-medium rounded-md transition-colors text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50"
                                   >
+                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
                                     Edit
                                   </button>
                                   <button
                                     onClick={() => openDeleteNoteModal(note.id, note.content)}
-                                    className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
+                                    className="inline-flex items-center px-2 py-1 text-sm font-medium rounded-md transition-colors text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50"
                                   >
+                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
                                     Delete
                                   </button>
                                 </div>
