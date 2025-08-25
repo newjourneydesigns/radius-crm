@@ -32,6 +32,7 @@ function LeadersContent() {
     toggleEventSummary,
     updateStatus,
     toggleFollowUp,
+    resetEventSummaryCheckboxes,
     invalidateCache
   } = useCircleLeaders();
 
@@ -319,6 +320,20 @@ function LeadersContent() {
     closeAddNoteModal();
   };
 
+  const handleResetEventSummaries = async () => {
+    try {
+      // Get all currently filtered leader IDs
+      const leaderIds = filteredLeaders.map(leader => leader.id);
+      if (leaderIds.length === 0) {
+        return;
+      }
+      
+      await resetEventSummaryCheckboxes(leaderIds);
+    } catch (error) {
+      console.error('Error resetting event summaries:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
@@ -510,6 +525,7 @@ function LeadersContent() {
                 onClearAllFilters={clearAllFilters}
                 onBulkUpdateStatus={() => {}}
                 onResetCheckboxes={() => {}}
+                onResetEventSummaries={handleResetEventSummaries}
                 totalLeaders={filteredLeaders.length}
                 receivedCount={0}
                 onAddNote={openAddNoteModal}
