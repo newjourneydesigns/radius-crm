@@ -264,7 +264,6 @@ export default function GlobalSearch() {
                 zIndex: 100000,
                 margin: 'auto'
               }}
-              }}
             >
               {/* Search Input */}
               <div className="flex items-center border-b border-gray-200 dark:border-gray-700 px-4">
