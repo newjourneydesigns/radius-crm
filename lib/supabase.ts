@@ -23,7 +23,8 @@ if (typeof window !== 'undefined' && supabaseUrl.includes('placeholder')) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: !supabaseUrl.includes('placeholder'), // Only persist sessions with real credentials
-    autoRefreshToken: !supabaseUrl.includes('placeholder') // Only refresh tokens with real credentials
+    autoRefreshToken: !supabaseUrl.includes('placeholder'), // Only refresh tokens with real credentials
+    flowType: 'pkce' // Use PKCE flow for OAuth
   }
 });
 
