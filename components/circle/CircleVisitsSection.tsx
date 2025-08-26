@@ -68,12 +68,29 @@ const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-4 animate-in fade-in duration-200 overflow-y-auto">
+    <div 
+      className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 99999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1rem'
+      }}
+    >
       <div 
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md mx-auto border border-gray-200/20 dark:border-gray-700/50 transform transition-all animate-in zoom-in-95 duration-200 my-4 sm:my-auto max-h-[90vh] overflow-y-auto"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md border border-gray-200/20 dark:border-gray-700/50 transform transition-all animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
         style={{
           position: 'relative',
-          zIndex: 100000
+          zIndex: 100000,
+          margin: 'auto'
         }}
       >
         <div className="p-4 sm:p-6">
@@ -164,12 +181,29 @@ const CompleteVisitModal: React.FC<CompleteVisitModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-4 animate-in fade-in duration-200 overflow-y-auto">
+    <div 
+      className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 99999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1rem'
+      }}
+    >
       <div 
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md mx-auto border border-gray-200/20 dark:border-gray-700/50 transform transition-all animate-in zoom-in-95 duration-200 my-4 sm:my-auto max-h-[90vh] overflow-y-auto"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md border border-gray-200/20 dark:border-gray-700/50 transform transition-all animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
         style={{
           position: 'relative',
-          zIndex: 100000
+          zIndex: 100000,
+          margin: 'auto'
         }}
       >
         <div className="p-4 sm:p-6">

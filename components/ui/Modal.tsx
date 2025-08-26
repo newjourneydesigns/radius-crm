@@ -74,7 +74,7 @@ export default function Modal({
 
   const modalContent = (
     <div 
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[99999] p-2 sm:p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] animate-in fade-in duration-200"
       onClick={handleBackdropClick}
       role="dialog"
       aria-modal="true"
@@ -85,16 +85,21 @@ export default function Modal({
         left: 0,
         right: 0,
         bottom: 0,
-        zIndex: 99999
+        zIndex: 99999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1rem'
       }}
     >
       <div 
         ref={modalRef}
-        className={`bg-white dark:bg-gray-900 rounded-xl sm:rounded-xl shadow-2xl ${sizeClasses[size]} max-h-[95vh] sm:max-h-[90vh] overflow-y-auto transform transition-all animate-in zoom-in-95 duration-200 border border-gray-200/20 dark:border-gray-700/50 relative`}
+        className={`bg-white dark:bg-gray-900 rounded-xl shadow-2xl ${sizeClasses[size]} max-h-[95vh] overflow-y-auto transform transition-all animate-in zoom-in-95 duration-200 border border-gray-200/20 dark:border-gray-700/50`}
         onClick={(e) => e.stopPropagation()}
         style={{
           position: 'relative',
-          zIndex: 100000
+          zIndex: 100000,
+          margin: 'auto'
         }}
       >
         {/* Header */}
