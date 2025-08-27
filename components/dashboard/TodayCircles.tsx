@@ -120,7 +120,7 @@ export default function TodayCircles({ todayCircles }: TodayCirclesProps) {
                         <div className="text-sm font-medium">
                           <Link 
                             href={`/circle/${leader.id}`}
-                            className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 hover:underline cursor-pointer text-left"
+                            className="text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer text-left font-semibold"
                           >
                             {leader.name || 'Unnamed Leader'}
                           </Link>

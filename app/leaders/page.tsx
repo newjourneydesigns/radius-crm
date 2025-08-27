@@ -10,6 +10,7 @@ import ContactModal from '../../components/dashboard/ContactModal';
 import LogConnectionModal from '../../components/dashboard/LogConnectionModal';
 import AddNoteModal from '../../components/dashboard/AddNoteModal';
 import ExportModal from '../../components/dashboard/ExportModal';
+import FollowUpTable from '../../components/dashboard/FollowUpTable';
 import { useLeaderFilters } from '../../hooks/useLeaderFilters';
 import { useCircleLeaders } from '../../hooks/useCircleLeaders';
 import { useAuth } from '../../contexts/AuthContext';
@@ -41,6 +42,7 @@ function LeadersContent() {
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [exportModal, setExportModal] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [followUpRefreshKey, setFollowUpRefreshKey] = useState(0);
   
   // Modal states
   const [contactModal, setContactModal] = useState({ isOpen: false, leaderId: 0, name: '', email: '', phone: '' });
@@ -295,28 +297,47 @@ function LeadersContent() {
     }
   };
 
-  const handleUpdateStatus = async (leaderId: number, newStatus: string) => {
-    await updateStatus(leaderId, newStatus);
+  const handleUpdateStatus = async (leaderId: number, newStatus: string, followUpDate?: string) => {
+    await updateStatus(leaderId, newStatus, followUpDate);
+    setFollowUpRefreshKey(prev => prev + 1); // Refresh FollowUpTable
+    loadCircleLeaders(); // Force refresh of circle leaders data
+  };
+
+  const handleUpdateFollowUpDate = async (leaderId: number, followUpDate: string) => {
+    try {
+      await updateStatus(leaderId, 'follow-up', followUpDate);
+      setFollowUpRefreshKey(prev => prev + 1); // Refresh FollowUpTable
+      loadCircleLeaders(); // Force refresh of circle leaders data
+    } catch (error) {
+      console.error('Error updating follow-up date:', error);
+    }
   };
 
   const handleClearFollowUp = async (leaderId: number) => {
     await toggleFollowUp(leaderId, false);
+    setFollowUpRefreshKey(prev => prev + 1); // Refresh FollowUpTable
+    loadCircleLeaders(); // Force refresh of circle leaders data
   };
 
   const handleToggleFollowUp = async (leaderId: number) => {
     const leader = circleLeaders.find(l => l.id === leaderId);
     if (leader) {
       await toggleFollowUp(leaderId, !leader.follow_up_required);
+      setFollowUpRefreshKey(prev => prev + 1); // Refresh FollowUpTable
+      loadCircleLeaders(); // Force refresh of circle leaders data
     }
   };
 
   const handleConnectionLogged = () => {
     invalidateCache();
+    loadCircleLeaders(); // Force refresh of circle leaders data
     closeLogConnectionModal();
   };
 
   const handleNoteAdded = () => {
     invalidateCache();
+    setFollowUpRefreshKey(prev => prev + 1); // Refresh FollowUpTable
+    loadCircleLeaders(); // Force refresh of circle leaders data
     closeAddNoteModal();
   };
 
@@ -531,6 +552,7 @@ function LeadersContent() {
                 onAddNote={openAddNoteModal}
                 onClearFollowUp={handleClearFollowUp}
                 refreshKey={0}
+                showFollowUpSection={false}
                 directors={directors}
                 campuses={campuses}
                 statuses={statuses}
@@ -538,6 +560,16 @@ function LeadersContent() {
                 frequencies={frequencies}
               />
             )}
+          </div>
+
+          {/* Follow Up Section */}
+          <div className="mb-6">
+            <FollowUpTable
+              selectedCampuses={filters.campus}
+              onAddNote={(leaderId, name) => openAddNoteModal(leaderId, name)}
+              onClearFollowUp={handleClearFollowUp}
+              refreshKey={followUpRefreshKey}
+            />
           </div>
 
           {/* Circle Leaders Grid */}
@@ -630,6 +662,7 @@ function LeadersContent() {
                     onAddNote={openAddNoteModal}
                     onClearFollowUp={handleClearFollowUp}
                     onUpdateStatus={handleUpdateStatus}
+                    onUpdateFollowUpDate={handleUpdateFollowUpDate}
                     onToggleFollowUp={handleToggleFollowUp}
                     isAdmin={isAdmin}
                     statuses={statuses}

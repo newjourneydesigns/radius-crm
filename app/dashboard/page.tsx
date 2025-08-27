@@ -1661,7 +1661,7 @@ function DashboardContent() {
                             <tr key={note.id}>
                               <td className="px-4 sm:px-6 py-3 whitespace-nowrap">
                                 {leader ? (
-                                  <Link href={`/circle/${note.circle_leader_id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                                  <Link href={`/circle/${note.circle_leader_id}`} className="text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-semibold">
                                     {leaderName}
                                   </Link>
                                 ) : (
@@ -1712,7 +1712,7 @@ function DashboardContent() {
                           <div className="mb-2">
                             <div className="font-medium text-gray-900 dark:text-white">
                               {leader ? (
-                                <Link href={`/circle/${note.circle_leader_id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                                <Link href={`/circle/${note.circle_leader_id}`} className="text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-semibold">
                                   {leaderName}
                                 </Link>
                               ) : (

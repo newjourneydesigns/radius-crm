@@ -384,7 +384,7 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
                     </button>
                     
                     {showStatusDropdown && (
-                      <div className="absolute top-full left-0 mt-1 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10">
+                      <div className="absolute top-full left-0 mt-1 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-[1010]">
                         {statusOptions.map((option) => (
                           <button
                             key={option.value}
@@ -625,7 +625,7 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
                     </button>
                     
                     {showStatusDropdown && (
-                      <div className="absolute top-full left-0 mt-1 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10">
+                      <div className="absolute top-full left-0 mt-1 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-[1010]">
                         {statusOptions.map((option) => (
                           <button
                             key={option.value}
