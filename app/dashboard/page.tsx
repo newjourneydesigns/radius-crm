@@ -1808,15 +1808,18 @@ function DashboardContent() {
         leaders={filteredLeaders}
       />
 
-      {/* Delete Note Confirmation Modal */}
+      </div>
+      
+      {/* Delete Note Confirmation Modal - positioned outside main content */}
       {deleteNoteModal.isOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[99999] p-4 sm:p-4 animate-in fade-in duration-200 overflow-y-auto">
+        <div 
+          className="fixed top-0 left-0 right-0 bottom-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 animate-in fade-in duration-200"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+          onClick={closeDeleteNoteModal}
+        >
           <div 
-            className="w-full max-w-md mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200/20 dark:border-gray-700/50 transform transition-all animate-in zoom-in-95 duration-200 my-4 sm:my-auto"
-            style={{
-              position: 'relative',
-              zIndex: 100000
-            }}
+            className="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200/20 dark:border-gray-700/50 transform transition-all animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="p-4 sm:p-6">
               <div className="flex items-center justify-center mb-4">
@@ -1887,7 +1890,6 @@ function DashboardContent() {
           </div>
         </div>
       )}
-      </div>
     </ProtectedRoute>
   );
 }

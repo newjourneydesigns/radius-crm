@@ -114,14 +114,39 @@ function LeadersContent() {
   useEffect(() => {
     const loadReferenceData = async () => {
       try {
+        console.log('Loading reference data...');
         const response = await fetch('/api/reference-data');
+        console.log('Reference data response status:', response.status);
         if (!response.ok) throw new Error('Failed to fetch reference data');
         
         const data = await response.json();
+        console.log('Reference data loaded:', {
+          directors: data.directors?.length || 0,
+          campuses: data.campuses?.length || 0,
+          statuses: data.statuses?.length || 0,
+          circleTypes: data.circleTypes?.length || 0,
+          frequencies: data.frequencies?.length || 0
+        });
         
         setDirectors(data.directors || []);
         setCampuses(data.campuses || []);
-        setStatuses(data.statuses || []);
+        
+        // Fallback statuses if API doesn't return them
+        const statusesData = data.statuses && data.statuses.length > 0 
+          ? data.statuses 
+          : [
+            { id: 1, value: 'active' },
+            { id: 2, value: 'follow-up' },
+            { id: 3, value: 'invited' },
+            { id: 4, value: 'pipeline' },
+            { id: 5, value: 'on-boarding' },
+            { id: 6, value: 'paused' },
+            { id: 7, value: 'off-boarding' },
+            { id: 8, value: 'archive' }
+          ];
+        console.log('Setting statuses:', statusesData);
+        setStatuses(statusesData);
+        
         setCircleTypes(data.circleTypes || []);
         setFrequencies(data.frequencies || []);
 
@@ -137,6 +162,17 @@ function LeadersContent() {
 
       } catch (error) {
         console.error('Error loading reference data:', error);
+        // Fallback data when API fails
+        setStatuses([
+          { id: 1, value: 'active' },
+          { id: 2, value: 'follow-up' },
+          { id: 3, value: 'invited' },
+          { id: 4, value: 'pipeline' },
+          { id: 5, value: 'on-boarding' },
+          { id: 6, value: 'paused' },
+          { id: 7, value: 'off-boarding' },
+          { id: 8, value: 'archive' }
+        ]);
       } finally {
         setReferenceDataLoading(false);
       }
@@ -538,6 +574,7 @@ function LeadersContent() {
             {referenceDataLoading ? (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                 <p className="text-gray-600 dark:text-gray-400">Loading filters...</p>
+                <p className="text-xs text-gray-500 mt-2">Debug: referenceDataLoading = {String(referenceDataLoading)}</p>
               </div>
             ) : (
               <FilterPanel 
