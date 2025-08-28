@@ -304,35 +304,57 @@ export default function CircleLeaderProfilePage() {
         if (frequenciesResult.data) setFrequencies(frequenciesResult.data);
 
         // Load notes with user information
+        console.log('🔍 Loading notes for leader:', leaderId);
         const { data: notesData, error: notesError } = await supabase
           .from('notes')
-          .select('*')
+          .select(`
+            *,
+            users!notes_created_by_fkey (name)
+          `)
           .eq('circle_leader_id', leaderId)
           .order('created_at', { ascending: false });
+
+        console.log('🔍 Notes query result:', { notesData, notesError });
 
         if (notesData && !notesError) {
           setNotes(notesData);
         } else {
           if (notesError) {
             console.error('🚨 Notes loading error:', notesError);
-          }
-          // Fallback to mock notes
-          setNotes([
-            {
-              id: 1,
-              circle_leader_id: leaderId,
-              content: 'Great meeting last week. Good participation from the group.',
-              created_at: '2024-01-15T10:30:00Z',
-              created_by: 'Admin'
-            },
-            {
-              id: 2,
-              circle_leader_id: leaderId,
-              content: 'Need to follow up on attendance next week.',
-              created_at: '2024-01-20T14:15:00Z',
-              created_by: 'Jane Doe'
+            console.error('🚨 Full error details:', JSON.stringify(notesError, null, 2));
+            
+            // Try fallback query without user join
+            console.log('🔄 Trying fallback query without user join...');
+            const { data: fallbackNotesData, error: fallbackError } = await supabase
+              .from('notes')
+              .select('*')
+              .eq('circle_leader_id', leaderId)
+              .order('created_at', { ascending: false });
+            
+            console.log('🔍 Fallback query result:', { fallbackNotesData, fallbackError });
+            
+            if (fallbackNotesData && !fallbackError) {
+              setNotes(fallbackNotesData);
+            } else {
+              // Use mock data as last resort
+              setNotes([
+                {
+                  id: 1,
+                  circle_leader_id: leaderId,
+                  content: 'Great meeting last week. Good participation from the group.',
+                  created_at: '2024-01-15T10:30:00Z',
+                  created_by: 'Admin'
+                },
+                {
+                  id: 2,
+                  circle_leader_id: leaderId,
+                  content: 'Need to follow up on attendance next week.',
+                  created_at: '2024-01-20T14:15:00Z',
+                  created_by: 'Jane Doe'
+                }
+              ]);
             }
-          ]);
+          }
         }
       } catch (error) {
         console.error('Error loading leader data:', error);
@@ -370,14 +392,20 @@ export default function CircleLeaderProfilePage() {
   // Function to reload notes data
   const reloadNotes = async () => {
     try {
+      console.log('🔍 Reloading notes...');
       const { data: notesData, error: notesError } = await supabase
         .from('notes')
         .select(`
           *,
-          users (name)
+          users!notes_created_by_fkey (name)
         `)
         .eq('circle_leader_id', leaderId)
         .order('created_at', { ascending: false });
+
+      console.log('🔍 Reload notes result:', { notesData, notesError });
+      if (notesError) {
+        console.error('🚨 Reload notes error details:', JSON.stringify(notesError, null, 2));
+      }
 
       if (notesData && !notesError) {
         setNotes(notesData);
@@ -388,17 +416,21 @@ export default function CircleLeaderProfilePage() {
   };
 
   const handleAddNote = async () => {
-    if (!newNote.trim()) return;
+    if (!newNote.trim() || !user?.id) return;
 
     setIsSavingNote(true);
     setNoteError('');
     
     try {
-      // Simple note insertion
+      // Insert note with user ID
       const insertData = {
         circle_leader_id: leaderId,
-        content: newNote.trim()
+        content: newNote.trim(),
+        created_by: user.id  // Include the user ID
       };
+      
+      console.log('🔍 Inserting note with data:', insertData);
+      console.log('🔍 User context:', user);
       
       const { data, error } = await supabase
         .from('notes')
@@ -406,12 +438,16 @@ export default function CircleLeaderProfilePage() {
         .select('*')
         .single();
 
+      console.log('🔍 Insert result:', { data, error });
+
       if (data && !error) {
         // Success - reload notes to include user information and clear form
+        console.log('✅ Note saved successfully, reloading notes...');
         await reloadNotes();
         setNewNote('');
       } else {
-        console.error('Error saving note:', error);
+        console.error('❌ Error saving note:', error);
+        console.error('❌ Full error details:', JSON.stringify(error, null, 2));
         setNoteError(`Failed to save note: ${error?.message || 'Unknown error'}`);
       }
     } catch (error) {
@@ -1161,6 +1197,169 @@ export default function CircleLeaderProfilePage() {
           </div>
         </div>
 
+        {/* Mobile Quick Actions - Show on mobile only, right after the name */}
+        <div className="lg:hidden mb-6 space-y-4">
+          {/* Event Summary - Mobile */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <button
+              onClick={handleToggleEventSummary}
+              disabled={isUpdatingEventSummary}
+              className="flex items-center justify-between w-full text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded p-2 transition-colors disabled:opacity-50"
+            >
+              <div className="flex items-center">
+                <svg className={`w-4 h-4 mr-2 ${leader.event_summary_received ? 'text-green-600' : 'text-red-600'}`} fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d={leader.event_summary_received ? 
+                    "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" :
+                    "M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  } clipRule="evenodd" />
+                </svg>
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  {isUpdatingEventSummary ? 'Updating...' : 'Event Summary'}
+                </span>
+              </div>
+              <span className={`text-xs font-medium ${leader.event_summary_received ? 'text-green-600' : 'text-red-600'}`}>
+                {leader.event_summary_received ? 'Complete' : 'Pending'}
+              </span>
+            </button>
+          </div>
+
+          {/* Follow Up - Mobile */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-3">
+            {/* Follow Up Toggle */}
+            <button
+              onClick={handleToggleFollowUp}
+              disabled={isUpdatingFollowUp}
+              className="flex items-center justify-between w-full text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded p-2 transition-colors disabled:opacity-50"
+            >
+              <div className="flex items-center">
+                <svg className={`w-4 h-4 mr-2 ${leader.follow_up_required ? 'text-orange-600' : 'text-gray-600'}`} fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d={leader.follow_up_required ? 
+                    "M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" :
+                    "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  } clipRule="evenodd" />
+                </svg>
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  {isUpdatingFollowUp ? 'Updating...' : 'Follow-Up'}
+                </span>
+              </div>
+              <span className={`text-xs font-medium ${leader.follow_up_required ? 'text-orange-600' : 'text-gray-600'}`}>
+                {leader.follow_up_required ? 'Required' : 'None'}
+              </span>
+            </button>
+
+            {/* Follow Up Date - Only show when follow-up is required */}
+            {leader.follow_up_required && (
+              <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Follow-up Date
+                  </label>
+                  <input
+                    type="date"
+                    value={leader.follow_up_date || ''}
+                    onChange={(e) => handleFollowUpDateChange(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Select a date"
+                  />
+                  {leader.follow_up_date ? (
+                    <div className={`text-xs ${
+                      getFollowUpStatus(leader.follow_up_date).isOverdue 
+                        ? 'text-red-600' 
+                        : getFollowUpStatus(leader.follow_up_date).isApproaching
+                        ? 'text-yellow-600'
+                        : 'text-green-600'
+                    }`}>
+                      {getFollowUpStatus(leader.follow_up_date).isOverdue && 'Overdue'}
+                      {getFollowUpStatus(leader.follow_up_date).isApproaching && !getFollowUpStatus(leader.follow_up_date).isOverdue && 'Due Soon'}
+                      {!getFollowUpStatus(leader.follow_up_date).isOverdue && !getFollowUpStatus(leader.follow_up_date).isApproaching && 'Scheduled'}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      Please select a follow-up date
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Actions - Mobile */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-2">
+            <div className="mb-3">
+              <h3 className="text-sm font-medium text-gray-900 dark:text-white">Quick Actions</h3>
+            </div>
+            
+            <button 
+              onClick={handleSendSMS}
+              disabled={!leader?.phone}
+              className="w-full flex items-center justify-between px-3 py-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="flex items-center">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                Send SMS
+              </div>
+              {!leader?.phone && <span className="text-xs opacity-60">No phone</span>}
+            </button>
+            
+            <button 
+              onClick={handleCallLeader}
+              disabled={!leader?.phone}
+              className="w-full flex items-center justify-between px-3 py-2 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="flex items-center">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+                Call
+              </div>
+              {!leader?.phone && <span className="text-xs opacity-60">No phone</span>}
+            </button>
+            
+            <button 
+              onClick={handleSendEmail}
+              disabled={!leader?.email}
+              className="w-full flex items-center justify-between px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="flex items-center">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Send Email
+              </div>
+              {!leader?.email && <span className="text-xs opacity-60">No email</span>}
+            </button>
+            
+            <button 
+              onClick={() => setShowLogConnectionModal(true)}
+              className="w-full flex items-center px-3 py-2 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded text-sm"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Log Connection
+            </button>
+            
+            {/* CCB Profile Link */}
+            {leader?.ccb_profile_link && (
+              <a 
+                href={leader.ccb_profile_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-between px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="flex items-center">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                  CCB Profile
+                </div>
+              </a>
+            )}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Profile Info */}
           <div className="lg:col-span-2 space-y-6">
@@ -1549,8 +1748,8 @@ export default function CircleLeaderProfilePage() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Event Summary */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            {/* Event Summary - Desktop Only */}
+            <div className="hidden lg:block bg-white dark:bg-gray-800 rounded-lg shadow p-4">
               <button
                 onClick={handleToggleEventSummary}
                 disabled={isUpdatingEventSummary}
@@ -1573,8 +1772,8 @@ export default function CircleLeaderProfilePage() {
               </button>
             </div>
 
-            {/* Follow Up */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-3">
+            {/* Follow Up - Desktop Only */}
+            <div className="hidden lg:block bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-3">
               {/* Follow Up Toggle */}
               <button
                 onClick={handleToggleFollowUp}
@@ -1605,6 +1804,7 @@ export default function CircleLeaderProfilePage() {
                     value={leader.follow_up_date || ''}
                     onChange={(e) => handleFollowUpDateChange(e.target.value)}
                     className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Select a date"
                   />
                   {leader.follow_up_date && (
                     <div className={`mt-1 text-xs ${
@@ -1623,8 +1823,36 @@ export default function CircleLeaderProfilePage() {
               )}
             </div>
 
-            {/* Quick Actions */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-2">
+            {/* Quick Actions - Desktop Only */}
+            <div className="hidden lg:block bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-2">
+              <button 
+                onClick={handleSendSMS}
+                disabled={!leader?.phone}
+                className="w-full flex items-center justify-between px-3 py-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="flex items-center">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                  Send SMS
+                </div>
+                {!leader?.phone && <span className="text-xs opacity-60">No phone</span>}
+              </button>
+              
+              <button 
+                onClick={handleCallLeader}
+                disabled={!leader?.phone}
+                className="w-full flex items-center justify-between px-3 py-2 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="flex items-center">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                  Call
+                </div>
+                {!leader?.phone && <span className="text-xs opacity-60">No phone</span>}
+              </button>
+              
               <button 
                 onClick={handleSendEmail}
                 disabled={!leader?.email}
@@ -1640,49 +1868,6 @@ export default function CircleLeaderProfilePage() {
                 </button>
                 
                 <button 
-                  onClick={handleSendSMS}
-                  disabled={!leader?.phone}
-                  className="w-full flex items-center justify-between px-3 py-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="flex items-center">
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                    Send SMS
-                  </div>
-                  {!leader?.phone && <span className="text-xs opacity-60">No phone</span>}
-                </button>
-                
-                <button 
-                  onClick={handleCallLeader}
-                  disabled={!leader?.phone}
-                  className="w-full flex items-center justify-between px-3 py-2 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="flex items-center">
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                    Call
-                  </div>
-                  {!leader?.phone && <span className="text-xs opacity-60">No phone</span>}
-                </button>
-                
-                {/* CCB Profile Link */}
-                {leader?.ccb_profile_link && (
-                  <a 
-                    href={leader.ccb_profile_link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full flex items-center px-3 py-2 bg-gray-100/80 dark:bg-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-gray-200/80 dark:hover:bg-gray-600/60 rounded-xl transition-all duration-200 text-sm font-medium hover:scale-[1.02] active:scale-[0.98] backdrop-blur-sm"
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                    CCB Profile
-                  </a>
-                )}
-                
-                <button 
                   onClick={() => setShowLogConnectionModal(true)}
                   className="w-full flex items-center px-3 py-2 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded text-sm"
                 >
@@ -1691,6 +1876,23 @@ export default function CircleLeaderProfilePage() {
                   </svg>
                   Log Connection
                 </button>
+                
+                {/* CCB Profile Link */}
+                {leader?.ccb_profile_link && (
+                  <a 
+                    href={leader.ccb_profile_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center justify-between px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-center">
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      CCB Profile
+                    </div>
+                  </a>
+                )}
               </div>
             </div>
           </div>
