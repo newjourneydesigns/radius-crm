@@ -1,7 +1,5 @@
-'use client';
-
 import { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 export interface User {
   id: string;
@@ -17,9 +15,6 @@ interface AuthContextType {
   signUp: (email: string, password: string, name: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
-  clearAuthData: () => Promise<void>;
-  isAuthenticated: () => boolean;
-  isAdmin: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,6 +28,7 @@ export const useAuth = () => {
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const supabase = createClientComponentClient();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -56,6 +52,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           const timeoutPromise = new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Profile fetch timeout')), 2000)
+          );
+
+          try {
+  signIn: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  clearAuthData: () => Promise<void>;
+  isAuthenticated: () => boolean;
+  isAdmin: () => boolean;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Get initial session
+    const getSession = async () => {
+      console.log('🔍 AuthContext: Getting initial session...');
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log('🔍 AuthContext: Initial session:', session ? 'Found' : 'None');
+        
+        if (session?.user) {
+          console.log('🔍 AuthContext: Fetching user profile for:', session.user.id);
+          
+          // Optimize query by selecting only necessary fields
+          const profilePromise = supabase
+            .from('users')
+            .select('id, email, name, role')
+            .eq('id', session.user.id)
+            .single();
+
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
           );
 
           try {
@@ -107,79 +147,76 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     getSession();
 
-    // Listen for auth changes with debouncing to prevent rapid repeated calls
+    // Listen for auth changes with debouncing
     let authChangeTimeout: NodeJS.Timeout | null = null;
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('🔍 AuthContext: Auth state change:', event, session ? 'Session exists' : 'No session');
       
-      // Clear any existing timeout to debounce rapid auth changes
+      // Clear existing timeout to debounce rapid changes
       if (authChangeTimeout) {
         clearTimeout(authChangeTimeout);
       }
-
-      // Debounce auth changes by 1 second to prevent repeated calls
+      
+      // Debounce auth changes by 500ms
       authChangeTimeout = setTimeout(async () => {
         try {
-          if (session?.user) {
-            console.log('🔍 AuthContext: Auth change - fetching user profile');
+        if (session?.user) {
+          console.log('🔍 AuthContext: Auth change - fetching user profile');
+          
+          // Optimize query by selecting only necessary fields
+          const profilePromise = supabase
+            .from('users')
+            .select('id, email, name, role')
+            .eq('id', session.user.id)
+            .single();
+
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
+          );
+
+          try {
+            const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
             
-            // Optimize query by selecting only necessary fields
-            const profilePromise = supabase
-              .from('users')
-              .select('id, email, name, role')
-              .eq('id', session.user.id)
-              .single();
-
-            // Reduce timeout to 2 seconds for faster response
-            const timeoutPromise = new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('Profile fetch timeout')), 2000)
-            );
-
-            try {
-              const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
-              
-              if (profile) {
-                console.log('🔍 AuthContext: Auth change - profile loaded:', profile.name);
-                setUser(profile);
-              } else if (error) {
-                console.error('❌ AuthContext: Error fetching user profile in auth change:', error);
-                
-                // Fallback: Create a basic user object from auth data
-                console.log('🔄 AuthContext: Auth change - using fallback user data');
-                const isValleyCreek = session.user.email?.endsWith('@valleycreek.org');
-                const fallbackUser = {
-                  id: session.user.id,
-                  email: session.user.email || '',
-                  name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-                  role: (isValleyCreek ? 'ACPD' : 'Viewer') as 'ACPD' | 'Viewer'
-                };
-                setUser(fallbackUser);
-              }
-            } catch (timeoutError) {
-              console.error('❌ AuthContext: Auth change profile fetch timed out, using fallback');
-              console.log('🔄 AuthContext: Creating fallback user from session data');
+            if (profile) {
+              console.log('🔍 AuthContext: Auth change - profile loaded:', profile.name);
+              setUser(profile);
+            } else if (error) {
+              console.error('❌ AuthContext: Error fetching user profile in auth change:', error);
               
               // Fallback: Create a basic user object from auth data
-              const isValleyCreek = session.user.email?.endsWith('@valleycreek.org');
+              console.log('🔄 AuthContext: Auth change - using fallback user data');
               const fallbackUser = {
                 id: session.user.id,
                 email: session.user.email || '',
                 name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-                role: (isValleyCreek ? 'ACPD' : 'Viewer') as 'ACPD' | 'Viewer'
+                role: 'Viewer' as const // Default role
               };
-              console.log('✅ AuthContext: Fallback user created:', fallbackUser.name);
               setUser(fallbackUser);
             }
-          } else {
-            console.log('🔍 AuthContext: No session, clearing user');
-            setUser(null);
+          } catch (timeoutError) {
+            console.error('❌ AuthContext: Auth change profile fetch timed out, using fallback');
+            console.log('🔄 AuthContext: Creating fallback user from session data');
+            
+            // Fallback: Create a basic user object from auth data
+            const fallbackUser = {
+              id: session.user.id,
+              email: session.user.email || '',
+              name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
+              role: 'Viewer' as const // Default role
+            };
+            console.log('✅ AuthContext: Fallback user created:', fallbackUser.name);
+            setUser(fallbackUser);
           }
-        } catch (error) {
-          console.error('❌ AuthContext: Error in auth change handler:', error);
+        } else {
+          console.log('🔍 AuthContext: Auth change - clearing user');
           setUser(null);
         }
-        setLoading(false);
-      }, 1000); // 1 second debounce
+      } catch (error) {
+        console.error('❌ AuthContext: Error in auth state change:', error);
+        setUser(null);
+      }
+      setLoading(false);
+      }, 500); // 500ms debounce
     });
 
     return () => {
@@ -194,35 +231,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
-    });
-
-    if (error) {
-      throw error;
-    }
-  };
-
-  const signUp = async (email: string, password: string, name: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name: name
-        }
-      }
-    });
-
-    if (error) {
-      throw error;
-    }
-  };
-
-  const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`
-      }
     });
 
     if (error) {
@@ -287,8 +295,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     loading,
     signIn,
-    signUp,
-    signInWithGoogle,
     signOut,
     clearAuthData,
     isAuthenticated,
@@ -300,4 +306,4 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
+};
