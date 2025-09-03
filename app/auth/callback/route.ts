@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '../../../lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -25,8 +25,22 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     try {
-      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-      if (!exchangeError) {
+      // Create a server-side Supabase client for the callback
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          auth: {
+            flowType: 'pkce'
+          }
+        }
+      );
+
+      // For OAuth flows, we need to use the proper session exchange method
+      // The exchangeCodeForSession should handle PKCE automatically
+      const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+      
+      if (!exchangeError && sessionData.session) {
         console.log('✅ Auth callback successful, redirecting...');
         
         const forwardedHost = request.headers.get('x-forwarded-host');
@@ -52,7 +66,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(redirectUrl);
       } else {
         console.error('❌ Session exchange error:', exchangeError);
-        return NextResponse.redirect(`${origin}/auth/auth-code-error?error=session_exchange&description=${encodeURIComponent(exchangeError.message)}`);
+        const errorMsg = exchangeError?.message || 'Session exchange failed';
+        return NextResponse.redirect(`${origin}/auth/auth-code-error?error=session_exchange&description=${encodeURIComponent(errorMsg)}`);
       }
     } catch (error) {
       console.error('❌ Auth callback exception:', error);
