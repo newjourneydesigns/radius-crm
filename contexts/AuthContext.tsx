@@ -218,10 +218,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
+    // Determine the correct redirect URL based on environment and domain
+    let redirectTo = `${window.location.origin}/auth/callback`;
+    
+    // If we're on myradiuscrm.com in production, ensure we redirect back to myradiuscrm.com
+    if (window.location.hostname === 'myradiuscrm.com') {
+      redirectTo = 'https://myradiuscrm.com/auth/callback';
+    }
+    // Fallback: if we're on a netlify domain, use that
+    else if (window.location.hostname.includes('netlify.app')) {
+      redirectTo = `${window.location.origin}/auth/callback`;
+    }
+    
+    console.log('🔍 AuthContext: Google OAuth redirect URL:', redirectTo);
+    
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`
+        redirectTo: redirectTo
       }
     });
 

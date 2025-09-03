@@ -1,8 +1,36 @@
 'use client';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
-export default function AuthCodeError() {
+function AuthErrorContent() {
+  const searchParams = useSearchParams();
+  const error = searchParams.get('error');
+  const description = searchParams.get('description');
+
+  const getErrorMessage = () => {
+    switch (error) {
+      case 'access_denied':
+        return 'You denied access to the application. Please try again and grant the necessary permissions.';
+      case 'session_exchange':
+        return 'Failed to exchange authentication code for session. This may be a temporary issue.';
+      case 'callback_exception':
+        return 'An unexpected error occurred during authentication. Please try again.';
+      case 'missing_code':
+        return 'No authentication code was received. Please try logging in again.';
+      default:
+        return 'There was an error processing your authentication request.';
+    }
+  };
+
+  const getErrorDetails = () => {
+    if (description) {
+      return description;
+    }
+    return 'This could be due to an expired or invalid authentication code, or a configuration issue.';
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
@@ -16,11 +44,18 @@ export default function AuthCodeError() {
             Authentication Error
           </h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            There was an error processing your authentication request.
+            {getErrorMessage()}
           </p>
           <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-            This could be due to an expired or invalid authentication code.
+            {getErrorDetails()}
           </p>
+          {error && (
+            <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-md">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Error Code: {error}
+              </p>
+            </div>
+          )}
         </div>
         <div className="mt-8 space-y-4">
           <Link
@@ -38,5 +73,20 @@ export default function AuthCodeError() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AuthCodeError() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    }>
+      <AuthErrorContent />
+    </Suspense>
   );
 }
