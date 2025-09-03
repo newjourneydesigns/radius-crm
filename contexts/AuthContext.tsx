@@ -37,6 +37,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Handle OAuth callback if present in URL
+    const handleOAuthCallback = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      
+      if (code) {
+        console.log('🔍 AuthContext: OAuth callback detected, processing...');
+        try {
+          // Let Supabase handle the OAuth callback automatically
+          const { data, error } = await supabase.auth.getSession();
+          if (error) {
+            console.error('❌ AuthContext: OAuth callback error:', error);
+            // Clear the URL parameters and redirect to error
+            window.history.replaceState({}, document.title, window.location.pathname);
+            window.location.href = `/auth/auth-code-error?error=oauth_callback&description=${encodeURIComponent(error.message)}`;
+            return;
+          }
+          
+          if (data.session) {
+            console.log('✅ AuthContext: OAuth callback successful');
+            // Clear the URL parameters
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        } catch (error) {
+          console.error('❌ AuthContext: OAuth callback exception:', error);
+          window.history.replaceState({}, document.title, window.location.pathname);
+          window.location.href = `/auth/auth-code-error?error=oauth_callback&description=${encodeURIComponent(String(error))}`;
+          return;
+        }
+      }
+    };
+
+    // Handle OAuth callback first
+    handleOAuthCallback();
+
     // Get initial session
     const getSession = async () => {
       console.log('🔍 AuthContext: Getting initial session...');
