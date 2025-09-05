@@ -336,14 +336,34 @@ function LeadersContent() {
   const handleUpdateStatus = async (leaderId: number, newStatus: string, followUpDate?: string) => {
     await updateStatus(leaderId, newStatus, followUpDate);
     setFollowUpRefreshKey(prev => prev + 1); // Refresh FollowUpTable
-    loadCircleLeaders(); // Force refresh of circle leaders data
+    
+    // Preserve current filters when reloading
+    const filtersToApply = {
+      campus: filters.campus,
+      acpd: filters.acpd,
+      status: filters.status.filter(s => s !== 'follow-up'), // Handle follow-up client-side
+      meetingDay: filters.meetingDay,
+      circleType: filters.circleType,
+      eventSummary: filters.eventSummary
+    };
+    loadCircleLeaders(filtersToApply);
   };
 
   const handleUpdateFollowUpDate = async (leaderId: number, followUpDate: string) => {
     try {
       await updateStatus(leaderId, 'follow-up', followUpDate);
       setFollowUpRefreshKey(prev => prev + 1); // Refresh FollowUpTable
-      loadCircleLeaders(); // Force refresh of circle leaders data
+      
+      // Preserve current filters when reloading
+      const filtersToApply = {
+        campus: filters.campus,
+        acpd: filters.acpd,
+        status: filters.status.filter(s => s !== 'follow-up'), // Handle follow-up client-side
+        meetingDay: filters.meetingDay,
+        circleType: filters.circleType,
+        eventSummary: filters.eventSummary
+      };
+      loadCircleLeaders(filtersToApply);
     } catch (error) {
       console.error('Error updating follow-up date:', error);
     }
@@ -352,7 +372,17 @@ function LeadersContent() {
   const handleClearFollowUp = async (leaderId: number) => {
     await toggleFollowUp(leaderId, false);
     setFollowUpRefreshKey(prev => prev + 1); // Refresh FollowUpTable
-    loadCircleLeaders(); // Force refresh of circle leaders data
+    
+    // Preserve current filters when reloading
+    const filtersToApply = {
+      campus: filters.campus,
+      acpd: filters.acpd,
+      status: filters.status.filter(s => s !== 'follow-up'), // Handle follow-up client-side
+      meetingDay: filters.meetingDay,
+      circleType: filters.circleType,
+      eventSummary: filters.eventSummary
+    };
+    loadCircleLeaders(filtersToApply);
   };
 
   const handleToggleFollowUp = async (leaderId: number) => {
@@ -360,20 +390,50 @@ function LeadersContent() {
     if (leader) {
       await toggleFollowUp(leaderId, !leader.follow_up_required);
       setFollowUpRefreshKey(prev => prev + 1); // Refresh FollowUpTable
-      loadCircleLeaders(); // Force refresh of circle leaders data
+      
+      // Preserve current filters when reloading
+      const filtersToApply = {
+        campus: filters.campus,
+        acpd: filters.acpd,
+        status: filters.status.filter(s => s !== 'follow-up'), // Handle follow-up client-side
+        meetingDay: filters.meetingDay,
+        circleType: filters.circleType,
+        eventSummary: filters.eventSummary
+      };
+      loadCircleLeaders(filtersToApply);
     }
   };
 
   const handleConnectionLogged = () => {
     invalidateCache();
-    loadCircleLeaders(); // Force refresh of circle leaders data
+    
+    // Preserve current filters when reloading
+    const filtersToApply = {
+      campus: filters.campus,
+      acpd: filters.acpd,
+      status: filters.status.filter(s => s !== 'follow-up'), // Handle follow-up client-side
+      meetingDay: filters.meetingDay,
+      circleType: filters.circleType,
+      eventSummary: filters.eventSummary
+    };
+    loadCircleLeaders(filtersToApply);
     closeLogConnectionModal();
   };
 
   const handleNoteAdded = () => {
     invalidateCache();
     setFollowUpRefreshKey(prev => prev + 1); // Refresh FollowUpTable
-    loadCircleLeaders(); // Force refresh of circle leaders data
+    
+    // Preserve current filters when reloading
+    const filtersToApply = {
+      campus: filters.campus,
+      acpd: filters.acpd,
+      status: filters.status.filter(s => s !== 'follow-up'), // Handle follow-up client-side
+      meetingDay: filters.meetingDay,
+      circleType: filters.circleType,
+      eventSummary: filters.eventSummary
+    };
+    loadCircleLeaders(filtersToApply);
     closeAddNoteModal();
   };
 

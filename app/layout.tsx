@@ -51,13 +51,13 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{
           __html: `
             (function() {
-              // Force dark green theme immediately
+              // Force dark theme immediately
               const html = document.documentElement;
               html.classList.add('dark');
-              html.style.cssText = 'color-scheme: dark !important; background: linear-gradient(135deg, #091b34 0%, #0b2545 25%, #4c6785 75%, #8da9c4 100%) !important; background-attachment: fixed !important; min-height: 100vh !important; color: #eef4ed !important;';
+              html.style.cssText = 'color-scheme: dark !important; background-color: #0f172a !important; min-height: 100vh !important; color: #eef4ed !important;';
               
               if (document.body) {
-                document.body.style.cssText = 'background: linear-gradient(135deg, #091b34 0%, #0b2545 25%, #4c6785 75%, #8da9c4 100%) !important; background-attachment: fixed !important; background-repeat: no-repeat !important; background-size: cover !important; min-height: 100vh !important; color: #eef4ed !important; color-scheme: dark !important;';
+                document.body.style.cssText = 'background-color: #0f172a !important; min-height: 100vh !important; color: #eef4ed !important; color-scheme: dark !important;';
               }
               
               // Force theme preference
@@ -136,16 +136,7 @@ export default function RootLayout({
           `
         }} />
       </head>
-      <body className="font-sans dark" style={{
-        backgroundColor: '#0b2545',
-        background: 'linear-gradient(135deg, #091b34 0%, #0b2545 25%, #4c6785 75%, #8da9c4 100%)',
-        minHeight: '100vh',
-        backgroundAttachment: 'fixed',
-        backgroundRepeat: 'no-repeat',
-        backgroundSize: 'cover',
-        color: '#eef4ed',
-        colorScheme: 'dark'
-      }}>
+      <body className="font-sans dark bg-slate-900 min-h-screen text-gray-100">
         <AuthProvider>
           {/* Mobile Navigation */}
           <MobileNavigation />
