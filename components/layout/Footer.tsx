@@ -44,6 +44,8 @@ export default function Footer() {
             <a href="/privacy-policy" className="underline hover:text-blue-600 dark:hover:text-blue-400">Privacy Policy</a>
             <span className="hidden sm:inline">|</span>
             <a href="/terms" className="underline hover:text-blue-600 dark:hover:text-blue-400">Terms of Service</a>
+            <span className="hidden sm:inline">|</span>
+            <a href="https://forms.gle/sPGuywb28E2sn8gF7" target="_blank" rel="noopener noreferrer" className="underline hover:text-red-600 dark:hover:text-red-400">Report A Bug</a>
           </div>
 
           {/* Attribution */}
