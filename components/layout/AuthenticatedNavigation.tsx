@@ -80,6 +80,13 @@ export default function AuthenticatedNavigation() {
                 <div className="fixed top-[60px] right-4 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-[99999]">
                   <div className="py-1">
                     <Link 
+                      href="/add-leader" 
+                      className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Add Leader
+                    </Link>
+                    <Link 
                       href="/settings" 
                       className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400"
                       onClick={() => setIsMenuOpen(false)}

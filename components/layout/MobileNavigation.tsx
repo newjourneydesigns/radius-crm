@@ -19,6 +19,7 @@ export default function MobileNavigation() {
   ];
 
   const hamburgerMenu = [
+    { name: 'Add Leader', href: '/add-leader' },
     { name: 'Settings', href: '/settings' },
     { name: 'Help', href: '/help' },
   ];
