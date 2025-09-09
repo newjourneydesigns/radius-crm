@@ -57,11 +57,21 @@ export async function GET() {
       }
     });
 
+    console.log('Raw directors data:', directorsRes.data);
+    console.log('Sample circle leaders data:', actualDataRes.data?.slice(0, 3));
+
     // Get unique values from actual circle leaders data
     const actualData = actualDataRes.data || [];
     const uniqueCampuses = Array.from(new Set(actualData.map(item => item.campus).filter(Boolean)));
     const uniqueACPDs = Array.from(new Set(actualData.map(item => item.acpd).filter(Boolean)));
     const uniqueCircleTypes = Array.from(new Set(actualData.map(item => item.circle_type).filter(Boolean)));
+
+    console.log('Unique values from circle_leaders:', {
+      uniqueCampuses: uniqueCampuses.length,
+      uniqueACPDs: uniqueACPDs.length,
+      uniqueCircleTypes: uniqueCircleTypes.length,
+      sampleACPDs: uniqueACPDs.slice(0, 5)
+    });
 
     // Merge reference data with actual data
     const existingCampusValues = new Set((campusesRes.data || []).map(c => c.value));
@@ -99,6 +109,15 @@ export async function GET() {
       circleTypes: mergedCircleTypes,
       frequencies: frequenciesRes.data || []
     };
+
+    console.log('Final merged data:', {
+      directors: referenceData.directors.length,
+      directorNames: referenceData.directors.map(d => d.name),
+      campuses: referenceData.campuses.length,
+      statuses: referenceData.statuses.length,
+      circleTypes: referenceData.circleTypes.length,
+      frequencies: referenceData.frequencies.length
+    });
 
     return NextResponse.json(referenceData);
   } catch (error) {
