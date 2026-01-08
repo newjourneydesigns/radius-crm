@@ -2079,15 +2079,8 @@ function DashboardContent() {
             )}
           </div>
         </div>
-
-            {/* Circle Visits Tab - Commented out for now
-            {activeTab === 'visits' && (
-              <CircleVisitsDashboard 
-                campusFilter={filters.campus}
-                acpdFilter={filters.acpd}
-              />
-            )}
-            */}
+          </>
+        )}
       </div>
 
       {/* Contact Modal */}
