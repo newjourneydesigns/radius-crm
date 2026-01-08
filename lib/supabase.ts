@@ -187,6 +187,15 @@ export interface UserNote {
   updated_at: string;
 }
 
+export interface TodoItem {
+  id: number;
+  user_id: string;
+  text: string;
+  completed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface NoteTemplate {
   id: number;
   user_id: string;

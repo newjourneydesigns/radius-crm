@@ -25,27 +25,52 @@ export async function GET(request: NextRequest) {
 
     // Check if we have a valid service role key
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY === 'demo-key') {
-      // Return mock data for demo
-      const mockUsers = [
-        {
-          id: '1',
-          email: 'admin@example.com',
-          created_at: '2024-01-15T10:30:00Z',
-          last_sign_in_at: '2024-07-30T14:22:00Z',
-          name: 'Admin User',
-          role: 'admin'
-        },
-        {
-          id: '2', 
-          email: 'user@example.com',
-          created_at: '2024-02-20T09:15:00Z',
-          last_sign_in_at: '2024-07-29T11:45:00Z',
-          name: 'Regular User',
-          role: 'user'
-        }
-      ];
+      // Fallback: Try to get users from public.users table with anon key
+      const supabaseAnon = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
       
-      return NextResponse.json({ users: mockUsers });
+      const { data: profiles, error: profileError } = await supabaseAnon
+        .from('users')
+        .select('*');
+      
+      if (profileError) {
+        console.error('Error fetching user profiles with anon key:', profileError);
+        // Return mock data if we can't get real data
+        const mockUsers = [
+          {
+            id: '1',
+            email: 'admin@example.com',
+            created_at: '2024-01-15T10:30:00Z',
+            last_sign_in_at: '2024-07-30T14:22:00Z',
+            name: 'Admin User',
+            role: 'ACPD'
+          },
+          {
+            id: '2', 
+            email: 'user@example.com',
+            created_at: '2024-02-20T09:15:00Z',
+            last_sign_in_at: '2024-07-29T11:45:00Z',
+            name: 'Regular User',
+            role: 'user'
+          }
+        ];
+        
+        return NextResponse.json({ users: mockUsers });
+      }
+      
+      // Convert profiles to user format (without auth data)
+      const users = profiles.map(profile => ({
+        id: profile.id,
+        email: profile.email,
+        name: profile.name,
+        role: profile.role,
+        created_at: profile.created_at,
+        last_sign_in_at: null // Can't get this without service role key
+      }));
+      
+      return NextResponse.json({ users });
     }
 
     // Get users from auth.users and join with public.users for profile data
@@ -100,7 +125,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     console.log('Create user request body:', body);
-    const { email, password } = body;
+    const { email, password, name, role } = body;
 
     // Validate input more thoroughly
     if (!email || !password) {
@@ -184,8 +209,8 @@ export async function POST(request: NextRequest) {
       .insert({
         id: data.user.id,
         email: data.user.email,
-        name: null,
-        role: 'user'
+        name: name || null,
+        role: role || 'user'
       });
 
     if (profileError) {
@@ -209,5 +234,121 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error in create user API:', error);
     return NextResponse.json({ error: `Internal server error: ${error}` }, { status: 500 });
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    // Verify admin access
+    const { isAdmin, error: adminAuthError } = await verifyAdminAccessDemo(request);
+    
+    if (!isAdmin) {
+      return NextResponse.json({ error: adminAuthError || 'Admin access required' }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const { id, email, name, role } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    }
+
+    // Check if we have a valid service role key
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY === 'demo-key') {
+      return NextResponse.json({ 
+        message: 'User updated successfully (Demo Mode)',
+        user: { id, email, name, role }
+      });
+    }
+
+    // Update user profile in public.users table
+    const { data, error: profileError } = await supabaseAdmin
+      .from('users')
+      .update({
+        email: email,
+        name: name,
+        role: role
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (profileError) {
+      console.error('Error updating user profile:', profileError);
+      return NextResponse.json({ error: 'Failed to update user profile' }, { status: 500 });
+    }
+
+    // Update email in auth.users if changed
+    if (email) {
+      const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(id, {
+        email: email
+      });
+      
+      if (authError) {
+        console.error('Error updating auth email:', authError);
+        // Continue even if auth update fails - profile is updated
+      }
+    }
+
+    return NextResponse.json({ 
+      message: 'User updated successfully',
+      user: data
+    });
+
+  } catch (error) {
+    console.error('Error in update user API:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    // Verify admin access
+    const { isAdmin, error: adminAuthError } = await verifyAdminAccessDemo(request);
+    
+    if (!isAdmin) {
+      return NextResponse.json({ error: adminAuthError || 'Admin access required' }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('id');
+
+    if (!userId) {
+      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    }
+
+    // Check if we have a valid service role key
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY === 'demo-key') {
+      return NextResponse.json({ 
+        message: 'User deleted successfully (Demo Mode)'
+      });
+    }
+
+    // Delete user from auth.users (this should cascade to public.users via ON DELETE CASCADE)
+    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+
+    if (authError) {
+      console.error('Error deleting user from auth:', authError);
+      return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 });
+    }
+
+    // Also manually delete from public.users table in case cascade doesn't work
+    const { error: profileError } = await supabaseAdmin
+      .from('users')
+      .delete()
+      .eq('id', userId);
+
+    if (profileError) {
+      console.error('Error deleting user profile:', profileError);
+      // Don't fail the request if profile deletion fails - auth user is already deleted
+    }
+
+    return NextResponse.json({ 
+      message: 'User deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Error in delete user API:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

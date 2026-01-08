@@ -1,6 +1,7 @@
 'use client';
 
 import "../styles/globals.css";
+import { usePathname } from 'next/navigation';
 import MobileNavigation from "../components/layout/MobileNavigation";
 import AuthenticatedNavigation from "../components/layout/AuthenticatedNavigation";
 import PublicNavigation from "../components/layout/PublicNavigation";
@@ -13,6 +14,9 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+  const hideChrome = pathname === '/login' || pathname.startsWith('/auth');
+
   return (
     <html lang="en" className="dark">
       <head>
@@ -138,23 +142,31 @@ export default function RootLayout({
       </head>
       <body className="font-sans dark bg-slate-900 min-h-screen text-gray-100">
         <AuthProvider>
-          {/* Mobile Navigation */}
-          <MobileNavigation />
-          
-          {/* Desktop Navigation */}
-          <AuthenticatedNavigation />
-          
-          {/* Public Navigation (shown when not authenticated) */}
-          <PublicNavigation />
+          {!hideChrome && (
+            <>
+              {/* Mobile Navigation */}
+              <MobileNavigation />
+
+              {/* Desktop Navigation */}
+              <AuthenticatedNavigation />
+
+              {/* Public Navigation (shown when not authenticated) */}
+              <PublicNavigation />
+            </>
+          )}
           
           {/* Main Content */}
           <main>{children}</main>
           
-          {/* Footer */}
-          <Footer />
-          
-          {/* Scroll to Top Button */}
-          <ScrollToTop />
+          {!hideChrome && (
+            <>
+              {/* Footer */}
+              <Footer />
+
+              {/* Scroll to Top Button */}
+              <ScrollToTop />
+            </>
+          )}
         </AuthProvider>
       </body>
     </html>

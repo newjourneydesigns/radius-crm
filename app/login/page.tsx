@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { supabase } from '../../lib/supabase';
 import ProtectedRoute from '../../components/ProtectedRoute';
@@ -13,6 +13,17 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const redirectTo = useMemo(() => {
+    const raw = searchParams.get('redirectTo') || '/dashboard';
+    // Prevent open redirects: allow only same-site absolute paths.
+    if (!raw.startsWith('/')) return '/dashboard';
+    if (raw.startsWith('//')) return '/dashboard';
+    if (raw.startsWith('/login')) return '/dashboard';
+    if (raw.startsWith('/auth')) return '/dashboard';
+    return raw;
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,8 +41,7 @@ export default function LoginPage() {
         return;
       }
 
-      // Redirect to dashboard on success
-      router.push('/dashboard');
+      router.push(redirectTo);
     } catch (err: any) {
       setError(err.message || 'Login failed. Please try again.');
     } finally {
@@ -47,7 +57,7 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`
         }
       });
       if (error) {

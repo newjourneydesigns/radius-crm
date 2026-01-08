@@ -20,7 +20,7 @@ import CircleVisitsDashboard from '../../components/dashboard/CircleVisitsDashbo
 import { useDashboardFilters } from '../../hooks/useDashboardFilters';
 import { useCircleLeaders, CircleLeaderFilters } from '../../hooks/useCircleLeaders';
 import { useTodayCircles } from '../../hooks/useTodayCircles';
-import { CircleLeader, supabase, Note, UserNote } from '../../lib/supabase';
+import { CircleLeader, supabase, Note, UserNote, TodoItem } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import Link from 'next/link';
 
@@ -95,7 +95,21 @@ function DashboardContent() {
   const [hasCampusSelection, setHasCampusSelection] = useState(false);
   
   // Active section tracking for sticky navigation
-  const [activeSection, setActiveSection] = useState('personal-notes');
+  const [activeSection, setActiveSection] = useState('todo-list');
+
+  // Todo list state
+  const [todos, setTodos] = useState<TodoItem[]>([]);
+  const [newTodoText, setNewTodoText] = useState('');
+  const [editingTodoId, setEditingTodoId] = useState<number | null>(null);
+  const [editingTodoText, setEditingTodoText] = useState('');
+  const [todosVisible, setTodosVisible] = useState(() => {
+    try {
+      const saved = localStorage.getItem('todosVisible');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
   
   // State for modals
   type RecentNote = Pick<Note, 'id' | 'circle_leader_id' | 'content' | 'created_at'>;
@@ -166,6 +180,147 @@ function DashboardContent() {
     } finally {
       setRecentNotesLoading(false);
     }
+  };
+
+  // Load todos from database
+  const loadTodos = async () => {
+    if (!user?.id) return;
+    try {
+      const { data, error } = await supabase
+        .from('todo_items')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error loading todos:', error);
+        return;
+      }
+      
+      setTodos(data || []);
+    } catch (e) {
+      console.error('Error loading todos:', e);
+    }
+  };
+
+  // Add new todo
+  const addTodo = async () => {
+    if (!newTodoText.trim() || !user?.id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('todo_items')
+        .insert({
+          user_id: user.id,
+          text: newTodoText.trim(),
+          completed: false
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error adding todo:', error);
+        return;
+      }
+      
+      setTodos([data, ...todos]);
+      setNewTodoText('');
+    } catch (e) {
+      console.error('Error adding todo:', e);
+    }
+  };
+
+  // Toggle todo completion
+  const toggleTodo = async (id: number) => {
+    const todo = todos.find(t => t.id === id);
+    if (!todo) return;
+    
+    try {
+      const { error } = await supabase
+        .from('todo_items')
+        .update({ completed: !todo.completed })
+        .eq('id', id);
+      
+      if (error) {
+        console.error('Error toggling todo:', error);
+        return;
+      }
+      
+      setTodos(todos.map(t =>
+        t.id === id ? { ...t, completed: !t.completed } : t
+      ));
+    } catch (e) {
+      console.error('Error toggling todo:', e);
+    }
+  };
+
+  // Start editing todo
+  const startEditingTodo = (id: number, text: string) => {
+    setEditingTodoId(id);
+    setEditingTodoText(text);
+  };
+
+  // Save edited todo
+  const saveEditedTodo = async (id: number) => {
+    if (!editingTodoText.trim()) return;
+    
+    try {
+      const { error } = await supabase
+        .from('todo_items')
+        .update({ text: editingTodoText.trim() })
+        .eq('id', id);
+      
+      if (error) {
+        console.error('Error updating todo:', error);
+        return;
+      }
+      
+      setTodos(todos.map(t =>
+        t.id === id ? { ...t, text: editingTodoText.trim() } : t
+      ));
+      setEditingTodoId(null);
+      setEditingTodoText('');
+    } catch (e) {
+      console.error('Error updating todo:', e);
+    }
+  };
+
+  // Cancel editing todo
+  const cancelEditingTodo = () => {
+    setEditingTodoId(null);
+    setEditingTodoText('');
+  };
+
+  // Delete todo
+  const deleteTodo = async (id: number) => {
+    try {
+      const { error } = await supabase
+        .from('todo_items')
+        .delete()
+        .eq('id', id);
+      
+      if (error) {
+        console.error('Error deleting todo:', error);
+        return;
+      }
+      
+      setTodos(todos.filter(t => t.id !== id));
+    } catch (e) {
+      console.error('Error deleting todo:', e);
+    }
+  };
+
+  // Toggle todos visibility
+  const toggleTodosVisibility = () => {
+    setTodosVisible(prev => {
+      const newVisible = !prev;
+      try {
+        localStorage.setItem('todosVisible', newVisible.toString());
+      } catch (error) {
+        console.error('Failed to save todos visibility:', error);
+      }
+      return newVisible;
+    });
   };
 
   // Load user's personal dashboard notes
@@ -523,18 +678,12 @@ function DashboardContent() {
   }, [isClient]);
 
   // Set hasCampusSelection to true if filters are loaded from localStorage with campus selection
-  // OR if this is a first visit (so all data loads by default for new users)
   useEffect(() => {
     if (isInitialized && filters.campus.length > 0) {
       console.log('🎯 [DashboardPage] Setting hasCampusSelection to true due to persisted filters:', filters.campus);
       setHasCampusSelection(true);
     } else if (isInitialized && filters.campus.length === 0) {
-      if (isFirstVisit) {
-        console.log('🎯 [DashboardPage] First visit - setting hasCampusSelection to true to load all data');
-        setHasCampusSelection(true);
-      } else {
-        console.log('🎯 [DashboardPage] No campus in persisted filters, keeping hasCampusSelection false');
-      }
+      console.log('🎯 [DashboardPage] No campus in persisted filters, keeping hasCampusSelection false');
     }
   }, [isInitialized, filters.campus.length, isFirstVisit]);
 
@@ -564,11 +713,13 @@ function DashboardContent() {
   // Wrapper function to track campus selection for lazy loading
   const handleFiltersChange = (newFilters: Partial<DashboardFilters>) => {
     // If campus is being changed, mark as having made a selection
-    if (newFilters.campus !== undefined && !hasCampusSelection) {
+    if (newFilters.campus !== undefined && !hasCampusSelection && newFilters.campus.length > 0) {
       setHasCampusSelection(true);
     }
     updateFilters(newFilters);
   };
+
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
 
   const [contactModal, setContactModal] = useState<ContactModalData>({
     isOpen: false,
@@ -848,13 +999,14 @@ function DashboardContent() {
 
   // Load recent notes when filtered leaders change
   useEffect(() => {
+    if (!hasCampusSelection) return;
     // Small delay to ensure filteredLeaders has been calculated
     const timeoutId = setTimeout(() => {
       loadRecentNotes();
     }, 100);
     
     return () => clearTimeout(timeoutId);
-  }, [filteredLeaders]);
+  }, [filteredLeaders, hasCampusSelection]);
 
   // Load user's personal notes on component mount
   useEffect(() => {
@@ -863,22 +1015,27 @@ function DashboardContent() {
     }
   }, [user?.id]);
 
+  // Load todos on component mount
+  useEffect(() => {
+    loadTodos();
+  }, [user?.id]);
+
   // Scroll spy effect to track active section
   useEffect(() => {
     const handleScroll = () => {
-      const sections = ['personal-notes', 'filters', 'status-overview', 'follow-up', 'recent-notes', 'progress'];
+      const sections = ['todo-list', 'personal-notes', 'filters', 'status-overview', 'follow-up', 'recent-notes', 'progress'];
       
       // Get current scroll position
       const scrollY = window.scrollY;
       
       // If we're at the very top of the page (within 200px), always highlight the first section
       if (scrollY <= 200) {
-        setActiveSection('personal-notes');
+        setActiveSection('todo-list');
         return;
       }
       
       // Find the section that's currently most visible in the viewport
-      let activeSection = 'personal-notes'; // default
+      let activeSection = 'todo-list'; // default
       let maxVisibility = 0;
       
       sections.forEach(sectionId => {
@@ -917,6 +1074,15 @@ function DashboardContent() {
   // Custom scroll function to handle offset and show hidden sections
   const scrollToSection = (sectionId: string) => {
     // Auto-show hidden sections when navigating to them
+    if (sectionId === 'todo-list' && !todosVisible) {
+      setTodosVisible(true);
+      try {
+        localStorage.setItem('todosVisible', 'true');
+      } catch (error) {
+        // Ignore localStorage errors
+      }
+    }
+    
     if (sectionId === 'recent-notes' && !recentNotesVisible) {
       setRecentNotesVisible(true);
       try {
@@ -939,7 +1105,9 @@ function DashboardContent() {
     setTimeout(() => {
       const element = document.getElementById(sectionId);
       if (element) {
-        const yOffset = -125; // Offset for sticky headers (nav + active filters)
+        const stickyHeader = document.getElementById('dashboard-sticky-header');
+        const stickyHeight = stickyHeader?.getBoundingClientRect().height ?? 0;
+        const yOffset = -(stickyHeight + 16);
         const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
         window.scrollTo({ top: y, behavior: 'smooth' });
       }
@@ -1135,9 +1303,34 @@ function DashboardContent() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+                {lastRefreshedAt && (
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Last refreshed {lastRefreshedAt.toLocaleString(undefined, { month: 'short', day: '2-digit', hour: 'numeric', minute: '2-digit' })}
+                  </p>
+                )}
               </div>
               <div className="mt-4 sm:mt-0 flex space-x-3">
                 {/* Import CSV and Add A Circle buttons moved to Settings page */}
+                <button
+                  onClick={() => {
+                    if (!hasCampusSelection) {
+                      const filtersElement = document.querySelector('[data-testid="filters-section"]');
+                      filtersElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      return;
+                    }
+                    loadAllCircleLeaders({});
+                    loadCircleLeaders(getServerFilters());
+                    loadRecentNotes();
+                    refreshTodayCircles();
+                    setLastRefreshedAt(new Date());
+                  }}
+                  className="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh
+                </button>
                 <button
                   onClick={() => setExportModal(true)}
                   className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors"
@@ -1152,8 +1345,22 @@ function DashboardContent() {
           </div>
 
           {/* Sticky Section Navigation */}
-          <div className="sticky top-0 z-[1000] bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 -mx-3 sm:-mx-4 lg:-mx-8 px-3 sm:px-4 lg:px-8 shadow-sm">
+          <div id="dashboard-sticky-header" className="sticky top-0 z-[1000] bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 -mx-3 sm:-mx-4 lg:-mx-8 px-3 sm:px-4 lg:px-8 shadow-sm">
               <nav className="flex space-x-6 overflow-x-auto py-3">
+                <button
+                  onClick={() => scrollToSection('todo-list')}
+                  className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    activeSection === 'todo-list'
+                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                  }`}
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
+                  To Do
+                </button>
+
                 <button
                   onClick={() => scrollToSection('personal-notes')}
                   className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
@@ -1182,101 +1389,266 @@ function DashboardContent() {
                   Filters
                 </button>
 
-                <button
-                  onClick={() => scrollToSection('status-overview')}
-                  className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                    activeSection === 'status-overview'
-                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                  }`}
-                >
+                {hasCampusSelection && (
+                  <button
+                    onClick={() => scrollToSection('status-overview')}
+                    className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                      activeSection === 'status-overview'
+                        ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                    }`}
+                  >
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                   Status
-                </button>
+                  </button>
+                )}
 
-                <button
-                  onClick={() => scrollToSection('progress')}
-                  className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                    activeSection === 'progress'
-                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                  }`}
-                >
+                {hasCampusSelection && (
+                  <button
+                    onClick={() => scrollToSection('progress')}
+                    className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                      activeSection === 'progress'
+                        ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                    }`}
+                  >
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                   Event Summaries
-                </button>
-                
-                <button
-                  onClick={() => scrollToSection('follow-up')}
-                  className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                    activeSection === 'follow-up'
-                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                  }`}
-                >
+                  </button>
+                )}
+
+                {hasCampusSelection && (
+                  <button
+                    onClick={() => scrollToSection('follow-up')}
+                    className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                      activeSection === 'follow-up'
+                        ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                    }`}
+                  >
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   Follow Up
-                </button>
+                  </button>
+                )}
 
-                <button
-                  onClick={() => scrollToSection('recent-notes')}
-                  className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                    activeSection === 'recent-notes'
-                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                  }`}
-                >
+                {hasCampusSelection && (
+                  <button
+                    onClick={() => scrollToSection('recent-notes')}
+                    className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                      activeSection === 'recent-notes'
+                        ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                    }`}
+                  >
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
                   Recent Notes
-                </button>
+                  </button>
+                )}
               </nav>
-            </div>
 
-          {/* Tab Content */}
-          {/* First Visit Message - Welcome */}
-              {isFirstVisit && (
-                <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
-                  <div className="flex items-start">
-                    <div className="flex-shrink-0">
-                      <svg className="h-6 w-6 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div className="ml-3">
-                      <h3 className="text-lg font-medium text-blue-800 dark:text-blue-200">
-                        Welcome to the Dashboard!
-                      </h3>
-                      <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
-                        <p>
-                          You're viewing all Circle Leaders. Use the filters above to narrow down the view by Campus, Status, Circle Type, or other criteria to focus on specific groups.
-                        </p>
-                      </div>
-                      <div className="mt-4">
-                        <button
-                          onClick={() => {
-                            // Scroll to filters section
-                            const filtersElement = document.querySelector('[data-testid="filters-section"]');
-                            if (filtersElement) {
-                              filtersElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                            }
-                          }}
-                          className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
-                        >
-                          Go to Filters
-                        </button>
-                      </div>
-                    </div>
+              {/* Active Filter Tags - Simplified for campus only */}
+              {filters.campus.length > 0 && (
+                <div className="pb-3">
+                  <div className="flex items-center flex-wrap gap-2">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Active Filters:</span>
+
+                    {/* Campus Tags */}
+                    {filters.campus.some(campus => campus === 'all' || campus === '__ALL_CAMPUSES__') && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                        Campus: All
+                      </span>
+                    )}
+                    {filters.campus
+                      .filter(campus => campus && campus !== 'all' && campus !== '__ALL_CAMPUSES__')
+                      .map(campus => (
+                        <span key={`campus-${campus}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                          Campus: {campus}
+                          <button
+                            onClick={() => updateFilters({ ...filters, campus: filters.campus.filter(c => c !== campus) })}
+                            className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-blue-400 hover:bg-blue-200 hover:text-blue-600 dark:hover:bg-blue-800"
+                          >
+                            <span className="sr-only">Remove {campus} filter</span>
+                            <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                              <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
+                            </svg>
+                          </button>
+                        </span>
+                      ))}
+
+                    {/* Clear All Button */}
+                    <button
+                      onClick={clearAllFilters}
+                      className="text-sm px-3 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors ml-2"
+                    >
+                      Clear All
+                    </button>
                   </div>
                 </div>
               )}
+            </div>
+
+          {/* Tab Content */}
+          {/* First-time / No-campus empty state */}
+          {!hasCampusSelection && (
+            <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <svg className="h-6 w-6 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-lg font-medium text-blue-800 dark:text-blue-200">
+                    {isFirstVisit ? 'Welcome to the Dashboard!' : 'Select a campus to begin'}
+                  </h3>
+                  <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
+                    <p>
+                      Pick a campus in Filters to load leaders, follow-ups, today’s circles, and recent notes.
+                    </p>
+                  </div>
+                  <div className="mt-4">
+                    <button
+                      onClick={() => {
+                        const filtersElement = document.querySelector('[data-testid="filters-section"]');
+                        filtersElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }}
+                      className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
+                    >
+                      Go to Filters
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* To Do List Section */}
+          <div id="todo-list" className="mt-8">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  To Do List
+                </h2>
+                <button
+                  onClick={toggleTodosVisibility}
+                  className="text-sm px-3 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 
+                           text-gray-700 dark:text-gray-300 rounded-md transition-colors"
+                >
+                  {todosVisible ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              
+              {todosVisible && (
+                <div className="space-y-4">
+                  {/* Add New Todo */}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newTodoText}
+                      onChange={(e) => setNewTodoText(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && addTodo()}
+                      placeholder="Add a new task..."
+                      className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <button
+                      onClick={addTodo}
+                      disabled={!newTodoText.trim()}
+                      className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 
+                               text-white text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed"
+                    >
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      Add
+                    </button>
+                  </div>
+
+                  {/* Todo Items */}
+                  {todos.length === 0 ? (
+                    <div className="text-center py-6">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">No tasks yet. Add your first task above!</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {todos.map((todo) => (
+                        <div key={todo.id} className="flex items-start gap-3 p-3 rounded-md bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
+                          <input
+                            type="checkbox"
+                            checked={todo.completed}
+                            onChange={() => toggleTodo(todo.id)}
+                            className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                          />
+                          {editingTodoId === todo.id ? (
+                            <div className="flex-1 flex gap-2">
+                              <input
+                                type="text"
+                                value={editingTodoText}
+                                onChange={(e) => setEditingTodoText(e.target.value)}
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter') saveEditedTodo(todo.id);
+                                  if (e.key === 'Escape') cancelEditingTodo();
+                                }}
+                                className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                autoFocus
+                              />
+                              <button
+                                onClick={() => saveEditedTodo(todo.id)}
+                                className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={cancelEditingTodo}
+                                className="px-2 py-1 bg-gray-500 hover:bg-gray-600 text-white text-sm rounded-md transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <span className={`flex-1 text-sm text-gray-800 dark:text-gray-200 ${
+                                todo.completed ? 'line-through text-gray-500 dark:text-gray-400' : ''
+                              }`}>
+                                {todo.text}
+                              </span>
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => startEditingTodo(todo.id, todo.text)}
+                                  className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
+                                  title="Edit"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={() => deleteTodo(todo.id)}
+                                  className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
+                                  title="Delete"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
 
               {/* Personal Notes Section */}
               <div id="personal-notes" className="mt-8">
@@ -1484,42 +1856,6 @@ function DashboardContent() {
             </div>
           </div>
 
-        {/* Active Filter Tags - Simplified for campus only */}
-        <div className="sticky top-[60px] z-[999] bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-          <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-3">
-            {filters.campus.length > 0 && (
-              <div className="flex items-center flex-wrap gap-2">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Active Filters:</span>
-                
-                {/* Campus Tags */}
-                {filters.campus.filter(campus => campus && campus !== 'all' && campus !== '__ALL_CAMPUSES__').map(campus => (
-                  <span key={`campus-${campus}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                    Campus: {campus}
-                    <button
-                      onClick={() => updateFilters({...filters, campus: filters.campus.filter(c => c !== campus)})}
-                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-blue-400 hover:bg-blue-200 hover:text-blue-600 dark:hover:bg-blue-800"
-                    >
-                      <span className="sr-only">Remove {campus} filter</span>
-                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
-                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
-                      </svg>
-                    </button>
-                  </span>
-                ))}
-
-                {/* Clear All Button */}
-                <button
-                  onClick={clearAllFilters}
-                  className="text-sm px-3 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors ml-2"
-                >
-                  Clear All
-                </button>
-
-              </div>
-            )}
-          </div>
-        </div>
-
         {/* Filters */}
         <div id="filters" data-testid="filters-section" className="mt-6">
           {/* Show loading state while reference data is loading */}
@@ -1541,85 +1877,87 @@ function DashboardContent() {
           )}
         </div>
 
-        {/* Status Bar */}
-        <div id="status-overview" className="mb-6">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <div className="mb-4">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Status Overview</h2>
-            </div>
-            <CircleStatusBar
-              data={statusData}
-              total={filters.campus.length > 0 ? 
-                allCircleLeaders.filter(leader => {
-                  const normalizedFilterCampuses = filters.campus.map(c => c.trim().toLowerCase());
-                  const leaderCampus = (leader.campus || '').trim().toLowerCase();
-                  return normalizedFilterCampuses.includes(leaderCampus);
-                }).length : 
-                allCircleLeaders.length
-              }
-              onStatusClick={handleStatusBarClick}
-            />
-          </div>
-        </div>
-
-        {/* Progress Section */}
-        <div id="progress">
-          {/* Event Summary Progress */}
-          <EventSummaryProgress
-            receivedCount={eventSummaryProgress.received}
-            totalCount={eventSummaryProgress.total}
-            onResetCheckboxes={handleResetCheckboxes}
-            filters={filters}
-          />
-
-          {/* Connections Progress */}
-          <ConnectionsProgress
-            filteredLeaderIds={filteredLeaderIds}
-            totalFilteredLeaders={filteredLeaders.length}
-          />
-        </div>
-
-        {/* Follow Up Section */}
-        <div id="follow-up">
-          <FollowUpTable
-            selectedCampuses={filters.campus}
-            onAddNote={(leaderId, name) => openAddNoteModal(leaderId, name)}
-            onClearFollowUp={handleClearFollowUp}
-            refreshKey={filterPanelRefreshKey}
-          />
-        </div>
-
-        {/* Today's Circles */}
-        <div id="today-circles">
-          <TodayCircles 
-            todayCircles={todayCircles}
-          />
-        </div>
-
-        {/* Recent Notes */}
-        <div id="recent-notes" className="mb-6">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-medium text-gray-900 dark:text-white">Recent Notes</h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Filtered by current dashboard settings ({filteredLeaders.length} leaders)
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {recentNotesLoading && (
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Loading...</span>
-                )}
-                <button
-                  onClick={toggleRecentNotesVisibility}
-                  className="text-sm px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  {recentNotesVisible ? 'Hide' : 'Show'}
-                </button>
+        {hasCampusSelection && (
+          <>
+            {/* Status Bar */}
+            <div id="status-overview" className="mb-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <div className="mb-4">
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-white">Status Overview</h2>
+                </div>
+                <CircleStatusBar
+                  data={statusData}
+                  total={filters.campus.length > 0 ? 
+                    allCircleLeaders.filter(leader => {
+                      const normalizedFilterCampuses = filters.campus.map(c => c.trim().toLowerCase());
+                      const leaderCampus = (leader.campus || '').trim().toLowerCase();
+                      return normalizedFilterCampuses.includes(leaderCampus);
+                    }).length : 
+                    allCircleLeaders.length
+                  }
+                  onStatusClick={handleStatusBarClick}
+                />
               </div>
             </div>
-            {recentNotesVisible && (
-              <>
+
+            {/* Progress Section */}
+            <div id="progress">
+              {/* Event Summary Progress */}
+              <EventSummaryProgress
+                receivedCount={eventSummaryProgress.received}
+                totalCount={eventSummaryProgress.total}
+                onResetCheckboxes={handleResetCheckboxes}
+                filters={filters}
+              />
+
+              {/* Connections Progress */}
+              <ConnectionsProgress
+                filteredLeaderIds={filteredLeaderIds}
+                totalFilteredLeaders={filteredLeaders.length}
+              />
+            </div>
+
+            {/* Follow Up Section */}
+            <div id="follow-up">
+              <FollowUpTable
+                selectedCampuses={filters.campus}
+                onAddNote={(leaderId, name) => openAddNoteModal(leaderId, name)}
+                onClearFollowUp={handleClearFollowUp}
+                refreshKey={filterPanelRefreshKey}
+              />
+            </div>
+
+            {/* Today's Circles */}
+            <div id="today-circles">
+              <TodayCircles 
+                todayCircles={todayCircles}
+              />
+            </div>
+
+            {/* Recent Notes */}
+            <div id="recent-notes" className="mb-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-medium text-gray-900 dark:text-white">Recent Notes</h2>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Filtered by current dashboard settings ({filteredLeaders.length} leaders)
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {recentNotesLoading && (
+                      <span className="text-sm text-gray-500 dark:text-gray-400">Loading...</span>
+                    )}
+                    <button
+                      onClick={toggleRecentNotesVisibility}
+                      className="text-sm px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      {recentNotesVisible ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+                </div>
+                {recentNotesVisible && (
+                  <>
                 {/* Desktop Table View */}
                 <div className="hidden sm:block overflow-x-auto -mx-4 sm:mx-0">
                   <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">

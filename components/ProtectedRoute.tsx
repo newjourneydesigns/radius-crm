@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 
 interface ProtectedRouteProps {
@@ -12,6 +12,7 @@ interface ProtectedRouteProps {
 export default function ProtectedRoute({ children, requireAuth = true }: ProtectedRouteProps) {
   const { user, loading, isAuthenticated, clearAuthData } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [timeoutReached, setTimeoutReached] = useState(false);
 
   const handleClearData = async () => {
@@ -45,22 +46,23 @@ export default function ProtectedRoute({ children, requireAuth = true }: Protect
 
     // If timeout reached and still loading, redirect to login
     if (timeoutReached && loading) {
-      router.push('/login');
+      router.replace('/login');
       return;
     }
 
     // If authentication is required but user is not authenticated
     if (requireAuth && !isAuthenticated()) {
-      router.push('/login');
+      const redirectTo = pathname || '/dashboard';
+      router.replace(`/login?redirectTo=${encodeURIComponent(redirectTo)}`);
       return;
     }
 
     // If user is authenticated but trying to access login page, redirect to dashboard
-    if (!requireAuth && isAuthenticated() && window.location.pathname === '/login') {
-      router.push('/dashboard');
+    if (!requireAuth && isAuthenticated()) {
+      router.replace('/dashboard');
       return;
     }
-  }, [user, loading, requireAuth, isAuthenticated, router, timeoutReached]);
+  }, [user, loading, requireAuth, isAuthenticated, router, timeoutReached, pathname]);
 
   // Show loading while checking authentication
   if (loading && !timeoutReached) {
