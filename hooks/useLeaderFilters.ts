@@ -23,7 +23,14 @@ export const defaultLeaderFilters: LeaderFilters = {
   timeOfDay: 'all'
 };
 
-export const useLeaderFilters = () => {
+type UseLeaderFiltersOptions = {
+  basePath?: string;
+  storageKey?: string;
+};
+
+export const useLeaderFilters = (options: UseLeaderFiltersOptions = {}) => {
+  const basePath = options.basePath ?? '/leaders';
+  const storageKey = options.storageKey ?? 'radiusLeaderFilters';
   const [filters, setFilters] = useState<LeaderFilters>(defaultLeaderFilters);
   const [isInitialized, setIsInitialized] = useState(false);
   const searchParams = useSearchParams();
@@ -68,7 +75,7 @@ export const useLeaderFilters = () => {
 
       // If no URL params, try localStorage
       if (!hasUrlParams) {
-        const savedState = localStorage.getItem('radiusLeaderFilters');
+        const savedState = localStorage.getItem(storageKey);
         if (savedState) {
           console.log('📂 [useLeaderFilters] Loading saved filters from localStorage:', savedState);
           const filterState = JSON.parse(savedState);
@@ -101,13 +108,13 @@ export const useLeaderFilters = () => {
     if (typeof window !== 'undefined' && isInitialized) {
       console.log('💾 [useLeaderFilters] Saving filters to localStorage:', filters);
       try {
-        localStorage.setItem('radiusLeaderFilters', JSON.stringify(filters));
+        localStorage.setItem(storageKey, JSON.stringify(filters));
         console.log('✅ [useLeaderFilters] Successfully saved to localStorage');
       } catch (error) {
         console.error('❌ [useLeaderFilters] Failed to save to localStorage:', error);
       }
     }
-  }, [filters, isInitialized]);
+  }, [filters, isInitialized, storageKey]);
 
   const updateFilters = useCallback((newFilters: Partial<LeaderFilters>) => {
     setFilters(prev => ({ ...prev, ...newFilters }));
@@ -116,8 +123,8 @@ export const useLeaderFilters = () => {
   const clearAllFilters = useCallback(() => {
     setFilters(defaultLeaderFilters);
     // Clear URL parameters
-    router.push('/leaders');
-  }, [router]);
+    router.push(basePath);
+  }, [router, basePath]);
 
   // Memoize the filters object to prevent unnecessary re-renders
   const memoizedFilters = useMemo(() => filters, [

@@ -118,6 +118,81 @@ a {
   color: #8da9c4 !important; /* Light blue-green for links */
 }
 
+/* FullCalendar readability tweaks for this app's aggressive global styling */
+.fc {
+  --fc-page-bg-color: transparent;
+  --fc-border-color: rgba(141, 169, 196, 0.25);
+  --fc-neutral-bg-color: rgba(11, 37, 69, 0.35);
+  --fc-today-bg-color: rgba(141, 169, 196, 0.10);
+  --fc-event-bg-color: rgba(141, 169, 196, 0.95);
+  --fc-event-border-color: rgba(141, 169, 196, 0.95);
+  --fc-event-text-color: #091b34;
+  --fc-button-bg-color: rgba(76, 103, 133, 0.85);
+  --fc-button-border-color: rgba(141, 169, 196, 0.3);
+  --fc-button-text-color: #eef4ed;
+  --fc-button-hover-bg-color: rgba(141, 169, 196, 0.9);
+  --fc-button-hover-border-color: rgba(141, 169, 196, 0.5);
+  --fc-button-active-bg-color: rgba(141, 169, 196, 0.9);
+  --fc-button-active-border-color: rgba(141, 169, 196, 0.6);
+}
+
+.fc .fc-toolbar-title {
+  color: #eef4ed;
+}
+
+.fc .fc-col-header-cell-cushion,
+.fc .fc-daygrid-day-number {
+  color: rgba(238, 244, 237, 0.9);
+}
+
+.fc .fc-button {
+  background: var(--fc-button-bg-color) !important;
+  border-color: var(--fc-button-border-color) !important;
+  color: var(--fc-button-text-color) !important;
+}
+
+.fc .fc-button:hover {
+  background: var(--fc-button-hover-bg-color) !important;
+  border-color: var(--fc-button-hover-border-color) !important;
+}
+
+.fc .fc-button:disabled {
+  opacity: 0.6;
+}
+
+/* Mobile-friendly FullCalendar layout (scoped to calendar page wrapper) */
+.calendar-shell .fc .fc-toolbar {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.calendar-shell .fc .fc-toolbar-chunk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.calendar-shell .fc .fc-toolbar-title {
+  line-height: 1.1;
+}
+
+@media (max-width: 640px) {
+  .calendar-shell .fc .fc-button {
+    padding: 0.35rem 0.5rem;
+    font-size: 0.85rem;
+  }
+
+  .calendar-shell .fc .fc-toolbar-title {
+    font-size: 1.05rem;
+  }
+
+  /* Keep time axis readable but not too wide */
+  .calendar-shell .fc .fc-timegrid-axis {
+    width: 2.75rem;
+  }
+}
+
 a:hover {
   color: #eef4ed !important; /* Light on hover */
 }

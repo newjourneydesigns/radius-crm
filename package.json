@@ -15,6 +15,11 @@
     "ccb:test-full": "npx ts-node app/ccb/ccb-attendance-events-notes.ts --group 12345 --start 2025-08-01 --end 2025-09-01 --withNotes --includeAttendees"
   },
   "dependencies": {
+    "@fullcalendar/core": "^6.1.19",
+    "@fullcalendar/daygrid": "^6.1.19",
+    "@fullcalendar/interaction": "^6.1.19",
+    "@fullcalendar/react": "^6.1.19",
+    "@fullcalendar/timegrid": "^6.1.19",
     "@supabase/supabase-js": "^2.53.0",
     "@types/luxon": "^3.7.1",
     "@types/yargs": "^17.0.33",

@@ -16,6 +16,7 @@ export default function MobileNavigation() {
   const navigation = [
     { name: 'Dashboard', href: '/dashboard' },
     { name: 'Leaders', href: '/leaders' },
+    { name: 'Calendar', href: '/calendar' },
   ];
 
   const hamburgerMenu = [

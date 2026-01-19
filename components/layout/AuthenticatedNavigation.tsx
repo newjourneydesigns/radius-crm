@@ -63,6 +63,12 @@ export default function AuthenticatedNavigation() {
             >
               Leaders
             </Link>
+            <Link 
+              href="/calendar" 
+              className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+            >
+              Calendar
+            </Link>
 
             {/* Hamburger Menu */}
             <div className="relative" ref={menuRef}>
