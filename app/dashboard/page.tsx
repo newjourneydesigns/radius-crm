@@ -23,6 +23,7 @@ import { useTodayCircles } from '../../hooks/useTodayCircles';
 import { CircleLeader, supabase, Note, UserNote, TodoItem } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import Link from 'next/link';
+import { buildRepeatLabel, generateDueDates, toISODate, TodoRepeatRule } from '../../lib/todoRecurrence';
 
 interface ContactModalData {
   isOpen: boolean;
@@ -100,8 +101,13 @@ function DashboardContent() {
   // Todo list state
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [newTodoText, setNewTodoText] = useState('');
+  const [newTodoDueDate, setNewTodoDueDate] = useState('');
+  const [newTodoRepeatRule, setNewTodoRepeatRule] = useState<TodoRepeatRule>('none');
   const [editingTodoId, setEditingTodoId] = useState<number | null>(null);
   const [editingTodoText, setEditingTodoText] = useState('');
+  const [editingTodoDueDate, setEditingTodoDueDate] = useState('');
+  const [editingTodoRepeatRule, setEditingTodoRepeatRule] = useState<TodoRepeatRule>('none');
+  const [todoDueDateSort, setTodoDueDateSort] = useState<'none' | 'asc' | 'desc'>('none');
   const [todosVisible, setTodosVisible] = useState(() => {
     try {
       const saved = localStorage.getItem('todosVisible');
@@ -182,6 +188,81 @@ function DashboardContent() {
     }
   };
 
+  const getSeriesMaster = (seriesId?: string | null) => {
+    if (!seriesId) return null;
+    return todos.find(t => t.series_id === seriesId && t.is_series_master) || null;
+  };
+
+  const getSeriesId = () => {
+    try {
+      // @ts-ignore
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    } catch {
+      // ignore
+    }
+    return `series_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  };
+
+  const ensureRecurringTodoHorizon = async (loadedTodos: TodoItem[]) => {
+    if (!user?.id) return false;
+
+    const horizonDays = 90;
+    const horizon = new Date();
+    horizon.setDate(horizon.getDate() + horizonDays);
+    const horizonISO = toISODate(horizon);
+
+    const masters = loadedTodos.filter(t =>
+      Boolean(t.series_id) &&
+      Boolean(t.is_series_master) &&
+      Boolean(t.repeat_rule) &&
+      Boolean(t.due_date)
+    );
+
+    let insertedAny = false;
+
+    for (const master of masters) {
+      const seriesId = master.series_id as string;
+      const rule = master.repeat_rule as Exclude<TodoRepeatRule, 'none'>;
+      const interval = master.repeat_interval || 1;
+      const startISO = master.due_date as string;
+
+      const existingDates = new Set(
+        loadedTodos
+          .filter(t => t.series_id === seriesId && t.due_date)
+          .map(t => t.due_date as string)
+      );
+
+      const datesToCreate = generateDueDates(startISO, rule, interval, horizonISO)
+        .filter(d => !existingDates.has(d));
+
+      if (datesToCreate.length === 0) continue;
+
+      const rows = datesToCreate.map(dueDate => ({
+        user_id: master.user_id,
+        text: master.text,
+        completed: false,
+        due_date: dueDate,
+        series_id: seriesId,
+        is_series_master: false
+      }));
+
+      const { error } = await supabase
+        .from('todo_items')
+        .insert(rows);
+
+      if (error) {
+        // If schema isn't migrated yet, just stop trying.
+        if (error.code === '42703') return false;
+        console.error('Error generating recurring todo occurrences:', error);
+        continue;
+      }
+
+      insertedAny = true;
+    }
+
+    return insertedAny;
+  };
+
   // Load todos from database
   const loadTodos = async () => {
     if (!user?.id) return;
@@ -197,7 +278,24 @@ function DashboardContent() {
         return;
       }
       
-      setTodos(data || []);
+      const loaded = (data || []) as TodoItem[];
+
+      // Ensure recurring series have occurrences generated out to a horizon.
+      const inserted = await ensureRecurringTodoHorizon(loaded);
+      if (inserted) {
+        // Reload to include any newly inserted occurrences.
+        const reload = await supabase
+          .from('todo_items')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        if (!reload.error) {
+          setTodos((reload.data as any) || []);
+          return;
+        }
+      }
+
+      setTodos(loaded);
     } catch (e) {
       console.error('Error loading todos:', e);
     }
@@ -208,23 +306,135 @@ function DashboardContent() {
     if (!newTodoText.trim() || !user?.id) return;
     
     try {
-      const { data, error } = await supabase
+      // Non-repeating
+      if (newTodoRepeatRule === 'none') {
+        const insertWithDueDate = await supabase
+          .from('todo_items')
+          .insert({
+            user_id: user.id,
+            text: newTodoText.trim(),
+            completed: false,
+            due_date: newTodoDueDate ? newTodoDueDate : null
+          })
+          .select()
+          .single();
+
+        let data = insertWithDueDate.data;
+        let error: any = insertWithDueDate.error;
+
+        if (error && error.code === '42703') {
+          const fallbackInsert = await supabase
+            .from('todo_items')
+            .insert({
+              user_id: user.id,
+              text: newTodoText.trim(),
+              completed: false
+            })
+            .select()
+            .single();
+          data = fallbackInsert.data;
+          error = fallbackInsert.error;
+        }
+
+        if (error) {
+          console.error('Error adding todo:', error);
+          return;
+        }
+
+        setTodos([data as any, ...todos]);
+        setNewTodoText('');
+        setNewTodoDueDate('');
+        setNewTodoRepeatRule('none');
+        return;
+      }
+
+      // Repeating series (requires due date)
+      if (!newTodoDueDate) {
+        console.warn('Repeat requires a due date');
+        return;
+      }
+
+      const seriesId = getSeriesId();
+      const masterInsert = await supabase
         .from('todo_items')
         .insert({
           user_id: user.id,
           text: newTodoText.trim(),
-          completed: false
+          completed: false,
+          due_date: newTodoDueDate,
+          series_id: seriesId,
+          is_series_master: true,
+          repeat_rule: newTodoRepeatRule,
+          repeat_interval: 1
         })
         .select()
         .single();
-      
-      if (error) {
-        console.error('Error adding todo:', error);
+
+      if (masterInsert.error) {
+        // If schema isn't migrated yet, fall back to creating a single todo.
+        if (masterInsert.error.code === '42703') {
+          console.warn('Repeat fields not migrated yet; creating single todo.');
+          const fallback = await supabase
+            .from('todo_items')
+            .insert({
+              user_id: user.id,
+              text: newTodoText.trim(),
+              completed: false,
+              due_date: newTodoDueDate
+            })
+            .select()
+            .single();
+          if (!fallback.error && fallback.data) {
+            setTodos([fallback.data as any, ...todos]);
+            setNewTodoText('');
+            setNewTodoDueDate('');
+            setNewTodoRepeatRule('none');
+          }
+          return;
+        }
+
+        console.error('Error adding recurring todo master:', masterInsert.error);
         return;
       }
-      
-      setTodos([data, ...todos]);
+
+      // Generate occurrences out to a horizon (next 90 days)
+      const horizon = new Date();
+      horizon.setDate(horizon.getDate() + 90);
+      const horizonISO = toISODate(horizon);
+      const toCreate = generateDueDates(
+        newTodoDueDate,
+        newTodoRepeatRule as Exclude<TodoRepeatRule, 'none'>,
+        1,
+        horizonISO
+      );
+
+      if (toCreate.length > 0) {
+        const rows = toCreate.map(d => ({
+          user_id: user.id,
+          text: newTodoText.trim(),
+          completed: false,
+          due_date: d,
+          series_id: seriesId,
+          is_series_master: false
+        }));
+
+        const occInsert = await supabase
+          .from('todo_items')
+          .insert(rows);
+
+        if (occInsert.error && occInsert.error.code !== '23505') {
+          console.error('Error inserting recurring todo occurrences:', occInsert.error);
+        }
+      }
+
+      // Reload so UI includes series occurrences and any DB defaults
+      await loadTodos();
       setNewTodoText('');
+      setNewTodoDueDate('');
+      setNewTodoRepeatRule('none');
+      return;
+      
+      // unreachable (kept for safety)
     } catch (e) {
       console.error('Error adding todo:', e);
     }
@@ -249,37 +459,167 @@ function DashboardContent() {
       setTodos(todos.map(t =>
         t.id === id ? { ...t, completed: !t.completed } : t
       ));
+
+      // Keep recurring series topped up
+      if (todo.series_id) {
+        loadTodos();
+      }
     } catch (e) {
       console.error('Error toggling todo:', e);
     }
   };
 
   // Start editing todo
-  const startEditingTodo = (id: number, text: string) => {
-    setEditingTodoId(id);
-    setEditingTodoText(text);
+  const startEditingTodo = (todo: TodoItem) => {
+    setEditingTodoId(todo.id);
+    setEditingTodoText(todo.text);
+    setEditingTodoDueDate(todo.due_date || '');
+
+    if (todo.series_id) {
+      const master = getSeriesMaster(todo.series_id);
+      const rule = (master?.repeat_rule as TodoRepeatRule) || 'none';
+      setEditingTodoRepeatRule(rule);
+    } else {
+      setEditingTodoRepeatRule('none');
+    }
   };
 
   // Save edited todo
   const saveEditedTodo = async (id: number) => {
     if (!editingTodoText.trim()) return;
+
+    const todo = todos.find(t => t.id === id);
+    const seriesId = todo?.series_id || null;
+    const isSeries = Boolean(seriesId);
     
     try {
-      const { error } = await supabase
-        .from('todo_items')
-        .update({ text: editingTodoText.trim() })
-        .eq('id', id);
-      
-      if (error) {
-        console.error('Error updating todo:', error);
-        return;
+      if (!isSeries) {
+        // Single todo
+        const updateWithDueDate = await supabase
+          .from('todo_items')
+          .update({
+            text: editingTodoText.trim(),
+            due_date: editingTodoDueDate ? editingTodoDueDate : null
+          })
+          .eq('id', id);
+
+        let error: any = updateWithDueDate.error;
+        if (error && error.code === '42703') {
+          const fallbackUpdate = await supabase
+            .from('todo_items')
+            .update({ text: editingTodoText.trim() })
+            .eq('id', id);
+          error = fallbackUpdate.error;
+        }
+
+        if (error) {
+          console.error('Error updating todo:', error);
+          return;
+        }
+
+        setTodos(todos.map(t =>
+          t.id === id ? { ...t, text: editingTodoText.trim(), due_date: editingTodoDueDate ? editingTodoDueDate : null } : t
+        ));
+      } else {
+        // Series: edit applies to the whole series (Apple Reminders-style)
+        const master = getSeriesMaster(seriesId);
+        const masterId = master?.id || id;
+
+        // Update text for all occurrences (including completed)
+        const textUpdate = await supabase
+          .from('todo_items')
+          .update({ text: editingTodoText.trim() })
+          .eq('series_id', seriesId);
+        if (textUpdate.error && textUpdate.error.code !== '42703') {
+          console.error('Error updating recurring todo text:', textUpdate.error);
+        }
+
+        // If user changed repeat rule, apply it on master.
+        const rule = editingTodoRepeatRule;
+
+        if (rule === 'none') {
+          // Turn off repeat: keep only the edited occurrence
+          await supabase
+            .from('todo_items')
+            .delete()
+            .eq('series_id', seriesId)
+            .neq('id', masterId);
+
+          await supabase
+            .from('todo_items')
+            .update({
+              series_id: null,
+              is_series_master: false,
+              repeat_rule: null,
+              repeat_interval: null,
+              due_date: editingTodoDueDate ? editingTodoDueDate : null
+            })
+            .eq('id', masterId);
+        } else {
+          // Ensure due date is set when repeating
+          if (!editingTodoDueDate) {
+            console.warn('Repeat requires a due date');
+          } else {
+            // Update master and regenerate future (non-completed) occurrences
+            const masterUpdate = await supabase
+              .from('todo_items')
+              .update({
+                due_date: editingTodoDueDate,
+                repeat_rule: rule,
+                repeat_interval: 1,
+                is_series_master: true
+              })
+              .eq('id', masterId);
+
+            if (masterUpdate.error && masterUpdate.error.code !== '42703') {
+              console.error('Error updating recurring todo master:', masterUpdate.error);
+            }
+
+            // Delete non-completed occurrences except master
+            await supabase
+              .from('todo_items')
+              .delete()
+              .eq('series_id', seriesId)
+              .eq('completed', false)
+              .neq('id', masterId);
+
+            // Recreate horizon occurrences
+            const horizon = new Date();
+            horizon.setDate(horizon.getDate() + 90);
+            const horizonISO = toISODate(horizon);
+            const toCreate = generateDueDates(
+              editingTodoDueDate,
+              rule as Exclude<TodoRepeatRule, 'none'>,
+              1,
+              horizonISO
+            );
+
+            if (toCreate.length > 0) {
+              const rows = toCreate.map(d => ({
+                user_id: todo?.user_id,
+                text: editingTodoText.trim(),
+                completed: false,
+                due_date: d,
+                series_id: seriesId,
+                is_series_master: false
+              }));
+              const occInsert = await supabase
+                .from('todo_items')
+                .insert(rows);
+              if (occInsert.error && occInsert.error.code !== '23505' && occInsert.error.code !== '42703') {
+                console.error('Error inserting regenerated occurrences:', occInsert.error);
+              }
+            }
+          }
+        }
+
+        await loadTodos();
       }
-      
-      setTodos(todos.map(t =>
-        t.id === id ? { ...t, text: editingTodoText.trim() } : t
-      ));
+
       setEditingTodoId(null);
       setEditingTodoText('');
+      setEditingTodoDueDate('');
+      setEditingTodoRepeatRule('none');
     } catch (e) {
       console.error('Error updating todo:', e);
     }
@@ -289,22 +629,49 @@ function DashboardContent() {
   const cancelEditingTodo = () => {
     setEditingTodoId(null);
     setEditingTodoText('');
+    setEditingTodoDueDate('');
+    setEditingTodoRepeatRule('none');
   };
+
+  const sortedTodos = useMemo(() => {
+    if (todoDueDateSort === 'none') return todos;
+
+    const dir = todoDueDateSort;
+    return [...todos].sort((a, b) => {
+      const aDate = a.due_date || null;
+      const bDate = b.due_date || null;
+
+      // Always put items without due dates at the bottom
+      if (!aDate && !bDate) return 0;
+      if (!aDate) return 1;
+      if (!bDate) return -1;
+
+      const aTime = new Date(aDate).getTime();
+      const bTime = new Date(bDate).getTime();
+      if (aTime === bTime) return 0;
+
+      return dir === 'asc' ? aTime - bTime : bTime - aTime;
+    });
+  }, [todos, todoDueDateSort]);
 
   // Delete todo
   const deleteTodo = async (id: number) => {
     try {
-      const { error } = await supabase
-        .from('todo_items')
-        .delete()
-        .eq('id', id);
+      const todo = todos.find(t => t.id === id);
+      const seriesId = todo?.series_id || null;
+
+      const deleteQuery = seriesId
+        ? supabase.from('todo_items').delete().eq('series_id', seriesId)
+        : supabase.from('todo_items').delete().eq('id', id);
+
+      const { error } = await deleteQuery;
       
       if (error) {
         console.error('Error deleting todo:', error);
         return;
       }
       
-      setTodos(todos.filter(t => t.id !== id));
+      setTodos(seriesId ? todos.filter(t => t.series_id !== seriesId) : todos.filter(t => t.id !== id));
     } catch (e) {
       console.error('Error deleting todo:', e);
     }
@@ -1534,9 +1901,38 @@ function DashboardContent() {
           <div id="todo-list" className="mt-8">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  To Do List
-                </h2>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    To Do List
+                  </h2>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setTodoDueDateSort(prev => (prev === 'asc' ? 'none' : 'asc'))}
+                      className={`p-1.5 rounded border text-xs transition-colors ${
+                        todoDueDateSort === 'asc'
+                          ? 'bg-blue-600 border-blue-600 text-white'
+                          : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                      title="Sort by due date (ascending)"
+                    >
+                      Due ↑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTodoDueDateSort(prev => (prev === 'desc' ? 'none' : 'desc'))}
+                      className={`p-1.5 rounded border text-xs transition-colors ${
+                        todoDueDateSort === 'desc'
+                          ? 'bg-blue-600 border-blue-600 text-white'
+                          : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                      title="Sort by due date (descending)"
+                    >
+                      Due ↓
+                    </button>
+                  </div>
+                </div>
                 <button
                   onClick={toggleTodosVisibility}
                   className="text-sm px-3 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 
@@ -1549,7 +1945,7 @@ function DashboardContent() {
               {todosVisible && (
                 <div className="space-y-4">
                   {/* Add New Todo */}
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <input
                       type="text"
                       value={newTodoText}
@@ -1558,6 +1954,28 @@ function DashboardContent() {
                       placeholder="Add a new task..."
                       className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
+
+                    <input
+                      type="date"
+                      value={newTodoDueDate}
+                      onChange={(e) => setNewTodoDueDate(e.target.value)}
+                      className="p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      title="Optional due date"
+                    />
+
+                    <select
+                      value={newTodoRepeatRule}
+                      onChange={(e) => setNewTodoRepeatRule(e.target.value as any)}
+                      className="p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      title="Repeat"
+                    >
+                      <option value="none">Repeat: None</option>
+                      <option value="daily">Repeat: Daily</option>
+                      <option value="weekly">Repeat: Weekly</option>
+                      <option value="monthly">Repeat: Monthly</option>
+                      <option value="yearly">Repeat: Yearly</option>
+                    </select>
+
                     <button
                       onClick={addTodo}
                       disabled={!newTodoText.trim()}
@@ -1578,7 +1996,7 @@ function DashboardContent() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {todos.map((todo) => (
+                      {sortedTodos.map((todo) => (
                         <div key={todo.id} className="flex items-start gap-3 p-3 rounded-md bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
                           <input
                             type="checkbox"
@@ -1587,7 +2005,7 @@ function DashboardContent() {
                             className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
                           />
                           {editingTodoId === todo.id ? (
-                            <div className="flex-1 flex gap-2">
+                            <div className="flex-1 flex flex-col sm:flex-row gap-2">
                               <input
                                 type="text"
                                 value={editingTodoText}
@@ -1599,6 +2017,28 @@ function DashboardContent() {
                                 className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 autoFocus
                               />
+
+                              <input
+                                type="date"
+                                value={editingTodoDueDate}
+                                onChange={(e) => setEditingTodoDueDate(e.target.value)}
+                                className="p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                title="Optional due date"
+                              />
+
+                              <select
+                                value={editingTodoRepeatRule}
+                                onChange={(e) => setEditingTodoRepeatRule(e.target.value as any)}
+                                className="p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                title="Repeat (applies to entire series)"
+                              >
+                                <option value="none">Repeat: None</option>
+                                <option value="daily">Repeat: Daily</option>
+                                <option value="weekly">Repeat: Weekly</option>
+                                <option value="monthly">Repeat: Monthly</option>
+                                <option value="yearly">Repeat: Yearly</option>
+                              </select>
+
                               <button
                                 onClick={() => saveEditedTodo(todo.id)}
                                 className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors"
@@ -1614,14 +2054,38 @@ function DashboardContent() {
                             </div>
                           ) : (
                             <>
-                              <span className={`flex-1 text-sm text-gray-800 dark:text-gray-200 ${
-                                todo.completed ? 'line-through text-gray-500 dark:text-gray-400' : ''
-                              }`}>
-                                {todo.text}
-                              </span>
+                              <div className="flex-1">
+                                <div
+                                  className={`text-sm text-gray-800 dark:text-gray-200 ${
+                                    todo.completed ? 'line-through text-gray-500 dark:text-gray-400' : ''
+                                  }`}
+                                >
+                                  {todo.text}
+                                </div>
+                                {todo.due_date && (
+                                  <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    Due: {todo.due_date}
+                                  </div>
+                                )}
+
+                                {todo.series_id && (
+                                  (() => {
+                                    const master = getSeriesMaster(todo.series_id);
+                                    const rule = (master?.repeat_rule as any) || null;
+                                    if (!rule) return null;
+                                    const label = buildRepeatLabel(rule, master?.repeat_interval || 1);
+                                    if (!label) return null;
+                                    return (
+                                      <div className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+                                        {label}
+                                      </div>
+                                    );
+                                  })()
+                                )}
+                              </div>
                               <div className="flex gap-1">
                                 <button
-                                  onClick={() => startEditingTodo(todo.id, todo.text)}
+                                  onClick={() => startEditingTodo(todo)}
                                   className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
                                   title="Edit"
                                 >

@@ -4,6 +4,11 @@ CREATE TABLE IF NOT EXISTS todo_items (
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   text TEXT NOT NULL,
   completed BOOLEAN DEFAULT FALSE,
+  due_date DATE,
+  series_id UUID,
+  is_series_master BOOLEAN DEFAULT FALSE,
+  repeat_rule TEXT,
+  repeat_interval INTEGER DEFAULT 1,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -11,6 +16,13 @@ CREATE TABLE IF NOT EXISTS todo_items (
 -- Create index for faster queries
 CREATE INDEX IF NOT EXISTS idx_todo_items_user_id ON todo_items(user_id);
 CREATE INDEX IF NOT EXISTS idx_todo_items_completed ON todo_items(completed);
+CREATE INDEX IF NOT EXISTS idx_todo_items_due_date ON todo_items(due_date);
+CREATE INDEX IF NOT EXISTS idx_todo_items_series_id ON todo_items(series_id);
+
+-- Prevent duplicate occurrences for the same series + due_date
+CREATE UNIQUE INDEX IF NOT EXISTS ux_todo_items_series_due_date
+  ON todo_items(series_id, due_date)
+  WHERE series_id IS NOT NULL AND due_date IS NOT NULL;
 
 -- Enable RLS
 ALTER TABLE todo_items ENABLE ROW LEVEL SECURITY;
