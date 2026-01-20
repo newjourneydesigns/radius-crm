@@ -633,6 +633,14 @@ function DashboardContent() {
     setEditingTodoRepeatRule('none');
   };
 
+  const todayISO = toISODate(new Date());
+  const isTodoOverdue = (todo: TodoItem) => {
+    if (todo.completed) return false;
+    if (!todo.due_date) return false;
+    // ISO date strings (YYYY-MM-DD) are safe for lexicographic comparison
+    return todo.due_date < todayISO;
+  };
+
   const sortedTodos = useMemo(() => {
     if (todoDueDateSort === 'none') return todos;
 
@@ -1997,7 +2005,14 @@ function DashboardContent() {
                   ) : (
                     <div className="space-y-2">
                       {sortedTodos.map((todo) => (
-                        <div key={todo.id} className="flex items-start gap-3 p-3 rounded-md bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
+                        <div
+                          key={todo.id}
+                          className={`flex items-start gap-3 p-3 rounded-md border ${
+                            isTodoOverdue(todo)
+                              ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-800'
+                              : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'
+                          }`}
+                        >
                           <input
                             type="checkbox"
                             checked={todo.completed}
@@ -2055,15 +2070,24 @@ function DashboardContent() {
                           ) : (
                             <>
                               <div className="flex-1">
-                                <div
-                                  className={`text-sm text-gray-800 dark:text-gray-200 ${
-                                    todo.completed ? 'line-through text-gray-500 dark:text-gray-400' : ''
-                                  }`}
-                                >
-                                  {todo.text}
+                                <div className="flex items-start justify-between gap-2">
+                                  <div
+                                    className={`text-sm text-gray-800 dark:text-gray-200 ${
+                                      todo.completed ? 'line-through text-gray-500 dark:text-gray-400' : ''
+                                    }`}
+                                  >
+                                    {todo.text}
+                                  </div>
+
+                                  {isTodoOverdue(todo) && (
+                                    <span className="inline-flex items-center rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-200 px-2 py-0.5 text-[11px] font-medium border border-red-200 dark:border-red-800">
+                                      Overdue
+                                    </span>
+                                  )}
                                 </div>
+
                                 {todo.due_date && (
-                                  <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                  <div className={`mt-1 text-xs ${isTodoOverdue(todo) ? 'text-red-700 dark:text-red-200' : 'text-gray-500 dark:text-gray-400'}`}>
                                     Due: {todo.due_date}
                                   </div>
                                 )}
