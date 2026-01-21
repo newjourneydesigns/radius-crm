@@ -266,7 +266,8 @@ export default function CircleLeaderProfilePage() {
             time: '19:00',
             frequency: 'Weekly',
             circle_type: "Men's",
-            event_summary_received: true
+            event_summary_received: true,
+            event_summary_skipped: false
           });
         }
 
@@ -736,24 +737,30 @@ export default function CircleLeaderProfilePage() {
     }
   };
 
-  const handleToggleEventSummary = async () => {
+  const handleSetEventSummaryState = async (nextState: 'received' | 'not_received' | 'skipped') => {
     if (!leader) return;
 
     setIsUpdatingEventSummary(true);
-    const newStatus = !leader.event_summary_received;
+    const payload = {
+      event_summary_received: nextState === 'received',
+      event_summary_skipped: nextState === 'skipped',
+    };
 
     try {
       const { error } = await supabase
         .from('circle_leaders')
-        .update({ event_summary_received: newStatus })
+        .update(payload)
         .eq('id', leaderId);
 
       if (!error) {
-        // Update local state
-        setLeader(prev => prev ? { ...prev, event_summary_received: newStatus } : null);
-        
-        // Add a note about the status change
-        const statusText = newStatus ? 'marked as received' : 'marked as not received';
+        setLeader(prev => prev ? { ...prev, ...payload } : null);
+
+        const statusText = nextState === 'received'
+          ? 'marked as received'
+          : nextState === 'skipped'
+            ? 'marked as did not meet'
+            : 'marked as not received';
+
         await supabase
           .from('notes')
           .insert([
@@ -764,7 +771,6 @@ export default function CircleLeaderProfilePage() {
             }
           ]);
 
-        // Refresh notes to show the new system note
         const { data: notesData } = await supabase
           .from('notes')
           .select(`
@@ -1201,26 +1207,83 @@ export default function CircleLeaderProfilePage() {
         <div className="lg:hidden mb-6 space-y-4">
           {/* Event Summary - Mobile */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <button
-              onClick={handleToggleEventSummary}
-              disabled={isUpdatingEventSummary}
-              className="flex items-center justify-between w-full text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded p-2 transition-colors disabled:opacity-50"
-            >
-              <div className="flex items-center">
-                <svg className={`w-4 h-4 mr-2 ${leader.event_summary_received ? 'text-green-600' : 'text-red-600'}`} fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d={leader.event_summary_received ? 
-                    "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" :
-                    "M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                  } clipRule="evenodd" />
-                </svg>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">
-                  {isUpdatingEventSummary ? 'Updating...' : 'Event Summary'}
-                </span>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-900 dark:text-white">Event Summary</span>
+                {(() => {
+                  const state = leader.event_summary_received
+                    ? 'received'
+                    : leader.event_summary_skipped
+                      ? 'skipped'
+                      : 'not_received';
+
+                  const label = state === 'received'
+                    ? 'Received'
+                    : state === 'skipped'
+                      ? 'Did not meet'
+                      : 'Pending';
+
+                  const color = state === 'received'
+                    ? 'text-green-600'
+                    : state === 'skipped'
+                      ? 'text-amber-600'
+                      : 'text-red-600';
+
+                  return (
+                    <span className={`text-xs font-medium ${color}`}>{isUpdatingEventSummary ? 'Updating...' : label}</span>
+                  );
+                })()}
               </div>
-              <span className={`text-xs font-medium ${leader.event_summary_received ? 'text-green-600' : 'text-red-600'}`}>
-                {leader.event_summary_received ? 'Complete' : 'Pending'}
-              </span>
-            </button>
+
+              {(() => {
+                const eventSummaryState = leader.event_summary_received
+                  ? 'received'
+                  : leader.event_summary_skipped
+                    ? 'skipped'
+                    : 'not_received';
+
+                const commonBtn = 'flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors';
+                const disabledCls = isUpdatingEventSummary ? 'opacity-50 cursor-not-allowed' : '';
+
+                return (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleSetEventSummaryState('not_received')}
+                      disabled={isUpdatingEventSummary}
+                      className={`${commonBtn} ${disabledCls} ${
+                        eventSummaryState === 'not_received'
+                          ? 'bg-gray-800 text-white hover:bg-gray-900'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                    >
+                      No
+                    </button>
+                    <button
+                      onClick={() => handleSetEventSummaryState('received')}
+                      disabled={isUpdatingEventSummary}
+                      className={`${commonBtn} ${disabledCls} ${
+                        eventSummaryState === 'received'
+                          ? 'bg-green-600 text-white hover:bg-green-700'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                    >
+                      Yes
+                    </button>
+                    <button
+                      onClick={() => handleSetEventSummaryState('skipped')}
+                      disabled={isUpdatingEventSummary}
+                      className={`${commonBtn} ${disabledCls} ${
+                        eventSummaryState === 'skipped'
+                          ? 'bg-amber-500 text-white hover:bg-amber-600'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                    >
+                      Skip
+                    </button>
+                  </div>
+                );
+              })()}
+            </div>
           </div>
 
           {/* Follow Up - Mobile */}
@@ -1432,22 +1495,12 @@ export default function CircleLeaderProfilePage() {
                           ))}
                         </select>
                       ) : (
-                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                          leader.status === 'active' 
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                            : leader.status === 'invited'
-                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
-                            : leader.status === 'pipeline'
-                            ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400'
-                            : leader.status === 'paused'
-                            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
-                            : leader.status === 'off-boarding'
-                            ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
-                            : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
-                        }`}>
-                          {leader.status === 'off-boarding' ? 'Off-boarding' 
-                           : leader.status ? leader.status.charAt(0).toUpperCase() + leader.status.slice(1)
-                           : 'Unknown'}
+                        <span className="text-sm text-gray-900 dark:text-white">
+                          {leader.status === 'off-boarding'
+                            ? 'Off-boarding'
+                            : leader.status
+                              ? leader.status.charAt(0).toUpperCase() + leader.status.slice(1)
+                              : 'Unknown'}
                         </span>
                       )}
                     </dd>
@@ -1750,26 +1803,83 @@ export default function CircleLeaderProfilePage() {
           <div className="space-y-6">
             {/* Event Summary - Desktop Only */}
             <div className="hidden lg:block bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-              <button
-                onClick={handleToggleEventSummary}
-                disabled={isUpdatingEventSummary}
-                className="flex items-center justify-between w-full text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded p-2 transition-colors disabled:opacity-50"
-              >
-                <div className="flex items-center">
-                  <svg className={`w-4 h-4 mr-2 ${leader.event_summary_received ? 'text-green-600' : 'text-red-600'}`} fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d={leader.event_summary_received ? 
-                      "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" :
-                      "M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                    } clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm text-gray-900 dark:text-white">
-                    {isUpdatingEventSummary ? 'Updating...' : 'Event Summary'}
-                  </span>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">Event Summary</span>
+                  {(() => {
+                    const state = leader.event_summary_received
+                      ? 'received'
+                      : leader.event_summary_skipped
+                        ? 'skipped'
+                        : 'not_received';
+
+                    const label = state === 'received'
+                      ? 'Received'
+                      : state === 'skipped'
+                        ? 'Did not meet'
+                        : 'Pending';
+
+                    const color = state === 'received'
+                      ? 'text-green-600'
+                      : state === 'skipped'
+                        ? 'text-amber-600'
+                        : 'text-red-600';
+
+                    return (
+                      <span className={`text-xs font-medium ${color}`}>{isUpdatingEventSummary ? 'Updating...' : label}</span>
+                    );
+                  })()}
                 </div>
-                <span className={`text-xs ${leader.event_summary_received ? 'text-green-600' : 'text-red-600'}`}>
-                  {leader.event_summary_received ? 'Complete' : 'Pending'}
-                </span>
-              </button>
+
+                {(() => {
+                  const eventSummaryState = leader.event_summary_received
+                    ? 'received'
+                    : leader.event_summary_skipped
+                      ? 'skipped'
+                      : 'not_received';
+
+                  const commonBtn = 'flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors';
+                  const disabledCls = isUpdatingEventSummary ? 'opacity-50 cursor-not-allowed' : '';
+
+                  return (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleSetEventSummaryState('not_received')}
+                        disabled={isUpdatingEventSummary}
+                        className={`${commonBtn} ${disabledCls} ${
+                          eventSummaryState === 'not_received'
+                            ? 'bg-gray-800 text-white hover:bg-gray-900'
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                      >
+                        No
+                      </button>
+                      <button
+                        onClick={() => handleSetEventSummaryState('received')}
+                        disabled={isUpdatingEventSummary}
+                        className={`${commonBtn} ${disabledCls} ${
+                          eventSummaryState === 'received'
+                            ? 'bg-green-600 text-white hover:bg-green-700'
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                      >
+                        Yes
+                      </button>
+                      <button
+                        onClick={() => handleSetEventSummaryState('skipped')}
+                        disabled={isUpdatingEventSummary}
+                        className={`${commonBtn} ${disabledCls} ${
+                          eventSummaryState === 'skipped'
+                            ? 'bg-amber-500 text-white hover:bg-amber-600'
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                      >
+                        Skip
+                      </button>
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
 
             {/* Follow Up - Desktop Only */}

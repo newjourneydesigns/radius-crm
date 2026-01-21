@@ -91,7 +91,7 @@ export default function EventSummariesPanel({ searchParams }: EventSummariesPane
     circleLeaders,
     isLoading,
     loadCircleLeaders,
-    toggleEventSummary,
+    setEventSummaryState,
     resetEventSummaryCheckboxes
   } = useCircleLeaders();
 
@@ -135,7 +135,7 @@ export default function EventSummariesPanel({ searchParams }: EventSummariesPane
   });
 
   // Progress bar
-  const completed = sortedLeaders.filter(l => l.event_summary_received).length;
+  const completed = sortedLeaders.filter(l => l.event_summary_received || l.event_summary_skipped).length;
   const percent = sortedLeaders.length ? Math.round((completed / sortedLeaders.length) * 100) : 0;
 
   // Unique campuses/types for filter dropdowns
@@ -253,12 +253,50 @@ export default function EventSummariesPanel({ searchParams }: EventSummariesPane
                     )}
                   </td>
                   <td className="px-4 py-2 text-center">
-                    <input
-                      type="checkbox"
-                      checked={!!l.event_summary_received}
-                      onChange={e => toggleEventSummary(l.id, e.target.checked)}
-                      className="w-5 h-5 accent-blue-600"
-                    />
+                    <div className="inline-flex rounded-md border border-gray-200 dark:border-gray-600 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setEventSummaryState(l.id, 'not_received')}
+                        className={
+                          `px-2 py-1 text-xs font-medium ${
+                            (!l.event_summary_received && !l.event_summary_skipped)
+                              ? 'bg-gray-800 text-white dark:bg-gray-200 dark:text-gray-900'
+                              : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200'
+                          }`
+                        }
+                        title="Not received"
+                      >
+                        No
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEventSummaryState(l.id, 'received')}
+                        className={
+                          `px-2 py-1 text-xs font-medium ${
+                            (l.event_summary_received)
+                              ? 'bg-green-600 text-white'
+                              : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200'
+                          }`
+                        }
+                        title="Received"
+                      >
+                        Yes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEventSummaryState(l.id, 'skipped')}
+                        className={
+                          `px-2 py-1 text-xs font-medium ${
+                            (l.event_summary_skipped)
+                              ? 'bg-amber-600 text-white'
+                              : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200'
+                          }`
+                        }
+                        title="Did not meet"
+                      >
+                        Skip
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -325,12 +363,48 @@ export default function EventSummariesPanel({ searchParams }: EventSummariesPane
                 
                 {/* Checkbox */}
                 <div className="flex flex-col items-center">
-                  <input
-                    type="checkbox"
-                    checked={!!l.event_summary_received}
-                    onChange={e => toggleEventSummary(l.id, e.target.checked)}
-                    className="w-6 h-6 accent-blue-600"
-                  />
+                  <div className="grid grid-cols-3 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setEventSummaryState(l.id, 'not_received')}
+                      className={
+                        `px-2 py-1 rounded text-[11px] font-medium border ${
+                          (!l.event_summary_received && !l.event_summary_skipped)
+                            ? 'bg-gray-800 text-white border-gray-800 dark:bg-gray-200 dark:text-gray-900 dark:border-gray-200'
+                            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600'
+                        }`
+                      }
+                    >
+                      No
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEventSummaryState(l.id, 'received')}
+                      className={
+                        `px-2 py-1 rounded text-[11px] font-medium border ${
+                          l.event_summary_received
+                            ? 'bg-green-600 text-white border-green-600'
+                            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600'
+                        }`
+                      }
+                    >
+                      Yes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEventSummaryState(l.id, 'skipped')}
+                      className={
+                        `px-2 py-1 rounded text-[11px] font-medium border ${
+                          l.event_summary_skipped
+                            ? 'bg-amber-600 text-white border-amber-600'
+                            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600'
+                        }`
+                      }
+                      title="Did not meet"
+                    >
+                      Skip
+                    </button>
+                  </div>
                   <span className="text-xs text-gray-500 mt-1">Summary</span>
                 </div>
               </div>

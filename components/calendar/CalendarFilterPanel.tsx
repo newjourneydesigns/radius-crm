@@ -43,11 +43,12 @@ export default function CalendarFilterPanel({
 }: Props) {
   const [open, setOpen] = useState(false);
 
-  // Auto-expand on larger screens
+  // Default collapsed; persist user preference.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const mq = window.matchMedia('(min-width: 768px)');
-    setOpen(mq.matches);
+    const saved = window.localStorage.getItem('calendarFiltersVisible');
+    if (saved === null) return;
+    setOpen(saved === 'true');
   }, []);
 
   const hasActiveFilters = useMemo(() => {
@@ -105,7 +106,13 @@ export default function CalendarFilterPanel({
               </button>
             )}
             <button
-              onClick={() => setOpen(v => !v)}
+              onClick={() => {
+                setOpen(v => {
+                  const next = !v;
+                  window.localStorage.setItem('calendarFiltersVisible', next.toString());
+                  return next;
+                });
+              }}
               className="px-3 py-1 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               {open ? 'Hide' : 'Filters'}
@@ -245,6 +252,7 @@ export default function CalendarFilterPanel({
                 <option value="all">All</option>
                 <option value="received">Received</option>
                 <option value="not_received">Not Received</option>
+                <option value="skipped">Skipped</option>
               </select>
 
               <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Connected</label>

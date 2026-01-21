@@ -37,36 +37,71 @@ export const useTodayCircles = (filters: CircleLeaderFilters = {}, isReady: bool
       const todayName = daysOfWeek[today.getDay()];
 
       // Build query for circle leaders that meet today
-      let query = supabase
-        .from('circle_leaders')
-        .select('id, name, campus, acpd, status, day, time, frequency, circle_type, ccb_profile_link')
-        .eq('day', todayName);
+      const baseSelect = (includeSkipped: boolean) => (
+        'id, name, campus, acpd, status, day, time, frequency, circle_type, ccb_profile_link, ' +
+        'event_summary_received' +
+        (includeSkipped ? ', event_summary_skipped' : '')
+      );
 
-      // Apply dashboard filters
-      if (filters) {
+      const applyFilters = (q: any, includeSkipped: boolean) => {
+        // Required day filter
+        q = q.eq('day', todayName);
+
         if (filters.campus && filters.campus.length > 0) {
-          query = query.in('campus', filters.campus);
+          q = q.in('campus', filters.campus);
         }
         if (filters.acpd && filters.acpd.length > 0) {
-          query = query.in('acpd', filters.acpd);
+          q = q.in('acpd', filters.acpd);
         }
         if (filters.status && filters.status.length > 0) {
           const regularStatuses = filters.status.filter(s => s !== 'follow-up');
           if (regularStatuses.length > 0) {
-            query = query.in('status', regularStatuses);
+            q = q.in('status', regularStatuses);
           }
         }
         if (filters.circleType && filters.circleType.length > 0) {
-          query = query.in('circle_type', filters.circleType);
+          q = q.in('circle_type', filters.circleType);
         }
+
+        // Event summary filter
         if (filters.eventSummary === 'received') {
-          query = query.eq('event_summary_received', true);
+          q = q.eq('event_summary_received', true);
+        } else if (filters.eventSummary === 'skipped') {
+          if (includeSkipped) {
+            q = q.eq('event_summary_skipped', true);
+          } else {
+            // DB not migrated yet; return no rows
+            q = q.eq('id', -1);
+          }
         } else if (filters.eventSummary === 'not_received') {
-          query = query.neq('event_summary_received', true);
+          q = q.neq('event_summary_received', true);
+          if (includeSkipped) {
+            q = q.neq('event_summary_skipped', true);
+          }
+        }
+
+        return q;
+      };
+
+      let query = applyFilters(
+        supabase.from('circle_leaders').select(baseSelect(true)),
+        true
+      );
+
+      let { data: leaders, error: leadersError } = await query.order('time', { ascending: true });
+
+      if (leadersError && /event_summary_skipped/i.test(leadersError.message || '')) {
+        console.warn('event_summary_skipped column missing; retrying without it. Apply add_event_summary_skipped.sql to enable tri-state.');
+        query = applyFilters(
+          supabase.from('circle_leaders').select(baseSelect(false)),
+          false
+        );
+        ({ data: leaders, error: leadersError } = await query.order('time', { ascending: true }));
+
+        if (leaders && leaders.length > 0) {
+          leaders = leaders.map((l: any) => ({ ...l, event_summary_skipped: false }));
         }
       }
-
-      const { data: leaders, error: leadersError } = await query.order('time', { ascending: true });
 
       if (leadersError) {
         console.error("Error loading today's circles:", leadersError);

@@ -186,7 +186,7 @@ export default function FilterPanel({
   frequencies
 }: FilterPanelProps) {
   // Core Component State
-  const [filtersVisible, setFiltersVisible] = useState(true);
+  const [filtersVisible, setFiltersVisible] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   
   // Follow-up Table State
@@ -298,7 +298,11 @@ export default function FilterPanel({
 
   useEffect(() => {
     const saved = localStorage.getItem('filtersVisible');
-    setFiltersVisible(saved !== 'false');
+    if (saved === null) {
+      setFiltersVisible(false);
+      return;
+    }
+    setFiltersVisible(saved === 'true');
   }, []);
 
   useEffect(() => {
@@ -768,6 +772,7 @@ export default function FilterPanel({
                   <option value="all">All</option>
                   <option value="received">Received</option>
                   <option value="not_received">Not Received</option>
+                  <option value="skipped">Skipped</option>
                 </select>
               </div>
 
@@ -903,7 +908,7 @@ export default function FilterPanel({
                     onClick={() => removeFilterValue('eventSummary', '')}
                     className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-900/30 transition-colors"
                   >
-                    Event Summary: {filters.eventSummary === 'received' ? 'Received' : 'Not Received'}
+                    Event Summary: {filters.eventSummary === 'received' ? 'Received' : filters.eventSummary === 'skipped' ? 'Skipped' : 'Not Received'}
                     <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>

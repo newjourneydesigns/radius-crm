@@ -80,6 +80,7 @@ export interface CircleLeader {
   frequency?: string;
   circle_type?: 'Men\'s' | 'Women\'s' | 'Young Adult | Coed' | 'Young Adult | Men\'s' | 'Young Adult | Women\'s' | 'Young Adult | Couple\'s';
   event_summary_received?: boolean;
+  event_summary_skipped?: boolean;
   follow_up_required?: boolean;
   follow_up_date?: string;
   follow_up_note?: string;

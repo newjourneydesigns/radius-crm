@@ -78,7 +78,7 @@ export default function EventSummaryProgress({
 
   const getStatusMessage = () => {
     if (totalCount === 0) return 'No leaders in current filter';
-    if (percentage === 100) return 'All summaries received! 🎉';
+    if (percentage === 100) return 'All summaries completed!';
     if (percentage >= 75) return 'Almost complete!';
     if (percentage >= 50) return 'Halfway there';
     if (percentage >= 25) return 'Making progress';
@@ -136,7 +136,7 @@ export default function EventSummaryProgress({
             <div className="flex-1">
               <h3 className="text-base font-semibold text-gray-900 dark:text-white">Event Summaries Progress</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                {receivedCount} of {totalCount} summaries received
+                {receivedCount} of {totalCount} summaries completed
               </p>
             </div>
           </div>
@@ -163,7 +163,7 @@ export default function EventSummaryProgress({
             <div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Event Summaries Progress</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                {receivedCount} of {totalCount} summaries received
+                {receivedCount} of {totalCount} summaries completed
               </p>
             </div>
           </div>

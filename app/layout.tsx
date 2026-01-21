@@ -24,6 +24,9 @@ export default function RootLayout({
         <meta name="description" content="Circle Leader Management System for RADIUS" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="color-scheme" content="dark" />
+
+        {/* FullCalendar base styles (v6 packages bundle CSS in the global build) */}
+        <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.20/index.global.min.js" />
         
         {/* PWA Meta Tags */}
         <meta name="application-name" content="RADIUS" />
@@ -58,11 +61,6 @@ export default function RootLayout({
               // Force dark theme immediately
               const html = document.documentElement;
               html.classList.add('dark');
-              html.style.cssText = 'color-scheme: dark !important; background-color: #0f172a !important; min-height: 100vh !important; color: #eef4ed !important;';
-              
-              if (document.body) {
-                document.body.style.cssText = 'background-color: #0f172a !important; min-height: 100vh !important; color: #eef4ed !important; color-scheme: dark !important;';
-              }
               
               // Force theme preference
               localStorage.setItem('theme', 'dark');

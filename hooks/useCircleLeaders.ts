@@ -13,6 +13,8 @@ export interface CircleLeaderFilters {
   timeOfDay?: string;
 }
 
+export type EventSummaryState = 'received' | 'not_received' | 'skipped';
+
 // Cache management
 interface CacheEntry {
   data: CircleLeader[];
@@ -120,88 +122,122 @@ export const useCircleLeaders = () => {
         console.log('🟢 Distinct campus values in DB:', uniqueCampuses);
       }
 
-      // Build the base query
-      let query = supabase
-        .from('circle_leaders')
-        .select('id, name, email, phone, campus, acpd, status, day, time, frequency, circle_type, event_summary_received, follow_up_required, follow_up_date, ccb_profile_link');
+      const baseSelect = (includeSkipped: boolean) => (
+        'id, name, email, phone, campus, acpd, status, day, time, frequency, circle_type, ' +
+        'event_summary_received' +
+        (includeSkipped ? ', event_summary_skipped' : '') +
+        ', follow_up_required, follow_up_date, ccb_profile_link'
+      );
 
-      // Apply filters server-side
-      if (filters) {
+      const applyServerFilters = (q: any, f?: CircleLeaderFilters, includeSkipped: boolean = true) => {
+        if (!f) return q;
+
         // Campus filter
-        if (filters.campus && filters.campus.length > 0) {
-          // Remove empty strings/nulls from campus filter
-          const validCampuses = filters.campus.filter(c => c && c.trim() !== '');
-          console.log('Campus filter:', validCampuses);
-          console.log('All filters:', filters);
-          // Use eq for single campus selection
+        if (f.campus && f.campus.length > 0) {
+          const validCampuses = f.campus.filter(c => c && c.trim() !== '');
           if (validCampuses.length === 1) {
-            query = query.eq('campus', validCampuses[0]);
+            q = q.eq('campus', validCampuses[0]);
           } else if (validCampuses.length > 1) {
-            query = query.in('campus', validCampuses);
+            q = q.in('campus', validCampuses);
           }
         }
 
         // ACPD filter
-        if (filters.acpd && filters.acpd.length > 0) {
-          query = query.in('acpd', filters.acpd);
+        if (f.acpd && f.acpd.length > 0) {
+          q = q.in('acpd', f.acpd);
         }
 
-        // Status filter (excluding follow-up for now, handled separately)
-        if (filters.status && filters.status.length > 0) {
-          const regularStatuses = filters.status.filter(s => s !== 'follow-up');
+        // Status filter
+        if (f.status && f.status.length > 0) {
+          const regularStatuses = f.status.filter(s => s !== 'follow-up');
           if (regularStatuses.length > 0) {
-            query = query.in('status', regularStatuses);
+            q = q.in('status', regularStatuses);
           }
-          // Note: follow-up filter will be applied client-side since it's based on follow_up_required
         }
 
         // Status exclusion filter - exclude specific statuses unless explicitly included
         if (
-          filters.statusExclude && filters.statusExclude.length > 0 &&
-          (!filters.status || filters.status.length === 0) &&
-          (!filters.campus || filters.campus.length === 0) &&
-          (!filters.acpd || filters.acpd.length === 0) &&
-          (!filters.meetingDay || filters.meetingDay.length === 0) &&
-          (!filters.circleType || filters.circleType.length === 0) &&
-          (!filters.eventSummary || filters.eventSummary === '') &&
-          (!filters.timeOfDay || filters.timeOfDay === '')
+          f.statusExclude && f.statusExclude.length > 0 &&
+          (!f.status || f.status.length === 0) &&
+          (!f.campus || f.campus.length === 0) &&
+          (!f.acpd || f.acpd.length === 0) &&
+          (!f.meetingDay || f.meetingDay.length === 0) &&
+          (!f.circleType || f.circleType.length === 0) &&
+          (!f.eventSummary || f.eventSummary === '') &&
+          (!f.timeOfDay || f.timeOfDay === '')
         ) {
-          console.log('Status exclusion filter:', filters.statusExclude);
-          query = query.not('status', 'in', `(${filters.statusExclude.map(s => `'${s}'`).join(',')})`);
+          q = q.not('status', 'in', `(${f.statusExclude.map(s => `'${s}'`).join(',')})`);
         }
 
-        // Always exclude certain statuses (regardless of other filters)
-        if (filters.statusAlwaysExclude && filters.statusAlwaysExclude.length > 0) {
-          console.log('Always excluding statuses:', filters.statusAlwaysExclude);
-          query = query.not('status', 'in', `(${filters.statusAlwaysExclude.map(s => `'${s}'`).join(',')})`);
+        // Always exclude certain statuses
+        if (f.statusAlwaysExclude && f.statusAlwaysExclude.length > 0) {
+          q = q.not('status', 'in', `(${f.statusAlwaysExclude.map(s => `'${s}'`).join(',')})`);
         }
 
         // Meeting Day filter
-        if (filters.meetingDay && filters.meetingDay.length > 0) {
-          query = query.in('day', filters.meetingDay);
+        if (f.meetingDay && f.meetingDay.length > 0) {
+          q = q.in('day', f.meetingDay);
         }
 
         // Circle Type filter
-        if (filters.circleType && filters.circleType.length > 0) {
-          query = query.in('circle_type', filters.circleType);
+        if (f.circleType && f.circleType.length > 0) {
+          q = q.in('circle_type', f.circleType);
         }
 
         // Event Summary filter
-        if (filters.eventSummary === 'received') {
-          query = query.eq('event_summary_received', true);
-        } else if (filters.eventSummary === 'not_received') {
-          query = query.neq('event_summary_received', true);
+        if (f.eventSummary === 'received') {
+          q = q.eq('event_summary_received', true);
+        } else if (f.eventSummary === 'skipped') {
+          if (includeSkipped) {
+            q = q.eq('event_summary_skipped', true);
+          } else {
+            // DB not migrated yet; return no rows
+            q = q.eq('id', -1);
+          }
+        } else if (f.eventSummary === 'not_received') {
+          q = q.neq('event_summary_received', true);
+          if (includeSkipped) {
+            q = q.neq('event_summary_skipped', true);
+          }
         }
 
-        // Time of Day filter - complex logic, keeping client-side for now
-        // This would require database functions to parse time strings
-      }
+        return q;
+      };
+
+      // Build the base query
+      let query = applyServerFilters(
+        supabase
+          .from('circle_leaders')
+          .select(baseSelect(true)),
+        filters,
+        true
+      );
+
+      // (filters already applied via applyServerFilters)
 
       // Log the final query object for debugging
       console.log('Final Supabase query object:', query);
       // Execute the query
       console.log('Executing Supabase query...');
-      const { data: leaders, error: leadersError } = await query.order('name');
+      let { data: leaders, error: leadersError } = await query.order('name');
+
+      // Backward-compat: if the DB hasn't been migrated yet, retry without event_summary_skipped
+      if (leadersError && /event_summary_skipped/i.test(leadersError.message || '')) {
+        console.warn('event_summary_skipped column missing; retrying without it. Apply add_event_summary_skipped.sql to enable tri-state.');
+        query = applyServerFilters(
+          supabase
+            .from('circle_leaders')
+            .select(baseSelect(false)),
+          filters,
+          false
+        );
+
+        ({ data: leaders, error: leadersError } = await query.order('name'));
+
+        if (leaders && leaders.length > 0) {
+          leaders = leaders.map((l: any) => ({ ...l, event_summary_skipped: false }));
+        }
+      }
 
       console.log('🔍 Query results:', {
         totalFound: leaders?.length || 0,
@@ -323,36 +359,54 @@ export const useCircleLeaders = () => {
     }
   }, []);
 
-  const toggleEventSummary = async (leaderId: number, isChecked: boolean) => {
+  const setEventSummaryState = async (leaderId: number, state: EventSummaryState) => {
     try {
-      // Update in database
-      const { error } = await supabase
+      const payload = {
+        event_summary_received: state === 'received',
+        event_summary_skipped: state === 'skipped',
+      };
+
+      let { error } = await supabase
         .from('circle_leaders')
-        .update({ event_summary_received: isChecked })
+        .update(payload)
         .eq('id', leaderId);
 
+      // Backward-compat: if event_summary_skipped doesn't exist yet, retry without it
+      if (error && /event_summary_skipped/i.test(error.message || '')) {
+        if (state === 'skipped') {
+          throw new Error('Did not meet is not enabled yet. Apply add_event_summary_skipped.sql to your Supabase database first.');
+        }
+
+        ({ error } = await supabase
+          .from('circle_leaders')
+          .update({ event_summary_received: state === 'received' })
+          .eq('id', leaderId));
+      }
+
       if (error) {
-        console.error('Error updating event summary:', error);
+        console.error('Error updating event summary state:', error);
         throw error;
       }
 
-      // Clear cache since data was modified
       clearCache();
 
-      // Update local state
-      setCircleLeaders(prev => 
-        prev.map(leader => 
-          leader.id === leaderId 
-            ? { ...leader, event_summary_received: isChecked }
+      setCircleLeaders(prev =>
+        prev.map(leader =>
+          leader.id === leaderId
+            ? { ...leader, ...payload }
             : leader
         )
       );
-
     } catch (error) {
-      console.error('Error in toggleEventSummary:', error);
+      console.error('Error in setEventSummaryState:', error);
       setError('Error updating event summary');
       throw error;
     }
+  };
+
+  const toggleEventSummary = async (leaderId: number, isChecked: boolean) => {
+    // Backwards-compatible wrapper: checked => received, unchecked => not_received
+    return setEventSummaryState(leaderId, isChecked ? 'received' : 'not_received');
   };
 
   const resetEventSummaryCheckboxes = async (leaderIds: number[]) => {
@@ -360,7 +414,7 @@ export const useCircleLeaders = () => {
       // Update in database
       const { error } = await supabase
         .from('circle_leaders')
-        .update({ event_summary_received: false })
+        .update({ event_summary_received: false, event_summary_skipped: false })
         .in('id', leaderIds);
 
       if (error) {
@@ -375,7 +429,7 @@ export const useCircleLeaders = () => {
       setCircleLeaders(prev => 
         prev.map(leader => 
           leaderIds.includes(leader.id)
-            ? { ...leader, event_summary_received: false }
+            ? { ...leader, event_summary_received: false, event_summary_skipped: false }
             : leader
         )
       );
@@ -577,6 +631,7 @@ export const useCircleLeaders = () => {
     isLoading,
     error,
     loadCircleLeaders,
+    setEventSummaryState,
     toggleEventSummary,
     resetEventSummaryCheckboxes,
     toggleFollowUp,

@@ -27,7 +27,7 @@ export default function CalendarPage() {
 function CalendarPageContent() {
   const router = useRouter();
   const { filters, updateFilters, clearAllFilters, isInitialized } = useLeaderFilters({ basePath: '/calendar' });
-  const { circleLeaders, isLoading, error, loadCircleLeaders } = useCircleLeaders();
+  const { circleLeaders, isLoading, error, loadCircleLeaders, setEventSummaryState } = useCircleLeaders();
 
   const [directors, setDirectors] = useState<DirectorItem[]>([]);
   const [campuses, setCampuses] = useState<RefItem[]>([]);
@@ -60,7 +60,7 @@ function CalendarPageContent() {
     const loadReferenceData = async () => {
       try {
         setReferenceDataLoading(true);
-        const response = await fetch('/api/reference-data');
+        const response = await fetch('/api/reference-data/');
         if (!response.ok) throw new Error('Failed to fetch reference data');
 
         const data = await response.json();
@@ -102,6 +102,27 @@ function CalendarPageContent() {
           { id: 7, value: 'off-boarding' },
           { id: 8, value: 'archive' },
         ]);
+
+        // Also derive campuses/directors/circleTypes from actual circle_leaders data
+        // (keeps filter options usable even if the API route is unavailable)
+        try {
+          const { data: actualData, error: actualError } = await supabase
+            .from('circle_leaders')
+            .select('campus, acpd, circle_type')
+            .order('campus');
+
+          if (!actualError && actualData) {
+            const uniqueCampuses = Array.from(new Set(actualData.map(i => i.campus).filter(Boolean) as string[])).sort();
+            const uniqueDirectors = Array.from(new Set(actualData.map(i => i.acpd).filter(Boolean) as string[])).sort();
+            const uniqueCircleTypes = Array.from(new Set(actualData.map(i => i.circle_type).filter(Boolean) as string[])).sort();
+
+            setCampuses(uniqueCampuses.map((value, idx) => ({ id: 1000 + idx, value })));
+            setDirectors(uniqueDirectors.map((name, idx) => ({ id: 1000 + idx, name })));
+            setCircleTypes(uniqueCircleTypes.map((value, idx) => ({ id: 1000 + idx, value })));
+          }
+        } catch (err) {
+          console.error('Error deriving filter options from circle_leaders:', err);
+        }
       } finally {
         setReferenceDataLoading(false);
       }
@@ -177,6 +198,37 @@ function CalendarPageContent() {
     return filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }, [circleLeaders, connectedLeaderIds, filters]);
 
+  // Fallback: if reference-data fails/returns empty, derive filter options from loaded leaders
+  const derivedCampuses = useMemo(() => {
+    const values = new Set<string>();
+    campuses.forEach(c => c?.value && values.add(c.value));
+    circleLeaders.forEach(l => l?.campus && values.add(l.campus));
+    filters.campus.forEach(v => v && values.add(v));
+    return Array.from(values)
+      .sort((a, b) => a.localeCompare(b))
+      .map((value, idx) => ({ id: idx + 1, value }));
+  }, [campuses, circleLeaders, filters.campus]);
+
+  const derivedDirectors = useMemo(() => {
+    const names = new Set<string>();
+    directors.forEach(d => d?.name && names.add(d.name));
+    circleLeaders.forEach(l => l?.acpd && names.add(l.acpd));
+    filters.acpd.forEach(v => v && names.add(v));
+    return Array.from(names)
+      .sort((a, b) => a.localeCompare(b))
+      .map((name, idx) => ({ id: idx + 1, name }));
+  }, [directors, circleLeaders, filters.acpd]);
+
+  const derivedCircleTypes = useMemo(() => {
+    const values = new Set<string>();
+    circleTypes.forEach(t => t?.value && values.add(t.value));
+    circleLeaders.forEach(l => l?.circle_type && values.add(l.circle_type));
+    filters.circleType.forEach(v => v && values.add(v));
+    return Array.from(values)
+      .sort((a, b) => a.localeCompare(b))
+      .map((value, idx) => ({ id: idx + 1, value }));
+  }, [circleTypes, circleLeaders, filters.circleType]);
+
   return (
     <>
       <CalendarFilterPanel
@@ -184,16 +236,17 @@ function CalendarPageContent() {
         onFiltersChange={(next) => updateFilters(next)}
         onClearAllFilters={clearAllFilters}
         totalLeaders={filteredLeaders.length}
-        directors={directors}
-        campuses={campuses}
+        directors={derivedDirectors}
+        campuses={derivedCampuses}
         statuses={statuses}
-        circleTypes={circleTypes}
+        circleTypes={derivedCircleTypes}
       />
 
       <CircleMeetingsCalendar
         leaders={filteredLeaders}
         isLoading={isLoading || referenceDataLoading}
         loadError={error}
+        onSetEventSummaryState={setEventSummaryState}
       />
     </>
   );

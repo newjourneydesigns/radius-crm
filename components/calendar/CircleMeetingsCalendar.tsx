@@ -1,11 +1,12 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import type { DatesSetArg, EventClickArg } from '@fullcalendar/core';
+import type { DatesSetArg, EventClickArg, EventContentArg } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
+import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { DateClickArg } from '@fullcalendar/interaction';
 import { DateTime } from 'luxon';
@@ -13,15 +14,22 @@ import type { CircleLeader } from '../../lib/supabase';
 
 const FullCalendar = dynamic(() => import('@fullcalendar/react'), { ssr: false });
 
+const CALENDAR_VIEW_STORAGE_KEY = 'radius.calendar.view';
+const DEFAULT_CALENDAR_VIEW = 'dayGridMonth';
+
 type CalendarEvent = {
   id: string;
   title: string;
   start: string;
   end?: string;
   allDay?: boolean;
+  backgroundColor?: string;
+  borderColor?: string;
+  textColor?: string;
   extendedProps?: {
     leaderId: number;
     ccbProfileLink?: string | null;
+    eventSummaryState?: 'received' | 'not_received' | 'skipped';
   };
 };
 
@@ -118,6 +126,21 @@ const buildOccurrencesForLeader = (args: {
   }
 
   const title = leader.circle_type ? `${leader.name} (${leader.circle_type})` : leader.name;
+  const eventSummaryState: 'received' | 'not_received' | 'skipped' =
+    leader.event_summary_skipped === true
+      ? 'skipped'
+      : leader.event_summary_received === true
+        ? 'received'
+        : 'not_received';
+
+  // FullCalendar supports per-event colors; using that avoids needing extra CSS overrides.
+  const backgroundColor = eventSummaryState === 'received'
+    ? '#16a34a'
+    : eventSummaryState === 'skipped'
+      ? '#f59e0b'
+      : '#dc2626';
+  const borderColor = backgroundColor;
+  const textColor = '#ffffff';
 
   const out: CalendarEvent[] = [];
   while (cursor < end) {
@@ -130,7 +153,14 @@ const buildOccurrencesForLeader = (args: {
       start: eventStart.toISO() ?? eventStart.toJSDate().toISOString(),
       end: eventEnd.toISO() ?? eventEnd.toJSDate().toISOString(),
       allDay: false,
-      extendedProps: { leaderId: leader.id, ccbProfileLink: leader.ccb_profile_link ?? null },
+      backgroundColor,
+      borderColor,
+      textColor,
+      extendedProps: {
+        leaderId: leader.id,
+        ccbProfileLink: leader.ccb_profile_link ?? null,
+        eventSummaryState,
+      },
     });
 
     cursor = cursor.plus({ weeks: intervalWeeks });
@@ -143,18 +173,37 @@ type CircleMeetingsCalendarProps = {
   leaders: CircleLeader[];
   isLoading?: boolean;
   loadError?: string | null;
+  onSetEventSummaryState?: (leaderId: number, state: 'received' | 'not_received' | 'skipped') => Promise<void> | void;
 };
 
 export default function CircleMeetingsCalendar({
   leaders,
   isLoading: isLoadingLeaders = false,
   loadError = null,
+  onSetEventSummaryState,
 }: CircleMeetingsCalendarProps) {
   const router = useRouter();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [visibleRange, setVisibleRange] = useState<{ start: Date; end: Date } | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [savingLeaderIds, setSavingLeaderIds] = useState<Set<number>>(new Set());
   const [selectedISODate, setSelectedISODate] = useState(() => DateTime.local().toISODate() ?? '');
+  const [initialView] = useState(() => {
+    if (typeof window === 'undefined') return DEFAULT_CALENDAR_VIEW;
+    try {
+      return window.localStorage.getItem(CALENDAR_VIEW_STORAGE_KEY) || DEFAULT_CALENDAR_VIEW;
+    } catch {
+      return DEFAULT_CALENDAR_VIEW;
+    }
+  });
+  const [currentViewType, setCurrentViewType] = useState<string>(() => {
+    if (typeof window === 'undefined') return DEFAULT_CALENDAR_VIEW;
+    try {
+      return window.localStorage.getItem(CALENDAR_VIEW_STORAGE_KEY) || DEFAULT_CALENDAR_VIEW;
+    } catch {
+      return DEFAULT_CALENDAR_VIEW;
+    }
+  });
 
   // Default meeting length; can be made configurable later.
   const durationMinutes = 60;
@@ -174,6 +223,14 @@ export default function CircleMeetingsCalendar({
 
   const onDatesSet = useCallback((arg: DatesSetArg) => {
     setVisibleRange({ start: arg.start, end: arg.end });
+    setCurrentViewType(arg.view.type);
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(CALENDAR_VIEW_STORAGE_KEY, arg.view.type);
+      } catch {
+        // ignore
+      }
+    }
     try {
       const focused = arg.view?.calendar?.getDate?.();
       if (focused) {
@@ -208,6 +265,77 @@ export default function CircleMeetingsCalendar({
     router.push(`/circle/${leaderId}`);
   }, [router]);
 
+  const setLeaderEventSummaryState = useCallback(async (leaderId: number, state: 'received' | 'not_received' | 'skipped') => {
+    if (!onSetEventSummaryState) return;
+
+    setSavingLeaderIds(prev => {
+      const next = new Set(prev);
+      next.add(leaderId);
+      return next;
+    });
+
+    try {
+      await onSetEventSummaryState(leaderId, state);
+    } finally {
+      setSavingLeaderIds(prev => {
+        const next = new Set(prev);
+        next.delete(leaderId);
+        return next;
+      });
+    }
+  }, [onSetEventSummaryState]);
+
+  const renderEventSummaryButtons = useCallback((leaderId: number, state: 'received' | 'not_received' | 'skipped') => {
+    const isSaving = savingLeaderIds.has(leaderId);
+
+    const base =
+      'h-10 sm:h-8 px-2 sm:px-2 rounded text-[11px] sm:text-xs leading-none border transition-colors disabled:opacity-60 disabled:cursor-not-allowed touch-manipulation select-none flex items-center justify-center min-w-0';
+
+    const btn = (kind: 'not_received' | 'received' | 'skipped') => {
+      const active = state === kind;
+
+      if (kind === 'received') {
+        return active
+          ? `${base} bg-green-600 border-green-700 text-white`
+          : `${base} bg-white dark:bg-gray-800 border-green-300 dark:border-green-700 text-green-700 dark:text-green-200 hover:bg-green-50 dark:hover:bg-green-900/30`;
+      }
+      if (kind === 'skipped') {
+        return active
+          ? `${base} bg-amber-500 border-amber-600 text-white`
+          : `${base} bg-white dark:bg-gray-800 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/30`;
+      }
+      // not_received
+      return active
+        ? `${base} bg-red-600 border-red-700 text-white`
+        : `${base} bg-white dark:bg-gray-800 border-red-300 dark:border-red-700 text-red-700 dark:text-red-200 hover:bg-red-50 dark:hover:bg-red-900/30`;
+    };
+
+    const onClick = (next: 'not_received' | 'received' | 'skipped') => (e: MouseEvent<HTMLButtonElement>) => {
+      // Prevent FullCalendar's eventClick navigation.
+      e.preventDefault();
+      e.stopPropagation();
+      void setLeaderEventSummaryState(leaderId, next);
+    };
+
+    return (
+      <div
+        className="grid grid-cols-3 gap-1 w-full sm:flex sm:w-auto sm:items-center sm:gap-1 shrink-0"
+        role="group"
+        aria-label="Event summary"
+      >
+        <button type="button" disabled={isSaving} className={btn('not_received')} onClick={onClick('not_received')}>
+          No
+        </button>
+        <button type="button" disabled={isSaving} className={btn('received')} onClick={onClick('received')}>
+          Yes
+        </button>
+        <button type="button" disabled={isSaving} className={btn('skipped')} onClick={onClick('skipped')}>
+          Skip
+        </button>
+      </div>
+    );
+  }, [savingLeaderIds, setLeaderEventSummaryState]);
+
   const selectedDateLabel = useMemo(() => {
     if (!selectedISODate) return '';
     const dt = DateTime.fromISO(selectedISODate);
@@ -224,6 +352,8 @@ export default function CircleMeetingsCalendar({
 
     return list;
   }, [events, selectedISODate]);
+
+  const isListView = currentViewType.startsWith('list');
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-3 sm:p-4">
@@ -251,22 +381,23 @@ export default function CircleMeetingsCalendar({
 
       <div className="calendar-shell">
         <FullCalendar
-          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-          initialView="dayGridMonth"
+          plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+          initialView={initialView}
           headerToolbar={
             isMobile
               ? { left: 'prev,next', center: 'title', right: 'today' }
-              : { left: 'prev,next today', center: 'title', right: 'timeGridDay,timeGridWeek,dayGridMonth' }
+              : { left: 'prev,next today', center: 'title', right: 'timeGridDay,timeGridWeek,dayGridMonth,listWeek' }
           }
           footerToolbar={
             isMobile
-              ? { left: 'timeGridDay,timeGridWeek,dayGridMonth', center: '', right: '' }
+              ? { left: 'timeGridDay,timeGridWeek,dayGridMonth,listWeek', center: '', right: '' }
               : undefined
           }
           buttonText={{
             timeGridDay: 'Day',
             timeGridWeek: 'Week',
             dayGridMonth: 'Month',
+            listWeek: 'List',
           }}
           titleFormat={
             isMobile
@@ -281,6 +412,26 @@ export default function CircleMeetingsCalendar({
           eventClick={onEventClick}
           dateClick={onDateClick}
           events={events}
+          eventContent={(arg: EventContentArg) => {
+            const isList = arg.view.type.startsWith('list');
+            const ext = arg.event.extendedProps as unknown as {
+              leaderId?: number;
+              eventSummaryState?: 'received' | 'not_received' | 'skipped';
+            };
+            const leaderId = ext.leaderId;
+            const state = ext.eventSummaryState ?? 'not_received';
+
+            if (!isList || !leaderId || !onSetEventSummaryState) {
+              return <div className="truncate">{arg.event.title}</div>;
+            }
+
+            return (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 w-full">
+                <div className="min-w-0 text-sm leading-snug break-words sm:truncate">{arg.event.title}</div>
+                {renderEventSummaryButtons(leaderId, state)}
+              </div>
+            );
+          }}
           datesSet={onDatesSet}
           dayMaxEvents={3}
           eventDisplay="block"
@@ -288,6 +439,7 @@ export default function CircleMeetingsCalendar({
         />
       </div>
 
+      {!isListView && (
       <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -304,13 +456,37 @@ export default function CircleMeetingsCalendar({
             {selectedDayEvents.map(ev => {
               const leaderId = ev.extendedProps?.leaderId;
               const ccb = ev.extendedProps?.ccbProfileLink ?? null;
+              const eventSummaryState = ev.extendedProps?.eventSummaryState ?? 'not_received';
               const timeLabel = DateTime.fromISO(ev.start).toLocaleString(DateTime.TIME_SIMPLE);
               const ccbHref = ccb && /^https?:\/\//i.test(ccb) ? ccb : null;
+
+              const stateBorderClass =
+                eventSummaryState === 'received'
+                  ? 'border-l-green-500'
+                  : eventSummaryState === 'skipped'
+                    ? 'border-l-amber-500'
+                    : 'border-l-red-500';
+
+              const stateBadgeClass =
+                eventSummaryState === 'received'
+                  ? 'bg-green-600'
+                  : eventSummaryState === 'skipped'
+                    ? 'bg-amber-600'
+                    : 'bg-red-600';
+
+              const stateLabel =
+                eventSummaryState === 'received'
+                  ? 'Summary received'
+                  : eventSummaryState === 'skipped'
+                    ? 'Did not meet'
+                    : 'Summary not received';
 
               return (
                 <div
                   key={ev.id}
-                  className="flex items-center justify-between gap-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2"
+                  className={
+                    `flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 border-l-4 ${stateBorderClass}`
+                  }
                 >
                   <div className="min-w-0">
                     <div className="text-xs text-gray-500 dark:text-gray-400">{timeLabel}</div>
@@ -319,23 +495,35 @@ export default function CircleMeetingsCalendar({
                         href={ccbHref}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block truncate text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline"
+                        className="block text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline break-words sm:truncate"
                         title="Open CCB profile"
                       >
                         {ev.title}
                       </a>
                     ) : (
-                      <div className="block truncate text-sm font-medium text-gray-900 dark:text-white">{ev.title}</div>
+                      <div className="block text-sm font-medium text-gray-900 dark:text-white break-words sm:truncate">{ev.title}</div>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="w-full sm:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+                    {leaderId && onSetEventSummaryState && (
+                      <div className="order-2 sm:order-1">
+                        {renderEventSummaryButtons(leaderId, eventSummaryState)}
+                      </div>
+                    )}
+
+                    <span
+                      className={`order-1 sm:order-2 text-[11px] px-2 py-1 rounded text-white ${stateBadgeClass} self-start sm:self-auto`}
+                      title={stateLabel}
+                    >
+                      {stateLabel}
+                    </span>
                     {ccbHref && (
                       <a
                         href={ccbHref}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs px-2 py-1 rounded border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                        className="text-xs px-2 py-2 sm:py-1 rounded border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30"
                       >
                         CCB
                       </a>
@@ -344,7 +532,7 @@ export default function CircleMeetingsCalendar({
                       <button
                         type="button"
                         onClick={() => router.push(`/circle/${leaderId}`)}
-                        className="text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        className="text-xs px-2 py-2 sm:py-1 rounded border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                         title="Open circle leader page"
                       >
                         Open
@@ -357,6 +545,7 @@ export default function CircleMeetingsCalendar({
           </div>
         )}
       </div>
+      )}
 
       <div className="mt-3 text-xs text-gray-600 dark:text-gray-400">
         Tip: click an event to open the circle leader page.

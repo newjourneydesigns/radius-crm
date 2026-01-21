@@ -22,11 +22,17 @@ CREATE TABLE IF NOT EXISTS circle_leaders (
   frequency TEXT,
   circle_type TEXT,
   event_summary_received BOOLEAN DEFAULT FALSE,
+  event_summary_skipped BOOLEAN DEFAULT FALSE,
   ccb_profile_link TEXT,
   calendar_link TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Prevent impossible state (both received and skipped)
+ALTER TABLE circle_leaders
+  ADD CONSTRAINT circle_leaders_event_summary_state_check
+  CHECK (NOT (event_summary_received IS TRUE AND event_summary_skipped IS TRUE));
 
 -- Create notes table
 CREATE TABLE IF NOT EXISTS notes (

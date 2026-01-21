@@ -30,7 +30,7 @@ function LeadersContent() {
     circleLeaders,
     isLoading,
     loadCircleLeaders,
-    toggleEventSummary,
+    setEventSummaryState,
     updateStatus,
     toggleFollowUp,
     resetEventSummaryCheckboxes,
@@ -114,8 +114,9 @@ function LeadersContent() {
   useEffect(() => {
     const loadReferenceData = async () => {
       try {
+        setReferenceDataLoading(true);
         console.log('Loading reference data...');
-        const response = await fetch('/api/reference-data');
+        const response = await fetch('/api/reference-data/');
         console.log('Reference data response status:', response.status);
         if (!response.ok) throw new Error('Failed to fetch reference data');
         
@@ -173,6 +174,27 @@ function LeadersContent() {
           { id: 7, value: 'off-boarding' },
           { id: 8, value: 'archive' }
         ]);
+
+        // Also derive campuses/directors/circleTypes from actual circle_leaders data
+        // (keeps filter options usable even if the API route is unavailable)
+        try {
+          const { data: actualData, error: actualError } = await supabase
+            .from('circle_leaders')
+            .select('campus, acpd, circle_type')
+            .order('campus');
+
+          if (!actualError && actualData) {
+            const uniqueCampuses = Array.from(new Set(actualData.map(i => i.campus).filter(Boolean) as string[])).sort();
+            const uniqueDirectors = Array.from(new Set(actualData.map(i => i.acpd).filter(Boolean) as string[])).sort();
+            const uniqueCircleTypes = Array.from(new Set(actualData.map(i => i.circle_type).filter(Boolean) as string[])).sort();
+
+            setCampuses(uniqueCampuses.map((value, idx) => ({ id: 1000 + idx, value })));
+            setDirectors(uniqueDirectors.map((name, idx) => ({ id: 1000 + idx, name })));
+            setCircleTypes(uniqueCircleTypes.map((value, idx) => ({ id: 1000 + idx, value })));
+          }
+        } catch (e) {
+          console.error('Error deriving filter options from circle_leaders:', e);
+        }
       } finally {
         setReferenceDataLoading(false);
       }
@@ -326,11 +348,8 @@ function LeadersContent() {
     updateFilters(newFilters);
   };
 
-  const handleToggleEventSummary = async (leaderId: number) => {
-    const leader = circleLeaders.find(l => l.id === leaderId);
-    if (leader) {
-      await toggleEventSummary(leaderId, !leader.event_summary_received);
-    }
+  const handleSetEventSummaryState = async (leaderId: number, state: 'received' | 'not_received' | 'skipped') => {
+    await setEventSummaryState(leaderId, state);
   };
 
   const handleUpdateStatus = async (leaderId: number, newStatus: string, followUpDate?: string) => {
@@ -753,7 +772,7 @@ function LeadersContent() {
                   <CircleLeaderCard
                     key={leader.id}
                     leader={leader}
-                    onToggleEventSummary={handleToggleEventSummary}
+                    onSetEventSummaryState={handleSetEventSummaryState}
                     onOpenContactModal={openContactModal}
                     onLogConnection={openLogConnectionModal}
                     onAddNote={openAddNoteModal}

@@ -141,7 +141,7 @@ const stripHtmlTags = (html: string): string => {
 interface CircleLeaderCardProps {
   leader: CircleLeader;
   isAdmin: boolean;
-  onToggleEventSummary: (leaderId: number, isChecked: boolean) => void;
+  onSetEventSummaryState: (leaderId: number, state: 'received' | 'not_received' | 'skipped') => void;
   onOpenContactModal: (leaderId: number, name: string, email: string, phone: string) => void;
   onLogConnection?: (leaderId: number, name: string) => void;
   onAddNote?: (leaderId: number, name: string) => void;
@@ -159,7 +159,7 @@ interface CircleLeaderCardProps {
 const CircleLeaderCard = memo(function CircleLeaderCard({ 
   leader, 
   isAdmin, 
-  onToggleEventSummary, 
+  onSetEventSummaryState, 
   onOpenContactModal,
   onLogConnection,
   onAddNote,
@@ -229,11 +229,17 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
     return 'Unknown';
   }, [leader.status]);
 
+  const eventSummaryState = useMemo(() => {
+    if (leader.event_summary_skipped) return 'skipped' as const;
+    if (leader.event_summary_received) return 'received' as const;
+    return 'not_received' as const;
+  }, [leader.event_summary_received, leader.event_summary_skipped]);
+
   // Event handlers with validation
-  const handleEventSummaryChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSetEventSummaryState = useCallback((next: 'received' | 'not_received' | 'skipped') => {
     if (!validateLeaderData(leader)) return;
-    onToggleEventSummary(leader.id, e.target.checked);
-  }, [leader, onToggleEventSummary]);
+    onSetEventSummaryState(leader.id, next);
+  }, [leader, onSetEventSummaryState]);
 
   const handleFollowUpChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (!validateLeaderData(leader) || !onToggleFollowUp) return;
@@ -509,27 +515,60 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
 
           {/* Checkboxes Section - Mobile */}
           <div className="mt-4 space-y-3">
-            {/* Event Summary Checkbox */}
-            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-              <div className="flex items-center">
-                <input 
-                  type="checkbox" 
-                  id={`eventSummary_${leader.id}`}
-                  checked={leader.event_summary_received || false}
-                  onChange={handleEventSummaryChange}
-                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700"
-                />
-                <label htmlFor={`eventSummary_${leader.id}`} className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Event Summary Received
-                </label>
+            {/* Event Summary (tri-state) */}
+            <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Event Summary</div>
+                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                  eventSummaryState === 'received'
+                    ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300'
+                    : eventSummaryState === 'skipped'
+                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                }`}>
+                  {eventSummaryState === 'received' ? 'Received' : eventSummaryState === 'skipped' ? 'Did not meet' : 'Not received'}
+                </span>
               </div>
-              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                leader.event_summary_received 
-                  ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300' 
-                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-              }`}>
-                {leader.event_summary_received ? '✓' : '○'}
-              </span>
+
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSetEventSummaryState('not_received')}
+                  className={
+                    'px-2 py-2 rounded-md text-xs font-medium border transition-colors ' +
+                    (eventSummaryState === 'not_received'
+                      ? 'bg-gray-800 text-white border-gray-800 dark:bg-gray-200 dark:text-gray-900 dark:border-gray-200'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700')
+                  }
+                >
+                  Not received
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetEventSummaryState('received')}
+                  className={
+                    'px-2 py-2 rounded-md text-xs font-medium border transition-colors ' +
+                    (eventSummaryState === 'received'
+                      ? 'bg-green-600 text-white border-green-600'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:bg-green-50 dark:hover:bg-green-900/20')
+                  }
+                >
+                  Received
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetEventSummaryState('skipped')}
+                  className={
+                    'px-2 py-2 rounded-md text-xs font-medium border transition-colors ' +
+                    (eventSummaryState === 'skipped'
+                      ? 'bg-amber-600 text-white border-amber-600'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:bg-amber-50 dark:hover:bg-amber-900/20')
+                  }
+                  title="Did not meet"
+                >
+                  Skipped
+                </button>
+              </div>
             </div>
 
             {/* Follow-Up Required Checkbox */}
@@ -766,27 +805,59 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
 
               {/* Checkboxes Section - Desktop */}
               <div className="space-y-2 min-w-0">
-                {/* Event Summary Checkbox */}
-                <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg min-w-[240px]">
-                  <div className="flex items-center">
-                    <input 
-                      type="checkbox" 
-                      id={`eventSummary_${leader.id}_desktop`}
-                      checked={leader.event_summary_received || false}
-                      onChange={handleEventSummaryChange}
-                      className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700"
-                    />
-                    <label htmlFor={`eventSummary_${leader.id}_desktop`} className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Event Summary Received
-                    </label>
+                {/* Event Summary (tri-state) */}
+                <div className="p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg min-w-[300px]">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Event Summary</div>
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      eventSummaryState === 'received'
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300'
+                        : eventSummaryState === 'skipped'
+                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300'
+                          : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                    }`}>
+                      {eventSummaryState === 'received' ? 'Received' : eventSummaryState === 'skipped' ? 'Did not meet' : 'Not received'}
+                    </span>
                   </div>
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                    leader.event_summary_received 
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300' 
-                      : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                  }`}>
-                    {leader.event_summary_received ? '✓' : '○'}
-                  </span>
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleSetEventSummaryState('not_received')}
+                      className={
+                        'px-2 py-2 rounded-md text-xs font-medium border transition-colors ' +
+                        (eventSummaryState === 'not_received'
+                          ? 'bg-gray-800 text-white border-gray-800 dark:bg-gray-200 dark:text-gray-900 dark:border-gray-200'
+                          : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700')
+                      }
+                    >
+                      Not received
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetEventSummaryState('received')}
+                      className={
+                        'px-2 py-2 rounded-md text-xs font-medium border transition-colors ' +
+                        (eventSummaryState === 'received'
+                          ? 'bg-green-600 text-white border-green-600'
+                          : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:bg-green-50 dark:hover:bg-green-900/20')
+                      }
+                    >
+                      Received
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetEventSummaryState('skipped')}
+                      className={
+                        'px-2 py-2 rounded-md text-xs font-medium border transition-colors ' +
+                        (eventSummaryState === 'skipped'
+                          ? 'bg-amber-600 text-white border-amber-600'
+                          : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:bg-amber-50 dark:hover:bg-amber-900/20')
+                      }
+                      title="Did not meet"
+                    >
+                      Skipped
+                    </button>
+                  </div>
                 </div>
 
                 {/* Follow-Up Required Checkbox */}

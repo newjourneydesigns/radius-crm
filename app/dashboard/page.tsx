@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import FilterPanel from '../../components/dashboard/SimpleCampusFilter';
 import { DashboardFilters } from '../../hooks/useDashboardFilters';
-import CircleLeaderCard from '../../components/dashboard/CircleLeaderCard';
 import CircleStatusBar from '../../components/dashboard/CircleStatusBar';
 import TodayCircles from '../../components/dashboard/TodayCircles';
 import FollowUpTable from '../../components/dashboard/FollowUpTable';
@@ -49,7 +48,6 @@ function DashboardContent() {
     isLoading, 
     error, 
     loadCircleLeaders,
-    toggleEventSummary, 
     resetEventSummaryCheckboxes,
     toggleFollowUp,
     updateStatus,
@@ -1175,7 +1173,7 @@ function DashboardContent() {
   // Calculate event summary progress
   const eventSummaryProgress = useMemo(() => {
     const total = filteredLeaders.length;
-    const received = filteredLeaders.filter(leader => leader.event_summary_received === true).length;
+    const received = filteredLeaders.filter(leader => leader.event_summary_received === true || leader.event_summary_skipped === true).length;
     const percentage = total > 0 ? Math.round((received / total) * 100) : 0;
     
     return {
@@ -1490,15 +1488,7 @@ function DashboardContent() {
   };
 
   // Event handlers
-  const handleToggleEventSummary = async (leaderId: number, isChecked: boolean) => {
-    try {
-      await toggleEventSummary(leaderId, isChecked);
-      // Refresh the data
-      loadCircleLeaders(getServerFilters());
-    } catch (error) {
-      console.error('Error toggling event summary:', error);
-    }
-  };  const handleResetCheckboxes = async () => {
+  const handleResetCheckboxes = async () => {
     setShowResetConfirm(true);
   };
 
