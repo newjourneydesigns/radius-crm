@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { supabase, CircleLeader, Note } from '../../lib/supabase';
+import { supabase, CircleLeader } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
 import Fuse from 'fuse.js';
 
 interface SearchResult {
-  type: 'leader' | 'note';
-  item: CircleLeader | (Note & { circle_leader?: CircleLeader });
+  type: 'leader';
+  item: CircleLeader;
   score?: number;
   matches?: any[];
 }
@@ -20,8 +20,7 @@ export default function GlobalSearch() {
   const [isLoading, setIsLoading] = useState(false);
   const [searchData, setSearchData] = useState<{
     leaders: CircleLeader[];
-    notes: (Note & { circle_leader?: CircleLeader })[];
-  }>({ leaders: [], notes: [] });
+  }>({ leaders: [] });
 
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -43,9 +42,6 @@ export default function GlobalSearch() {
       { name: 'email', weight: 1 },
       { name: 'campus', weight: 1 },
       { name: 'acpd', weight: 1 },
-      // Note fields
-      { name: 'content', weight: 1.5 },
-      { name: 'circle_leader.name', weight: 1 }, // For notes, include leader name
     ]
   };
 
@@ -62,37 +58,7 @@ export default function GlobalSearch() {
         return;
       }
 
-      // Load Notes with Circle Leader info
-      const { data: notes, error: notesError } = await supabase
-        .from('notes')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(500); // Limit to recent notes for performance
-
-      if (notesError) {
-        console.error('Error loading notes for search:', notesError);
-        return;
-      }
-
-      // Create a map of leaders for quick lookup
-      const leadersMap = new Map();
-      (leaders || []).forEach(leader => {
-        leadersMap.set(leader.id, leader);
-      });
-
-      // Format notes data
-      const formattedNotes = notes?.map(note => ({
-        id: note.id,
-        circle_leader_id: note.circle_leader_id,
-        content: note.content,
-        created_at: note.created_at,
-        circle_leader: leadersMap.get(note.circle_leader_id) || null
-      })) || [];
-
-      setSearchData({
-        leaders: leaders || [],
-        notes: formattedNotes
-      });
+      setSearchData({ leaders: leaders || [] });
     } catch (error) {
       console.error('Error loading search data:', error);
     }
@@ -113,41 +79,21 @@ export default function GlobalSearch() {
     setIsLoading(true);
 
     try {
-      // Create separate Fuse instances for leaders and notes
       const leadersFuse = new Fuse(searchData.leaders, {
         ...fuseOptions,
         keys: ['name', 'email', 'campus', 'acpd']
       });
 
-      const notesFuse = new Fuse(searchData.notes, {
-        ...fuseOptions,
-        keys: ['content', 'circle_leader.name']
-      });
+      const leaderResults = leadersFuse.search(query).slice(0, 8);
 
-      // Search both datasets
-      const leaderResults = leadersFuse.search(query).slice(0, 5);
-      const noteResults = notesFuse.search(query).slice(0, 5);
-
-      // Combine and format results
-      const combinedResults: SearchResult[] = [
-        ...leaderResults.map(result => ({
+      setResults(
+        leaderResults.map(result => ({
           type: 'leader' as const,
           item: result.item,
           score: result.score,
           matches: result.matches ? [...result.matches] : undefined
-        })),
-        ...noteResults.map(result => ({
-          type: 'note' as const,
-          item: result.item,
-          score: result.score,
-          matches: result.matches ? [...result.matches] : undefined
         }))
-      ];
-
-      // Sort by score (lower is better)
-      combinedResults.sort((a, b) => (a.score || 0) - (b.score || 0));
-
-      setResults(combinedResults.slice(0, 8)); // Limit total results
+      );
     } catch (error) {
       console.error('Search error:', error);
       setResults([]);
@@ -191,13 +137,8 @@ export default function GlobalSearch() {
 
   // Handle result click
   const handleResultClick = (result: SearchResult) => {
-    if (result.type === 'leader') {
-      const leader = result.item as CircleLeader;
-      router.push(`/circle/${leader.id}`);
-    } else {
-      const note = result.item as Note & { circle_leader?: CircleLeader };
-      router.push(`/circle/${note.circle_leader_id}`);
-    }
+    const leader = result.item as CircleLeader;
+    router.push(`/circle/${leader.id}`);
     setIsOpen(false);
     setQuery('');
   };
@@ -275,7 +216,7 @@ export default function GlobalSearch() {
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search circle leaders and notes..."
+                  placeholder="Search circle leaders..."
                   className="w-full px-4 py-4 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 bg-transparent border-0 focus:outline-none focus:ring-0"
                   autoFocus
                 />
@@ -297,49 +238,25 @@ export default function GlobalSearch() {
                         <div className="flex items-start space-x-3">
                           {/* Icon */}
                           <div className="flex-shrink-0 mt-1">
-                            {result.type === 'leader' ? (
-                              <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                              </svg>
-                            ) : (
-                              <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                              </svg>
-                            )}
+                            <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                            </svg>
                           </div>
 
                           {/* Content */}
                           <div className="flex-1 min-w-0">
-                            {result.type === 'leader' ? (
-                              <div>
-                                <p 
-                                  className="text-sm font-medium text-gray-900 dark:text-white"
-                                  dangerouslySetInnerHTML={{
-                                    __html: highlightMatch((result.item as CircleLeader).name, result.matches?.find(m => m.key === 'name'))
-                                  }}
-                                />
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  Circle Leader
-                                  {(result.item as CircleLeader).campus && ` • ${(result.item as CircleLeader).campus}`}
-                                </p>
-                              </div>
-                            ) : (
-                              <div>
-                                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                  {(result.item as Note & { circle_leader?: CircleLeader }).circle_leader?.name}
-                                </p>
-                                <p 
-                                  className="text-xs text-gray-600 dark:text-gray-300 line-clamp-2"
-                                  dangerouslySetInnerHTML={{
-                                    __html: highlightMatch(
-                                      (result.item as Note).content.substring(0, 100) + '...',
-                                      result.matches?.find(m => m.key === 'content')
-                                    )
-                                  }}
-                                />
-                                <p className="text-xs text-gray-500 dark:text-gray-400">Note</p>
-                              </div>
-                            )}
+                            <div>
+                              <p 
+                                className="text-sm font-medium text-gray-900 dark:text-white"
+                                dangerouslySetInnerHTML={{
+                                  __html: highlightMatch((result.item as CircleLeader).name, result.matches?.find(m => m.key === 'name'))
+                                }}
+                              />
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                Circle Leader
+                                {(result.item as CircleLeader).campus && ` • ${(result.item as CircleLeader).campus}`}
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </button>
@@ -357,7 +274,7 @@ export default function GlobalSearch() {
                     <svg className="w-8 h-8 mx-auto mb-2 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                     </svg>
-                    <p>Start typing to search circle leaders and notes...</p>
+                    <p>Start typing to search circle leaders...</p>
                     <p className="text-xs mt-1">Press ⌘K to open search anytime</p>
                   </div>
                 )}
