@@ -193,6 +193,7 @@ export interface TodoItem {
   user_id: string;
   text: string;
   completed: boolean;
+  completed_at?: string | null;
   due_date?: string | null;
   series_id?: string | null;
   is_series_master?: boolean | null;

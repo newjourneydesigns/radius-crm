@@ -469,18 +469,34 @@ function DashboardContent() {
     if (!todo) return;
     
     try {
-      const { error } = await supabase
+      const nextCompleted = !todo.completed;
+      const completedAtValue = nextCompleted ? new Date().toISOString() : null;
+
+      const updateWithCompletedAt = await supabase
         .from('todo_items')
-        .update({ completed: !todo.completed })
+        .update({ completed: nextCompleted, completed_at: completedAtValue })
         .eq('id', id);
-      
+
+      let error: any = updateWithCompletedAt.error;
+
+      // Back-compat: older schema without completed_at
+      if (error && error.code === '42703') {
+        const fallbackUpdate = await supabase
+          .from('todo_items')
+          .update({ completed: nextCompleted })
+          .eq('id', id);
+        error = fallbackUpdate.error;
+      }
+
       if (error) {
         console.error('Error toggling todo:', error);
         return;
       }
-      
+
       setTodos(todos.map(t =>
-        t.id === id ? { ...t, completed: !t.completed } : t
+        t.id === id
+          ? { ...t, completed: nextCompleted, completed_at: nextCompleted ? completedAtValue : null }
+          : t
       ));
 
       // Keep recurring series topped up
@@ -656,12 +672,45 @@ function DashboardContent() {
     setEditingTodoRepeatRule('none');
   };
 
-  const todayISO = toISODate(new Date());
+  // Tick at local midnight so "today/tomorrow" and completed-item visibility updates automatically.
+  const [todoDayAnchor, setTodoDayAnchor] = useState(() => new Date());
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const scheduleNextMidnightTick = () => {
+      const now = new Date();
+      const nextMidnight = new Date(now);
+      nextMidnight.setHours(24, 0, 0, 0);
+      const msUntil = Math.max(0, nextMidnight.getTime() - now.getTime()) + 250;
+
+      timer = setTimeout(() => {
+        setTodoDayAnchor(new Date());
+        scheduleNextMidnightTick();
+      }, msUntil);
+    };
+
+    scheduleNextMidnightTick();
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
+  const todayISO = toISODate(todoDayAnchor);
   const tomorrowISO = (() => {
-    const d = new Date();
+    const d = new Date(todoDayAnchor);
     d.setDate(d.getDate() + 1);
     return toISODate(d);
   })();
+
+  const isRecurringTodo = (todo: TodoItem) => Boolean(todo.series_id);
+
+  const shouldShowCompletedTodo = (todo: TodoItem) => {
+    if (!todo.completed) return true;
+    if (!todo.completed_at) return false;
+    const completedISO = toISODate(new Date(todo.completed_at));
+    return completedISO === todayISO;
+  };
 
   const getTodoDueKind = (todo: TodoItem): 'none' | 'overdue' | 'today' | 'tomorrow' | 'future' => {
     if (todo.completed) return 'none';
@@ -699,6 +748,21 @@ function DashboardContent() {
       return dir === 'asc' ? aTime - bTime : bTime - aTime;
     });
   }, [todos, todoDueDateSort]);
+  
+  const displayTodos = useMemo(() => {
+    return sortedTodos.filter(todo => {
+      // Completed items disappear after midnight (only keep completed-today)
+      if (!shouldShowCompletedTodo(todo)) return false;
+
+      // For repeating items, only show today and tomorrow (hide further-out occurrences)
+      if (isRecurringTodo(todo)) {
+        if (!todo.due_date) return false;
+        return todo.due_date === todayISO || todo.due_date === tomorrowISO;
+      }
+
+      return true;
+    });
+  }, [sortedTodos, todayISO, tomorrowISO]);
 
   // Delete todo
   const deleteTodo = async (id: number) => {
@@ -2028,13 +2092,13 @@ function DashboardContent() {
                   </div>
 
                   {/* Todo Items */}
-                  {todos.length === 0 ? (
+                  {displayTodos.length === 0 ? (
                     <div className="text-center py-6">
                       <span className="text-sm text-gray-500 dark:text-gray-400">No tasks yet. Add your first task above!</span>
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {sortedTodos.map((todo) => (
+                      {displayTodos.map((todo) => (
                         (() => {
                           const dueKind = getTodoDueKind(todo);
                           const rowClass = (() => {
