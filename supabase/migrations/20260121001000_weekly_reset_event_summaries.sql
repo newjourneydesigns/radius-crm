@@ -50,7 +50,7 @@ REVOKE ALL ON FUNCTION public.reset_event_summaries_weekly_guard() FROM PUBLIC;
 
 DO $$
 DECLARE
-  schedule_command text := $$SELECT public.reset_event_summaries_weekly_guard();$$;
+  schedule_command text := $cmd$SELECT public.reset_event_summaries_weekly_guard();$cmd$;
   existing_job_id bigint;
 BEGIN
   -- Attempt to enable pg_cron if available. (On Supabase you may need to enable
