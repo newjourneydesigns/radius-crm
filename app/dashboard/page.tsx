@@ -192,13 +192,38 @@ function DashboardContent() {
   };
 
   const getSeriesId = () => {
+    // Always return a UUID string. In many DB setups `series_id` is a UUID column,
+    // and non-UUID values will cause inserts to fail.
     try {
       // @ts-ignore
-      if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+      if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        // @ts-ignore
+        return crypto.randomUUID();
+      }
+
+      // @ts-ignore
+      if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+        const bytes = new Uint8Array(16);
+        // @ts-ignore
+        crypto.getRandomValues(bytes);
+        // RFC4122 v4
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = Array.from(bytes)
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join('');
+        return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+      }
     } catch {
       // ignore
     }
-    return `series_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
+    // Last-resort fallback (still UUID-shaped)
+    const bytes = Array.from({ length: 16 }, () => Math.floor(Math.random() * 256));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = bytes.map(b => b.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
   };
 
   const ensureRecurringTodoHorizon = async (loadedTodos: TodoItem[]) => {
@@ -632,6 +657,21 @@ function DashboardContent() {
   };
 
   const todayISO = toISODate(new Date());
+  const tomorrowISO = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return toISODate(d);
+  })();
+
+  const getTodoDueKind = (todo: TodoItem): 'none' | 'overdue' | 'today' | 'tomorrow' | 'future' => {
+    if (todo.completed) return 'none';
+    if (!todo.due_date) return 'none';
+    if (todo.due_date < todayISO) return 'overdue';
+    if (todo.due_date === todayISO) return 'today';
+    if (todo.due_date === tomorrowISO) return 'tomorrow';
+    return 'future';
+  };
+
   const isTodoOverdue = (todo: TodoItem) => {
     if (todo.completed) return false;
     if (!todo.due_date) return false;
@@ -1995,12 +2035,64 @@ function DashboardContent() {
                   ) : (
                     <div className="space-y-2">
                       {sortedTodos.map((todo) => (
+                        (() => {
+                          const dueKind = getTodoDueKind(todo);
+                          const rowClass = (() => {
+                            switch (dueKind) {
+                              case 'overdue':
+                                return 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-800';
+                              case 'today':
+                                return 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-800';
+                              case 'tomorrow':
+                                return 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-800';
+                              default:
+                                return 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600';
+                            }
+                          })();
+
+                          const badge = (() => {
+                            if (dueKind === 'overdue') {
+                              return (
+                                <span className="inline-flex items-center rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-200 px-2 py-0.5 text-[11px] font-medium border border-red-200 dark:border-red-800">
+                                  Overdue
+                                </span>
+                              );
+                            }
+                            if (dueKind === 'today') {
+                              return (
+                                <span className="inline-flex items-center rounded-full bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 px-2 py-0.5 text-[11px] font-medium border border-green-200 dark:border-green-800">
+                                  Today
+                                </span>
+                              );
+                            }
+                            if (dueKind === 'tomorrow') {
+                              return (
+                                <span className="inline-flex items-center rounded-full bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-200 px-2 py-0.5 text-[11px] font-medium border border-yellow-200 dark:border-yellow-800">
+                                  Tomorrow
+                                </span>
+                              );
+                            }
+                            return null;
+                          })();
+
+                          const dueTextClass = (() => {
+                            switch (dueKind) {
+                              case 'overdue':
+                                return 'text-red-700 dark:text-red-200';
+                              case 'today':
+                                return 'text-green-800 dark:text-green-200';
+                              case 'tomorrow':
+                                return 'text-yellow-800 dark:text-yellow-200';
+                              default:
+                                return 'text-gray-500 dark:text-gray-400';
+                            }
+                          })();
+
+                          return (
                         <div
                           key={todo.id}
                           className={`flex items-start gap-3 p-3 rounded-md border ${
-                            isTodoOverdue(todo)
-                              ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-800'
-                              : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'
+                            rowClass
                           }`}
                         >
                           <input
@@ -2069,15 +2161,11 @@ function DashboardContent() {
                                     {todo.text}
                                   </div>
 
-                                  {isTodoOverdue(todo) && (
-                                    <span className="inline-flex items-center rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-200 px-2 py-0.5 text-[11px] font-medium border border-red-200 dark:border-red-800">
-                                      Overdue
-                                    </span>
-                                  )}
+                                  {badge}
                                 </div>
 
                                 {todo.due_date && (
-                                  <div className={`mt-1 text-xs ${isTodoOverdue(todo) ? 'text-red-700 dark:text-red-200' : 'text-gray-500 dark:text-gray-400'}`}>
+                                  <div className={`mt-1 text-xs ${dueTextClass}`}>
                                     Due: {todo.due_date}
                                   </div>
                                 )}
@@ -2120,6 +2208,8 @@ function DashboardContent() {
                             </>
                           )}
                         </div>
+                          );
+                        })()
                       ))}
                     </div>
                   )}
