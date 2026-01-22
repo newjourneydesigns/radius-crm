@@ -792,20 +792,83 @@ function DashboardContent() {
   }, [todos, todoDueDateSort]);
   
   const displayTodos = useMemo(() => {
-    return sortedTodos.filter(todo => {
-      // Completed items are hidden by default, but can be shown (today-only)
+    const idOrder = new Map<number, number>();
+    sortedTodos.forEach((t, idx) => idOrder.set(t.id, idx));
+
+    const results: TodoItem[] = [];
+    const seriesBuckets = new Map<string, TodoItem[]>();
+
+    for (const todo of sortedTodos) {
+      if (todo.series_id) {
+        const seriesId = todo.series_id as string;
+        const arr = seriesBuckets.get(seriesId) || [];
+        arr.push(todo);
+        seriesBuckets.set(seriesId, arr);
+        continue;
+      }
+
+      // Single todo
       if (todo.completed) {
-        if (!showCompletedTodos) return false;
-        if (!shouldShowCompletedTodo(todo)) return false;
+        if (!showCompletedTodos) continue;
+        if (!shouldShowCompletedTodo(todo)) continue;
+      }
+      results.push(todo);
+    }
+
+    // Recurring series: show overdue/today/tomorrow occurrences; otherwise show the next upcoming occurrence
+    seriesBuckets.forEach((seriesItems) => {
+      // Choose at most one row per due_date, preferring non-master occurrences when both exist
+      const bestByDate = new Map<string, TodoItem>();
+      for (const t of seriesItems) {
+        const due = t.due_date;
+        if (!due) continue;
+        const existing = bestByDate.get(due);
+        if (!existing) {
+          bestByDate.set(due, t);
+          continue;
+        }
+        if (existing.is_series_master && !t.is_series_master) {
+          bestByDate.set(due, t);
+        }
       }
 
-      // For repeating items, only show today and tomorrow (hide further-out occurrences)
-      if (isRecurringTodo(todo)) {
-        if (!todo.due_date) return false;
-        return todo.due_date === todayISO || todo.due_date === tomorrowISO;
+      const candidates = Array.from(bestByDate.values());
+
+      const completedToday = candidates.filter(t => t.completed && showCompletedTodos && shouldShowCompletedTodo(t));
+      const active = candidates.filter(t => !t.completed);
+
+      // Always show anything due <= tomorrow (includes overdue, today, tomorrow)
+      const dueSoon = active.filter(t => (t.due_date as string) <= tomorrowISO);
+      if (dueSoon.length > 0) {
+        results.push(...dueSoon);
+      } else {
+        // Otherwise show the next upcoming occurrence so weekly/monthly series stay visible
+        const next = active
+          .filter(t => Boolean(t.due_date))
+          .sort((a, b) => {
+            const aDue = a.due_date as string;
+            const bDue = b.due_date as string;
+            if (aDue === bDue) return 0;
+            return aDue < bDue ? -1 : 1;
+          })[0];
+        if (next) results.push(next);
       }
 
+      results.push(...completedToday);
+    });
+
+    const seen = new Set<number>();
+    const deduped = results.filter(t => {
+      if (seen.has(t.id)) return false;
+      seen.add(t.id);
       return true;
+    });
+
+    // Preserve the existing ordering behavior (created_at order or due-date sort)
+    return deduped.sort((a, b) => {
+      const aIdx = idOrder.get(a.id) ?? 0;
+      const bIdx = idOrder.get(b.id) ?? 0;
+      return aIdx - bIdx;
     });
   }, [sortedTodos, todayISO, tomorrowISO, showCompletedTodos]);
 
