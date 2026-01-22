@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase, ConnectionType } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -20,6 +21,7 @@ export default function LogConnectionModal({
   onConnectionLogged 
 }: LogConnectionModalProps) {
   const { user } = useAuth(); // Get current user information
+  const [mounted, setMounted] = useState(false);
   const [connectionTypes, setConnectionTypes] = useState<ConnectionType[]>([]);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0], // Today's date in YYYY-MM-DD format
@@ -29,6 +31,30 @@ export default function LogConnectionModal({
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Best-practice modal behavior: lock background scroll while open
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onClose]);
 
   // Load connection types on mount
   useEffect(() => {
@@ -171,12 +197,15 @@ export default function LogConnectionModal({
     onClose();
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
-    <div 
+  return createPortal(
+    <div
       className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] animate-in fade-in duration-200"
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="log-connection-title"
       style={{
         position: 'fixed',
         top: 0,
@@ -190,7 +219,7 @@ export default function LogConnectionModal({
         padding: '1rem'
       }}
     >
-      <div 
+      <div
         className="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200/20 dark:border-gray-700/50 transform transition-all animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
         style={{
@@ -202,12 +231,16 @@ export default function LogConnectionModal({
         <div className="p-4 sm:p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+            <h3
+              id="log-connection-title"
+              className="text-lg font-medium text-gray-900 dark:text-white"
+            >
               Log Connection
             </h3>
             <button
               onClick={handleCancel}
               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              aria-label="Close"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -238,6 +271,7 @@ export default function LogConnectionModal({
                 value={formData.date}
                 onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                autoFocus
               />
             </div>
 
@@ -312,6 +346,7 @@ export default function LogConnectionModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

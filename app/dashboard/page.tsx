@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo, Suspense } from 'react';
 import FilterPanel from '../../components/dashboard/SimpleCampusFilter';
 import { DashboardFilters } from '../../hooks/useDashboardFilters';
 import CircleStatusBar from '../../components/dashboard/CircleStatusBar';
-import TodayCircles from '../../components/dashboard/TodayCircles';
 import FollowUpTable from '../../components/dashboard/FollowUpTable';
 import ContactModal from '../../components/dashboard/ContactModal';
 import EventSummaryProgress from '../../components/dashboard/EventSummaryProgress';
@@ -18,7 +17,6 @@ import ExportModal from '../../components/dashboard/ExportModal';
 import CircleVisitsDashboard from '../../components/dashboard/CircleVisitsDashboard';
 import { useDashboardFilters } from '../../hooks/useDashboardFilters';
 import { useCircleLeaders, CircleLeaderFilters } from '../../hooks/useCircleLeaders';
-import { useTodayCircles } from '../../hooks/useTodayCircles';
 import { CircleLeader, supabase, Note, UserNote, TodoItem } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import Link from 'next/link';
@@ -62,20 +60,6 @@ function DashboardContent() {
     loadCircleLeaders: loadAllCircleLeaders
   } = useCircleLeaders();
 
-  // Load today's circles separately for better performance
-  const { 
-    todayCircles, 
-    isLoading: todayCirclesLoading, 
-    refreshTodayCircles 
-  } = useTodayCircles({
-    campus: filters.campus,
-    acpd: filters.acpd,
-    status: filters.status,
-    circleType: filters.circleType,
-    eventSummary: filters.eventSummary,
-    timeOfDay: filters.timeOfDay
-  }, isInitialized && !isFirstVisit && filters.campus.length > 0); // Only load if not first visit and campus selected
-
     // State for tracking connected leaders this month
   const [connectedThisMonth, setConnectedThisMonth] = useState<number[]>([]);
   
@@ -112,6 +96,14 @@ function DashboardContent() {
       return saved !== null ? saved === 'true' : true;
     } catch {
       return true;
+    }
+  });
+  const [showCompletedTodos, setShowCompletedTodos] = useState(() => {
+    try {
+      const saved = localStorage.getItem('showCompletedTodos');
+      return saved !== null ? saved === 'true' : false;
+    } catch {
+      return false;
     }
   });
   
@@ -703,6 +695,56 @@ function DashboardContent() {
     return toISODate(d);
   })();
 
+  const renderTodoText = (text: string) => {
+    // Minimal markdown support for links: [label](url)
+    // Only allows http/https URLs for safety.
+    const out: any[] = [];
+    const linkRe = /\[([^\]]+)\]\(([^)\s]+)\)/g;
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    const isSafeHref = (href: string) => {
+      try {
+        const url = new URL(href);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+      } catch {
+        return false;
+      }
+    };
+
+    while ((match = linkRe.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        out.push(text.slice(lastIndex, match.index));
+      }
+
+      const label = match[1];
+      const href = match[2];
+      if (isSafeHref(href)) {
+        out.push(
+          <a
+            key={`todo-link-${match.index}-${href}`}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 dark:text-blue-400 underline hover:no-underline break-words"
+          >
+            {label}
+          </a>
+        );
+      } else {
+        out.push(`${label} (${href})`);
+      }
+
+      lastIndex = linkRe.lastIndex;
+    }
+
+    if (lastIndex < text.length) {
+      out.push(text.slice(lastIndex));
+    }
+
+    return out.length > 0 ? out : text;
+  };
+
   const isRecurringTodo = (todo: TodoItem) => Boolean(todo.series_id);
 
   const shouldShowCompletedTodo = (todo: TodoItem) => {
@@ -751,8 +793,11 @@ function DashboardContent() {
   
   const displayTodos = useMemo(() => {
     return sortedTodos.filter(todo => {
-      // Completed items disappear after midnight (only keep completed-today)
-      if (!shouldShowCompletedTodo(todo)) return false;
+      // Completed items are hidden by default, but can be shown (today-only)
+      if (todo.completed) {
+        if (!showCompletedTodos) return false;
+        if (!shouldShowCompletedTodo(todo)) return false;
+      }
 
       // For repeating items, only show today and tomorrow (hide further-out occurrences)
       if (isRecurringTodo(todo)) {
@@ -762,7 +807,11 @@ function DashboardContent() {
 
       return true;
     });
-  }, [sortedTodos, todayISO, tomorrowISO]);
+  }, [sortedTodos, todayISO, tomorrowISO, showCompletedTodos]);
+
+  const completedTodayCount = useMemo(() => {
+    return sortedTodos.filter(t => t.completed && shouldShowCompletedTodo(t)).length;
+  }, [sortedTodos, todayISO]);
 
   // Delete todo
   const deleteTodo = async (id: number) => {
@@ -797,6 +846,18 @@ function DashboardContent() {
         console.error('Failed to save todos visibility:', error);
       }
       return newVisible;
+    });
+  };
+
+  const toggleShowCompletedTodos = () => {
+    setShowCompletedTodos(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('showCompletedTodos', next.toString());
+      } catch (error) {
+        console.error('Failed to save show-completed state:', error);
+      }
+      return next;
     });
   };
 
@@ -1707,7 +1768,6 @@ function DashboardContent() {
     invalidateCache();
     loadCircleLeaders(getServerFilters()); // Refresh the data to show the new note
     loadRecentNotes();   // Refresh recent notes table
-    refreshTodayCircles(); // Refresh today's circles since notes affect them too
     // If a follow-up was cleared, refresh the FilterPanel follow-up table
     if (addNoteModal.clearFollowUp) {
       setFilterPanelRefreshKey(prev => prev + 1);
@@ -1733,8 +1793,6 @@ function DashboardContent() {
     loadCircleLeaders(getServerFilters());
     // Also refresh recent notes (connections create notes)
     loadRecentNotes();
-    // Refresh today's circles since connections create notes
-    refreshTodayCircles();
   };
 
   // For now, assume user is admin - in a real app, you'd get this from your auth context
@@ -1790,7 +1848,6 @@ function DashboardContent() {
                     loadAllCircleLeaders({});
                     loadCircleLeaders(getServerFilters());
                     loadRecentNotes();
-                    refreshTodayCircles();
                     setLastRefreshedAt(new Date());
                   }}
                   className="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -1980,7 +2037,7 @@ function DashboardContent() {
                   </h3>
                   <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
                     <p>
-                      Pick a campus in Filters to load leaders, follow-ups, today’s circles, and recent notes.
+                      Pick a campus in Filters to load leaders, follow-ups, and recent notes.
                     </p>
                   </div>
                   <div className="mt-4">
@@ -2035,13 +2092,33 @@ function DashboardContent() {
                     </button>
                   </div>
                 </div>
-                <button
-                  onClick={toggleTodosVisibility}
-                  className="text-sm px-3 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 
-                           text-gray-700 dark:text-gray-300 rounded-md transition-colors"
-                >
-                  {todosVisible ? 'Hide' : 'Show'}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={toggleShowCompletedTodos}
+                    disabled={completedTodayCount === 0 && !showCompletedTodos}
+                    className={`text-sm px-3 py-1 rounded-md transition-colors border ${
+                      completedTodayCount === 0 && !showCompletedTodos
+                        ? 'border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 cursor-not-allowed'
+                        : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                    title="Show/hide completed tasks from today"
+                  >
+                    {showCompletedTodos
+                      ? 'Hide Completed'
+                      : completedTodayCount > 0
+                        ? `Show Completed (${completedTodayCount})`
+                        : 'Show Completed'}
+                  </button>
+
+                  <button
+                    onClick={toggleTodosVisibility}
+                    className="text-sm px-3 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 
+                             text-gray-700 dark:text-gray-300 rounded-md transition-colors"
+                  >
+                    {todosVisible ? 'Hide' : 'Show'}
+                  </button>
+                </div>
               </div>
               
               {todosVisible && (
@@ -2222,7 +2299,7 @@ function DashboardContent() {
                                       todo.completed ? 'line-through text-gray-500 dark:text-gray-400' : ''
                                     }`}
                                   >
-                                    {todo.text}
+                                    {renderTodoText(todo.text)}
                                   </div>
 
                                   {badge}
@@ -2556,13 +2633,6 @@ function DashboardContent() {
                 onAddNote={(leaderId, name) => openAddNoteModal(leaderId, name)}
                 onClearFollowUp={handleClearFollowUp}
                 refreshKey={filterPanelRefreshKey}
-              />
-            </div>
-
-            {/* Today's Circles */}
-            <div id="today-circles">
-              <TodayCircles 
-                todayCircles={todayCircles}
               />
             </div>
 
