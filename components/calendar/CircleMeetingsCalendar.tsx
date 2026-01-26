@@ -30,6 +30,7 @@ type CalendarEvent = {
     leaderId: number;
     ccbProfileLink?: string | null;
     eventSummaryState?: 'received' | 'not_received' | 'skipped';
+    frequency?: string | null;
   };
 };
 
@@ -513,9 +514,10 @@ export default function CircleMeetingsCalendar({
           <div className="mb-4 flex items-center justify-center gap-2 p-2 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
             <button
               onClick={() => {
-                const calendarApi = document.querySelector('.calendar-shell .fc')?.['__fc_calendar_api__'] || 
-                  (window as any).fullCalendarApi;
-                if (calendarApi) calendarApi.changeView('timeGridDay');
+                const calendarEl = document.querySelector('.calendar-shell .fc');
+                if (calendarEl && (calendarEl as any).fcApi) {
+                  (calendarEl as any).fcApi.changeView('timeGridDay');
+                }
               }}
               className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
                 currentViewType === 'timeGridDay'
@@ -527,9 +529,10 @@ export default function CircleMeetingsCalendar({
             </button>
             <button
               onClick={() => {
-                const calendarApi = document.querySelector('.calendar-shell .fc')?.['__fc_calendar_api__'] || 
-                  (window as any).fullCalendarApi;
-                if (calendarApi) calendarApi.changeView('timeGridWeek');
+                const calendarEl = document.querySelector('.calendar-shell .fc');
+                if (calendarEl && (calendarEl as any).fcApi) {
+                  (calendarEl as any).fcApi.changeView('timeGridWeek');
+                }
               }}
               className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
                 currentViewType === 'timeGridWeek'
@@ -541,9 +544,10 @@ export default function CircleMeetingsCalendar({
             </button>
             <button
               onClick={() => {
-                const calendarApi = document.querySelector('.calendar-shell .fc')?.['__fc_calendar_api__'] || 
-                  (window as any).fullCalendarApi;
-                if (calendarApi) calendarApi.changeView('dayGridMonth');
+                const calendarEl = document.querySelector('.calendar-shell .fc');
+                if (calendarEl && (calendarEl as any).fcApi) {
+                  (calendarEl as any).fcApi.changeView('dayGridMonth');
+                }
               }}
               className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
                 currentViewType === 'dayGridMonth'
@@ -555,9 +559,10 @@ export default function CircleMeetingsCalendar({
             </button>
             <button
               onClick={() => {
-                const calendarApi = document.querySelector('.calendar-shell .fc')?.['__fc_calendar_api__'] || 
-                  (window as any).fullCalendarApi;
-                if (calendarApi) calendarApi.changeView('listWeek');
+                const calendarEl = document.querySelector('.calendar-shell .fc');
+                if (calendarEl && (calendarEl as any).fcApi) {
+                  (calendarEl as any).fcApi.changeView('listWeek');
+                }
               }}
               className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
                 currentViewType === 'listWeek'
@@ -618,15 +623,17 @@ export default function CircleMeetingsCalendar({
               </div>
             );
           }}
-          datesSet={onDatesSet}
+          datesSet={(arg) => {
+            onDatesSet(arg);
+            // Store calendar API reference after mount
+            const calendarEl = document.querySelector('.calendar-shell .fc');
+            if (calendarEl && arg.view.calendar) {
+              (calendarEl as any).fcApi = arg.view.calendar;
+            }
+          }}
           dayMaxEvents={3}
           eventDisplay="block"
           stickyHeaderDates
-          ref={(ref) => {
-            if (ref && isMobile) {
-              (window as any).fullCalendarApi = ref.getApi();
-            }
-          }}
         />
       </div>
 

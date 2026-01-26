@@ -969,7 +969,7 @@ export default function CircleLeaderProfilePage() {
     if (!leader) return;
     
     setIsEditing(true);
-    const editData = {
+    const editData: Partial<CircleLeader> = {
       name: leader.name,
       email: leader.email,
       phone: leader.phone,
@@ -980,7 +980,7 @@ export default function CircleLeaderProfilePage() {
       time: leader.time,
       frequency: leader.frequency,
       meeting_start_date: leader.meeting_start_date,
-      circle_type: normalizeCircleTypeValue(leader.circle_type),
+      circle_type: leader.circle_type as CircleLeader['circle_type'],
       follow_up_required: leader.follow_up_required,
       follow_up_date: leader.follow_up_date,
       ccb_profile_link: leader.ccb_profile_link,
