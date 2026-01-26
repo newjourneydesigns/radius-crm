@@ -9,6 +9,7 @@ export interface CircleLeaderFilters {
   statusAlwaysExclude?: string[]; // Always exclude these statuses regardless of other filters
   meetingDay?: string[];
   circleType?: string[];
+  frequency?: string[];
   eventSummary?: string;
   timeOfDay?: string;
 }
@@ -37,6 +38,7 @@ const generateCacheKey = (filters?: CircleLeaderFilters): string => {
     statusAlwaysExclude: filters.statusAlwaysExclude?.sort().join(',') || '',
     meetingDay: filters.meetingDay?.sort().join(',') || '',
     circleType: filters.circleType?.sort().join(',') || '',
+    frequency: filters.frequency?.sort().join(',') || '',
     eventSummary: filters.eventSummary || '',
     timeOfDay: (filters.timeOfDay || '').trim().toUpperCase() // Ensure cache key includes normalized timeOfDay
   };
@@ -123,7 +125,7 @@ export const useCircleLeaders = () => {
       }
 
       const baseSelect = (includeSkipped: boolean) => (
-        'id, name, email, phone, campus, acpd, status, day, time, frequency, circle_type, ' +
+        'id, name, email, phone, campus, acpd, status, day, time, frequency, meeting_start_date, circle_type, ' +
         'event_summary_received' +
         (includeSkipped ? ', event_summary_skipped' : '') +
         ', follow_up_required, follow_up_date, ccb_profile_link'
@@ -163,6 +165,7 @@ export const useCircleLeaders = () => {
           (!f.acpd || f.acpd.length === 0) &&
           (!f.meetingDay || f.meetingDay.length === 0) &&
           (!f.circleType || f.circleType.length === 0) &&
+          (!f.frequency || f.frequency.length === 0) &&
           (!f.eventSummary || f.eventSummary === '') &&
           (!f.timeOfDay || f.timeOfDay === '')
         ) {
@@ -182,6 +185,16 @@ export const useCircleLeaders = () => {
         // Circle Type filter
         if (f.circleType && f.circleType.length > 0) {
           q = q.in('circle_type', f.circleType);
+        }
+
+        // Frequency filter
+        if (f.frequency && f.frequency.length > 0) {
+          const validFrequencies = f.frequency.filter(freq => freq && freq.trim() !== '');
+          if (validFrequencies.length === 1) {
+            q = q.eq('frequency', validFrequencies[0]);
+          } else if (validFrequencies.length > 1) {
+            q = q.in('frequency', validFrequencies);
+          }
         }
 
         // Event Summary filter

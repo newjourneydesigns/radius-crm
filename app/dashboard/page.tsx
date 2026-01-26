@@ -21,6 +21,7 @@ import { CircleLeader, supabase, Note, UserNote, TodoItem } from '../../lib/supa
 import { useAuth } from '../../contexts/AuthContext';
 import Link from 'next/link';
 import { buildRepeatLabel, generateDueDates, toISODate, TodoRepeatRule } from '../../lib/todoRecurrence';
+import { ensureDefaultFrequencies } from '../../lib/frequencyUtils';
 
 interface ContactModalData {
   isOpen: boolean;
@@ -89,7 +90,7 @@ function DashboardContent() {
   const [editingTodoText, setEditingTodoText] = useState('');
   const [editingTodoDueDate, setEditingTodoDueDate] = useState('');
   const [editingTodoRepeatRule, setEditingTodoRepeatRule] = useState<TodoRepeatRule>('none');
-  const [todoDueDateSort, setTodoDueDateSort] = useState<'none' | 'asc' | 'desc'>('none');
+  const [todoDueDateSort, setTodoDueDateSort] = useState<'none' | 'asc' | 'desc'>('asc');
   const [todosVisible, setTodosVisible] = useState(() => {
     try {
       const saved = localStorage.getItem('todosVisible');
@@ -763,6 +764,23 @@ function DashboardContent() {
     return 'future';
   };
 
+  const formatTodoDueDate = (iso: string) => {
+    const datePart = iso.split('T')[0];
+    const [yyyy, mmRaw, ddRaw] = datePart.split('-');
+    if (!yyyy || !mmRaw || !ddRaw) return iso;
+    const mm = mmRaw.padStart(2, '0');
+    const dd = ddRaw.padStart(2, '0');
+    if (yyyy.length !== 4) return iso;
+    return `${mm}-${dd}-${yyyy}`;
+  };
+
+  const formatTodoTodayLabel = (d: Date) => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+    const day = days[d.getDay()] || 'Day';
+    const iso = toISODate(d);
+    return `${day} ${formatTodoDueDate(iso)}`;
+  };
+
   const isTodoOverdue = (todo: TodoItem) => {
     if (todo.completed) return false;
     if (!todo.due_date) return false;
@@ -1209,7 +1227,7 @@ function DashboardContent() {
       setCampuses(data.campuses || []);
       setStatuses(data.statuses || []);
       setCircleTypes(data.circleTypes || []);
-      setFrequencies(data.frequencies || []);
+      setFrequencies(ensureDefaultFrequencies(data.frequencies || []));
 
       if (!response.ok) {
         console.warn('Reference data API returned non-OK status, using fallback empty arrays');
@@ -1305,6 +1323,7 @@ function DashboardContent() {
       status: [],
       meetingDay: [],
       circleType: [],
+      frequency: [],
       eventSummary: 'all',
       connected: 'all',
       timeOfDay: 'all'
@@ -1556,15 +1575,20 @@ function DashboardContent() {
   const getServerFilters = (): CircleLeaderFilters => {
     const serverFilters: CircleLeaderFilters = {};
     
-    // Campus filter - only filter we need
+    // Campus filter
     if (filters.campus.length > 0) {
       serverFilters.campus = filters.campus;
+    }
+
+    // Frequency filter
+    if (filters.frequency.length > 0) {
+      serverFilters.frequency = filters.frequency;
     }
     
     // Always exclude archive status by default unless explicitly showing all
     serverFilters.statusExclude = ['archive'];
     
-    console.log('🎯 [DashboardPage] Server filters (campus only):', serverFilters);
+    console.log('🎯 [DashboardPage] Server filters:', serverFilters);
     return serverFilters;
   };
 
@@ -1589,6 +1613,7 @@ function DashboardContent() {
   }, [loadCircleLeaders, 
       hasCampusSelection,
       JSON.stringify(filters.campus),
+      JSON.stringify(filters.frequency),
       JSON.stringify(filters.acpd),
       JSON.stringify(filters.status), 
       JSON.stringify(filters.meetingDay),
@@ -1933,8 +1958,8 @@ function DashboardContent() {
             </div>
           </div>
 
-          {/* Sticky Section Navigation */}
-          <div id="dashboard-sticky-header" className="sticky top-0 z-[1000] bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 -mx-3 sm:-mx-4 lg:-mx-8 px-3 sm:px-4 lg:px-8 shadow-sm">
+          {/* Sticky Section Navigation - Hidden on mobile, shown on desktop */}
+          <div id="dashboard-sticky-header" className="hidden md:block sticky top-0 z-[1000] bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 -mx-3 sm:-mx-4 lg:-mx-8 px-3 sm:px-4 lg:px-8 shadow-sm">
               <nav className="flex space-x-6 overflow-x-auto py-3">
                 <button
                   onClick={() => scrollToSection('todo-list')}
@@ -2122,17 +2147,28 @@ function DashboardContent() {
           {/* To Do List Section */}
           <div id="todo-list" className="mt-8">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-4">
+              {/* Header with title and actions */}
+              <div className="flex flex-col gap-3 mb-4 md:flex-row md:items-center md:justify-between">
                 <div className="flex items-center gap-3">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                     To Do List
                   </h2>
-
-                  <div className="flex items-center gap-1">
+                  
+                  {/* Today label - hidden on mobile */}
+                  <div className="hidden sm:block text-sm font-medium text-gray-600 dark:text-gray-300">
+                    {formatTodoTodayLabel(todoDayAnchor)}
+                  </div>
+                </div>
+                
+                {/* Control buttons - stacked on mobile, inline on desktop */}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  {/* Sort buttons */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 mr-1">Sort:</span>
                     <button
                       type="button"
-                      onClick={() => setTodoDueDateSort(prev => (prev === 'asc' ? 'none' : 'asc'))}
-                      className={`p-1.5 rounded border text-xs transition-colors ${
+                      onClick={() => setTodoDueDateSort('asc')}
+                      className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
                         todoDueDateSort === 'asc'
                           ? 'bg-blue-600 border-blue-600 text-white'
                           : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -2143,8 +2179,8 @@ function DashboardContent() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setTodoDueDateSort(prev => (prev === 'desc' ? 'none' : 'desc'))}
-                      className={`p-1.5 rounded border text-xs transition-colors ${
+                      onClick={() => setTodoDueDateSort('desc')}
+                      className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
                         todoDueDateSort === 'desc'
                           ? 'bg-blue-600 border-blue-600 text-white'
                           : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -2154,33 +2190,35 @@ function DashboardContent() {
                       Due ↓
                     </button>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={toggleShowCompletedTodos}
-                    disabled={completedTodayCount === 0 && !showCompletedTodos}
-                    className={`text-sm px-3 py-1 rounded-md transition-colors border ${
-                      completedTodayCount === 0 && !showCompletedTodos
-                        ? 'border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 cursor-not-allowed'
-                        : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-                    title="Show/hide completed tasks from today"
-                  >
-                    {showCompletedTodos
-                      ? 'Hide Completed'
-                      : completedTodayCount > 0
-                        ? `Show Completed (${completedTodayCount})`
-                        : 'Show Completed'}
-                  </button>
+                  
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={toggleShowCompletedTodos}
+                      disabled={completedTodayCount === 0 && !showCompletedTodos}
+                      className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg transition-colors border text-sm font-medium ${
+                        completedTodayCount === 0 && !showCompletedTodos
+                          ? 'border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 cursor-not-allowed'
+                          : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                      title="Show/hide completed tasks from today"
+                    >
+                      {showCompletedTodos
+                        ? 'Hide Completed'
+                        : completedTodayCount > 0
+                          ? `Show Completed (${completedTodayCount})`
+                          : 'Show Completed'}
+                    </button>
 
-                  <button
-                    onClick={toggleTodosVisibility}
-                    className="text-sm px-3 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 
-                             text-gray-700 dark:text-gray-300 rounded-md transition-colors"
-                  >
-                    {todosVisible ? 'Hide' : 'Show'}
-                  </button>
+                    <button
+                      onClick={toggleTodosVisibility}
+                      className="flex-1 sm:flex-initial px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 
+                               text-gray-700 dark:text-gray-300 rounded-lg transition-colors text-sm font-medium"
+                    >
+                      {todosVisible ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
                 </div>
               </div>
               
@@ -2370,7 +2408,7 @@ function DashboardContent() {
 
                                 {todo.due_date && (
                                   <div className={`mt-1 text-xs ${dueTextClass}`}>
-                                    Due: {todo.due_date}
+                                    Due: {formatTodoDueDate(todo.due_date)}
                                   </div>
                                 )}
 
@@ -2628,8 +2666,8 @@ function DashboardContent() {
             </div>
           </div>
 
-        {/* Filters */}
-        <div id="filters" data-testid="filters-section" className="mt-6">
+        {/* Filters - Desktop visible, Mobile hidden (using FAB instead) */}
+        <div id="filters" data-testid="filters-section" className="mt-6 hidden md:block">
           {/* Show loading state while reference data is loading */}
           {referenceDataLoading && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
@@ -2640,13 +2678,67 @@ function DashboardContent() {
           {/* Show FilterPanel when data is loaded */}
           {!referenceDataLoading && (
             <FilterPanel 
-              filters={{ campus: filters.campus }}
+              filters={{ campus: filters.campus, frequency: filters.frequency }}
               onFiltersChange={(newFilters) => handleFiltersChange({ ...filters, ...newFilters })}
               onClearAllFilters={clearAllFilters}
               totalLeaders={filteredLeaders.length}
               campuses={campuses}
+              frequencies={frequencies}
             />
           )}
+        </div>
+        
+        {/* Mobile Filter Drawer - Slide up from bottom */}
+        <div className="md:hidden">
+          {/* Filter FAB - Fixed position */}
+          <button
+            onClick={() => scrollToSection('filters')}
+            className="fixed bottom-20 right-4 z-40 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 active:scale-95"
+            aria-label="Open Filters"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            {(filters.campus.length > 0 || filters.frequency.length > 0) && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                {filters.campus.length + filters.frequency.length}
+              </span>
+            )}
+          </button>
+          
+          {/* Mobile Filter Sheet */}
+          <div id="mobile-filters" className="mt-6">
+            {!referenceDataLoading && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border-2 border-blue-500 dark:border-blue-400">
+                <div className="sticky top-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 rounded-t-lg z-10">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                      <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                      </svg>
+                      Filters
+                    </h3>
+                    {(filters.campus.length > 0 || filters.frequency.length > 0) && (
+                      <button
+                        onClick={clearAllFilters}
+                        className="px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      >
+                        Clear All
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <FilterPanel 
+                  filters={{ campus: filters.campus, frequency: filters.frequency }}
+                  onFiltersChange={(newFilters) => handleFiltersChange({ ...filters, ...newFilters })}
+                  onClearAllFilters={clearAllFilters}
+                  totalLeaders={filteredLeaders.length}
+                  campuses={campuses}
+                  frequencies={frequencies}
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {hasCampusSelection && (

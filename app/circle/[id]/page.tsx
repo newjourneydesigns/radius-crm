@@ -1,4 +1,7 @@
+
 'use client';
+
+import { ensureDefaultFrequencies, formatFrequencyLabel } from '../../../lib/frequencyUtils';
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
@@ -194,6 +197,24 @@ const linkifyText = (text: string): (string | JSX.Element)[] => {
   return elements.length > 0 ? elements : [text];
 };
 
+const uniqueByValue = <T extends { value: string }>(items: T[]): T[] => {
+  const map = new Map<string, T>();
+  for (const item of items || []) {
+    const key = (item?.value || '').trim();
+    if (!key) continue;
+    if (!map.has(key)) map.set(key, item);
+  }
+  return Array.from(map.values());
+};
+
+const normalizeCircleTypeValue = (value: string | undefined | null): string => {
+  const raw = (value || '').trim();
+  if (!raw) return '';
+  const m = raw.match(/^Young\s*Adult\s*\|\s*(.+)$/i);
+  if (m && m[1]) return `YA | ${m[1].trim()}`;
+  return raw;
+};
+
 export default function CircleLeaderProfilePage() {
   const params = useParams();
   const leaderId = params?.id ? parseInt(params.id as string) : 0;
@@ -300,9 +321,15 @@ export default function CircleLeaderProfilePage() {
         ]);
 
         if (campusesResult.data) setCampuses(campusesResult.data);
-        if (statusesResult.data) setStatuses(statusesResult.data);
-        if (circleTypesResult.data) setCircleTypes(circleTypesResult.data);
-        if (frequenciesResult.data) setFrequencies(frequenciesResult.data);
+        if (statusesResult.data) setStatuses(uniqueByValue(statusesResult.data));
+        if (circleTypesResult.data) {
+          const normalized = circleTypesResult.data.map((t: any) => ({
+            ...t,
+            value: normalizeCircleTypeValue(t.value)
+          }));
+          setCircleTypes(uniqueByValue(normalized));
+        }
+        if (frequenciesResult.data) setFrequencies(uniqueByValue(ensureDefaultFrequencies(frequenciesResult.data)));
 
         // Load notes with user information
         console.log('🔍 Loading notes for leader:', leaderId);
@@ -952,7 +979,8 @@ export default function CircleLeaderProfilePage() {
       day: leader.day,
       time: leader.time,
       frequency: leader.frequency,
-      circle_type: leader.circle_type,
+      meeting_start_date: leader.meeting_start_date,
+      circle_type: normalizeCircleTypeValue(leader.circle_type),
       follow_up_required: leader.follow_up_required,
       follow_up_date: leader.follow_up_date,
       ccb_profile_link: leader.ccb_profile_link,
@@ -983,6 +1011,7 @@ export default function CircleLeaderProfilePage() {
           day: editedLeader.day || null,
           time: editedLeader.time || null,
           frequency: editedLeader.frequency || null,
+          meeting_start_date: editedLeader.meeting_start_date || null,
           circle_type: editedLeader.circle_type || null,
           follow_up_required: editedLeader.follow_up_required || false,
           follow_up_date: editedLeader.follow_up_date || null,
@@ -1538,7 +1567,29 @@ export default function CircleLeaderProfilePage() {
                           ))}
                         </select>
                       ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{leader.circle_type || 'Not specified'}</span>
+                        <span className="text-sm text-gray-900 dark:text-white">{normalizeCircleTypeValue(leader.circle_type) || 'Not specified'}</span>
+                      )}
+                    </dd>
+                  </div>
+
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Meeting Frequency</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <select
+                          value={editedLeader.frequency || ''}
+                          onChange={(e) => handleLeaderFieldChange('frequency', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="">Select Frequency</option>
+                          {frequencies.map((frequency) => (
+                            <option key={frequency.id} value={frequency.value}>
+                              {formatFrequencyLabel(frequency.value)}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{leader.frequency || 'Not specified'}</span>
                       )}
                     </dd>
                   </div>
@@ -1641,23 +1692,17 @@ export default function CircleLeaderProfilePage() {
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Meeting Frequency</dt>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Bi-weekly Start Date</dt>
                     <dd className="mt-1">
                       {isEditing ? (
-                        <select
-                          value={editedLeader.frequency || ''}
-                          onChange={(e) => handleLeaderFieldChange('frequency', e.target.value)}
+                        <input
+                          type="date"
+                          value={editedLeader.meeting_start_date !== undefined ? (editedLeader.meeting_start_date || '') : (leader.meeting_start_date || '')}
+                          onChange={(e) => handleLeaderFieldChange('meeting_start_date', e.target.value)}
                           className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                          <option value="">Select Frequency</option>
-                          {frequencies.map((frequency) => (
-                            <option key={frequency.id} value={frequency.value}>
-                              {frequency.value}
-                            </option>
-                          ))}
-                        </select>
+                        />
                       ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{leader.frequency || 'Not specified'}</span>
+                        <span className="text-sm text-gray-900 dark:text-white">{leader.meeting_start_date || 'Not set'}</span>
                       )}
                     </dd>
                   </div>

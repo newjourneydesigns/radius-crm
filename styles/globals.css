@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Safe area padding for mobile devices (notches, home indicators) */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Mobile bottom navigation spacing */
+.mobile-content-padding {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+}
+
 /* Dark Green Theme - Custom gradient background */
 * {
   color-scheme: dark !important;
@@ -177,6 +189,15 @@ a {
   line-height: 1.1;
 }
 
+/* Add spacing between button group buttons */
+.calendar-shell .fc .fc-button-group {
+  gap: 0.5rem;
+}
+
+.calendar-shell .fc .fc-button-group .fc-button {
+  margin: 0 !important;
+}
+
 @media (max-width: 640px) {
   .calendar-shell .fc .fc-button {
     padding: 0.35rem 0.5rem;
@@ -190,6 +211,11 @@ a {
   /* Keep time axis readable but not too wide */
   .calendar-shell .fc .fc-timegrid-axis {
     width: 2.75rem;
+  }
+  
+  /* Ensure spacing on mobile too */
+  .calendar-shell .fc .fc-button-group {
+    gap: 0.375rem;
   }
 }
 

@@ -78,6 +78,8 @@ export interface CircleLeader {
   day?: string;
   time?: string;
   frequency?: string;
+  // Anchor date (YYYY-MM-DD) used for bi-weekly parity in calendar rendering.
+  meeting_start_date?: string;
   circle_type?: 'Men\'s' | 'Women\'s' | 'Young Adult | Coed' | 'Young Adult | Men\'s' | 'Young Adult | Women\'s' | 'Young Adult | Couple\'s';
   event_summary_received?: boolean;
   event_summary_skipped?: boolean;

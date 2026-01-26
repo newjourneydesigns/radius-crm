@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS circle_leaders (
   day TEXT,
   time TEXT,
   frequency TEXT,
+  meeting_start_date DATE,
   circle_type TEXT,
   event_summary_received BOOLEAN DEFAULT FALSE,
   event_summary_skipped BOOLEAN DEFAULT FALSE,

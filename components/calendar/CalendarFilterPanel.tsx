@@ -10,6 +10,7 @@ type Filters = {
   status: string[];
   meetingDay: string[];
   circleType: string[];
+  frequency: string[];
   eventSummary: string;
   connected: string;
   timeOfDay: string;
@@ -24,6 +25,7 @@ type Props = {
   campuses: Array<{ id: number; value: string }>;
   statuses: Array<{ id: number; value: string }>;
   circleTypes: Array<{ id: number; value: string }>;
+  frequencies: Array<{ id: number; value: string }>;
 };
 
 const toggleArrayValue = (arr: string[], value: string, checked: boolean) => {
@@ -40,6 +42,7 @@ export default function CalendarFilterPanel({
   campuses,
   statuses,
   circleTypes,
+  frequencies,
 }: Props) {
   const [open, setOpen] = useState(false);
 
@@ -58,6 +61,7 @@ export default function CalendarFilterPanel({
       filters.status.length > 0 ||
       filters.meetingDay.length > 0 ||
       filters.circleType.length > 0 ||
+      filters.frequency.length > 0 ||
       filters.eventSummary !== 'all' ||
       filters.connected !== 'all' ||
       filters.timeOfDay !== 'all'
@@ -71,6 +75,7 @@ export default function CalendarFilterPanel({
     count += filters.status.length;
     count += filters.meetingDay.length;
     count += filters.circleType.length;
+    count += filters.frequency.length;
     if (filters.eventSummary !== 'all') count += 1;
     if (filters.connected !== 'all') count += 1;
     if (filters.timeOfDay !== 'all') count += 1;
@@ -234,6 +239,29 @@ export default function CalendarFilterPanel({
                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700"
                     />
                     <span className="text-sm text-gray-700 dark:text-gray-300">{t.value}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Frequency */}
+            <div>
+              <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Frequency</div>
+              <div className="space-y-2 max-h-48 overflow-auto pr-1">
+                {frequencies.map(f => (
+                  <label key={f.id} className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={filters.frequency.includes(f.value)}
+                      onChange={(e) =>
+                        onFiltersChange({
+                          ...filters,
+                          frequency: toggleArrayValue(filters.frequency, f.value, e.target.checked),
+                        })
+                      }
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{f.value}</span>
                   </label>
                 ))}
               </div>

@@ -57,6 +57,14 @@ export async function POST(request: NextRequest) {
     if (circleLeader.frequency && circleLeader.frequency.trim()) {
       cleanData.frequency = circleLeader.frequency.trim();
     }
+
+    // Optional: anchor date for bi-weekly parity (expects YYYY-MM-DD)
+    if (circleLeader.meeting_start_date && String(circleLeader.meeting_start_date).trim()) {
+      const raw = String(circleLeader.meeting_start_date).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        cleanData.meeting_start_date = raw;
+      }
+    }
     
     if (circleLeader.circle_type && circleLeader.circle_type.trim()) {
       cleanData.circle_type = circleLeader.circle_type.trim();

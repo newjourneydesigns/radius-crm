@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CircleLeader } from '../../lib/supabase';
 
 interface ExportModalProps {
@@ -11,6 +12,7 @@ interface ExportModalProps {
 
 export default function ExportModal({ isOpen, onClose, leaders }: ExportModalProps) {
   const [copied, setCopied] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [options, setOptions] = useState({
     phone: true,
     email: true,
@@ -20,7 +22,26 @@ export default function ExportModal({ isOpen, onClose, leaders }: ExportModalPro
     status: true,
   });
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen, onClose]);
 
   const formatTime = (time: string | undefined) => {
     if (!time) return 'Not specified';
@@ -58,7 +79,7 @@ export default function ExportModal({ isOpen, onClose, leaders }: ExportModalPro
     return `Meeting: ${parts.join(' • ')}`;
   };
 
-  const buildLeaderBlock = (leader: CircleLeader, index: number) => {
+  const buildLeaderBlock = (leader: CircleLeader) => {
     const lines: string[] = [];
     lines.push(`${leader.name || 'No Name'}`);
     if (options.phone) lines.push(`Phone: ${leader.phone || 'Not provided'}`);
@@ -85,7 +106,7 @@ Total Leaders: ${leaders.length}
 
 ${'='.repeat(80)}
 
-${leaders.map((leader, index) => buildLeaderBlock(leader, index)).join('\n\n')}`;
+${leaders.map((leader) => buildLeaderBlock(leader)).join('\n\n')}`;
 
   const handleCopy = async () => {
     try {
@@ -150,7 +171,9 @@ ${leaders.map((leader, index) => buildLeaderBlock(leader, index)).join('\n\n')}`
   const toggleOption = (key: keyof typeof options) =>
     setOptions(prev => ({ ...prev, [key]: !prev[key] }));
 
-  return (
+  if (!isOpen || !mounted) return null;
+
+  const modal = (
     <div 
       className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] animate-in fade-in duration-200"
       onClick={onClose}
@@ -178,12 +201,13 @@ ${leaders.map((leader, index) => buildLeaderBlock(leader, index)).join('\n\n')}`
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+          <h2 id="export-modal-title" className="text-xl font-semibold text-gray-900 dark:text-white">
             Export Circle Leaders ({leaders.length} leaders)
           </h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            aria-label="Close export"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -283,5 +307,12 @@ ${leaders.map((leader, index) => buildLeaderBlock(leader, index)).join('\n\n')}`
         </div>
       </div>
     </div>
+  );
+
+  return createPortal(
+    <div role="dialog" aria-modal="true" aria-labelledby="export-modal-title">
+      {modal}
+    </div>,
+    document.body
   );
 }

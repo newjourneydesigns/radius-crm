@@ -59,6 +59,9 @@ ON CONFLICT (value) DO NOTHING;
 -- Insert initial data for Frequencies
 INSERT INTO frequencies (value) VALUES
   ('Weekly'),
+  ('1st, 3rd'),
+  ('1st, 3rd, 5th'),
+  ('2nd, 4th'),
   ('Bi-weekly'),
   ('Monthly'),
   ('Quarterly')

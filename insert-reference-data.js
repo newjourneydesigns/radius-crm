@@ -52,15 +52,48 @@ async function insertReferenceData() {
     
     // Insert frequencies
     console.log('\n📝 Inserting Frequencies...');
-    const { data: frequenciesData, error: frequenciesError } = await supabase
+    const desiredFrequencies = [
+      { value: 'Weekly' },
+      { value: '1st, 3rd' },
+      { value: '1st, 3rd, 5th' },
+      { value: '2nd, 4th' },
+      { value: 'Bi-weekly' },
+      { value: 'Monthly' },
+      { value: 'Quarterly' }
+    ];
+
+    const normalizeFrequency = (v) => (v || '')
+      .toLowerCase()
+      .replace(/\band\b/g, ',')
+      .replace(/&/g, ',')
+      .replace(/\s+/g, '')
+      .replace(/,+/g, ',')
+      .replace(/^,|,$/g, '');
+
+    const { data: existingFrequencies, error: existingFrequenciesError } = await supabase
       .from('frequencies')
-      .insert([
-        { value: 'Weekly' },
-        { value: 'Bi-weekly' },
-        { value: 'Monthly' },
-        { value: 'Quarterly' }
-      ])
-      .select();
+      .select('value');
+
+    if (existingFrequenciesError) {
+      console.log('❌ Frequencies Load Error:', existingFrequenciesError.message);
+    }
+
+    const existingKeys = new Set((existingFrequencies || []).map(r => normalizeFrequency(r.value)));
+    const missing = desiredFrequencies.filter(r => !existingKeys.has(normalizeFrequency(r.value)));
+
+    let frequenciesData = [];
+    let frequenciesError = null;
+
+    if (missing.length === 0) {
+      frequenciesData = [];
+    } else {
+      const res = await supabase
+        .from('frequencies')
+        .insert(missing)
+        .select();
+      frequenciesData = res.data;
+      frequenciesError = res.error;
+    }
     
     if (frequenciesError) {
       console.log('❌ Frequencies Error:', frequenciesError.message);

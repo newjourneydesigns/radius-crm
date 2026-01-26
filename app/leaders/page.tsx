@@ -15,6 +15,7 @@ import { useLeaderFilters } from '../../hooks/useLeaderFilters';
 import { useCircleLeaders } from '../../hooks/useCircleLeaders';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { ensureDefaultFrequencies } from '../../lib/frequencyUtils';
 
 // Separate component that uses useSearchParams
 function LeadersContent() {
@@ -67,6 +68,7 @@ function LeadersContent() {
         status: searchParams.getAll('status'),
         meetingDay: searchParams.getAll('meetingDay'),
         circleType: searchParams.getAll('circleType'),
+        frequency: searchParams.getAll('frequency'),
         eventSummary: searchParams.get('eventSummary') || 'all',
         connected: searchParams.get('connected') || 'all',
         timeOfDay: searchParams.get('timeOfDay') || 'all'
@@ -93,6 +95,7 @@ function LeadersContent() {
       filters.status.forEach(status => params.append('status', status));
       filters.meetingDay.forEach(day => params.append('meetingDay', day));
       filters.circleType.forEach(type => params.append('circleType', type));
+      filters.frequency.forEach(freq => params.append('frequency', freq));
       
       if (filters.eventSummary !== 'all') params.set('eventSummary', filters.eventSummary);
       if (filters.connected !== 'all') params.set('connected', filters.connected);
@@ -149,7 +152,7 @@ function LeadersContent() {
         setStatuses(statusesData);
         
         setCircleTypes(data.circleTypes || []);
-        setFrequencies(data.frequencies || []);
+        setFrequencies(ensureDefaultFrequencies(data.frequencies || []));
 
         // Load connections for connected filter
         const { data: connectionsData, error: connectionsError } = await supabase
@@ -214,6 +217,7 @@ function LeadersContent() {
         status: filters.status.filter(s => s !== 'follow-up'), // Handle follow-up client-side
         meetingDay: filters.meetingDay,
         circleType: filters.circleType,
+        frequency: filters.frequency,
         eventSummary: filters.eventSummary
         // Note: connected and timeOfDay are handled client-side
       };
@@ -582,6 +586,22 @@ function LeadersContent() {
                       className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-pink-400 hover:bg-pink-200 hover:text-pink-600 dark:hover:bg-pink-800"
                     >
                       <span className="sr-only">Remove {type} filter</span>
+                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                        <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+
+                {/* Frequency Tags */}
+                {filters.frequency.map(freq => (
+                  <span key={`frequency-${freq}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900 dark:text-fuchsia-200">
+                    Frequency: {freq}
+                    <button
+                      onClick={() => updateFilters({...filters, frequency: filters.frequency.filter(f => f !== freq)})}
+                      className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-fuchsia-400 hover:bg-fuchsia-200 hover:text-fuchsia-600 dark:hover:bg-fuchsia-800"
+                    >
+                      <span className="sr-only">Remove {freq} filter</span>
                       <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
                         <path strokeLinecap="round" strokeWidth="1.5" d="m1 1 6 6m0-6-6 6" />
                       </svg>

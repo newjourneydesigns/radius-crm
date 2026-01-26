@@ -143,6 +143,7 @@ interface FilterPanelProps {
     status: string[];
     meetingDay: string[];
     circleType: string[];
+    frequency: string[];
     eventSummary: string;
     connected: string;
     timeOfDay: string;
@@ -625,6 +626,7 @@ export default function FilterPanel({
            filters.status.length > 0 ||
            filters.meetingDay.length > 0 ||
            filters.circleType.length > 0 ||
+           filters.frequency.length > 0 ||
            filters.eventSummary !== 'all' ||
            filters.connected !== 'all' ||
            filters.timeOfDay !== 'all';
@@ -756,6 +758,22 @@ export default function FilterPanel({
                 >
                   {circleTypes.map(type => (
                     <option key={type.id} value={type.value}>{type.value}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Frequency Filter */}
+              <div className="space-y-2">
+                <label htmlFor="frequencyFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Frequency</label>
+                <select
+                  id="frequencyFilter"
+                  multiple
+                  value={filters.frequency}
+                  onChange={(e) => handleMultiSelectChange('frequency', e.target)}
+                  className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-32 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 dark:[&::-webkit-scrollbar-track]:bg-gray-600 [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-500 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent"
+                >
+                  {frequencies.map(freq => (
+                    <option key={freq.id} value={freq.value}>{freq.value}</option>
                   ))}
                 </select>
               </div>
@@ -896,6 +914,20 @@ export default function FilterPanel({
                     className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/30 transition-colors"
                   >
                     Type: {type}
+                    <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                ))}
+
+                {/* Frequency Tags */}
+                {filters.frequency.map(freq => (
+                  <button
+                    key={`freq-${freq}`}
+                    onClick={() => removeFilterValue('frequency', freq)}
+                    className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/20 dark:text-fuchsia-300 hover:bg-fuchsia-200 dark:hover:bg-fuchsia-900/30 transition-colors"
+                  >
+                    Frequency: {freq}
                     <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>

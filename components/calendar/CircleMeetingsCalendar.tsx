@@ -98,6 +98,66 @@ const parseWeekInterval = (freq?: string | null): number => {
   return 1;
 };
 
+type ParsedFrequency =
+  | { kind: 'weekly'; intervalWeeks: number }
+  | { kind: 'weekOfMonth'; weeks: Array<1 | 2 | 3 | 4 | 5> }
+  | { kind: 'monthly'; intervalMonths: number };
+
+const parseFrequencyPattern = (raw?: string | null): ParsedFrequency => {
+  const s = (raw ?? '').trim().toLowerCase();
+
+  // Week-of-month patterns (nth weekday of month)
+  const has1st = /\b(1st|first)\b/.test(s);
+  const has2nd = /\b(2nd|second)\b/.test(s);
+  const has3rd = /\b(3rd|third)\b/.test(s);
+  const has4th = /\b(4th|fourth)\b/.test(s);
+  const has5th = /\b(5th|fifth)\b/.test(s);
+
+  // e.g. "1st & 3rd", "1st, 3rd & 5th", "2nd & 4th"
+  if ((has1st || has2nd || has3rd || has4th || has5th) && (has1st || has2nd || has3rd || has4th)) {
+    const mentionsWeekly = s.includes('weekly') || s.includes('every week');
+    const mentionsBiWeekly = s.includes('bi-week') || s.includes('biweekly') || s.includes('every other');
+
+    if (!mentionsWeekly && !mentionsBiWeekly) {
+      const weeks: Array<1 | 2 | 3 | 4 | 5> = [];
+      if (has1st) weeks.push(1);
+      if (has2nd) weeks.push(2);
+      if (has3rd) weeks.push(3);
+      if (has4th) weeks.push(4);
+      if (has5th) weeks.push(5);
+      if (weeks.length > 0) return { kind: 'weekOfMonth', weeks };
+    }
+  }
+
+  // Simple monthly intervals
+  if (s.includes('quarter')) return { kind: 'monthly', intervalMonths: 3 };
+  if (s.includes('month')) return { kind: 'monthly', intervalMonths: 1 };
+
+  return { kind: 'weekly', intervalWeeks: parseWeekInterval(raw) };
+};
+
+const buildWeekdayOccurrencesForMonth = (args: {
+  year: number;
+  month: number; // 1-12
+  weekday: number; // Luxon weekday: 1=Mon..7=Sun
+  hour: number;
+  minute: number;
+}): DateTime[] => {
+  const { year, month, weekday, hour, minute } = args;
+  let cursor = DateTime.fromObject({ year, month, day: 1 }).startOf('day');
+  if (!cursor.isValid) return [];
+
+  const offset = (weekday - cursor.weekday + 7) % 7;
+  cursor = cursor.plus({ days: offset }).set({ hour, minute, second: 0, millisecond: 0 });
+
+  const out: DateTime[] = [];
+  while (cursor.month === month) {
+    out.push(cursor);
+    cursor = cursor.plus({ days: 7 });
+  }
+  return out;
+};
+
 const buildOccurrencesForLeader = (args: {
   leader: CircleLeader;
   rangeStart: Date;
@@ -111,19 +171,10 @@ const buildOccurrencesForLeader = (args: {
 
   if (!weekday || !time) return [];
 
-  const intervalWeeks = parseWeekInterval(leader.frequency);
+  const parsedFrequency = parseFrequencyPattern(leader.frequency);
 
-  const start = DateTime.fromJSDate(rangeStart).startOf('day');
+  const start = DateTime.fromJSDate(rangeStart);
   const end = DateTime.fromJSDate(rangeEnd);
-
-  const dayOffset = (weekday - start.weekday + 7) % 7;
-  let cursor = start.plus({ days: dayOffset }).set({ hour: time.hour, minute: time.minute, second: 0, millisecond: 0 });
-
-  // If the first occurrence lands before the visible start instant (e.g. timeGrid)
-  const visibleStart = DateTime.fromJSDate(rangeStart);
-  if (cursor < visibleStart) {
-    cursor = cursor.plus({ weeks: intervalWeeks });
-  }
 
   const title = leader.circle_type ? `${leader.name} (${leader.circle_type})` : leader.name;
   const eventSummaryState: 'received' | 'not_received' | 'skipped' =
@@ -143,9 +194,10 @@ const buildOccurrencesForLeader = (args: {
   const textColor = '#ffffff';
 
   const out: CalendarEvent[] = [];
-  while (cursor < end) {
-    const eventStart = cursor;
-    const eventEnd = cursor.plus({ minutes: durationMinutes });
+
+  const pushEvent = (eventStart: DateTime) => {
+    if (eventStart < start || eventStart >= end) return;
+    const eventEnd = eventStart.plus({ minutes: durationMinutes });
 
     out.push({
       id: `${leader.id}-${eventStart.toISODate()}`,
@@ -160,10 +212,86 @@ const buildOccurrencesForLeader = (args: {
         leaderId: leader.id,
         ccbProfileLink: leader.ccb_profile_link ?? null,
         eventSummaryState,
+        frequency: leader.frequency ?? null,
       },
     });
+  };
 
-    cursor = cursor.plus({ weeks: intervalWeeks });
+  if (parsedFrequency.kind === 'weekOfMonth') {
+    let monthCursor = start.startOf('month');
+    const lastMonth = end.startOf('month');
+
+    while (monthCursor <= lastMonth) {
+      const occurrences = buildWeekdayOccurrencesForMonth({
+        year: monthCursor.year,
+        month: monthCursor.month,
+        weekday,
+        hour: time.hour,
+        minute: time.minute,
+      });
+
+      for (const weekNum of parsedFrequency.weeks) {
+        const dt = occurrences[weekNum - 1];
+        if (dt) pushEvent(dt);
+      }
+
+      monthCursor = monthCursor.plus({ months: 1 });
+    }
+  } else if (parsedFrequency.kind === 'monthly') {
+    // Best-effort: use the 1st occurrence of the weekday each month (or every N months).
+    const intervalMonths = parsedFrequency.intervalMonths;
+    let monthCursor = start.startOf('month');
+    const lastMonth = end.startOf('month');
+    let monthIndex = 0;
+
+    while (monthCursor <= lastMonth) {
+      if (monthIndex % intervalMonths === 0) {
+        const occurrences = buildWeekdayOccurrencesForMonth({
+          year: monthCursor.year,
+          month: monthCursor.month,
+          weekday,
+          hour: time.hour,
+          minute: time.minute,
+        });
+        if (occurrences[0]) pushEvent(occurrences[0]);
+      }
+
+      monthIndex += 1;
+      monthCursor = monthCursor.plus({ months: 1 });
+    }
+  } else {
+    // Weekly / bi-weekly interval schedule.
+    const intervalWeeks = parsedFrequency.intervalWeeks;
+    const startDay = start.startOf('day');
+    const dayOffset = (weekday - startDay.weekday + 7) % 7;
+    let cursor = startDay.plus({ days: dayOffset }).set({ hour: time.hour, minute: time.minute, second: 0, millisecond: 0 });
+
+    if (cursor < start) {
+      cursor = cursor.plus({ weeks: intervalWeeks });
+    }
+
+    // If bi-weekly, optionally anchor the parity to a saved start date so the schedule
+    // doesn't shift depending on the visible range.
+    if (intervalWeeks === 2 && leader.meeting_start_date) {
+      const anchor = DateTime.fromISO(leader.meeting_start_date)
+        .startOf('day')
+        .set({ hour: time.hour, minute: time.minute, second: 0, millisecond: 0 });
+
+      if (anchor.isValid) {
+        const anchorWeek = anchor.startOf('week');
+        const cursorWeek = cursor.startOf('week');
+        const diffWeeks = Math.round(cursorWeek.diff(anchorWeek, 'days').days / 7);
+
+        if (Math.abs(diffWeeks) % 2 === 1) {
+          cursor = cursor.plus({ weeks: 1 });
+        }
+      }
+    }
+
+    while (cursor < end) {
+      pushEvent(cursor);
+      cursor = cursor.plus({ weeks: intervalWeeks });
+    }
   }
 
   return out;
@@ -380,6 +508,68 @@ export default function CircleMeetingsCalendar({
       )}
 
       <div className="calendar-shell">
+        {/* Mobile View Toggle Buttons - Moved to top for better UX */}
+        {isMobile && (
+          <div className="mb-4 flex items-center justify-center gap-2 p-2 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+            <button
+              onClick={() => {
+                const calendarApi = document.querySelector('.calendar-shell .fc')?.['__fc_calendar_api__'] || 
+                  (window as any).fullCalendarApi;
+                if (calendarApi) calendarApi.changeView('timeGridDay');
+              }}
+              className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                currentViewType === 'timeGridDay'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}
+            >
+              Day
+            </button>
+            <button
+              onClick={() => {
+                const calendarApi = document.querySelector('.calendar-shell .fc')?.['__fc_calendar_api__'] || 
+                  (window as any).fullCalendarApi;
+                if (calendarApi) calendarApi.changeView('timeGridWeek');
+              }}
+              className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                currentViewType === 'timeGridWeek'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}
+            >
+              Week
+            </button>
+            <button
+              onClick={() => {
+                const calendarApi = document.querySelector('.calendar-shell .fc')?.['__fc_calendar_api__'] || 
+                  (window as any).fullCalendarApi;
+                if (calendarApi) calendarApi.changeView('dayGridMonth');
+              }}
+              className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                currentViewType === 'dayGridMonth'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}
+            >
+              Month
+            </button>
+            <button
+              onClick={() => {
+                const calendarApi = document.querySelector('.calendar-shell .fc')?.['__fc_calendar_api__'] || 
+                  (window as any).fullCalendarApi;
+                if (calendarApi) calendarApi.changeView('listWeek');
+              }}
+              className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                currentViewType === 'listWeek'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}
+            >
+              List
+            </button>
+          </div>
+        )}
+        
         <FullCalendar
           plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
           initialView={initialView}
@@ -388,11 +578,7 @@ export default function CircleMeetingsCalendar({
               ? { left: 'prev,next', center: 'title', right: 'today' }
               : { left: 'prev,next today', center: 'title', right: 'timeGridDay,timeGridWeek,dayGridMonth,listWeek' }
           }
-          footerToolbar={
-            isMobile
-              ? { left: 'timeGridDay,timeGridWeek,dayGridMonth,listWeek', center: '', right: '' }
-              : undefined
-          }
+          footerToolbar={undefined}
           buttonText={{
             timeGridDay: 'Day',
             timeGridWeek: 'Week',
@@ -436,6 +622,11 @@ export default function CircleMeetingsCalendar({
           dayMaxEvents={3}
           eventDisplay="block"
           stickyHeaderDates
+          ref={(ref) => {
+            if (ref && isMobile) {
+              (window as any).fullCalendarApi = ref.getApi();
+            }
+          }}
         />
       </div>
 
@@ -503,6 +694,11 @@ export default function CircleMeetingsCalendar({
                     ) : (
                       <div className="block text-sm font-medium text-gray-900 dark:text-white break-words sm:truncate">{ev.title}</div>
                     )}
+                    {ev.extendedProps?.frequency && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {ev.extendedProps.frequency}
+                      </div>
+                    )}
                   </div>
 
                   <div className="w-full sm:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
@@ -546,10 +742,6 @@ export default function CircleMeetingsCalendar({
         )}
       </div>
       )}
-
-      <div className="mt-3 text-xs text-gray-600 dark:text-gray-400">
-        Tip: click an event to open the circle leader page.
-      </div>
     </div>
   );
 }

@@ -33,6 +33,7 @@ CREATE TABLE public.circle_leaders (
   day text,
   time text,
   frequency text,
+  meeting_start_date date,
   ccb_profile_link text,
   status text CHECK (status = ANY (ARRAY['invited'::text, 'pipeline'::text, 'active'::text, 'paused'::text, 'off-boarding'::text])),
   follow_up_date date,

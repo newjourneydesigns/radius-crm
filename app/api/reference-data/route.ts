@@ -1,5 +1,33 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { ensureDefaultFrequencies } from '../../../lib/frequencyUtils';
+
+const dedupeByKey = <T,>(items: T[], keyFn: (item: T) => string): T[] => {
+  const map = new Map<string, T>();
+  for (const item of items) {
+    const key = (keyFn(item) || '').trim();
+    if (!key) continue;
+    if (!map.has(key)) map.set(key, item);
+  }
+  return Array.from(map.values());
+};
+
+const normalizeCircleTypeValue = (value: string): string => {
+  const raw = (value || '').trim();
+  if (!raw) return raw;
+  // Prefer the shorter "YA |" variant; collapse "Young Adult | X" -> "YA | X".
+  const m = raw.match(/^Young\s*Adult\s*\|\s*(.+)$/i);
+  if (m && m[1]) return `YA | ${m[1].trim()}`;
+  return raw;
+};
+
+const normalizeFrequencyValue = (value: string): string => {
+  const raw = (value || '').trim();
+  if (!raw) return raw;
+  // Normalize "2nd & 4th" to "2nd, 4th" for consistency
+  // Also handle other ordinal patterns like "1st & 3rd"
+  return raw.replace(/\s*&\s*/g, ', ');
+};
 
 export async function GET() {
   try {
@@ -64,7 +92,14 @@ export async function GET() {
     const actualData = actualDataRes.data || [];
     const uniqueCampuses = Array.from(new Set(actualData.map(item => item.campus).filter(Boolean)));
     const uniqueACPDs = Array.from(new Set(actualData.map(item => item.acpd).filter(Boolean)));
-    const uniqueCircleTypes = Array.from(new Set(actualData.map(item => item.circle_type).filter(Boolean)));
+    const uniqueCircleTypes = Array.from(
+      new Set(
+        actualData
+          .map(item => item.circle_type)
+          .filter(Boolean)
+          .map((v: any) => normalizeCircleTypeValue(String(v)))
+      )
+    );
 
     console.log('Unique values from circle_leaders:', {
       uniqueCampuses: uniqueCampuses.length,
@@ -76,7 +111,9 @@ export async function GET() {
     // Merge reference data with actual data
     const existingCampusValues = new Set((campusesRes.data || []).map(c => c.value));
     const existingDirectorNames = new Set((directorsRes.data || []).map(d => d.name));
-    const existingCircleTypeValues = new Set((circleTypesRes.data || []).map(ct => ct.value));
+    const existingCircleTypeValues = new Set(
+      (circleTypesRes.data || []).map((ct: any) => normalizeCircleTypeValue(ct.value))
+    );
 
     // Add missing campuses from actual data
     const mergedCampuses = [...(campusesRes.data || [])];
@@ -95,19 +132,35 @@ export async function GET() {
     });
 
     // Add missing circle types from actual data
-    const mergedCircleTypes = [...(circleTypesRes.data || [])];
+    const mergedCircleTypes = (circleTypesRes.data || []).map((ct: any) => ({
+      ...ct,
+      value: normalizeCircleTypeValue(ct.value)
+    }));
     uniqueCircleTypes.forEach((circleType, index) => {
-      if (!existingCircleTypeValues.has(circleType)) {
-        mergedCircleTypes.push({ id: 1000 + index, value: circleType });
+      const normalized = normalizeCircleTypeValue(circleType);
+      if (!existingCircleTypeValues.has(normalized)) {
+        mergedCircleTypes.push({ id: 1000 + index, value: normalized });
       }
     });
 
+    // Filter statuses to only include valid database constraint values
+    const validStatuses = ['invited', 'pipeline', 'on-boarding', 'active', 'paused', 'off-boarding'];
+    const filteredStatuses = (statusesRes.data || []).filter((s: any) => 
+      validStatuses.includes(s?.value?.toLowerCase())
+    );
+
     const referenceData = {
-      directors: mergedDirectors,
-      campuses: mergedCampuses,
-      statuses: statusesRes.data || [],
-      circleTypes: mergedCircleTypes,
-      frequencies: frequenciesRes.data || []
+      directors: dedupeByKey(mergedDirectors, (d: any) => d?.name || ''),
+      campuses: dedupeByKey(mergedCampuses, (c: any) => c?.value || ''),
+      statuses: dedupeByKey(filteredStatuses, (s: any) => s?.value || ''),
+      circleTypes: dedupeByKey(mergedCircleTypes, (ct: any) => normalizeCircleTypeValue(ct?.value || '')),
+      frequencies: dedupeByKey(
+        ensureDefaultFrequencies(frequenciesRes.data || []).map((f: any) => ({
+          ...f,
+          value: normalizeFrequencyValue(f.value)
+        })),
+        (f: any) => normalizeFrequencyValue(f?.value || '')
+      )
     };
 
     console.log('Final merged data:', {

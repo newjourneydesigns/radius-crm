@@ -8,6 +8,7 @@ import CalendarFilterPanel from '../../components/calendar/CalendarFilterPanel';
 import { useLeaderFilters } from '../../hooks/useLeaderFilters';
 import { useCircleLeaders, type CircleLeaderFilters } from '../../hooks/useCircleLeaders';
 import { supabase } from '../../lib/supabase';
+import { ensureDefaultFrequencies } from '../../lib/frequencyUtils';
 
 type RefItem = { id: number; value: string };
 type DirectorItem = { id: number; name: string };
@@ -33,6 +34,7 @@ function CalendarPageContent() {
   const [campuses, setCampuses] = useState<RefItem[]>([]);
   const [statuses, setStatuses] = useState<RefItem[]>([]);
   const [circleTypes, setCircleTypes] = useState<RefItem[]>([]);
+  const [frequencies, setFrequencies] = useState<RefItem[]>([]);
   const [referenceDataLoading, setReferenceDataLoading] = useState(true);
   const [connectedLeaderIds, setConnectedLeaderIds] = useState<Set<number>>(new Set());
 
@@ -46,6 +48,7 @@ function CalendarPageContent() {
     filters.status.forEach(status => params.append('status', status));
     filters.meetingDay.forEach(day => params.append('meetingDay', day));
     filters.circleType.forEach(type => params.append('circleType', type));
+    filters.frequency.forEach(freq => params.append('frequency', freq));
 
     if (filters.eventSummary !== 'all') params.set('eventSummary', filters.eventSummary);
     if (filters.connected !== 'all') params.set('connected', filters.connected);
@@ -83,6 +86,8 @@ function CalendarPageContent() {
 
         setCircleTypes(data.circleTypes || []);
 
+        setFrequencies(ensureDefaultFrequencies(data.frequencies || []));
+
         const { data: connectionsData, error: connectionsError } = await supabase
           .from('connections')
           .select('circle_leader_id');
@@ -108,17 +113,19 @@ function CalendarPageContent() {
         try {
           const { data: actualData, error: actualError } = await supabase
             .from('circle_leaders')
-            .select('campus, acpd, circle_type')
+            .select('campus, acpd, circle_type, frequency')
             .order('campus');
 
           if (!actualError && actualData) {
             const uniqueCampuses = Array.from(new Set(actualData.map(i => i.campus).filter(Boolean) as string[])).sort();
             const uniqueDirectors = Array.from(new Set(actualData.map(i => i.acpd).filter(Boolean) as string[])).sort();
             const uniqueCircleTypes = Array.from(new Set(actualData.map(i => i.circle_type).filter(Boolean) as string[])).sort();
+            const uniqueFrequencies = Array.from(new Set(actualData.map(i => i.frequency).filter(Boolean) as string[])).sort();
 
             setCampuses(uniqueCampuses.map((value, idx) => ({ id: 1000 + idx, value })));
             setDirectors(uniqueDirectors.map((name, idx) => ({ id: 1000 + idx, name })));
             setCircleTypes(uniqueCircleTypes.map((value, idx) => ({ id: 1000 + idx, value })));
+            setFrequencies(ensureDefaultFrequencies(uniqueFrequencies.map((value, idx) => ({ id: 1000 + idx, value }))));
           }
         } catch (err) {
           console.error('Error deriving filter options from circle_leaders:', err);
@@ -141,6 +148,7 @@ function CalendarPageContent() {
       status: filters.status.filter(s => s !== 'follow-up'),
       meetingDay: filters.meetingDay,
       circleType: filters.circleType,
+      frequency: filters.frequency,
       eventSummary: filters.eventSummary,
       // NOTE: connected + timeOfDay handled client-side to match Leaders page behavior
     };
@@ -229,6 +237,18 @@ function CalendarPageContent() {
       .map((value, idx) => ({ id: idx + 1, value }));
   }, [circleTypes, circleLeaders, filters.circleType]);
 
+  const derivedFrequencies = useMemo(() => {
+    const values = new Set<string>();
+    frequencies.forEach(f => f?.value && values.add(f.value));
+    circleLeaders.forEach(l => l?.frequency && values.add(l.frequency));
+    filters.frequency.forEach(v => v && values.add(v));
+    return ensureDefaultFrequencies(
+      Array.from(values)
+        .sort((a, b) => a.localeCompare(b))
+        .map((value, idx) => ({ id: idx + 1, value }))
+    );
+  }, [frequencies, circleLeaders, filters.frequency]);
+
   return (
     <>
       <CalendarFilterPanel
@@ -240,6 +260,7 @@ function CalendarPageContent() {
         campuses={derivedCampuses}
         statuses={statuses}
         circleTypes={derivedCircleTypes}
+        frequencies={derivedFrequencies}
       />
 
       <CircleMeetingsCalendar

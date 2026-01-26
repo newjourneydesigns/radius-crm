@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
+import { ensureDefaultFrequencies, formatFrequencyLabel } from '../../lib/frequencyUtils';
 
 interface Director {
   id: number;
@@ -27,6 +28,7 @@ export default function AddLeaderPage() {
     day: '',
     time: '',
     frequency: '',
+    meeting_start_date: '',
     circleType: '',
     ccbProfileLink: ''
   });
@@ -69,7 +71,7 @@ export default function AddLeaderPage() {
       if (campusesResult.data) setCampuses(campusesResult.data);
       if (circleTypesResult.data) setCircleTypes(circleTypesResult.data);
       if (statusesResult.data) setStatuses(statusesResult.data);
-      if (frequenciesResult.data) setFrequencies(frequenciesResult.data);
+      if (frequenciesResult.data) setFrequencies(ensureDefaultFrequencies(frequenciesResult.data));
     } catch (error) {
       console.error('Error loading reference data:', error);
     } finally {
@@ -105,6 +107,7 @@ export default function AddLeaderPage() {
             day: formData.day || null,
             time: formData.time || null,
             frequency: formData.frequency || null,
+            meeting_start_date: formData.meeting_start_date || null,
             circle_type: formData.circleType || null,
             ccb_profile_link: formData.ccbProfileLink || null,
             event_summary_received: false
@@ -126,6 +129,7 @@ export default function AddLeaderPage() {
         day: '',
         time: '',
         frequency: '',
+        meeting_start_date: '',
         circleType: '',
         ccbProfileLink: ''
       });
@@ -333,10 +337,24 @@ export default function AddLeaderPage() {
                     <option value="">Select Frequency</option>
                     {frequencies.map((frequency) => (
                       <option key={frequency.id} value={frequency.value}>
-                        {frequency.value}
+                        {formatFrequencyLabel(frequency.value)}
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label htmlFor="meeting_start_date" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Bi-weekly Start Date
+                  </label>
+                  <input
+                    type="date"
+                    name="meeting_start_date"
+                    id="meeting_start_date"
+                    value={formData.meeting_start_date}
+                    onChange={handleChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
                 </div>
               </div>
 

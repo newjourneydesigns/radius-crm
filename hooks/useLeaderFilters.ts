@@ -7,6 +7,7 @@ export interface LeaderFilters {
   status: string[];
   meetingDay: string[];
   circleType: string[];
+  frequency: string[];
   eventSummary: string;
   connected: string;
   timeOfDay: string;
@@ -18,6 +19,7 @@ export const defaultLeaderFilters: LeaderFilters = {
   status: [],
   meetingDay: [],
   circleType: [],
+  frequency: [],
   eventSummary: 'all',
   connected: 'all',
   timeOfDay: 'all'
@@ -49,12 +51,13 @@ export const useLeaderFilters = (options: UseLeaderFiltersOptions = {}) => {
         const urlStatus = searchParams.getAll('status');
         const urlMeetingDay = searchParams.getAll('meetingDay');
         const urlCircleType = searchParams.getAll('circleType');
+        const urlFrequency = searchParams.getAll('frequency');
         const urlEventSummary = searchParams.get('eventSummary');
         const urlConnected = searchParams.get('connected');
         const urlTimeOfDay = searchParams.get('timeOfDay');
 
         if (urlCampus.length > 0 || urlAcpd.length > 0 || urlStatus.length > 0 || 
-            urlMeetingDay.length > 0 || urlCircleType.length > 0 || 
+            urlMeetingDay.length > 0 || urlCircleType.length > 0 || urlFrequency.length > 0 ||
             urlEventSummary || urlConnected || urlTimeOfDay) {
           hasUrlParams = true;
           
@@ -64,6 +67,7 @@ export const useLeaderFilters = (options: UseLeaderFiltersOptions = {}) => {
             status: urlStatus,
             meetingDay: urlMeetingDay,
             circleType: urlCircleType,
+            frequency: urlFrequency,
             eventSummary: urlEventSummary || 'all',
             connected: urlConnected || 'all',
             timeOfDay: urlTimeOfDay || 'all'
@@ -85,6 +89,7 @@ export const useLeaderFilters = (options: UseLeaderFiltersOptions = {}) => {
             status: filterState.status || [],
             meetingDay: filterState.meetingDay || [],
             circleType: filterState.circleType || [],
+            frequency: filterState.frequency || [],
             eventSummary: filterState.eventSummary || 'all',
             connected: filterState.connected || 'all',
             timeOfDay: filterState.timeOfDay || 'all'
@@ -133,6 +138,7 @@ export const useLeaderFilters = (options: UseLeaderFiltersOptions = {}) => {
     JSON.stringify(filters.status),
     JSON.stringify(filters.meetingDay),
     JSON.stringify(filters.circleType),
+    JSON.stringify(filters.frequency),
     filters.eventSummary,
     filters.connected,
     filters.timeOfDay
