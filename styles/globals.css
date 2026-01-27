@@ -198,6 +198,18 @@ a {
   margin: 0 !important;
 }
 
+/* FullCalendar list view: keep hover/focus readable in dark theme */
+.calendar-shell .fc .fc-list-event:hover td,
+.calendar-shell .fc .fc-list-event:focus-within td {
+  background-color: rgba(141, 169, 196, 0.14) !important;
+  color: #eef4ed !important;
+}
+
+.calendar-shell .fc .fc-list-event:hover a,
+.calendar-shell .fc .fc-list-event:focus-within a {
+  color: inherit !important;
+}
+
 @media (max-width: 640px) {
   .calendar-shell .fc .fc-button {
     padding: 0.35rem 0.5rem;

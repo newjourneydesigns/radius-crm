@@ -414,7 +414,11 @@ export default function CircleMeetingsCalendar({
     }
   }, [onSetEventSummaryState]);
 
-  const renderEventSummaryButtons = useCallback((leaderId: number, state: 'received' | 'not_received' | 'skipped') => {
+  const renderEventSummaryButtons = useCallback((
+    leaderId: number,
+    state: 'received' | 'not_received' | 'skipped',
+    opts?: { compact?: boolean }
+  ) => {
     const isSaving = savingLeaderIds.has(leaderId);
 
     const base =
@@ -448,7 +452,7 @@ export default function CircleMeetingsCalendar({
 
     return (
       <div
-        className="grid grid-cols-3 gap-1 w-full sm:flex sm:w-auto sm:items-center sm:gap-1 shrink-0"
+        className={`grid grid-cols-3 gap-1 ${opts?.compact ? 'w-max' : 'w-full'} sm:flex sm:w-auto sm:items-center sm:gap-1 shrink-0`}
         role="group"
         aria-label="Event summary"
       >
@@ -607,10 +611,17 @@ export default function CircleMeetingsCalendar({
             const isList = arg.view.type.startsWith('list');
             const ext = arg.event.extendedProps as unknown as {
               leaderId?: number;
+              ccbProfileLink?: string | null;
               eventSummaryState?: 'received' | 'not_received' | 'skipped';
             };
             const leaderId = ext.leaderId;
             const state = ext.eventSummaryState ?? 'not_received';
+
+            const ccbHref = (() => {
+              const raw = ext.ccbProfileLink;
+              if (!raw) return null;
+              return /^https?:\/\//i.test(raw) ? raw : null;
+            })();
 
             if (!isList || !leaderId || !onSetEventSummaryState) {
               return <div className="truncate">{arg.event.title}</div>;
@@ -619,7 +630,35 @@ export default function CircleMeetingsCalendar({
             return (
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 w-full">
                 <div className="min-w-0 text-sm leading-snug break-words sm:truncate">{arg.event.title}</div>
-                {renderEventSummaryButtons(leaderId, state)}
+                <div className="w-full sm:w-auto flex flex-row items-center justify-between sm:justify-end gap-2 flex-wrap shrink-0">
+                  {ccbHref ? (
+                    <a
+                      href={ccbHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="h-10 sm:h-8 w-12 rounded text-[11px] sm:text-xs leading-none border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors inline-flex items-center justify-center"
+                      title="Open CCB profile"
+                    >
+                      CCB
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      aria-disabled="true"
+                      tabIndex={-1}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      className="h-10 sm:h-8 w-12 rounded text-[11px] sm:text-xs leading-none border border-blue-200/60 dark:border-blue-800/60 text-blue-200/60 transition-colors inline-flex items-center justify-center cursor-not-allowed"
+                      title="No CCB profile link"
+                    >
+                      CCB
+                    </button>
+                  )}
+                  {renderEventSummaryButtons(leaderId, state, { compact: true })}
+                </div>
               </div>
             );
           }}
