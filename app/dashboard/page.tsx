@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense, useRef } from 'react';
 import FilterPanel from '../../components/dashboard/SimpleCampusFilter';
 import { DashboardFilters } from '../../hooks/useDashboardFilters';
 import CircleStatusBar from '../../components/dashboard/CircleStatusBar';
@@ -91,6 +91,8 @@ function DashboardContent() {
   const [editingTodoDueDate, setEditingTodoDueDate] = useState('');
   const [editingTodoRepeatRule, setEditingTodoRepeatRule] = useState<TodoRepeatRule>('none');
   const [todoDueDateSort, setTodoDueDateSort] = useState<'none' | 'asc' | 'desc'>('asc');
+  type TodoListFilters = { today: boolean; tomorrow: boolean; completed: boolean; all: boolean };
+  const DEFAULT_TODO_FILTERS: TodoListFilters = { today: true, tomorrow: true, completed: false, all: false };
   const [todosVisible, setTodosVisible] = useState(() => {
     try {
       const saved = localStorage.getItem('todosVisible');
@@ -99,14 +101,43 @@ function DashboardContent() {
       return true;
     }
   });
-  const [showCompletedTodos, setShowCompletedTodos] = useState(() => {
+  const [todoFilters, setTodoFilters] = useState<TodoListFilters>(() => {
+    try {
+      const saved = localStorage.getItem('todoListFilters');
+      if (saved) {
+        const parsed = JSON.parse(saved) as Partial<TodoListFilters>;
+        return { ...DEFAULT_TODO_FILTERS, ...parsed };
+      }
+    } catch {
+      // ignore
+    }
+
+    // Back-compat: preserve the old show-completed toggle if present
+    let completed = false;
     try {
       const saved = localStorage.getItem('showCompletedTodos');
-      return saved !== null ? saved === 'true' : false;
+      completed = saved !== null ? saved === 'true' : false;
     } catch {
-      return false;
+      completed = false;
     }
+
+    return { ...DEFAULT_TODO_FILTERS, completed };
   });
+
+  const [todoFiltersOpen, setTodoFiltersOpen] = useState(false);
+  const todoFiltersRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const onDocMouseDown = (e: MouseEvent) => {
+      const el = todoFiltersRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && !el.contains(e.target)) {
+        setTodoFiltersOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, []);
   
   // State for modals
   type RecentNote = Pick<Note, 'id' | 'circle_leader_id' | 'content' | 'created_at'>;
@@ -755,6 +786,15 @@ function DashboardContent() {
     return completedISO === todayISO;
   };
 
+  const matchesActiveTodoFilters = (todo: TodoItem) => {
+    if (todo.completed) return false;
+    if (todoFilters.all) return true;
+    if (!todo.due_date) return false;
+    if (todoFilters.today && todo.due_date === todayISO) return true;
+    if (todoFilters.tomorrow && todo.due_date === tomorrowISO) return true;
+    return false;
+  };
+
   const getTodoDueKind = (todo: TodoItem): 'none' | 'overdue' | 'today' | 'tomorrow' | 'future' => {
     if (todo.completed) return 'none';
     if (!todo.due_date) return 'none';
@@ -827,13 +867,17 @@ function DashboardContent() {
 
       // Single todo
       if (todo.completed) {
-        if (!showCompletedTodos) continue;
+        if (!todoFilters.completed) continue;
         if (!shouldShowCompletedTodo(todo)) continue;
+        results.push(todo);
+        continue;
       }
+
+      if (!matchesActiveTodoFilters(todo)) continue;
       results.push(todo);
     }
 
-    // Recurring series: show overdue/today/tomorrow occurrences; otherwise show the next upcoming occurrence
+    // Recurring series: show occurrences based on filters
     seriesBuckets.forEach((seriesItems) => {
       // Choose at most one row per due_date, preferring non-master occurrences when both exist
       const bestByDate = new Map<string, TodoItem>();
@@ -852,15 +896,11 @@ function DashboardContent() {
 
       const candidates = Array.from(bestByDate.values());
 
-      const completedToday = candidates.filter(t => t.completed && showCompletedTodos && shouldShowCompletedTodo(t));
+      const completedToday = candidates.filter(t => t.completed && todoFilters.completed && shouldShowCompletedTodo(t));
       const active = candidates.filter(t => !t.completed);
 
-      // Always show anything due <= tomorrow (includes overdue, today, tomorrow)
-      const dueSoon = active.filter(t => (t.due_date as string) <= tomorrowISO);
-      if (dueSoon.length > 0) {
-        results.push(...dueSoon);
-      } else {
-        // Otherwise show the next upcoming occurrence so weekly/monthly series stay visible
+      if (todoFilters.all) {
+        // Keep recurring series compact: show only the next active occurrence (or earliest overdue)
         const next = active
           .filter(t => Boolean(t.due_date))
           .sort((a, b) => {
@@ -870,6 +910,11 @@ function DashboardContent() {
             return aDue < bDue ? -1 : 1;
           })[0];
         if (next) results.push(next);
+      } else {
+        const matching = active.filter(t => matchesActiveTodoFilters(t));
+        if (matching.length > 0) {
+          results.push(...matching);
+        }
       }
 
       results.push(...completedToday);
@@ -888,7 +933,7 @@ function DashboardContent() {
       const bIdx = idOrder.get(b.id) ?? 0;
       return aIdx - bIdx;
     });
-  }, [sortedTodos, todayISO, tomorrowISO, showCompletedTodos]);
+  }, [sortedTodos, todayISO, tomorrowISO, todoFilters]);
 
   const completedTodayCount = useMemo(() => {
     return sortedTodos.filter(t => t.completed && shouldShowCompletedTodo(t)).length;
@@ -930,15 +975,60 @@ function DashboardContent() {
     });
   };
 
-  const toggleShowCompletedTodos = () => {
-    setShowCompletedTodos(prev => {
-      const next = !prev;
-      try {
-        localStorage.setItem('showCompletedTodos', next.toString());
-      } catch (error) {
-        console.error('Failed to save show-completed state:', error);
+  const persistTodoFilters = (next: TodoListFilters) => {
+    try {
+      localStorage.setItem('todoListFilters', JSON.stringify(next));
+      // Keep legacy key in sync for older builds
+      localStorage.setItem('showCompletedTodos', next.completed.toString());
+    } catch {
+      // ignore
+    }
+  };
+
+  const setTodoFiltersSafe = (updater: (prev: TodoListFilters) => TodoListFilters) => {
+    setTodoFilters(prev => {
+      let next = updater(prev);
+
+      // Make 'all' mutually exclusive with today/tomorrow
+      if (next.all) {
+        next = { ...next, today: false, tomorrow: false };
       }
+
+      // If user turns off all date filters, revert to default Today+Tomorrow
+      if (!next.all && !next.today && !next.tomorrow) {
+        next = { ...next, today: true, tomorrow: true };
+      }
+
+      persistTodoFilters(next);
       return next;
+    });
+  };
+
+  const toggleTodoFilter = (key: keyof TodoListFilters) => {
+    setTodoFiltersSafe(prev => {
+      const next = { ...prev, [key]: !prev[key] } as TodoListFilters;
+
+      if (key === 'all' && !prev.all) {
+        // turning on all
+        next.today = false;
+        next.tomorrow = false;
+      }
+      if ((key === 'today' || key === 'tomorrow') && next[key]) {
+        // turning on a specific day disables all
+        next.all = false;
+      }
+
+      return next;
+    });
+  };
+
+  const toggleTodayOnly = () => {
+    setTodoFiltersSafe(prev => {
+      const isTodayOnly = prev.today && !prev.tomorrow && !prev.all;
+      if (isTodayOnly) {
+        return { ...DEFAULT_TODO_FILTERS, completed: prev.completed };
+      }
+      return { ...prev, today: true, tomorrow: false, all: false };
     });
   };
 
@@ -2163,7 +2253,7 @@ function DashboardContent() {
                 {/* Control buttons - stacked on mobile, inline on desktop */}
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   {/* Sort buttons */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-medium text-gray-500 dark:text-gray-400 mr-1">Sort:</span>
                     <button
                       type="button"
@@ -2195,21 +2285,102 @@ function DashboardContent() {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={toggleShowCompletedTodos}
-                      disabled={completedTodayCount === 0 && !showCompletedTodos}
+                      onClick={toggleTodayOnly}
                       className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg transition-colors border text-sm font-medium ${
-                        completedTodayCount === 0 && !showCompletedTodos
-                          ? 'border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 cursor-not-allowed'
+                        todoFilters.today && !todoFilters.tomorrow && !todoFilters.all
+                          ? 'bg-blue-600 border-blue-600 text-white'
                           : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
                       }`}
-                      title="Show/hide completed tasks from today"
+                      title="Show only tasks due today"
                     >
-                      {showCompletedTodos
-                        ? 'Hide Completed'
-                        : completedTodayCount > 0
-                          ? `Show Completed (${completedTodayCount})`
-                          : 'Show Completed'}
+                      Today
                     </button>
+
+                    <div className="relative flex-1 sm:flex-initial" ref={todoFiltersRef}>
+                      <button
+                        type="button"
+                        onClick={() => setTodoFiltersOpen(prev => !prev)}
+                        className="flex-1 sm:flex-initial px-4 py-2 rounded-lg transition-colors border text-sm font-medium border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        title="Filter the To Do list"
+                        aria-haspopup="true"
+                        aria-expanded={todoFiltersOpen}
+                      >
+                        <span className="sm:hidden">Filters</span>
+                        <span className="hidden sm:inline">
+                          Filters: {todoFilters.all ? 'All' : todoFilters.today && todoFilters.tomorrow ? 'Today + Tomorrow' : todoFilters.today ? 'Today' : todoFilters.tomorrow ? 'Tomorrow' : 'Today + Tomorrow'}
+                          {todoFilters.completed ? ' + Completed' : ''}
+                        </span>
+                      </button>
+
+                      {todoFiltersOpen && (
+                        <div className="absolute right-0 mt-2 w-56 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg p-2 z-50">
+                          <div className="px-2 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400">Show</div>
+
+                          <label className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={todoFilters.today}
+                              onChange={() => toggleTodoFilter('today')}
+                              className="h-4 w-4"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-200">Today</span>
+                          </label>
+
+                          <label className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={todoFilters.tomorrow}
+                              onChange={() => toggleTodoFilter('tomorrow')}
+                              className="h-4 w-4"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-200">Tomorrow</span>
+                          </label>
+
+                          <label className="flex items-center justify-between gap-2 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                            <span className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={todoFilters.completed}
+                                onChange={() => toggleTodoFilter('completed')}
+                                className="h-4 w-4"
+                              />
+                              <span className="text-sm text-gray-700 dark:text-gray-200">Completed</span>
+                            </span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">{completedTodayCount}</span>
+                          </label>
+
+                          <label className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={todoFilters.all}
+                              onChange={() => toggleTodoFilter('all')}
+                              className="h-4 w-4"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-200">All</span>
+                          </label>
+
+                          <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTodoFiltersSafe(prev => ({ ...DEFAULT_TODO_FILTERS, completed: prev.completed }));
+                                setTodoFiltersOpen(false);
+                              }}
+                              className="px-2 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                            >
+                              Reset
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setTodoFiltersOpen(false)}
+                              className="px-2 py-1 text-xs rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                            >
+                              Done
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                     <button
                       onClick={toggleTodosVisibility}
