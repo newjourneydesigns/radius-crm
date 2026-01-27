@@ -1022,15 +1022,6 @@ function DashboardContent() {
     });
   };
 
-  const toggleTodayOnly = () => {
-    setTodoFiltersSafe(prev => {
-      const isTodayOnly = prev.today && !prev.tomorrow && !prev.all;
-      if (isTodayOnly) {
-        return { ...DEFAULT_TODO_FILTERS, completed: prev.completed };
-      }
-      return { ...prev, today: true, tomorrow: false, all: false };
-    });
-  };
 
   // Load user's personal dashboard notes
   const loadUserNotes = async () => {
@@ -2255,6 +2246,7 @@ function DashboardContent() {
                   {/* Sort buttons */}
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-medium text-gray-500 dark:text-gray-400 mr-1">Sort:</span>
+
                     <button
                       type="button"
                       onClick={() => setTodoDueDateSort('asc')}
@@ -2267,6 +2259,7 @@ function DashboardContent() {
                     >
                       Due ↑
                     </button>
+
                     <button
                       type="button"
                       onClick={() => setTodoDueDateSort('desc')}
@@ -2283,19 +2276,6 @@ function DashboardContent() {
                   
                   {/* Action buttons */}
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={toggleTodayOnly}
-                      className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg transition-colors border text-sm font-medium ${
-                        todoFilters.today && !todoFilters.tomorrow && !todoFilters.all
-                          ? 'bg-blue-600 border-blue-600 text-white'
-                          : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
-                      }`}
-                      title="Show only tasks due today"
-                    >
-                      Today
-                    </button>
-
                     <div className="relative flex-1 sm:flex-initial" ref={todoFiltersRef}>
                       <button
                         type="button"
