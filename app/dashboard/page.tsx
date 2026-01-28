@@ -91,8 +91,8 @@ function DashboardContent() {
   const [editingTodoDueDate, setEditingTodoDueDate] = useState('');
   const [editingTodoRepeatRule, setEditingTodoRepeatRule] = useState<TodoRepeatRule>('none');
   const [todoDueDateSort, setTodoDueDateSort] = useState<'none' | 'asc' | 'desc'>('asc');
-  type TodoListFilters = { today: boolean; tomorrow: boolean; completed: boolean; all: boolean };
-  const DEFAULT_TODO_FILTERS: TodoListFilters = { today: true, tomorrow: true, completed: false, all: false };
+  type TodoListFilters = { today: boolean; tomorrow: boolean; overdue: boolean; completed: boolean; all: boolean };
+  const DEFAULT_TODO_FILTERS: TodoListFilters = { today: true, tomorrow: true, overdue: false, completed: false, all: false };
   const [todosVisible, setTodosVisible] = useState(() => {
     try {
       const saved = localStorage.getItem('todosVisible');
@@ -792,6 +792,7 @@ function DashboardContent() {
     if (!todo.due_date) return false;
     if (todoFilters.today && todo.due_date === todayISO) return true;
     if (todoFilters.tomorrow && todo.due_date === tomorrowISO) return true;
+    if (todoFilters.overdue && todo.due_date < todayISO) return true;
     return false;
   };
 
@@ -995,7 +996,7 @@ function DashboardContent() {
       }
 
       // If user turns off all date filters, revert to default Today+Tomorrow
-      if (!next.all && !next.today && !next.tomorrow) {
+      if (!next.all && !next.today && !next.tomorrow && !next.overdue) {
         next = { ...next, today: true, tomorrow: true };
       }
 
@@ -1012,9 +1013,10 @@ function DashboardContent() {
         // turning on all
         next.today = false;
         next.tomorrow = false;
+        next.overdue = false;
       }
-      if ((key === 'today' || key === 'tomorrow') && next[key]) {
-        // turning on a specific day disables all
+      if ((key === 'today' || key === 'tomorrow' || key === 'overdue') && next[key]) {
+        // turning on a specific filter disables all
         next.all = false;
       }
 
@@ -2287,7 +2289,7 @@ function DashboardContent() {
                       >
                         <span className="sm:hidden">Filters</span>
                         <span className="hidden sm:inline">
-                          Filters: {todoFilters.all ? 'All' : todoFilters.today && todoFilters.tomorrow ? 'Today + Tomorrow' : todoFilters.today ? 'Today' : todoFilters.tomorrow ? 'Tomorrow' : 'Today + Tomorrow'}
+                          Filters: {todoFilters.all ? 'All' : todoFilters.today && todoFilters.tomorrow && !todoFilters.overdue ? 'Today + Tomorrow' : [todoFilters.today && 'Today', todoFilters.tomorrow && 'Tomorrow', todoFilters.overdue && 'Overdue'].filter(Boolean).join(' + ') || 'Today + Tomorrow'}
                           {todoFilters.completed ? ' + Completed' : ''}
                         </span>
                       </button>
@@ -2314,6 +2316,16 @@ function DashboardContent() {
                               className="h-4 w-4"
                             />
                             <span className="text-sm text-gray-700 dark:text-gray-200">Tomorrow</span>
+                          </label>
+
+                          <label className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={todoFilters.overdue}
+                              onChange={() => toggleTodoFilter('overdue')}
+                              className="h-4 w-4"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-200">Overdue</span>
                           </label>
 
                           <label className="flex items-center justify-between gap-2 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
