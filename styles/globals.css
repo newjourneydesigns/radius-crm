@@ -222,6 +222,13 @@ a {
   padding: 0.75rem 1rem !important;
 }
 
+/* Hide time column on mobile - we show it in the custom content */
+@media (max-width: 639px) {
+  .calendar-shell .fc .fc-list-event-time {
+    display: none !important;
+  }
+}
+
 .calendar-shell .fc .fc-list-event:not(:last-child) {
   margin-bottom: 0.25rem !important;
 }
