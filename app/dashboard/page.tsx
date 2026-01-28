@@ -2229,30 +2229,30 @@ function DashboardContent() {
 
           {/* To Do List Section */}
           <div id="todo-list" className="mt-8">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 sm:p-6">
               {/* Header with title and actions */}
-              <div className="flex flex-col gap-3 mb-4 md:flex-row md:items-center md:justify-between">
-                <div className="flex items-center gap-3">
+              <div className="flex flex-col gap-2 mb-4">
+                <div className="flex items-center gap-2">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                     To Do List
                   </h2>
                   
-                  {/* Today label - hidden on mobile */}
-                  <div className="hidden sm:block text-sm font-medium text-gray-600 dark:text-gray-300">
+                  {/* Today label - compact on mobile */}
+                  <div className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-300">
                     {formatTodoTodayLabel(todoDayAnchor)}
                   </div>
                 </div>
                 
-                {/* Control buttons - stacked on mobile, inline on desktop */}
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  {/* Sort buttons */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 mr-1">Sort:</span>
+                {/* Control buttons - Sort on top row, Filters/Hide on bottom row */}
+                <div className="flex flex-col gap-2">
+                  {/* Sort buttons - top row */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Sort</span>
 
                     <button
                       type="button"
                       onClick={() => setTodoDueDateSort('asc')}
-                      className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
                         todoDueDateSort === 'asc'
                           ? 'bg-blue-600 border-blue-600 text-white'
                           : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -2265,7 +2265,7 @@ function DashboardContent() {
                     <button
                       type="button"
                       onClick={() => setTodoDueDateSort('desc')}
-                      className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
                         todoDueDateSort === 'desc'
                           ? 'bg-blue-600 border-blue-600 text-white'
                           : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -2276,13 +2276,13 @@ function DashboardContent() {
                     </button>
                   </div>
                   
-                  {/* Action buttons */}
+                  {/* Filters and Hide buttons - bottom row */}
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1 sm:flex-initial" ref={todoFiltersRef}>
                       <button
                         type="button"
                         onClick={() => setTodoFiltersOpen(prev => !prev)}
-                        className="flex-1 sm:flex-initial px-4 py-2 rounded-lg transition-colors border text-sm font-medium border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        className="w-full sm:w-auto px-3 py-1.5 rounded-lg transition-colors border text-xs font-medium border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
                         title="Filter the To Do list"
                         aria-haspopup="true"
                         aria-expanded={todoFiltersOpen}
@@ -2376,8 +2376,8 @@ function DashboardContent() {
 
                     <button
                       onClick={toggleTodosVisibility}
-                      className="flex-1 sm:flex-initial px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 
-                               text-gray-700 dark:text-gray-300 rounded-lg transition-colors text-sm font-medium"
+                      className="flex-1 sm:flex-initial px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 
+                               text-gray-700 dark:text-gray-300 rounded-lg transition-colors text-xs font-medium"
                     >
                       {todosVisible ? 'Hide' : 'Show'}
                     </button>
@@ -2386,16 +2386,16 @@ function DashboardContent() {
               </div>
               
               {todosVisible && (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {/* Add New Todo */}
-                  <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto] gap-2">
                     <input
                       type="text"
                       value={newTodoText}
                       onChange={(e) => setNewTodoText(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && addTodo()}
                       placeholder="Add a new task..."
-                      className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
 
                     <input
@@ -2422,8 +2422,8 @@ function DashboardContent() {
                     <button
                       onClick={addTodo}
                       disabled={!newTodoText.trim()}
-                      className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 
-                               text-white text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed"
+                      className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 
+                               text-white text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed w-full sm:w-auto"
                     >
                       <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
