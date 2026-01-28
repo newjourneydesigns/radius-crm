@@ -2229,32 +2229,33 @@ function DashboardContent() {
 
           {/* To Do List Section */}
           <div id="todo-list" className="mt-8">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 sm:p-6">
-              {/* Header with title */}
-              <div className="flex items-center justify-between mb-4 gap-3">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  To Do List
-                </h2>
-                
-                {/* Today label - hidden on mobile */}
-                <div className="hidden sm:block text-sm font-medium text-gray-600 dark:text-gray-300">
-                  {formatTodoTodayLabel(todoDayAnchor)}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
+              {/* Header with title and actions */}
+              <div className="flex flex-col gap-3 mb-4 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    To Do List
+                  </h2>
+                  
+                  {/* Today label - hidden on mobile */}
+                  <div className="hidden sm:block text-sm font-medium text-gray-600 dark:text-gray-300">
+                    {formatTodoTodayLabel(todoDayAnchor)}
+                  </div>
                 </div>
-              </div>
-              
-              {/* Control buttons - organized for mobile and desktop */}
-              <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
-                {/* Sort buttons - Top on mobile */}
-                <div className="flex items-center gap-2 order-1 sm:order-1">
-                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sort</span>
-                  <div className="flex gap-1">
+                
+                {/* Control buttons - stacked on mobile, inline on desktop */}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  {/* Sort buttons */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 mr-1">Sort:</span>
+
                     <button
                       type="button"
                       onClick={() => setTodoDueDateSort('asc')}
-                      className={`px-3 py-1.5 rounded border text-xs font-medium transition-colors ${
+                      className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
                         todoDueDateSort === 'asc'
                           ? 'bg-blue-600 border-blue-600 text-white'
-                          : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600'
+                          : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
                       }`}
                       title="Sort by due date (ascending)"
                     >
@@ -2264,110 +2265,109 @@ function DashboardContent() {
                     <button
                       type="button"
                       onClick={() => setTodoDueDateSort('desc')}
-                      className={`px-3 py-1.5 rounded border text-xs font-medium transition-colors ${
+                      className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
                         todoDueDateSort === 'desc'
                           ? 'bg-blue-600 border-blue-600 text-white'
-                          : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600'
+                          : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
                       }`}
                       title="Sort by due date (descending)"
                     >
                       Due ↓
                     </button>
                   </div>
-                </div>
-                
-                {/* Action buttons - Bottom on mobile */}
-                <div className="flex items-center gap-2 order-2 sm:order-2">
-                  <div className="relative" ref={todoFiltersRef}>
-                    <button
-                      type="button"
-                      onClick={() => setTodoFiltersOpen(prev => !prev)}
-                      className="px-3 py-1.5 rounded border text-xs font-medium border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-                      title="Filter the To Do list"
-                      aria-haspopup="true"
-                      aria-expanded={todoFiltersOpen}
-                    >
-                      <span className="sm:hidden">Filters</span>
-                      <span className="hidden sm:inline text-sm">
-                        Filters: {todoFilters.all ? 'All' : todoFilters.today && todoFilters.tomorrow && !todoFilters.overdue ? 'Today + Tomorrow' : [todoFilters.today && 'Today', todoFilters.tomorrow && 'Tomorrow', todoFilters.overdue && 'Overdue'].filter(Boolean).join(' + ') || 'Today + Tomorrow'}
-                        {todoFilters.completed ? ' + Completed' : ''}
-                      </span>
-                    </button>
+                  
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1 sm:flex-initial" ref={todoFiltersRef}>
+                      <button
+                        type="button"
+                        onClick={() => setTodoFiltersOpen(prev => !prev)}
+                        className="flex-1 sm:flex-initial px-4 py-2 rounded-lg transition-colors border text-sm font-medium border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        title="Filter the To Do list"
+                        aria-haspopup="true"
+                        aria-expanded={todoFiltersOpen}
+                      >
+                        <span className="sm:hidden">Filters</span>
+                        <span className="hidden sm:inline">
+                          Filters: {todoFilters.all ? 'All' : todoFilters.today && todoFilters.tomorrow && !todoFilters.overdue ? 'Today + Tomorrow' : [todoFilters.today && 'Today', todoFilters.tomorrow && 'Tomorrow', todoFilters.overdue && 'Overdue'].filter(Boolean).join(' + ') || 'Today + Tomorrow'}
+                          {todoFilters.completed ? ' + Completed' : ''}
+                        </span>
+                      </button>
 
-                    {todoFiltersOpen && (
-                      <div className="absolute right-0 mt-2 w-56 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg p-2 z-50">
-                        <div className="px-2 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400">Show</div>
+                      {todoFiltersOpen && (
+                        <div className="absolute right-0 mt-2 w-56 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg p-2 z-50">
+                          <div className="px-2 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400">Show</div>
 
-                        <label className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={todoFilters.today}
-                            onChange={() => toggleTodoFilter('today')}
-                            className="h-4 w-4"
-                          />
-                          <span className="text-sm text-gray-700 dark:text-gray-200">Today</span>
-                        </label>
-
-                        <label className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={todoFilters.tomorrow}
-                            onChange={() => toggleTodoFilter('tomorrow')}
-                            className="h-4 w-4"
-                          />
-                          <span className="text-sm text-gray-700 dark:text-gray-200">Tomorrow</span>
-                        </label>
-
-                        <label className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={todoFilters.overdue}
-                            onChange={() => toggleTodoFilter('overdue')}
-                            className="h-4 w-4"
-                          />
-                          <span className="text-sm text-gray-700 dark:text-gray-200">Overdue</span>
-                        </label>
-
-                        <label className="flex items-center justify-between gap-2 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
-                          <span className="flex items-center gap-2">
+                          <label className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
                             <input
                               type="checkbox"
-                              checked={todoFilters.completed}
-                              onChange={() => toggleTodoFilter('completed')}
+                              checked={todoFilters.today}
+                              onChange={() => toggleTodoFilter('today')}
                               className="h-4 w-4"
                             />
-                            <span className="text-sm text-gray-700 dark:text-gray-200">Completed</span>
-                          </span>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">{completedTodayCount}</span>
-                        </label>
+                            <span className="text-sm text-gray-700 dark:text-gray-200">Today</span>
+                          </label>
 
-                        <label className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={todoFilters.all}
-                            onChange={() => toggleTodoFilter('all')}
-                            className="h-4 w-4"
-                          />
-                          <span className="text-sm text-gray-700 dark:text-gray-200">All</span>
-                        </label>
+                          <label className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={todoFilters.tomorrow}
+                              onChange={() => toggleTodoFilter('tomorrow')}
+                              className="h-4 w-4"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-200">Tomorrow</span>
+                          </label>
 
-                        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setTodoFiltersSafe(prev => ({ ...DEFAULT_TODO_FILTERS, completed: prev.completed }));
-                              setTodoFiltersOpen(false);
-                            }}
-                            className="px-2 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-                          >
-                            Reset
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setTodoFiltersOpen(false)}
-                            className="px-2 py-1 text-xs rounded-md bg-blue-600 text-white hover:bg-blue-700"
-                          >
-                            Done
+                          <label className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={todoFilters.overdue}
+                              onChange={() => toggleTodoFilter('overdue')}
+                              className="h-4 w-4"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-200">Overdue</span>
+                          </label>
+
+                          <label className="flex items-center justify-between gap-2 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                            <span className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={todoFilters.completed}
+                                onChange={() => toggleTodoFilter('completed')}
+                                className="h-4 w-4"
+                              />
+                              <span className="text-sm text-gray-700 dark:text-gray-200">Completed</span>
+                            </span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">{completedTodayCount}</span>
+                          </label>
+
+                          <label className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={todoFilters.all}
+                              onChange={() => toggleTodoFilter('all')}
+                              className="h-4 w-4"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-200">All</span>
+                          </label>
+
+                          <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTodoFiltersSafe(prev => ({ ...DEFAULT_TODO_FILTERS, completed: prev.completed }));
+                                setTodoFiltersOpen(false);
+                              }}
+                              className="px-2 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                            >
+                              Reset
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setTodoFiltersOpen(false)}
+                              className="px-2 py-1 text-xs rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                            >
+                              Done
                             </button>
                           </div>
                         </div>
@@ -2376,8 +2376,8 @@ function DashboardContent() {
 
                     <button
                       onClick={toggleTodosVisibility}
-                      className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 
-                               text-gray-700 dark:text-gray-300 rounded border text-xs font-medium transition-colors"
+                      className="flex-1 sm:flex-initial px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 
+                               text-gray-700 dark:text-gray-300 rounded-lg transition-colors text-sm font-medium"
                     >
                       {todosVisible ? 'Hide' : 'Show'}
                     </button>
@@ -2386,45 +2386,43 @@ function DashboardContent() {
               </div>
               
               {todosVisible && (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {/* Add New Todo */}
-                  <div className="flex flex-col gap-2">
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                      <input
-                        type="text"
-                        value={newTodoText}
-                        onChange={(e) => setNewTodoText(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && addTodo()}
-                        placeholder="Add a new task..."
-                        className="sm:col-span-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                      />
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="text"
+                      value={newTodoText}
+                      onChange={(e) => setNewTodoText(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && addTodo()}
+                      placeholder="Add a new task..."
+                      className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
 
-                      <input
-                        type="date"
-                        value={newTodoDueDate}
-                        onChange={(e) => setNewTodoDueDate(e.target.value)}
-                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                        title="Optional due date"
-                      />
+                    <input
+                      type="date"
+                      value={newTodoDueDate}
+                      onChange={(e) => setNewTodoDueDate(e.target.value)}
+                      className="p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      title="Optional due date"
+                    />
 
-                      <select
-                        value={newTodoRepeatRule}
-                        onChange={(e) => setNewTodoRepeatRule(e.target.value as any)}
-                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                        title="Repeat"
-                      >
-                        <option value="none">None</option>
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
-                        <option value="yearly">Yearly</option>
-                      </select>
-                    </div>
+                    <select
+                      value={newTodoRepeatRule}
+                      onChange={(e) => setNewTodoRepeatRule(e.target.value as any)}
+                      className="p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      title="Repeat"
+                    >
+                      <option value="none">Repeat: None</option>
+                      <option value="daily">Repeat: Daily</option>
+                      <option value="weekly">Repeat: Weekly</option>
+                      <option value="monthly">Repeat: Monthly</option>
+                      <option value="yearly">Repeat: Yearly</option>
+                    </select>
 
                     <button
                       onClick={addTodo}
                       disabled={!newTodoText.trim()}
-                      className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 
+                      className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 
                                text-white text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed"
                     >
                       <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
