@@ -629,20 +629,17 @@ export default function CircleMeetingsCalendar({
 
             return (
               <>
-                {/* Mobile Layout - 3 Row Design */}
+                {/* Mobile Layout - 3 Row Stacked Design */}
                 <div className="flex flex-col gap-1.5 w-full sm:hidden">
-                  {/* Row 1: Circle Leader Name + Status Badge */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white leading-snug">
-                      {arg.event.title}
-                    </span>
+                  {/* Row 1: Circle Leader Name + Color Dot */}
+                  <div className="flex items-center gap-2">
                     <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium text-white shrink-0 ${
+                      className={`w-2 h-2 rounded-full shrink-0 ${
                         state === 'received'
-                          ? 'bg-green-600'
+                          ? 'bg-green-500'
                           : state === 'skipped'
-                          ? 'bg-amber-600'
-                          : 'bg-red-600'
+                          ? 'bg-amber-500'
+                          : 'bg-red-500'
                       }`}
                       title={
                         state === 'received'
@@ -651,14 +648,18 @@ export default function CircleMeetingsCalendar({
                           ? 'Did not meet'
                           : 'Summary not received'
                       }
-                    >
-                      {state === 'received' ? 'Received' : state === 'skipped' ? 'Skipped' : 'Pending'}
+                    />
+                    <span className="text-sm font-medium text-gray-900 dark:text-white leading-snug">
+                      {arg.event.title}
                     </span>
                   </div>
                   
-                  {/* Row 2: Time */}
+                  {/* Row 2: Time and Frequency */}
                   <div className="text-xs text-gray-500 dark:text-gray-400">
                     {arg.event.start ? DateTime.fromJSDate(arg.event.start).toLocaleString(DateTime.TIME_SIMPLE) : ''}
+                    {arg.event.extendedProps?.frequency && (
+                      <span className="ml-2">• {arg.event.extendedProps.frequency}</span>
+                    )}
                   </div>
                   
                   {/* Row 3: All Buttons Horizontal */}
