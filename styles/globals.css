@@ -198,7 +198,6 @@ a {
   margin: 0 !important;
 }
 
-/* FullCalendar list view: keep hover/focus readable in dark theme */
 .calendar-shell .fc .fc-list-event:hover td,
 .calendar-shell .fc .fc-list-event:focus-within td {
   background-color: rgba(141, 169, 196, 0.14) !important;
@@ -210,34 +209,70 @@ a {
   color: inherit !important;
 }
 
+/* List event spacing and styling */
+.calendar-shell .fc .fc-list-event {
+  border: 1px solid rgba(141, 169, 196, 0.25) !important;
+  background-color: transparent !important;
+}
+
+.calendar-shell .fc .fc-list-event td {
+  background-color: transparent !important;
+  border: none !important;
+  padding: 0.75rem 1rem !important;
+}
+
+.calendar-shell .fc .fc-list-event:not(:last-child) td {
+  border-bottom: 1px solid rgba(141, 169, 196, 0.15) !important;
+}
+
 /* Improve list view day headers */
 .calendar-shell .fc .fc-list-day-cushion {
   display: flex;
   gap: 1rem;
   align-items: center;
+  padding: 1rem !important;
 }
 
 .calendar-shell .fc .fc-list-day-frame {
   border: none !important;
+  background-color: transparent !important;
 }
 
 .calendar-shell .fc .fc-list-day-table {
   border: none !important;
+  background-color: transparent !important;
+}
+
+.calendar-shell .fc .fc-list-day-row {
+  background-color: rgba(76, 103, 133, 0.85) !important;
+  border: 1px solid rgba(141, 169, 196, 0.3) !important;
+  border-bottom: 2px solid rgba(141, 169, 196, 0.4) !important;
+  margin-bottom: 1rem !important;
 }
 
 .calendar-shell .fc .fc-list-day-side {
-  background-color: rgba(76, 103, 133, 0.6) !important;
+  background-color: transparent !important;
   color: #eef4ed !important;
-  font-weight: 600;
-  font-size: 1.1rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+  padding: 0 !important;
+  width: auto !important;
 }
 
 .calendar-shell .fc .fc-list-day-side-text {
   color: #eef4ed !important;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
-.calendar-shell .fc .fc-list-day-side-text > .fc-daygrid-day-number {
+.calendar-shell .fc .fc-list-day-side-text > * {
+  color: #eef4ed !important;
+}
+
+.calendar-shell .fc .fc-list-day-side .fc-daygrid-day-number {
   color: rgba(238, 244, 237, 0.9) !important;
+  font-size: 0.95rem;
 }
 
 .calendar-shell .fc .fc-daygrid-day-frame {
