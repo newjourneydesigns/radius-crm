@@ -628,38 +628,105 @@ export default function CircleMeetingsCalendar({
             }
 
             return (
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 w-full">
-                <div className="min-w-0 text-sm leading-snug break-words sm:truncate">{arg.event.title}</div>
-                <div className="w-full sm:w-auto flex flex-row items-center justify-between sm:justify-end gap-2 flex-wrap shrink-0">
-                  {ccbHref ? (
-                    <a
-                      href={ccbHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="h-10 sm:h-8 w-12 rounded text-[11px] sm:text-xs leading-none border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors inline-flex items-center justify-center"
-                      title="Open CCB profile"
+              <>
+                {/* Mobile Layout - 3 Row Design */}
+                <div className="flex flex-col gap-1.5 w-full sm:hidden">
+                  {/* Row 1: Circle Leader Name + Status Badge */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium text-gray-900 dark:text-white leading-snug">
+                      {arg.event.title}
+                    </span>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium text-white shrink-0 ${
+                        state === 'received'
+                          ? 'bg-green-600'
+                          : state === 'skipped'
+                          ? 'bg-amber-600'
+                          : 'bg-red-600'
+                      }`}
+                      title={
+                        state === 'received'
+                          ? 'Summary received'
+                          : state === 'skipped'
+                          ? 'Did not meet'
+                          : 'Summary not received'
+                      }
                     >
-                      CCB
-                    </a>
-                  ) : (
-                    <button
-                      type="button"
-                      aria-disabled="true"
-                      tabIndex={-1}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                      className="h-10 sm:h-8 w-12 rounded text-[11px] sm:text-xs leading-none border border-blue-200/60 dark:border-blue-800/60 text-blue-200/60 transition-colors inline-flex items-center justify-center cursor-not-allowed"
-                      title="No CCB profile link"
-                    >
-                      CCB
-                    </button>
-                  )}
-                  {renderEventSummaryButtons(leaderId, state, { compact: true })}
+                      {state === 'received' ? 'Received' : state === 'skipped' ? 'Skipped' : 'Pending'}
+                    </span>
+                  </div>
+                  
+                  {/* Row 2: Time */}
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {arg.event.start ? DateTime.fromJSDate(arg.event.start).toLocaleString(DateTime.TIME_SIMPLE) : ''}
+                  </div>
+                  
+                  {/* Row 3: All Buttons Horizontal */}
+                  <div className="flex items-center gap-2">
+                    {ccbHref ? (
+                      <a
+                        href={ccbHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="h-8 px-3 rounded text-xs font-medium leading-none border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors inline-flex items-center justify-center"
+                        title="Open CCB profile"
+                      >
+                        CCB
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        aria-disabled="true"
+                        tabIndex={-1}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        className="h-8 px-3 rounded text-xs font-medium leading-none border border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 transition-colors inline-flex items-center justify-center cursor-not-allowed opacity-50"
+                        title="No CCB profile link"
+                      >
+                        CCB
+                      </button>
+                    )}
+                    {renderEventSummaryButtons(leaderId, state, { compact: true })}
+                  </div>
                 </div>
-              </div>
+
+                {/* Desktop Layout - Original Horizontal Design */}
+                <div className="hidden sm:flex sm:items-center justify-between gap-2 w-full">
+                  <div className="min-w-0 text-sm leading-snug break-words sm:truncate">{arg.event.title}</div>
+                  <div className="w-auto flex flex-row items-center justify-end gap-2 shrink-0">
+                    {ccbHref ? (
+                      <a
+                        href={ccbHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="h-8 w-12 rounded text-xs leading-none border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors inline-flex items-center justify-center"
+                        title="Open CCB profile"
+                      >
+                        CCB
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        aria-disabled="true"
+                        tabIndex={-1}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        className="h-8 w-12 rounded text-xs leading-none border border-blue-200/60 dark:border-blue-800/60 text-blue-200/60 transition-colors inline-flex items-center justify-center cursor-not-allowed"
+                        title="No CCB profile link"
+                      >
+                        CCB
+                      </button>
+                    )}
+                    {renderEventSummaryButtons(leaderId, state, { compact: true })}
+                  </div>
+                </div>
+              </>
             );
           }}
           datesSet={(arg) => {
