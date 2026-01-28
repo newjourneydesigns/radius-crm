@@ -725,7 +725,64 @@ export default function CircleMeetingsCalendar({
                     `flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 border-l-4 ${stateBorderClass}`
                   }
                 >
-                  <div className="min-w-0">
+                  {/* Mobile Layout */}
+                  <div className="flex flex-col gap-2 sm:hidden">
+                    {/* Row 1: Circle Leader Name with Status Color */}
+                    <div className="flex items-center gap-2">
+                      {ccbHref ? (
+                        <a
+                          href={ccbHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline"
+                          title="Open CCB profile"
+                        >
+                          {ev.title}
+                        </a>
+                      ) : (
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">{ev.title}</div>
+                      )}
+                      <span
+                        className={`text-[11px] px-2 py-1 rounded text-white ${stateBadgeClass} shrink-0`}
+                        title={stateLabel}
+                      >
+                        {stateLabel}
+                      </span>
+                    </div>
+                    
+                    {/* Row 2: Time of Meeting */}
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{timeLabel}</div>
+                    
+                    {/* Row 3: Buttons - CCB, No, Yes, Skip */}
+                    <div className="flex items-center gap-2">
+                      {ccbHref ? (
+                        <a
+                          href={ccbHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs px-3 py-2 rounded border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                        >
+                          CCB
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          className="text-xs px-3 py-2 rounded border border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                        >
+                          CCB
+                        </button>
+                      )}
+                      {leaderId && onSetEventSummaryState && (
+                        <div className="flex-1">
+                          {renderEventSummaryButtons(leaderId, eventSummaryState)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Desktop Layout */}
+                  <div className="hidden sm:block min-w-0">
                     <div className="text-xs text-gray-500 dark:text-gray-400">{timeLabel}</div>
                     {ccbHref ? (
                       <a
@@ -747,15 +804,15 @@ export default function CircleMeetingsCalendar({
                     )}
                   </div>
 
-                  <div className="w-full sm:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+                  <div className="hidden sm:flex w-auto items-center gap-2 shrink-0">
                     {leaderId && onSetEventSummaryState && (
-                      <div className="order-2 sm:order-1">
+                      <div className="order-1">
                         {renderEventSummaryButtons(leaderId, eventSummaryState)}
                       </div>
                     )}
 
                     <span
-                      className={`order-1 sm:order-2 text-[11px] px-2 py-1 rounded text-white ${stateBadgeClass} self-start sm:self-auto`}
+                      className={`order-2 text-[11px] px-2 py-1 rounded text-white ${stateBadgeClass}`}
                       title={stateLabel}
                     >
                       {stateLabel}
@@ -765,7 +822,7 @@ export default function CircleMeetingsCalendar({
                         href={ccbHref}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs px-2 py-2 sm:py-1 rounded border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                        className="text-xs px-2 py-1 rounded border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30"
                       >
                         CCB
                       </a>
@@ -774,7 +831,7 @@ export default function CircleMeetingsCalendar({
                       <button
                         type="button"
                         onClick={() => router.push(`/circle/${leaderId}`)}
-                        className="text-xs px-2 py-2 sm:py-1 rounded border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        className="text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                         title="Open circle leader page"
                       >
                         Open
