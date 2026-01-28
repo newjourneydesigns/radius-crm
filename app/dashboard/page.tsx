@@ -2295,77 +2295,77 @@ function DashboardContent() {
                       </button>
 
                       {todoFiltersOpen && (
-                        <div className="absolute right-0 mt-2 w-56 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg p-2 z-50">
-                          <div className="px-2 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400">Show</div>
+                        <div className="absolute right-0 mt-2 w-56 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 shadow-xl p-3 z-50">
+                          <div className="px-2 py-1.5 mb-2 text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 pb-2">Show</div>
 
-                          <label className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                          <label className="flex items-center gap-2 px-3 py-2.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors">
                             <input
                               type="checkbox"
                               checked={todoFilters.today}
                               onChange={() => toggleTodoFilter('today')}
-                              className="h-4 w-4"
+                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
                             />
-                            <span className="text-sm text-gray-700 dark:text-gray-200">Today</span>
+                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Today</span>
                           </label>
 
-                          <label className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                          <label className="flex items-center gap-2 px-3 py-2.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors">
                             <input
                               type="checkbox"
                               checked={todoFilters.tomorrow}
                               onChange={() => toggleTodoFilter('tomorrow')}
-                              className="h-4 w-4"
+                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
                             />
-                            <span className="text-sm text-gray-700 dark:text-gray-200">Tomorrow</span>
+                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Tomorrow</span>
                           </label>
 
-                          <label className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                          <label className="flex items-center gap-2 px-3 py-2.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors">
                             <input
                               type="checkbox"
                               checked={todoFilters.overdue}
                               onChange={() => toggleTodoFilter('overdue')}
-                              className="h-4 w-4"
+                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
                             />
-                            <span className="text-sm text-gray-700 dark:text-gray-200">Overdue</span>
+                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Overdue</span>
                           </label>
 
-                          <label className="flex items-center justify-between gap-2 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                          <label className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors">
                             <span className="flex items-center gap-2">
                               <input
                                 type="checkbox"
                                 checked={todoFilters.completed}
                                 onChange={() => toggleTodoFilter('completed')}
-                                className="h-4 w-4"
+                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
                               />
-                              <span className="text-sm text-gray-700 dark:text-gray-200">Completed</span>
+                              <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Completed</span>
                             </span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">{completedTodayCount}</span>
+                            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">{completedTodayCount}</span>
                           </label>
 
-                          <label className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                          <label className="flex items-center gap-2 px-3 py-2.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors">
                             <input
                               type="checkbox"
                               checked={todoFilters.all}
                               onChange={() => toggleTodoFilter('all')}
-                              className="h-4 w-4"
+                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
                             />
-                            <span className="text-sm text-gray-700 dark:text-gray-200">All</span>
+                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">All</span>
                           </label>
 
-                          <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2">
                             <button
                               type="button"
                               onClick={() => {
                                 setTodoFiltersSafe(prev => ({ ...DEFAULT_TODO_FILTERS, completed: prev.completed }));
                                 setTodoFiltersOpen(false);
                               }}
-                              className="px-2 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                              className="px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                             >
                               Reset
                             </button>
                             <button
                               type="button"
                               onClick={() => setTodoFiltersOpen(false)}
-                              className="px-2 py-1 text-xs rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                              className="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
                             >
                               Done
                             </button>
