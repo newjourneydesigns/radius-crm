@@ -631,24 +631,8 @@ export default function CircleMeetingsCalendar({
               <>
                 {/* Mobile Layout - 3 Row Stacked Design */}
                 <div className="flex flex-col gap-1.5 w-full sm:hidden">
-                  {/* Row 1: Circle Leader Name + Color Dot */}
+                  {/* Row 1: Circle Leader Name */}
                   <div className="flex items-center gap-2">
-                    <span
-                      className={`w-2 h-2 rounded-full shrink-0 ${
-                        state === 'received'
-                          ? 'bg-green-500'
-                          : state === 'skipped'
-                          ? 'bg-amber-500'
-                          : 'bg-red-500'
-                      }`}
-                      title={
-                        state === 'received'
-                          ? 'Summary received'
-                          : state === 'skipped'
-                          ? 'Did not meet'
-                          : 'Summary not received'
-                      }
-                    />
                     <span className="text-sm font-medium text-gray-900 dark:text-white leading-snug">
                       {arg.event.title}
                     </span>
