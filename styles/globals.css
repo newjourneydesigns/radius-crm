@@ -210,6 +210,40 @@ a {
   color: inherit !important;
 }
 
+/* Improve list view day headers */
+.calendar-shell .fc .fc-list-day-cushion {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.calendar-shell .fc .fc-list-day-frame {
+  border: none !important;
+}
+
+.calendar-shell .fc .fc-list-day-table {
+  border: none !important;
+}
+
+.calendar-shell .fc .fc-list-day-side {
+  background-color: rgba(76, 103, 133, 0.6) !important;
+  color: #eef4ed !important;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.calendar-shell .fc .fc-list-day-side-text {
+  color: #eef4ed !important;
+}
+
+.calendar-shell .fc .fc-list-day-side-text > .fc-daygrid-day-number {
+  color: rgba(238, 244, 237, 0.9) !important;
+}
+
+.calendar-shell .fc .fc-daygrid-day-frame {
+  border: none !important;
+}
+
 @media (max-width: 640px) {
   .calendar-shell .fc .fc-button {
     padding: 0.35rem 0.5rem;
