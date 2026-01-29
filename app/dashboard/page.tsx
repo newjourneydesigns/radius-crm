@@ -1514,6 +1514,7 @@ function DashboardContent() {
   const statusData = useMemo(() => {
     const statusCounts = {
       'Invited': 0,
+      'On-boarding': 0,
       'Pipeline': 0,
       'Active': 0,
       'Follow-Up': 0,
@@ -1537,6 +1538,7 @@ function DashboardContent() {
       const status = leader.status;
       
       if (status === 'invited') statusCounts['Invited']++;
+      else if (status === 'on-boarding') statusCounts['On-boarding']++;
       else if (status === 'pipeline') statusCounts['Pipeline']++;
       else if (status === 'active') statusCounts['Active']++;
       else if (status === 'paused') statusCounts['Paused']++;
@@ -1551,6 +1553,7 @@ function DashboardContent() {
     // Convert to the format expected by CircleStatusBar
     return [
       { status: 'Invited' as const, count: statusCounts['Invited'], color: 'bg-blue-500' },
+      { status: 'On-boarding' as const, count: statusCounts['On-boarding'], color: 'bg-cyan-500' },
       { status: 'Pipeline' as const, count: statusCounts['Pipeline'], color: 'bg-indigo-500' },
       { status: 'Active' as const, count: statusCounts['Active'], color: 'bg-green-500' },
       { status: 'Follow-Up' as const, count: statusCounts['Follow-Up'], color: 'bg-orange-500' },
@@ -1861,6 +1864,7 @@ function DashboardContent() {
     // Map display status to filter values
     const statusMap: Record<string, string[]> = {
       'Invited': ['invited'],
+      'On-boarding': ['on-boarding'],
       'Pipeline': ['pipeline'],
       'Active': ['active'],
       'Follow-Up': ['follow-up'],
@@ -2367,6 +2371,7 @@ function DashboardContent() {
                       type="date"
                       value={newTodoDueDate}
                       onChange={(e) => setNewTodoDueDate(e.target.value)}
+                      placeholder="Due date (optional)"
                       className="p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       title="Optional due date"
                     />

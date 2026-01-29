@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 
-type Status = 'Invited' | 'Pipeline' | 'Active' | 'Follow-Up' | 'Paused' | 'Off-Boarding' | 'Recording';
+type Status = 'Invited' | 'On-boarding' | 'Pipeline' | 'Active' | 'Follow-Up' | 'Paused' | 'Off-Boarding' | 'Recording';
 
 interface StatusData {
-  status: 'Invited' | 'Pipeline' | 'Active' | 'Follow-Up' | 'Paused' | 'Off-Boarding';
+  status: 'Invited' | 'On-boarding' | 'Pipeline' | 'Active' | 'Follow-Up' | 'Paused' | 'Off-Boarding';
   count: number;
   color: string;
 }

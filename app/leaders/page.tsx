@@ -154,16 +154,6 @@ function LeadersContent() {
         setCircleTypes(data.circleTypes || []);
         setFrequencies(ensureDefaultFrequencies(data.frequencies || []));
 
-        // Load connections for connected filter
-        const { data: connectionsData, error: connectionsError } = await supabase
-          .from('connections')
-          .select('circle_leader_id');
-          
-        if (!connectionsError && connectionsData) {
-          const connectedIds = new Set(connectionsData.map(c => c.circle_leader_id));
-          setConnectedLeaderIds(connectedIds);
-        }
-
       } catch (error) {
         console.error('Error loading reference data:', error);
         // Fallback data when API fails
@@ -177,6 +167,9 @@ function LeadersContent() {
           { id: 7, value: 'off-boarding' },
           { id: 8, value: 'archive' }
         ]);
+        
+        // Set default frequencies as fallback
+        setFrequencies(ensureDefaultFrequencies([]));
 
         // Also derive campuses/directors/circleTypes from actual circle_leaders data
         // (keeps filter options usable even if the API route is unavailable)
@@ -204,6 +197,36 @@ function LeadersContent() {
     };
 
     loadReferenceData();
+  }, []);
+
+  // Load connections for connected filter (separate effect so it runs even if reference data fails)
+  useEffect(() => {
+    const loadConnections = async () => {
+      try {
+        const now = new Date();
+        const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        const startDate = firstDayOfMonth.toISOString().split('T')[0];
+        const endDate = lastDayOfMonth.toISOString().split('T')[0];
+        
+        const { data: connectionsData, error: connectionsError } = await supabase
+          .from('connections')
+          .select('circle_leader_id')
+          .gte('date_of_connection', startDate)
+          .lte('date_of_connection', endDate);
+          
+        if (!connectionsError && connectionsData) {
+          const connectedIds = new Set(connectionsData.map(c => c.circle_leader_id));
+          setConnectedLeaderIds(connectedIds);
+        } else if (connectionsError) {
+          console.error('Error loading connections:', connectionsError);
+        }
+      } catch (error) {
+        console.error('🔍 Error in loadConnections:', error);
+      }
+    };
+
+    loadConnections();
   }, []);
 
   // Load circle leaders when filters change
@@ -427,8 +450,30 @@ function LeadersContent() {
     }
   };
 
-  const handleConnectionLogged = () => {
+  const handleConnectionLogged = async () => {
     invalidateCache();
+    
+    // Reload connections data to update the connected filter (current month only)
+    try {
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const startDate = firstDayOfMonth.toISOString().split('T')[0];
+      const endDate = lastDayOfMonth.toISOString().split('T')[0];
+      
+      const { data: connectionsData, error: connectionsError } = await supabase
+        .from('connections')
+        .select('circle_leader_id')
+        .gte('date_of_connection', startDate)
+        .lte('date_of_connection', endDate);
+        
+      if (!connectionsError && connectionsData) {
+        const connectedIds = new Set(connectionsData.map(c => c.circle_leader_id));
+        setConnectedLeaderIds(connectedIds);
+      }
+    } catch (error) {
+      console.error('Error reloading connections:', error);
+    }
     
     // Preserve current filters when reloading
     const filtersToApply = {
@@ -628,7 +673,7 @@ function LeadersContent() {
                 {/* Connected Tag */}
                 {filters.connected !== 'all' && (
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200">
-                    Connected: {filters.connected === 'yes' ? 'Yes' : 'No'}
+                    Connected: {filters.connected === 'connected' ? 'This Month' : 'Not This Month'}
                     <button
                       onClick={() => updateFilters({...filters, connected: 'all'})}
                       className="ml-1.5 h-3 w-3 rounded-full inline-flex items-center justify-center text-teal-400 hover:bg-teal-200 hover:text-teal-600 dark:hover:bg-teal-800"

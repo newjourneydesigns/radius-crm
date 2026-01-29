@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { useAuth } from "../../contexts/AuthContext";
 import GlobalSearch from './GlobalSearch';
 
@@ -10,6 +11,7 @@ export default function AuthenticatedNavigation() {
   const { user, signOut, isAuthenticated } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -53,19 +55,31 @@ export default function AuthenticatedNavigation() {
             <GlobalSearch />
             <Link 
               href="/dashboard" 
-              className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                pathname === '/dashboard' 
+                  ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' 
+                  : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+              }`}
             >
               Dashboard
             </Link>
             <Link 
               href="/leaders" 
-              className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                pathname === '/leaders' 
+                  ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' 
+                  : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+              }`}
             >
               Leaders
             </Link>
             <Link 
               href="/calendar" 
-              className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                pathname === '/calendar' 
+                  ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' 
+                  : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+              }`}
             >
               Calendar
             </Link>

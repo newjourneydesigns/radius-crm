@@ -14,6 +14,8 @@ import AlertModal from '../../../components/ui/AlertModal';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 import LogConnectionModal from '../../../components/dashboard/LogConnectionModal';
 import NoteTemplateModal from '../../../components/dashboard/NoteTemplateModal';
+import ConnectPersonModal from '../../../components/modals/ConnectPersonModal';
+import EventSummaryReminderModal from '../../../components/modals/EventSummaryReminderModal';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 
 // Helper function to format time to AM/PM
@@ -253,6 +255,9 @@ export default function CircleLeaderProfilePage() {
   const [leaderError, setLeaderError] = useState('');
   const [directors, setDirectors] = useState<Array<{id: number, name: string}>>([]);
   const [showLogConnectionModal, setShowLogConnectionModal] = useState(false);
+  const [showConnectPersonModal, setShowConnectPersonModal] = useState(false);
+  const [showEventSummaryReminderModal, setShowEventSummaryReminderModal] = useState(false);
+  const [sentReminderMessages, setSentReminderMessages] = useState<number[]>([]);
   
   // Reference data state
   const [campuses, setCampuses] = useState<Array<{id: number, value: string}>>([]);
@@ -649,6 +654,193 @@ export default function CircleLeaderProfilePage() {
     window.open(mailtoUrl, '_blank');
   };
 
+  // Load sent reminder messages for this week
+  useEffect(() => {
+    const loadSentReminderMessages = async () => {
+      if (!leaderId) return;
+
+      try {
+        // Get the current week's Saturday boundary at 11:59:59 PM CT
+        // Week runs from Saturday 11:59:59 PM CT to next Saturday 11:59:59 PM CT
+        const now = new Date();
+        
+        // Convert to Central Time
+        const ctTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+        
+        // Find the most recent Saturday at 11:59:59 PM CT
+        const dayOfWeek = ctTime.getDay(); // 0 = Sunday, 6 = Saturday
+        let daysToLastSaturday = dayOfWeek === 6 ? 0 : (dayOfWeek + 1);
+        
+        const lastSaturday = new Date(ctTime);
+        lastSaturday.setDate(ctTime.getDate() - daysToLastSaturday);
+        lastSaturday.setHours(23, 59, 59, 999); // 11:59:59 PM
+        
+        // If we haven't passed Saturday 11:59:59 PM yet this week, use previous Saturday
+        if (ctTime < lastSaturday) {
+          lastSaturday.setDate(lastSaturday.getDate() - 7);
+        }
+        
+        const weekStartStr = lastSaturday.toISOString().split('T')[0];
+
+        // Query followups for this leader and this week
+        const { data, error } = await supabase
+          .from('event_summary_followups')
+          .select('message_number')
+          .eq('circle_leader_id', leaderId)
+          .eq('week_start_date', weekStartStr);
+
+        if (data && !error) {
+          setSentReminderMessages(data.map(row => row.message_number));
+        }
+      } catch (error) {
+        console.error('Error loading sent reminder messages:', error);
+      }
+    };
+
+    loadSentReminderMessages();
+  }, [leaderId, leader?.event_summary_received, leader?.event_summary_skipped]);
+
+  // Helper function to get week start date (Saturday at 11:59:59 PM CT)
+  const getWeekStartDate = () => {
+    const now = new Date();
+    
+    // Convert to Central Time
+    const ctTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+    
+    // Find the most recent Saturday at 11:59:59 PM CT
+    const dayOfWeek = ctTime.getDay(); // 0 = Sunday, 6 = Saturday
+    let daysToLastSaturday = dayOfWeek === 6 ? 0 : (dayOfWeek + 1);
+    
+    const lastSaturday = new Date(ctTime);
+    lastSaturday.setDate(ctTime.getDate() - daysToLastSaturday);
+    lastSaturday.setHours(23, 59, 59, 999); // 11:59:59 PM
+    
+    // If we haven't passed Saturday 11:59:59 PM yet this week, use previous Saturday
+    if (ctTime < lastSaturday) {
+      lastSaturday.setDate(lastSaturday.getDate() - 7);
+    }
+    
+    return lastSaturday.toISOString().split('T')[0];
+  };
+
+  const handleSendEventSummaryReminder = async (messageNumber: number, messageText: string) => {
+    if (!leader || !user?.id) return;
+
+    try {
+      const today = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+
+      // Create note with timestamp and message number
+      const noteContent = `[Event Summary Reminder ${messageNumber} - ${today}]\n\n${messageText}`;
+
+      // Save to notes
+      const { error: noteError } = await supabase
+        .from('notes')
+        .insert({
+          circle_leader_id: leaderId,
+          content: noteContent,
+          created_by: user.id
+        });
+
+      if (noteError) throw noteError;
+
+      // Save to event_summary_followups for tracking
+      const { error: followupError } = await supabase
+        .from('event_summary_followups')
+        .insert({
+          circle_leader_id: leaderId,
+          message_number: messageNumber,
+          sent_by: user.id,
+          week_start_date: getWeekStartDate()
+        });
+
+      if (followupError) throw followupError;
+
+      // Update sent messages state
+      setSentReminderMessages(prev => [...prev, messageNumber]);
+
+      // Reload notes to show the new one
+      await reloadNotes();
+
+      // Open Messages app if leader has phone
+      if (leader.phone) {
+        const cleanPhone = leader.phone.replace(/\D/g, '');
+        const encodedMessage = encodeURIComponent(messageText);
+        const smsUrl = `sms:${cleanPhone}&body=${encodedMessage}`;
+        window.location.href = smsUrl;
+      }
+
+      // Show success message
+      setShowAlert({
+        isOpen: true,
+        type: 'success',
+        title: 'Reminder Sent',
+        message: leader.phone 
+          ? 'The reminder has been saved to notes and Messages app opened.' 
+          : 'The reminder has been saved to notes.'
+      });
+    } catch (error) {
+      console.error('Error sending reminder:', error);
+      throw error;
+    }
+  };
+
+  const handleConnectPerson = async (personName: string, phone: string, email: string, message: string) => {
+    if (!leader || !user?.id) return;
+
+    try {
+      // Get today's date
+      const today = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+
+      // Create note with timestamp
+      const noteContent = `[Connect Person Referral - ${today}]\n\n${message}`;
+
+      // Save to notes
+      const { data, error } = await supabase
+        .from('notes')
+        .insert({
+          circle_leader_id: leaderId,
+          content: noteContent,
+          created_by: user.id
+        })
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      // Reload notes to show the new one
+      await reloadNotes();
+
+      // Open Messages app if leader has phone
+      if (leader.phone) {
+        const cleanPhone = leader.phone.replace(/\D/g, '');
+        const encodedMessage = encodeURIComponent(message);
+        const smsUrl = `sms:${cleanPhone}&body=${encodedMessage}`;
+        window.location.href = smsUrl;
+      }
+
+      // Show success message
+      setShowAlert({
+        isOpen: true,
+        type: 'success',
+        title: 'Referral Saved',
+        message: leader.phone 
+          ? 'The referral has been saved to notes and Messages app opened.' 
+          : 'The referral has been saved to notes.'
+      });
+    } catch (error) {
+      console.error('Error saving referral:', error);
+      throw error; // Re-throw so modal can show error
+    }
+  };
+
   const handleSendSMS = () => {
     if (!leader) return;
     
@@ -781,6 +973,11 @@ export default function CircleLeaderProfilePage() {
 
       if (!error) {
         setLeader(prev => prev ? { ...prev, ...payload } : null);
+
+        // Clear sent reminder messages when status changes to received or skipped
+        if (nextState === 'received' || nextState === 'skipped') {
+          setSentReminderMessages([]);
+        }
 
         const statusText = nextState === 'received'
           ? 'marked as received'
@@ -1433,6 +1630,26 @@ export default function CircleLeaderProfilePage() {
               Log Connection
             </button>
             
+            <button 
+              onClick={() => setShowConnectPersonModal(true)}
+              className="w-full flex items-center px-3 py-2 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/30 rounded text-sm"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              </svg>
+              Connect New Person
+            </button>
+            
+            <button 
+              onClick={() => setShowEventSummaryReminderModal(true)}
+              className="w-full flex items-center px-3 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded text-sm"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              Event Summary Reminder
+            </button>
+            
             {/* CCB Profile Link */}
             {leader?.ccb_profile_link && (
               <a 
@@ -2032,6 +2249,26 @@ export default function CircleLeaderProfilePage() {
                   Log Connection
                 </button>
                 
+                <button 
+                  onClick={() => setShowConnectPersonModal(true)}
+                  className="w-full flex items-center px-3 py-2 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/30 rounded text-sm"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                  </svg>
+                  Connect New Person
+                </button>
+                
+                <button 
+                  onClick={() => setShowEventSummaryReminderModal(true)}
+                  className="w-full flex items-center px-3 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded text-sm"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  Event Summary Reminder
+                </button>
+                
                 {/* CCB Profile Link */}
                 {leader?.ccb_profile_link && (
                   <a 
@@ -2310,6 +2547,24 @@ export default function CircleLeaderProfilePage() {
             message: 'Connection has been successfully logged.'
           });
         }}
+      />
+
+      {/* Connect Person Modal */}
+      <ConnectPersonModal
+        isOpen={showConnectPersonModal}
+        onClose={() => setShowConnectPersonModal(false)}
+        leaderName={leader?.name || ''}
+        currentUserName={user?.name || ''}
+        onSend={handleConnectPerson}
+      />
+
+      {/* Event Summary Reminder Modal */}
+      <EventSummaryReminderModal
+        isOpen={showEventSummaryReminderModal}
+        onClose={() => setShowEventSummaryReminderModal(false)}
+        leaderName={leader?.name || ''}
+        sentMessages={sentReminderMessages}
+        onSend={handleSendEventSummaryReminder}
       />
 
       {/* Delete Circle Leader Confirmation Modal */}
