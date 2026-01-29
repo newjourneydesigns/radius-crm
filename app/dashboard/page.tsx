@@ -90,7 +90,7 @@ function DashboardContent() {
   const [editingTodoText, setEditingTodoText] = useState('');
   const [editingTodoDueDate, setEditingTodoDueDate] = useState('');
   const [editingTodoRepeatRule, setEditingTodoRepeatRule] = useState<TodoRepeatRule>('none');
-  const [todoDueDateSort, setTodoDueDateSort] = useState<'none' | 'asc' | 'desc'>('asc');
+  // Todos are always sorted earliest to latest with no-date todos at the end
   type TodoListFilters = { today: boolean; tomorrow: boolean; overdue: boolean; completed: boolean; all: boolean };
   const DEFAULT_TODO_FILTERS: TodoListFilters = { today: true, tomorrow: true, overdue: false, completed: false, all: false };
   const [todosVisible, setTodosVisible] = useState(() => {
@@ -830,9 +830,6 @@ function DashboardContent() {
   };
 
   const sortedTodos = useMemo(() => {
-    if (todoDueDateSort === 'none') return todos;
-
-    const dir = todoDueDateSort;
     return [...todos].sort((a, b) => {
       const aDate = a.due_date || null;
       const bDate = b.due_date || null;
@@ -846,9 +843,9 @@ function DashboardContent() {
       const bTime = new Date(bDate).getTime();
       if (aTime === bTime) return 0;
 
-      return dir === 'asc' ? aTime - bTime : bTime - aTime;
+      return aTime - bTime; // Always ascending (earliest to latest)
     });
-  }, [todos, todoDueDateSort]);
+  }, [todos]);
   
   const displayTodos = useMemo(() => {
     const idOrder = new Map<number, number>();
@@ -2228,56 +2225,33 @@ function DashboardContent() {
           )}
 
           {/* To Do List Section */}
-          <div id="todo-list" className="mt-8">
+          <div id="todo-list" className="mt-8 relative z-10">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 sm:p-6">
               {/* Header with title and actions */}
               <div className="flex flex-col gap-2 mb-4">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    To Do List
-                  </h2>
-                  
-                  {/* Today label - compact on mobile */}
-                  <div className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-300">
-                    {formatTodoTodayLabel(todoDayAnchor)}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      To Do List
+                    </h2>
+                    
+                    {/* Today label - compact on mobile */}
+                    <div className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-300">
+                      {formatTodoTodayLabel(todoDayAnchor)}
+                    </div>
                   </div>
+                  
+                  <button
+                    onClick={toggleTodosVisibility}
+                    className="text-sm px-3 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 
+                             text-gray-700 dark:text-gray-300 rounded-md transition-colors"
+                  >
+                    {todosVisible ? 'Hide' : 'Show'}
+                  </button>
                 </div>
                 
-                {/* Control buttons - Sort on top row, Filters/Hide on bottom row */}
-                <div className="flex flex-col gap-2">
-                  {/* Sort buttons - top row */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Sort</span>
-
-                    <button
-                      type="button"
-                      onClick={() => setTodoDueDateSort('asc')}
-                      className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
-                        todoDueDateSort === 'asc'
-                          ? 'bg-blue-600 border-blue-600 text-white'
-                          : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
-                      }`}
-                      title="Sort by due date (ascending)"
-                    >
-                      Due ↑
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setTodoDueDateSort('desc')}
-                      className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
-                        todoDueDateSort === 'desc'
-                          ? 'bg-blue-600 border-blue-600 text-white'
-                          : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
-                      }`}
-                      title="Sort by due date (descending)"
-                    >
-                      Due ↓
-                    </button>
-                  </div>
-                  
-                  {/* Filters and Hide buttons - bottom row */}
-                  <div className="flex items-center gap-2">
+                {/* Filters */}
+                <div className="flex items-center gap-2">
                     <div className="relative flex-1 sm:flex-initial" ref={todoFiltersRef}>
                       <button
                         type="button"
@@ -2295,7 +2269,7 @@ function DashboardContent() {
                       </button>
 
                       {todoFiltersOpen && (
-                        <div className="absolute right-0 mt-2 w-56 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 shadow-xl p-3 z-50">
+                        <div className="absolute left-0 mt-2 w-56 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 shadow-xl p-3 z-[9999]">
                           <div className="px-2 py-1.5 mb-2 text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 pb-2">Show</div>
 
                           <label className="flex items-center gap-2 px-3 py-2.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors">
@@ -2373,16 +2347,7 @@ function DashboardContent() {
                         </div>
                       )}
                     </div>
-
-                    <button
-                      onClick={toggleTodosVisibility}
-                      className="flex-1 sm:flex-initial px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 
-                               text-gray-700 dark:text-gray-300 rounded-lg transition-colors text-xs font-medium"
-                    >
-                      {todosVisible ? 'Hide' : 'Show'}
-                    </button>
                   </div>
-                </div>
               </div>
               
               {todosVisible && (
