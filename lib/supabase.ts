@@ -74,7 +74,7 @@ export interface CircleLeader {
   phone?: string;
   campus?: string;
   acpd?: string;
-  status?: 'invited' | 'pipeline' | 'active' | 'paused' | 'off-boarding';
+  status?: 'invited' | 'on-boarding' | 'pipeline' | 'active' | 'paused' | 'off-boarding';
   day?: string;
   time?: string;
   frequency?: string;

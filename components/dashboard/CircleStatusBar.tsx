@@ -37,10 +37,11 @@ export default function CircleStatusBar({ data, total, onStatusClick }: CircleSt
 
   const handleSegmentHover = (event: React.MouseEvent, statusData: StatusData) => {
     const rect = event.currentTarget.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
     setTooltip({
       status: statusData.status,
       count: statusData.count,
-      x: event.clientX,
+      x: centerX,
       y: rect.top - 10
     });
   };
