@@ -88,9 +88,18 @@ function CalendarPageContent() {
 
         setFrequencies(ensureDefaultFrequencies(data.frequencies || []));
 
+        // Query connections for current month only (consistent with dashboard and leaders page)
+        const now = new Date();
+        const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        const startDate = firstDayOfMonth.toISOString().split('T')[0];
+        const endDate = lastDayOfMonth.toISOString().split('T')[0];
+
         const { data: connectionsData, error: connectionsError } = await supabase
           .from('connections')
-          .select('circle_leader_id');
+          .select('circle_leader_id')
+          .gte('date_of_connection', startDate)
+          .lte('date_of_connection', endDate);
 
         if (!connectionsError && connectionsData) {
           setConnectedLeaderIds(new Set(connectionsData.map(c => c.circle_leader_id)));
