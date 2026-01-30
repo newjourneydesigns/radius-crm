@@ -159,7 +159,73 @@ export async function POST(request: Request) {
         {
           error: 'CCB authentication failed',
           code: 'CCB_AUTH_FAILED',
-          hint: 'Verify CCB_API_USERNAME / CCB_API_PASSWORD are correct for the configured subdomain.',
+          hint: 'Verify CCB_API_USERNAME / CCB_API_PASSWORD are correct for the configured subdomain. If credentials are correct, CCB may be blocking Netlify outbound IPs.',
+          requestId,
+        },
+        { status: 502 }
+      );
+    }
+
+    // Rate limiting
+    if (/Rate limited \(429\)/i.test(message) || /HTTP\s+429/i.test(message)) {
+      return NextResponse.json(
+        {
+          error: 'CCB rate limit hit',
+          code: 'CCB_RATE_LIMITED',
+          hint: 'CCB is rate-limiting requests. Wait a minute and try again, or reduce request volume.',
+          requestId,
+        },
+        { status: 429 }
+      );
+    }
+
+    // Network / timeout issues
+    if (/timeout|ECONNABORTED/i.test(message)) {
+      return NextResponse.json(
+        {
+          error: 'CCB request timed out',
+          code: 'CCB_TIMEOUT',
+          hint: 'CCB did not respond in time. This can happen if CCB is slow or blocking serverless traffic. Try again, and check Netlify function logs for requestId.',
+          requestId,
+        },
+        { status: 504 }
+      );
+    }
+
+    if (/ENOTFOUND|EAI_AGAIN|getaddrinfo/i.test(message)) {
+      return NextResponse.json(
+        {
+          error: 'CCB DNS lookup failed',
+          code: 'CCB_DNS_FAILED',
+          hint: 'The server could not resolve the CCB hostname. Double-check CCB_SUBDOMAIN and try redeploying. If correct, this may be a transient Netlify/DNS issue.',
+          requestId,
+        },
+        { status: 502 }
+      );
+    }
+
+    if (/ECONNREFUSED|socket hang up|ETIMEDOUT/i.test(message)) {
+      return NextResponse.json(
+        {
+          error: 'Could not connect to CCB',
+          code: 'CCB_CONNECTION_FAILED',
+          hint: 'The server could not reach CCB. If CCB is up, it may be blocking Netlify outbound traffic or requiring IP allowlisting.',
+          requestId,
+        },
+        { status: 502 }
+      );
+    }
+
+    // Upstream returned a 4xx (bad request, forbidden, etc.)
+    const httpMatch = message.match(/HTTP\s+(\d{3})/i);
+    if (httpMatch) {
+      const upstreamStatus = Number(httpMatch[1]);
+      return NextResponse.json(
+        {
+          error: 'CCB returned an error response',
+          code: 'CCB_UPSTREAM_ERROR',
+          upstreamStatus,
+          hint: 'CCB rejected the request. If this persists, verify CCB credentials, subdomain, and that the attendance APIs are enabled for this account.',
           requestId,
         },
         { status: 502 }
