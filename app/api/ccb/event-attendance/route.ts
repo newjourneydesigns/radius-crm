@@ -220,6 +220,7 @@ export async function POST(request: Request) {
     const httpMatch = message.match(/HTTP\s+(\d{3})/i);
     if (httpMatch) {
       const upstreamStatus = Number(httpMatch[1]);
+      console.error(`❌ CCB Upstream Error (${requestId}): HTTP ${upstreamStatus}`);
       return NextResponse.json(
         {
           error: 'CCB returned an error response',

@@ -106,6 +106,7 @@ export default function EventExplorerModal({
 
       if (!response.ok) {
         const parts = [result?.error || 'Failed to fetch data'];
+        if (typeof result?.upstreamStatus === 'number') parts.push(`HTTP ${result.upstreamStatus}`);
         if (result?.hint) parts.push(result.hint);
         if (result?.code) parts.push(`(${result.code})`);
         if (result?.requestId) parts.push(`Request: ${result.requestId}`);
