@@ -258,6 +258,8 @@ export default function CircleLeaderProfilePage() {
   const [showConnectPersonModal, setShowConnectPersonModal] = useState(false);
   const [showEventSummaryReminderModal, setShowEventSummaryReminderModal] = useState(false);
   const [sentReminderMessages, setSentReminderMessages] = useState<number[]>([]);
+  const [eventSummaryEnumAvailable, setEventSummaryEnumAvailable] = useState<boolean | null>(null);
+  const [eventSummaryEnumWarningShown, setEventSummaryEnumWarningShown] = useState(false);
   
   // Reference data state
   const [campuses, setCampuses] = useState<Array<{id: number, value: string}>>([]);
@@ -976,6 +978,34 @@ export default function CircleLeaderProfilePage() {
 
       // Backward-compat: if event_summary_state doesn't exist yet, fall back to legacy booleans.
       if (error && /event_summary_state/i.test(error.message || '')) {
+        setEventSummaryEnumAvailable(false);
+
+        // The legacy schema cannot distinguish 'did_not_meet' vs 'skipped'.
+        // To avoid a misleading UI state, treat 'skipped' as 'did_not_meet' until the migration is applied.
+        if (nextState === 'skipped') {
+          nextState = 'did_not_meet';
+          legacyPayload.event_summary_received = false;
+          legacyPayload.event_summary_skipped = true;
+
+          if (!eventSummaryEnumWarningShown) {
+            setEventSummaryEnumWarningShown(true);
+            setShowAlert({
+              isOpen: true,
+              type: 'warning',
+              title: 'Skipped not enabled yet',
+              message: "Your database hasn’t been migrated to the new 4-state event summary system yet. For now, ‘Skipped’ behaves like ‘Did Not Meet’. Run the Supabase migration to fully enable Skipped."
+            });
+          }
+        } else if ((nextState === 'did_not_meet') && !eventSummaryEnumWarningShown) {
+          setEventSummaryEnumWarningShown(true);
+          setShowAlert({
+            isOpen: true,
+            type: 'warning',
+            title: '4-state migration needed',
+            message: "Your database hasn’t been migrated to the new 4-state event summary system yet. ‘Did Not Meet’ will work, but ‘Skipped’ can’t be stored separately until you run the Supabase migration."
+          });
+        }
+
         ({ error } = await supabase
           .from('circle_leaders')
           .update(legacyPayload)
@@ -983,7 +1013,7 @@ export default function CircleLeaderProfilePage() {
 
         // If the legacy skipped column doesn't exist yet, retry without it.
         if (error && /event_summary_skipped/i.test(error.message || '')) {
-          if (nextState === 'did_not_meet' || nextState === 'skipped') {
+          if (nextState === 'did_not_meet') {
             throw new Error('Did Not Meet/Skipped is not enabled yet. Apply the event summary migrations to your Supabase database first.');
           }
 
@@ -992,6 +1022,10 @@ export default function CircleLeaderProfilePage() {
             .update({ event_summary_received: nextState === 'received' })
             .eq('id', leaderId));
         }
+      }
+
+      if (!error) {
+        setEventSummaryEnumAvailable(true);
       }
 
       if (!error) {
@@ -1489,7 +1523,14 @@ export default function CircleLeaderProfilePage() {
                 };
 
                 return (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
+                    {eventSummaryEnumAvailable === false && (
+                      <div className="text-xs text-amber-700 dark:text-amber-300">
+                        Skipped isn’t enabled until the Supabase migration runs.
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => handleSetEventSummaryState('not_received')}
                       disabled={isUpdatingEventSummary}
@@ -1516,12 +1557,13 @@ export default function CircleLeaderProfilePage() {
                     </button>
                     <button
                       onClick={() => handleSetEventSummaryState('skipped')}
-                      disabled={isUpdatingEventSummary}
+                      disabled={isUpdatingEventSummary || eventSummaryEnumAvailable === false}
                       className={btn('skipped')}
-                      title="Skipped"
+                      title={eventSummaryEnumAvailable === false ? 'Run DB migration to enable Skipped' : 'Skipped'}
                     >
                       {getEventSummaryButtonLabel('skipped')}
                     </button>
+                    </div>
                   </div>
                 );
               })()}
@@ -2108,7 +2150,14 @@ export default function CircleLeaderProfilePage() {
                   };
 
                   return (
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="space-y-2">
+                      {eventSummaryEnumAvailable === false && (
+                        <div className="text-xs text-amber-700 dark:text-amber-300">
+                          Skipped isn’t enabled until the Supabase migration runs.
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-4 gap-2">
                       <button
                         onClick={() => handleSetEventSummaryState('not_received')}
                         disabled={isUpdatingEventSummary}
@@ -2135,12 +2184,13 @@ export default function CircleLeaderProfilePage() {
                       </button>
                       <button
                         onClick={() => handleSetEventSummaryState('skipped')}
-                        disabled={isUpdatingEventSummary}
+                        disabled={isUpdatingEventSummary || eventSummaryEnumAvailable === false}
                         className={btn('skipped')}
-                        title="Skipped"
+                        title={eventSummaryEnumAvailable === false ? 'Run DB migration to enable Skipped' : 'Skipped'}
                       >
                         {getEventSummaryButtonLabel('skipped')}
                       </button>
+                      </div>
                     </div>
                   );
                 })()}
