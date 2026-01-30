@@ -138,6 +138,26 @@ export async function POST(request: Request) {
     const message = (error?.message || '').toString();
     const requestId = Math.random().toString(36).slice(2, 10);
 
+    const upstreamStatusFromError = (() => {
+      // AxiosError often includes response.status
+      const status = error?.response?.status;
+      if (typeof status === 'number' && Number.isFinite(status)) return status;
+
+      // Our own errors often look like: "HTTP 403: ..."
+      let match = message.match(/HTTP\s+(\d{3})/i);
+      if (match) return Number(match[1]);
+
+      // Axios default message: "Request failed with status code 403"
+      match = message.match(/status\s+code\s+(\d{3})/i);
+      if (match) return Number(match[1]);
+
+      // Some proxies/layers: "Status 403" / "HTTP status 403"
+      match = message.match(/\bstatus\s+(\d{3})\b/i);
+      if (match) return Number(match[1]);
+
+      return undefined;
+    })();
+
     console.error(`❌ CCB Event Attendance API Error (${requestId}):`, message);
 
     // Common misconfig: missing server env vars on the hosting platform
@@ -154,7 +174,12 @@ export async function POST(request: Request) {
     }
 
     // Auth failures (bad credentials)
-    if (/HTTP\s+401/i.test(message) || /HTTP\s+403/i.test(message)) {
+    if (
+      upstreamStatusFromError === 401 ||
+      upstreamStatusFromError === 403 ||
+      /HTTP\s+401/i.test(message) ||
+      /HTTP\s+403/i.test(message)
+    ) {
       return NextResponse.json(
         {
           error: 'CCB authentication failed',
@@ -216,10 +241,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Upstream returned a 4xx (bad request, forbidden, etc.)
-    const httpMatch = message.match(/HTTP\s+(\d{3})/i);
-    if (httpMatch) {
-      const upstreamStatus = Number(httpMatch[1]);
+    // Upstream returned a 4xx/5xx (bad request, forbidden, etc.)
+    if (typeof upstreamStatusFromError === 'number') {
+      const upstreamStatus = upstreamStatusFromError;
       console.error(`❌ CCB Upstream Error (${requestId}): HTTP ${upstreamStatus}`);
       return NextResponse.json(
         {
