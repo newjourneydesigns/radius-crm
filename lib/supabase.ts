@@ -1,14 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Debug environment variables at build time
-console.log('🔍 Supabase Environment Debug:', {
-  NODE_ENV: process.env.NODE_ENV,
-  SUPABASE_URL_EXISTS: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-  SUPABASE_KEY_EXISTS: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  URL_VALUE: process.env.NEXT_PUBLIC_SUPABASE_URL ? 
-    process.env.NEXT_PUBLIC_SUPABASE_URL.substring(0, 40) + '...' : 
-    'NOT_SET'
-});
+// Debug environment variables only in development (avoid leaking details in build logs)
+if (process.env.NODE_ENV === 'development') {
+  console.log('🔍 Supabase Env Debug:', {
+    NODE_ENV: process.env.NODE_ENV,
+    SUPABASE_URL_EXISTS: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+    SUPABASE_KEY_EXISTS: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  });
+}
 
 // Handle environment variables with fallbacks for build time
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
@@ -67,6 +66,8 @@ export const loadReferenceData = async () => {
 };
 
 // Types for our database tables based on actual schema
+export type EventSummaryState = 'not_received' | 'received' | 'did_not_meet' | 'skipped';
+
 export interface CircleLeader {
   id: number;
   name: string;
@@ -81,8 +82,9 @@ export interface CircleLeader {
   // Anchor date (YYYY-MM-DD) used for bi-weekly parity in calendar rendering.
   meeting_start_date?: string;
   circle_type?: 'Men\'s' | 'Women\'s' | 'Young Adult | Coed' | 'Young Adult | Men\'s' | 'Young Adult | Women\'s' | 'Young Adult | Couple\'s';
-  event_summary_received?: boolean;
-  event_summary_skipped?: boolean;
+  event_summary_state?: EventSummaryState;
+  event_summary_received?: boolean; // Legacy - kept for backwards compatibility
+  event_summary_skipped?: boolean; // Legacy - kept for backwards compatibility
   follow_up_required?: boolean;
   follow_up_date?: string;
   follow_up_note?: string;

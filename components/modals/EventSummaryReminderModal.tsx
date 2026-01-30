@@ -14,21 +14,21 @@ interface EventSummaryReminderModalProps {
 const MESSAGE_OPTIONS = [
   {
     number: 1,
-    label: 'Option 1 - Gentle Reminder',
+    label: 'Option 1',
     template: (leaderFirstName: string) => 
-      `Hi ${leaderFirstName}!\nJust a quick reminder about your Circle event summary. Your feedback really matters and helps us shepherd and lead people well. When summaries are completed the same day as Circle, it gives us the clearest picture of what God is doing. Thanks so much for partnering with us.`
+      `Hi ${leaderFirstName}!\nJust a quick reminder about your Circle event summary. What you share really helps us stay connected to what’s happening in your Circle and lead with clarity. When summaries are completed the same day, it gives us the best picture. I appreciate you taking a few minutes to do that.`
   },
   {
     number: 2,
-    label: 'Option 2 - Follow Up',
+    label: 'Option 2',
     template: (leaderFirstName: string) => 
-      `Hi ${leaderFirstName},\nI'm missing your Circle event summary from this week and wanted to follow up. Please take a few minutes to complete it when you're able. We're asking everyone to submit their summary the same day as Circle. If you need help or have any questions, let me know.`
+      `Hi ${leaderFirstName},\nI didn’t see your Circle event summary from this week and wanted to follow up. When you have a moment, would you go ahead and send it in? We’re asking everyone to complete their summary the same day as Circle. If you need help or have questions, let me know.`
   },
   {
     number: 3,
-    label: 'Option 3 - Firm Reminder',
+    label: 'Option 3',
     template: (leaderFirstName: string) => 
-      `Hi ${leaderFirstName},\nI still don't see your Circle event summary from this week. Please complete and submit it today. Going forward, we're asking all leaders to complete their event summary the same day as Circle. If you need help or run into any issues, I'm happy to help.`
+      `Hi ${leaderFirstName},\nI still haven’t seen your Circle event summary from this week. Please complete and submit it today. Going forward, we’re asking all leaders to submit their summary the same day as Circle. If something got in the way or you need help, I’m happy to help.`
   }
 ];
 

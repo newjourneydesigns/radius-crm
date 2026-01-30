@@ -219,6 +219,9 @@ export default async function CCBEventsPage({ searchParams }: PageProps) {
   const prefix = searchParams?.prefix ?? "LVT | S1 |";
   const startStr = searchParams?.start ?? "2025-08-01";
   const endStr = searchParams?.end ?? "2025-08-31";
+  if (process.env.NODE_ENV !== 'development') {
+    notFound();
+  }
 
   // Quick links for common ranges
   const today = new Date();

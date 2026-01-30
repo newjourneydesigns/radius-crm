@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
+  if (process.env.NODE_ENV !== 'development') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
   try {
     console.log('🔍 Debug Users API called');
     
@@ -14,9 +20,6 @@ export async function GET(request: NextRequest) {
       hasServiceKey,
       hasAnonKey,
       hasUrl,
-      serviceKeyLength: process.env.SUPABASE_SERVICE_ROLE_KEY?.length || 0,
-      anonKeyLength: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.length || 0,
-      urlValid: process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('supabase.co') || false
     });
 
     // Try with anon key first (for public.users table)
@@ -27,12 +30,12 @@ export async function GET(request: NextRequest) {
 
     const { data: profiles, error: profileError } = await supabaseAnon
       .from('users')
-      .select('*');
+      .select('id')
+      .limit(1);
 
     console.log('Public users table query result:', {
-      count: profiles?.length || 0,
+      ok: !profileError,
       error: profileError?.message || null,
-      sample: profiles?.slice(0, 2) || []
     });
 
     // Try with service role key if available
@@ -56,13 +59,9 @@ export async function GET(request: NextRequest) {
       authError = authResult.error;
 
       console.log('Auth users query result:', {
+        ok: !authError,
         count: authUsers?.users?.length || 0,
         error: authError?.message || null,
-        sample: authUsers?.users?.slice(0, 2).map((u: any) => ({
-          id: u.id,
-          email: u.email,
-          provider: u.app_metadata?.provider
-        })) || []
       });
     }
 
@@ -73,19 +72,14 @@ export async function GET(request: NextRequest) {
         hasUrl
       },
       publicUsers: {
-        count: profiles?.length || 0,
-        users: profiles || [],
+        // Do not return user records from a debug endpoint.
+        count: Array.isArray(profiles) ? profiles.length : 0,
+        users: [],
         error: profileError?.message || null
       },
       authUsers: {
         count: authUsers?.users?.length || 0,
-        users: authUsers?.users?.map((u: any) => ({
-          id: u.id,
-          email: u.email,
-          created_at: u.created_at,
-          last_sign_in_at: u.last_sign_in_at,
-          provider: u.app_metadata?.provider
-        })) || [],
+        users: [],
         error: authError?.message || null
       }
     });

@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { supabase, CircleLeader } from '../lib/supabase';
+import { supabase, CircleLeader, type EventSummaryState } from '../lib/supabase';
 
 export interface CircleLeaderFilters {
   campus?: string[];
@@ -13,8 +13,6 @@ export interface CircleLeaderFilters {
   eventSummary?: string;
   timeOfDay?: string;
 }
-
-export type EventSummaryState = 'received' | 'not_received' | 'skipped';
 
 // Cache management
 interface CacheEntry {
@@ -126,7 +124,7 @@ export const useCircleLeaders = () => {
 
       const baseSelect = (includeSkipped: boolean) => (
         'id, name, email, phone, campus, acpd, status, day, time, frequency, meeting_start_date, circle_type, ' +
-        'event_summary_received' +
+        'event_summary_state, event_summary_received' +
         (includeSkipped ? ', event_summary_skipped' : '') +
         ', follow_up_required, follow_up_date, ccb_profile_link'
       );
@@ -374,26 +372,37 @@ export const useCircleLeaders = () => {
 
   const setEventSummaryState = async (leaderId: number, state: EventSummaryState) => {
     try {
-      const payload = {
-        event_summary_received: state === 'received',
-        event_summary_skipped: state === 'skipped',
-      };
-
+      // Prefer new enum column when present.
       let { error } = await supabase
         .from('circle_leaders')
-        .update(payload)
+        .update({ event_summary_state: state })
         .eq('id', leaderId);
 
-      // Backward-compat: if event_summary_skipped doesn't exist yet, retry without it
-      if (error && /event_summary_skipped/i.test(error.message || '')) {
-        if (state === 'skipped') {
-          throw new Error('Did not meet is not enabled yet. Apply add_event_summary_skipped.sql to your Supabase database first.');
-        }
+      // Backward-compat: if event_summary_state doesn't exist yet, fall back to legacy booleans.
+      if (error && /event_summary_state/i.test(error.message || '')) {
+        const legacyPayload: Record<string, boolean> = {
+          event_summary_received: state === 'received',
+        };
+
+        // Legacy had only one "did not meet" state via event_summary_skipped.
+        // Map both did_not_meet and skipped into the legacy skipped flag.
+        legacyPayload.event_summary_skipped = state === 'did_not_meet' || state === 'skipped';
 
         ({ error } = await supabase
           .from('circle_leaders')
-          .update({ event_summary_received: state === 'received' })
+          .update(legacyPayload)
           .eq('id', leaderId));
+
+        // If the legacy skipped column doesn't exist yet, retry without it.
+        if (error && /event_summary_skipped/i.test(error.message || '')) {
+          if (state === 'did_not_meet' || state === 'skipped') {
+            throw new Error('Did Not Meet/Skipped is not enabled yet. Apply the event summary migrations to your Supabase database first.');
+          }
+          ({ error } = await supabase
+            .from('circle_leaders')
+            .update({ event_summary_received: state === 'received' })
+            .eq('id', leaderId));
+        }
       }
 
       if (error) {
@@ -406,7 +415,13 @@ export const useCircleLeaders = () => {
       setCircleLeaders(prev =>
         prev.map(leader =>
           leader.id === leaderId
-            ? { ...leader, ...payload }
+            ? {
+              ...leader,
+              event_summary_state: state,
+              // Keep legacy flags locally in sync for components still using them.
+              event_summary_received: state === 'received',
+              event_summary_skipped: state === 'did_not_meet' || state === 'skipped',
+            }
             : leader
         )
       );
@@ -425,10 +440,18 @@ export const useCircleLeaders = () => {
   const resetEventSummaryCheckboxes = async (leaderIds: number[]) => {
     try {
       // Update in database
-      const { error } = await supabase
+      let { error } = await supabase
         .from('circle_leaders')
-        .update({ event_summary_received: false, event_summary_skipped: false })
+        .update({ event_summary_state: 'not_received' })
         .in('id', leaderIds);
+
+      // Backward-compat: if event_summary_state doesn't exist, fall back.
+      if (error && /event_summary_state/i.test(error.message || '')) {
+        ({ error } = await supabase
+          .from('circle_leaders')
+          .update({ event_summary_received: false, event_summary_skipped: false })
+          .in('id', leaderIds));
+      }
 
       if (error) {
         console.error('Error resetting event summaries:', error);
@@ -442,7 +465,7 @@ export const useCircleLeaders = () => {
       setCircleLeaders(prev => 
         prev.map(leader => 
           leaderIds.includes(leader.id)
-            ? { ...leader, event_summary_received: false, event_summary_skipped: false }
+            ? { ...leader, event_summary_state: 'not_received', event_summary_received: false, event_summary_skipped: false }
             : leader
         )
       );

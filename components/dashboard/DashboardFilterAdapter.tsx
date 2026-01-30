@@ -67,7 +67,9 @@ export default function DashboardFilterAdapter({
   
   // Convert complex DashboardFilters to simple SearchFilters
   const searchFilters: SearchFilters = useMemo(() => {
-    console.log('🔧 [DashboardFilterAdapter] Converting dashboard filters to search filters:', filters);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 [DashboardFilterAdapter] Converting dashboard filters to search filters:', filters);
+    }
     
     // Ensure all array values are properly converted
     // Handle "all campuses" selection and clean up any problematic values
@@ -104,13 +106,17 @@ export default function DashboardFilterAdapter({
       searchTerm: filters.searchTerm || ''
     };
     
-    console.log('🔧 [DashboardFilterAdapter] Converted to search filters:', result);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 [DashboardFilterAdapter] Converted to search filters:', result);
+    }
     return result;
   }, [filters]);
 
   // Convert SearchFilters back to DashboardFilters format
   const handleFiltersChange = (newSearchFilters: SearchFilters) => {
-    console.log('🔧 [DashboardFilterAdapter] Converting search filters to dashboard filters:', newSearchFilters);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 [DashboardFilterAdapter] Converting search filters to dashboard filters:', newSearchFilters);
+    }
     
     // Handle campus selection - "all" means no campus filter applied
     let campusValue: string[] = [];
@@ -129,7 +135,9 @@ export default function DashboardFilterAdapter({
       searchTerm: newSearchFilters.searchTerm
     };
     
-    console.log('🔧 [DashboardFilterAdapter] Converted to dashboard filters:', dashboardFilters);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 [DashboardFilterAdapter] Converted to dashboard filters:', dashboardFilters);
+    }
     
     onFiltersChange(dashboardFilters);
   };

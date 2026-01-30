@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
+  if (process.env.NODE_ENV !== 'development') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
   try {
     console.log('🔍 Testing CCB groups API...');
     
@@ -20,11 +26,18 @@ export async function GET() {
       // Remove limit parameter as it's not supported
     });
 
-    console.log('📋 Groups XML structure:', JSON.stringify(groupsXml, null, 2));
-
-    // Try to extract group names for debugging
     const response = groupsXml?.ccb_api?.response;
     const groupsRoot = response?.groups;
+    const total = Number(groupsRoot?.['@_count'] ?? 0) || undefined;
+    console.log('📋 Groups XML summary:', {
+      hasResponse: !!response,
+      hasGroups: !!groupsRoot,
+      total,
+      responseKeys: Object.keys(response || {}),
+    });
+
+    // Try to extract group names for debugging
+    
     
     // Check for errors in the response
     const errors = response?.errors;
@@ -40,7 +53,6 @@ export async function GET() {
       groupsList = groupArray.slice(0, 10).map((group: any) => ({
         id: group['@_id'] || group.id || 'No ID',
         name: group.name || group.group_name || 'No Name',
-        raw: group
       }));
     }
 
@@ -48,14 +60,13 @@ export async function GET() {
       success: true,
       connected: true,
       errors: errors || null,
-      totalGroups: groupsList.length,
+      totalGroups: total ?? groupsList.length,
       sampleGroups: groupsList,
       rawStructure: {
         hasResponse: !!response,
         hasGroups: !!groupsRoot,
         groupsType: Array.isArray(groupsRoot?.group) ? 'array' : typeof groupsRoot?.group,
-        keys: Object.keys(groupsXml?.ccb_api?.response || {}),
-        fullResponse: response
+        keys: Object.keys(response || {})
       }
     });
 

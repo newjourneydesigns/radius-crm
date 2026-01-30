@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
+  if (process.env.NODE_ENV !== 'development') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
   try {
     console.log('🔍 Testing alternative CCB endpoints...');
     
@@ -34,7 +40,8 @@ export async function GET() {
           hasResponse: !!result?.ccb_api?.response,
           responseKeys: Object.keys(result?.ccb_api?.response || {}),
           errors: result?.ccb_api?.response?.errors || null,
-          sampleData: JSON.stringify(result, null, 2).slice(0, 500) + '...'
+          // Avoid dumping potentially sensitive CCB data in logs/responses.
+          sampleData: undefined,
         };
       } catch (error) {
         results[endpoint.name] = {

@@ -41,11 +41,13 @@ export async function GET() {
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
-    console.log('Environment check:', {
-      hasServiceKey: !!serviceKey,
-      hasAnonKey: !!anonKey,
-      supabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Environment check:', {
+        hasServiceKey: !!serviceKey,
+        hasAnonKey: !!anonKey,
+        supabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL
+      });
+    }
     
     if (!serviceKey && !anonKey) {
       console.error('Neither SUPABASE_SERVICE_ROLE_KEY nor NEXT_PUBLIC_SUPABASE_ANON_KEY is available');
@@ -68,25 +70,19 @@ export async function GET() {
       supabase.from('circle_leaders').select('campus, acpd, circle_type').order('campus')
     ]);
 
-    console.log('API Results:', {
-      directors: directorsRes.data?.length || 0,
-      campuses: campusesRes.data?.length || 0,
-      statuses: statusesRes.data?.length || 0,
-      circleTypes: circleTypesRes.data?.length || 0,
-      frequencies: frequenciesRes.data?.length || 0,
-      actualDataCount: actualDataRes.data?.length || 0,
-      errors: {
-        directors: directorsRes.error,
-        campuses: campusesRes.error,
-        statuses: statusesRes.error,
-        circleTypes: circleTypesRes.error,
-        frequencies: frequenciesRes.error,
-        actualData: actualDataRes.error
-      }
-    });
-
-    console.log('Raw directors data:', directorsRes.data);
-    console.log('Sample circle leaders data:', actualDataRes.data?.slice(0, 3));
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Reference data loaded:', {
+        directors: directorsRes.data?.length || 0,
+        campuses: campusesRes.data?.length || 0,
+        statuses: statusesRes.data?.length || 0,
+        circleTypes: circleTypesRes.data?.length || 0,
+        frequencies: frequenciesRes.data?.length || 0,
+        actualDataCount: actualDataRes.data?.length || 0,
+        hasErrors: Boolean(
+          directorsRes.error || campusesRes.error || statusesRes.error || circleTypesRes.error || frequenciesRes.error || actualDataRes.error
+        )
+      });
+    }
 
     // Get unique values from actual circle leaders data
     const actualData = actualDataRes.data || [];
@@ -101,12 +97,13 @@ export async function GET() {
       )
     );
 
-    console.log('Unique values from circle_leaders:', {
-      uniqueCampuses: uniqueCampuses.length,
-      uniqueACPDs: uniqueACPDs.length,
-      uniqueCircleTypes: uniqueCircleTypes.length,
-      sampleACPDs: uniqueACPDs.slice(0, 5)
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Unique values from circle_leaders:', {
+        uniqueCampuses: uniqueCampuses.length,
+        uniqueACPDs: uniqueACPDs.length,
+        uniqueCircleTypes: uniqueCircleTypes.length,
+      });
+    }
 
     // Merge reference data with actual data
     const existingCampusValues = new Set((campusesRes.data || []).map(c => c.value));
@@ -163,14 +160,15 @@ export async function GET() {
       )
     };
 
-    console.log('Final merged data:', {
-      directors: referenceData.directors.length,
-      directorNames: referenceData.directors.map(d => d.name),
-      campuses: referenceData.campuses.length,
-      statuses: referenceData.statuses.length,
-      circleTypes: referenceData.circleTypes.length,
-      frequencies: referenceData.frequencies.length
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Final merged data:', {
+        directors: referenceData.directors.length,
+        campuses: referenceData.campuses.length,
+        statuses: referenceData.statuses.length,
+        circleTypes: referenceData.circleTypes.length,
+        frequencies: referenceData.frequencies.length
+      });
+    }
 
     return NextResponse.json(referenceData);
   } catch (error) {

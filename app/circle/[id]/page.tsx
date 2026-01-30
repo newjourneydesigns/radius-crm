@@ -6,8 +6,7 @@ import { ensureDefaultFrequencies, formatFrequencyLabel } from '../../../lib/fre
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { supabase, CircleLeader, Note, NoteTemplate } from '../../../lib/supabase';
-import { useCircleLeaders } from '../../../hooks/useCircleLeaders';
+import { supabase, type CircleLeader, type Note, type NoteTemplate, type EventSummaryState } from '../../../lib/supabase';
 import { useNoteTemplates } from '../../../hooks/useNoteTemplates';
 import { useAuth } from '../../../contexts/AuthContext';
 import AlertModal from '../../../components/ui/AlertModal';
@@ -17,6 +16,7 @@ import NoteTemplateModal from '../../../components/dashboard/NoteTemplateModal';
 import ConnectPersonModal from '../../../components/modals/ConnectPersonModal';
 import EventSummaryReminderModal from '../../../components/modals/EventSummaryReminderModal';
 import ProtectedRoute from '../../../components/ProtectedRoute';
+import { getEventSummaryButtonLabel, getEventSummaryColors, getEventSummaryState } from '../../../lib/event-summary-utils';
 
 // Helper function to format time to AM/PM
 const formatTimeToAMPM = (time: string | undefined | null): string => {
@@ -956,34 +956,63 @@ export default function CircleLeaderProfilePage() {
     }
   };
 
-  const handleSetEventSummaryState = async (nextState: 'received' | 'not_received' | 'skipped') => {
+  const handleSetEventSummaryState = async (nextState: EventSummaryState) => {
     if (!leader) return;
 
     setIsUpdatingEventSummary(true);
-    const payload = {
+    const legacyPayload: Record<string, boolean> = {
       event_summary_received: nextState === 'received',
-      event_summary_skipped: nextState === 'skipped',
+      // Legacy had only one "did not meet" state via event_summary_skipped.
+      // Map both did_not_meet and skipped into the legacy skipped flag.
+      event_summary_skipped: nextState === 'did_not_meet' || nextState === 'skipped',
     };
 
     try {
-      const { error } = await supabase
+      // Prefer the new enum column when present, but also keep legacy columns in sync.
+      let { error } = await supabase
         .from('circle_leaders')
-        .update(payload)
+        .update({ event_summary_state: nextState, ...legacyPayload })
         .eq('id', leaderId);
 
+      // Backward-compat: if event_summary_state doesn't exist yet, fall back to legacy booleans.
+      if (error && /event_summary_state/i.test(error.message || '')) {
+        ({ error } = await supabase
+          .from('circle_leaders')
+          .update(legacyPayload)
+          .eq('id', leaderId));
+
+        // If the legacy skipped column doesn't exist yet, retry without it.
+        if (error && /event_summary_skipped/i.test(error.message || '')) {
+          if (nextState === 'did_not_meet' || nextState === 'skipped') {
+            throw new Error('Did Not Meet/Skipped is not enabled yet. Apply the event summary migrations to your Supabase database first.');
+          }
+
+          ({ error } = await supabase
+            .from('circle_leaders')
+            .update({ event_summary_received: nextState === 'received' })
+            .eq('id', leaderId));
+        }
+      }
+
       if (!error) {
-        setLeader(prev => prev ? { ...prev, ...payload } : null);
+        setLeader(prev => prev ? {
+          ...prev,
+          event_summary_state: nextState,
+          ...legacyPayload,
+        } : null);
 
         // Clear sent reminder messages when status changes to received or skipped
-        if (nextState === 'received' || nextState === 'skipped') {
+        if (nextState !== 'not_received') {
           setSentReminderMessages([]);
         }
 
         const statusText = nextState === 'received'
           ? 'marked as received'
-          : nextState === 'skipped'
+          : nextState === 'did_not_meet'
             ? 'marked as did not meet'
-            : 'marked as not received';
+            : nextState === 'skipped'
+              ? 'marked as skipped'
+              : 'marked as not received';
 
         await supabase
           .from('notes')
@@ -1437,74 +1466,61 @@ export default function CircleLeaderProfilePage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-900 dark:text-white">Event Summary</span>
                 {(() => {
-                  const state = leader.event_summary_received
-                    ? 'received'
-                    : leader.event_summary_skipped
-                      ? 'skipped'
-                      : 'not_received';
-
-                  const label = state === 'received'
-                    ? 'Received'
-                    : state === 'skipped'
-                      ? 'Did not meet'
-                      : 'Pending';
-
-                  const color = state === 'received'
-                    ? 'text-green-600'
-                    : state === 'skipped'
-                      ? 'text-amber-600'
-                      : 'text-red-600';
+                  const state = getEventSummaryState(leader);
+                  const colors = getEventSummaryColors(state);
 
                   return (
-                    <span className={`text-xs font-medium ${color}`}>{isUpdatingEventSummary ? 'Updating...' : label}</span>
+                    <span className={`text-xs font-medium ${colors.text}`}>{isUpdatingEventSummary ? 'Updating...' : colors.label}</span>
                   );
                 })()}
               </div>
 
               {(() => {
-                const eventSummaryState = leader.event_summary_received
-                  ? 'received'
-                  : leader.event_summary_skipped
-                    ? 'skipped'
-                    : 'not_received';
-
-                const commonBtn = 'flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors';
+                const eventSummaryState = getEventSummaryState(leader);
+                const base = 'px-3 py-2 text-sm font-medium rounded-md border transition-colors';
                 const disabledCls = isUpdatingEventSummary ? 'opacity-50 cursor-not-allowed' : '';
 
+                const btn = (kind: EventSummaryState) => {
+                  const active = eventSummaryState === kind;
+                  const colors = getEventSummaryColors(kind);
+                  return active
+                    ? `${base} ${disabledCls} ${colors.bg} ${colors.border} text-white`
+                    : `${base} ${disabledCls} bg-white dark:bg-gray-800 ${colors.btnInactiveBorder} ${colors.btnInactiveText} ${colors.hover}`;
+                };
+
                 return (
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => handleSetEventSummaryState('not_received')}
                       disabled={isUpdatingEventSummary}
-                      className={`${commonBtn} ${disabledCls} ${
-                        eventSummaryState === 'not_received'
-                          ? 'bg-gray-800 text-white hover:bg-gray-900'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
+                      className={btn('not_received')}
+                      title="Not Received"
                     >
-                      No
+                      {getEventSummaryButtonLabel('not_received')}
                     </button>
                     <button
                       onClick={() => handleSetEventSummaryState('received')}
                       disabled={isUpdatingEventSummary}
-                      className={`${commonBtn} ${disabledCls} ${
-                        eventSummaryState === 'received'
-                          ? 'bg-green-600 text-white hover:bg-green-700'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
+                      className={btn('received')}
+                      title="Received"
                     >
-                      Yes
+                      {getEventSummaryButtonLabel('received')}
+                    </button>
+                    <button
+                      onClick={() => handleSetEventSummaryState('did_not_meet')}
+                      disabled={isUpdatingEventSummary}
+                      className={btn('did_not_meet')}
+                      title="Did Not Meet"
+                    >
+                      {getEventSummaryButtonLabel('did_not_meet')}
                     </button>
                     <button
                       onClick={() => handleSetEventSummaryState('skipped')}
                       disabled={isUpdatingEventSummary}
-                      className={`${commonBtn} ${disabledCls} ${
-                        eventSummaryState === 'skipped'
-                          ? 'bg-amber-500 text-white hover:bg-amber-600'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
+                      className={btn('skipped')}
+                      title="Skipped"
                     >
-                      Skip
+                      {getEventSummaryButtonLabel('skipped')}
                     </button>
                   </div>
                 );
@@ -2069,74 +2085,61 @@ export default function CircleLeaderProfilePage() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-900 dark:text-white">Event Summary</span>
                   {(() => {
-                    const state = leader.event_summary_received
-                      ? 'received'
-                      : leader.event_summary_skipped
-                        ? 'skipped'
-                        : 'not_received';
-
-                    const label = state === 'received'
-                      ? 'Received'
-                      : state === 'skipped'
-                        ? 'Did not meet'
-                        : 'Pending';
-
-                    const color = state === 'received'
-                      ? 'text-green-600'
-                      : state === 'skipped'
-                        ? 'text-amber-600'
-                        : 'text-red-600';
+                    const state = getEventSummaryState(leader);
+                    const colors = getEventSummaryColors(state);
 
                     return (
-                      <span className={`text-xs font-medium ${color}`}>{isUpdatingEventSummary ? 'Updating...' : label}</span>
+                      <span className={`text-xs font-medium ${colors.text}`}>{isUpdatingEventSummary ? 'Updating...' : colors.label}</span>
                     );
                   })()}
                 </div>
 
                 {(() => {
-                  const eventSummaryState = leader.event_summary_received
-                    ? 'received'
-                    : leader.event_summary_skipped
-                      ? 'skipped'
-                      : 'not_received';
-
-                  const commonBtn = 'flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors';
+                  const eventSummaryState = getEventSummaryState(leader);
+                  const base = 'px-3 py-2 text-sm font-medium rounded-md border transition-colors';
                   const disabledCls = isUpdatingEventSummary ? 'opacity-50 cursor-not-allowed' : '';
 
+                  const btn = (kind: EventSummaryState) => {
+                    const active = eventSummaryState === kind;
+                    const colors = getEventSummaryColors(kind);
+                    return active
+                      ? `${base} ${disabledCls} ${colors.bg} ${colors.border} text-white`
+                      : `${base} ${disabledCls} bg-white dark:bg-gray-800 ${colors.btnInactiveBorder} ${colors.btnInactiveText} ${colors.hover}`;
+                  };
+
                   return (
-                    <div className="flex gap-2">
+                    <div className="grid grid-cols-4 gap-2">
                       <button
                         onClick={() => handleSetEventSummaryState('not_received')}
                         disabled={isUpdatingEventSummary}
-                        className={`${commonBtn} ${disabledCls} ${
-                          eventSummaryState === 'not_received'
-                            ? 'bg-gray-800 text-white hover:bg-gray-900'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                        }`}
+                        className={btn('not_received')}
+                        title="Not Received"
                       >
-                        No
+                        {getEventSummaryButtonLabel('not_received')}
                       </button>
                       <button
                         onClick={() => handleSetEventSummaryState('received')}
                         disabled={isUpdatingEventSummary}
-                        className={`${commonBtn} ${disabledCls} ${
-                          eventSummaryState === 'received'
-                            ? 'bg-green-600 text-white hover:bg-green-700'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                        }`}
+                        className={btn('received')}
+                        title="Received"
                       >
-                        Yes
+                        {getEventSummaryButtonLabel('received')}
+                      </button>
+                      <button
+                        onClick={() => handleSetEventSummaryState('did_not_meet')}
+                        disabled={isUpdatingEventSummary}
+                        className={btn('did_not_meet')}
+                        title="Did Not Meet"
+                      >
+                        {getEventSummaryButtonLabel('did_not_meet')}
                       </button>
                       <button
                         onClick={() => handleSetEventSummaryState('skipped')}
                         disabled={isUpdatingEventSummary}
-                        className={`${commonBtn} ${disabledCls} ${
-                          eventSummaryState === 'skipped'
-                            ? 'bg-amber-500 text-white hover:bg-amber-600'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                        }`}
+                        className={btn('skipped')}
+                        title="Skipped"
                       >
-                        Skip
+                        {getEventSummaryButtonLabel('skipped')}
                       </button>
                     </div>
                   );
