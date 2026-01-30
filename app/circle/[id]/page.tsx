@@ -1511,16 +1511,43 @@ export default function CircleLeaderProfilePage() {
 
               {(() => {
                 const eventSummaryState = getEventSummaryState(leader);
-                const base = 'px-3 py-2 text-sm font-medium rounded-md border transition-colors';
-                const disabledCls = isUpdatingEventSummary ? 'opacity-50 cursor-not-allowed' : '';
+                const base = 'w-full flex items-center justify-between gap-3 px-3 py-2 rounded-md border transition-colors';
+                const disabledCls = isUpdatingEventSummary ? 'opacity-60 cursor-not-allowed' : '';
 
                 const btn = (kind: EventSummaryState) => {
                   const active = eventSummaryState === kind;
                   const colors = getEventSummaryColors(kind);
+                  const leftBar = `border-l-4 ${colors.borderLeft}`;
                   return active
-                    ? `${base} ${disabledCls} ${colors.bg} ${colors.border} text-white`
-                    : `${base} ${disabledCls} bg-white dark:bg-gray-800 ${colors.btnInactiveBorder} ${colors.btnInactiveText} ${colors.hover}`;
+                    ? `${base} ${disabledCls} ${leftBar} ${colors.bg} ${colors.border} text-white shadow-sm`
+                    : `${base} ${disabledCls} ${leftBar} bg-white dark:bg-gray-800 ${colors.btnInactiveBorder} ${colors.btnInactiveText} ${colors.hover}`;
                 };
+
+                const content = (kind: EventSummaryState) => {
+                  const colors = getEventSummaryColors(kind);
+                  const primary = getEventSummaryButtonLabel(kind);
+                  return (
+                    <span className="flex flex-col items-start leading-tight">
+                      <span className="text-sm font-semibold">{primary}</span>
+                      <span className="text-xs opacity-80">{colors.label}</span>
+                    </span>
+                  );
+                };
+
+                const check = () => (
+                  <svg
+                    className="w-4 h-4 flex-shrink-0"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M16.704 5.292a1 1 0 010 1.416l-7.25 7.25a1 1 0 01-1.416 0l-3.25-3.25a1 1 0 011.416-1.416l2.542 2.542 6.542-6.542a1 1 0 011.416 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                );
 
                 return (
                   <div className="space-y-2">
@@ -1530,14 +1557,15 @@ export default function CircleLeaderProfilePage() {
                       </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-2">
                     <button
                       onClick={() => handleSetEventSummaryState('not_received')}
                       disabled={isUpdatingEventSummary}
                       className={btn('not_received')}
                       title="Not Received"
                     >
-                      {getEventSummaryButtonLabel('not_received')}
+                      {content('not_received')}
+                      {eventSummaryState === 'not_received' ? check() : null}
                     </button>
                     <button
                       onClick={() => handleSetEventSummaryState('received')}
@@ -1545,7 +1573,8 @@ export default function CircleLeaderProfilePage() {
                       className={btn('received')}
                       title="Received"
                     >
-                      {getEventSummaryButtonLabel('received')}
+                      {content('received')}
+                      {eventSummaryState === 'received' ? check() : null}
                     </button>
                     <button
                       onClick={() => handleSetEventSummaryState('did_not_meet')}
@@ -1553,7 +1582,8 @@ export default function CircleLeaderProfilePage() {
                       className={btn('did_not_meet')}
                       title="Did Not Meet"
                     >
-                      {getEventSummaryButtonLabel('did_not_meet')}
+                      {content('did_not_meet')}
+                      {eventSummaryState === 'did_not_meet' ? check() : null}
                     </button>
                     <button
                       onClick={() => handleSetEventSummaryState('skipped')}
@@ -1561,7 +1591,8 @@ export default function CircleLeaderProfilePage() {
                       className={btn('skipped')}
                       title={eventSummaryEnumAvailable === false ? 'Run DB migration to enable Skipped' : 'Skipped'}
                     >
-                      {getEventSummaryButtonLabel('skipped')}
+                      {content('skipped')}
+                      {eventSummaryState === 'skipped' ? check() : null}
                     </button>
                     </div>
                   </div>
@@ -2138,16 +2169,43 @@ export default function CircleLeaderProfilePage() {
 
                 {(() => {
                   const eventSummaryState = getEventSummaryState(leader);
-                  const base = 'px-3 py-2 text-sm font-medium rounded-md border transition-colors';
-                  const disabledCls = isUpdatingEventSummary ? 'opacity-50 cursor-not-allowed' : '';
+                  const base = 'w-full flex items-center justify-between gap-3 px-3 py-2 rounded-md border transition-colors';
+                  const disabledCls = isUpdatingEventSummary ? 'opacity-60 cursor-not-allowed' : '';
 
                   const btn = (kind: EventSummaryState) => {
                     const active = eventSummaryState === kind;
                     const colors = getEventSummaryColors(kind);
+                    const leftBar = `border-l-4 ${colors.borderLeft}`;
                     return active
-                      ? `${base} ${disabledCls} ${colors.bg} ${colors.border} text-white`
-                      : `${base} ${disabledCls} bg-white dark:bg-gray-800 ${colors.btnInactiveBorder} ${colors.btnInactiveText} ${colors.hover}`;
+                      ? `${base} ${disabledCls} ${leftBar} ${colors.bg} ${colors.border} text-white shadow-sm`
+                      : `${base} ${disabledCls} ${leftBar} bg-white dark:bg-gray-800 ${colors.btnInactiveBorder} ${colors.btnInactiveText} ${colors.hover}`;
                   };
+
+                  const content = (kind: EventSummaryState) => {
+                    const colors = getEventSummaryColors(kind);
+                    const primary = getEventSummaryButtonLabel(kind);
+                    return (
+                      <span className="flex flex-col items-start leading-tight">
+                        <span className="text-sm font-semibold">{primary}</span>
+                        <span className="text-xs opacity-80">{colors.label}</span>
+                      </span>
+                    );
+                  };
+
+                  const check = () => (
+                    <svg
+                      className="w-4 h-4 flex-shrink-0"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M16.704 5.292a1 1 0 010 1.416l-7.25 7.25a1 1 0 01-1.416 0l-3.25-3.25a1 1 0 011.416-1.416l2.542 2.542 6.542-6.542a1 1 0 011.416 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  );
 
                   return (
                     <div className="space-y-2">
@@ -2157,14 +2215,15 @@ export default function CircleLeaderProfilePage() {
                         </div>
                       )}
 
-                      <div className="grid grid-cols-4 gap-2">
+                      <div className="space-y-2">
                       <button
                         onClick={() => handleSetEventSummaryState('not_received')}
                         disabled={isUpdatingEventSummary}
                         className={btn('not_received')}
                         title="Not Received"
                       >
-                        {getEventSummaryButtonLabel('not_received')}
+                        {content('not_received')}
+                        {eventSummaryState === 'not_received' ? check() : null}
                       </button>
                       <button
                         onClick={() => handleSetEventSummaryState('received')}
@@ -2172,7 +2231,8 @@ export default function CircleLeaderProfilePage() {
                         className={btn('received')}
                         title="Received"
                       >
-                        {getEventSummaryButtonLabel('received')}
+                        {content('received')}
+                        {eventSummaryState === 'received' ? check() : null}
                       </button>
                       <button
                         onClick={() => handleSetEventSummaryState('did_not_meet')}
@@ -2180,7 +2240,8 @@ export default function CircleLeaderProfilePage() {
                         className={btn('did_not_meet')}
                         title="Did Not Meet"
                       >
-                        {getEventSummaryButtonLabel('did_not_meet')}
+                        {content('did_not_meet')}
+                        {eventSummaryState === 'did_not_meet' ? check() : null}
                       </button>
                       <button
                         onClick={() => handleSetEventSummaryState('skipped')}
@@ -2188,7 +2249,8 @@ export default function CircleLeaderProfilePage() {
                         className={btn('skipped')}
                         title={eventSummaryEnumAvailable === false ? 'Run DB migration to enable Skipped' : 'Skipped'}
                       >
-                        {getEventSummaryButtonLabel('skipped')}
+                        {content('skipped')}
+                        {eventSummaryState === 'skipped' ? check() : null}
                       </button>
                       </div>
                     </div>
