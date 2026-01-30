@@ -49,6 +49,14 @@ export interface CCBConfig {
   subdomain: string;
   username: string;
   password: string;
+  /**
+   * Optional override for churches that use a custom CCB domain.
+   * Examples:
+   * - https://yourchurch.ccbchurch.com
+   * - https://connect.yourchurch.org
+   * - https://yourchurch.ccbchurch.com/api.php
+   */
+  baseUrl?: string;
 }
 
 // ---- CCB Client Class ----
@@ -60,7 +68,44 @@ export class CCBClient {
 
   constructor(config: CCBConfig) {
     this.config = config;
-    this.baseUrl = `https://${config.subdomain}.ccbchurch.com/api.php`;
+    this.baseUrl = (() => {
+      const toApiUrl = (value: string) => {
+        const trimmed = value.trim();
+        if (!trimmed) return '';
+
+        // Allow passing a full URL or hostname.
+        // Normalize to a full URL we can call directly.
+        const withProtocol = /^[a-z]+:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+        try {
+          const url = new URL(withProtocol);
+          const path = url.pathname && url.pathname !== '/' ? url.pathname : '';
+          const hasApiPhp = /\/api\.php$/i.test(path);
+          const apiPath = hasApiPhp ? path : `${path.replace(/\/$/, '')}/api.php`;
+          return `${url.origin}${apiPath}`;
+        } catch {
+          return '';
+        }
+      };
+
+      if (config.baseUrl) {
+        const apiUrl = toApiUrl(config.baseUrl);
+        if (apiUrl) return apiUrl;
+      }
+
+      // Back-compat: accept either a raw subdomain ("mychurch") or a hostname ("mychurch.ccbchurch.com").
+      const sub = config.subdomain.trim();
+      if (!sub) return '';
+      if (sub.includes('.') || sub.includes('/')) {
+        const apiUrl = toApiUrl(sub);
+        if (apiUrl) return apiUrl;
+      }
+
+      return `https://${sub}.ccbchurch.com/api.php`;
+    })();
+
+    if (!this.baseUrl) {
+      throw new Error('CCB base URL could not be constructed. Set CCB_BASE_URL to your CCB site (e.g. https://yourchurch.ccbchurch.com).');
+    }
     this.parser = new XMLParser({ 
       ignoreAttributes: false, 
       attributeNamePrefix: "@_", 
@@ -1106,12 +1151,13 @@ export class CCBClient {
 
 export function createCCBClient(): CCBClient {
   const subdomain = process.env.CCB_SUBDOMAIN;
+  const baseUrl = process.env.CCB_BASE_URL;
   const username = process.env.CCB_API_USERNAME;
   const password = process.env.CCB_API_PASSWORD;
 
-  if (!subdomain || !username || !password) {
-    throw new Error("Missing CCB env vars. Please set CCB_SUBDOMAIN, CCB_API_USERNAME, CCB_API_PASSWORD");
+  if ((!subdomain && !baseUrl) || !username || !password) {
+    throw new Error("Missing CCB env vars. Please set CCB_SUBDOMAIN (or CCB_BASE_URL), CCB_API_USERNAME, CCB_API_PASSWORD");
   }
 
-  return new CCBClient({ subdomain, username, password });
+  return new CCBClient({ subdomain: subdomain || '', baseUrl, username, password });
 }

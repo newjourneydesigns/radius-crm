@@ -245,12 +245,18 @@ export async function POST(request: Request) {
     if (typeof upstreamStatusFromError === 'number') {
       const upstreamStatus = upstreamStatusFromError;
       console.error(`❌ CCB Upstream Error (${requestId}): HTTP ${upstreamStatus}`);
+
+      const hint =
+        upstreamStatus === 404
+          ? 'CCB API endpoint not found (404). Most commonly: CCB_SUBDOMAIN is incorrect, or your church uses a custom CCB domain. Set CCB_BASE_URL to your CCB site (e.g. https://yourchurch.ccbchurch.com or your custom domain).'
+          : 'CCB rejected the request. If this persists, verify CCB credentials, subdomain, and that the attendance APIs are enabled for this account.';
+
       return NextResponse.json(
         {
           error: 'CCB returned an error response',
           code: 'CCB_UPSTREAM_ERROR',
           upstreamStatus,
-          hint: 'CCB rejected the request. If this persists, verify CCB credentials, subdomain, and that the attendance APIs are enabled for this account.',
+          hint,
           requestId,
         },
         { status: 502 }
