@@ -391,23 +391,29 @@ export default function CircleMeetingsCalendar({
     setEvents(next);
   }, [leadersWithSchedules, visibleRange]);
 
-  const onEventClick = useCallback((click: EventClickArg) => {
-    const leaderId = (click.event.extendedProps as any)?.leaderId as number | undefined;
-    if (!leaderId) return;
-    
-    // Find the leader to get their name for the group search
+  const openEventExplorerForLeader = useCallback((leaderId: number, isoDate?: string | null) => {
     const leader = leaders.find(l => l.id === leaderId);
     if (!leader) return;
-    
-    // Get the event date
-    const eventDate = click.event.start ? DateTime.fromJSDate(click.event.start).toISODate() : DateTime.local().toISODate();
-    
-    // Open the event explorer modal with pre-filled data
-    setSelectedEventDate(eventDate || '');
+
+    const fallbackDate = DateTime.local().toISODate();
+    const date = isoDate || fallbackDate || '';
+
+    setSelectedEventDate(date);
     setSelectedEventGroupName(leader.name || '');
     setSelectedCcbProfileLink(leader.ccb_profile_link || null);
     setShowEventExplorer(true);
   }, [leaders]);
+
+  const onEventClick = useCallback((click: EventClickArg) => {
+    const leaderId = (click.event.extendedProps as any)?.leaderId as number | undefined;
+    if (!leaderId) return;
+
+    const eventDate = click.event.start
+      ? DateTime.fromJSDate(click.event.start).toISODate()
+      : DateTime.local().toISODate();
+
+    openEventExplorerForLeader(leaderId, eventDate);
+  }, [openEventExplorerForLeader]);
 
   const setLeaderEventSummaryState = useCallback(async (leaderId: number, state: EventSummaryState) => {
     if (!onSetEventSummaryState) return;
@@ -437,7 +443,7 @@ export default function CircleMeetingsCalendar({
     const isSaving = savingLeaderIds.has(leaderId);
 
     const base =
-      'h-10 sm:h-8 px-2 sm:px-2 rounded text-[11px] sm:text-xs leading-none border transition-colors disabled:opacity-60 disabled:cursor-not-allowed touch-manipulation select-none flex items-center justify-center min-w-0';
+      'h-9 sm:h-8 px-2.5 sm:px-2 rounded text-[11px] sm:text-xs leading-tight border transition-colors disabled:opacity-60 disabled:cursor-not-allowed touch-manipulation select-none flex items-center justify-center min-w-0 text-center whitespace-normal';
 
     const btn = (kind: EventSummaryState) => {
       const active = state === kind;
@@ -456,7 +462,7 @@ export default function CircleMeetingsCalendar({
 
     return (
       <div
-        className={`grid grid-cols-4 gap-1 ${opts?.compact ? 'w-max' : 'w-full'} sm:flex sm:w-auto sm:items-center sm:gap-1 shrink-0`}
+        className={`grid grid-cols-2 gap-2 w-full sm:flex sm:items-center sm:gap-1 ${opts?.compact ? 'sm:w-auto' : 'sm:w-full'} shrink-0`}
         role="group"
         aria-label="Event summary"
       >
@@ -467,7 +473,7 @@ export default function CircleMeetingsCalendar({
           Yes
         </button>
         <button type="button" disabled={isSaving} className={btn('did_not_meet')} onClick={onClick('did_not_meet')} title="Did Not Meet">
-          Didn't Meet
+          {opts?.compact ? "Didn't" : "Didn't Meet"}
         </button>
         <button type="button" disabled={isSaving} className={btn('skipped')} onClick={onClick('skipped')} title="Skipped">
           Skip
@@ -640,9 +646,18 @@ export default function CircleMeetingsCalendar({
                 <div className="flex flex-col gap-1.5 w-full sm:hidden">
                   {/* Row 1: Circle Leader Name */}
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white leading-snug">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        router.push(`/circle/${leaderId}`);
+                      }}
+                      className="text-sm font-semibold text-blue-700 dark:text-blue-300 hover:underline leading-snug text-left"
+                      title="Open circle leader profile"
+                    >
                       {arg.event.title}
-                    </span>
+                    </button>
                   </div>
                   
                   {/* Row 2: Time and Frequency */}
@@ -653,49 +668,95 @@ export default function CircleMeetingsCalendar({
                     )}
                   </div>
                   
-                  {/* Row 3: All Buttons Horizontal */}
-                  <div className="flex items-center gap-2">
-                    {ccbHref ? (
-                      <a
-                        href={ccbHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="h-8 px-3 rounded text-xs font-medium leading-none border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors inline-flex items-center justify-center"
-                        title="Open CCB profile"
-                      >
-                        CCB
-                      </a>
-                    ) : (
+                  {/* Row 3: Actions (mobile-first, uses full width) */}
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-3 gap-2">
                       <button
                         type="button"
-                        aria-disabled="true"
-                        tabIndex={-1}
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
+                          const eventDate = arg.event.start
+                            ? DateTime.fromJSDate(arg.event.start).toISODate()
+                            : DateTime.local().toISODate();
+                          openEventExplorerForLeader(leaderId, eventDate);
                         }}
-                        className="h-8 px-3 rounded text-xs font-medium leading-none border border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 transition-colors inline-flex items-center justify-center cursor-not-allowed opacity-50"
-                        title="No CCB profile link"
+                        className="h-9 col-span-1 rounded text-xs font-semibold leading-none border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors inline-flex items-center justify-center"
+                        title="Open attendance summary"
                       >
-                        CCB
+                        Summary
                       </button>
-                    )}
+
+                      {ccbHref ? (
+                        <a
+                          href={ccbHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="h-9 col-span-2 rounded text-xs font-semibold leading-none border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors inline-flex items-center justify-center"
+                          title="Open CCB profile"
+                        >
+                          CCB
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          aria-disabled="true"
+                          tabIndex={-1}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          className="h-9 col-span-2 rounded text-xs font-semibold leading-none border border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 transition-colors inline-flex items-center justify-center cursor-not-allowed opacity-50"
+                          title="No CCB profile link"
+                        >
+                          CCB
+                        </button>
+                      )}
+                    </div>
+
                     {renderEventSummaryButtons(leaderId, state, { compact: true })}
                   </div>
                 </div>
 
                 {/* Desktop Layout - Original Horizontal Design */}
                 <div className="hidden sm:flex sm:items-center justify-between gap-2 w-full">
-                  <div className="min-w-0 text-sm leading-snug break-words sm:truncate">{arg.event.title}</div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      router.push(`/circle/${leaderId}`);
+                    }}
+                    className="min-w-0 text-sm leading-snug break-words sm:truncate text-blue-700 dark:text-blue-300 hover:underline text-left"
+                    title="Open circle leader profile"
+                  >
+                    {arg.event.title}
+                  </button>
                   <div className="w-auto flex flex-row items-center justify-end gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const eventDate = arg.event.start
+                          ? DateTime.fromJSDate(arg.event.start).toISODate()
+                          : DateTime.local().toISODate();
+                        openEventExplorerForLeader(leaderId, eventDate);
+                      }}
+                      className="h-8 px-3 rounded text-xs font-semibold leading-none border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors inline-flex items-center justify-center"
+                      title="Open attendance summary"
+                    >
+                      Summary
+                    </button>
+
                     {ccbHref ? (
                       <a
                         href={ccbHref}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
-                        className="h-8 w-12 rounded text-xs leading-none border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors inline-flex items-center justify-center"
+                        className="h-8 w-12 rounded text-xs font-semibold leading-none border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors inline-flex items-center justify-center"
                         title="Open CCB profile"
                       >
                         CCB
@@ -709,7 +770,7 @@ export default function CircleMeetingsCalendar({
                           e.preventDefault();
                           e.stopPropagation();
                         }}
-                        className="h-8 w-12 rounded text-xs leading-none border border-blue-200/60 dark:border-blue-800/60 text-blue-200/60 transition-colors inline-flex items-center justify-center cursor-not-allowed"
+                        className="h-8 w-12 rounded text-xs font-semibold leading-none border border-blue-200/60 dark:border-blue-800/60 text-blue-200/60 transition-colors inline-flex items-center justify-center cursor-not-allowed"
                         title="No CCB profile link"
                       >
                         CCB
@@ -755,6 +816,7 @@ export default function CircleMeetingsCalendar({
               const eventSummaryState = (ev.extendedProps?.eventSummaryState ?? 'not_received') as EventSummaryState;
               const timeLabel = DateTime.fromISO(ev.start).toLocaleString(DateTime.TIME_SIMPLE);
               const ccbHref = ccb && /^https?:\/\//i.test(ccb) ? ccb : null;
+              const isoDate = DateTime.fromISO(ev.start).toISODate() ?? '';
 
               const colors = getEventSummaryColors(eventSummaryState);
               const stateBorderClass = colors.borderLeft;
@@ -767,21 +829,36 @@ export default function CircleMeetingsCalendar({
                   className={
                     `flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 border-l-4 ${stateBorderClass}`
                   }
+                  role={leaderId ? 'button' : undefined}
+                  tabIndex={leaderId ? 0 : undefined}
+                  onClick={() => {
+                    if (!leaderId) return;
+                    openEventExplorerForLeader(leaderId, isoDate);
+                  }}
+                  onKeyDown={(e) => {
+                    if (!leaderId) return;
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      openEventExplorerForLeader(leaderId, isoDate);
+                    }
+                  }}
                 >
                   {/* Mobile Layout */}
                   <div className="flex flex-col gap-2 sm:hidden">
                     {/* Row 1: Circle Leader Name with Status Color */}
                     <div className="flex items-center gap-2">
-                      {ccbHref ? (
-                        <a
-                          href={ccbHref}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline"
-                          title="Open CCB profile"
+                      {leaderId ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/circle/${leaderId}`);
+                          }}
+                          className="text-sm font-semibold text-blue-700 dark:text-blue-300 hover:underline text-left"
+                          title="Open circle leader profile"
                         >
                           {ev.title}
-                        </a>
+                        </button>
                       ) : (
                         <div className="text-sm font-medium text-gray-900 dark:text-white">{ev.title}</div>
                       )}
@@ -796,29 +873,58 @@ export default function CircleMeetingsCalendar({
                     {/* Row 2: Time of Meeting */}
                     <div className="text-xs text-gray-500 dark:text-gray-400">{timeLabel}</div>
                     
-                    {/* Row 3: Buttons - CCB, No, Yes, Skip */}
-                    <div className="flex items-center gap-2">
-                      {ccbHref ? (
-                        <a
-                          href={ccbHref}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs px-3 py-2 rounded border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30"
-                        >
-                          CCB
-                        </a>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled
-                          className="text-xs px-3 py-2 rounded border border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                        >
-                          CCB
-                        </button>
-                      )}
+                    {/* Row 3: Actions (mobile-first, uses full width) */}
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-3 gap-2">
+                        {leaderId ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEventExplorerForLeader(leaderId, isoDate);
+                            }}
+                            className="h-9 col-span-1 rounded text-xs font-semibold leading-none border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors inline-flex items-center justify-center"
+                            title="Open attendance summary"
+                          >
+                            Summary
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled
+                            className="h-9 col-span-1 rounded text-xs font-semibold leading-none border border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-50"
+                            title="Summary unavailable"
+                          >
+                            Summary
+                          </button>
+                        )}
+
+                        {ccbHref ? (
+                          <a
+                            href={ccbHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="h-9 col-span-2 rounded text-xs font-semibold leading-none border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors inline-flex items-center justify-center"
+                            title="Open CCB profile"
+                          >
+                            CCB
+                          </a>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled
+                            className="h-9 col-span-2 rounded text-xs font-semibold leading-none border border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-50"
+                            title="No CCB profile link"
+                          >
+                            CCB
+                          </button>
+                        )}
+                      </div>
+
                       {leaderId && onSetEventSummaryState && (
-                        <div className="flex-1">
-                          {renderEventSummaryButtons(leaderId, eventSummaryState)}
+                        <div className="w-full">
+                          {renderEventSummaryButtons(leaderId, eventSummaryState, { compact: true })}
                         </div>
                       )}
                     </div>
@@ -827,16 +933,15 @@ export default function CircleMeetingsCalendar({
                   {/* Desktop Layout */}
                   <div className="hidden sm:block min-w-0">
                     <div className="text-xs text-gray-500 dark:text-gray-400">{timeLabel}</div>
-                    {ccbHref ? (
-                      <a
-                        href={ccbHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline break-words sm:truncate"
-                        title="Open CCB profile"
+                    {leaderId ? (
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/circle/${leaderId}`)}
+                        className="block text-sm font-semibold text-blue-700 dark:text-blue-300 hover:underline break-words sm:truncate text-left"
+                        title="Open circle leader profile"
                       >
                         {ev.title}
-                      </a>
+                      </button>
                     ) : (
                       <div className="block text-sm font-medium text-gray-900 dark:text-white break-words sm:truncate">{ev.title}</div>
                     )}
@@ -860,24 +965,38 @@ export default function CircleMeetingsCalendar({
                     >
                       {stateLabel}
                     </span>
-                    {ccbHref && (
+                    {leaderId && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEventExplorerForLeader(leaderId, isoDate);
+                        }}
+                        className="text-xs px-2.5 py-1.5 rounded border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        title="Open attendance summary"
+                      >
+                        Summary
+                      </button>
+                    )}
+                    {ccbHref ? (
                       <a
                         href={ccbHref}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs px-2 py-1 rounded border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-xs px-2.5 py-1.5 rounded border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                        title="Open CCB profile"
                       >
                         CCB
                       </a>
-                    )}
-                    {leaderId && (
+                    ) : (
                       <button
                         type="button"
-                        onClick={() => router.push(`/circle/${leaderId}`)}
-                        className="text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-                        title="Open circle leader page"
+                        disabled
+                        className="text-xs px-2.5 py-1.5 rounded border border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
+                        title="No CCB profile link"
                       >
-                        Open
+                        CCB
                       </button>
                     )}
                   </div>
