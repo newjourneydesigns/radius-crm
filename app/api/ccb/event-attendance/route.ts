@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 
+export const dynamic = 'force-dynamic';
+
 // Simple in-memory rate limiter
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
@@ -81,7 +83,11 @@ export async function POST(request: Request) {
     // Create CCB client (credentials are server-side only)
     const ccbClient = createCCBClient();
 
-    console.log(`🔍 Fetching CCB events for group "${groupName}" on ${date}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🔍 Fetching CCB events for group "${groupName}" on ${date}`);
+    } else {
+      console.log(`🔍 Fetching CCB events on ${date}`);
+    }
 
     // OPTIMIZED: Use fast search method (10-20x faster!)
     const events = await ccbClient.searchEventsByDateAndName(
@@ -129,11 +135,43 @@ export async function POST(request: Request) {
     return NextResponse.json(response);
 
   } catch (error: any) {
-    console.error('❌ CCB Event Attendance API Error:', error);
+    const message = (error?.message || '').toString();
+    const requestId = Math.random().toString(36).slice(2, 10);
+
+    console.error(`❌ CCB Event Attendance API Error (${requestId}):`, message);
+
+    // Common misconfig: missing server env vars on the hosting platform
+    if (/Missing CCB env vars/i.test(message)) {
+      return NextResponse.json(
+        {
+          error: 'CCB is not configured on the server',
+          code: 'CCB_MISSING_ENV',
+          hint: 'Set CCB_SUBDOMAIN, CCB_API_USERNAME, and CCB_API_PASSWORD in your production environment variables (Netlify).',
+          requestId,
+        },
+        { status: 503 }
+      );
+    }
+
+    // Auth failures (bad credentials)
+    if (/HTTP\s+401/i.test(message) || /HTTP\s+403/i.test(message)) {
+      return NextResponse.json(
+        {
+          error: 'CCB authentication failed',
+          code: 'CCB_AUTH_FAILED',
+          hint: 'Verify CCB_API_USERNAME / CCB_API_PASSWORD are correct for the configured subdomain.',
+          requestId,
+        },
+        { status: 502 }
+      );
+    }
+
+    // Default
     return NextResponse.json(
       {
         error: 'Failed to fetch CCB event data',
-        details: error.message,
+        code: 'CCB_FETCH_FAILED',
+        requestId,
       },
       { status: 500 }
     );
@@ -153,10 +191,25 @@ export async function GET() {
         : 'CCB API connection failed',
     });
   } catch (error: any) {
+    const message = (error?.message || '').toString();
+
+    if (/Missing CCB env vars/i.test(message)) {
+      return NextResponse.json(
+        {
+          connected: false,
+          error: 'CCB is not configured on the server',
+          code: 'CCB_MISSING_ENV',
+          hint: 'Set CCB_SUBDOMAIN, CCB_API_USERNAME, and CCB_API_PASSWORD in your production environment variables (Netlify).',
+        },
+        { status: 503 }
+      );
+    }
+
     return NextResponse.json(
       {
         connected: false,
-        error: error.message,
+        error: 'CCB connection failed',
+        code: 'CCB_CONNECTION_FAILED',
       },
       { status: 500 }
     );

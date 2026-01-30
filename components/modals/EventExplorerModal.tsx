@@ -102,10 +102,14 @@ export default function EventExplorerModal({
         signal: abortController.signal,
       });
 
-      const result = await response.json();
+      const result = await response.json().catch(() => ({} as any));
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to fetch data');
+        const parts = [result?.error || 'Failed to fetch data'];
+        if (result?.hint) parts.push(result.hint);
+        if (result?.code) parts.push(`(${result.code})`);
+        if (result?.requestId) parts.push(`Request: ${result.requestId}`);
+        throw new Error(parts.filter(Boolean).join(' '));
       }
 
       setEvents(result.data || []);

@@ -8,6 +8,8 @@ import axios, { AxiosRequestConfig } from "axios";
 import { XMLParser } from "fast-xml-parser";
 import { DateTime, Interval } from "luxon";
 
+const IS_DEV = process.env.NODE_ENV === 'development';
+
 // ---- Types ----
 
 export type EventOccurrence = {
@@ -69,7 +71,9 @@ export class CCBClient {
   // ---- HTTP helpers ----
 
   private async getXml<T = any>(params: Record<string, string | number | boolean>, maxRetries = 3): Promise<T> {
-    console.log(`🔍 CCB API Call: ${JSON.stringify(params)}`);
+    if (IS_DEV) {
+      console.log(`🔍 CCB API Call: ${JSON.stringify(params)}`);
+    }
     
     // Use longer timeout for event_profiles without group filter since it returns all events
     const timeout = params.srv === 'event_profiles' && !params.group_id ? 60000 : 30000;
@@ -87,7 +91,9 @@ export class CCBClient {
     while (true) {
       try {
         const res = await axios(cfg);
-        console.log(`🔍 CCB API Response: Status ${res.status}, Content-Length: ${res.data?.length || 'unknown'}`);
+        if (IS_DEV) {
+          console.log(`🔍 CCB API Response: Status ${res.status}, Content-Length: ${res.data?.length || 'unknown'}`);
+        }
         
         if (res.status === 429) throw new Error("Rate limited (429)");
         if (res.status >= 400) {
@@ -97,7 +103,9 @@ export class CCBClient {
         
         // Log a sample of the parsed response for debugging
         if (params.srv === 'public_calendar_listing' || params.srv === 'event_occurrences') {
-          console.log(`🔍 CCB Parsed Response Sample:`, JSON.stringify(data, null, 2).slice(0, 1000) + '...');
+          if (IS_DEV) {
+            console.log(`🔍 CCB Parsed Response Sample:`, JSON.stringify(data, null, 2).slice(0, 1000) + '...');
+          }
         }
         
         return data as T;
@@ -409,27 +417,37 @@ export class CCBClient {
   }
 
   private async fetchEventSet(group: string, start: string, end: string): Promise<NormalizedEvent[]> {
-    console.log(`🔍 CCB: Fetching PRIVATE group events for group ${group} from ${start} to ${end}`);
-    console.log(`🔍 CCB: NOTE - Group events are NOT published to campus calendar, so using private event APIs`);
+    if (IS_DEV) {
+      console.log(`🔍 CCB: Fetching PRIVATE group events for group ${group} from ${start} to ${end}`);
+      console.log(`🔍 CCB: NOTE - Group events are NOT published to campus calendar, so using private event APIs`);
+    }
     
     // Based on user-provided URL showing event 14002 with occurrence on 2025-08-11, 
     // expand search range to capture events beyond the original range
     const expandedEnd = "2025-08-31"; // Expand to end of August
-    console.log(`🔍 CCB: Expanding search to ${expandedEnd} based on evidence of August events`);
+    if (IS_DEV) {
+      console.log(`🔍 CCB: Expanding search to ${expandedEnd} based on evidence of August events`);
+    }
     
     // Since group events are NOT published to campus calendar, prioritize private event APIs
     let events: NormalizedEvent[] = [];
     
     // 1) Try event_profiles (gets ALL events including private ones, then filter)
     try {
-      console.log('🔍 CCB: Strategy 1 - event_profiles (gets private events)');
-      const xml = await this.getXml({ srv: "event_profiles" }, 60000); // Extended timeout for all events
+      if (IS_DEV) {
+        console.log('🔍 CCB: Strategy 1 - event_profiles (gets private events)');
+      }
+      const xml = await this.getXml({ srv: "event_profiles" });
       events = this.normalizeFromEventProfiles(xml);
-      console.log(`🔍 CCB: event_profiles returned ${events.length} total events`);
+      if (IS_DEV) {
+        console.log(`🔍 CCB: event_profiles returned ${events.length} total events`);
+      }
       
       // Filter for our group
       const filteredEvents = events.filter(ev => ev.groupId === group);
-      console.log(`🔍 CCB: After group filtering: ${filteredEvents.length} events for group ${group}`);
+      if (IS_DEV) {
+        console.log(`🔍 CCB: After group filtering: ${filteredEvents.length} events for group ${group}`);
+      }
       if (filteredEvents.length > 0) return filteredEvents;
     } catch (error) {
       console.warn('🔍 CCB: event_profiles failed:', error);
@@ -437,7 +455,9 @@ export class CCBClient {
     
     // 2) Try group_profile_from_id to get group information and possible events
     try {
-      console.log('🔍 CCB: Strategy 2 - group_profile_from_id (may include group events)');
+      if (IS_DEV) {
+        console.log('🔍 CCB: Strategy 2 - group_profile_from_id (may include group events)');
+      }
       const xml = await this.getXml({ 
         srv: "group_profile_from_id", 
         id: group,
@@ -446,7 +466,9 @@ export class CCBClient {
       
       // Check if group profile contains event information
       const groupEvents = this.normalizeFromGroupProfile(xml, group);
-      console.log(`🔍 CCB: group_profile_from_id returned ${groupEvents.length} events`);
+      if (IS_DEV) {
+        console.log(`🔍 CCB: group_profile_from_id returned ${groupEvents.length} events`);
+      }
       if (groupEvents.length > 0) return groupEvents;
     } catch (error) {
       console.warn('🔍 CCB: group_profile_from_id failed:', error);
@@ -455,12 +477,16 @@ export class CCBClient {
     // 3) Try specific event profiles for each found event to get detailed occurrence data
     if (events.length > 0) {
       try {
-        console.log(`🔍 CCB: Strategy 3 - Getting detailed event_profile for each of ${events.length} found events`);
+        if (IS_DEV) {
+          console.log(`🔍 CCB: Strategy 3 - Getting detailed event_profile for each of ${events.length} found events`);
+        }
         const detailedEvents: NormalizedEvent[] = [];
         
         for (const event of events.filter(ev => ev.groupId === group)) {
           try {
-            console.log(`🔍 CCB: Getting detailed profile for event ${event.eventId}`);
+            if (IS_DEV) {
+              console.log(`🔍 CCB: Getting detailed profile for event ${event.eventId}`);
+            }
             const xml = await this.getXml({ srv: "event_profile", id: event.eventId });
             const detailedEventArray = this.normalizeFromEventProfiles(xml);
             if (detailedEventArray.length > 0) {
@@ -471,7 +497,9 @@ export class CCBClient {
           }
         }
         
-        console.log(`🔍 CCB: Got detailed profiles for ${detailedEvents.length} events`);
+        if (IS_DEV) {
+          console.log(`🔍 CCB: Got detailed profiles for ${detailedEvents.length} events`);
+        }
         if (detailedEvents.length > 0) {
           return detailedEvents;
         }
@@ -482,16 +510,22 @@ export class CCBClient {
     
     // 4) Try specific event profile for known event 14002 (from user's URL)
     try {
-      console.log('🔍 CCB: Strategy 4 - event_profile for specific event 14002');
+      if (IS_DEV) {
+        console.log('🔍 CCB: Strategy 4 - event_profile for specific event 14002');
+      }
       const xml = await this.getXml({ srv: "event_profile", id: "14002" });
       
       // LOG THE ENTIRE RAW RESPONSE FOR EVENT 14002
-      console.log('🔍 CCB: RAW XML for event 14002:', JSON.stringify(xml, null, 2));
+      if (IS_DEV) {
+        console.log('🔍 CCB: RAW XML for event 14002:', JSON.stringify(xml, null, 2));
+      }
       
       const specificEvents = this.normalizeFromEventProfiles(xml);
       
       if (specificEvents.length > 0 && specificEvents[0].groupId === group) {
-        console.log('🔍 CCB: Event 14002 matches requested group');
+        if (IS_DEV) {
+          console.log('🔍 CCB: Event 14002 matches requested group');
+        }
         
         // FORCE ADD THE KNOWN AUGUST 11 OCCURRENCE BASED ON USER EVIDENCE
         const eventWithKnownOccurrence = {
@@ -499,7 +533,9 @@ export class CCBClient {
           occurrences: [{ start: '2025-08-11T19:00:00' }] // Monday 7 PM meeting based on URL evidence
         };
         
-        console.log('🔍 CCB: FORCING August 11 occurrence for event 14002 based on user URL evidence');
+        if (IS_DEV) {
+          console.log('🔍 CCB: FORCING August 11 occurrence for event 14002 based on user URL evidence');
+        }
         return [eventWithKnownOccurrence];
       }
     } catch (error) {
@@ -508,7 +544,9 @@ export class CCBClient {
     
     // 5) Try attendance_profiles to find private events with recorded attendance
     try {
-      console.log('🔍 CCB: Strategy 4 - attendance_profiles (finds private events with attendance)');
+      if (IS_DEV) {
+        console.log('🔍 CCB: Strategy 4 - attendance_profiles (finds private events with attendance)');
+      }
       const xml = await this.getXml({ 
         srv: "attendance_profiles", 
         start_date: start, 
@@ -517,7 +555,9 @@ export class CCBClient {
       
       // Parse attendance data to extract events
       const attendanceEvents = this.normalizeFromAttendanceProfiles(xml, group);
-      console.log(`🔍 CCB: attendance_profiles returned ${attendanceEvents.length} events with attendance`);
+      if (IS_DEV) {
+        console.log(`🔍 CCB: attendance_profiles returned ${attendanceEvents.length} events with attendance`);
+      }
       if (attendanceEvents.length > 0) return attendanceEvents;
     } catch (error) {
       console.warn('🔍 CCB: attendance_profiles failed:', error);
@@ -525,21 +565,29 @@ export class CCBClient {
     
     // 5) Last resort: try public_calendar_listing (will likely be empty for private events)
     try {
-      console.log('🔍 CCB: Strategy 5 - public_calendar_listing (unlikely to work for private events)');
+      if (IS_DEV) {
+        console.log('🔍 CCB: Strategy 5 - public_calendar_listing (unlikely to work for private events)');
+      }
       const xml = await this.getXml({ srv: "public_calendar_listing", date_start: start, date_end: expandedEnd });
       events = this.normalizeFromPublicCalendar(xml);
-      console.log(`🔍 CCB: public_calendar_listing returned ${events.length} events`);
+      if (IS_DEV) {
+        console.log(`🔍 CCB: public_calendar_listing returned ${events.length} events`);
+      }
       
       // Filter for our group
       const filteredEvents = events.filter(ev => ev.groupId === group);
-      console.log(`🔍 CCB: After group filtering: ${filteredEvents.length} events`);
+      if (IS_DEV) {
+        console.log(`🔍 CCB: After group filtering: ${filteredEvents.length} events`);
+      }
       if (filteredEvents.length > 0) return filteredEvents;
     } catch (error) {
       console.warn('🔍 CCB: public_calendar_listing failed:', error);
     }
     
-    console.log('🔍 CCB: All strategies exhausted - group events may be private and not accessible via API');
-    console.log('🔍 CCB: Consider enabling "Publish this groups events to the campus-wide event calendar" in group settings');
+    if (IS_DEV) {
+      console.log('🔍 CCB: All strategies exhausted - group events may be private and not accessible via API');
+      console.log('🔍 CCB: Consider enabling "Publish this groups events to the campus-wide event calendar" in group settings');
+    }
     return [];
   }
 
@@ -578,7 +626,9 @@ export class CCBClient {
       throw new Error('Group name search term is required');
     }
 
-    console.log(`⚡ FAST Search: Group "${partialGroupName}", Date: ${startDate} to ${endDate}`);
+    if (IS_DEV) {
+      console.log(`⚡ FAST Search: Group "${partialGroupName}", Date: ${startDate} to ${endDate}`);
+    }
 
     try {
       // Use attendance_profiles API with date filtering - single fast call!
@@ -594,7 +644,9 @@ export class CCBClient {
         ? eventsRoot.event 
         : eventsRoot?.event ? [eventsRoot.event] : [];
 
-      console.log(`📊 Found ${rawEvents.length} total events in date range`);
+      if (IS_DEV) {
+        console.log(`📊 Found ${rawEvents.length} total events in date range`);
+      }
 
       // Filter events by group name and build LinkRow objects
       const searchTerm = partialGroupName.toLowerCase().trim();
@@ -615,7 +667,9 @@ export class CCBClient {
         
         if (!eventId || !occurrence) continue;
 
-        console.log(`🔍 Event ${eventId} occurrence format: "${occurrence}"`);
+        if (IS_DEV) {
+          console.log(`🔍 Event ${eventId} occurrence format: "${occurrence}"`);
+        }
 
         // Parse attendance data
         const attendance = this.normalizeAttendance({ ccb_api: { response: { attendance: event } } }, includeAttendees);
@@ -637,7 +691,9 @@ export class CCBClient {
         });
       }
 
-      console.log(`✅ Matched ${results.length} events for "${partialGroupName}"`);
+      if (IS_DEV) {
+        console.log(`✅ Matched ${results.length} events for "${partialGroupName}"`);
+      }
       return results;
 
     } catch (error) {
