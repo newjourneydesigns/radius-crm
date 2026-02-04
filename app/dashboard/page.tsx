@@ -87,6 +87,7 @@ function DashboardContent() {
   const [newTodoDueDate, setNewTodoDueDate] = useState('');
   const [newTodoNotes, setNewTodoNotes] = useState('');
   const [newTodoRepeatRule, setNewTodoRepeatRule] = useState<TodoRepeatRule>('none');
+  const [todoActionError, setTodoActionError] = useState<string | null>(null);
   const [editingTodoId, setEditingTodoId] = useState<number | null>(null);
   const [editingTodoText, setEditingTodoText] = useState('');
   const [editingTodoDueDate, setEditingTodoDueDate] = useState('');
@@ -353,6 +354,16 @@ function DashboardContent() {
   // Add new todo
   const addTodo = async () => {
     if (!newTodoText.trim() || !user?.id) return;
+    setTodoActionError(null);
+
+    const isMissingNotesColumn = (err: any) => {
+      const message = (err?.message || '') as string;
+      return (
+        err?.code === '42703' ||
+        err?.code === 'PGRST204' ||
+        (message.includes("'notes'") && message.toLowerCase().includes('schema cache'))
+      );
+    };
     
     try {
       // Non-repeating
@@ -372,7 +383,20 @@ function DashboardContent() {
         let data = insertWithDueDate.data;
         let error: any = insertWithDueDate.error;
 
-        if (error && error.code === '42703') {
+        if (error && isMissingNotesColumn(error)) {
+          const fallbackInsert = await supabase
+            .from('todo_items')
+            .insert({
+              user_id: user.id,
+              text: newTodoText.trim(),
+              completed: false,
+              due_date: newTodoDueDate ? newTodoDueDate : null
+            })
+            .select()
+            .single();
+          data = fallbackInsert.data;
+          error = fallbackInsert.error;
+        } else if (error && error.code === '42703') {
           const fallbackInsert = await supabase
             .from('todo_items')
             .insert({
@@ -388,6 +412,7 @@ function DashboardContent() {
 
         if (error) {
           console.error('Error adding todo:', error);
+          setTodoActionError(error?.message || 'Unable to add task. Please try again.');
           return;
         }
 
@@ -423,6 +448,32 @@ function DashboardContent() {
         .single();
 
       if (masterInsert.error) {
+        // notes column missing or schema cache stale; retry without notes
+        if (isMissingNotesColumn(masterInsert.error)) {
+          const retry = await supabase
+            .from('todo_items')
+            .insert({
+              user_id: user.id,
+              text: newTodoText.trim(),
+              completed: false,
+              due_date: newTodoDueDate,
+              series_id: seriesId,
+              is_series_master: true,
+              repeat_rule: newTodoRepeatRule,
+              repeat_interval: 1
+            })
+            .select()
+            .single();
+
+          if (retry.error) {
+            console.error('Error adding recurring todo master (retry):', retry.error);
+            setTodoActionError(retry.error?.message || 'Unable to add repeating task. Please try again.');
+            return;
+          }
+
+          // Continue using retry insert result
+        }
+
         // If schema isn't migrated yet, fall back to creating a single todo.
         if (masterInsert.error.code === '42703') {
           console.warn('Repeat fields not migrated yet; creating single todo.');
@@ -447,6 +498,7 @@ function DashboardContent() {
         }
 
         console.error('Error adding recurring todo master:', masterInsert.error);
+        setTodoActionError(masterInsert.error?.message || 'Unable to add repeating task. Please try again.');
         return;
       }
 
@@ -476,6 +528,24 @@ function DashboardContent() {
           .from('todo_items')
           .insert(rows);
 
+        // notes column missing or schema cache stale; retry without notes
+        if (occInsert.error && isMissingNotesColumn(occInsert.error)) {
+          const rowsWithoutNotes = toCreate.map(d => ({
+            user_id: user.id,
+            text: newTodoText.trim(),
+            completed: false,
+            due_date: d,
+            series_id: seriesId,
+            is_series_master: false
+          }));
+          const retry = await supabase
+            .from('todo_items')
+            .insert(rowsWithoutNotes);
+          if (retry.error && retry.error.code !== '23505') {
+            console.error('Error inserting recurring todo occurrences (retry):', retry.error);
+          }
+        }
+
         if (occInsert.error && occInsert.error.code !== '23505') {
           console.error('Error inserting recurring todo occurrences:', occInsert.error);
         }
@@ -492,6 +562,7 @@ function DashboardContent() {
       // unreachable (kept for safety)
     } catch (e) {
       console.error('Error adding todo:', e);
+      setTodoActionError('Unable to add task. Please try again.');
     }
   };
 
@@ -499,6 +570,7 @@ function DashboardContent() {
   const toggleTodo = async (id: number) => {
     const todo = todos.find(t => t.id === id);
     if (!todo) return;
+    setTodoActionError(null);
     
     try {
       const nextCompleted = !todo.completed;
@@ -522,6 +594,7 @@ function DashboardContent() {
 
       if (error) {
         console.error('Error toggling todo:', error);
+        setTodoActionError(error?.message || 'Unable to update task. Please try again.');
         return;
       }
 
@@ -537,6 +610,7 @@ function DashboardContent() {
       }
     } catch (e) {
       console.error('Error toggling todo:', e);
+      setTodoActionError('Unable to update task. Please try again.');
     }
   };
 
@@ -558,7 +632,11 @@ function DashboardContent() {
 
   // Save edited todo
   const saveEditedTodo = async (id: number) => {
-    if (!editingTodoText.trim()) return;
+    if (!editingTodoText.trim()) {
+      setTodoActionError('Task text can’t be empty.');
+      return;
+    }
+    setTodoActionError(null);
 
     const todo = todos.find(t => t.id === id);
     const seriesId = todo?.series_id || null;
@@ -587,6 +665,7 @@ function DashboardContent() {
 
         if (error) {
           console.error('Error updating todo:', error);
+          setTodoActionError(error?.message || 'Unable to save task. Please try again.');
           return;
         }
 
@@ -606,8 +685,23 @@ function DashboardContent() {
             notes: editingTodoNotes.trim() ? editingTodoNotes.trim() : null
           })
           .eq('series_id', seriesId);
-        if (textUpdate.error && textUpdate.error.code !== '42703') {
-          console.error('Error updating recurring todo text:', textUpdate.error);
+        if (textUpdate.error) {
+          // If schema isn't migrated yet, fall back to updating text only.
+          if (textUpdate.error.code === '42703') {
+            const fallback = await supabase
+              .from('todo_items')
+              .update({ text: editingTodoText.trim() })
+              .eq('series_id', seriesId);
+            if (fallback.error) {
+              console.error('Error updating recurring todo text (fallback):', fallback.error);
+              setTodoActionError(fallback.error?.message || 'Unable to save task series. Please try again.');
+              return;
+            }
+          } else {
+            console.error('Error updating recurring todo text:', textUpdate.error);
+            setTodoActionError(textUpdate.error?.message || 'Unable to save task series. Please try again.');
+            return;
+          }
         }
 
         // If user changed repeat rule, apply it on master.
@@ -702,6 +796,7 @@ function DashboardContent() {
       setEditingTodoRepeatRule('none');
     } catch (e) {
       console.error('Error updating todo:', e);
+      setTodoActionError('Unable to save task. Please try again.');
     }
   };
 
@@ -2380,7 +2475,12 @@ function DashboardContent() {
                       type="text"
                       value={newTodoText}
                       onChange={(e) => setNewTodoText(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && addTodo()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addTodo();
+                        }
+                      }}
                       placeholder="Add a new task..."
                       className="p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -2408,6 +2508,7 @@ function DashboardContent() {
                     </select>
 
                     <button
+                      type="button"
                       onClick={addTodo}
                       disabled={!newTodoText.trim()}
                       className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 
@@ -2424,10 +2525,22 @@ function DashboardContent() {
                   <textarea
                     value={newTodoNotes}
                     onChange={(e) => setNewTodoNotes(e.target.value)}
+                    onKeyDown={(e) => {
+                      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                        e.preventDefault();
+                        addTodo();
+                      }
+                    }}
                     placeholder="Notes (optional)"
                     className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y min-h-[64px]"
                     rows={2}
                   />
+
+                  {todoActionError && (
+                    <div className="text-sm text-red-600 dark:text-red-300">
+                      {todoActionError}
+                    </div>
+                  )}
 
                   {/* Todo Items */}
                   {displayTodos.length === 0 ? (
@@ -2510,7 +2623,7 @@ function DashboardContent() {
                                   type="text"
                                   value={editingTodoText}
                                   onChange={(e) => setEditingTodoText(e.target.value)}
-                                  onKeyPress={(e) => {
+                                  onKeyDown={(e) => {
                                     if (e.key === 'Enter') saveEditedTodo(todo.id);
                                     if (e.key === 'Escape') cancelEditingTodo();
                                   }}
@@ -2540,12 +2653,15 @@ function DashboardContent() {
                                 </select>
 
                                 <button
+                                  type="button"
                                   onClick={() => saveEditedTodo(todo.id)}
+                                  disabled={!editingTodoText.trim()}
                                   className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors"
                                 >
                                   Save
                                 </button>
                                 <button
+                                  type="button"
                                   onClick={cancelEditingTodo}
                                   className="px-2 py-1 bg-gray-500 hover:bg-gray-600 text-white text-sm rounded-md transition-colors"
                                 >
@@ -2555,9 +2671,22 @@ function DashboardContent() {
                               <textarea
                                 value={editingTodoNotes}
                                 onChange={(e) => setEditingTodoNotes(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                                    e.preventDefault();
+                                    saveEditedTodo(todo.id);
+                                  }
+                                  if (e.key === 'Escape') cancelEditingTodo();
+                                }}
                                 placeholder="Notes (optional)"
                                 className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y min-h-[64px]"
                               />
+
+                              {todoActionError && (
+                                <div className="text-sm text-red-600 dark:text-red-300">
+                                  {todoActionError}
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <>
@@ -2602,6 +2731,7 @@ function DashboardContent() {
                               </div>
                               <div className="flex gap-1">
                                 <button
+                                  type="button"
                                   onClick={() => startEditingTodo(todo)}
                                   className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
                                   title="Edit"
@@ -2611,6 +2741,7 @@ function DashboardContent() {
                                   </svg>
                                 </button>
                                 <button
+                                  type="button"
                                   onClick={() => deleteTodo(todo.id)}
                                   className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
                                   title="Delete"

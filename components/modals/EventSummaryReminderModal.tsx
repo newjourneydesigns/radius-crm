@@ -14,21 +14,21 @@ interface EventSummaryReminderModalProps {
 const MESSAGE_OPTIONS = [
   {
     number: 1,
-    label: 'Option 1',
+    label: 'Initial message',
     template: (leaderFirstName: string) => 
-      `Hi ${leaderFirstName}!\nJust a quick reminder about your Circle event summary. What you share really helps us stay connected to what’s happening in your Circle and lead with clarity. When summaries are completed the same day, it gives us the best picture. I appreciate you taking a few minutes to do that.`
+      `Hi ${leaderFirstName},\nWhen you have a moment, would you mind sending in your event summary?`
   },
   {
     number: 2,
-    label: 'Option 2',
+    label: 'Second follow-up',
     template: (leaderFirstName: string) => 
-      `Hi ${leaderFirstName},\nI didn’t see your Circle event summary from this week and wanted to follow up. When you have a moment, would you go ahead and send it in? We’re asking everyone to complete their summary the same day as Circle. If you need help or have questions, let me know.`
+      `Hi ${leaderFirstName},\nJust checking back in on your event summary when you have a chance. It usually only takes about five minutes and really helps us understand where your Circle and our campus are.`
   },
   {
     number: 3,
-    label: 'Option 3',
+    label: 'Third follow-up',
     template: (leaderFirstName: string) => 
-      `Hi ${leaderFirstName},\nI still haven’t seen your Circle event summary from this week. Please complete and submit it today. Going forward, we’re asking all leaders to submit their summary the same day as Circle. If something got in the way or you need help, I’m happy to help.`
+      `Hi ${leaderFirstName},\nI wanted to follow up once more on your event summary. Completing it shortly after Circle helps us stay connected to what’s happening in your Circle and across the campus.`
   }
 ];
 

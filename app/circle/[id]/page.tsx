@@ -15,6 +15,7 @@ import LogConnectionModal from '../../../components/dashboard/LogConnectionModal
 import NoteTemplateModal from '../../../components/dashboard/NoteTemplateModal';
 import ConnectPersonModal from '../../../components/modals/ConnectPersonModal';
 import EventSummaryReminderModal from '../../../components/modals/EventSummaryReminderModal';
+import EventExplorerModal from '../../../components/modals/EventExplorerModal';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import { getEventSummaryButtonLabel, getEventSummaryColors, getEventSummaryState } from '../../../lib/event-summary-utils';
 
@@ -93,6 +94,13 @@ const getFollowUpStatus = (dateString: string | undefined | null): {
   } catch (error) {
     return { isOverdue: false, isApproaching: false, daysUntil: 0 };
   }
+};
+
+const getLocalISODate = (date = new Date()): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 // Helper function to format date for display (avoiding timezone issues)
@@ -257,6 +265,7 @@ export default function CircleLeaderProfilePage() {
   const [showLogConnectionModal, setShowLogConnectionModal] = useState(false);
   const [showConnectPersonModal, setShowConnectPersonModal] = useState(false);
   const [showEventSummaryReminderModal, setShowEventSummaryReminderModal] = useState(false);
+  const [showEventExplorerModal, setShowEventExplorerModal] = useState(false);
   const [sentReminderMessages, setSentReminderMessages] = useState<number[]>([]);
   const [eventSummaryEnumAvailable, setEventSummaryEnumAvailable] = useState<boolean | null>(null);
   const [eventSummaryEnumWarningShown, setEventSummaryEnumWarningShown] = useState(false);
@@ -1608,6 +1617,28 @@ export default function CircleLeaderProfilePage() {
                         ) : null}
                       </button>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowEventExplorerModal(true)}
+                      className="w-full flex items-center px-3 py-2 bg-gray-50 dark:bg-gray-700/40 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 rounded text-sm"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      View Event Summary
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowEventSummaryReminderModal(true)}
+                      className="w-full flex items-center px-3 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded text-sm"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                      </svg>
+                      Event Summary Reminder
+                    </button>
                   </div>
                 );
               })()}
@@ -1740,16 +1771,6 @@ export default function CircleLeaderProfilePage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
               </svg>
               Connect New Person
-            </button>
-            
-            <button 
-              onClick={() => setShowEventSummaryReminderModal(true)}
-              className="w-full flex items-center px-3 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded text-sm"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-              Event Summary Reminder
             </button>
             
             {/* CCB Profile Link */}
@@ -2266,6 +2287,28 @@ export default function CircleLeaderProfilePage() {
                         {eventSummaryState === 'skipped' ? check() : null}
                       </button>
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowEventExplorerModal(true)}
+                        className="w-full flex items-center px-3 py-2 bg-gray-50 dark:bg-gray-700/40 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 rounded text-sm"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        View Event Summary
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowEventSummaryReminderModal(true)}
+                        className="w-full flex items-center px-3 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded text-sm"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                        Event Summary Reminder
+                      </button>
                     </div>
                   );
                 })()}
@@ -2385,16 +2428,6 @@ export default function CircleLeaderProfilePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                   </svg>
                   Connect New Person
-                </button>
-                
-                <button 
-                  onClick={() => setShowEventSummaryReminderModal(true)}
-                  className="w-full flex items-center px-3 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded text-sm"
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
-                  Event Summary Reminder
                 </button>
                 
                 {/* CCB Profile Link */}
@@ -2693,6 +2726,15 @@ export default function CircleLeaderProfilePage() {
         leaderName={leader?.name || ''}
         sentMessages={sentReminderMessages}
         onSend={handleSendEventSummaryReminder}
+      />
+
+      {/* CCB Event Explorer Modal (re-used from Calendar page) */}
+      <EventExplorerModal
+        isOpen={showEventExplorerModal}
+        onClose={() => setShowEventExplorerModal(false)}
+        initialDate={getLocalISODate()}
+        initialGroupName={leader?.name || ''}
+        ccbProfileLink={leader?.ccb_profile_link || null}
       />
 
       {/* Delete Circle Leader Confirmation Modal */}
