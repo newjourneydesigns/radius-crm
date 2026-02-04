@@ -1511,7 +1511,8 @@ export default function CircleLeaderProfilePage() {
 
               {(() => {
                 const eventSummaryState = getEventSummaryState(leader);
-                const base = 'w-full flex items-center justify-between gap-3 px-3 py-2 rounded-md border transition-colors';
+                const base =
+                  'w-full relative text-left rounded-lg border px-3 py-3 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800';
                 const disabledCls = isUpdatingEventSummary ? 'opacity-60 cursor-not-allowed' : '';
 
                 const btn = (kind: EventSummaryState) => {
@@ -1528,15 +1529,15 @@ export default function CircleLeaderProfilePage() {
                   const primary = getEventSummaryButtonLabel(kind);
                   return (
                     <span className="flex flex-col items-start leading-tight">
-                      <span className="text-sm font-semibold">{primary}</span>
-                      <span className="text-xs opacity-80">{colors.label}</span>
+                      <span className="text-base font-bold">{primary}</span>
+                      <span className="text-xs opacity-90">{colors.label}</span>
                     </span>
                   );
                 };
 
                 const check = () => (
                   <svg
-                    className="w-4 h-4 flex-shrink-0"
+                    className="w-4 h-4"
                     viewBox="0 0 20 20"
                     fill="currentColor"
                     aria-hidden="true"
@@ -1557,43 +1558,55 @@ export default function CircleLeaderProfilePage() {
                       </div>
                     )}
 
-                    <div className="space-y-2">
-                    <button
-                      onClick={() => handleSetEventSummaryState('not_received')}
-                      disabled={isUpdatingEventSummary}
-                      className={btn('not_received')}
-                      title="Not Received"
-                    >
-                      {content('not_received')}
-                      {eventSummaryState === 'not_received' ? check() : null}
-                    </button>
-                    <button
-                      onClick={() => handleSetEventSummaryState('received')}
-                      disabled={isUpdatingEventSummary}
-                      className={btn('received')}
-                      title="Received"
-                    >
-                      {content('received')}
-                      {eventSummaryState === 'received' ? check() : null}
-                    </button>
-                    <button
-                      onClick={() => handleSetEventSummaryState('did_not_meet')}
-                      disabled={isUpdatingEventSummary}
-                      className={btn('did_not_meet')}
-                      title="Did Not Meet"
-                    >
-                      {content('did_not_meet')}
-                      {eventSummaryState === 'did_not_meet' ? check() : null}
-                    </button>
-                    <button
-                      onClick={() => handleSetEventSummaryState('skipped')}
-                      disabled={isUpdatingEventSummary || eventSummaryEnumAvailable === false}
-                      className={btn('skipped')}
-                      title={eventSummaryEnumAvailable === false ? 'Run DB migration to enable Skipped' : 'Skipped'}
-                    >
-                      {content('skipped')}
-                      {eventSummaryState === 'skipped' ? check() : null}
-                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => handleSetEventSummaryState('not_received')}
+                        disabled={isUpdatingEventSummary}
+                        className={btn('not_received')}
+                        title="Not Received"
+                        aria-pressed={eventSummaryState === 'not_received'}
+                      >
+                        {content('not_received')}
+                        {eventSummaryState === 'not_received' ? (
+                          <span className="absolute top-2 right-2">{check()}</span>
+                        ) : null}
+                      </button>
+                      <button
+                        onClick={() => handleSetEventSummaryState('received')}
+                        disabled={isUpdatingEventSummary}
+                        className={btn('received')}
+                        title="Received"
+                        aria-pressed={eventSummaryState === 'received'}
+                      >
+                        {content('received')}
+                        {eventSummaryState === 'received' ? (
+                          <span className="absolute top-2 right-2">{check()}</span>
+                        ) : null}
+                      </button>
+                      <button
+                        onClick={() => handleSetEventSummaryState('did_not_meet')}
+                        disabled={isUpdatingEventSummary}
+                        className={btn('did_not_meet')}
+                        title="Did Not Meet"
+                        aria-pressed={eventSummaryState === 'did_not_meet'}
+                      >
+                        {content('did_not_meet')}
+                        {eventSummaryState === 'did_not_meet' ? (
+                          <span className="absolute top-2 right-2">{check()}</span>
+                        ) : null}
+                      </button>
+                      <button
+                        onClick={() => handleSetEventSummaryState('skipped')}
+                        disabled={isUpdatingEventSummary || eventSummaryEnumAvailable === false}
+                        className={btn('skipped')}
+                        title={eventSummaryEnumAvailable === false ? 'Run DB migration to enable Skipped' : 'Skipped'}
+                        aria-pressed={eventSummaryState === 'skipped'}
+                      >
+                        {content('skipped')}
+                        {eventSummaryState === 'skipped' ? (
+                          <span className="absolute top-2 right-2">{check()}</span>
+                        ) : null}
+                      </button>
                     </div>
                   </div>
                 );

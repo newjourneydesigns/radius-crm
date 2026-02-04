@@ -85,10 +85,12 @@ function DashboardContent() {
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [newTodoText, setNewTodoText] = useState('');
   const [newTodoDueDate, setNewTodoDueDate] = useState('');
+  const [newTodoNotes, setNewTodoNotes] = useState('');
   const [newTodoRepeatRule, setNewTodoRepeatRule] = useState<TodoRepeatRule>('none');
   const [editingTodoId, setEditingTodoId] = useState<number | null>(null);
   const [editingTodoText, setEditingTodoText] = useState('');
   const [editingTodoDueDate, setEditingTodoDueDate] = useState('');
+  const [editingTodoNotes, setEditingTodoNotes] = useState('');
   const [editingTodoRepeatRule, setEditingTodoRepeatRule] = useState<TodoRepeatRule>('none');
   // Todos are always sorted earliest to latest with no-date todos at the end
   type TodoListFilters = { today: boolean; tomorrow: boolean; overdue: boolean; completed: boolean; all: boolean };
@@ -361,7 +363,8 @@ function DashboardContent() {
             user_id: user.id,
             text: newTodoText.trim(),
             completed: false,
-            due_date: newTodoDueDate ? newTodoDueDate : null
+            due_date: newTodoDueDate ? newTodoDueDate : null,
+            notes: newTodoNotes.trim() ? newTodoNotes.trim() : null
           })
           .select()
           .single();
@@ -391,6 +394,7 @@ function DashboardContent() {
         setTodos([data as any, ...todos]);
         setNewTodoText('');
         setNewTodoDueDate('');
+        setNewTodoNotes('');
         setNewTodoRepeatRule('none');
         return;
       }
@@ -409,6 +413,7 @@ function DashboardContent() {
           text: newTodoText.trim(),
           completed: false,
           due_date: newTodoDueDate,
+          notes: newTodoNotes.trim() ? newTodoNotes.trim() : null,
           series_id: seriesId,
           is_series_master: true,
           repeat_rule: newTodoRepeatRule,
@@ -435,6 +440,7 @@ function DashboardContent() {
             setTodos([fallback.data as any, ...todos]);
             setNewTodoText('');
             setNewTodoDueDate('');
+            setNewTodoNotes('');
             setNewTodoRepeatRule('none');
           }
           return;
@@ -459,6 +465,7 @@ function DashboardContent() {
         const rows = toCreate.map(d => ({
           user_id: user.id,
           text: newTodoText.trim(),
+          notes: newTodoNotes.trim() ? newTodoNotes.trim() : null,
           completed: false,
           due_date: d,
           series_id: seriesId,
@@ -478,6 +485,7 @@ function DashboardContent() {
       await loadTodos();
       setNewTodoText('');
       setNewTodoDueDate('');
+      setNewTodoNotes('');
       setNewTodoRepeatRule('none');
       return;
       
@@ -537,6 +545,7 @@ function DashboardContent() {
     setEditingTodoId(todo.id);
     setEditingTodoText(todo.text);
     setEditingTodoDueDate(todo.due_date || '');
+    setEditingTodoNotes(todo.notes || '');
 
     if (todo.series_id) {
       const master = getSeriesMaster(todo.series_id);
@@ -562,7 +571,8 @@ function DashboardContent() {
           .from('todo_items')
           .update({
             text: editingTodoText.trim(),
-            due_date: editingTodoDueDate ? editingTodoDueDate : null
+            due_date: editingTodoDueDate ? editingTodoDueDate : null,
+            notes: editingTodoNotes.trim() ? editingTodoNotes.trim() : null
           })
           .eq('id', id);
 
@@ -581,7 +591,7 @@ function DashboardContent() {
         }
 
         setTodos(todos.map(t =>
-          t.id === id ? { ...t, text: editingTodoText.trim(), due_date: editingTodoDueDate ? editingTodoDueDate : null } : t
+          t.id === id ? { ...t, text: editingTodoText.trim(), due_date: editingTodoDueDate ? editingTodoDueDate : null, notes: editingTodoNotes.trim() ? editingTodoNotes.trim() : null } : t
         ));
       } else {
         // Series: edit applies to the whole series (Apple Reminders-style)
@@ -591,7 +601,10 @@ function DashboardContent() {
         // Update text for all occurrences (including completed)
         const textUpdate = await supabase
           .from('todo_items')
-          .update({ text: editingTodoText.trim() })
+          .update({
+            text: editingTodoText.trim(),
+            notes: editingTodoNotes.trim() ? editingTodoNotes.trim() : null
+          })
           .eq('series_id', seriesId);
         if (textUpdate.error && textUpdate.error.code !== '42703') {
           console.error('Error updating recurring todo text:', textUpdate.error);
@@ -615,7 +628,8 @@ function DashboardContent() {
               is_series_master: false,
               repeat_rule: null,
               repeat_interval: null,
-              due_date: editingTodoDueDate ? editingTodoDueDate : null
+              due_date: editingTodoDueDate ? editingTodoDueDate : null,
+              notes: editingTodoNotes.trim() ? editingTodoNotes.trim() : null
             })
             .eq('id', masterId);
         } else {
@@ -630,6 +644,7 @@ function DashboardContent() {
                 due_date: editingTodoDueDate,
                 repeat_rule: rule,
                 repeat_interval: 1,
+                notes: editingTodoNotes.trim() ? editingTodoNotes.trim() : null,
                 is_series_master: true
               })
               .eq('id', masterId);
@@ -661,6 +676,7 @@ function DashboardContent() {
               const rows = toCreate.map(d => ({
                 user_id: todo?.user_id,
                 text: editingTodoText.trim(),
+                notes: editingTodoNotes.trim() ? editingTodoNotes.trim() : null,
                 completed: false,
                 due_date: d,
                 series_id: seriesId,
@@ -682,6 +698,7 @@ function DashboardContent() {
       setEditingTodoId(null);
       setEditingTodoText('');
       setEditingTodoDueDate('');
+      setEditingTodoNotes('');
       setEditingTodoRepeatRule('none');
     } catch (e) {
       console.error('Error updating todo:', e);
@@ -693,6 +710,7 @@ function DashboardContent() {
     setEditingTodoId(null);
     setEditingTodoText('');
     setEditingTodoDueDate('');
+    setEditingTodoNotes('');
     setEditingTodoRepeatRule('none');
   };
 
@@ -2402,6 +2420,15 @@ function DashboardContent() {
                     </button>
                   </div>
 
+                  {/* Optional notes field (full-width for mobile comfort) */}
+                  <textarea
+                    value={newTodoNotes}
+                    onChange={(e) => setNewTodoNotes(e.target.value)}
+                    placeholder="Notes (optional)"
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y min-h-[64px]"
+                    rows={2}
+                  />
+
                   {/* Todo Items */}
                   {displayTodos.length === 0 ? (
                     <div className="text-center py-6">
@@ -2477,52 +2504,60 @@ function DashboardContent() {
                             className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
                           />
                           {editingTodoId === todo.id ? (
-                            <div className="flex-1 flex flex-col sm:flex-row gap-2">
-                              <input
-                                type="text"
-                                value={editingTodoText}
-                                onChange={(e) => setEditingTodoText(e.target.value)}
-                                onKeyPress={(e) => {
-                                  if (e.key === 'Enter') saveEditedTodo(todo.id);
-                                  if (e.key === 'Escape') cancelEditingTodo();
-                                }}
-                                className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                autoFocus
+                            <div className="flex-1 flex flex-col gap-2">
+                              <div className="flex flex-col sm:flex-row gap-2">
+                                <input
+                                  type="text"
+                                  value={editingTodoText}
+                                  onChange={(e) => setEditingTodoText(e.target.value)}
+                                  onKeyPress={(e) => {
+                                    if (e.key === 'Enter') saveEditedTodo(todo.id);
+                                    if (e.key === 'Escape') cancelEditingTodo();
+                                  }}
+                                  className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  autoFocus
+                                />
+
+                                <input
+                                  type="date"
+                                  value={editingTodoDueDate}
+                                  onChange={(e) => setEditingTodoDueDate(e.target.value)}
+                                  className="p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  title="Optional due date"
+                                />
+
+                                <select
+                                  value={editingTodoRepeatRule}
+                                  onChange={(e) => setEditingTodoRepeatRule(e.target.value as any)}
+                                  className="p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  title="Repeat (applies to entire series)"
+                                >
+                                  <option value="none">Repeat: None</option>
+                                  <option value="daily">Repeat: Daily</option>
+                                  <option value="weekly">Repeat: Weekly</option>
+                                  <option value="monthly">Repeat: Monthly</option>
+                                  <option value="yearly">Repeat: Yearly</option>
+                                </select>
+
+                                <button
+                                  onClick={() => saveEditedTodo(todo.id)}
+                                  className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={cancelEditingTodo}
+                                  className="px-2 py-1 bg-gray-500 hover:bg-gray-600 text-white text-sm rounded-md transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                              <textarea
+                                value={editingTodoNotes}
+                                onChange={(e) => setEditingTodoNotes(e.target.value)}
+                                placeholder="Notes (optional)"
+                                className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y min-h-[64px]"
                               />
-
-                              <input
-                                type="date"
-                                value={editingTodoDueDate}
-                                onChange={(e) => setEditingTodoDueDate(e.target.value)}
-                                className="p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                title="Optional due date"
-                              />
-
-                              <select
-                                value={editingTodoRepeatRule}
-                                onChange={(e) => setEditingTodoRepeatRule(e.target.value as any)}
-                                className="p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                title="Repeat (applies to entire series)"
-                              >
-                                <option value="none">Repeat: None</option>
-                                <option value="daily">Repeat: Daily</option>
-                                <option value="weekly">Repeat: Weekly</option>
-                                <option value="monthly">Repeat: Monthly</option>
-                                <option value="yearly">Repeat: Yearly</option>
-                              </select>
-
-                              <button
-                                onClick={() => saveEditedTodo(todo.id)}
-                                className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors"
-                              >
-                                Save
-                              </button>
-                              <button
-                                onClick={cancelEditingTodo}
-                                className="px-2 py-1 bg-gray-500 hover:bg-gray-600 text-white text-sm rounded-md transition-colors"
-                              >
-                                Cancel
-                              </button>
                             </div>
                           ) : (
                             <>
@@ -2558,6 +2593,11 @@ function DashboardContent() {
                                       </div>
                                     );
                                   })()
+                                )}
+                                {todo.notes && (
+                                  <div className="mt-2 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">
+                                    {todo.notes}
+                                  </div>
                                 )}
                               </div>
                               <div className="flex gap-1">
