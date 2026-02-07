@@ -41,6 +41,7 @@ export default function EventExplorerModal({
   const [error, setError] = useState<string | null>(null);
   const [events, setEvents] = useState<EventData[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [copied, setCopied] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Update state when modal opens with new initial values
@@ -126,6 +127,66 @@ export default function EventExplorerModal({
         setLoading(false);
         abortControllerRef.current = null;
       }
+    }
+  };
+
+  const handleCopyAll = async () => {
+    if (events.length === 0) return;
+
+    const text = events.map((event) => {
+      const lines: string[] = [];
+      lines.push(event.title);
+
+      if (event.date) {
+        try {
+          const d = new Date(event.date + 'T00:00:00');
+          if (!isNaN(d.getTime())) {
+            lines.push(d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }));
+          } else {
+            lines.push(`Date: ${event.date}`);
+          }
+        } catch {
+          lines.push(`Date: ${event.date}`);
+        }
+      }
+
+      lines.push(`Event ID: ${event.eventId}`);
+
+      if (event.didNotMeet) lines.push('⚠️ Meeting did not occur');
+      if (event.headCount !== null) lines.push(`Head Count: ${event.headCount}`);
+      if (event.attendees.length > 0) lines.push(`Attendees Recorded: ${event.attendees.length}`);
+      if (event.topic) lines.push(`\nTopic:\n${event.topic}`);
+      if (event.notes) lines.push(`\nNotes:\n${event.notes}`);
+      if (event.prayerRequests) lines.push(`\nPrayer Requests:\n${event.prayerRequests}`);
+
+      if (event.attendees.length > 0) {
+        const names = event.attendees.map((a) => {
+          let n = a.name || 'Unknown';
+          if (a.status && a.status !== 'Present') n += ` (${a.status})`;
+          return n;
+        });
+        lines.push(`\nAttendees:\n${names.join(', ')}`);
+      }
+
+      return lines.join('\n');
+    }).join('\n\n---\n\n');
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -263,9 +324,32 @@ export default function EventExplorerModal({
           </div>
         )}
 
-        {/* Event Cards */}
+        {/* Copy All & Event Cards */}
         {events.length > 0 && (
           <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+            {/* Copy All Button */}
+            <div className="flex justify-end">
+              <button
+                onClick={handleCopyAll}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
+              >
+                {copied ? (
+                  <>
+                    <svg className="h-3.5 w-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Copy All
+                  </>
+                )}
+              </button>
+            </div>
             {events.map((event, index) => (
               <div
                 key={`${event.eventId}-${index}`}

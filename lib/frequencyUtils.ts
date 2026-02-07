@@ -18,7 +18,8 @@ export const DEFAULT_FREQUENCY_VALUES: string[] = [
   '1st, 3rd',
   '1st, 3rd, 5th',
   '2nd, 4th',
-  'Custom',
+  'Monthly',
+  'Quarterly',
 ];
 
 export const ensureDefaultFrequencies = (items: FrequencyRefItem[] | null | undefined): FrequencyRefItem[] => {
