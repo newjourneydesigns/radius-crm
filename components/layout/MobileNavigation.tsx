@@ -20,6 +20,7 @@ export default function MobileNavigation() {
   ];
 
   const hamburgerMenu = [
+    { name: 'CCB Explorer', href: '/ccb-explorer' },
     { name: 'Add Leader', href: '/add-leader' },
     { name: 'Settings', href: '/settings' },
     { name: 'Help', href: '/help' },
