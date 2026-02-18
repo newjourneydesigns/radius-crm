@@ -16,19 +16,19 @@ const MESSAGE_OPTIONS = [
     number: 1,
     label: 'Initial message',
     template: (leaderFirstName: string) => 
-      `Hi ${leaderFirstName},\nWhen you have a moment, would you mind sending in your event summary?`
+      `Hi, When you have a moment, would you mind sending in your event summary?`
   },
   {
     number: 2,
     label: 'Second follow-up',
     template: (leaderFirstName: string) => 
-      `Hi ${leaderFirstName},\nJust checking back in on your event summary when you have a chance. It usually only takes about five minutes and really helps us understand where your Circle and our campus are.`
+      `Just checking back in on your event summary when you have a chance. It usually only takes about five minutes and really helps us understand where your Circle and our campus are.`
   },
   {
     number: 3,
     label: 'Third follow-up',
     template: (leaderFirstName: string) => 
-      `Hi ${leaderFirstName},\nI wanted to follow up once more on your event summary. Completing it shortly after Circle helps us stay connected to what’s happening in your Circle and across the campus.`
+      `Hey ${leaderFirstName}, I wanted to follow up once more on your event summary. Completing it shortly after Circle helps us stay connected to what’s happening in your Circle and across the campus.`
   }
 ];
 

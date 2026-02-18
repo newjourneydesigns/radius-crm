@@ -582,14 +582,14 @@ export default function CircleMeetingsCalendar({
     const isSaving = savingLeaderIds.has(leaderId);
 
     const base =
-      'h-9 sm:h-8 px-2.5 sm:px-2 rounded text-[11px] sm:text-xs leading-tight border transition-colors disabled:opacity-60 disabled:cursor-not-allowed touch-manipulation select-none flex items-center justify-center min-w-0 text-center whitespace-normal';
+      'h-10 sm:h-8 px-3 sm:px-2 rounded-lg sm:rounded text-sm sm:text-xs leading-tight border-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed touch-manipulation select-none flex items-center justify-center min-w-0 text-center whitespace-normal active:scale-95 sm:active:scale-100';
 
     const btn = (kind: EventSummaryState) => {
       const active = state === kind;
       const colors = getEventSummaryColors(kind);
       return active
-        ? `${base} ${colors.bg} ${colors.border} text-white`
-        : `${base} bg-white dark:bg-gray-800 ${colors.btnInactiveBorder} ${colors.btnInactiveText} ${colors.hover}`;
+        ? `${base} ${colors.bg} ${colors.border} text-white font-bold shadow-md`
+        : `${base} bg-white dark:bg-gray-800 ${colors.btnInactiveBorder} ${colors.btnInactiveText} ${colors.hover} font-medium`;
     };
 
     const onClick = (next: EventSummaryState) => (e: MouseEvent<HTMLButtonElement>) => {
@@ -817,111 +817,119 @@ export default function CircleMeetingsCalendar({
             return (
               <>
                 {/* Mobile Layout - Collapsible Design */}
-                <div className="flex flex-col gap-1.5 w-full sm:hidden">
+                <div className="flex flex-col w-full sm:hidden">
                   {/* Collapsed View - Tap to Expand */}
                   <div 
-                    className="flex items-center justify-between gap-2 cursor-pointer"
+                    className="flex items-center justify-between gap-3 py-1 cursor-pointer active:opacity-70 transition-opacity"
                     onClick={toggleExpanded}
                   >
-                    <div className="flex-1 min-w-0">
-                      {/* Row 1: Circle Leader Name with Status Badge */}
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-base font-bold text-gray-900 dark:text-white leading-snug truncate">
-                          {arg.event.title}
-                        </span>
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      {/* Status Badge */}
+                      <div>
                         <span
-                          className={`text-[11px] px-2 py-0.5 rounded text-white ${colors.bg} shrink-0`}
+                          className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full text-white ${colors.bg} uppercase tracking-wide`}
                           title={colors.label}
                         >
                           {colors.label}
                         </span>
                       </div>
                       
-                      {/* Row 2: Time and Frequency */}
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {/* Circle Leader Name */}
+                      <div className="text-[15px] font-semibold text-gray-900 dark:text-white leading-tight truncate">
+                        {arg.event.title}
+                      </div>
+                      
+                      {/* Time and Frequency */}
+                      <div className="text-[13px] text-gray-600 dark:text-gray-400 font-medium">
                         {arg.event.start ? DateTime.fromJSDate(arg.event.start).toLocaleString(DateTime.TIME_SIMPLE) : ''}
                         {arg.event.extendedProps?.frequency && (
-                          <span className="ml-2">• {arg.event.extendedProps.frequency}</span>
+                          <span className="ml-1.5 text-gray-500 dark:text-gray-500">• {arg.event.extendedProps.frequency}</span>
                         )}
                       </div>
                     </div>
                     
                     {/* Expand/Collapse Icon */}
-                    <svg 
-                      className={`w-5 h-5 text-gray-400 transition-transform shrink-0 ${isExpanded ? 'rotate-180' : ''}`}
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
+                    <div className="flex-shrink-0">
+                      <svg 
+                        className={`w-6 h-6 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
                   </div>
                   
                   {/* Expanded View - Actions */}
                   {isExpanded && (
-                    <div className="space-y-2 pt-1">
-                    <div className="grid grid-cols-4 gap-2">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          const eventDate = arg.event.start
-                            ? DateTime.fromJSDate(arg.event.start).toISODate()
-                            : DateTime.local().toISODate();
-                          openEventExplorerForLeader(leaderId, eventDate);
-                        }}
-                        className="h-9 col-span-1 rounded text-xs font-semibold leading-none border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors inline-flex items-center justify-center"
-                        title="Open attendance summary"
-                      >
-                        Summary
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          const leader = leaders.find(l => l.id === leaderId);
-                          if (leader) handleOpenReminderModal(leader);
-                        }}
-                        className="h-9 col-span-1 rounded text-xs font-semibold leading-none border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors inline-flex items-center justify-center"
-                        title="Send event summary reminder"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                        </svg>
-                      </button>
-
-                      {ccbHref ? (
-                        <a
-                          href={ccbHref}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="h-9 col-span-2 rounded text-xs font-semibold leading-none border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors inline-flex items-center justify-center"
-                          title="Open CCB profile"
-                        >
-                          CCB
-                        </a>
-                      ) : (
+                    <div className="space-y-2.5 pt-3 pb-1 border-t border-gray-100 dark:border-gray-700/50 mt-2">
+                      {/* Action Buttons Row */}
+                      <div className="flex gap-2">
                         <button
                           type="button"
-                          aria-disabled="true"
-                          tabIndex={-1}
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
+                            const eventDate = arg.event.start
+                              ? DateTime.fromJSDate(arg.event.start).toISODate()
+                              : DateTime.local().toISODate();
+                            openEventExplorerForLeader(leaderId, eventDate);
                           }}
-                          className="h-9 col-span-2 rounded text-xs font-semibold leading-none border border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 transition-colors inline-flex items-center justify-center cursor-not-allowed opacity-50"
-                          title="No CCB profile link"
+                          className="flex-1 h-10 rounded-lg text-sm font-semibold bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 active:scale-95 transition-all inline-flex items-center justify-center"
+                          title="Open attendance summary"
                         >
-                          CCB
+                          Summary
                         </button>
-                      )}
-                    </div>
 
-                    {renderEventSummaryButtons(leaderId, state, { compact: true })}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const leader = leaders.find(l => l.id === leaderId);
+                            if (leader) handleOpenReminderModal(leader);
+                          }}
+                          className="h-10 w-10 rounded-lg bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 active:scale-95 transition-all inline-flex items-center justify-center"
+                          title="Send event summary reminder"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                          </svg>
+                        </button>
+
+                        {ccbHref ? (
+                          <a
+                            href={ccbHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex-1 h-10 rounded-lg text-sm font-semibold bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 active:scale-95 transition-all inline-flex items-center justify-center"
+                            title="Open CCB profile"
+                          >
+                            CCB Profile
+                          </a>
+                        ) : (
+                          <button
+                            type="button"
+                            aria-disabled="true"
+                            tabIndex={-1}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
+                            className="flex-1 h-10 rounded-lg text-sm font-semibold bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 inline-flex items-center justify-center cursor-not-allowed opacity-60"
+                            title="No CCB profile link"
+                          >
+                            CCB Profile
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Event Summary Status Buttons */}
+                      <div className="pt-1">
+                        {renderEventSummaryButtons(leaderId, state, { compact: true })}
+                      </div>
                     </div>
                   )}
                 </div>

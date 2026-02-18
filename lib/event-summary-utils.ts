@@ -27,10 +27,10 @@ export function getEventSummaryColors(state: EventSummaryState) {
   switch (state) {
     case 'received':
       return {
-        bg: 'bg-green-600',
-        border: 'border-green-600',
+        bg: 'bg-green-600 dark:bg-green-600',
+        border: 'border-green-700 dark:border-green-500',
         btnInactiveBorder: 'border-green-300 dark:border-green-700',
-        btnInactiveText: 'text-green-700 dark:text-green-200',
+        btnInactiveText: 'text-green-700 dark:text-green-300',
         text: 'text-green-600',
         hover: 'hover:bg-green-50 dark:hover:bg-green-900/30',
         badge: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300',
@@ -39,10 +39,10 @@ export function getEventSummaryColors(state: EventSummaryState) {
       };
     case 'did_not_meet':
       return {
-        bg: 'bg-blue-600',
-        border: 'border-blue-600',
+        bg: 'bg-blue-600 dark:bg-blue-600',
+        border: 'border-blue-700 dark:border-blue-500',
         btnInactiveBorder: 'border-blue-300 dark:border-blue-700',
-        btnInactiveText: 'text-blue-700 dark:text-blue-200',
+        btnInactiveText: 'text-blue-700 dark:text-blue-300',
         text: 'text-blue-600',
         hover: 'hover:bg-blue-50 dark:hover:bg-blue-900/30',
         badge: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
@@ -51,10 +51,10 @@ export function getEventSummaryColors(state: EventSummaryState) {
       };
     case 'skipped':
       return {
-        bg: 'bg-yellow-600',
-        border: 'border-yellow-600',
+        bg: 'bg-yellow-600 dark:bg-yellow-600',
+        border: 'border-yellow-700 dark:border-yellow-500',
         btnInactiveBorder: 'border-yellow-300 dark:border-yellow-700',
-        btnInactiveText: 'text-yellow-800 dark:text-yellow-200',
+        btnInactiveText: 'text-yellow-800 dark:text-yellow-300',
         text: 'text-yellow-600',
         hover: 'hover:bg-yellow-50 dark:hover:bg-yellow-900/30',
         badge: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300',
@@ -64,10 +64,10 @@ export function getEventSummaryColors(state: EventSummaryState) {
     case 'not_received':
     default:
       return {
-        bg: 'bg-red-600',
-        border: 'border-red-600',
+        bg: 'bg-red-600 dark:bg-red-600',
+        border: 'border-red-700 dark:border-red-500',
         btnInactiveBorder: 'border-red-300 dark:border-red-700',
-        btnInactiveText: 'text-red-700 dark:text-red-200',
+        btnInactiveText: 'text-red-700 dark:text-red-300',
         text: 'text-red-600',
         hover: 'hover:bg-red-50 dark:hover:bg-red-900/30',
         badge: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300',
