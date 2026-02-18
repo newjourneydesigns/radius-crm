@@ -653,10 +653,10 @@ export default function CircleMeetingsCalendar({
                         e.stopPropagation();
                         router.push(`/circle/${leaderId}`);
                       }}
-                      className="text-sm font-semibold text-blue-700 dark:text-blue-300 hover:underline leading-snug text-left"
+                      className="text-base font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors leading-snug text-left group"
                       title="Open circle leader profile"
                     >
-                      {arg.event.title}
+                      <span className="group-hover:underline">{arg.event.title}</span>
                     </button>
                   </div>
                   
@@ -728,10 +728,10 @@ export default function CircleMeetingsCalendar({
                       e.stopPropagation();
                       router.push(`/circle/${leaderId}`);
                     }}
-                    className="min-w-0 text-sm leading-snug break-words sm:truncate text-blue-700 dark:text-blue-300 hover:underline text-left"
+                    className="min-w-0 text-base font-bold leading-snug break-words sm:truncate text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left group"
                     title="Open circle leader profile"
                   >
-                    {arg.event.title}
+                    <span className="group-hover:underline">{arg.event.title}</span>
                   </button>
                   <div className="w-auto flex flex-row items-center justify-end gap-2 shrink-0">
                     <button
@@ -792,7 +792,6 @@ export default function CircleMeetingsCalendar({
           }}
           dayMaxEvents={3}
           eventDisplay="block"
-          stickyHeaderDates
         />
       </div>
 
@@ -854,13 +853,13 @@ export default function CircleMeetingsCalendar({
                             e.stopPropagation();
                             router.push(`/circle/${leaderId}`);
                           }}
-                          className="text-sm font-semibold text-blue-700 dark:text-blue-300 hover:underline text-left"
+                          className="text-base font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left group"
                           title="Open circle leader profile"
                         >
-                          {ev.title}
+                          <span className="group-hover:underline">{ev.title}</span>
                         </button>
                       ) : (
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">{ev.title}</div>
+                        <div className="text-base font-bold text-gray-900 dark:text-white">{ev.title}</div>
                       )}
                       <span
                         className={`text-[11px] px-2 py-1 rounded text-white ${stateBadgeClass} shrink-0`}
@@ -937,13 +936,13 @@ export default function CircleMeetingsCalendar({
                       <button
                         type="button"
                         onClick={() => router.push(`/circle/${leaderId}`)}
-                        className="block text-sm font-semibold text-blue-700 dark:text-blue-300 hover:underline break-words sm:truncate text-left"
+                        className="block text-base font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors break-words sm:truncate text-left group"
                         title="Open circle leader profile"
                       >
-                        {ev.title}
+                        <span className="group-hover:underline">{ev.title}</span>
                       </button>
                     ) : (
-                      <div className="block text-sm font-medium text-gray-900 dark:text-white break-words sm:truncate">{ev.title}</div>
+                      <div className="block text-base font-bold text-gray-900 dark:text-white break-words sm:truncate">{ev.title}</div>
                     )}
                     {ev.extendedProps?.frequency && (
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">

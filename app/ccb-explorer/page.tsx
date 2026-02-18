@@ -3,6 +3,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import EventSummaryFollowUpModal from '../../components/modals/EventSummaryFollowUpModal';
+import ConfirmModal from '../../components/ui/ConfirmModal';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
+import { useCircleLeaders } from '../../hooks/useCircleLeaders';
 
 interface EventData {
   eventId: string;
@@ -22,6 +27,8 @@ interface EventData {
 }
 
 export default function CCBExplorerPage() {
+  const { user } = useAuth();
+  const { circleLeaders, resetEventSummaryCheckboxes, loadCircleLeaders } = useCircleLeaders();
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [groupName, setGroupName] = useState('');
@@ -31,6 +38,11 @@ export default function CCBExplorerPage() {
   const [events, setEvents] = useState<EventData[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showFollowUpModal, setShowFollowUpModal] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<EventData | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Cleanup on unmount
@@ -41,6 +53,34 @@ export default function CCBExplorerPage() {
       }
     };
   }, []);
+
+  // Load circle leaders on mount
+  useEffect(() => {
+    loadCircleLeaders({});
+  }, [loadCircleLeaders]);
+
+  const handleResetEventSummaries = async () => {
+    try {
+      setResetting(true);
+      const allLeaderIds = circleLeaders.map(leader => leader.id);
+      
+      if (allLeaderIds.length === 0) {
+        setError('No circle leaders found');
+        return;
+      }
+
+      await resetEventSummaryCheckboxes(allLeaderIds);
+      setSaveSuccess(`Reset ${allLeaderIds.length} circle leader event summaries to "No"`);
+      setTimeout(() => setSaveSuccess(null), 5000);
+    } catch (err: any) {
+      console.error('Error resetting event summaries:', err);
+      setError('Failed to reset event summaries. Please try again.');
+      setTimeout(() => setError(null), 5000);
+    } finally {
+      setResetting(false);
+      setShowResetConfirm(false);
+    }
+  };
 
   const handleFetchData = async () => {
     if (!startDate || !groupName) {
@@ -205,6 +245,68 @@ export default function CCBExplorerPage() {
     }
   };
 
+  const handleOpenFollowUpModal = (event: EventData) => {
+    setSelectedEvent(event);
+    setShowFollowUpModal(true);
+    setSaveSuccess(null);
+  };
+
+  const handleSaveFollowUp = async (message: string) => {
+    if (!selectedEvent || !user?.id) {
+      throw new Error('User must be authenticated');
+    }
+
+    try {
+      // Find the circle leader by matching the event title to leader name
+      // The event title typically contains the leader name
+      const { data: leaders, error: searchError } = await supabase
+        .from('circle_leaders')
+        .select('id, name')
+        .ilike('name', `%${selectedEvent.title}%`)
+        .limit(5);
+
+      if (searchError) throw searchError;
+
+      // If we can't find an exact match, try a more flexible search
+      let matchedLeader = leaders && leaders.length > 0 ? leaders[0] : null;
+
+      if (!matchedLeader) {
+        // Try extracting just the first part of the name before any parentheses
+        const baseName = selectedEvent.title.split('(')[0].trim();
+        const { data: leaders2, error: searchError2 } = await supabase
+          .from('circle_leaders')
+          .select('id, name')
+          .ilike('name', `%${baseName}%`)
+          .limit(5);
+
+        if (searchError2) throw searchError2;
+        matchedLeader = leaders2 && leaders2.length > 0 ? leaders2[0] : null;
+      }
+
+      if (!matchedLeader) {
+        throw new Error(`Could not find circle leader matching "${selectedEvent.title}". Please ensure the leader exists in the system.`);
+      }
+
+      // Save the note to the circle leader's profile
+      const { error: noteError } = await supabase
+        .from('notes')
+        .insert({
+          circle_leader_id: matchedLeader.id,
+          content: message,
+          created_by: user.id
+        });
+
+      if (noteError) throw noteError;
+
+      // Show success message
+      setSaveSuccess(`Follow-up saved to ${matchedLeader.name}'s profile`);
+      setTimeout(() => setSaveSuccess(null), 5000);
+    } catch (error: any) {
+      console.error('Error saving follow-up:', error);
+      throw error;
+    }
+  };
+
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -279,34 +381,69 @@ export default function CCBExplorerPage() {
               </div>
             </div>
 
-            <button
-              onClick={handleFetchData}
-              disabled={loading || !startDate || !groupName}
-              className="w-full px-4 py-3 bg-blue-600/90 hover:bg-blue-600 text-white rounded-xl font-medium text-sm tracking-tight transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  {progress || 'Fetching Data...'}
-                </>
-              ) : (
-                <>
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  Fetch Data
-                </>
-              )}
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={handleFetchData}
+                disabled={loading || !startDate || !groupName}
+                className="flex-1 px-4 py-3 bg-blue-600/90 hover:bg-blue-600 text-white rounded-xl font-medium text-sm tracking-tight transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    {progress || 'Fetching Data...'}
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    Fetch Data
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => setShowResetConfirm(true)}
+                disabled={resetting || circleLeaders.length === 0}
+                className="px-4 py-3 bg-red-600/90 hover:bg-red-600 text-white rounded-xl font-medium text-sm tracking-tight transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2 whitespace-nowrap"
+                title="Reset all circle leader event summaries to 'No'"
+              >
+                {resetting ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Resetting...
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Reset All to No
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Error */}
           {error && (
             <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-4 py-3 rounded-lg mb-4">
               {error}
+            </div>
+          )}
+
+          {/* Success */}
+          {saveSuccess && (
+            <div className="text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-4 py-3 rounded-lg mb-4 flex items-center gap-2">
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              {saveSuccess}
             </div>
           )}
 
@@ -469,6 +606,19 @@ export default function CCBExplorerPage() {
                         No additional details recorded for this event
                       </div>
                     )}
+
+                    {/* Event Summary Follow Up Button */}
+                    <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+                      <button
+                        onClick={() => handleOpenFollowUpModal(event)}
+                        className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Event Summary Follow Up
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -476,6 +626,32 @@ export default function CCBExplorerPage() {
           )}
         </div>
       </div>
+
+      {/* Event Summary Follow Up Modal */}
+      {selectedEvent && (
+        <EventSummaryFollowUpModal
+          isOpen={showFollowUpModal}
+          onClose={() => {
+            setShowFollowUpModal(false);
+            setSelectedEvent(null);
+          }}
+          leaderName={selectedEvent.title}
+          eventTitle={selectedEvent.title}
+          eventDate={selectedEvent.date}
+          onSave={handleSaveFollowUp}
+        />
+      )}
+
+      {/* Reset Event Summaries Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        onConfirm={handleResetEventSummaries}
+        title="Reset All Event Summaries"
+        message={`Are you sure you want to reset all ${circleLeaders.length} circle leader event summaries to "No"? This will mark all circles as not having received their event summary. This action cannot be undone.`}
+        confirmText="Reset All"
+        cancelText="Cancel"
+      />
     </ProtectedRoute>
   );
 }

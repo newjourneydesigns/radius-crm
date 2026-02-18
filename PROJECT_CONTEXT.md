@@ -1,6 +1,6 @@
 # RADIUS CRM — Project Context
 
-> **Version:** 1.1.2  
+> **Version:** 1.2.0  
 > **Repository:** `newjourneydesigns/radius-crm` (branch: `main`)  
 > **Last Updated:** 2026-02-07
 
@@ -64,6 +64,7 @@ Set in `.env.local` for development, Netlify dashboard for production.
 │   ├── users/                  # User management
 │   ├── ccb/                    # CCB integration scripts
 │   ├── ccb-events/             # CCB events UI
+│   ├── ccb-explorer/           # Standalone CCB Event Explorer (date range search)
 │   ├── func/                   # Function test page
 │   ├── help/                   # Help page
 │   ├── privacy-policy/         # Privacy policy
@@ -222,7 +223,8 @@ Set in `.env.local` for development, Netlify dashboard for production.
 8. **Calendar View** — FullCalendar integration showing meetings and visits
 9. **Global Search** — Fuse.js fuzzy search across leaders
 10. **CCB Integration** — Pull attendance data, event profiles, and group info from Church Community Builder API
-11. **User Management** — Admin can manage users, roles, and campus assignments
+11. **CCB Event Explorer** (`/ccb-explorer`) — Standalone tool to search CCB events by date range and group name, with per-day API fetching, progress indicator, and copy-all-content button
+12. **User Management** — Admin can manage users, roles, and campus assignments
 12. **Import** — Bulk data import capability
 13. **PWA** — Installable, mobile-optimized with service worker caching
 
