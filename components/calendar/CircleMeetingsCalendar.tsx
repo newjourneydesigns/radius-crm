@@ -1075,7 +1075,7 @@ export default function CircleMeetingsCalendar({
                 >
                   {/* Mobile Layout */}
                   <div className="flex flex-col gap-2 sm:hidden">
-                    {/* Row 1: Circle Leader Name with Status Color */}
+                    {/* Row 1: Circle Leader Name */}
                     <div className="flex items-center gap-2">
                       {leaderId ? (
                         <button
@@ -1092,12 +1092,6 @@ export default function CircleMeetingsCalendar({
                       ) : (
                         <div className="text-base font-bold text-gray-900 dark:text-white">{ev.title}</div>
                       )}
-                      <span
-                        className={`text-[11px] px-2 py-1 rounded text-white ${stateBadgeClass} shrink-0`}
-                        title={stateLabel}
-                      >
-                        {stateLabel}
-                      </span>
                     </div>
                     
                     {/* Row 2: Time of Meeting */}
@@ -1189,12 +1183,6 @@ export default function CircleMeetingsCalendar({
                       </div>
                     )}
 
-                    <span
-                      className={`order-2 text-[11px] px-2 py-1 rounded text-white ${stateBadgeClass}`}
-                      title={stateLabel}
-                    >
-                      {stateLabel}
-                    </span>
                     {leaderId && (
                       <button
                         type="button"

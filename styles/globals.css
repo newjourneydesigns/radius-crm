@@ -200,7 +200,7 @@ a {
 
 .calendar-shell .fc .fc-list-event:hover td,
 .calendar-shell .fc .fc-list-event:focus-within td {
-  background-color: rgba(141, 169, 196, 0.18) !important;
+  background-color: transparent !important;
   color: #eef4ed !important;
 }
 
@@ -211,8 +211,8 @@ a {
 
 /* List event spacing and styling */
 .calendar-shell .fc .fc-list-event {
-  border: 1px solid rgba(141, 169, 196, 0.3) !important;
-  background-color: rgba(9, 27, 52, 0.3) !important;
+  border: none !important;
+  background-color: transparent !important;
   transition: all 0.2s ease !important;
 }
 
@@ -239,11 +239,11 @@ a {
 }
 
 .calendar-shell .fc .fc-list-event:not(:last-child) {
-  margin-bottom: 0.25rem !important;
+  margin-bottom: 0.5rem !important;
 }
 
 .calendar-shell .fc .fc-list-event:not(:last-child) td {
-  border-bottom: 1px solid rgba(141, 169, 196, 0.2) !important;
+  border-bottom: none !important;
 }
 
 /* Improve list view day headers */
