@@ -222,6 +222,20 @@ a {
   padding: 0.75rem 1rem !important;
 }
 
+/* Remove background highlight from event dot/graphic in list view */
+.calendar-shell .fc .fc-list-event-dot {
+  background-color: transparent !important;
+  border: none !important;
+  width: 0 !important;
+  padding: 0 !important;
+}
+
+.calendar-shell .fc .fc-list-event-graphic {
+  background-color: transparent !important;
+  padding: 0 !important;
+  min-width: 0 !important;
+}
+
 /* Hide time column on mobile - we show it in the custom content */
 @media (max-width: 639px) {
   .calendar-shell .fc .fc-list-event-time {
