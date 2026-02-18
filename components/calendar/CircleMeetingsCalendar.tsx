@@ -13,6 +13,9 @@ import { DateTime } from 'luxon';
 import type { CircleLeader, EventSummaryState } from '../../lib/supabase';
 import { getEventSummaryState, getEventSummaryColors } from '../../lib/event-summary-utils';
 import EventExplorerModal from '../modals/EventExplorerModal';
+import EventSummaryFollowUpModal from '../modals/EventSummaryFollowUpModal';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
 const FullCalendar = dynamic(() => import('@fullcalendar/react'), { ssr: false });
 
@@ -311,6 +314,7 @@ export default function CircleMeetingsCalendar({
   onSetEventSummaryState,
 }: CircleMeetingsCalendarProps) {
   const router = useRouter();
+  const { user } = useAuth();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [visibleRange, setVisibleRange] = useState<{ start: Date; end: Date } | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -318,6 +322,11 @@ export default function CircleMeetingsCalendar({
   const [selectedISODate, setSelectedISODate] = useState(() => DateTime.local().toISODate() ?? '');
   const [showEventExplorer, setShowEventExplorer] = useState(false);
   const [selectedEventDate, setSelectedEventDate] = useState<string>('');
+  const [showFollowUpModal, setShowFollowUpModal] = useState(false);
+  const [selectedLeader, setSelectedLeader] = useState<CircleLeader | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
   const [selectedEventGroupName, setSelectedEventGroupName] = useState<string>('');
   const [selectedCcbProfileLink, setSelectedCcbProfileLink] = useState<string | null>(null);
   const [initialView] = useState(() => {
@@ -435,6 +444,81 @@ export default function CircleMeetingsCalendar({
     }
   }, [onSetEventSummaryState]);
 
+  const handleOpenFollowUpModal = useCallback((leader: CircleLeader) => {
+    setSelectedLeader(leader);
+    setShowFollowUpModal(true);
+    setActionSuccess(null);
+    setActionError(null);
+  }, []);
+
+  const handleSaveFollowUp = useCallback(async (message: string) => {
+    if (!selectedLeader || !user?.id) {
+      throw new Error('User must be authenticated');
+    }
+
+    try {
+      // Save the note to the circle leader's profile
+      const { error: noteError } = await supabase
+        .from('notes')
+        .insert({
+          circle_leader_id: selectedLeader.id,
+          content: message,
+          created_by: user.id
+        });
+
+      if (noteError) throw noteError;
+
+      // Show success message
+      setActionSuccess(`Follow-up saved to ${selectedLeader.name}'s profile`);
+      setTimeout(() => setActionSuccess(null), 5000);
+    } catch (error: any) {
+      console.error('Error saving follow-up:', error);
+      throw error;
+    }
+  }, [selectedLeader, user]);
+
+  const handleBulkResetEventSummaries = useCallback(async () => {
+    if (!leaders || leaders.length === 0) return;
+    
+    const confirmed = window.confirm(
+      `Reset event summary status to "No" for all ${leaders.length} visible circle${leaders.length !== 1 ? 's' : ''}?\n\nThis will update all circles currently shown in the calendar.`
+    );
+    
+    if (!confirmed) return;
+
+    setIsResetting(true);
+    setActionError(null);
+    setActionSuccess(null);
+
+    try {
+      const leaderIds = leaders.map(l => l.id);
+      
+      // Update all visible leaders to 'not_received'
+      const { error } = await supabase
+        .from('circle_leaders')
+        .update({ event_summary_state: 'not_received' })
+        .in('id', leaderIds);
+
+      if (error) throw error;
+
+      // Refresh the data by calling the parent's method
+      if (onSetEventSummaryState) {
+        for (const id of leaderIds) {
+          await onSetEventSummaryState(id, 'not_received');
+        }
+      }
+
+      setActionSuccess(`Successfully reset ${leaderIds.length} circle${leaderIds.length !== 1 ? 's' : ''} to "No"`);
+      setTimeout(() => setActionSuccess(null), 5000);
+    } catch (error: any) {
+      console.error('Error resetting event summaries:', error);
+      setActionError(error.message || 'Failed to reset event summaries');
+      setTimeout(() => setActionError(null), 5000);
+    } finally {
+      setIsResetting(false);
+    }
+  }, [leaders, onSetEventSummaryState]);
+
   const renderEventSummaryButtons = useCallback((
     leaderId: number,
     state: EventSummaryState,
@@ -512,6 +596,51 @@ export default function CircleMeetingsCalendar({
           {isLoadingLeaders ? 'Loading schedules…' : `${leadersWithSchedules.length} scheduled circles`}
         </div>
       </div>
+
+      {/* Action Buttons */}
+      {!isLoadingLeaders && leadersWithSchedules.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          <button
+            onClick={handleBulkResetEventSummaries}
+            disabled={isResetting}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isResetting ? (
+              <>
+                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Resetting...
+              </>
+            ) : (
+              <>
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Reset All Event Summaries to No
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Success Message */}
+      {actionSuccess && (
+        <div className="mb-3 p-3 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-200 text-sm flex items-center gap-2">
+          <svg className="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          {actionSuccess}
+        </div>
+      )}
+
+      {/* Error Message */}
+      {actionError && (
+        <div className="mb-3 p-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-200 text-sm">
+          {actionError}
+        </div>
+      )}
 
       {loadError && (
         <div className="mb-3 p-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-200 text-sm">
@@ -716,6 +845,24 @@ export default function CircleMeetingsCalendar({
                     </div>
 
                     {renderEventSummaryButtons(leaderId, state, { compact: true })}
+                    
+                    {/* Event Summary Follow Up Button */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const leader = leaders.find(l => l.id === leaderId);
+                        if (leader) handleOpenFollowUpModal(leader);
+                      }}
+                      className="w-full h-9 rounded text-xs font-semibold leading-none border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors inline-flex items-center justify-center gap-1"
+                      title="Event Summary Follow Up"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      Follow Up
+                    </button>
                   </div>
                 </div>
 
@@ -1015,6 +1162,21 @@ export default function CircleMeetingsCalendar({
         initialGroupName={selectedEventGroupName}
         ccbProfileLink={selectedCcbProfileLink}
       />
+
+      {/* Event Summary Follow Up Modal */}
+      {selectedLeader && (
+        <EventSummaryFollowUpModal
+          isOpen={showFollowUpModal}
+          onClose={() => {
+            setShowFollowUpModal(false);
+            setSelectedLeader(null);
+          }}
+          leaderName={selectedLeader.name || 'Unknown'}
+          eventTitle={selectedLeader.name || 'Unknown'}
+          eventDate={DateTime.local().toISODate() || ''}
+          onSave={handleSaveFollowUp}
+        />
+      )}
     </div>
   );
 }
