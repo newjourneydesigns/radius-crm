@@ -13,7 +13,7 @@ import { DateTime } from 'luxon';
 import type { CircleLeader, EventSummaryState } from '../../lib/supabase';
 import { getEventSummaryState, getEventSummaryColors } from '../../lib/event-summary-utils';
 import EventExplorerModal from '../modals/EventExplorerModal';
-import EventSummaryFollowUpModal from '../modals/EventSummaryFollowUpModal';
+import EventSummaryReminderModal from '../modals/EventSummaryReminderModal';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -322,8 +322,9 @@ export default function CircleMeetingsCalendar({
   const [selectedISODate, setSelectedISODate] = useState(() => DateTime.local().toISODate() ?? '');
   const [showEventExplorer, setShowEventExplorer] = useState(false);
   const [selectedEventDate, setSelectedEventDate] = useState<string>('');
-  const [showFollowUpModal, setShowFollowUpModal] = useState(false);
+  const [showReminderModal, setShowReminderModal] = useState(false);
   const [selectedLeader, setSelectedLeader] = useState<CircleLeader | null>(null);
+  const [sentReminderMessages, setSentReminderMessages] = useState<number[]>([]);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
@@ -444,38 +445,91 @@ export default function CircleMeetingsCalendar({
     }
   }, [onSetEventSummaryState]);
 
-  const handleOpenFollowUpModal = useCallback((leader: CircleLeader) => {
-    setSelectedLeader(leader);
-    setShowFollowUpModal(true);
-    setActionSuccess(null);
-    setActionError(null);
+  const getWeekStartDate = useCallback(() => {
+    const now = new Date();
+    const ctTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+    const dayOfWeek = ctTime.getDay();
+    let daysToLastSaturday = dayOfWeek === 6 ? 0 : (dayOfWeek + 1);
+    const lastSaturday = new Date(ctTime);
+    lastSaturday.setDate(ctTime.getDate() - daysToLastSaturday);
+    lastSaturday.setHours(23, 59, 59, 999);
+    if (ctTime < lastSaturday) {
+      lastSaturday.setDate(lastSaturday.getDate() - 7);
+    }
+    return lastSaturday.toISOString().split('T')[0];
   }, []);
 
-  const handleSaveFollowUp = useCallback(async (message: string) => {
-    if (!selectedLeader || !user?.id) {
-      throw new Error('User must be authenticated');
+  const handleOpenReminderModal = useCallback(async (leader: CircleLeader) => {
+    setSelectedLeader(leader);
+    setActionSuccess(null);
+    setActionError(null);
+
+    // Load sent messages for this leader
+    try {
+      const weekStartStr = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' })).toISOString().split('T')[0];
+      const { data } = await supabase
+        .from('event_summary_followups')
+        .select('message_number')
+        .eq('circle_leader_id', leader.id)
+        .eq('week_start_date', weekStartStr);
+      setSentReminderMessages(data ? data.map(row => row.message_number) : []);
+    } catch (error) {
+      console.error('Error loading sent messages:', error);
+      setSentReminderMessages([]);
     }
 
+    setShowReminderModal(true);
+  }, []);
+
+  const handleSendEventSummaryReminder = useCallback(async (messageNumber: number, messageText: string) => {
+    if (!selectedLeader || !user?.id) return;
+
     try {
-      // Save the note to the circle leader's profile
+      const today = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+
+      const noteContent = `[Event Summary Reminder ${messageNumber} - ${today}]\n\n${messageText}`;
+
       const { error: noteError } = await supabase
         .from('notes')
         .insert({
           circle_leader_id: selectedLeader.id,
-          content: message,
+          content: noteContent,
           created_by: user.id
         });
 
       if (noteError) throw noteError;
 
-      // Show success message
-      setActionSuccess(`Follow-up saved to ${selectedLeader.name}'s profile`);
+      const { error: followupError } = await supabase
+        .from('event_summary_followups')
+        .insert({
+          circle_leader_id: selectedLeader.id,
+          message_number: messageNumber,
+          sent_by: user.id,
+          week_start_date: getWeekStartDate()
+        });
+
+      if (followupError) throw followupError;
+
+      setSentReminderMessages(prev => [...prev, messageNumber]);
+
+      if (selectedLeader.phone) {
+        const cleanPhone = selectedLeader.phone.replace(/\D/g, '');
+        const encodedMessage = encodeURIComponent(messageText);
+        const smsUrl = `sms:${cleanPhone}&body=${encodedMessage}`;
+        window.location.href = smsUrl;
+      }
+
+      setActionSuccess(`Reminder sent to ${selectedLeader.name}`);
       setTimeout(() => setActionSuccess(null), 5000);
     } catch (error: any) {
-      console.error('Error saving follow-up:', error);
+      console.error('Error sending reminder:', error);
       throw error;
     }
-  }, [selectedLeader, user]);
+  }, [selectedLeader, user, getWeekStartDate]);
 
   const handleBulkResetEventSummaries = useCallback(async () => {
     if (!leaders || leaders.length === 0) return;
@@ -771,7 +825,7 @@ export default function CircleMeetingsCalendar({
                   
                   {/* Row 3: Actions (mobile-first, uses full width) */}
                   <div className="space-y-2">
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-4 gap-2">
                       <button
                         type="button"
                         onClick={(e) => {
@@ -786,6 +840,22 @@ export default function CircleMeetingsCalendar({
                         title="Open attendance summary"
                       >
                         Summary
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const leader = leaders.find(l => l.id === leaderId);
+                          if (leader) handleOpenReminderModal(leader);
+                        }}
+                        className="h-9 col-span-1 rounded text-xs font-semibold leading-none border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors inline-flex items-center justify-center"
+                        title="Send event summary reminder"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                        </svg>
                       </button>
 
                       {ccbHref ? (
@@ -817,24 +887,6 @@ export default function CircleMeetingsCalendar({
                     </div>
 
                     {renderEventSummaryButtons(leaderId, state, { compact: true })}
-                    
-                    {/* Event Summary Follow Up Button */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const leader = leaders.find(l => l.id === leaderId);
-                        if (leader) handleOpenFollowUpModal(leader);
-                      }}
-                      className="w-full h-9 rounded text-xs font-semibold leading-none border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors inline-flex items-center justify-center gap-1"
-                      title="Event Summary Follow Up"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                      Follow Up
-                    </button>
                   </div>
                 </div>
 
@@ -867,6 +919,22 @@ export default function CircleMeetingsCalendar({
                       title="Open attendance summary"
                     >
                       Summary
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const leader = leaders.find(l => l.id === leaderId);
+                        if (leader) handleOpenReminderModal(leader);
+                      }}
+                      className="h-8 w-8 rounded text-xs font-semibold leading-none border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors inline-flex items-center justify-center"
+                      title="Send event summary reminder"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                      </svg>
                     </button>
 
                     {ccbHref ? (
@@ -1135,18 +1203,17 @@ export default function CircleMeetingsCalendar({
         ccbProfileLink={selectedCcbProfileLink}
       />
 
-      {/* Event Summary Follow Up Modal */}
+      {/* Event Summary Reminder Modal */}
       {selectedLeader && (
-        <EventSummaryFollowUpModal
-          isOpen={showFollowUpModal}
+        <EventSummaryReminderModal
+          isOpen={showReminderModal}
           onClose={() => {
-            setShowFollowUpModal(false);
+            setShowReminderModal(false);
             setSelectedLeader(null);
           }}
           leaderName={selectedLeader.name || 'Unknown'}
-          eventTitle={selectedLeader.name || 'Unknown'}
-          eventDate={DateTime.local().toISODate() || ''}
-          onSave={handleSaveFollowUp}
+          sentMessages={sentReminderMessages}
+          onSend={handleSendEventSummaryReminder}
         />
       )}
 
