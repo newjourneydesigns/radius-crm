@@ -250,6 +250,11 @@ a {
   background-color: transparent !important;
 }
 
+/* Remove sticky positioning from list view date headers */
+.calendar-shell .fc .fc-list-sticky .fc-list-day > * {
+  position: static !important;
+}
+
 .calendar-shell .fc .fc-list-day-table {
   border: none !important;
   background-color: transparent !important;
