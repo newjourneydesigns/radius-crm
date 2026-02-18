@@ -330,6 +330,7 @@ export default function CircleMeetingsCalendar({
   const [isResetting, setIsResetting] = useState(false);
   const [selectedEventGroupName, setSelectedEventGroupName] = useState<string>('');
   const [selectedCcbProfileLink, setSelectedCcbProfileLink] = useState<string | null>(null);
+  const [expandedEventIds, setExpandedEventIds] = useState<Set<string>>(new Set());
   const [initialView] = useState(() => {
     if (typeof window === 'undefined') return DEFAULT_CALENDAR_VIEW;
     try {
@@ -399,7 +400,7 @@ export default function CircleMeetingsCalendar({
       })
     );
     setEvents(next);
-  }, [leadersWithSchedules, visibleRange]);
+  }, [leadersWithSchedules, visibleRange, leaders]);
 
   const openEventExplorerForLeader = useCallback((leaderId: number, isoDate?: string | null) => {
     const leader = leaders.find(l => l.id === leaderId);
@@ -795,36 +796,70 @@ export default function CircleMeetingsCalendar({
               return <div className="truncate">{arg.event.title}</div>;
             }
 
+            const eventId = arg.event.id;
+            const isExpanded = expandedEventIds.has(eventId);
+            const colors = getEventSummaryColors(state);
+
+            const toggleExpanded = (e: MouseEvent<HTMLDivElement>) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setExpandedEventIds(prev => {
+                const next = new Set(prev);
+                if (next.has(eventId)) {
+                  next.delete(eventId);
+                } else {
+                  next.add(eventId);
+                }
+                return next;
+              });
+            };
+
             return (
               <>
-                {/* Mobile Layout - 3 Row Stacked Design */}
+                {/* Mobile Layout - Collapsible Design */}
                 <div className="flex flex-col gap-1.5 w-full sm:hidden">
-                  {/* Row 1: Circle Leader Name */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        router.push(`/circle/${leaderId}`);
-                      }}
-                      className="text-base font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors leading-snug text-left group"
-                      title="Open circle leader profile"
+                  {/* Collapsed View - Tap to Expand */}
+                  <div 
+                    className="flex items-center justify-between gap-2 cursor-pointer"
+                    onClick={toggleExpanded}
+                  >
+                    <div className="flex-1 min-w-0">
+                      {/* Row 1: Circle Leader Name with Status Badge */}
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-base font-bold text-gray-900 dark:text-white leading-snug truncate">
+                          {arg.event.title}
+                        </span>
+                        <span
+                          className={`text-[11px] px-2 py-0.5 rounded text-white ${colors.bg} shrink-0`}
+                          title={colors.label}
+                        >
+                          {colors.label}
+                        </span>
+                      </div>
+                      
+                      {/* Row 2: Time and Frequency */}
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {arg.event.start ? DateTime.fromJSDate(arg.event.start).toLocaleString(DateTime.TIME_SIMPLE) : ''}
+                        {arg.event.extendedProps?.frequency && (
+                          <span className="ml-2">• {arg.event.extendedProps.frequency}</span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Expand/Collapse Icon */}
+                    <svg 
+                      className={`w-5 h-5 text-gray-400 transition-transform shrink-0 ${isExpanded ? 'rotate-180' : ''}`}
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
                     >
-                      <span className="group-hover:underline">{arg.event.title}</span>
-                    </button>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
                   </div>
                   
-                  {/* Row 2: Time and Frequency */}
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {arg.event.start ? DateTime.fromJSDate(arg.event.start).toLocaleString(DateTime.TIME_SIMPLE) : ''}
-                    {arg.event.extendedProps?.frequency && (
-                      <span className="ml-2">• {arg.event.extendedProps.frequency}</span>
-                    )}
-                  </div>
-                  
-                  {/* Row 3: Actions (mobile-first, uses full width) */}
-                  <div className="space-y-2">
+                  {/* Expanded View - Actions */}
+                  {isExpanded && (
+                    <div className="space-y-2 pt-1">
                     <div className="grid grid-cols-4 gap-2">
                       <button
                         type="button"
@@ -887,7 +922,8 @@ export default function CircleMeetingsCalendar({
                     </div>
 
                     {renderEventSummaryButtons(leaderId, state, { compact: true })}
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Desktop Layout - Original Horizontal Design */}
