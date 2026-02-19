@@ -231,17 +231,15 @@ a {
   background-color: transparent !important;
 }
 
-/* Prevent list event title cell from overflowing the viewport */
-.calendar-shell .fc .fc-list-event-title {
-  width: 100% !important;
-  max-width: 0 !important;
-  overflow: hidden !important;
+/* Clip any overflow at the calendar boundary — prevents buttons/rings bleeding outside */
+.calendar-shell {
+  overflow-x: hidden;
 }
 
-/* Ensure the list view table fills its container and doesn't grow beyond it */
-.calendar-shell .fc .fc-list-table {
-  table-layout: fixed !important;
+/* Title cell should grow to fill remaining row width and not overflow */
+.calendar-shell .fc .fc-list-event-title {
   width: 100% !important;
+  overflow: hidden !important;
 }
 
 /* Hide time column on mobile - we show it in the custom content */
