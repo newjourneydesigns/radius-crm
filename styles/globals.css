@@ -222,6 +222,12 @@ a {
   padding: 0.75rem 1rem !important;
 }
 
+@media (max-width: 639px) {
+  .calendar-shell .fc .fc-list-event td {
+    padding: 0.5rem 0.5rem !important;
+  }
+}
+
 /* Remove the background color from the event title in list view while keeping the dot */
 .calendar-shell .fc .fc-list-event-title,
 .calendar-shell .fc .fc-list-event-title a,
@@ -236,10 +242,18 @@ a {
   overflow-x: hidden;
 }
 
-/* Title cell should grow to fill remaining row width and not overflow */
+/* Force FullCalendar list table to respect container width */
+@media (max-width: 639px) {
+  .calendar-shell .fc .fc-list-table {
+    table-layout: fixed !important;
+    width: 100% !important;
+  }
+}
+
+/* Title cell should grow to fill remaining row width */
 .calendar-shell .fc .fc-list-event-title {
   width: 100% !important;
-  overflow: hidden !important;
+  overflow: visible !important;
 }
 
 /* Hide time + dot columns on mobile - we render both ourselves in the custom content */
@@ -251,7 +265,8 @@ a {
     display: none !important;
   }
   .calendar-shell .fc .fc-list-event td.fc-list-event-title {
-    padding-left: 0.75rem !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
   }
 }
 
