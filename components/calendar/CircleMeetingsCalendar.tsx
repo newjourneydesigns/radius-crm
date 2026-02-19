@@ -588,8 +588,8 @@ export default function CircleMeetingsCalendar({
       const active = state === kind;
       const colors = getEventSummaryColors(kind);
       return active
-        ? `${base} ${colors.bg} ${colors.border} text-white font-bold shadow-md`
-        : `${base} bg-white dark:bg-gray-800 ${colors.btnInactiveBorder} ${colors.btnInactiveText} ${colors.hover} font-medium`;
+        ? `${base} ${colors.bg} ${colors.border} border-2 text-white font-bold shadow-lg ring-2 ring-offset-1 ${colors.ring}`
+        : `${base} bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium`;
     };
 
     const onClick = (next: EventSummaryState) => (e: MouseEvent<HTMLButtonElement>) => {

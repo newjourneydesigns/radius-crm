@@ -27,8 +27,9 @@ export function getEventSummaryColors(state: EventSummaryState) {
   switch (state) {
     case 'received':
       return {
-        bg: 'bg-green-600 dark:bg-green-600',
-        border: 'border-green-700 dark:border-green-500',
+        bg: 'bg-green-500 dark:bg-green-500',
+        border: 'border-green-600 dark:border-green-400',
+        ring: 'ring-green-400 dark:ring-green-400',
         btnInactiveBorder: 'border-green-300 dark:border-green-700',
         btnInactiveText: 'text-green-700 dark:text-green-300',
         text: 'text-green-600',
@@ -39,8 +40,9 @@ export function getEventSummaryColors(state: EventSummaryState) {
       };
     case 'did_not_meet':
       return {
-        bg: 'bg-blue-600 dark:bg-blue-600',
-        border: 'border-blue-700 dark:border-blue-500',
+        bg: 'bg-blue-500 dark:bg-blue-500',
+        border: 'border-blue-600 dark:border-blue-400',
+        ring: 'ring-blue-400 dark:ring-blue-400',
         btnInactiveBorder: 'border-blue-300 dark:border-blue-700',
         btnInactiveText: 'text-blue-700 dark:text-blue-300',
         text: 'text-blue-600',
@@ -51,8 +53,9 @@ export function getEventSummaryColors(state: EventSummaryState) {
       };
     case 'skipped':
       return {
-        bg: 'bg-yellow-600 dark:bg-yellow-600',
-        border: 'border-yellow-700 dark:border-yellow-500',
+        bg: 'bg-amber-500 dark:bg-amber-500',
+        border: 'border-amber-600 dark:border-amber-400',
+        ring: 'ring-amber-400 dark:ring-amber-400',
         btnInactiveBorder: 'border-yellow-300 dark:border-yellow-700',
         btnInactiveText: 'text-yellow-800 dark:text-yellow-300',
         text: 'text-yellow-600',
@@ -64,8 +67,9 @@ export function getEventSummaryColors(state: EventSummaryState) {
     case 'not_received':
     default:
       return {
-        bg: 'bg-red-600 dark:bg-red-600',
-        border: 'border-red-700 dark:border-red-500',
+        bg: 'bg-red-500 dark:bg-red-500',
+        border: 'border-red-600 dark:border-red-400',
+        ring: 'ring-red-400 dark:ring-red-400',
         btnInactiveBorder: 'border-red-300 dark:border-red-700',
         btnInactiveText: 'text-red-700 dark:text-red-300',
         text: 'text-red-600',
