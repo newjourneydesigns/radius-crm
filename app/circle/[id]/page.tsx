@@ -17,6 +17,7 @@ import ConnectPersonModal from '../../../components/modals/ConnectPersonModal';
 import EventSummaryReminderModal from '../../../components/modals/EventSummaryReminderModal';
 import EventExplorerModal from '../../../components/modals/EventExplorerModal';
 import ProtectedRoute from '../../../components/ProtectedRoute';
+import ProgressTimeline from '../../../components/circle/ProgressTimeline';
 import { getEventSummaryButtonLabel, getEventSummaryColors, getEventSummaryState } from '../../../lib/event-summary-utils';
 
 // Helper function to format time to AM/PM
@@ -2449,6 +2450,9 @@ export default function CircleLeaderProfilePage() {
               </div>
             </div>
           </div>
+
+        {/* Progress Timeline Section */}
+        <ProgressTimeline leaderId={leaderId} />
 
             {/* Notes Section */}
             <div id="notes" className="bg-white dark:bg-gray-800 rounded-lg shadow mt-8">
