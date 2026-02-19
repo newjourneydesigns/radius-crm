@@ -582,7 +582,7 @@ export default function CircleMeetingsCalendar({
     const isSaving = savingLeaderIds.has(leaderId);
 
     const base =
-      'h-10 sm:h-8 px-3 sm:px-2 rounded-lg sm:rounded text-sm sm:text-xs leading-tight border-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed touch-manipulation select-none flex items-center justify-center min-w-0 text-center whitespace-normal active:scale-95 sm:active:scale-100';
+      'h-10 sm:h-8 px-3 sm:px-3 rounded-lg sm:rounded-md text-sm sm:text-xs font-semibold leading-tight border-2 sm:border transition-all disabled:opacity-60 disabled:cursor-not-allowed touch-manipulation select-none flex items-center justify-center min-w-0 text-center whitespace-normal active:scale-95 sm:active:scale-100';
 
     const btn = (kind: EventSummaryState) => {
       const active = state === kind;
@@ -601,7 +601,7 @@ export default function CircleMeetingsCalendar({
 
     return (
       <div
-        className={`grid grid-cols-2 gap-2 w-full sm:flex sm:items-center sm:gap-1 ${opts?.compact ? 'sm:w-auto' : 'sm:w-full'} shrink-0`}
+        className={`grid grid-cols-2 gap-2 w-full sm:flex sm:items-center sm:gap-1.5 ${opts?.compact ? 'sm:w-auto' : 'sm:w-full'} shrink-0`}
         role="group"
         aria-label="Event summary"
       >
@@ -816,14 +816,14 @@ export default function CircleMeetingsCalendar({
 
             return (
               <>
-                {/* Mobile Layout - Collapsible Design */}
-                <div className="flex flex-col w-full sm:hidden">
-                  {/* Collapsed View - Tap to Expand */}
+                {/* Unified Collapsible Design - Mobile & Desktop */}
+                <div className="flex flex-col w-full">
+                  {/* Collapsed View - Click to Expand */}
                   <div 
                     className="flex items-center justify-between gap-3 py-1 cursor-pointer active:opacity-70 transition-opacity"
                     onClick={toggleExpanded}
                   >
-                    <div className="flex-1 min-w-0 space-y-1.5">
+                    <div className="flex-1 min-w-0 space-y-1">
                       {/* Circle Leader Name */}
                       <div className="text-[15px] font-semibold text-gray-900 dark:text-white leading-tight truncate">
                         {arg.event.title}
@@ -841,7 +841,7 @@ export default function CircleMeetingsCalendar({
                     {/* Expand/Collapse Icon */}
                     <div className="flex-shrink-0">
                       <svg 
-                        className={`w-6 h-6 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                        className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
                         fill="none" 
                         stroke="currentColor" 
                         viewBox="0 0 24 24"
@@ -853,152 +853,121 @@ export default function CircleMeetingsCalendar({
                   
                   {/* Expanded View - Actions */}
                   {isExpanded && (
-                    <div className="space-y-2.5 pt-3 pb-1 border-t border-gray-100 dark:border-gray-700/50 mt-2">
-                      {/* Action Buttons Row */}
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const eventDate = arg.event.start
-                              ? DateTime.fromJSDate(arg.event.start).toISODate()
-                              : DateTime.local().toISODate();
-                            openEventExplorerForLeader(leaderId, eventDate);
-                          }}
-                          className="flex-1 h-10 rounded-lg text-sm font-semibold bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 active:scale-95 transition-all inline-flex items-center justify-center"
-                          title="Open attendance summary"
-                        >
-                          Summary
-                        </button>
+                    <div className="pt-3 pb-1 border-t border-gray-100 dark:border-gray-700/50 mt-2">
+                      {/* Desktop: justify-between — status left, actions right. Mobile: stacked */}
+                      <div className="hidden sm:flex sm:items-center sm:justify-between sm:gap-4">
+                        {/* Left: Status buttons */}
+                        {renderEventSummaryButtons(leaderId, state, { compact: true })}
 
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const leader = leaders.find(l => l.id === leaderId);
-                            if (leader) handleOpenReminderModal(leader);
-                          }}
-                          className="h-10 w-10 rounded-lg bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 active:scale-95 transition-all inline-flex items-center justify-center"
-                          title="Send event summary reminder"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                          </svg>
-                        </button>
-
-                        {ccbHref ? (
-                          <a
-                            href={ccbHref}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex-1 h-10 rounded-lg text-sm font-semibold bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 active:scale-95 transition-all inline-flex items-center justify-center"
-                            title="Open CCB profile"
-                          >
-                            CCB Profile
-                          </a>
-                        ) : (
+                        {/* Right: Action buttons */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          {/* Summary */}
                           <button
                             type="button"
-                            aria-disabled="true"
-                            tabIndex={-1}
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
+                              const eventDate = arg.event.start
+                                ? DateTime.fromJSDate(arg.event.start).toISODate()
+                                : DateTime.local().toISODate();
+                              openEventExplorerForLeader(leaderId, eventDate);
                             }}
-                            className="flex-1 h-10 rounded-lg text-sm font-semibold bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 inline-flex items-center justify-center cursor-not-allowed opacity-60"
-                            title="No CCB profile link"
+                            className="h-8 px-3 rounded-md text-xs font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors inline-flex items-center"
                           >
-                            CCB Profile
+                            Summary
                           </button>
-                        )}
+
+                          {/* Reminder */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const leader = leaders.find(l => l.id === leaderId);
+                              if (leader) handleOpenReminderModal(leader);
+                            }}
+                            className="h-8 w-8 rounded-md border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors inline-flex items-center justify-center"
+                            title="Send reminder"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                            </svg>
+                          </button>
+
+                          {/* CCB */}
+                          {ccbHref ? (
+                            <a
+                              href={ccbHref}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="h-8 px-3 rounded-md text-xs font-medium border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors inline-flex items-center"
+                            >
+                              CCB
+                            </a>
+                          ) : (
+                            <button type="button" disabled className="h-8 px-3 rounded-md text-xs font-medium border border-gray-200 dark:border-gray-700 text-gray-400 cursor-not-allowed opacity-50 inline-flex items-center">
+                              CCB
+                            </button>
+                          )}
+                        </div>
                       </div>
 
-                      {/* Event Summary Status Buttons */}
-                      <div className="pt-1">
+                      {/* Mobile: stacked */}
+                      <div className="flex flex-col gap-2.5 sm:hidden">
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const eventDate = arg.event.start
+                                ? DateTime.fromJSDate(arg.event.start).toISODate()
+                                : DateTime.local().toISODate();
+                              openEventExplorerForLeader(leaderId, eventDate);
+                            }}
+                            className="flex-1 h-10 rounded-lg text-sm font-semibold bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 active:scale-95 transition-all inline-flex items-center justify-center"
+                          >
+                            Summary
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const leader = leaders.find(l => l.id === leaderId);
+                              if (leader) handleOpenReminderModal(leader);
+                            }}
+                            className="h-10 w-10 rounded-lg bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 active:scale-95 transition-all inline-flex items-center justify-center"
+                            title="Send reminder"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                            </svg>
+                          </button>
+
+                          {ccbHref ? (
+                            <a
+                              href={ccbHref}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex-1 h-10 rounded-lg text-sm font-semibold bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 active:scale-95 transition-all inline-flex items-center justify-center"
+                            >
+                              CCB Profile
+                            </a>
+                          ) : (
+                            <button type="button" aria-disabled="true" tabIndex={-1} onClick={(e) => { e.preventDefault(); e.stopPropagation(); }} className="flex-1 h-10 rounded-lg text-sm font-semibold bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 inline-flex items-center justify-center cursor-not-allowed opacity-60">
+                              CCB Profile
+                            </button>
+                          )}
+                        </div>
+
                         {renderEventSummaryButtons(leaderId, state, { compact: true })}
                       </div>
                     </div>
                   )}
-                </div>
-
-                {/* Desktop Layout - Original Horizontal Design */}
-                <div className="hidden sm:flex sm:items-center justify-between gap-2 w-full">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      router.push(`/circle/${leaderId}`);
-                    }}
-                    className="min-w-0 text-base font-bold leading-snug break-words sm:truncate text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left group"
-                    title="Open circle leader profile"
-                  >
-                    <span className="group-hover:underline">{arg.event.title}</span>
-                  </button>
-                  <div className="w-auto flex flex-row items-center justify-end gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const eventDate = arg.event.start
-                          ? DateTime.fromJSDate(arg.event.start).toISODate()
-                          : DateTime.local().toISODate();
-                        openEventExplorerForLeader(leaderId, eventDate);
-                      }}
-                      className="h-8 px-3 rounded text-xs font-semibold leading-none border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors inline-flex items-center justify-center"
-                      title="Open attendance summary"
-                    >
-                      Summary
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const leader = leaders.find(l => l.id === leaderId);
-                        if (leader) handleOpenReminderModal(leader);
-                      }}
-                      className="h-8 w-8 rounded text-xs font-semibold leading-none border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors inline-flex items-center justify-center"
-                      title="Send event summary reminder"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                      </svg>
-                    </button>
-
-                    {ccbHref ? (
-                      <a
-                        href={ccbHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="h-8 w-12 rounded text-xs font-semibold leading-none border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors inline-flex items-center justify-center"
-                        title="Open CCB profile"
-                      >
-                        CCB
-                      </a>
-                    ) : (
-                      <button
-                        type="button"
-                        aria-disabled="true"
-                        tabIndex={-1}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                        }}
-                        className="h-8 w-12 rounded text-xs font-semibold leading-none border border-blue-200/60 dark:border-blue-800/60 text-blue-200/60 transition-colors inline-flex items-center justify-center cursor-not-allowed"
-                        title="No CCB profile link"
-                      >
-                        CCB
-                      </button>
-                    )}
-                    {renderEventSummaryButtons(leaderId, state, { compact: true })}
-                  </div>
                 </div>
               </>
             );
@@ -1145,68 +1114,73 @@ export default function CircleMeetingsCalendar({
                   </div>
 
                   {/* Desktop Layout */}
-                  <div className="hidden sm:block min-w-0">
-                    <div className="text-xs text-gray-500 dark:text-gray-400">{timeLabel}</div>
-                    {leaderId ? (
-                      <button
-                        type="button"
-                        onClick={() => router.push(`/circle/${leaderId}`)}
-                        className="block text-base font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors break-words sm:truncate text-left group"
-                        title="Open circle leader profile"
-                      >
-                        <span className="group-hover:underline">{ev.title}</span>
-                      </button>
-                    ) : (
-                      <div className="block text-base font-bold text-gray-900 dark:text-white break-words sm:truncate">{ev.title}</div>
-                    )}
-                    {ev.extendedProps?.frequency && (
+                  <div className="hidden sm:flex sm:items-center sm:justify-between gap-6 w-full min-w-0">
+                    {/* Left: name + time/frequency */}
+                    <div className="min-w-0 flex-1">
+                      {leaderId ? (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); router.push(`/circle/${leaderId}`); }}
+                          className="block text-sm font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors truncate text-left group"
+                          title="Open circle leader profile"
+                        >
+                          <span className="group-hover:underline">{ev.title}</span>
+                        </button>
+                      ) : (
+                        <div className="block text-sm font-semibold text-gray-900 dark:text-white truncate">{ev.title}</div>
+                      )}
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        {ev.extendedProps.frequency}
+                        {timeLabel}
+                        {ev.extendedProps?.frequency && (
+                          <span className="ml-1.5">• {ev.extendedProps.frequency}</span>
+                        )}
                       </div>
-                    )}
-                  </div>
+                    </div>
 
-                  <div className="hidden sm:flex w-auto items-center gap-2 shrink-0">
+                    {/* Center: status buttons */}
                     {leaderId && onSetEventSummaryState && (
-                      <div className="order-1">
-                        {renderEventSummaryButtons(leaderId, eventSummaryState)}
+                      <div className="shrink-0">
+                        {renderEventSummaryButtons(leaderId, eventSummaryState, { compact: true })}
                       </div>
                     )}
 
-                    {leaderId && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openEventExplorerForLeader(leaderId, isoDate);
-                        }}
-                        className="text-xs px-2.5 py-1.5 rounded border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700"
-                        title="Open attendance summary"
-                      >
-                        Summary
-                      </button>
-                    )}
-                    {ccbHref ? (
-                      <a
-                        href={ccbHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-xs px-2.5 py-1.5 rounded border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30"
-                        title="Open CCB profile"
-                      >
-                        CCB
-                      </a>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled
-                        className="text-xs px-2.5 py-1.5 rounded border border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
-                        title="No CCB profile link"
-                      >
-                        CCB
-                      </button>
-                    )}
+                    {/* Right: action buttons */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {/* Summary */}
+                      {leaderId && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); openEventExplorerForLeader(leaderId, isoDate); }}
+                          className="h-8 px-3 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          title="Open attendance summary"
+                        >
+                          Summary
+                        </button>
+                      )}
+
+                      {/* CCB */}
+                      {ccbHref ? (
+                        <a
+                          href={ccbHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="h-8 px-3 text-xs font-medium rounded-md border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors inline-flex items-center"
+                          title="Open CCB profile"
+                        >
+                          CCB
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          className="h-8 px-3 text-xs font-medium rounded-md border border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-50"
+                          title="No CCB profile link"
+                        >
+                          CCB
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
