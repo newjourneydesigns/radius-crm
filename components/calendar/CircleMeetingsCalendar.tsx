@@ -588,7 +588,7 @@ export default function CircleMeetingsCalendar({
       const active = state === kind;
       const colors = getEventSummaryColors(kind);
       return active
-        ? `${base} ${colors.bg} ${colors.border} text-white font-bold shadow-md ring-2 ${colors.ring}`
+        ? `${base} ${colors.bg} ${colors.border} text-white font-bold shadow-md`
         : `${base} bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium`;
     };
 
