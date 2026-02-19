@@ -800,6 +800,14 @@ export default function CircleMeetingsCalendar({
             const isExpanded = expandedEventIds.has(eventId);
             const colors = getEventSummaryColors(state);
 
+            // Inline dot colors — safe against Tailwind purging
+            const dotColor: Record<EventSummaryState, string> = {
+              received:      '#22c55e',
+              did_not_meet:  '#3b82f6',
+              skipped:       '#f59e0b',
+              not_received:  '#ef4444',
+            };
+
             const toggleExpanded = (e: MouseEvent<HTMLDivElement>) => {
               e.preventDefault();
               e.stopPropagation();
@@ -824,7 +832,10 @@ export default function CircleMeetingsCalendar({
                     onClick={toggleExpanded}
                   >
                     {/* Status dot */}
-                    <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${colors.bg}`} />
+                    <div
+                      className="w-3 h-3 rounded-full shrink-0"
+                      style={{ backgroundColor: dotColor[state] }}
+                    />
 
                     <div className="flex-1 min-w-0">
                       {/* Circle Leader Name */}
