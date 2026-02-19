@@ -582,14 +582,14 @@ export default function CircleMeetingsCalendar({
     const isSaving = savingLeaderIds.has(leaderId);
 
     const base =
-      'h-10 sm:h-8 px-2 sm:px-3 rounded-lg sm:rounded-md text-sm sm:text-xs font-semibold leading-tight border-2 sm:border transition-all disabled:opacity-60 disabled:cursor-not-allowed touch-manipulation select-none flex items-center justify-center min-w-0 text-center whitespace-nowrap flex-1 active:scale-95 sm:active:scale-100';
+      'h-9 sm:h-8 px-2 sm:px-3 rounded-lg sm:rounded-md text-[13px] sm:text-xs font-semibold leading-tight transition-all disabled:opacity-60 disabled:cursor-not-allowed touch-manipulation select-none flex items-center justify-center min-w-0 whitespace-nowrap flex-1 active:scale-95 sm:active:scale-100';
 
     const btn = (kind: EventSummaryState) => {
       const active = state === kind;
       const colors = getEventSummaryColors(kind);
       return active
-        ? `${base} ${colors.bg} ${colors.border} text-white font-bold shadow-md`
-        : `${base} bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium`;
+        ? `${base} ${colors.bg} ${colors.border} sm:border text-white font-bold shadow-md`
+        : `${base} bg-white/10 sm:bg-white sm:dark:bg-gray-800 sm:border sm:border-gray-300 sm:dark:border-gray-600 text-white sm:text-gray-500 sm:dark:text-gray-400 sm:hover:bg-gray-50 sm:dark:hover:bg-gray-700 font-medium`;
     };
 
     const onClick = (next: EventSummaryState) => (e: MouseEvent<HTMLButtonElement>) => {
@@ -826,49 +826,44 @@ export default function CircleMeetingsCalendar({
               <>
                 {/* Unified Collapsible Design - Mobile & Desktop */}
                 <div className="flex flex-col w-full overflow-hidden">
-                  {/* Collapsed View - Click to Expand */}
-                  <div 
-                    className="flex items-center gap-3 py-1 cursor-pointer active:opacity-70 transition-opacity"
+
+                  {/* ── Collapsed row ── */}
+                  <div
+                    className="flex items-center gap-3 py-0.5 cursor-pointer select-none"
                     onClick={toggleExpanded}
                   >
-                    {/* Status dot */}
+                    {/* Status dot — inline color, immune to Tailwind purge */}
                     <div
-                      className="w-3 h-3 rounded-full shrink-0"
+                      className="w-2.5 h-2.5 rounded-full shrink-0 mt-0.5"
                       style={{ backgroundColor: dotColor[state] }}
                     />
 
+                    {/* Name + meta */}
                     <div className="flex-1 min-w-0">
-                      {/* Circle Leader Name */}
-                      <div className="text-[15px] font-semibold text-gray-900 dark:text-white leading-tight truncate">
+                      <div className="text-[15px] font-semibold text-white leading-snug truncate">
                         {arg.event.title}
                       </div>
-                      
-                      {/* Time and Frequency */}
-                      <div className="text-[13px] text-gray-500 dark:text-gray-400 mt-0.5">
+                      <div className="text-[12px] text-gray-400 mt-0.5 truncate">
                         {arg.event.start ? DateTime.fromJSDate(arg.event.start).toLocaleString(DateTime.TIME_SIMPLE) : ''}
                         {arg.event.extendedProps?.frequency && (
-                          <span className="ml-1.5">• {arg.event.extendedProps.frequency}</span>
+                          <span className="ml-1.5 text-gray-500">· {arg.event.extendedProps.frequency}</span>
                         )}
                       </div>
                     </div>
-                    
-                    {/* Expand/Collapse Icon */}
-                    <div className="shrink-0 ml-auto">
-                      <svg 
-                        className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
+
+                    {/* Chevron */}
+                    <svg
+                      className={`w-4 h-4 text-gray-500 shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                      fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
                   </div>
-                  
-                  {/* Expanded View - Actions */}
+
+                  {/* ── Expanded panel ── */}
                   {isExpanded && (
-                    <div className="pt-3 pb-1 border-t border-gray-100 dark:border-gray-700/50 mt-2">
-                      {/* Desktop: justify-between — status left, actions right. Mobile: stacked */}
+                    <div className="mt-3 pt-3 border-t border-white/10">
+                      {/* Desktop row */}
                       <div className="hidden sm:flex sm:items-center sm:justify-between sm:gap-4">
                         {/* Left: Status buttons */}
                         {renderEventSummaryButtons(leaderId, state, { compact: true })}
@@ -941,76 +936,58 @@ export default function CircleMeetingsCalendar({
                       </div>
 
                       {/* Mobile: stacked */}
-                      <div className="flex flex-col gap-2.5 sm:hidden">
+                      <div className="flex flex-col gap-2 sm:hidden">
 
-                        {/* Row 1: Status buttons — single flex row */}
+                        {/* Status buttons — full width single row */}
                         {renderEventSummaryButtons(leaderId, state, { compact: true })}
 
                         {/* Divider */}
-                        <div className="h-px bg-gray-200 dark:bg-gray-700/60" />
+                        <div className="h-px bg-white/10" />
 
-                        {/* Row 2: Action buttons — single flex row */}
+                        {/* Action buttons — single row */}
                         <div className="flex items-center gap-1.5">
 
-                          {/* Summary */}
                           <button
                             type="button"
                             onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              const eventDate = arg.event.start
-                                ? DateTime.fromJSDate(arg.event.start).toISODate()
-                                : DateTime.local().toISODate();
-                              openEventExplorerForLeader(leaderId, eventDate);
+                              e.preventDefault(); e.stopPropagation();
+                              openEventExplorerForLeader(leaderId, arg.event.start ? DateTime.fromJSDate(arg.event.start).toISODate() : DateTime.local().toISODate());
                             }}
-                            className="flex-1 h-10 rounded-lg text-sm font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 active:scale-95 transition-all inline-flex items-center justify-center whitespace-nowrap"
+                            className="flex-1 h-9 rounded-lg text-[13px] font-medium bg-white/10 text-white active:bg-white/20 active:scale-95 transition-all inline-flex items-center justify-center whitespace-nowrap"
                           >
                             Summary
                           </button>
 
-                          {/* Profile */}
                           <button
                             type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              router.push(`/circle/${leaderId}`);
-                            }}
-                            className="flex-1 h-10 rounded-lg text-sm font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 active:scale-95 transition-all inline-flex items-center justify-center whitespace-nowrap"
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/circle/${leaderId}`); }}
+                            className="flex-1 h-9 rounded-lg text-[13px] font-medium bg-white/10 text-white active:bg-white/20 active:scale-95 transition-all inline-flex items-center justify-center whitespace-nowrap"
                           >
                             Profile
                           </button>
 
-                          {/* Reminder — icon only */}
                           <button
                             type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              const leader = leaders.find(l => l.id === leaderId);
-                              if (leader) handleOpenReminderModal(leader);
-                            }}
-                            className="h-10 w-10 shrink-0 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-blue-500 dark:text-blue-400 active:scale-95 transition-all inline-flex items-center justify-center"
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); const leader = leaders.find(l => l.id === leaderId); if (leader) handleOpenReminderModal(leader); }}
+                            className="h-9 w-9 shrink-0 rounded-lg bg-white/10 text-blue-400 active:bg-white/20 active:scale-95 transition-all inline-flex items-center justify-center"
                             title="Send reminder"
                           >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                             </svg>
                           </button>
 
-                          {/* CCB */}
                           {ccbHref ? (
                             <a
-                              href={ccbHref}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                              href={ccbHref} target="_blank" rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className="flex-1 h-10 rounded-lg text-sm font-medium bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 active:scale-95 transition-all inline-flex items-center justify-center whitespace-nowrap"
+                              className="flex-1 h-9 rounded-lg text-[13px] font-medium bg-white/10 text-blue-400 active:bg-white/20 active:scale-95 transition-all inline-flex items-center justify-center whitespace-nowrap"
                             >
                               CCB
                             </a>
                           ) : (
-                            <button type="button" disabled className="flex-1 h-10 rounded-lg text-sm font-medium bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 inline-flex items-center justify-center cursor-not-allowed opacity-40 whitespace-nowrap">
+                            <button type="button" disabled
+                              className="flex-1 h-9 rounded-lg text-[13px] font-medium bg-white/5 text-gray-600 cursor-not-allowed inline-flex items-center justify-center whitespace-nowrap opacity-50">
                               CCB
                             </button>
                           )}
