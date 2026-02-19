@@ -582,7 +582,7 @@ export default function CircleMeetingsCalendar({
     const isSaving = savingLeaderIds.has(leaderId);
 
     const base =
-      'h-10 sm:h-8 px-3 sm:px-3 rounded-lg sm:rounded-md text-sm sm:text-xs font-semibold leading-tight border-2 sm:border transition-all disabled:opacity-60 disabled:cursor-not-allowed touch-manipulation select-none flex items-center justify-center min-w-0 text-center whitespace-normal active:scale-95 sm:active:scale-100';
+      'h-10 sm:h-8 px-2 sm:px-3 rounded-lg sm:rounded-md text-sm sm:text-xs font-semibold leading-tight border-2 sm:border transition-all disabled:opacity-60 disabled:cursor-not-allowed touch-manipulation select-none flex items-center justify-center min-w-0 text-center whitespace-nowrap flex-1 active:scale-95 sm:active:scale-100';
 
     const btn = (kind: EventSummaryState) => {
       const active = state === kind;
@@ -601,7 +601,7 @@ export default function CircleMeetingsCalendar({
 
     return (
       <div
-        className={`grid grid-cols-2 gap-2 w-full sm:flex sm:items-center sm:gap-1.5 ${opts?.compact ? 'sm:w-auto' : 'sm:w-full'} shrink-0`}
+        className={`flex items-center gap-1.5 w-full ${opts?.compact ? 'sm:w-auto' : 'sm:w-full'} shrink-0`}
         role="group"
         aria-label="Event summary"
       >
@@ -927,87 +927,81 @@ export default function CircleMeetingsCalendar({
                       </div>
 
                       {/* Mobile: stacked */}
-                      <div className="flex flex-col gap-4 sm:hidden">
+                      <div className="flex flex-col gap-2.5 sm:hidden">
 
-                        {/* ── Status section ── */}
-                        <div className="flex flex-col gap-2">
-                          <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Event Summary</p>
-                          {renderEventSummaryButtons(leaderId, state, { compact: true })}
+                        {/* Row 1: Status buttons — single flex row */}
+                        {renderEventSummaryButtons(leaderId, state, { compact: true })}
+
+                        {/* Divider */}
+                        <div className="h-px bg-gray-200 dark:bg-gray-700/60" />
+
+                        {/* Row 2: Action buttons — single flex row */}
+                        <div className="flex items-center gap-1.5">
+
+                          {/* Summary */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const eventDate = arg.event.start
+                                ? DateTime.fromJSDate(arg.event.start).toISODate()
+                                : DateTime.local().toISODate();
+                              openEventExplorerForLeader(leaderId, eventDate);
+                            }}
+                            className="flex-1 h-10 rounded-lg text-sm font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 active:scale-95 transition-all inline-flex items-center justify-center whitespace-nowrap"
+                          >
+                            Summary
+                          </button>
+
+                          {/* Profile */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              router.push(`/circle/${leaderId}`);
+                            }}
+                            className="flex-1 h-10 rounded-lg text-sm font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 active:scale-95 transition-all inline-flex items-center justify-center whitespace-nowrap"
+                          >
+                            Profile
+                          </button>
+
+                          {/* Reminder — icon only */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const leader = leaders.find(l => l.id === leaderId);
+                              if (leader) handleOpenReminderModal(leader);
+                            }}
+                            className="h-10 w-10 shrink-0 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-blue-500 dark:text-blue-400 active:scale-95 transition-all inline-flex items-center justify-center"
+                            title="Send reminder"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                            </svg>
+                          </button>
+
+                          {/* CCB */}
+                          {ccbHref ? (
+                            <a
+                              href={ccbHref}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex-1 h-10 rounded-lg text-sm font-medium bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 active:scale-95 transition-all inline-flex items-center justify-center whitespace-nowrap"
+                            >
+                              CCB
+                            </a>
+                          ) : (
+                            <button type="button" disabled className="flex-1 h-10 rounded-lg text-sm font-medium bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 inline-flex items-center justify-center cursor-not-allowed opacity-40 whitespace-nowrap">
+                              CCB
+                            </button>
+                          )}
+
                         </div>
-
-                        {/* ── Divider ── */}
-                        <div className="h-px bg-gray-200 dark:bg-gray-700" />
-
-                        {/* ── Action section ── */}
-                        <div className="flex flex-col gap-2">
-                          <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Actions</p>
-                          <div className="grid grid-cols-2 gap-2">
-
-                            {/* Summary */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                const eventDate = arg.event.start
-                                  ? DateTime.fromJSDate(arg.event.start).toISODate()
-                                  : DateTime.local().toISODate();
-                                openEventExplorerForLeader(leaderId, eventDate);
-                              }}
-                              className="h-11 rounded-xl text-sm font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 active:scale-95 transition-all inline-flex items-center justify-center"
-                            >
-                              Summary
-                            </button>
-
-                            {/* Profile */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                router.push(`/circle/${leaderId}`);
-                              }}
-                              className="h-11 rounded-xl text-sm font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 active:scale-95 transition-all inline-flex items-center justify-center"
-                            >
-                              Profile
-                            </button>
-
-                            {/* Reminder */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                const leader = leaders.find(l => l.id === leaderId);
-                                if (leader) handleOpenReminderModal(leader);
-                              }}
-                              className="h-11 rounded-xl text-sm font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 active:scale-95 transition-all inline-flex items-center justify-center gap-1.5"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                              </svg>
-                              Reminder
-                            </button>
-
-                            {/* CCB Profile */}
-                            {ccbHref ? (
-                              <a
-                                href={ccbHref}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="h-11 rounded-xl text-sm font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 active:scale-95 transition-all inline-flex items-center justify-center"
-                              >
-                                CCB Profile
-                              </a>
-                            ) : (
-                              <button type="button" disabled className="h-11 rounded-xl text-sm font-medium bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 inline-flex items-center justify-center cursor-not-allowed opacity-40">
-                                CCB Profile
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
                       </div>
                     </div>
                   )}
