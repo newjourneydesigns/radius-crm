@@ -894,6 +894,19 @@ export default function CircleMeetingsCalendar({
                             </svg>
                           </button>
 
+                          {/* Profile */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              router.push(`/circle/${leaderId}`);
+                            }}
+                            className="h-8 px-3 rounded-md text-xs font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors inline-flex items-center"
+                          >
+                            Profile
+                          </button>
+
                           {/* CCB */}
                           {ccbHref ? (
                             <a
@@ -945,6 +958,19 @@ export default function CircleMeetingsCalendar({
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                             </svg>
+                          </button>
+
+                          {/* Profile - mobile */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              router.push(`/circle/${leaderId}`);
+                            }}
+                            className="flex-1 h-10 rounded-lg text-sm font-semibold bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 active:scale-95 transition-all inline-flex items-center justify-center"
+                          >
+                            Profile
                           </button>
 
                           {ccbHref ? (
@@ -1155,6 +1181,18 @@ export default function CircleMeetingsCalendar({
                           title="Open attendance summary"
                         >
                           Summary
+                        </button>
+                      )}
+
+                      {/* Profile */}
+                      {leaderId && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); router.push(`/circle/${leaderId}`); }}
+                          className="h-8 px-3 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          title="Open circle leader profile"
+                        >
+                          Profile
                         </button>
                       )}
 
