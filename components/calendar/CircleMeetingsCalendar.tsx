@@ -582,14 +582,14 @@ export default function CircleMeetingsCalendar({
     const isSaving = savingLeaderIds.has(leaderId);
 
     const base =
-      'h-9 sm:h-8 px-2 sm:px-3 rounded-lg sm:rounded-md text-[13px] sm:text-xs font-semibold leading-tight transition-all disabled:opacity-60 disabled:cursor-not-allowed touch-manipulation select-none flex items-center justify-center min-w-0 whitespace-nowrap flex-1 active:scale-95 sm:active:scale-100';
+      'h-9 sm:h-8 px-1.5 sm:px-3 rounded-lg sm:rounded-md text-[13px] sm:text-xs font-semibold leading-tight transition-all disabled:opacity-60 disabled:cursor-not-allowed touch-manipulation select-none flex items-center justify-center min-w-0 whitespace-nowrap flex-1 active:scale-95 sm:active:scale-100';
 
     const btn = (kind: EventSummaryState) => {
       const active = state === kind;
       const colors = getEventSummaryColors(kind);
       return active
-        ? `${base} ${colors.bg} ${colors.border} sm:border text-white font-bold shadow-md`
-        : `${base} bg-white/10 sm:bg-white sm:dark:bg-gray-800 sm:border sm:border-gray-300 sm:dark:border-gray-600 text-white sm:text-gray-500 sm:dark:text-gray-400 sm:hover:bg-gray-50 sm:dark:hover:bg-gray-700 font-medium`;
+        ? `${base} ${colors.bg} border ${colors.border} text-white font-bold shadow-md`
+        : `${base} bg-white/20 border border-white/20 sm:bg-white sm:dark:bg-gray-800 sm:border-gray-300 sm:dark:border-gray-600 text-white sm:text-gray-500 sm:dark:text-gray-400 sm:hover:bg-gray-50 sm:dark:hover:bg-gray-700 font-medium`;
     };
 
     const onClick = (next: EventSummaryState) => (e: MouseEvent<HTMLButtonElement>) => {
@@ -601,7 +601,7 @@ export default function CircleMeetingsCalendar({
 
     return (
       <div
-        className={`flex items-center gap-1.5 w-full ${opts?.compact ? 'sm:w-auto' : 'sm:w-full'} shrink-0`}
+        className={`flex items-center gap-1 w-full overflow-hidden ${opts?.compact ? 'sm:w-auto' : 'sm:w-full'} shrink-0`}
         role="group"
         aria-label="Event summary"
       >
@@ -834,7 +834,7 @@ export default function CircleMeetingsCalendar({
                   >
                     {/* Status dot — inline color, immune to Tailwind purge */}
                     <div
-                      className="w-2.5 h-2.5 rounded-full shrink-0 mt-0.5"
+                      className="w-3 h-3 rounded-full shrink-0"
                       style={{ backgroundColor: dotColor[state] }}
                     />
 
@@ -853,7 +853,7 @@ export default function CircleMeetingsCalendar({
 
                     {/* Chevron */}
                     <svg
-                      className={`w-4 h-4 text-gray-500 shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                      className={`w-5 h-5 text-gray-400 shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
                       fill="none" stroke="currentColor" viewBox="0 0 24 24"
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -862,7 +862,7 @@ export default function CircleMeetingsCalendar({
 
                   {/* ── Expanded panel ── */}
                   {isExpanded && (
-                    <div className="mt-3 pt-3 border-t border-white/10">
+                    <div className="mt-3 pt-3 border-t border-white/10 overflow-hidden">
                       {/* Desktop row */}
                       <div className="hidden sm:flex sm:items-center sm:justify-between sm:gap-4">
                         {/* Left: Status buttons */}
@@ -945,7 +945,7 @@ export default function CircleMeetingsCalendar({
                         <div className="h-px bg-white/10" />
 
                         {/* Action buttons — single row */}
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1 overflow-hidden">
 
                           <button
                             type="button"
@@ -953,7 +953,7 @@ export default function CircleMeetingsCalendar({
                               e.preventDefault(); e.stopPropagation();
                               openEventExplorerForLeader(leaderId, arg.event.start ? DateTime.fromJSDate(arg.event.start).toISODate() : DateTime.local().toISODate());
                             }}
-                            className="flex-1 h-9 rounded-lg text-[13px] font-medium bg-white/10 text-white active:bg-white/20 active:scale-95 transition-all inline-flex items-center justify-center whitespace-nowrap"
+                            className="flex-1 h-9 rounded-lg text-[13px] font-medium bg-white/20 border border-white/20 text-white active:bg-white/30 active:scale-95 transition-all inline-flex items-center justify-center whitespace-nowrap min-w-0"
                           >
                             Summary
                           </button>
@@ -961,7 +961,7 @@ export default function CircleMeetingsCalendar({
                           <button
                             type="button"
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/circle/${leaderId}`); }}
-                            className="flex-1 h-9 rounded-lg text-[13px] font-medium bg-white/10 text-white active:bg-white/20 active:scale-95 transition-all inline-flex items-center justify-center whitespace-nowrap"
+                            className="flex-1 h-9 rounded-lg text-[13px] font-medium bg-white/20 border border-white/20 text-white active:bg-white/30 active:scale-95 transition-all inline-flex items-center justify-center whitespace-nowrap min-w-0"
                           >
                             Profile
                           </button>
@@ -969,7 +969,7 @@ export default function CircleMeetingsCalendar({
                           <button
                             type="button"
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); const leader = leaders.find(l => l.id === leaderId); if (leader) handleOpenReminderModal(leader); }}
-                            className="h-9 w-9 shrink-0 rounded-lg bg-white/10 text-blue-400 active:bg-white/20 active:scale-95 transition-all inline-flex items-center justify-center"
+                            className="h-9 w-9 shrink-0 rounded-lg bg-white/20 border border-white/20 text-blue-400 active:bg-white/30 active:scale-95 transition-all inline-flex items-center justify-center"
                             title="Send reminder"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -981,7 +981,7 @@ export default function CircleMeetingsCalendar({
                             <a
                               href={ccbHref} target="_blank" rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className="flex-1 h-9 rounded-lg text-[13px] font-medium bg-white/10 text-blue-400 active:bg-white/20 active:scale-95 transition-all inline-flex items-center justify-center whitespace-nowrap"
+                              className="flex-1 h-9 rounded-lg text-[13px] font-medium bg-white/20 border border-white/20 text-blue-400 active:bg-white/30 active:scale-95 transition-all inline-flex items-center justify-center whitespace-nowrap min-w-0"
                             >
                               CCB
                             </a>
