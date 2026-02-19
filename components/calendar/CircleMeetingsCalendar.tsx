@@ -929,6 +929,7 @@ export default function CircleMeetingsCalendar({
                       {/* Mobile: stacked */}
                       <div className="flex flex-col gap-3 sm:hidden">
                         {/* Status buttons — primary action, shown first */}
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Event Summary Received</p>
                         {renderEventSummaryButtons(leaderId, state, { compact: true })}
 
                         {/* Action buttons — 2×2 grid */}
