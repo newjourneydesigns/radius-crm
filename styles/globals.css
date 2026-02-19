@@ -242,10 +242,16 @@ a {
   overflow: hidden !important;
 }
 
-/* Hide time column on mobile - we show it in the custom content */
+/* Hide time + dot columns on mobile - we render both ourselves in the custom content */
 @media (max-width: 639px) {
   .calendar-shell .fc .fc-list-event-time {
     display: none !important;
+  }
+  .calendar-shell .fc .fc-list-event-graphic {
+    display: none !important;
+  }
+  .calendar-shell .fc .fc-list-event td.fc-list-event-title {
+    padding-left: 0.75rem !important;
   }
 }
 
