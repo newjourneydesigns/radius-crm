@@ -234,3 +234,16 @@ export interface CircleVisit {
   updated_at: string;
   circle_leader?: CircleLeader; // For joined queries
 }
+
+export interface CircleLeaderScore {
+  id: number;
+  circle_leader_id: number;
+  scored_by?: string;
+  reach_score?: number | null;
+  connect_score?: number | null;
+  disciple_score?: number | null;
+  develop_score?: number | null;
+  notes?: string | null;
+  scored_date: string; // YYYY-MM-DD
+  created_at: string;
+}
