@@ -824,16 +824,6 @@ export default function CircleMeetingsCalendar({
                     onClick={toggleExpanded}
                   >
                     <div className="flex-1 min-w-0 space-y-1.5">
-                      {/* Status Badge */}
-                      <div>
-                        <span
-                          className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full text-white ${colors.bg} uppercase tracking-wide`}
-                          title={colors.label}
-                        >
-                          {colors.label}
-                        </span>
-                      </div>
-                      
                       {/* Circle Leader Name */}
                       <div className="text-[15px] font-semibold text-gray-900 dark:text-white leading-tight truncate">
                         {arg.event.title}
