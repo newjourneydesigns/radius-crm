@@ -820,28 +820,31 @@ export default function CircleMeetingsCalendar({
                 <div className="flex flex-col w-full overflow-hidden">
                   {/* Collapsed View - Click to Expand */}
                   <div 
-                    className="flex items-center justify-between gap-3 py-1 cursor-pointer active:opacity-70 transition-opacity"
+                    className="flex items-center gap-3 py-1 cursor-pointer active:opacity-70 transition-opacity"
                     onClick={toggleExpanded}
                   >
-                    <div className="flex-1 min-w-0 space-y-1">
+                    {/* Status dot */}
+                    <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${colors.bg}`} />
+
+                    <div className="flex-1 min-w-0">
                       {/* Circle Leader Name */}
                       <div className="text-[15px] font-semibold text-gray-900 dark:text-white leading-tight truncate">
                         {arg.event.title}
                       </div>
                       
                       {/* Time and Frequency */}
-                      <div className="text-[13px] text-gray-600 dark:text-gray-400 font-medium">
+                      <div className="text-[13px] text-gray-500 dark:text-gray-400 mt-0.5">
                         {arg.event.start ? DateTime.fromJSDate(arg.event.start).toLocaleString(DateTime.TIME_SIMPLE) : ''}
                         {arg.event.extendedProps?.frequency && (
-                          <span className="ml-1.5 text-gray-500 dark:text-gray-500">• {arg.event.extendedProps.frequency}</span>
+                          <span className="ml-1.5">• {arg.event.extendedProps.frequency}</span>
                         )}
                       </div>
                     </div>
                     
                     {/* Expand/Collapse Icon */}
-                    <div className="flex-shrink-0">
+                    <div className="shrink-0 ml-auto">
                       <svg 
-                        className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                        className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
                         fill="none" 
                         stroke="currentColor" 
                         viewBox="0 0 24 24"
