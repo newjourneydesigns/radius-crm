@@ -15,7 +15,6 @@ export default function MobileNavigation() {
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard' },
-    { name: 'Leaders', href: '/leaders' },
     { name: 'Progress', href: '/progress' },
     { name: 'Calendar', href: '/calendar' },
   ];
@@ -76,14 +75,14 @@ export default function MobileNavigation() {
         {/* Navigation section - now has full width */}
         <div className="flex justify-between items-center h-14">
           {/* Main navigation items with better spacing */}
-          <div className="flex items-center space-x-3 flex-1">
+          <div className="flex items-center space-x-1 flex-1 min-w-0 overflow-x-auto">
             <GlobalSearch />
             
             {navigation.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
-                className={`px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                className={`px-2 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                   isActive(item.href)
                     ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
                     : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700'

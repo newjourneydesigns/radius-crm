@@ -63,7 +63,7 @@ export default function EventSummaryProgress({
     }
     
     const queryString = searchParams.toString();
-    const url = queryString ? `/leaders?${queryString}` : '/leaders?eventSummary=not_received';
+    const url = queryString ? `/dashboard?${queryString}` : '/dashboard?eventSummary=not_received';
     
     router.push(url);
   };

@@ -5,7 +5,6 @@ const STATIC_CACHE = 'radius-static-v1.1.0';
 const STATIC_FILES = [
   '/',
   '/dashboard',
-  '/leaders',
   '/manifest.json',
   '/icon-192x192.png',
   '/icon-512x512.png',

@@ -84,19 +84,6 @@
       ]
     },
     {
-      "name": "All Leaders",
-      "short_name": "Leaders",
-      "description": "Browse and filter all circle leaders",
-      "url": "/leaders?utm_source=pwa_shortcut",
-      "icons": [
-        { 
-          "src": "/icon-192x192.png", 
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
-    },
-    {
       "name": "Add Leader",
       "short_name": "Add Leader",
       "description": "Add New Circle Leader",

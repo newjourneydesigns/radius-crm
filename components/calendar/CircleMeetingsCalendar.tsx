@@ -936,35 +936,20 @@ export default function CircleMeetingsCalendar({
                         </div>
                       </div>
 
-                      {/* Mobile: compact layout with dropdown */}
+                      {/* Mobile: stacked layout with buttons */}
                       <div className="flex flex-col gap-3 sm:hidden">
 
-                        {/* Status Dropdown */}
+                        {/* Event Summary Status - 4 buttons */}
                         <div>
-                          <label className="block text-xs font-medium text-gray-400 mb-1.5">Event Summary Status</label>
-                          <select
-                            value={state}
-                            onChange={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              const newState = e.target.value as EventSummaryState;
-                              void setLeaderEventSummaryState(leaderId, newState);
-                            }}
-                            disabled={savingLeaderIds.has(leaderId)}
-                            className="w-full h-10 px-3 rounded-md bg-gray-700 text-white border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
-                          >
-                            <option value="not_received">❌ Not Received</option>
-                            <option value="received">✅ Received</option>
-                            <option value="did_not_meet">🔵 Didn't Meet</option>
-                            <option value="skipped">⚠️ Skipped</option>
-                          </select>
+                          <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Event Summary</label>
+                          {renderEventSummaryButtons(leaderId, state)}
                         </div>
 
                         {/* Divider */}
-                        <div className="h-px bg-gray-600" />
+                        <div className="h-px bg-gray-600/60" />
 
-                        {/* Action buttons - 2x2 grid */}
-                        <div className="grid grid-cols-2 gap-2">
+                        {/* Action buttons - stacked full-width */}
+                        <div className="flex flex-col gap-1.5">
 
                           <button
                             type="button"
@@ -972,38 +957,53 @@ export default function CircleMeetingsCalendar({
                               e.preventDefault(); e.stopPropagation();
                               openEventExplorerForLeader(leaderId, arg.event.start ? DateTime.fromJSDate(arg.event.start).toISODate() : DateTime.local().toISODate());
                             }}
-                            className="h-10 rounded-md text-sm font-medium bg-gray-700 text-white hover:bg-gray-600 active:scale-95 transition-all"
+                            className="h-11 rounded-lg text-sm font-medium bg-gray-700/80 text-white hover:bg-gray-600 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                           >
-                            Summary
+                            <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                            CCB Explorer
                           </button>
 
                           <button
                             type="button"
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); const leader = leaders.find(l => l.id === leaderId); if (leader) handleOpenReminderModal(leader); }}
-                            className="h-10 rounded-md text-sm font-medium bg-gray-700 text-white hover:bg-gray-600 active:scale-95 transition-all"
+                            className="h-11 rounded-lg text-sm font-medium bg-gray-700/80 text-white hover:bg-gray-600 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                           >
+                            <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                            </svg>
                             Reminder
                           </button>
 
                           <button
                             type="button"
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/circle/${leaderId}`); }}
-                            className="h-10 rounded-md text-sm font-medium bg-gray-700 text-white hover:bg-gray-600 active:scale-95 transition-all"
+                            className="h-11 rounded-lg text-sm font-medium bg-gray-700/80 text-white hover:bg-gray-600 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                           >
-                            Profile
+                            <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            Circle Profile
                           </button>
 
                           {ccbHref ? (
                             <a
                               href={ccbHref} target="_blank" rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className="h-10 rounded-md text-sm font-medium bg-gray-700 text-white hover:bg-gray-600 active:scale-95 transition-all inline-flex items-center justify-center"
+                              className="h-11 rounded-lg text-sm font-medium bg-gray-700/80 text-white hover:bg-gray-600 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                             >
+                              <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              </svg>
                               CCB
                             </a>
                           ) : (
                             <button type="button" disabled
-                              className="h-10 rounded-md text-sm font-medium bg-gray-800 text-gray-500 cursor-not-allowed opacity-50">
+                              className="h-11 rounded-lg text-sm font-medium bg-gray-800 text-gray-500 cursor-not-allowed opacity-40 flex items-center justify-center gap-2">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              </svg>
                               CCB
                             </button>
                           )}
