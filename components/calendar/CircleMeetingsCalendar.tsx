@@ -835,7 +835,7 @@ export default function CircleMeetingsCalendar({
                   >
                     {/* Status pill */}
                     <div
-                      className="w-2.5 h-10 rounded-full shrink-0"
+                      className="status-pill w-2.5 h-10 rounded-full shrink-0"
                       style={{ backgroundColor: dotColor[state], boxShadow: `0 0 8px ${dotColor[state]}50` }}
                     />
 

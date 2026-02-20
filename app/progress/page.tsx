@@ -52,7 +52,7 @@ function LeaderRow({ summary }: { summary: LeaderProgressSummary }) {
   return (
     <Link
       href={`/circle/${summary.leader.id}`}
-      className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-700/30 transition-colors group"
+      className="flex items-center p-3 rounded-lg hover:bg-gray-700/30 transition-colors group"
     >
       <div className="flex-1 min-w-0">
         <h4 className="text-sm font-medium text-white truncate group-hover:text-blue-400 transition-colors">
@@ -68,19 +68,17 @@ function LeaderRow({ summary }: { summary: LeaderProgressSummary }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="hidden sm:flex items-center gap-2 text-xs">
-          <span className="text-blue-400">{eff.reach ?? '—'}</span>
-          <span className="text-green-400">{eff.connect ?? '—'}</span>
-          <span className="text-purple-400">{eff.disciple ?? '—'}</span>
-          <span className="text-orange-400">{eff.develop ?? '—'}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <span className={`text-lg font-bold ${ScoreColor(summary.averageScore || 0)}`}>
-            {summary.averageScore}
-          </span>
-          <TrendArrow delta={summary.trend} />
-        </div>
+      <div className="hidden sm:flex items-center">
+        <span className="w-8 text-center text-xs text-blue-400">{eff.reach ?? '\u2014'}</span>
+        <span className="w-8 text-center text-xs text-green-400">{eff.connect ?? '\u2014'}</span>
+        <span className="w-8 text-center text-xs text-purple-400">{eff.disciple ?? '\u2014'}</span>
+        <span className="w-8 text-center text-xs text-orange-400">{eff.develop ?? '\u2014'}</span>
+      </div>
+      <div className="w-16 flex items-center justify-center gap-1 ml-2">
+        <span className={`text-lg font-bold ${ScoreColor(summary.averageScore || 0)}`}>
+          {summary.averageScore}
+        </span>
+        <TrendArrow delta={summary.trend} />
       </div>
     </Link>
   );
@@ -333,12 +331,14 @@ export default function ProgressDashboardPage() {
 
                 <div className="p-4">
                   {/* Tab header legend */}
-                  <div className="hidden sm:flex items-center justify-end gap-4 mb-3 text-xs text-gray-500">
-                    <span className="text-blue-400">R</span>
-                    <span className="text-green-400">C</span>
-                    <span className="text-purple-400">D</span>
-                    <span className="text-orange-400">D</span>
-                    <span className="w-12 text-right">Avg</span>
+                  <div className="hidden sm:flex items-center justify-end mb-3 text-xs text-gray-500 pr-3">
+                    <div className="flex items-center">
+                      <span className="w-8 text-center text-blue-400">R</span>
+                      <span className="w-8 text-center text-green-400">C</span>
+                      <span className="w-8 text-center text-purple-400">D</span>
+                      <span className="w-8 text-center text-orange-400">D</span>
+                    </div>
+                    <span className="w-16 text-center text-gray-500 ml-2">Avg</span>
                   </div>
 
                   {getActiveList().length === 0 ? (
