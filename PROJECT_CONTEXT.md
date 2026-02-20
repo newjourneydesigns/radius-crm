@@ -1,8 +1,8 @@
 # RADIUS CRM — Project Context
 
-> **Version:** 1.2.0  
+> **Version:** 1.3.0  
 > **Repository:** `newjourneydesigns/radius-crm` (branch: `main`)  
-> **Last Updated:** 2026-02-07
+> **Last Updated:** 2026-02-20
 
 ---
 
@@ -21,8 +21,7 @@ RADIUS is a **Circle Leader Management System** — a CRM-style web application 
 | **UI**           | React 18, Tailwind CSS 3, DaisyUI 5             |
 | **Database**     | Supabase (PostgreSQL) with Row-Level Security    |
 | **Auth**         | Supabase Auth (email/password + Google OAuth, PKCE flow) |
-| **Calendar**     | FullCalendar v6                                 |
-| **Search**       | Fuse.js (client-side fuzzy search)              |
+| **Calendar**     | FullCalendar v6                                 || **Charts**     | Chart.js 4 + react-chartjs-2 5                  || **Search**       | Fuse.js (client-side fuzzy search)              |
 | **Deployment**   | Netlify (with `@netlify/plugin-nextjs`)         |
 | **PWA**          | next-pwa                                        |
 | **Node**         | >= 20.19.0                                      |
@@ -57,6 +56,7 @@ Set in `.env.local` for development, Netlify dashboard for production.
 │   ├── leaders/                # Leader listing page
 │   ├── circle/[id]/            # Individual circle leader detail page
 │   ├── add-leader/             # Add new leader form
+│   ├── progress/               # Progress Dashboard (aggregate scores, trends, top/low performers)
 │   ├── calendar/               # Calendar view (FullCalendar)
 │   ├── search/                 # Global search page
 │   ├── import/                 # Data import page
@@ -75,6 +75,8 @@ Set in `.env.local` for development, Netlify dashboard for production.
 │       ├── users/              # User management API
 │       │   └── [id]/
 │       ├── campuses/           # Campus reference data
+│       ├── scorecard/          # Scorecard ratings CRUD (GET/POST/PATCH/DELETE)
+│       ├── acpd-tracking/      # ACPD tracking CRUD: prayer, encourage, coach
 │       ├── reference-data/     # General reference data
 │       ├── ccb/                # CCB proxy endpoints
 │       │   ├── events/
@@ -111,7 +113,10 @@ Set in `.env.local` for development, Netlify dashboard for production.
 │   ├── circle/                 # Circle detail page components
 │   │   ├── NotesSection.tsx
 │   │   ├── QuickActions.tsx
-│   │   └── CircleVisitsSection.tsx
+│   │   ├── CircleVisitsSection.tsx
+│   │   ├── ScorecardSection.tsx    # 1-5 rating UI for Reach/Connect/Disciple/Develop
+│   │   ├── ProgressTimeline.tsx    # Chart.js line chart of scores over time
+│   │   └── ACPDTrackingSection.tsx # Pray/Encourage/Coach tracking sections
 │   ├── calendar/               # Calendar components
 │   ├── settings/               # Settings components
 │   ├── modals/                 # Shared modals
@@ -135,6 +140,9 @@ Set in `.env.local` for development, Netlify dashboard for production.
 │   ├── useTodayCircles.ts       # Today's circles filter
 │   ├── useNoteTemplates.ts      # Note template management
 │   ├── useCircleVisits.ts       # Circle visit CRUD
+│   ├── useScorecard.ts          # Scorecard rating CRUD + trend calculations
+│   ├── useACPDTracking.ts       # Prayer points, encouragements, coaching notes CRUD
+│   ├── useProgressDashboard.ts  # Aggregate dashboard data across all leaders
 │   ├── useDashboardFilters.ts   # Dashboard filter state
 │   └── useLeaderFilters.ts      # Leader page filter state
 │
@@ -179,6 +187,10 @@ Set in `.env.local` for development, Netlify dashboard for production.
 | `connection_types`  | Reference: connection type definitions            |
 | `communications`    | Communication log (type, date, notes)             |
 | `circle_visits`     | Scheduled/completed/canceled visit records        |
+| `circle_leader_scores` | Progress scorecard ratings (1-5 per dimension) |
+| `acpd_prayer_points`   | Prayer points per leader (content, answered status) |
+| `acpd_encouragements`  | Encouragement message tracking (sent/planned)    |
+| `acpd_coaching_notes`  | Coaching notes by dimension with resolved status  |
 
 ### Reference Tables
 
@@ -193,7 +205,7 @@ Set in `.env.local` for development, Netlify dashboard for production.
 
 ### Key Relationships
 
-- `circle_leaders.id` → referenced by `notes`, `connections`, `communications`, `circle_visits`
+- `circle_leaders.id` → referenced by `notes`, `connections`, `communications`, `circle_visits`, `circle_leader_scores`, `acpd_prayer_points`, `acpd_encouragements`, `acpd_coaching_notes`
 - `users.id` → FK to `auth.users(id)`; referenced by `notes`, `communications`
 - `connections.connection_type_id` → FK to `connection_types(id)`
 - Row-Level Security (RLS) is enabled across tables
@@ -227,6 +239,10 @@ Set in `.env.local` for development, Netlify dashboard for production.
 12. **User Management** — Admin can manage users, roles, and campus assignments
 12. **Import** — Bulk data import capability
 13. **PWA** — Installable, mobile-optimized with service worker caching
+14. **Progress Scorecard** — 1-5 rating system for Circle Leaders across four dimensions: Reach, Connect, Disciple, Develop. ACPDs can rate, edit, and delete scores with full CRUD.
+15. **Progress Timeline** — Chart.js line chart plotting dimension scores over time with colored lines (blue=Reach, green=Connect, purple=Disciple, orange=Develop)
+16. **Progress Dashboard** (`/progress`) — Aggregated view with dimension averages, top/low performers, movers vs stagnant circles, trend indicators, filterable by campus/ACPD/status
+17. **ACPD Tracking** — Per-leader tracking sections: Pray (prayer points with answered toggle), Encourage (sent/planned message tracking), Coach (growth opportunities by dimension with resolved toggle)
 
 ---
 
@@ -266,6 +282,7 @@ The project root contains numerous `.sql` and `.js` migration/fix scripts for ev
 - RLS fixes: `fix_rls_security_issues.sql`, `emergency_rls_fix.sql`, `fix_reference_tables_rls.sql`
 - Performance: `fix_database_performance.sql`, `essential_indexes.sql`
 - Migration runners: `run-migration.js`, `run-todo-migration.js`, `run-circle-visits-migration.js`, etc.
+- Progress tracking: `create_circle_leader_scores_table.sql` (scorecard ratings), `create_acpd_tracking_tables.sql` (prayer points, encouragements, coaching notes)
 
 ---
 
@@ -276,3 +293,6 @@ The project root contains numerous `.sql` and `.js` migration/fix scripts for ev
 - The database schema uses both `text` columns for reference lookups (e.g., `campus`, `acpd`) and FK-linked reference tables — a legacy pattern
 - Several backup/old component variants exist (e.g., `CircleLeaderCard-old.tsx`, `AuthContext.tsx.backup`)
 - TypeScript strict mode is off (`strict: false`) but `strictNullChecks` is enabled
+- Global CSS (`styles/globals.css`) forces `background-color !important` on all `button` elements — use the `.score-btn` class with CSS custom properties (`--score-bg`, `--score-color`, `--score-border`, `--score-shadow`) to override for buttons needing custom colors
+- The `Encouragement`, `PrayerPoint`, and `CoachingNote` TypeScript interfaces in `lib/supabase.ts` must match the actual DB column names (`user_id` not `created_by`, `content` not `opportunity`, `message_type`/`message_date` not `message`/`sent_at`)
+- Future planned feature: **Circle Health Assessment** (Mission, Relationship, Transformation, Development) — reserved the "Health" naming for this; current scoring uses "Progress" naming throughout

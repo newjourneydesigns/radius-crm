@@ -2,6 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useScorecard } from '../../hooks/useScorecard';
+import { useEvaluation } from '../../hooks/useEvaluation';
+import { ScorecardDimension } from '../../lib/supabase';
+import { calculateSuggestedScore, getFinalScore } from '../../lib/evaluationQuestions';
+import CategoryEvaluation from './CategoryEvaluation';
 
 const DIMENSIONS = [
   { key: 'reach' as const, label: 'Reach', color: '#3b82f6', bgClass: 'bg-blue-500/10 border-blue-500/30', textClass: 'text-blue-400' },
@@ -17,6 +21,18 @@ interface ScorecardSectionProps {
 
 export default function ScorecardSection({ leaderId, isAdmin }: ScorecardSectionProps) {
   const { ratings, isLoading, loadRatings, submitScores, updateScore, deleteScore, getLatestScores, getTrend } = useScorecard();
+  const {
+    isLoading: evalLoading,
+    isSaving: evalSaving,
+    loadEvaluations,
+    getEvaluation,
+    updateAnswer,
+    setOverride,
+    setContextNotes,
+    saveEvaluation,
+    getSuggestedScore,
+  } = useEvaluation();
+
   const [isRating, setIsRating] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -24,10 +40,12 @@ export default function ScorecardSection({ leaderId, isAdmin }: ScorecardSection
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [activeDimension, setActiveDimension] = useState<ScorecardDimension | null>(null);
 
   useEffect(() => {
     loadRatings(leaderId);
-  }, [leaderId, loadRatings]);
+    loadEvaluations(leaderId);
+  }, [leaderId, loadRatings, loadEvaluations]);
 
   const latestScores = getLatestScores();
   const trend = getTrend();
@@ -56,6 +74,7 @@ export default function ScorecardSection({ leaderId, isAdmin }: ScorecardSection
     setNote(rating.notes || '');
     setEditingId(rating.id);
     setIsRating(true);
+    setActiveDimension(null);
   };
 
   const handleCancelEdit = () => {
@@ -172,37 +191,120 @@ export default function ScorecardSection({ leaderId, isAdmin }: ScorecardSection
       </div>
 
       <div className="p-4 sm:p-6">
-        {/* Current Scores Grid */}
-        {latestScores.reach !== null ? (
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
-            {DIMENSIONS.map(dim => {
-              const score = latestScores[dim.key];
-              const delta = trend[dim.key];
-              return (
-                <div key={dim.key} className={`p-3 sm:p-4 rounded-xl border ${dim.bgClass}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`text-sm font-semibold ${dim.textClass}`}>{dim.label}</span>
-                    {renderTrendArrow(delta)}
+        {/* Active Evaluation Drill-down */}
+        {activeDimension !== null ? (() => {
+          const dim = DIMENSIONS.find(d => d.key === activeDimension)!;
+          const evalData = getEvaluation(activeDimension);
+          const existingScore = latestScores[activeDimension] ?? null;
+          return (
+            <CategoryEvaluation
+              leaderId={leaderId}
+              category={activeDimension}
+              label={dim.label}
+              color={dim.color}
+              textClass={dim.textClass}
+              answers={evalData.answers}
+              manualOverride={evalData.manual_override_score}
+              contextNotes={evalData.context_notes}
+              existingScore={existingScore}
+              onAnswerChange={(qKey, answer) => updateAnswer(activeDimension, leaderId, qKey, answer)}
+              onOverrideChange={(score) => setOverride(activeDimension, leaderId, score)}
+              onContextChange={(notes) => setContextNotes(activeDimension, leaderId, notes)}
+              onSave={async () => { await saveEvaluation(leaderId, activeDimension); }}
+              onClose={() => setActiveDimension(null)}
+              isSaving={evalSaving}
+            />
+          );
+        })() : (
+          <>
+            {/* Current Scores Grid */}
+            {latestScores.reach !== null ? (
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                {DIMENSIONS.map(dim => {
+                  const score = latestScores[dim.key];
+                  const delta = trend[dim.key];
+                  const evalData = getEvaluation(dim.key);
+                  const suggested = getSuggestedScore(dim.key);
+                  const hasEvalData = suggested !== null || evalData.manual_override_score !== null;
+                  const answeredCount = Object.values(evalData.answers).filter(a => a === 'yes' || a === 'no').length;
+
+                  return (
+                    <div
+                      key={dim.key}
+                      className={`p-3 sm:p-4 rounded-xl border ${dim.bgClass} ${
+                        isAdmin ? 'cursor-pointer hover:border-white/20 hover:bg-white/5 transition-all group' : ''
+                      }`}
+                      onClick={() => isAdmin && setActiveDimension(dim.key)}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`text-sm font-semibold ${dim.textClass}`}>{dim.label}</span>
+                        <div className="flex items-center">
+                          {renderTrendArrow(delta)}
+                          {isAdmin && (
+                            <svg className="w-4 h-4 text-gray-600 group-hover:text-gray-400 ml-1 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl font-bold text-white">{score}</span>
+                        {renderScoreDots(score, dim.color)}
+                      </div>
+                      {/* Evaluation indicator */}
+                      {hasEvalData && (
+                        <div className="mt-1.5 flex items-center gap-1.5">
+                          {suggested !== null && (
+                            <span className="text-[10px] text-gray-500">
+                              Eval: {suggested}/5
+                            </span>
+                          )}
+                          {evalData.manual_override_score !== null && (
+                            <span className="text-[10px] text-amber-400/60">⚡</span>
+                          )}
+                          {answeredCount > 0 && (
+                            <span className="text-[10px] text-gray-600">
+                              ({answeredCount} obs)
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {isAdmin && !hasEvalData && (
+                        <p className="text-[10px] text-gray-600 mt-1.5 group-hover:text-gray-400 transition-colors">
+                          Tap to evaluate
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <svg className="w-12 h-12 mx-auto text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                <p className="text-gray-400 text-sm">No scores yet</p>
+                {isAdmin && (
+                  <div>
+                    <p className="text-gray-500 text-xs mt-1">Click &quot;Rate&quot; to start tracking progress</p>
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4 mt-4">
+                      {DIMENSIONS.map(dim => (
+                        <div
+                          key={dim.key}
+                          className={`p-3 sm:p-4 rounded-xl border ${dim.bgClass} cursor-pointer hover:border-white/20 hover:bg-white/5 transition-all group`}
+                          onClick={() => setActiveDimension(dim.key)}
+                        >
+                          <span className={`text-sm font-semibold ${dim.textClass}`}>{dim.label}</span>
+                          <p className="text-[10px] text-gray-600 mt-1 group-hover:text-gray-400 transition-colors">
+                            Tap to evaluate
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl font-bold text-white">{score}</span>
-                    {renderScoreDots(score, dim.color)}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <svg className="w-12 h-12 mx-auto text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            <p className="text-gray-400 text-sm">No scores yet</p>
-            {isAdmin && (
-              <p className="text-gray-500 text-xs mt-1">Click &quot;Rate&quot; to start tracking progress</p>
+                )}
+              </div>
             )}
-          </div>
-        )}
 
         {/* Rating Form */}
         {isRating && (
@@ -327,7 +429,8 @@ export default function ScorecardSection({ leaderId, isAdmin }: ScorecardSection
             )}
           </div>
         )}
-      </div>
+          </>
+        )}      </div>
     </div>
   );
 }
