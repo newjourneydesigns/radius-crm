@@ -808,7 +808,7 @@ export default function CircleMeetingsCalendar({
               not_received:  '#ef4444',
             };
 
-            const toggleExpanded = (e: MouseEvent<HTMLDivElement>) => {
+            const toggleExpanded = (e: MouseEvent<HTMLButtonElement>) => {
               e.preventDefault();
               e.stopPropagation();
               setExpandedEventIds(prev => {
