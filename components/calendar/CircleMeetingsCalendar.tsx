@@ -584,12 +584,28 @@ export default function CircleMeetingsCalendar({
     const base =
       'h-9 sm:h-8 px-1.5 sm:px-3 rounded-lg sm:rounded-md text-[13px] sm:text-xs font-semibold leading-tight transition-all disabled:opacity-60 disabled:cursor-not-allowed touch-manipulation select-none flex items-center justify-center min-w-0 whitespace-nowrap flex-1 active:scale-95 sm:active:scale-100';
 
+    const btnColors: Record<EventSummaryState, string> = {
+      not_received: '#ef4444',
+      received: '#22c55e',
+      did_not_meet: '#3b82f6',
+      skipped: '#f59e0b',
+    };
+
     const btn = (kind: EventSummaryState) => {
       const active = state === kind;
-      const colors = getEventSummaryColors(kind);
       return active
-        ? `${base} ${colors.bg} border ${colors.border} text-white font-bold shadow-md`
+        ? `${base} es-active border text-white font-bold shadow-md`
         : `${base} bg-white/20 border border-white/20 sm:bg-white sm:dark:bg-gray-800 sm:border-gray-300 sm:dark:border-gray-600 text-white sm:text-gray-500 sm:dark:text-gray-400 sm:hover:bg-gray-50 sm:dark:hover:bg-gray-700 font-medium`;
+    };
+
+    const btnStyle = (kind: EventSummaryState): React.CSSProperties | undefined => {
+      const active = state === kind;
+      if (!active) return undefined;
+      return {
+        backgroundColor: btnColors[kind],
+        borderColor: btnColors[kind],
+        boxShadow: `0 0 10px ${btnColors[kind]}50`,
+      };
     };
 
     const onClick = (next: EventSummaryState) => (e: MouseEvent<HTMLButtonElement>) => {
@@ -605,16 +621,16 @@ export default function CircleMeetingsCalendar({
         role="group"
         aria-label="Event summary"
       >
-        <button type="button" disabled={isSaving} className={btn('not_received')} onClick={onClick('not_received')} title="Not Received">
+        <button type="button" disabled={isSaving} className={btn('not_received')} style={btnStyle('not_received')} onClick={onClick('not_received')} title="Not Received">
           No
         </button>
-        <button type="button" disabled={isSaving} className={btn('received')} onClick={onClick('received')} title="Received">
+        <button type="button" disabled={isSaving} className={btn('received')} style={btnStyle('received')} onClick={onClick('received')} title="Received">
           Yes
         </button>
-        <button type="button" disabled={isSaving} className={btn('did_not_meet')} onClick={onClick('did_not_meet')} title="Did Not Meet">
+        <button type="button" disabled={isSaving} className={btn('did_not_meet')} style={btnStyle('did_not_meet')} onClick={onClick('did_not_meet')} title="Did Not Meet">
           {opts?.compact ? "Didn't" : "Didn't Meet"}
         </button>
-        <button type="button" disabled={isSaving} className={btn('skipped')} onClick={onClick('skipped')} title="Skipped">
+        <button type="button" disabled={isSaving} className={btn('skipped')} style={btnStyle('skipped')} onClick={onClick('skipped')} title="Skipped">
           Skip
         </button>
       </div>
@@ -952,6 +968,12 @@ export default function CircleMeetingsCalendar({
                                 did_not_meet: "Didn't",
                                 skipped: 'Skip',
                               };
+                              const activeColors: Record<EventSummaryState, string> = {
+                                not_received: '#ef4444',
+                                received: '#22c55e',
+                                did_not_meet: '#3b82f6',
+                                skipped: '#f59e0b',
+                              };
                               return (
                                 <button
                                   key={kind}
@@ -960,9 +982,14 @@ export default function CircleMeetingsCalendar({
                                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); void setLeaderEventSummaryState(leaderId, kind); }}
                                   className={`h-10 rounded-lg text-[13px] font-bold transition-all active:scale-95 ${
                                     active
-                                      ? `${kindColors.bg} border-2 ${kindColors.border} text-white shadow-lg`
+                                      ? 'es-active border-2 text-white shadow-lg'
                                       : 'bg-white/10 border border-white/15 text-gray-400'
                                   }`}
+                                  style={active ? {
+                                    backgroundColor: activeColors[kind],
+                                    borderColor: activeColors[kind],
+                                    boxShadow: `0 0 12px ${activeColors[kind]}60`,
+                                  } : undefined}
                                 >
                                   {labels[kind]}
                                 </button>

@@ -246,7 +246,7 @@ a {
 .calendar-shell .fc .fc-list-event-title a,
 .calendar-shell .fc .fc-list-event-title > *,
 .calendar-shell .fc .fc-list-event-title div:not(.status-pill),
-.calendar-shell .fc .fc-list-event-title button {
+.calendar-shell .fc .fc-list-event-title button:not(.es-active) {
   background-color: transparent !important;
 }
 
