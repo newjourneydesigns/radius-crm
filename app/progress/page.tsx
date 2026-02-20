@@ -15,7 +15,7 @@ import {
   Filler,
 } from 'chart.js';
 import ProtectedRoute from '../../components/ProtectedRoute';
-import { useProgressDashboard, LeaderProgressSummary } from '../../hooks/useProgressDashboard';
+import { useProgressDashboard, LeaderProgressSummary, EffectiveScores } from '../../hooks/useProgressDashboard';
 import { supabase } from '../../lib/supabase';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
@@ -46,8 +46,8 @@ function TrendArrow({ delta }: { delta: number }) {
 }
 
 function LeaderRow({ summary }: { summary: LeaderProgressSummary }) {
-  const latest = summary.latestScore;
-  if (!latest) return null;
+  const eff = summary.effectiveScores;
+  if (!eff.average) return null;
 
   return (
     <Link
@@ -63,17 +63,17 @@ function LeaderRow({ summary }: { summary: LeaderProgressSummary }) {
             <span className="text-xs text-gray-500">{summary.leader.campus}</span>
           )}
           <span className="text-xs text-gray-600">
-            {summary.lastScoredDate && new Date(summary.lastScoredDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            {summary.lastScoredDate && new Date(summary.lastScoredDate.length <= 10 ? summary.lastScoredDate + 'T00:00:00' : summary.lastScoredDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </span>
         </div>
       </div>
 
       <div className="flex items-center gap-4">
         <div className="hidden sm:flex items-center gap-2 text-xs">
-          <span className="text-blue-400">{latest.reach_score}</span>
-          <span className="text-green-400">{latest.connect_score}</span>
-          <span className="text-purple-400">{latest.disciple_score}</span>
-          <span className="text-orange-400">{latest.develop_score}</span>
+          <span className="text-blue-400">{eff.reach ?? '—'}</span>
+          <span className="text-green-400">{eff.connect ?? '—'}</span>
+          <span className="text-purple-400">{eff.disciple ?? '—'}</span>
+          <span className="text-orange-400">{eff.develop ?? '—'}</span>
         </div>
         <div className="flex items-center gap-1">
           <span className={`text-lg font-bold ${ScoreColor(summary.averageScore || 0)}`}>
@@ -181,7 +181,7 @@ export default function ProgressDashboardPage() {
     interaction: { intersect: false, mode: 'index' as const },
   };
 
-  const scoredCount = leaderSummaries.filter(s => s.totalRatings > 0).length;
+  const scoredCount = leaderSummaries.filter(s => s.hasAnyScore).length;
 
   const getActiveList = (): LeaderProgressSummary[] => {
     switch (activeTab) {
@@ -381,11 +381,11 @@ export default function ProgressDashboardPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {(['reach', 'connect', 'disciple', 'develop'] as const).map(dim => {
                       const scored = leaderSummaries
-                        .filter(s => s.latestScore)
+                        .filter(s => s.effectiveScores[dim] !== null)
                         .map(s => ({
                           name: s.leader.name,
                           id: s.leader.id,
-                          score: s.latestScore![`${dim}_score` as keyof typeof s.latestScore] as number,
+                          score: s.effectiveScores[dim] as number,
                         }))
                         .sort((a, b) => b.score - a.score);
 

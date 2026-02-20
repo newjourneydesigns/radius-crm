@@ -50,6 +50,53 @@ export default function ScorecardSection({ leaderId, isAdmin }: ScorecardSection
   const latestScores = getLatestScores();
   const trend = getTrend();
 
+  // Compute effective scores: use direct scores if available, otherwise fall back to evaluation scores
+  const effectiveScores = (() => {
+    const dims: Array<'reach' | 'connect' | 'disciple' | 'develop'> = ['reach', 'connect', 'disciple', 'develop'];
+    const hasDirectScores = latestScores.reach !== null;
+
+    const result: Record<string, number | null> = {};
+    let total = 0;
+    let count = 0;
+    let latestUpdated: string | null = null;
+
+    for (const dim of dims) {
+      const evalData = getEvaluation(dim);
+      const suggested = getSuggestedScore(dim);
+      const directScore = latestScores[dim];
+      const finalScore = getFinalScore(
+        evalData.manual_override_score,
+        suggested,
+        directScore
+      );
+      result[dim] = finalScore;
+      if (finalScore !== null) {
+        total += finalScore;
+        count++;
+      }
+      // Track most recent evaluation update
+      if (evalData.updated_at) {
+        if (!latestUpdated || evalData.updated_at > latestUpdated) {
+          latestUpdated = evalData.updated_at;
+        }
+      }
+    }
+
+    return {
+      reach: result.reach,
+      connect: result.connect,
+      disciple: result.disciple,
+      develop: result.develop,
+      average: count > 0 ? Math.round((total / count) * 10) / 10 : null,
+      hasDirectScores,
+      hasAnyScore: count > 0,
+      lastEvalUpdated: latestUpdated,
+    };
+  })();
+
+  // Determine the best "last updated" date
+  const lastUpdatedDate = latestScores.scoredDate || effectiveScores.lastEvalUpdated;
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     if (editingId) {
@@ -165,18 +212,18 @@ export default function ScorecardSection({ leaderId, isAdmin }: ScorecardSection
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
         <div>
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Progress Scorecard</h2>
-          {latestScores.scoredDate && (
+          {lastUpdatedDate && (
             <p className="text-xs text-gray-500 mt-0.5">
-              Last scored: {new Date(latestScores.scoredDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              Last updated: {new Date(lastUpdatedDate.length <= 10 ? lastUpdatedDate + 'T00:00:00' : lastUpdatedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </p>
           )}
         </div>
         <div className="flex items-center gap-2">
-          {latestScores.average !== null && (
+          {effectiveScores.average !== null && (
             <div className="flex items-center">
-              <span className="text-2xl font-bold text-white">{latestScores.average}</span>
+              <span className="text-2xl font-bold text-white">{effectiveScores.average}</span>
               <span className="text-xs text-gray-400 ml-1">/5</span>
-              {renderTrendArrow(trend.average)}
+              {effectiveScores.hasDirectScores && renderTrendArrow(trend.average)}
             </div>
           )}
           {isAdmin && !isRating && (
@@ -218,15 +265,16 @@ export default function ScorecardSection({ leaderId, isAdmin }: ScorecardSection
         })() : (
           <>
             {/* Current Scores Grid */}
-            {latestScores.reach !== null ? (
+            {effectiveScores.hasAnyScore ? (
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 {DIMENSIONS.map(dim => {
-                  const score = latestScores[dim.key];
-                  const delta = trend[dim.key];
+                  const score = effectiveScores[dim.key] as number | null;
+                  const delta = effectiveScores.hasDirectScores ? trend[dim.key] : 0;
                   const evalData = getEvaluation(dim.key);
                   const suggested = getSuggestedScore(dim.key);
-                  const hasEvalData = suggested !== null || evalData.manual_override_score !== null;
                   const answeredCount = Object.values(evalData.answers).filter(a => a === 'yes' || a === 'no').length;
+                  const totalQuestions = 7;
+                  const isFromEval = !effectiveScores.hasDirectScores && score !== null;
 
                   return (
                     <div
@@ -239,7 +287,7 @@ export default function ScorecardSection({ leaderId, isAdmin }: ScorecardSection
                       <div className="flex items-center justify-between mb-2">
                         <span className={`text-sm font-semibold ${dim.textClass}`}>{dim.label}</span>
                         <div className="flex items-center">
-                          {renderTrendArrow(delta)}
+                          {effectiveScores.hasDirectScores && renderTrendArrow(delta)}
                           {isAdmin && (
                             <svg className="w-4 h-4 text-gray-600 group-hover:text-gray-400 ml-1 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
@@ -248,29 +296,30 @@ export default function ScorecardSection({ leaderId, isAdmin }: ScorecardSection
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-2xl font-bold text-white">{score}</span>
+                        <span className="text-2xl font-bold text-white">{score ?? '—'}</span>
                         {renderScoreDots(score, dim.color)}
                       </div>
-                      {/* Evaluation indicator */}
-                      {hasEvalData && (
-                        <div className="mt-1.5 flex items-center gap-1.5">
-                          {suggested !== null && (
-                            <span className="text-[10px] text-gray-500">
-                              Eval: {suggested}/5
-                            </span>
-                          )}
-                          {evalData.manual_override_score !== null && (
-                            <span className="text-[10px] text-amber-400/60">⚡</span>
-                          )}
-                          {answeredCount > 0 && (
-                            <span className="text-[10px] text-gray-600">
-                              ({answeredCount} obs)
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      {isAdmin && !hasEvalData && (
-                        <p className="text-[10px] text-gray-600 mt-1.5 group-hover:text-gray-400 transition-colors">
+                      {/* Score source and evaluation details */}
+                      <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                        {answeredCount > 0 && (
+                          <span className="text-[10px] text-gray-500">
+                            {answeredCount}/{totalQuestions} answered
+                          </span>
+                        )}
+                        {evalData.manual_override_score !== null && (
+                          <span className="text-[10px] text-amber-400/60" title="Manual override">⚡ Override</span>
+                        )}
+                        {isFromEval && !evalData.manual_override_score && (
+                          <span className="text-[10px] text-gray-600">via evaluation</span>
+                        )}
+                        {evalData.updated_at && (
+                          <span className="text-[10px] text-gray-600">
+                            {new Date(evalData.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </span>
+                        )}
+                      </div>
+                      {isAdmin && score === null && (
+                        <p className="text-[10px] text-gray-600 mt-1 group-hover:text-gray-400 transition-colors">
                           Tap to evaluate
                         </p>
                       )}
@@ -286,7 +335,7 @@ export default function ScorecardSection({ leaderId, isAdmin }: ScorecardSection
                 <p className="text-gray-400 text-sm">No scores yet</p>
                 {isAdmin && (
                   <div>
-                    <p className="text-gray-500 text-xs mt-1">Click &quot;Rate&quot; to start tracking progress</p>
+                    <p className="text-gray-500 text-xs mt-1">Click &quot;Rate&quot; or tap a category to evaluate</p>
                     <div className="grid grid-cols-2 gap-3 sm:gap-4 mt-4">
                       {DIMENSIONS.map(dim => (
                         <div

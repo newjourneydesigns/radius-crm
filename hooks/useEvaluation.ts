@@ -62,6 +62,7 @@ export const useEvaluation = () => {
           manual_override_score: e.manual_override_score,
           context_notes: e.context_notes || '',
           answers: answersByEval[e.id] || {},
+          updated_at: e.updated_at || e.created_at || undefined,
         };
       }
 

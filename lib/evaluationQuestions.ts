@@ -62,6 +62,7 @@ export interface CategoryEvaluation {
   manual_override_score: number | null;
   context_notes: string;
   answers: Record<string, AnswerValue>;
+  updated_at?: string;
 }
 
 /**
