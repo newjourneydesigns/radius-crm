@@ -74,6 +74,16 @@ export default function AuthenticatedNavigation() {
               Leaders
             </Link>
             <Link 
+              href="/progress" 
+              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                pathname === '/progress' 
+                  ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' 
+                  : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+              }`}
+            >
+              Progress
+            </Link>
+            <Link 
               href="/calendar" 
               className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                 pathname === '/calendar' 

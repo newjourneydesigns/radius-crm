@@ -98,6 +98,19 @@ button:hover,
   background-color: rgba(141, 169, 196, 0.9) !important; /* #8da9c4 on hover */
 }
 
+/* Score selector buttons need custom colors - exempt from global button styles */
+button.score-btn {
+  background-color: var(--score-bg) !important;
+  color: var(--score-color) !important;
+  border-color: var(--score-border) !important;
+  box-shadow: var(--score-shadow);
+}
+
+button.score-btn:hover {
+  background-color: var(--score-bg) !important;
+  filter: brightness(1.2);
+}
+
 /* Input fields */
 input,
 textarea,

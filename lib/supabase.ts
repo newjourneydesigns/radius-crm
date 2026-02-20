@@ -235,15 +235,51 @@ export interface CircleVisit {
   circle_leader?: CircleLeader; // For joined queries
 }
 
-export interface CircleLeaderScore {
+// ---- Progress Tracking Types ----
+
+export type ScorecardDimension = 'reach' | 'connect' | 'disciple' | 'develop';
+
+export interface ScorecardRating {
   id: number;
   circle_leader_id: number;
-  scored_by?: string;
-  reach_score?: number | null;
-  connect_score?: number | null;
-  disciple_score?: number | null;
-  develop_score?: number | null;
-  notes?: string | null;
-  scored_date: string; // YYYY-MM-DD
+  scored_by: string;
+  reach_score: number;
+  connect_score: number;
+  disciple_score: number;
+  develop_score: number;
+  notes?: string;
+  scored_date: string;
   created_at: string;
+}
+
+export interface PrayerPoint {
+  id: number;
+  circle_leader_id: number;
+  created_by: string;
+  content: string;
+  is_answered: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Encouragement {
+  id: number;
+  circle_leader_id: number;
+  created_by: string;
+  message: string;
+  sent_at?: string;
+  next_planned?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CoachingNote {
+  id: number;
+  circle_leader_id: number;
+  created_by: string;
+  dimension: ScorecardDimension;
+  opportunity: string;
+  is_resolved: boolean;
+  created_at: string;
+  updated_at: string;
 }

@@ -18,6 +18,9 @@ import EventSummaryReminderModal from '../../../components/modals/EventSummaryRe
 import EventExplorerModal from '../../../components/modals/EventExplorerModal';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import ProgressTimeline from '../../../components/circle/ProgressTimeline';
+import ScorecardSection from '../../../components/circle/ScorecardSection';
+import ACPDTrackingSection from '../../../components/circle/ACPDTrackingSection';
+import { useScorecard } from '../../../hooks/useScorecard';
 import { getEventSummaryButtonLabel, getEventSummaryColors, getEventSummaryState } from '../../../lib/event-summary-utils';
 
 // Helper function to format time to AM/PM
@@ -229,8 +232,9 @@ const normalizeCircleTypeValue = (value: string | undefined | null): string => {
 export default function CircleLeaderProfilePage() {
   const params = useParams();
   const leaderId = params?.id ? parseInt(params.id as string) : 0;
-  const { user } = useAuth(); // Get current user information
+  const { user, isAdmin } = useAuth(); // Get current user information
   const { saveTemplate } = useNoteTemplates(); // Add note templates hook
+  const { ratings: scorecardRatings, loadRatings: loadScorecardRatings } = useScorecard();
   
   const [leader, setLeader] = useState<CircleLeader | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -409,6 +413,7 @@ export default function CircleLeaderProfilePage() {
     };
 
     loadLeaderData();
+    loadScorecardRatings(leaderId);
   }, [leaderId]);
 
   // Handle anchor link scrolling
@@ -2451,8 +2456,16 @@ export default function CircleLeaderProfilePage() {
             </div>
           </div>
 
-        {/* Progress Timeline Section */}
-        <ProgressTimeline leaderId={leaderId} />
+        {/* Progress Scorecard Section */}
+        <ScorecardSection leaderId={leaderId} isAdmin={isAdmin()} />
+
+        {/* Progress Timeline Chart */}
+        <ProgressTimeline ratings={scorecardRatings} />
+
+        {/* ACPD Tracking Section */}
+        {isAdmin() && leader && (
+          <ACPDTrackingSection leaderId={leaderId} leaderName={leader.name} />
+        )}
 
             {/* Notes Section */}
             <div id="notes" className="bg-white dark:bg-gray-800 rounded-lg shadow mt-8">
