@@ -261,6 +261,11 @@ a {
   overflow: visible !important;
 }
 
+/* Hide FullCalendar's built-in circular event dot at all sizes — we use our own status pill */
+.calendar-shell .fc .fc-list-event-graphic {
+  display: none !important;
+}
+
 /* Hide time + dot columns on mobile - we render both ourselves in the custom content */
 @media (max-width: 639px) {
   /* Switch from fixed table‐layout so cells can expand naturally */
@@ -270,9 +275,6 @@ a {
   }
 
   .calendar-shell .fc .fc-list-event-time {
-    display: none !important;
-  }
-  .calendar-shell .fc .fc-list-event-graphic {
     display: none !important;
   }
   .calendar-shell .fc .fc-list-event td.fc-list-event-title {
