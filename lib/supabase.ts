@@ -255,7 +255,7 @@ export interface ScorecardRating {
 export interface PrayerPoint {
   id: number;
   circle_leader_id: number;
-  created_by: string;
+  user_id: string;
   content: string;
   is_answered: boolean;
   created_at: string;
@@ -265,21 +265,19 @@ export interface PrayerPoint {
 export interface Encouragement {
   id: number;
   circle_leader_id: number;
-  created_by: string;
-  message: string;
-  sent_at?: string;
-  next_planned?: string;
+  user_id: string;
+  message_type: 'sent' | 'planned';
+  message_date: string;
+  note?: string;
   created_at: string;
-  updated_at: string;
 }
 
 export interface CoachingNote {
   id: number;
   circle_leader_id: number;
-  created_by: string;
+  user_id: string;
   dimension: ScorecardDimension;
-  opportunity: string;
+  content: string;
   is_resolved: boolean;
   created_at: string;
-  updated_at: string;
 }
