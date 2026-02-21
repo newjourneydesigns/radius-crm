@@ -3,10 +3,10 @@
 
 import { ensureDefaultFrequencies, formatFrequencyLabel } from '../../../lib/frequencyUtils';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { supabase, type CircleLeader, type Note, type NoteTemplate, type EventSummaryState } from '../../../lib/supabase';
+import { supabase, type CircleLeader, type Note, type NoteTemplate, type EventSummaryState, type ScorecardRating } from '../../../lib/supabase';
 import { useNoteTemplates } from '../../../hooks/useNoteTemplates';
 import { useAuth } from '../../../contexts/AuthContext';
 import AlertModal from '../../../components/ui/AlertModal';
@@ -18,9 +18,11 @@ import EventSummaryReminderModal from '../../../components/modals/EventSummaryRe
 import EventExplorerModal from '../../../components/modals/EventExplorerModal';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import ProgressTimeline from '../../../components/circle/ProgressTimeline';
+import CategoryTrendCharts from '../../../components/charts/CategoryTrendCharts';
 import ScorecardSection from '../../../components/circle/ScorecardSection';
 import ACPDTrackingSection from '../../../components/circle/ACPDTrackingSection';
 import { useScorecard } from '../../../hooks/useScorecard';
+import { calculateSuggestedScore, getFinalScore, AnswerValue } from '../../../lib/evaluationQuestions';
 import { getEventSummaryButtonLabel, getEventSummaryColors, getEventSummaryState } from '../../../lib/event-summary-utils';
 
 // Helper function to format time to AM/PM
@@ -235,6 +237,7 @@ export default function CircleLeaderProfilePage() {
   const { user, isAdmin } = useAuth(); // Get current user information
   const { saveTemplate } = useNoteTemplates(); // Add note templates hook
   const { ratings: scorecardRatings, loadRatings: loadScorecardRatings } = useScorecard();
+  const [evalScores, setEvalScores] = useState<ScorecardRating[]>([]);
   
   const [leader, setLeader] = useState<CircleLeader | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -414,6 +417,64 @@ export default function CircleLeaderProfilePage() {
 
     loadLeaderData();
     loadScorecardRatings(leaderId);
+
+    // Load evaluation-based scores for the trend charts
+    const loadEvalScores = async () => {
+      try {
+        const { data: evals } = await supabase
+          .from('leader_category_evaluations')
+          .select('*')
+          .eq('leader_id', leaderId);
+
+        if (!evals || evals.length === 0) { setEvalScores([]); return; }
+
+        const evalIds = evals.map((e: any) => e.id);
+        const { data: answers } = await supabase
+          .from('leader_category_answers')
+          .select('*')
+          .in('evaluation_id', evalIds);
+
+        // Group answers by evaluation
+        const answersByEval: Record<number, Record<string, AnswerValue>> = {};
+        for (const a of (answers || [])) {
+          if (!answersByEval[a.evaluation_id]) answersByEval[a.evaluation_id] = {};
+          answersByEval[a.evaluation_id][a.question_key] = a.answer as AnswerValue;
+        }
+
+        // Build per-category scores from evaluations
+        const catScores: Record<string, { score: number | null; date: string }> = {};
+        for (const e of evals) {
+          const suggested = calculateSuggestedScore(answersByEval[e.id] || {});
+          const final = getFinalScore(e.manual_override_score, suggested, null);
+          catScores[e.category] = {
+            score: final,
+            date: (e.updated_at || e.created_at || new Date().toISOString()).split('T')[0],
+          };
+        }
+
+        // Synthesize a ScorecardRating so the chart can render it
+        const allDates = Object.values(catScores).map(c => c.date);
+        const latestDate = allDates.sort().pop() || new Date().toISOString().split('T')[0];
+
+        const synthetic: ScorecardRating = {
+          id: -1,
+          circle_leader_id: leaderId,
+          scored_by: '',
+          reach_score: catScores.reach?.score ?? 0,
+          connect_score: catScores.connect?.score ?? 0,
+          disciple_score: catScores.disciple?.score ?? 0,
+          develop_score: catScores.develop?.score ?? 0,
+          scored_date: latestDate,
+          created_at: latestDate,
+        };
+
+        setEvalScores([synthetic]);
+      } catch (err) {
+        console.error('Error loading evaluation scores for chart:', err);
+        setEvalScores([]);
+      }
+    };
+    loadEvalScores();
   }, [leaderId]);
 
   // Handle anchor link scrolling
@@ -2456,19 +2517,42 @@ export default function CircleLeaderProfilePage() {
             </div>
           </div>
 
-        {/* Progress Scorecard Section */}
-        <ScorecardSection leaderId={leaderId} isAdmin={isAdmin()} onNoteSaved={reloadNotes} />
-
-        {/* Progress Timeline Chart */}
-        <ProgressTimeline ratings={scorecardRatings} />
-
         {/* ACPD Tracking Section */}
         {isAdmin() && leader && (
-          <ACPDTrackingSection leaderId={leaderId} leaderName={leader.name} />
+          <div className="mt-6">
+            <ACPDTrackingSection leaderId={leaderId} leaderName={leader.name} />
+          </div>
+        )}
+
+        {/* Progress Scorecard Section */}
+        <div className="mt-6">
+          <ScorecardSection leaderId={leaderId} isAdmin={isAdmin()} onNoteSaved={reloadNotes} />
+        </div>
+
+        {/* Progress Timeline Chart */}
+        <div className="mt-6">
+          <ProgressTimeline ratings={scorecardRatings} />
+        </div>
+
+        {/* Weekly Category Trend Charts */}
+        {(scorecardRatings.length > 0 || evalScores.length > 0) && (
+          <div className="mt-6">
+            <CategoryTrendCharts
+              scores={scorecardRatings.length > 0 ? scorecardRatings : evalScores}
+              title="Weekly Category Trends"
+              subtitle={`${leader?.name ?? 'Leader'}'s score trends by category \u2014 updates every Saturday at midnight CST`}
+              chartHeight={180}
+              isAggregate={false}
+              showGoalLine={true}
+              showRangeSelector={true}
+              defaultRange="12w"
+              compact={false}
+            />
+          </div>
         )}
 
             {/* Notes Section */}
-            <div id="notes" className="bg-white dark:bg-gray-800 rounded-lg shadow mt-8">
+            <div id="notes" className="bg-white dark:bg-gray-800 rounded-lg shadow mt-6">
               <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-lg font-medium text-gray-900 dark:text-white">Notes</h2>
               </div>

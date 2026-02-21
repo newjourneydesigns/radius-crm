@@ -11,8 +11,6 @@ const DIMENSIONS: { key: ScorecardDimension; label: string; color: string; bg: s
   { key: 'develop', label: 'Develop', color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/30', dot: 'bg-orange-400' },
 ];
 
-type Tab = 'pray' | 'encourage' | 'coach';
-
 interface ACPDTrackingSectionProps {
   leaderId: number;
   leaderName: string;
@@ -27,7 +25,9 @@ export default function ACPDTrackingSection({ leaderId, leaderName }: ACPDTracki
     addCoachingNote, toggleCoachingResolved, deleteCoachingNote,
   } = useACPDTracking();
 
-  const [activeTab, setActiveTab] = useState<Tab>('pray');
+  const [prayOpen, setPrayOpen] = useState(true);
+  const [encourageOpen, setEncourageOpen] = useState(true);
+  const [coachOpen, setCoachOpen] = useState(true);
   const [newPrayer, setNewPrayer] = useState('');
   const [newEncourageNote, setNewEncourageNote] = useState('');
   const [newEncourageType, setNewEncourageType] = useState<'sent' | 'planned'>('planned');
@@ -94,110 +94,61 @@ export default function ACPDTrackingSection({ leaderId, leaderName }: ACPDTracki
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  const tabs: { key: Tab; label: string; icon: JSX.Element; count: number; accentColor: string; accentBg: string }[] = [
-    {
-      key: 'pray',
-      label: 'Pray',
-      icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-        </svg>
-      ),
-      count: activePrayers.length,
-      accentColor: 'text-amber-400',
-      accentBg: 'bg-amber-500/20',
-    },
-    {
-      key: 'encourage',
-      label: 'Encourage',
-      icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-        </svg>
-      ),
-      count: plannedEncouragements.length,
-      accentColor: 'text-emerald-400',
-      accentBg: 'bg-emerald-500/20',
-    },
-    {
-      key: 'coach',
-      label: 'Coach',
-      icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-      ),
-      count: openCoachNotes.length,
-      accentColor: 'text-sky-400',
-      accentBg: 'bg-sky-500/20',
-    },
-  ];
-
   if (isLoading) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-5 bg-gray-700 rounded w-1/3"></div>
-          <div className="flex gap-2">
-            <div className="h-10 bg-gray-700 rounded flex-1"></div>
-            <div className="h-10 bg-gray-700 rounded flex-1"></div>
-            <div className="h-10 bg-gray-700 rounded flex-1"></div>
+      <div className="space-y-4">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="bg-white dark:bg-gray-800 rounded-lg shadow p-5">
+            <div className="animate-pulse space-y-3">
+              <div className="h-4 bg-gray-700 rounded w-1/4"></div>
+              <div className="h-10 bg-gray-700 rounded"></div>
+              <div className="h-16 bg-gray-700 rounded"></div>
+            </div>
           </div>
-          <div className="h-24 bg-gray-700 rounded"></div>
-        </div>
+        ))}
       </div>
     );
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-      {/* ─── Header ──────────────────────────────────────── */}
-      <div className="px-5 pt-5 pb-3">
-        <div className="flex items-center gap-2 mb-1">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Pray, Encourage, Coach</h2>
-        </div>
-        <p className="text-xs text-gray-500">Track your engagement with {leaderName}</p>
-      </div>
+    <div className="space-y-4">
+      {/* ═══ PRAY SECTION ═══════════════════════════════ */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+        <button
+          onClick={() => setPrayOpen(!prayOpen)}
+          className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-700/20 transition-colors"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center">
+              <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+            </div>
+            <div className="text-left">
+              <h3 className="text-sm font-semibold text-white">Pray</h3>
+              <p className="text-[10px] text-gray-500">
+                {activePrayers.length > 0
+                  ? `${activePrayers.length} active prayer point${activePrayers.length !== 1 ? 's' : ''}`
+                  : 'Track prayer points'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {activePrayers.length > 0 && (
+              <span className="min-w-[20px] h-[20px] flex items-center justify-center px-1.5 text-[10px] font-bold rounded-full bg-amber-500/20 text-amber-400">
+                {activePrayers.length}
+              </span>
+            )}
+            <svg className={`w-4 h-4 text-gray-400 transition-transform ${prayOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </button>
 
-      {/* ─── Tab Bar ─────────────────────────────────────── */}
-      <div className="px-5">
-        <div className="flex gap-1 p-1 bg-gray-900/40 rounded-xl">
-          {tabs.map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`
-                flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium
-                transition-all duration-200 relative
-                ${activeTab === tab.key
-                  ? 'bg-gray-700/80 text-white shadow-sm'
-                  : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/30'
-                }
-              `}
-            >
-              <span className={activeTab === tab.key ? tab.accentColor : ''}>{tab.icon}</span>
-              <span className="hidden sm:inline">{tab.label}</span>
-              {tab.count > 0 && (
-                <span className={`
-                  min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold rounded-full
-                  ${activeTab === tab.key ? `${tab.accentBg} ${tab.accentColor}` : 'bg-gray-600/50 text-gray-400'}
-                `}>
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ─── Tab Content ─────────────────────────────────── */}
-      <div className="p-5">
-
-        {/* ═══ PRAY TAB ═══════════════════════════════════ */}
-        {activeTab === 'pray' && (
-          <div className="space-y-4">
+        {prayOpen && (
+          <div className="px-5 pb-5 space-y-4 border-t border-gray-700/40">
             {/* Add prayer input */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 pt-4">
               <input
                 type="text"
                 value={newPrayer}
@@ -225,12 +176,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName }: ACPDTracki
 
             {/* Active prayer points */}
             {activePrayers.length === 0 && answeredPrayers.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-amber-500/10 flex items-center justify-center">
-                  <svg className="w-6 h-6 text-amber-400/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                  </svg>
-                </div>
+              <div className="text-center py-6">
                 <p className="text-sm text-gray-400">No prayer points yet</p>
                 <p className="text-xs text-gray-500 mt-1">Add a prayer request for {leaderName}</p>
               </div>
@@ -332,12 +278,46 @@ export default function ACPDTrackingSection({ leaderId, leaderName }: ACPDTracki
             )}
           </div>
         )}
+      </div>
 
-        {/* ═══ ENCOURAGE TAB ══════════════════════════════ */}
-        {activeTab === 'encourage' && (
-          <div className="space-y-4">
+      {/* ═══ ENCOURAGE SECTION ══════════════════════════ */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+        <button
+          onClick={() => setEncourageOpen(!encourageOpen)}
+          className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-700/20 transition-colors"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+              <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              </svg>
+            </div>
+            <div className="text-left">
+              <h3 className="text-sm font-semibold text-white">Encourage</h3>
+              <p className="text-[10px] text-gray-500">
+                {plannedEncouragements.length > 0
+                  ? `${plannedEncouragements.length} planned`
+                  : 'Track encouragements'}
+                {sentEncouragements.length > 0 ? ` · ${sentEncouragements.length} sent` : ''}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {plannedEncouragements.length > 0 && (
+              <span className="min-w-[20px] h-[20px] flex items-center justify-center px-1.5 text-[10px] font-bold rounded-full bg-emerald-500/20 text-emerald-400">
+                {plannedEncouragements.length}
+              </span>
+            )}
+            <svg className={`w-4 h-4 text-gray-400 transition-transform ${encourageOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </button>
+
+        {encourageOpen && (
+          <div className="px-5 pb-5 space-y-4 border-t border-gray-700/40">
             {/* Status cards */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 pt-4">
               <div className="p-3.5 rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20">
                 <div className="flex items-center gap-1.5 mb-2">
                   <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -440,12 +420,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName }: ACPDTracki
 
             {/* Encouragement history timeline */}
             {encouragements.length === 0 ? (
-              <div className="text-center py-6">
-                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                  <svg className="w-6 h-6 text-emerald-400/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                  </svg>
-                </div>
+              <div className="text-center py-4">
                 <p className="text-sm text-gray-400">No encouragements yet</p>
                 <p className="text-xs text-gray-500 mt-1">Start tracking messages to {leaderName}</p>
               </div>
@@ -499,12 +474,45 @@ export default function ACPDTrackingSection({ leaderId, leaderName }: ACPDTracki
             )}
           </div>
         )}
+      </div>
 
-        {/* ═══ COACH TAB ══════════════════════════════════ */}
-        {activeTab === 'coach' && (
-          <div className="space-y-4">
+      {/* ═══ COACH SECTION ══════════════════════════════ */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+        <button
+          onClick={() => setCoachOpen(!coachOpen)}
+          className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-700/20 transition-colors"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-sky-500/15 flex items-center justify-center">
+              <svg className="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div className="text-left">
+              <h3 className="text-sm font-semibold text-white">Coach</h3>
+              <p className="text-[10px] text-gray-500">
+                {openCoachNotes.length > 0
+                  ? `${openCoachNotes.length} open note${openCoachNotes.length !== 1 ? 's' : ''}`
+                  : 'Track growth opportunities'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {openCoachNotes.length > 0 && (
+              <span className="min-w-[20px] h-[20px] flex items-center justify-center px-1.5 text-[10px] font-bold rounded-full bg-sky-500/20 text-sky-400">
+                {openCoachNotes.length}
+              </span>
+            )}
+            <svg className={`w-4 h-4 text-gray-400 transition-transform ${coachOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </button>
+
+        {coachOpen && (
+          <div className="px-5 pb-5 space-y-4 border-t border-gray-700/40">
             {/* Add coaching note */}
-            <div className="space-y-2">
+            <div className="space-y-2 pt-4">
               <div className="flex gap-2">
                 <div className="flex flex-wrap gap-1.5 flex-1">
                   {DIMENSIONS.map(d => (
@@ -551,12 +559,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName }: ACPDTracki
 
             {/* Coaching notes grouped by dimension */}
             {openCoachNotes.length === 0 && resolvedCoachNotes.length === 0 ? (
-              <div className="text-center py-6">
-                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-sky-500/10 flex items-center justify-center">
-                  <svg className="w-6 h-6 text-sky-400/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
+              <div className="text-center py-4">
                 <p className="text-sm text-gray-400">No coaching notes yet</p>
                 <p className="text-xs text-gray-500 mt-1">Track growth opportunities by dimension</p>
               </div>

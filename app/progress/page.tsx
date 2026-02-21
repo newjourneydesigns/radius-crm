@@ -16,6 +16,7 @@ import {
 } from 'chart.js';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useProgressDashboard, LeaderProgressSummary, EffectiveScores } from '../../hooks/useProgressDashboard';
+import CategoryTrendCharts from '../../components/charts/CategoryTrendCharts';
 import { supabase } from '../../lib/supabase';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
@@ -87,15 +88,32 @@ function LeaderRow({ summary }: { summary: LeaderProgressSummary }) {
 export default function ProgressDashboardPage() {
   const {
     leaderSummaries, dimensionAverages, topPerformers, needsAttention,
-    movers, stagnant, unscored, timelineData, isLoading, loadData,
+    movers, stagnant, unscored, timelineData, allScores, isLoading, loadData,
   } = useProgressDashboard();
 
   const [campuses, setCampuses] = useState<string[]>([]);
   const [acpds, setAcpds] = useState<string[]>([]);
-  const [filterCampus, setFilterCampus] = useState('');
-  const [filterAcpd, setFilterAcpd] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [activeTab, setActiveTab] = useState<'top' | 'attention' | 'movers' | 'stagnant' | 'unscored'>('top');
+
+  // Persist filters in localStorage
+  const storageKey = 'radius_progress_filters';
+  const saved = typeof window !== 'undefined' ? (() => { try { return JSON.parse(localStorage.getItem(storageKey) || '{}'); } catch { return {}; } })() : {};
+
+  const [filterCampus, setFilterCampus] = useState(saved.campus || '');
+  const [filterAcpd, setFilterAcpd] = useState(saved.acpd || '');
+  const [filterStatus, setFilterStatus] = useState(saved.status || '');
+  const [activeTab, setActiveTab] = useState<'top' | 'attention' | 'movers' | 'stagnant' | 'unscored'>(saved.tab || 'top');
+
+  // Save filters to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({
+        campus: filterCampus,
+        acpd: filterAcpd,
+        status: filterStatus,
+        tab: activeTab,
+      }));
+    } catch {}
+  }, [filterCampus, filterAcpd, filterStatus, activeTab]);
 
   // Load reference data
   useEffect(() => {
@@ -282,6 +300,22 @@ export default function ProgressDashboardPage() {
                       <Line data={aggregateChartData} options={chartOptions} />
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Weekly Category Trend Charts */}
+              {allScores.length > 0 && (
+                <div className="mb-6">
+                  <CategoryTrendCharts
+                    scores={allScores}
+                    title="Weekly Category Trends"
+                    subtitle={`Score trends by category across ${scoredCount} scored leaders — updates every Saturday at midnight CST`}
+                    chartHeight={200}
+                    isAggregate={true}
+                    showGoalLine={true}
+                    showRangeSelector={true}
+                    defaultRange="12w"
+                  />
                 </div>
               )}
 

@@ -228,14 +228,7 @@ export default function ScorecardSection({ leaderId, isAdmin, onNoteSaved }: Sco
               {effectiveScores.hasDirectScores && renderTrendArrow(trend.average)}
             </div>
           )}
-          {isAdmin && !isRating && (
-            <button
-              onClick={() => setIsRating(true)}
-              className="ml-3 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
-            >
-              Rate
-            </button>
-          )}
+
         </div>
       </div>
 
@@ -338,7 +331,7 @@ export default function ScorecardSection({ leaderId, isAdmin, onNoteSaved }: Sco
                 <p className="text-gray-400 text-sm">No scores yet</p>
                 {isAdmin && (
                   <div>
-                    <p className="text-gray-500 text-xs mt-1">Click &quot;Rate&quot; or tap a category to evaluate</p>
+                    <p className="text-gray-500 text-xs mt-1">Tap a category to evaluate</p>
                     <div className="grid grid-cols-2 gap-3 sm:gap-4 mt-4">
                       {DIMENSIONS.map(dim => (
                         <div
