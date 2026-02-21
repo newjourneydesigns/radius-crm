@@ -37,174 +37,93 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Handle OAuth callback if present in URL
-    const handleOAuthCallback = async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code');
-      
-      if (code) {
-        console.log('🔍 AuthContext: OAuth callback detected, processing...');
-        try {
-          // Let Supabase handle the OAuth callback automatically
-          const { data, error } = await supabase.auth.getSession();
-          if (error) {
-            console.error('❌ AuthContext: OAuth callback error:', error);
-            // Clear the URL parameters and redirect to error
-            window.history.replaceState({}, document.title, window.location.pathname);
-            window.location.href = `/auth/auth-code-error?error=oauth_callback&description=${encodeURIComponent(error.message)}`;
-            return;
-          }
-          
-          if (data.session) {
-            console.log('✅ AuthContext: OAuth callback successful');
-            // Clear the URL parameters
-            window.history.replaceState({}, document.title, window.location.pathname);
-          }
-        } catch (error) {
-          console.error('❌ AuthContext: OAuth callback exception:', error);
-          window.history.replaceState({}, document.title, window.location.pathname);
-          window.location.href = `/auth/auth-code-error?error=oauth_callback&description=${encodeURIComponent(String(error))}`;
-          return;
-        }
-      }
-    };
+    // Helper: fetch user profile from DB with timeout, falling back to auth metadata
+    const resolveUser = async (authUser: { id: string; email?: string; user_metadata?: any }) => {
+      const profilePromise = supabase
+        .from('users')
+        .select('id, email, name, role')
+        .eq('id', authUser.id)
+        .single();
 
-    // Handle OAuth callback first
-    handleOAuthCallback();
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 2000)
+      );
 
-    // Get initial session
-    const getSession = async () => {
-      console.log('🔍 AuthContext: Getting initial session...');
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log('🔍 AuthContext: Initial session:', session ? 'Found' : 'None');
-        
-        if (session?.user) {
-          console.log('🔍 AuthContext: Initial session user found, fetching profile');
-          
-          // Optimize query by selecting only necessary fields
-          const profilePromise = supabase
-            .from('users')
-            .select('id, email, name, role')
-            .eq('id', session.user.id)
-            .single();
-
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Profile fetch timeout')), 2000)
-          );
-
-          try {
-            const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
-            
-            if (profile) {
-              console.log('🔍 AuthContext: User profile loaded:', profile.name);
-              setUser(profile);
-            } else if (error) {
-              console.error('❌ AuthContext: Error fetching user profile:', error);
-              
-              // Fallback: Create a basic user object from auth data
-              console.log('🔄 AuthContext: Using fallback user data from auth');
-              // If valleycreek.org email, assign ACPD role (admin)
-              const isValleyCreek = session.user.email?.endsWith('@valleycreek.org');
-              const fallbackUser = {
-                id: session.user.id,
-                email: session.user.email || '',
-                name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-                role: (isValleyCreek ? 'ACPD' : 'Viewer') as 'ACPD' | 'Viewer'
-              };
-              setUser(fallbackUser);
-            }
-          } catch (timeoutError) {
-            console.error('❌ AuthContext: Initial profile fetch timed out, using fallback');
-            console.log('🔄 AuthContext: Creating fallback user from initial session data');
-            
-            // Fallback: Create a basic user object from auth data
-            // If valleycreek.org email, assign ACPD role (admin)
-            const isValleyCreek = session.user.email?.endsWith('@valleycreek.org');
-            const fallbackUser = {
-              id: session.user.id,
-              email: session.user.email || '',
-              name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-              role: (isValleyCreek ? 'ACPD' : 'Viewer') as 'ACPD' | 'Viewer'
-            };
-            console.log('✅ AuthContext: Initial fallback user created:', fallbackUser.name);
-            setUser(fallbackUser);
-          }
+        const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
+        if (profile) {
+          console.log('✅ AuthContext: User profile loaded:', profile.name);
+          return profile as User;
         }
-      } catch (error) {
-        console.error('❌ AuthContext: Error getting session:', error);
-        // Clear any bad session data
-        setUser(null);
+        if (error) {
+          console.error('❌ AuthContext: Profile fetch error, using fallback:', error.message);
+        }
+      } catch {
+        console.error('❌ AuthContext: Profile fetch timed out, using fallback');
       }
-      console.log('✅ AuthContext: Initial session check complete');
-      setLoading(false);
+
+      // Fallback user from auth metadata
+      const isValleyCreek = authUser.email?.endsWith('@valleycreek.org');
+      const fallback: User = {
+        id: authUser.id,
+        email: authUser.email || '',
+        name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
+        role: isValleyCreek ? 'ACPD' : 'Viewer',
+      };
+      console.log('🔄 AuthContext: Fallback user created:', fallback.name);
+      return fallback;
     };
 
-    getSession();
+    // Clean up OAuth code param from URL if present (the auth state change
+    // handler below will receive the session once Supabase processes it).
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('code')) {
+        console.log('🔍 AuthContext: OAuth callback detected, clearing URL params');
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
 
-    // Listen for auth changes with debouncing to prevent rapid repeated calls
-    let authChangeTimeout: NodeJS.Timeout | null = null;
+    // Use onAuthStateChange as the SINGLE source of truth for session state.
+    // In @supabase/supabase-js v2.39+, it fires INITIAL_SESSION synchronously
+    // on setup, so there is no need for a separate getSession() call (which
+    // can deadlock with onAuthStateChange over an internal session lock).
+    let debounceTimer: NodeJS.Timeout | null = null;
+    let isInitialSession = true;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('🔍 AuthContext: Auth state change:', event, session ? 'Session exists' : 'No session');
-      
-      // Clear any existing timeout to debounce rapid auth changes
-      if (authChangeTimeout) {
-        clearTimeout(authChangeTimeout);
-      }
 
-      // Debounce auth changes by 1 second to prevent repeated calls
-      authChangeTimeout = setTimeout(async () => {
+      // For INITIAL_SESSION, process immediately (no debounce) so the app
+      // doesn't sit on "Checking session…" for an extra second.
+      if (isInitialSession) {
+        isInitialSession = false;
+
         try {
           if (session?.user) {
-            console.log('🔍 AuthContext: Auth change - fetching user profile');
-            
-            // Optimize query by selecting only necessary fields
-            const profilePromise = supabase
-              .from('users')
-              .select('id, email, name, role')
-              .eq('id', session.user.id)
-              .single();
+            const resolved = await resolveUser(session.user);
+            setUser(resolved);
+          } else {
+            setUser(null);
+          }
+        } catch (error) {
+          console.error('❌ AuthContext: Error in initial session handler:', error);
+          setUser(null);
+        }
 
-            // Reduce timeout to 2 seconds for faster response
-            const timeoutPromise = new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('Profile fetch timeout')), 2000)
-            );
+        setLoading(false);
+        return;
+      }
 
-            try {
-              const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
-              
-              if (profile) {
-                console.log('🔍 AuthContext: Auth change - profile loaded:', profile.name);
-                setUser(profile);
-              } else if (error) {
-                console.error('❌ AuthContext: Error fetching user profile in auth change:', error);
-                
-                // Fallback: Create a basic user object from auth data
-                console.log('🔄 AuthContext: Auth change - using fallback user data');
-                const isValleyCreek = session.user.email?.endsWith('@valleycreek.org');
-                const fallbackUser = {
-                  id: session.user.id,
-                  email: session.user.email || '',
-                  name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-                  role: (isValleyCreek ? 'ACPD' : 'Viewer') as 'ACPD' | 'Viewer'
-                };
-                setUser(fallbackUser);
-              }
-            } catch (timeoutError) {
-              console.error('❌ AuthContext: Auth change profile fetch timed out, using fallback');
-              console.log('🔄 AuthContext: Creating fallback user from session data');
-              
-              // Fallback: Create a basic user object from auth data
-              const isValleyCreek = session.user.email?.endsWith('@valleycreek.org');
-              const fallbackUser = {
-                id: session.user.id,
-                email: session.user.email || '',
-                name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-                role: (isValleyCreek ? 'ACPD' : 'Viewer') as 'ACPD' | 'Viewer'
-              };
-              console.log('✅ AuthContext: Fallback user created:', fallbackUser.name);
-              setUser(fallbackUser);
-            }
+      // Subsequent auth events (SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, etc.)
+      // are debounced to avoid rapid repeated profile fetches.
+      if (debounceTimer) clearTimeout(debounceTimer);
+
+      debounceTimer = setTimeout(async () => {
+        try {
+          if (session?.user) {
+            const resolved = await resolveUser(session.user);
+            setUser(resolved);
           } else {
             console.log('🔍 AuthContext: No session, clearing user');
             setUser(null);
@@ -214,14 +133,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(null);
         }
         setLoading(false);
-      }, 1000); // 1 second debounce
+      }, 300); // short debounce for subsequent events
     });
+
+    // Safety net: if onAuthStateChange never fires (e.g. very old client or
+    // network issue), ensure we don't stay stuck on the loading screen forever.
+    const safetyTimeout = setTimeout(() => {
+      setLoading((prev) => {
+        if (prev) {
+          console.warn('⚠️ AuthContext: Safety timeout — forcing loading to false');
+          return false;
+        }
+        return prev;
+      });
+    }, 4000);
 
     return () => {
       subscription.unsubscribe();
-      if (authChangeTimeout) {
-        clearTimeout(authChangeTimeout);
-      }
+      if (debounceTimer) clearTimeout(debounceTimer);
+      clearTimeout(safetyTimeout);
     };
   }, []);
 

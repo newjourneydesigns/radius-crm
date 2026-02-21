@@ -1,8 +1,8 @@
 # RADIUS CRM — Project Context
 
-> **Version:** 1.3.0  
+> **Version:** 1.4.0  
 > **Repository:** `newjourneydesigns/radius-crm` (branch: `main`)  
-> **Last Updated:** 2026-02-20
+> **Last Updated:** 2026-02-21
 
 ---
 
@@ -116,7 +116,10 @@ Set in `.env.local` for development, Netlify dashboard for production.
 │   │   ├── CircleVisitsSection.tsx
 │   │   ├── ScorecardSection.tsx    # 1-5 rating UI for Reach/Connect/Disciple/Develop
 │   │   ├── ProgressTimeline.tsx    # Chart.js line chart of scores over time
-│   │   └── ACPDTrackingSection.tsx # Pray/Encourage/Coach tracking sections
+│   │   └── ACPDTrackingSection.tsx # Pray/Encourage/Coach collapsible accordion sections
+│   ├── charts/                 # Data visualization components
+│   │   ├── CategoryTrendChart.tsx   # Single-category weekly trend line chart (Chart.js)
+│   │   └── CategoryTrendCharts.tsx  # Container: renders 4 trend charts with range selector (4w/8w/12w/All)
 │   ├── calendar/               # Calendar components
 │   ├── settings/               # Settings components
 │   ├── modals/                 # Shared modals
@@ -157,6 +160,8 @@ Set in `.env.local` for development, Netlify dashboard for production.
 │   ├── validationUtils.ts       # Form validation
 │   ├── todoRecurrence.ts        # Todo repeat/recurrence logic
 │   ├── event-summary-utils.ts   # Event summary helpers
+│   ├── weeklyTrends.ts           # Weekly trend bucketing (Sun→Sat CST), slope calculation, trend labels
+│   ├── evaluationQuestions.ts   # Evaluation question definitions, suggested score calculation
 │   └── circleLeaderConstants.ts # Shared constants
 │
 ├── styles/
@@ -191,6 +196,9 @@ Set in `.env.local` for development, Netlify dashboard for production.
 | `acpd_prayer_points`   | Prayer points per leader (content, answered status) |
 | `acpd_encouragements`  | Encouragement message tracking (sent/planned)    |
 | `acpd_coaching_notes`  | Coaching notes by dimension with resolved status  |
+| `scorecard_questions`  | Configurable evaluation questions per category (reach/connect/disciple/develop) |
+| `leader_category_evaluations` | Per-leader evaluation results by category with optional manual override score |
+| `leader_category_answers`     | Per-question Yes/No answers linked to an evaluation, with question_text snapshot |
 
 ### Reference Tables
 
@@ -205,9 +213,11 @@ Set in `.env.local` for development, Netlify dashboard for production.
 
 ### Key Relationships
 
-- `circle_leaders.id` → referenced by `notes`, `connections`, `communications`, `circle_visits`, `circle_leader_scores`, `acpd_prayer_points`, `acpd_encouragements`, `acpd_coaching_notes`
+- `circle_leaders.id` → referenced by `notes`, `connections`, `communications`, `circle_visits`, `circle_leader_scores`, `acpd_prayer_points`, `acpd_encouragements`, `acpd_coaching_notes`, `leader_category_evaluations`
 - `users.id` → FK to `auth.users(id)`; referenced by `notes`, `communications`
 - `connections.connection_type_id` → FK to `connection_types(id)`
+- `leader_category_evaluations.id` → referenced by `leader_category_answers`
+- `scorecard_questions.(category, question_key)` → unique per category; referenced logically by `leader_category_answers.question_key`
 - Row-Level Security (RLS) is enabled across tables
 
 ---
@@ -241,8 +251,9 @@ Set in `.env.local` for development, Netlify dashboard for production.
 13. **PWA** — Installable, mobile-optimized with service worker caching
 14. **Progress Scorecard** — 1-5 rating system for Circle Leaders across four dimensions: Reach, Connect, Disciple, Develop. ACPDs can rate, edit, and delete scores with full CRUD.
 15. **Progress Timeline** — Chart.js line chart plotting dimension scores over time with colored lines (blue=Reach, green=Connect, purple=Disciple, orange=Develop)
-16. **Progress Dashboard** (`/progress`) — Aggregated view with dimension averages, top/low performers, movers vs stagnant circles, trend indicators, filterable by campus/ACPD/status
-17. **ACPD Tracking** — Per-leader tracking sections: Pray (prayer points with answered toggle), Encourage (sent/planned message tracking), Coach (growth opportunities by dimension with resolved toggle)
+16. **Progress Dashboard** (`/progress`) — Aggregated view with dimension averages, top/low performers, movers vs stagnant circles, trend indicators, filterable by campus/ACPD/status. Filters (campus, ACPD, status, active tab) persist in `localStorage`.
+17. **ACPD Tracking** — Per-leader tracking with collapsible accordion sections (Pray, Encourage, Coach). Pray: prayer points with answered toggle. Encourage: sent/planned message tracking. Coach: growth opportunities by dimension with resolved toggle.
+18. **Weekly Category Trend Charts** — Chart.js line charts showing per-category (Reach/Connect/Disciple/Develop) score trends bucketed by week (Sun→Sat, CST). Features: configurable time range selector (4w/8w/12w/All), goal line at score 4, week-over-week delta badges, trend slope indicators (↑ rising / → steady / ↓ falling), optional min/max range shading for aggregate views. Displayed on both the Circle Leader Profile page (single leader) and the Progress Dashboard (aggregate across all scored leaders). Evaluation-based scores are synthesized into scorecard ratings for chart rendering when no manual scores exist.
 
 ---
 
@@ -282,7 +293,7 @@ The project root contains numerous `.sql` and `.js` migration/fix scripts for ev
 - RLS fixes: `fix_rls_security_issues.sql`, `emergency_rls_fix.sql`, `fix_reference_tables_rls.sql`
 - Performance: `fix_database_performance.sql`, `essential_indexes.sql`
 - Migration runners: `run-migration.js`, `run-todo-migration.js`, `run-circle-visits-migration.js`, etc.
-- Progress tracking: `create_circle_leader_scores_table.sql` (scorecard ratings), `create_acpd_tracking_tables.sql` (prayer points, encouragements, coaching notes)
+- Progress tracking: `create_circle_leader_scores_table.sql` (scorecard ratings), `create_acpd_tracking_tables.sql` (prayer points, encouragements, coaching notes), `create_scorecard_questions_table.sql` (configurable evaluation questions per category), `create_leader_evaluations_tables.sql` (evaluation results & per-question answers)
 
 ---
 

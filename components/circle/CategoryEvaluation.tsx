@@ -9,6 +9,7 @@ import {
   calculateSuggestedScore,
   getFinalScore,
 } from '../../lib/evaluationQuestions';
+import SuggestedNextSteps from './SuggestedNextSteps';
 
 interface CategoryEvaluationProps {
   leaderId: number;
@@ -27,9 +28,11 @@ interface CategoryEvaluationProps {
   onSave: () => Promise<void>;
   onClose: () => void;
   isSaving: boolean;
+  onAddToCoaching?: (leaderId: number, category: ScorecardDimension, content: string) => Promise<any>;
 }
 
 export default function CategoryEvaluation({
+  leaderId,
   category,
   label,
   color,
@@ -45,6 +48,7 @@ export default function CategoryEvaluation({
   onSave,
   onClose,
   isSaving,
+  onAddToCoaching,
 }: CategoryEvaluationProps) {
   const questions = questionsProp || EVALUATION_QUESTIONS[category];
   const suggestedScore = calculateSuggestedScore(answers);
@@ -237,6 +241,17 @@ export default function CategoryEvaluation({
           </div>
         )}
       </div>
+
+      {/* Suggested Next Steps — based on answered questions */}
+      <SuggestedNextSteps
+        answers={answers}
+        questions={questions}
+        color={color}
+        textClass={textClass}
+        leaderId={leaderId}
+        category={category}
+        onAddToCoaching={onAddToCoaching}
+      />
 
       {/* Context Notes */}
       <div className="px-4 py-3">

@@ -3,10 +3,10 @@
 
 import { ensureDefaultFrequencies, formatFrequencyLabel } from '../../../lib/frequencyUtils';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { supabase, type CircleLeader, type Note, type NoteTemplate, type EventSummaryState, type ScorecardRating } from '../../../lib/supabase';
+import { supabase, type CircleLeader, type Note, type NoteTemplate, type EventSummaryState, type ScorecardRating, type ScorecardDimension } from '../../../lib/supabase';
 import { useNoteTemplates } from '../../../hooks/useNoteTemplates';
 import { useAuth } from '../../../contexts/AuthContext';
 import AlertModal from '../../../components/ui/AlertModal';
@@ -231,12 +231,70 @@ const normalizeCircleTypeValue = (value: string | undefined | null): string => {
   return raw;
 };
 
+// ── Sticky section-nav tab definitions ──────────────────────────────
+const SECTION_TABS = [
+  { id: 'section-profile',   label: 'Profile' },
+  { id: 'section-pec',       label: 'Pray / Encourage / Coach', adminOnly: true },
+  { id: 'section-scorecard', label: 'Scorecard' },
+  { id: 'section-trends',    label: 'Trends' },
+  { id: 'section-notes',     label: 'Notes' },
+] as const;
+
 export default function CircleLeaderProfilePage() {
   const params = useParams();
   const leaderId = params?.id ? parseInt(params.id as string) : 0;
   const { user, isAdmin } = useAuth(); // Get current user information
   const { saveTemplate } = useNoteTemplates(); // Add note templates hook
   const { ratings: scorecardRatings, loadRatings: loadScorecardRatings } = useScorecard();
+
+  // ── Sticky section-nav state ──────────────────────────────────────
+  const [activeSection, setActiveSection] = useState<string>(SECTION_TABS[0].id);
+  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const navRef = useRef<HTMLDivElement>(null);
+  const isScrollingByClick = useRef(false);
+
+  const setSectionRef = useCallback((id: string) => (el: HTMLDivElement | null) => {
+    sectionRefs.current[id] = el;
+  }, []);
+
+  // Observe which section is currently in view and highlight the nav tab
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (isScrollingByClick.current) return;
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id);
+            break;
+          }
+        }
+      },
+      { rootMargin: '-30% 0px -60% 0px', threshold: 0 }
+    );
+
+    const ids = SECTION_TABS.map((t) => t.id);
+    ids.forEach((id) => {
+      const el = sectionRefs.current[id];
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
+  const scrollToSection = useCallback((id: string) => {
+    const el = sectionRefs.current[id];
+    if (!el) return;
+    setActiveSection(id);
+    isScrollingByClick.current = true;
+
+    // Account for the sticky nav height (≈56px) + some padding
+    const navHeight = navRef.current?.offsetHeight ?? 56;
+    const y = el.getBoundingClientRect().top + window.scrollY - navHeight - 12;
+    window.scrollTo({ top: y, behavior: 'smooth' });
+
+    // Re-enable observer after scroll finishes
+    setTimeout(() => { isScrollingByClick.current = false; }, 800);
+  }, []);
   const [evalScores, setEvalScores] = useState<ScorecardRating[]>([]);
   
   const [leader, setLeader] = useState<CircleLeader | null>(null);
@@ -278,6 +336,9 @@ export default function CircleLeaderProfilePage() {
   const [eventSummaryEnumAvailable, setEventSummaryEnumAvailable] = useState<boolean | null>(null);
   const [eventSummaryEnumWarningShown, setEventSummaryEnumWarningShown] = useState(false);
   
+  // Key to force ACPD section to remount & refetch after coaching note added from scorecard
+  const [acpdKey, setAcpdKey] = useState(0);
+
   // Reference data state
   const [campuses, setCampuses] = useState<Array<{id: number, value: string}>>([]);
   const [statuses, setStatuses] = useState<Array<{id: number, value: string}>>([]);
@@ -480,16 +541,13 @@ export default function CircleLeaderProfilePage() {
   // Handle anchor link scrolling
   useEffect(() => {
     const hash = window.location.hash;
-    if (hash === '#notes') {
+    if (hash === '#notes' || hash === '#section-notes') {
       setTimeout(() => {
-        const notesElement = document.getElementById('notes');
-        if (notesElement) {
-          notesElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          // Also focus on the textarea for better UX
-          const textarea = document.getElementById('newNote');
-          if (textarea) {
-            textarea.focus();
-          }
+        scrollToSection('section-notes');
+        // Also focus on the textarea for better UX
+        const textarea = document.getElementById('newNote');
+        if (textarea) {
+          textarea.focus();
         }
       }, 100); // Small delay to ensure the element is rendered
     } else if (!hash) {
@@ -498,7 +556,28 @@ export default function CircleLeaderProfilePage() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }, 100);
     }
-  }, []);
+  }, [scrollToSection]);
+
+  // Add a coaching note from the scorecard's Suggested Next Steps and refresh the ACPD section
+  const handleAddToCoaching = async (lid: number, category: ScorecardDimension, content: string) => {
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) return null;
+
+    const { data, error } = await supabase
+      .from('acpd_coaching_notes')
+      .insert([{ circle_leader_id: lid, user_id: authUser.id, dimension: category, content, is_resolved: false }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error adding coaching note from scorecard:', error);
+      return null;
+    }
+
+    // Force the ACPD section to remount so it picks up the new note
+    setAcpdKey(prev => prev + 1);
+    return data;
+  };
 
   // Function to reload notes data
   const reloadNotes = async () => {
@@ -1568,6 +1647,30 @@ export default function CircleLeaderProfilePage() {
           </div>
         </div>
 
+        {/* ── Sticky Section Navigation ── */}
+        <div
+          ref={navRef}
+          className="sticky top-0 z-40 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 mb-6"
+        >
+          <nav className="flex overflow-x-auto scrollbar-hide -mb-px py-2 gap-1" aria-label="Section navigation">
+            {SECTION_TABS
+              .filter((tab) => !('adminOnly' in tab && tab.adminOnly) || isAdmin())
+              .map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => scrollToSection(tab.id)}
+                  className={`whitespace-nowrap flex-shrink-0 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    activeSection === tab.id
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-gray-700/60'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+          </nav>
+        </div>
+
         {/* Mobile Quick Actions - Show on mobile only, right after the name */}
         <div className="lg:hidden mb-6 space-y-4">
           {/* Event Summary - Mobile */}
@@ -1859,7 +1962,7 @@ export default function CircleLeaderProfilePage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div id="section-profile" ref={setSectionRef('section-profile')} className="grid grid-cols-1 lg:grid-cols-3 gap-6 scroll-mt-20">
           {/* Main Profile Info */}
           <div className="lg:col-span-2 space-y-6">
             {/* Circle Information */}
@@ -2519,20 +2622,19 @@ export default function CircleLeaderProfilePage() {
 
         {/* ACPD Tracking Section */}
         {isAdmin() && leader && (
-          <div className="mt-6">
-            <ACPDTrackingSection leaderId={leaderId} leaderName={leader.name} />
+          <div id="section-pec" ref={setSectionRef('section-pec')} className="mt-6 scroll-mt-20">
+            <ACPDTrackingSection key={acpdKey} leaderId={leaderId} leaderName={leader.name} onNoteSaved={reloadNotes} />
           </div>
         )}
 
         {/* Progress Scorecard Section */}
-        <div className="mt-6">
-          <ScorecardSection leaderId={leaderId} isAdmin={isAdmin()} onNoteSaved={reloadNotes} />
+        <div id="section-scorecard" ref={setSectionRef('section-scorecard')} className="mt-6 scroll-mt-20">
+          <ScorecardSection leaderId={leaderId} isAdmin={isAdmin()} onNoteSaved={reloadNotes} onAddToCoaching={handleAddToCoaching} />
         </div>
 
         {/* Progress Timeline Chart */}
-        <div className="mt-6">
+        <div id="section-trends" ref={setSectionRef('section-trends')} className="mt-6 scroll-mt-20">
           <ProgressTimeline ratings={scorecardRatings} />
-        </div>
 
         {/* Weekly Category Trend Charts */}
         {(scorecardRatings.length > 0 || evalScores.length > 0) && (
@@ -2550,9 +2652,10 @@ export default function CircleLeaderProfilePage() {
             />
           </div>
         )}
+        </div>
 
             {/* Notes Section */}
-            <div id="notes" className="bg-white dark:bg-gray-800 rounded-lg shadow mt-6">
+            <div id="section-notes" ref={setSectionRef('section-notes')} className="bg-white dark:bg-gray-800 rounded-lg shadow mt-6 scroll-mt-20">
               <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-lg font-medium text-gray-900 dark:text-white">Notes</h2>
               </div>

@@ -262,11 +262,14 @@ export interface PrayerPoint {
   updated_at: string;
 }
 
+export type EncourageMethod = 'text' | 'email' | 'call' | 'in_person' | 'card' | 'other';
+
 export interface Encouragement {
   id: number;
   circle_leader_id: number;
   user_id: string;
   message_type: 'sent' | 'planned';
+  encourage_method: EncourageMethod;
   message_date: string;
   note?: string;
   created_at: string;

@@ -18,9 +18,10 @@ interface ScorecardSectionProps {
   leaderId: number;
   isAdmin: boolean;
   onNoteSaved?: () => void;
+  onAddToCoaching?: (leaderId: number, category: ScorecardDimension, content: string) => Promise<any>;
 }
 
-export default function ScorecardSection({ leaderId, isAdmin, onNoteSaved }: ScorecardSectionProps) {
+export default function ScorecardSection({ leaderId, isAdmin, onNoteSaved, onAddToCoaching }: ScorecardSectionProps) {
   const { ratings, isLoading, loadRatings, submitScores, updateScore, deleteScore, getLatestScores, getTrend } = useScorecard();
   const {
     isLoading: evalLoading,
@@ -256,6 +257,7 @@ export default function ScorecardSection({ leaderId, isAdmin, onNoteSaved }: Sco
               onSave={async () => { await saveEvaluation(leaderId, activeDimension); onNoteSaved?.(); }}
               onClose={() => setActiveDimension(null)}
               isSaving={evalSaving}
+              onAddToCoaching={onAddToCoaching}
             />
           );
         })() : (

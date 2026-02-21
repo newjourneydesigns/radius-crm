@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { supabase, PrayerPoint, Encouragement, CoachingNote, ScorecardDimension } from '../lib/supabase';
+import { supabase, PrayerPoint, Encouragement, CoachingNote, ScorecardDimension, EncourageMethod } from '../lib/supabase';
 
 export const useACPDTracking = () => {
   const [prayerPoints, setPrayerPoints] = useState<PrayerPoint[]>([]);
@@ -49,20 +49,36 @@ export const useACPDTracking = () => {
     }
   }, []);
 
-  const togglePrayerAnswered = useCallback(async (id: number) => {
+  const togglePrayerAnswered = useCallback(async (id: number, leaderId?: number) => {
     try {
       const current = prayerPoints.find(p => p.id === id);
       if (!current) return;
 
+      const newState = !current.is_answered;
+
       const { error: updateError } = await supabase
         .from('acpd_prayer_points')
-        .update({ is_answered: !current.is_answered, updated_at: new Date().toISOString() })
+        .update({ is_answered: newState, updated_at: new Date().toISOString() })
         .eq('id', id);
 
       if (updateError) throw updateError;
       setPrayerPoints(prev =>
-        prev.map(p => p.id === id ? { ...p, is_answered: !p.is_answered } : p)
+        prev.map(p => p.id === id ? { ...p, is_answered: newState } : p)
       );
+
+      // Add system note when marking as answered
+      if (newState && leaderId) {
+        const truncatedContent = current.content.length > 100 
+          ? current.content.substring(0, 100) + '...' 
+          : current.content;
+        await supabase
+          .from('notes')
+          .insert([{
+            circle_leader_id: leaderId,
+            content: `Prayer answered: "${truncatedContent}"`,
+            created_by: 'System',
+          }]);
+      }
     } catch (err: any) {
       console.error('Error toggling prayer:', err);
       setError(err.message);
@@ -108,11 +124,15 @@ export const useACPDTracking = () => {
     leaderId: number,
     messageType: 'sent' | 'planned',
     note?: string,
-    messageDate?: string
+    messageDate?: string,
+    encourageMethod?: EncourageMethod,
+    leaderName?: string
   ) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
+
+      const method = encourageMethod || 'other';
 
       const { data, error: insertError } = await supabase
         .from('acpd_encouragements')
@@ -120,6 +140,7 @@ export const useACPDTracking = () => {
           circle_leader_id: leaderId,
           user_id: user.id,
           message_type: messageType,
+          encourage_method: method,
           message_date: messageDate || new Date().toISOString().split('T')[0],
           note: note || null,
         }])
@@ -128,6 +149,26 @@ export const useACPDTracking = () => {
 
       if (insertError) throw insertError;
       setEncouragements(prev => [data, ...prev]);
+
+      // Add system note to the leader's notes
+      const methodLabels: Record<EncourageMethod, string> = {
+        text: 'Text', email: 'Email', call: 'Phone Call',
+        in_person: 'In Person', card: 'Card/Letter', other: 'Other',
+      };
+      const dateFormatted = new Date((messageDate || new Date().toISOString().split('T')[0]) + 'T00:00:00')
+        .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const actionWord = messageType === 'sent' ? 'Encouragement sent' : 'Encouragement planned';
+      const noteText = note ? ` — "${note}"` : '';
+      const systemNote = `${actionWord} via ${methodLabels[method]} on ${dateFormatted}.${noteText}`;
+
+      await supabase
+        .from('notes')
+        .insert([{
+          circle_leader_id: leaderId,
+          content: systemNote,
+          created_by: 'System',
+        }]);
+
       return data;
     } catch (err: any) {
       console.error('Error adding encouragement:', err);
@@ -138,6 +179,7 @@ export const useACPDTracking = () => {
 
   const markEncouragementSent = useCallback(async (id: number, leaderId: number) => {
     try {
+      const enc = encouragements.find(e => e.id === id);
       // Update the planned message to sent
       const { error: updateError } = await supabase
         .from('acpd_encouragements')
@@ -145,12 +187,28 @@ export const useACPDTracking = () => {
         .eq('id', id);
 
       if (updateError) throw updateError;
+
+      // Add system note for the conversion
+      const methodLabels: Record<EncourageMethod, string> = {
+        text: 'Text', email: 'Email', call: 'Phone Call',
+        in_person: 'In Person', card: 'Card/Letter', other: 'Other',
+      };
+      const method = enc?.encourage_method || 'other';
+      const noteText = enc?.note ? ` — "${enc.note}"` : '';
+      await supabase
+        .from('notes')
+        .insert([{
+          circle_leader_id: leaderId,
+          content: `Planned encouragement marked as sent via ${methodLabels[method]}.${noteText}`,
+          created_by: 'System',
+        }]);
+
       await loadEncouragements(leaderId);
     } catch (err: any) {
       console.error('Error marking sent:', err);
       setError(err.message);
     }
-  }, [loadEncouragements]);
+  }, [loadEncouragements, encouragements]);
 
   const deleteEncouragement = useCallback(async (id: number) => {
     try {
@@ -218,20 +276,42 @@ export const useACPDTracking = () => {
     }
   }, []);
 
-  const toggleCoachingResolved = useCallback(async (id: number) => {
+  const toggleCoachingResolved = useCallback(async (id: number, leaderId?: number) => {
     try {
       const current = coachingNotes.find(n => n.id === id);
       if (!current) return;
 
+      const newState = !current.is_resolved;
+
       const { error: updateError } = await supabase
         .from('acpd_coaching_notes')
-        .update({ is_resolved: !current.is_resolved })
+        .update({ is_resolved: newState })
         .eq('id', id);
 
       if (updateError) throw updateError;
       setCoachingNotes(prev =>
-        prev.map(n => n.id === id ? { ...n, is_resolved: !n.is_resolved } : n)
+        prev.map(n => n.id === id ? { ...n, is_resolved: newState } : n)
       );
+
+      // Add system note when marking as resolved
+      if (newState && leaderId) {
+        const dimensionLabels: Record<ScorecardDimension, string> = {
+          reach: 'Reach',
+          connect: 'Connect',
+          disciple: 'Disciple',
+          develop: 'Develop',
+        };
+        const truncatedContent = current.content.length > 100 
+          ? current.content.substring(0, 100) + '...' 
+          : current.content;
+        await supabase
+          .from('notes')
+          .insert([{
+            circle_leader_id: leaderId,
+            content: `Coaching note resolved (${dimensionLabels[current.dimension]}): "${truncatedContent}"`,
+            created_by: 'System',
+          }]);
+      }
     } catch (err: any) {
       console.error('Error toggling coaching note:', err);
       setError(err.message);

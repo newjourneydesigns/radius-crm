@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hide scrollbar utility (used for horizontal scroll navs) */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE / Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;             /* Chrome / Safari */
+}
+
 /* Safe area padding for mobile devices (notches, home indicators) */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .safe-area-bottom {

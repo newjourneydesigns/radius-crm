@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useACPDTracking } from '../../hooks/useACPDTracking';
-import { ScorecardDimension } from '../../lib/supabase';
+import { ScorecardDimension, EncourageMethod } from '../../lib/supabase';
 
 const DIMENSIONS: { key: ScorecardDimension; label: string; color: string; bg: string; border: string; dot: string }[] = [
   { key: 'reach', label: 'Reach', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/30', dot: 'bg-blue-400' },
@@ -14,9 +14,19 @@ const DIMENSIONS: { key: ScorecardDimension; label: string; color: string; bg: s
 interface ACPDTrackingSectionProps {
   leaderId: number;
   leaderName: string;
+  onNoteSaved?: () => Promise<void>;
 }
 
-export default function ACPDTrackingSection({ leaderId, leaderName }: ACPDTrackingSectionProps) {
+const ENCOURAGE_METHODS: { key: EncourageMethod; label: string; icon: string }[] = [
+  { key: 'text', label: 'Text', icon: '💬' },
+  { key: 'email', label: 'Email', icon: '📧' },
+  { key: 'call', label: 'Call', icon: '📞' },
+  { key: 'in_person', label: 'In Person', icon: '🤝' },
+  { key: 'card', label: 'Card', icon: '✉️' },
+  { key: 'other', label: 'Other', icon: '📝' },
+];
+
+export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved }: ACPDTrackingSectionProps) {
   const {
     prayerPoints, encouragements, coachingNotes,
     isLoading, loadAll,
@@ -30,7 +40,9 @@ export default function ACPDTrackingSection({ leaderId, leaderName }: ACPDTracki
   const [coachOpen, setCoachOpen] = useState(true);
   const [newPrayer, setNewPrayer] = useState('');
   const [newEncourageNote, setNewEncourageNote] = useState('');
-  const [newEncourageType, setNewEncourageType] = useState<'sent' | 'planned'>('planned');
+  const [newEncourageType, setNewEncourageType] = useState<'sent' | 'planned'>('sent');
+  const [newEncourageMethod, setNewEncourageMethod] = useState<EncourageMethod>('text');
+  const [newEncourageDate, setNewEncourageDate] = useState(new Date().toISOString().split('T')[0]);
   const [newCoachDimension, setNewCoachDimension] = useState<ScorecardDimension>('reach');
   const [newCoachContent, setNewCoachContent] = useState('');
   const [showAnswered, setShowAnswered] = useState(false);
@@ -48,14 +60,26 @@ export default function ACPDTrackingSection({ leaderId, leaderName }: ACPDTracki
   };
 
   const handleAddEncouragement = async () => {
-    await addEncouragement(leaderId, newEncourageType, newEncourageNote.trim() || undefined);
+    await addEncouragement(leaderId, newEncourageType, newEncourageNote.trim() || undefined, newEncourageDate, newEncourageMethod, leaderName);
     setNewEncourageNote('');
+    setNewEncourageDate(new Date().toISOString().split('T')[0]);
+    if (onNoteSaved) await onNoteSaved();
   };
 
   const handleAddCoachNote = async () => {
     if (!newCoachContent.trim()) return;
     await addCoachingNote(leaderId, newCoachDimension, newCoachContent.trim());
     setNewCoachContent('');
+  };
+
+  const handleTogglePrayerAnswered = async (prayerId: number) => {
+    await togglePrayerAnswered(prayerId, leaderId);
+    if (onNoteSaved) await onNoteSaved();
+  };
+
+  const handleToggleCoachingResolved = async (noteId: number) => {
+    await toggleCoachingResolved(noteId, leaderId);
+    if (onNoteSaved) await onNoteSaved();
   };
 
   const handleDelete = (type: string, id: number) => {
@@ -190,7 +214,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName }: ACPDTracki
                         className="flex items-start gap-3 p-3 rounded-xl bg-gray-900/30 border border-gray-700/40 hover:border-amber-500/20 transition-all group"
                       >
                         <button
-                          onClick={() => togglePrayerAnswered(prayer.id)}
+                          onClick={() => handleTogglePrayerAnswered(prayer.id)}
                           className="mt-0.5 w-5 h-5 rounded-md border-2 border-gray-500 hover:border-amber-400 flex-shrink-0 flex items-center justify-center transition-colors"
                           title="Mark as answered"
                         >
@@ -244,7 +268,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName }: ACPDTracki
                             className="flex items-start gap-3 p-2.5 rounded-lg bg-gray-900/20 group"
                           >
                             <button
-                              onClick={() => togglePrayerAnswered(prayer.id)}
+                              onClick={() => handleTogglePrayerAnswered(prayer.id)}
                               className="mt-0.5 w-5 h-5 rounded-md bg-amber-500 border-2 border-amber-500 flex-shrink-0 flex items-center justify-center transition-colors"
                               title="Mark as unanswered"
                             >
@@ -297,7 +321,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName }: ACPDTracki
               <p className="text-[10px] text-gray-500">
                 {plannedEncouragements.length > 0
                   ? `${plannedEncouragements.length} planned`
-                  : 'Track encouragements'}
+                  : `Track encouragements to ${leaderName}`}
                 {sentEncouragements.length > 0 ? ` · ${sentEncouragements.length} sent` : ''}
               </p>
             </div>
@@ -316,7 +340,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName }: ACPDTracki
 
         {encourageOpen && (
           <div className="px-5 pb-5 space-y-4 border-t border-gray-700/40">
-            {/* Status cards */}
+            {/* Status summary cards */}
             <div className="grid grid-cols-2 gap-3 pt-4">
               <div className="p-3.5 rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20">
                 <div className="flex items-center gap-1.5 mb-2">
@@ -350,7 +374,10 @@ export default function ACPDTrackingSection({ leaderId, leaderName }: ACPDTracki
                       <p className="text-xs text-gray-400 mt-1 line-clamp-2">{plannedEncouragements[0].note}</p>
                     )}
                     <button
-                      onClick={() => markEncouragementSent(plannedEncouragements[0].id, leaderId)}
+                      onClick={async () => {
+                        await markEncouragementSent(plannedEncouragements[0].id, leaderId);
+                        if (onNoteSaved) await onNoteSaved();
+                      }}
                       className="score-btn mt-2.5 w-full py-1.5 text-xs font-medium rounded-lg transition-all"
                       style={{
                         '--score-bg': 'rgba(16, 185, 129, 0.2)',
@@ -359,7 +386,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName }: ACPDTracki
                         '--score-shadow': 'rgba(16, 185, 129, 0.1)',
                       } as React.CSSProperties}
                     >
-                      Mark Sent
+                      ✓ Mark as Sent
                     </button>
                   </>
                 ) : (
@@ -368,54 +395,124 @@ export default function ACPDTrackingSection({ leaderId, leaderName }: ACPDTracki
               </div>
             </div>
 
-            {/* Add encouragement */}
-            <div className="space-y-2">
+            {/* ── Add encouragement form ── */}
+            <div className="p-4 rounded-xl bg-gray-900/30 border border-gray-700/40 space-y-3">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Log an Encouragement</p>
+
+              {/* Intent radio: sent vs planned */}
+              <div className="flex gap-3">
+                <label
+                  className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${
+                    newEncourageType === 'sent'
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                      : 'border-gray-700 text-gray-400 hover:border-gray-500'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="encourageType"
+                    value="sent"
+                    checked={newEncourageType === 'sent'}
+                    onChange={() => setNewEncourageType('sent')}
+                    className="sr-only"
+                  />
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                    newEncourageType === 'sent' ? 'border-emerald-400' : 'border-gray-500'
+                  }`}>
+                    {newEncourageType === 'sent' && <div className="w-2 h-2 rounded-full bg-emerald-400" />}
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium">I sent one</span>
+                    <p className="text-[10px] text-gray-500">Log a message already sent</p>
+                  </div>
+                </label>
+                <label
+                  className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${
+                    newEncourageType === 'planned'
+                      ? 'bg-sky-500/10 border-sky-500/30 text-sky-400'
+                      : 'border-gray-700 text-gray-400 hover:border-gray-500'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="encourageType"
+                    value="planned"
+                    checked={newEncourageType === 'planned'}
+                    onChange={() => setNewEncourageType('planned')}
+                    className="sr-only"
+                  />
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                    newEncourageType === 'planned' ? 'border-sky-400' : 'border-gray-500'
+                  }`}>
+                    {newEncourageType === 'planned' && <div className="w-2 h-2 rounded-full bg-sky-400" />}
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium">Plan to send</span>
+                    <p className="text-[10px] text-gray-500">Schedule a future message</p>
+                  </div>
+                </label>
+              </div>
+
+              {/* Method & Date row */}
               <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1 block">How</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ENCOURAGE_METHODS.map(m => (
+                      <button
+                        key={m.key}
+                        onClick={() => setNewEncourageMethod(m.key)}
+                        className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg border-2 transition-all ${
+                          newEncourageMethod === m.key
+                            ? 'bg-emerald-500 text-white border-emerald-400 shadow-lg shadow-emerald-500/30 scale-105'
+                            : 'border-gray-800 text-gray-600 hover:text-gray-300 hover:border-gray-600 hover:bg-gray-800/50 opacity-60'
+                        }`}
+                      >
+                        <span className="mr-1">{m.icon}</span>{m.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1 block">
+                  {newEncourageType === 'sent' ? 'Date Sent' : 'Planned Date'}
+                </label>
+                <input
+                  type="date"
+                  value={newEncourageDate}
+                  onChange={e => setNewEncourageDate(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-900/50 border border-gray-600 rounded-xl text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 focus:outline-none transition-all [color-scheme:dark]"
+                />
+              </div>
+
+              {/* Note input */}
+              <div>
+                <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1 block">Note (optional)</label>
                 <input
                   type="text"
                   value={newEncourageNote}
                   onChange={e => setNewEncourageNote(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleAddEncouragement()}
-                  placeholder="Message note (optional)..."
-                  className="flex-1 px-3 py-2.5 bg-gray-900/50 border border-gray-600 rounded-xl text-sm text-white placeholder-gray-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 focus:outline-none transition-all"
+                  placeholder={`What did you say to ${leaderName}?`}
+                  className="w-full px-3 py-2.5 bg-gray-900/50 border border-gray-600 rounded-xl text-sm text-white placeholder-gray-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 focus:outline-none transition-all"
                 />
               </div>
-              <div className="flex gap-2">
-                <div className="flex flex-1 p-0.5 bg-gray-900/40 rounded-lg">
-                  <button
-                    onClick={() => setNewEncourageType('planned')}
-                    className={`flex-1 py-2 text-xs font-medium rounded-md transition-all ${
-                      newEncourageType === 'planned'
-                        ? 'bg-sky-500/20 text-sky-400 shadow-sm'
-                        : 'text-gray-400 hover:text-gray-300'
-                    }`}
-                  >
-                    Plan
-                  </button>
-                  <button
-                    onClick={() => setNewEncourageType('sent')}
-                    className={`flex-1 py-2 text-xs font-medium rounded-md transition-all ${
-                      newEncourageType === 'sent'
-                        ? 'bg-emerald-500/20 text-emerald-400 shadow-sm'
-                        : 'text-gray-400 hover:text-gray-300'
-                    }`}
-                  >
-                    Sent
-                  </button>
-                </div>
-                <button
-                  onClick={handleAddEncouragement}
-                  className="score-btn px-4 py-2 text-sm font-medium rounded-xl transition-all"
-                  style={{
-                    '--score-bg': 'rgb(16 185 129)',
-                    '--score-color': 'white',
-                    '--score-border': 'rgb(5 150 105)',
-                    '--score-shadow': 'rgba(16, 185, 129, 0.3)',
-                  } as React.CSSProperties}
-                >
-                  Add
-                </button>
-              </div>
+
+              {/* Submit button */}
+              <button
+                onClick={handleAddEncouragement}
+                className="score-btn w-full py-2.5 text-sm font-medium rounded-xl transition-all"
+                style={{
+                  '--score-bg': newEncourageType === 'sent' ? 'rgb(16 185 129)' : 'rgb(14 165 233)',
+                  '--score-color': 'white',
+                  '--score-border': newEncourageType === 'sent' ? 'rgb(5 150 105)' : 'rgb(2 132 199)',
+                  '--score-shadow': newEncourageType === 'sent' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(14, 165, 233, 0.3)',
+                } as React.CSSProperties}
+              >
+                {newEncourageType === 'sent' ? 'Save Encouragement' : 'Plan Encouragement'}
+              </button>
             </div>
 
             {/* Encouragement history timeline */}
@@ -428,7 +525,9 @@ export default function ACPDTrackingSection({ leaderId, leaderName }: ACPDTracki
               <div>
                 <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">History</p>
                 <div className="space-y-1 max-h-52 overflow-y-auto pr-1 scrollbar-thin">
-                  {encouragements.map(enc => (
+                  {encouragements.map(enc => {
+                    const method = ENCOURAGE_METHODS.find(m => m.key === enc.encourage_method);
+                    return (
                     <div
                       key={enc.id}
                       className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-700/20 transition-colors group"
@@ -443,16 +542,20 @@ export default function ACPDTrackingSection({ leaderId, leaderName }: ACPDTracki
                           }`}>
                             {enc.message_type === 'sent' ? 'Sent' : 'Planned'}
                           </span>
+                          {method && <span className="text-[10px] text-gray-500">{method.icon} {method.label}</span>}
                           <span className="text-[10px] text-gray-500">{formatDate(enc.message_date)}</span>
                         </div>
                         {enc.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{enc.note}</p>}
                       </div>
                       {enc.message_type === 'planned' && (
                         <button
-                          onClick={() => markEncouragementSent(enc.id, leaderId)}
+                          onClick={async () => {
+                            await markEncouragementSent(enc.id, leaderId);
+                            if (onNoteSaved) await onNoteSaved();
+                          }}
                           className="flex-shrink-0 text-[10px] text-emerald-400/70 hover:text-emerald-400 transition-colors px-2 py-1 rounded-md hover:bg-emerald-500/10"
                         >
-                          Sent
+                          ✓ Sent
                         </button>
                       )}
                       <button
@@ -468,7 +571,8 @@ export default function ACPDTrackingSection({ leaderId, leaderName }: ACPDTracki
                         </svg>
                       </button>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -582,7 +686,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName }: ACPDTracki
                             className={`flex items-start gap-3 p-3 rounded-xl border transition-all group ${dim.bg} ${dim.border}`}
                           >
                             <button
-                              onClick={() => toggleCoachingResolved(note.id)}
+                              onClick={() => handleToggleCoachingResolved(note.id)}
                               className={`mt-0.5 w-5 h-5 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-colors border-gray-500 hover:border-sky-400`}
                               title="Mark resolved"
                             >
@@ -633,7 +737,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName }: ACPDTracki
                               className="flex items-start gap-3 p-2.5 rounded-lg bg-gray-900/20 group"
                             >
                               <button
-                                onClick={() => toggleCoachingResolved(note.id)}
+                                onClick={() => handleToggleCoachingResolved(note.id)}
                                 className="mt-0.5 w-5 h-5 rounded-md bg-sky-500 border-2 border-sky-500 flex-shrink-0 flex items-center justify-center"
                                 title="Mark unresolved"
                               >
