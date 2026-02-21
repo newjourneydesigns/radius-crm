@@ -38,6 +38,8 @@ async function buildDigestForUser(
   const tomorrow = getDateOffset(today, 1);
 
   // 1a. Incomplete todos with a due date (due today or overdue)
+  // Only include manual/untyped todos — follow_up, encouragement, and circle_visit
+  // types are already shown in their own dedicated sections to avoid double-counting.
   const { data: allTodos } = await supabase
     .from('todo_items')
     .select('id, text, due_date, notes, todo_type, linked_leader_id, linked_visit_id')
@@ -45,15 +47,17 @@ async function buildDigestForUser(
     .eq('completed', false)
     .not('due_date', 'is', null)
     .lte('due_date', today)
+    .or('todo_type.eq.manual,todo_type.is.null')
     .order('due_date', { ascending: true });
 
-  // 1b. Incomplete todos with NO due date
+  // 1b. Incomplete todos with NO due date (manual/untyped only)
   const { data: noDateTodosData } = await supabase
     .from('todo_items')
     .select('id, text, due_date, notes, todo_type, linked_leader_id, linked_visit_id')
     .eq('user_id', user.id)
     .eq('completed', false)
     .is('due_date', null)
+    .or('todo_type.eq.manual,todo_type.is.null')
     .order('id', { ascending: true });
 
   // Fetch leader names for todos that have linked_leader_id

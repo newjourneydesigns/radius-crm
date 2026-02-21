@@ -280,9 +280,9 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
 <div style="max-width:640px; margin:0 auto; padding:24px 16px;">
 
   <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed); border-radius:14px; padding:28px 32px; text-align:center; margin-bottom:8px;">
-    <h1 style="margin:0 0 6px 0; font-size:24px; font-weight:800; color:white;">Your Daily Digest</h1>
-    <p style="margin:0; font-size:14px; color:rgba(255,255,255,0.85);">${formatDate(date)}</p>
-    <p style="margin:8px 0 0 0; font-size:13px; color:rgba(255,255,255,0.7);">Hi ${user.name || 'there'} 👋 Here's what needs your attention today.</p>
+    <h1 style="margin:0 0 6px 0; font-size:24px; font-weight:800; color:#ffffff;">Your Daily Digest</h1>
+    <p style="margin:0; font-size:14px; color:#e0e7ff;">${formatDate(date)}</p>
+    <p style="margin:8px 0 0 0; font-size:13px; color:#c7d2fe;">Hi ${user.name || 'there'} 👋 Here's what needs your attention today.</p>
   </div>
 
   <div style="background:white; border-radius:10px; padding:16px 20px; margin-bottom:8px; border:1px solid #e5e7eb;">
