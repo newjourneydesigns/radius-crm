@@ -1,5 +1,5 @@
-const CACHE_NAME = 'radius-v1.1.0';
-const STATIC_CACHE = 'radius-static-v1.1.0';
+const CACHE_NAME = 'radius-v1.2.0';
+const STATIC_CACHE = 'radius-static-v1.2.0';
 
 // Files to cache for offline functionality
 const STATIC_FILES = [
