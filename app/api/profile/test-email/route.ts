@@ -71,8 +71,17 @@ export async function POST(request: NextRequest) {
       .lte('due_date', today)
       .order('due_date', { ascending: true });
 
+    const { data: noDateTodosData } = await supabase
+      .from('todo_items')
+      .select('id, text, due_date, notes, todo_type, linked_leader_id, linked_visit_id')
+      .eq('user_id', user.id)
+      .eq('completed', false)
+      .is('due_date', null)
+      .order('id', { ascending: true });
+
+    const allTodosForLeaders = [...(allTodos || []), ...(noDateTodosData || [])];    
     const leaderIdsForTodos = Array.from(new Set(
-      (allTodos || []).filter(t => t.linked_leader_id).map(t => t.linked_leader_id)
+      allTodosForLeaders.filter(t => t.linked_leader_id).map(t => t.linked_leader_id)
     ));
     let leaderNamesMap: Record<number, string> = {};
     if (leaderIdsForTodos.length > 0) {
@@ -83,7 +92,7 @@ export async function POST(request: NextRequest) {
       (leaderRows || []).forEach(l => { leaderNamesMap[l.id] = l.name; });
     }
 
-    const todosRaw: TodoItem[] = (allTodos || []).map(t => ({
+    const mapTodo = (t: any): TodoItem => ({
       id: t.id,
       text: t.text,
       due_date: t.due_date,
@@ -92,7 +101,10 @@ export async function POST(request: NextRequest) {
       linked_leader_id: t.linked_leader_id,
       linked_leader_name: t.linked_leader_id ? leaderNamesMap[t.linked_leader_id] ?? null : null,
       linked_visit_id: t.linked_visit_id,
-    }));
+    });
+
+    const todosRaw: TodoItem[] = (allTodos || []).map(mapTodo);
+    const todosNoDate: TodoItem[] = (noDateTodosData || []).map(mapTodo);
 
     // ── 2. Circle visits ──────────────────────────────────────────────────
     const { data: visitsRaw } = await supabase
@@ -153,6 +165,7 @@ export async function POST(request: NextRequest) {
       todos: {
         dueToday: todosRaw.filter(t => t.due_date === today),
         overdue: todosRaw.filter(t => t.due_date !== null && t.due_date < today),
+        noDate: todosNoDate,
       },
       circleVisits: {
         today: (visitsRaw || []).filter(v => v.visit_date === today).map(toVisit),
@@ -181,6 +194,7 @@ export async function POST(request: NextRequest) {
       counts: {
         todayTodos: digestData.todos.dueToday.length,
         overdueTodos: digestData.todos.overdue.length,
+        noDateTodos: digestData.todos.noDate.length,
         visitsToday: digestData.circleVisits.today.length,
         visitsThisWeek: digestData.circleVisits.thisWeek.length,
         encouragementsToday: digestData.encouragements.dueToday.length,

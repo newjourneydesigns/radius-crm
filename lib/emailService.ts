@@ -43,6 +43,7 @@ export interface PersonalDigestData {
   todos: {
     dueToday: TodoItem[];
     overdue: TodoItem[];
+    noDate: TodoItem[];
   };
   circleVisits: {
     today: VisitItem[];
@@ -150,11 +151,11 @@ function todoRow(item: TodoItem, appUrl: string, today: string): string {
 }
 
 export function generatePersonalDigestHTML(data: PersonalDigestData): string {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.radiuscrm.com';
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://myradiuscrm.com';
   const { user, date, todos, circleVisits, encouragements, followUps } = data;
 
   const totalItems =
-    todos.dueToday.length + todos.overdue.length +
+    todos.dueToday.length + todos.overdue.length + todos.noDate.length +
     circleVisits.today.length + circleVisits.thisWeek.length +
     encouragements.dueToday.length + encouragements.overdue.length +
     followUps.dueToday.length + followUps.overdue.length;
@@ -173,6 +174,14 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
     todosOverdueHtml = sectionHeader('🚨', 'Overdue Tasks', todos.overdue.length, '#ef4444');
     todos.overdue.forEach(t => { todosOverdueHtml += todoRow(t, appUrl, date); });
     todosOverdueHtml += `<a href="${appUrl}/dashboard" style="font-size:12px; color:#ef4444; text-decoration:none; font-weight:600;">View all overdue →</a></div>`;
+  }
+
+  // NO-DATE TODOS
+  let todosNoDueDateHtml = '';
+  if (todos.noDate.length > 0) {
+    todosNoDueDateHtml = sectionHeader('📋', 'Tasks (No Due Date)', todos.noDate.length, '#64748b');
+    todos.noDate.forEach(t => { todosNoDueDateHtml += todoRow(t, appUrl, date); });
+    todosNoDueDateHtml += `<a href="${appUrl}/dashboard" style="font-size:12px; color:#64748b; text-decoration:none; font-weight:600;">View all tasks →</a></div>`;
   }
 
   // CIRCLE VISITS TODAY
@@ -259,7 +268,7 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
        </div>`
     : '';
 
-  const taskCount = todos.dueToday.length + todos.overdue.length;
+  const taskCount = todos.dueToday.length + todos.overdue.length + todos.noDate.length;
   const visitCount = circleVisits.today.length + circleVisits.thisWeek.length;
   const encCount = encouragements.dueToday.length + encouragements.overdue.length;
   const fuCount = followUps.dueToday.length + followUps.overdue.length;
@@ -297,6 +306,7 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
     ${fuToday}
     ${todosDueTodayHtml}
     ${todosOverdueHtml}
+    ${todosNoDueDateHtml}
     ${encOverdue}
     ${fuOverdue}
     ${visitsWeek}

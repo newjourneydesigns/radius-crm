@@ -37,7 +37,7 @@ async function buildDigestForUser(
   const weekEnd = getDateOffset(today, 7);
   const tomorrow = getDateOffset(today, 1);
 
-  // 1. All incomplete todos for this user
+  // 1a. Incomplete todos with a due date (due today or overdue)
   const { data: allTodos } = await supabase
     .from('todo_items')
     .select('id, text, due_date, notes, todo_type, linked_leader_id, linked_visit_id')
@@ -47,9 +47,19 @@ async function buildDigestForUser(
     .lte('due_date', today)
     .order('due_date', { ascending: true });
 
+  // 1b. Incomplete todos with NO due date
+  const { data: noDateTodosData } = await supabase
+    .from('todo_items')
+    .select('id, text, due_date, notes, todo_type, linked_leader_id, linked_visit_id')
+    .eq('user_id', user.id)
+    .eq('completed', false)
+    .is('due_date', null)
+    .order('id', { ascending: true });
+
   // Fetch leader names for todos that have linked_leader_id
+  const allTodosForLeaders = [...(allTodos || []), ...(noDateTodosData || [])];
   const leaderIdsForTodos = Array.from(new Set(
-    (allTodos || []).filter(t => t.linked_leader_id).map(t => t.linked_leader_id)
+    allTodosForLeaders.filter(t => t.linked_leader_id).map(t => t.linked_leader_id)
   ));
   let leaderNamesMap: Record<number, string> = {};
   if (leaderIdsForTodos.length > 0) {
@@ -60,7 +70,7 @@ async function buildDigestForUser(
     (leaderRows || []).forEach(l => { leaderNamesMap[l.id] = l.name; });
   }
 
-  const todosRaw: TodoItem[] = (allTodos || []).map(t => ({
+  const mapTodo = (t: any): TodoItem => ({
     id: t.id,
     text: t.text,
     due_date: t.due_date,
@@ -69,7 +79,10 @@ async function buildDigestForUser(
     linked_leader_id: t.linked_leader_id,
     linked_leader_name: t.linked_leader_id ? leaderNamesMap[t.linked_leader_id] ?? null : null,
     linked_visit_id: t.linked_visit_id,
-  }));
+  });
+
+  const todosRaw: TodoItem[] = (allTodos || []).map(mapTodo);
+  const todosNoDate: TodoItem[] = (noDateTodosData || []).map(mapTodo);
 
   const todosDueToday = todosRaw.filter(t => t.due_date === today);
   const todosOverdue = todosRaw.filter(t => t.due_date !== null && t.due_date < today);
@@ -152,7 +165,7 @@ async function buildDigestForUser(
   return {
     user,
     date: today,
-    todos: { dueToday: todosDueToday, overdue: todosOverdue },
+    todos: { dueToday: todosDueToday, overdue: todosOverdue, noDate: todosNoDate },
     circleVisits: { today: visitsToday, thisWeek: visitsThisWeek },
     encouragements: { dueToday: encsDueToday, overdue: encsOverdue },
     followUps: { dueToday: fuDueToday, overdue: fuOverdue },
@@ -177,6 +190,9 @@ function buildDemoDigest(user: { id: string; name: string; email: string }, toda
       ],
       overdue: [
         { id: 3, text: 'Submit monthly report', due_date: threeDaysAgo, notes: 'Q3 summary needed', todo_type: 'manual', linked_leader_id: null, linked_leader_name: null, linked_visit_id: null },
+      ],
+      noDate: [
+        { id: 4, text: 'Review new leader applications', due_date: null, notes: 'Check portal for pending applications', todo_type: 'manual', linked_leader_id: null, linked_leader_name: null, linked_visit_id: null },
       ],
     },
     circleVisits: {
@@ -275,6 +291,7 @@ export async function POST(request: NextRequest) {
         const hasContent =
           digestData.todos.dueToday.length > 0 ||
           digestData.todos.overdue.length > 0 ||
+          digestData.todos.noDate.length > 0 ||
           digestData.circleVisits.today.length > 0 ||
           digestData.circleVisits.thisWeek.length > 0 ||
           digestData.encouragements.dueToday.length > 0 ||
