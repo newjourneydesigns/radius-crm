@@ -150,7 +150,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         return prev;
       });
-    }, 4000);
+    }, 1500);
 
     return () => {
       subscription.unsubscribe();

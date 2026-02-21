@@ -153,8 +153,8 @@ export default function RootLayout({
             </>
           )}
           
-          {/* Main Content */}
-          <main>{children}</main>
+          {/* Main Content — extra bottom padding on mobile prevents the fixed bottom nav from overlapping content */}
+          <main className="pb-20 md:pb-0">{children}</main>
           
           {!hideChrome && (
             <>
