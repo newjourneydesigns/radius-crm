@@ -1140,7 +1140,7 @@ export default function SettingsPage() {
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                       {digestSubscribed
-                        ? 'You'll get an email each morning with your to-dos, visits, encouragements, and follow-ups.'
+                        ? "You'll get an email each morning with your to-dos, visits, encouragements, and follow-ups."
                         : 'Turn on to get a daily summary of everything on your plate.'}
                     </p>
                   </div>
