@@ -529,25 +529,25 @@ const CircleVisitsSection: React.FC<CircleVisitsSectionProps> = ({ leaderId, lea
           isVisitToday(nextVisit.visit_date) ? 'border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-900/20' :
           isVisitOverdue(nextVisit.visit_date) ? 'border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-900/20' : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800'
         }`}>
-          <div className="flex justify-between items-start">
-            <div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start">
+            <div className="min-w-0">
               <h4 className="font-medium text-gray-900 dark:text-white mb-2">Next Scheduled Visit</h4>
-              <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
-                <div className="flex items-center">
-                  <CalendarIcon className="h-4 w-4 mr-1" />
+              <div className="flex flex-col gap-1 text-sm text-gray-600 dark:text-gray-400">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <CalendarIcon className="h-4 w-4 flex-shrink-0" />
                   <span>{formatDate(nextVisit.visit_date)}</span>
                   {isVisitToday(nextVisit.visit_date) && (
-                    <span className="ml-2 bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium">
+                    <span className="bg-blue-600 text-white px-2 py-0.5 rounded text-xs font-medium">
                       Today
                     </span>
                   )}
                   {isVisitOverdue(nextVisit.visit_date) && (
-                    <span className="ml-2 bg-red-600 text-white px-2 py-1 rounded text-xs font-medium">
+                    <span className="bg-red-600 text-white px-2 py-0.5 rounded text-xs font-medium">
                       Overdue
                     </span>
                   )}
                 </div>
-                <div>Scheduled by {nextVisit.scheduled_by}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">Scheduled by {nextVisit.scheduled_by}</div>
               </div>
               {nextVisit.previsit_note && (
                 <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 italic">
@@ -555,26 +555,26 @@ const CircleVisitsSection: React.FC<CircleVisitsSectionProps> = ({ leaderId, lea
                 </p>
               )}
             </div>
-            <div className="flex space-x-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <button
                 onClick={() => {
                   setVisitToComplete(nextVisit);
                   setShowCompleteModal(true);
                 }}
-                className="flex items-center space-x-1 bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors"
+                className="flex items-center gap-1 bg-green-600 text-white px-3 py-1.5 rounded text-sm hover:bg-green-700 transition-colors"
               >
                 <CheckIcon className="h-4 w-4" />
                 <span>Complete</span>
               </button>
               <button
                 onClick={() => handleCancelVisit(nextVisit.id)}
-                className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm px-2 py-1"
+                className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm px-2 py-1.5 border border-red-200 dark:border-red-800 rounded"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleDeleteVisit(nextVisit.id, nextVisit.visit_date)}
-                className="text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors p-1"
+                className="text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors p-1.5"
                 title="Delete visit"
               >
                 <TrashIcon className="h-4 w-4" />
@@ -604,21 +604,21 @@ const CircleVisitsSection: React.FC<CircleVisitsSectionProps> = ({ leaderId, lea
           <div className="space-y-3">
             {recentVisits.map((visit) => (
               <div key={visit.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800">
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                      <CalendarIcon className="h-4 w-4 mr-1" />
+                <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-start mb-2">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
+                      <CalendarIcon className="h-4 w-4 flex-shrink-0" />
                       <span>{formatDate(visit.visit_date)}</span>
                     </div>
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(visit.status)}`}>
+                    <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusBadgeColor(visit.status)}`}>
                       {visit.status}
                     </span>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center gap-1 flex-shrink-0 self-start">
                     {visit.status === 'scheduled' && (
                       <button
                         onClick={() => handleCancelVisit(visit.id)}
-                        className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-xs px-2 py-1"
+                        className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-xs px-2 py-1 border border-red-200 dark:border-red-800 rounded"
                       >
                         Cancel
                       </button>
