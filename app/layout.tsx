@@ -1,38 +1,87 @@
-'use client';
-
 import "../styles/globals.css";
-import { usePathname } from 'next/navigation';
-import MobileNavigation from "../components/layout/MobileNavigation";
-import AuthenticatedNavigation from "../components/layout/AuthenticatedNavigation";
-import PublicNavigation from "../components/layout/PublicNavigation";
-import Footer from "../components/layout/Footer";
-import ScrollToTop from "../components/ui/ScrollToTop";
-import { AuthProvider } from "../contexts/AuthContext";
+import ClientLayout from "./ClientLayout";
+
+export const metadata = {
+  title: 'RADIUS Circle Leader Management',
+  description: 'Circle Leader Management System for RADIUS',
+};
 
 export default function RootLayout({ 
   children 
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
-  const hideChrome = pathname === '/login' || pathname.startsWith('/auth');
+  const darkThemeScript = [
+    '(function() {',
+    '  var html = document.documentElement;',
+    '  html.classList.add("dark");',
+    '  localStorage.setItem("theme", "dark");',
+    '  localStorage.setItem("color-scheme", "dark");',
+    '})();',
+  ].join('\n');
+
+  const swScript = [
+    'if ("serviceWorker" in navigator) {',
+    '  window.addEventListener("load", function() {',
+    '    if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {',
+    '      navigator.serviceWorker.register("/sw.js")',
+    '        .then(function(registration) {',
+    '          console.log("SW registered: ", registration);',
+    '          registration.addEventListener("updatefound", function() {',
+    '            var newWorker = registration.installing;',
+    '            if (newWorker) {',
+    '              newWorker.addEventListener("statechange", function() {',
+    '                if (newWorker.state === "installed" && navigator.serviceWorker.controller) {',
+    '                  console.log("New service worker installed, reloading...");',
+    '                  window.location.reload();',
+    '                }',
+    '              });',
+    '            }',
+    '          });',
+    '        })',
+    '        .catch(function(err) { console.log("SW registration failed: ", err); });',
+    '    } else {',
+    '      console.log("Service worker disabled in development");',
+    '    }',
+    '  });',
+    '}',
+    'var deferredPrompt;',
+    'window.addEventListener("beforeinstallprompt", function(e) {',
+    '  console.log("PWA install prompt available");',
+    '  e.preventDefault();',
+    '  deferredPrompt = e;',
+    '  window.dispatchEvent(new CustomEvent("pwaInstallAvailable"));',
+    '});',
+    'window.addEventListener("appinstalled", function() {',
+    '  console.log("PWA installed successfully");',
+    '  deferredPrompt = null;',
+    '  window.dispatchEvent(new CustomEvent("pwaInstalled"));',
+    '});',
+    'window.installPWA = function() {',
+    '  if (deferredPrompt) {',
+    '    deferredPrompt.prompt();',
+    '    deferredPrompt.userChoice.then(function(choiceResult) {',
+    '      console.log(choiceResult.outcome === "accepted" ? "User accepted install" : "User dismissed install");',
+    '      deferredPrompt = null;',
+    '    });',
+    '  }',
+    '};',
+  ].join('\n');
 
   return (
     <html lang="en" className="dark">
       <head>
-        <title>RADIUS Circle Leader Management</title>
-        <meta name="description" content="Circle Leader Management System for RADIUS" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="color-scheme" content="dark" />
 
-        {/* FullCalendar base styles (v6 packages bundle CSS in the global build) */}
+        {/* FullCalendar */}
         <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.20/index.global.min.js" />
-        
+
         {/* PWA Meta Tags */}
         <meta name="application-name" content="RADIUS" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="RADIUS" />
+        <meta name="apple-mobile-web-app-title" content="RADIUS CRM" />
         <meta name="format-detection" content="telephone=no" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
@@ -49,123 +98,14 @@ export default function RootLayout({
         <link rel="icon" type="image/png" sizes="16x16" href="/icon-16x16.png" />
         <link rel="shortcut icon" href="/icon-32x32.png" />
 
-        {/* Apple PWA Configuration - No Splash */}
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="RADIUS CRM" />
-        
-        {/* Dark Green Theme Force Script */}
-        <script dangerouslySetInnerHTML={{
-          __html: `
-            (function() {
-              // Force dark theme immediately
-              const html = document.documentElement;
-              html.classList.add('dark');
-              
-              // Force theme preference
-              localStorage.setItem('theme', 'dark');
-              localStorage.setItem('color-scheme', 'dark');
-            })();
-          `
-        }} />
-        
-        {/* Service Worker Registration */}
-        <script dangerouslySetInnerHTML={{
-          __html: `
-            if ('serviceWorker' in navigator) {
-              window.addEventListener('load', function() {
-                // Only register service worker in production
-                if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-                  navigator.serviceWorker.register('/sw.js')
-                    .then(function(registration) {
-                      console.log('SW registered: ', registration);
-                      
-                      // Check for updates
-                      registration.addEventListener('updatefound', function() {
-                        const newWorker = registration.installing;
-                        if (newWorker) {
-                          newWorker.addEventListener('statechange', function() {
-                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                              console.log('New service worker installed, reloading...');
-                              window.location.reload();
-                            }
-                          });
-                        }
-                      });
-                    })
-                    .catch(function(registrationError) {
-                      console.log('SW registration failed: ', registrationError);
-                    });
-                } else {
-                  console.log('Service worker disabled in development');
-                }
-              });
-            }
+        {/* Force dark theme immediately */}
+        <script dangerouslySetInnerHTML={{ __html: darkThemeScript }} />
 
-            // PWA Install Prompt
-            let deferredPrompt;
-            let installButton = null;
-
-            window.addEventListener('beforeinstallprompt', (e) => {
-              console.log('PWA install prompt available');
-              e.preventDefault();
-              deferredPrompt = e;
-              
-              // Show install button in navigation
-              window.dispatchEvent(new CustomEvent('pwaInstallAvailable'));
-            });
-
-            window.addEventListener('appinstalled', (evt) => {
-              console.log('PWA installed successfully');
-              deferredPrompt = null;
-              window.dispatchEvent(new CustomEvent('pwaInstalled'));
-            });
-
-            // Function to trigger install
-            window.installPWA = function() {
-              if (deferredPrompt) {
-                deferredPrompt.prompt();
-                deferredPrompt.userChoice.then((choiceResult) => {
-                  if (choiceResult.outcome === 'accepted') {
-                    console.log('User accepted the install prompt');
-                  } else {
-                    console.log('User dismissed the install prompt');
-                  }
-                  deferredPrompt = null;
-                });
-              }
-            };
-          `
-        }} />
+        {/* Service Worker + PWA Install */}
+        <script dangerouslySetInnerHTML={{ __html: swScript }} />
       </head>
       <body className="font-sans dark bg-slate-900 min-h-screen text-gray-100">
-        <AuthProvider>
-          {!hideChrome && (
-            <>
-              {/* Mobile Navigation */}
-              <MobileNavigation />
-
-              {/* Desktop Navigation */}
-              <AuthenticatedNavigation />
-
-              {/* Public Navigation (shown when not authenticated) */}
-              <PublicNavigation />
-            </>
-          )}
-          
-          {/* Main Content — extra bottom padding on mobile prevents the fixed bottom nav from overlapping content */}
-          <main className="pb-20 md:pb-0">{children}</main>
-          
-          {!hideChrome && (
-            <>
-              {/* Footer */}
-              <Footer />
-
-              {/* Scroll to Top Button */}
-              <ScrollToTop />
-            </>
-          )}
-        </AuthProvider>
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   );
