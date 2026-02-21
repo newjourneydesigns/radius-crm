@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     console.log('User authenticated:', user.id);
 
     // Get user profile (may not exist yet)
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('users')
       .select('*')
       .eq('id', user.id)
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
     // Get email preferences from users table columns
     let emailPrefs: Record<string, unknown> | null = null;
     try {
-      const { data: userPrefs } = await supabase
+      const { data: userPrefs } = await supabaseAdmin
         .from('users')
         .select('daily_email_subscribed, daily_email_time')
         .eq('id', user.id)
@@ -162,7 +162,7 @@ export async function PUT(request: NextRequest) {
       const { name } = profile;
       
       // Use upsert to either update existing row or insert new one
-      const { error: profileError } = await supabase
+      const { error: profileError } = await supabaseAdmin
         .from('users')
         .upsert({
           id: user.id,
@@ -195,14 +195,14 @@ export async function PUT(request: NextRequest) {
 
         // Only update if there's something to write
         if (Object.keys(updatePayload).length > 0) {
-          const { error: prefUpdateError } = await supabase
+          const { error: prefUpdateError } = await supabaseAdmin
             .from('users')
             .update(updatePayload)
             .eq('id', user.id);
 
           if (prefUpdateError) {
             console.error('Error updating email preferences:', prefUpdateError);
-            // Non-fatal — continue without failing the whole request
+            return NextResponse.json({ error: 'Failed to update email preferences' }, { status: 500 });
           }
         }
       } catch (error: any) {
