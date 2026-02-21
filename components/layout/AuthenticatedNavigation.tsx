@@ -121,6 +121,13 @@ export default function AuthenticatedNavigation() {
                       Users
                     </Link>
                     <Link 
+                      href="/profile" 
+                      className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Profile
+                    </Link>
+                    <Link 
                       href="/settings" 
                       className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400"
                       onClick={() => setIsMenuOpen(false)}

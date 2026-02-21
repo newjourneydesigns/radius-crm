@@ -45,6 +45,11 @@ export default function SettingsPage() {
   const [editingFrequency, setEditingFrequency] = useState<SettingsItem | null>(null);
   const [editingCampus, setEditingCampus] = useState<SettingsItem | null>(null);
   
+  // Notification settings state
+  const [digestSubscribed, setDigestSubscribed] = useState<boolean | null>(null);
+  const [digestLoading, setDigestLoading] = useState(false);
+  const [digestUserId, setDigestUserId] = useState<string | null>(null);
+
   // UI state
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'directors' | 'circles' | 'statuses' | 'frequencies' | 'campuses' | 'templates' | 'scorecard' | 'app'>('directors');
@@ -65,7 +70,45 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadAllData();
+    loadDigestSubscription();
   }, []);
+
+  const loadDigestSubscription = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      setDigestUserId(user.id);
+      const { data } = await supabase
+        .from('users')
+        .select('daily_email_subscribed')
+        .eq('id', user.id)
+        .single();
+      setDigestSubscribed(data?.daily_email_subscribed ?? false);
+    } catch (err) {
+      console.error('Error loading digest subscription:', err);
+    }
+  };
+
+  const toggleDigestSubscription = async () => {
+    if (!digestUserId || digestLoading) return;
+    setDigestLoading(true);
+    try {
+      const newValue = !digestSubscribed;
+      const { error } = await supabase
+        .from('users')
+        .update({ daily_email_subscribed: newValue })
+        .eq('id', digestUserId);
+      if (error) throw error;
+      setDigestSubscribed(newValue);
+      showAlertMessage('success', newValue ? 'Subscribed!' : 'Unsubscribed', newValue
+        ? 'You will receive a daily digest email each morning.'
+        : 'You have unsubscribed from the daily digest.');
+    } catch (err: any) {
+      showAlertMessage('error', 'Error', err.message || 'Failed to update subscription');
+    } finally {
+      setDigestLoading(false);
+    }
+  };
 
   const loadAllData = async () => {
     setIsLoading(true);
@@ -1081,6 +1124,49 @@ export default function SettingsPage() {
               </div>
 
               <ServiceWorkerUtils />
+
+              {/* Daily Digest Notifications */}
+              <div className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-8">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">📧 Daily Digest Email</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  Receive a personalized morning email with your upcoming tasks, circle visits,
+                  encouragements, and follow-ups due today — including anything overdue.
+                </p>
+
+                <div className="flex items-center justify-between rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-5 py-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {digestSubscribed ? '✅ Subscribed to daily digest' : '🔕 Not subscribed'}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {digestSubscribed
+                        ? 'You'll get an email each morning with your to-dos, visits, encouragements, and follow-ups.'
+                        : 'Turn on to get a daily summary of everything on your plate.'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={toggleDigestSubscription}
+                    disabled={digestLoading || digestSubscribed === null}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 ${
+                      digestSubscribed ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'
+                    }`}
+                    role="switch"
+                    aria-checked={digestSubscribed ?? false}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        digestSubscribed ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {digestSubscribed && (
+                  <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+                    Digests are sent daily at 8:00 AM. To unsubscribe, toggle the switch above.
+                  </p>
+                )}
+              </div>
             </div>
           )}
         </div>

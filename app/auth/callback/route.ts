@@ -5,62 +5,23 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get('code');
   const error = requestUrl.searchParams.get('error');
   const error_description = requestUrl.searchParams.get('error_description');
-  const next = requestUrl.searchParams.get('next') ?? '/dashboard';
 
-  console.log('🔍 Auth callback received:', {
-    origin: requestUrl.origin,
-    code: code ? 'present' : 'missing',
-    error,
-    error_description,
-    forwardedHost: request.headers.get('x-forwarded-host'),
-    host: request.headers.get('host'),
-    fullUrl: request.url
-  });
+  console.log('🔍 Auth callback received:', { code: !!code, error });
 
-  // If there's an OAuth error from the provider
+  // Handle OAuth errors
   if (error) {
-    console.error('❌ OAuth provider error:', error, error_description);
-    return NextResponse.redirect(`${requestUrl.origin}/auth/auth-code-error?error=${error}&description=${encodeURIComponent(error_description || '')}`);
+    console.error('❌ OAuth error:', error, error_description);
+    return NextResponse.redirect(`${requestUrl.origin}/login?error=${error}`);
   }
 
+  // If we have a code, redirect to dashboard with the code
+  // The client-side Supabase will automatically detect and exchange it
   if (code) {
-    // For the OAuth callback, we'll let the client-side handle the session
-    // The client-side Supabase will automatically detect the auth code in the URL
-    // and handle the PKCE flow properly
-    
-    console.log('✅ Auth code received, redirecting to client-side handler...');
-    
-    const forwardedHost = request.headers.get('x-forwarded-host');
-    const host = request.headers.get('host');
-    const isLocalEnv = process.env.NODE_ENV === 'development';
-    
-    let redirectUrl;
-    if (isLocalEnv) {
-      // In development, redirect to localhost
-      redirectUrl = `${requestUrl.origin}${next}`;
-    } else if (host === 'myradiuscrm.com') {
-      // If the request came to our custom domain, stay on it
-      redirectUrl = `https://myradiuscrm.com${next}`;
-    } else if (forwardedHost === 'myradiuscrm.com') {
-      // If forwarded from our custom domain, redirect back to it
-      redirectUrl = `https://myradiuscrm.com${next}`;
-    } else {
-      // Fallback to origin
-      redirectUrl = `${requestUrl.origin}${next}`;
-    }
-    
-    // Add the auth parameters to the redirect URL so client can handle them
-    const redirectUrlObj = new URL(redirectUrl);
-    redirectUrlObj.searchParams.set('code', code);
-    if (requestUrl.searchParams.get('state')) {
-      redirectUrlObj.searchParams.set('state', requestUrl.searchParams.get('state')!);
-    }
-    
-    console.log('🔍 Auth callback redirecting to:', redirectUrlObj.toString());
-    return NextResponse.redirect(redirectUrlObj.toString());
+    console.log('✅ Auth code received, redirecting to dashboard');
+    return NextResponse.redirect(`${requestUrl.origin}/dashboard?code=${code}`);
   }
 
-  // No code parameter
-  console.error('❌ No auth code received in callback');
-  return NextResponse.redirect(`${requestUrl.origin}/auth/auth-code-error?error=missing_code&description=No authentication code received`);
+  // No code - go back to login
+  console.error('❌ No auth code received');
+  return NextResponse.redirect(`${requestUrl.origin}/login`);
 }

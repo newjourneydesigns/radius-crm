@@ -204,6 +204,10 @@ export interface TodoItem {
   is_series_master?: boolean | null;
   repeat_rule?: string | null;
   repeat_interval?: number | null;
+  linked_encouragement_id?: number | null;
+  linked_leader_id?: number | null;
+  linked_visit_id?: string | null;
+  todo_type?: 'manual' | 'encouragement' | 'follow_up' | 'circle_visit';
   created_at: string;
   updated_at: string;
 }
@@ -230,6 +234,9 @@ export interface CircleVisit {
   canceled_by?: string;
   cancel_reason?: string;
   previsit_note?: string;
+  celebrations?: string;
+  observations?: string;
+  next_step?: string;
   created_at: string;
   updated_at: string;
   circle_leader?: CircleLeader; // For joined queries

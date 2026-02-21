@@ -21,6 +21,7 @@ import ProgressTimeline from '../../../components/circle/ProgressTimeline';
 import CategoryTrendCharts from '../../../components/charts/CategoryTrendCharts';
 import ScorecardSection from '../../../components/circle/ScorecardSection';
 import ACPDTrackingSection from '../../../components/circle/ACPDTrackingSection';
+import CircleVisitsSection from '../../../components/circle/CircleVisitsSection';
 import { useScorecard } from '../../../hooks/useScorecard';
 import { calculateSuggestedScore, getFinalScore, AnswerValue } from '../../../lib/evaluationQuestions';
 import { getEventSummaryButtonLabel, getEventSummaryColors, getEventSummaryState } from '../../../lib/event-summary-utils';
@@ -235,6 +236,7 @@ const normalizeCircleTypeValue = (value: string | undefined | null): string => {
 const SECTION_TABS = [
   { id: 'section-profile',   label: 'Profile' },
   { id: 'section-pec',       label: 'Pray / Encourage / Coach', adminOnly: true },
+  { id: 'section-visits',    label: 'Circle Visits', adminOnly: true },
   { id: 'section-scorecard', label: 'Scorecard' },
   { id: 'section-trends',    label: 'Trends' },
   { id: 'section-notes',     label: 'Notes' },
@@ -2624,6 +2626,15 @@ export default function CircleLeaderProfilePage() {
         {isAdmin() && leader && (
           <div id="section-pec" ref={setSectionRef('section-pec')} className="mt-6 scroll-mt-20">
             <ACPDTrackingSection key={acpdKey} leaderId={leaderId} leaderName={leader.name} onNoteSaved={reloadNotes} />
+          </div>
+        )}
+
+        {/* Circle Visits Section */}
+        {leader && (
+          <div id="section-visits" ref={setSectionRef('section-visits')} className="mt-6 scroll-mt-20">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <CircleVisitsSection leaderId={leaderId} leaderName={leader.name} />
+            </div>
           </div>
         )}
 

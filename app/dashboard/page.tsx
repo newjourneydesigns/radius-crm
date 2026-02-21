@@ -94,8 +94,28 @@ function DashboardContent() {
   const [editingTodoNotes, setEditingTodoNotes] = useState('');
   const [editingTodoRepeatRule, setEditingTodoRepeatRule] = useState<TodoRepeatRule>('none');
   // Todos are always sorted earliest to latest with no-date todos at the end
-  type TodoListFilters = { today: boolean; tomorrow: boolean; overdue: boolean; completed: boolean; all: boolean };
-  const DEFAULT_TODO_FILTERS: TodoListFilters = { today: true, tomorrow: true, overdue: false, completed: false, all: false };
+  type TodoListFilters = {
+    today: boolean;
+    tomorrow: boolean;
+    overdue: boolean;
+    completed: boolean;
+    all: boolean;
+    manualTodos: boolean;
+    followUps: boolean;
+    encouragements: boolean;
+    circleVisits: boolean;
+  };
+  const DEFAULT_TODO_FILTERS: TodoListFilters = {
+    today: true,
+    tomorrow: true,
+    overdue: false,
+    completed: false,
+    all: false,
+    manualTodos: true,
+    followUps: true,
+    encouragements: true,
+    circleVisits: true,
+  };
   const [todosVisible, setTodosVisible] = useState(() => {
     try {
       const saved = localStorage.getItem('todosVisible');
@@ -313,10 +333,142 @@ function DashboardContent() {
     return insertedAny;
   };
 
-  // Load todos from database
+  // Load todos from database and sync with encouragements and follow-ups
   const loadTodos = async () => {
     if (!user?.id) return;
     try {
+      // Step 1: Sync planned encouragements to todos
+      const { data: encouragements } = await supabase
+        .from('acpd_encouragements')
+        .select('id, circle_leader_id, message_date, note, encourage_method')
+        .eq('user_id', user.id)
+        .eq('message_type', 'planned');
+      
+      if (encouragements && encouragements.length > 0) {
+        // Get leader names for the encouragements
+        const leaderIds = Array.from(new Set(encouragements.map(e => e.circle_leader_id)));
+        const { data: leaders } = await supabase
+          .from('circle_leaders')
+          .select('id, name')
+          .in('id', leaderIds);
+        
+        const leaderMap = new Map(leaders?.map(l => [l.id, l.name]) || []);
+        
+        // Create todo items for encouragements that don't have one yet
+        for (const enc of encouragements) {
+          // Check if todo already exists (use limit(1) to avoid error when duplicates exist)
+          const { data: existingRows } = await supabase
+            .from('todo_items')
+            .select('id')
+            .eq('linked_encouragement_id', enc.id)
+            .limit(1);
+          
+          if (!existingRows || existingRows.length === 0) {
+            const leaderName = leaderMap.get(enc.circle_leader_id) || 'Unknown Leader';
+            const methodLabel = enc.encourage_method === 'text' ? '💬 Text' 
+              : enc.encourage_method === 'email' ? '📧 Email'
+              : enc.encourage_method === 'call' ? '📞 Call'
+              : enc.encourage_method === 'in_person' ? '🤝 In Person'
+              : enc.encourage_method === 'card' ? '✉️ Card'
+              : '📝 Other';
+            
+            await supabase
+              .from('todo_items')
+              .insert({
+                user_id: user.id,
+                text: `Send encouragement to ${leaderName} via ${methodLabel}`,
+                notes: enc.note || null,
+                completed: false,
+                due_date: enc.message_date,
+                todo_type: 'encouragement',
+                linked_encouragement_id: enc.id
+              });
+          }
+        }
+      }
+      
+      // Step 2: Sync follow-ups to todos
+      const { data: followUps } = await supabase
+        .from('circle_leaders')
+        .select('id, name, follow_up_date')
+        .eq('follow_up_required', true);
+      
+      if (followUps && followUps.length > 0) {
+        // Create todo items for follow-ups that don't have one yet
+        for (const leader of followUps) {
+          // Check if todo already exists (use limit(1) to avoid error when duplicates exist)
+          const { data: existingRows } = await supabase
+            .from('todo_items')
+            .select('id')
+            .eq('linked_leader_id', leader.id)
+            .eq('todo_type', 'follow_up')
+            .limit(1);
+          
+          if (!existingRows || existingRows.length === 0) {
+            await supabase
+              .from('todo_items')
+              .insert({
+                user_id: user.id,
+                text: `Follow up with ${leader.name}`,
+                completed: false,
+                due_date: leader.follow_up_date,
+                todo_type: 'follow_up',
+                linked_leader_id: leader.id
+              });
+          }
+        }
+      }
+      
+      // Step 3: Clean up any duplicate linked todos
+      // Group by linked_encouragement_id and linked_leader_id+todo_type, keep only the oldest
+      const { data: allLinked } = await supabase
+        .from('todo_items')
+        .select('id, linked_encouragement_id, linked_leader_id, todo_type, created_at')
+        .eq('user_id', user.id)
+        .or('linked_encouragement_id.not.is.null,linked_leader_id.not.is.null');
+
+      if (allLinked && allLinked.length > 0) {
+        const dupIdsToDelete: number[] = [];
+
+        // Encouragement duplicates
+        const encMap = new Map<number, typeof allLinked>();
+        for (const t of allLinked) {
+          if (t.linked_encouragement_id) {
+            const arr = encMap.get(t.linked_encouragement_id) || [];
+            arr.push(t);
+            encMap.set(t.linked_encouragement_id, arr);
+          }
+        }
+        encMap.forEach(rows => {
+          if (rows.length > 1) {
+            rows.sort((a, b) => a.created_at.localeCompare(b.created_at));
+            for (let i = 1; i < rows.length; i++) dupIdsToDelete.push(rows[i].id);
+          }
+        });
+
+        // Follow-up duplicates
+        const fuMap = new Map<string, typeof allLinked>();
+        for (const t of allLinked) {
+          if (t.linked_leader_id && t.todo_type === 'follow_up') {
+            const key = `${t.linked_leader_id}`;
+            const arr = fuMap.get(key) || [];
+            arr.push(t);
+            fuMap.set(key, arr);
+          }
+        }
+        fuMap.forEach(rows => {
+          if (rows.length > 1) {
+            rows.sort((a, b) => a.created_at.localeCompare(b.created_at));
+            for (let i = 1; i < rows.length; i++) dupIdsToDelete.push(rows[i].id);
+          }
+        });
+
+        if (dupIdsToDelete.length > 0) {
+          await supabase.from('todo_items').delete().in('id', dupIdsToDelete);
+        }
+      }
+
+      // Step 4: Load all todos
       const { data, error } = await supabase
         .from('todo_items')
         .select('*')
@@ -901,6 +1053,20 @@ function DashboardContent() {
 
   const matchesActiveTodoFilters = (todo: TodoItem) => {
     if (todo.completed) return false;
+
+    // Type filter
+    const allTypesSelected = todoFilters.manualTodos && todoFilters.followUps && todoFilters.encouragements && todoFilters.circleVisits;
+    if (!allTypesSelected) {
+      const todoType = todo.todo_type || 'manual';
+      if (todoType === 'manual' && !todoFilters.manualTodos) return false;
+      if (todoType === 'follow_up' && !todoFilters.followUps) return false;
+      if (todoType === 'encouragement' && !todoFilters.encouragements) return false;
+      if (todoType === 'circle_visit' && !todoFilters.circleVisits) return false;
+      // Unknown types follow manualTodos
+      if (!['manual', 'follow_up', 'encouragement', 'circle_visit'].includes(todoType) && !todoFilters.manualTodos) return false;
+    }
+
+    // Date filter
     if (todoFilters.all) return true;
     if (!todo.due_date) return false;
     if (todoFilters.today && todo.due_date === todayISO) return true;
@@ -1012,8 +1178,9 @@ function DashboardContent() {
 
       if (todoFilters.all) {
         // Keep recurring series compact: show only the next active occurrence (or earliest overdue)
+        // Still respect type filters
         const next = active
-          .filter(t => Boolean(t.due_date))
+          .filter(t => Boolean(t.due_date) && matchesActiveTodoFilters(t))
           .sort((a, b) => {
             const aDue = a.due_date as string;
             const bDue = b.due_date as string;
@@ -2378,11 +2545,7 @@ function DashboardContent() {
                         aria-haspopup="true"
                         aria-expanded={todoFiltersOpen}
                       >
-                        <span className="sm:hidden">Filters</span>
-                        <span className="hidden sm:inline">
-                          Filters: {todoFilters.all ? 'All' : todoFilters.today && todoFilters.tomorrow && !todoFilters.overdue ? 'Today + Tomorrow' : [todoFilters.today && 'Today', todoFilters.tomorrow && 'Tomorrow', todoFilters.overdue && 'Overdue'].filter(Boolean).join(' + ') || 'Today + Tomorrow'}
-                          {todoFilters.completed ? ' + Completed' : ''}
-                        </span>
+                        Filters
                       </button>
 
                       {todoFiltersOpen && (
@@ -2441,6 +2604,50 @@ function DashboardContent() {
                             />
                             <span className="text-sm font-medium text-gray-800 dark:text-gray-100">All</span>
                           </label>
+
+                          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                            <div className="px-2 py-1.5 mb-2 text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Types</div>
+
+                            <label className="flex items-center gap-2 px-3 py-2.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={todoFilters.manualTodos}
+                                onChange={() => toggleTodoFilter('manualTodos')}
+                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                              />
+                              <span className="text-sm font-medium text-gray-800 dark:text-gray-100">To-Do&apos;s</span>
+                            </label>
+
+                            <label className="flex items-center gap-2 px-3 py-2.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={todoFilters.followUps}
+                                onChange={() => toggleTodoFilter('followUps')}
+                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                              />
+                              <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Follow-Ups</span>
+                            </label>
+
+                            <label className="flex items-center gap-2 px-3 py-2.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={todoFilters.encouragements}
+                                onChange={() => toggleTodoFilter('encouragements')}
+                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                              />
+                              <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Encouragements</span>
+                            </label>
+
+                            <label className="flex items-center gap-2 px-3 py-2.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={todoFilters.circleVisits}
+                                onChange={() => toggleTodoFilter('circleVisits')}
+                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                              />
+                              <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Circle Visits</span>
+                            </label>
+                          </div>
 
                           <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2">
                             <button
@@ -2692,12 +2899,40 @@ function DashboardContent() {
                             <>
                               <div className="flex-1">
                                 <div className="flex items-start justify-between gap-2">
-                                  <div
-                                    className={`text-sm text-gray-800 dark:text-gray-200 ${
-                                      todo.completed ? 'line-through text-gray-500 dark:text-gray-400' : ''
-                                    }`}
-                                  >
-                                    {renderTodoText(todo.text)}
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <div
+                                      className={`text-sm text-gray-800 dark:text-gray-200 ${
+                                        todo.completed ? 'line-through text-gray-500 dark:text-gray-400' : ''
+                                      }`}
+                                    >
+                                      {renderTodoText(todo.text)}
+                                    </div>
+                                    
+                                    {/* Badge for linked items */}
+                                    {todo.todo_type === 'encouragement' && (
+                                      <span className="inline-flex items-center rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-200 px-2 py-0.5 text-[10px] font-medium border border-purple-200 dark:border-purple-800">
+                                        💬 Encouragement
+                                      </span>
+                                    )}
+                                    {todo.todo_type === 'follow_up' && (
+                                      <span className="inline-flex items-center rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-200 px-2 py-0.5 text-[10px] font-medium border border-orange-200 dark:border-orange-800">
+                                        🔔 Follow-Up
+                                      </span>
+                                    )}
+                                    {todo.todo_type === 'circle_visit' && (
+                                      <span className="inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-200 px-2 py-0.5 text-[10px] font-medium border border-blue-200 dark:border-blue-800">
+                                        📅 Circle Visit
+                                      </span>
+                                    )}
+
+                                    {(todo.todo_type === 'encouragement' || todo.todo_type === 'follow_up' || todo.todo_type === 'circle_visit') && todo.linked_leader_id && (
+                                      <Link
+                                        href={`/circle/${String(todo.linked_leader_id)}`}
+                                        className="text-xs text-blue-600 dark:text-blue-400 underline hover:no-underline"
+                                      >
+                                        Open leader
+                                      </Link>
+                                    )}
                                   </div>
 
                                   {badge}
@@ -2730,21 +2965,24 @@ function DashboardContent() {
                                 )}
                               </div>
                               <div className="flex gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => startEditingTodo(todo)}
-                                  className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
-                                  title="Edit"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                  </svg>
-                                </button>
+                                {/* Hide edit button for linked todos since they sync from source */}
+                                {!todo.linked_encouragement_id && !todo.linked_leader_id && (
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditingTodo(todo)}
+                                    className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
+                                    title="Edit"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => deleteTodo(todo.id)}
                                   className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
-                                  title="Delete"
+                                  title={todo.linked_encouragement_id || todo.linked_leader_id ? "Delete (will also remove linked item)" : "Delete"}
                                 >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

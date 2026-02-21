@@ -76,13 +76,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Clean up OAuth code param from URL if present (the auth state change
     // handler below will receive the session once Supabase processes it).
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has('code')) {
-        console.log('🔍 AuthContext: OAuth callback detected, clearing URL params');
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    }
+    // NOTE: Don't clean the URL immediately - let Supabase process it first!
+    // The cleanup happens in the auth state change handler below.
 
     // Use onAuthStateChange as the SINGLE source of truth for session state.
     // In @supabase/supabase-js v2.39+, it fires INITIAL_SESSION synchronously
@@ -93,6 +88,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('🔍 AuthContext: Auth state change:', event, session ? 'Session exists' : 'No session');
+
+      // Clean up OAuth callback URL params AFTER Supabase has processed them
+      if (typeof window !== 'undefined' && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('code')) {
+          console.log('🔍 AuthContext: OAuth callback detected, clearing URL params after processing');
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      }
 
       // For INITIAL_SESSION, process immediately (no debounce) so the app
       // doesn't sit on "Checking session…" for an extra second.

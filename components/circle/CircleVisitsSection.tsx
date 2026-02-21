@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { useCircleVisits } from '../../hooks/useCircleVisits';
 import { CircleVisit } from '../../lib/supabase';
 
@@ -24,6 +25,12 @@ const CheckIcon = ({ className }: { className?: string }) => (
 const PlusIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+  </svg>
+);
+
+const TrashIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
   </svg>
 );
 
@@ -67,9 +74,9 @@ const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({
 
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <div 
-      className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-[999999] bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={onClose}
       style={{
         position: 'fixed',
@@ -77,7 +84,7 @@ const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({
         left: 0,
         right: 0,
         bottom: 0,
-        zIndex: 99999,
+        zIndex: 999999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -89,7 +96,7 @@ const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({
         onClick={(e) => e.stopPropagation()}
         style={{
           position: 'relative',
-          zIndex: 100000,
+          zIndex: 1000000,
           margin: 'auto'
         }}
       >
@@ -146,12 +153,14 @@ const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? ReactDOM.createPortal(modalContent, document.body) : null;
 };
 
 interface CompleteVisitModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onComplete: (note: string) => void;
+  onComplete: (note: string, celebrations?: string, observations?: string, nextStep?: string) => void;
   isLoading: boolean;
   visitDate: string;
 }
@@ -164,25 +173,29 @@ const CompleteVisitModal: React.FC<CompleteVisitModalProps> = ({
   visitDate 
 }) => {
   const [visitNote, setVisitNote] = useState('');
+  const [celebrations, setCelebrations] = useState('');
+  const [observations, setObservations] = useState('');
+  const [nextStep, setNextStep] = useState('');
 
   useEffect(() => {
     if (isOpen) {
       setVisitNote('');
+      setCelebrations('');
+      setObservations('');
+      setNextStep('');
     }
   }, [isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (visitNote.trim()) {
-      onComplete(visitNote.trim());
-    }
+    onComplete(visitNote.trim(), celebrations.trim() || undefined, observations.trim() || undefined, nextStep.trim() || undefined);
   };
 
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <div 
-      className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-[999999] bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={onClose}
       style={{
         position: 'fixed',
@@ -190,7 +203,7 @@ const CompleteVisitModal: React.FC<CompleteVisitModalProps> = ({
         left: 0,
         right: 0,
         bottom: 0,
-        zIndex: 99999,
+        zIndex: 999999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -198,39 +211,82 @@ const CompleteVisitModal: React.FC<CompleteVisitModalProps> = ({
       }}
     >
       <div 
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md border border-gray-200/20 dark:border-gray-700/50 transform transition-all animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl border border-gray-200/20 dark:border-gray-700/50 transform transition-all animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
         style={{
           position: 'relative',
-          zIndex: 100000,
+          zIndex: 1000000,
           margin: 'auto'
         }}
       >
         <div className="p-4 sm:p-6">
-          <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Complete Circle Visit</h3>
+          <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">Record Circle Visit</h3>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
           Visit Date: {new Date(visitDate).toLocaleDateString()}
         </p>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Visit Notes *
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              General Notes
             </label>
             <textarea
               value={visitNote}
               onChange={(e) => setVisitNote(e.target.value)}
-              rows={4}
-              placeholder="What happened during this visit? (required)"
-              required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              rows={3}
+              placeholder="Overall notes about the visit..."
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
-            <p className="text-xs text-gray-500 mt-1">
-              These notes will be added to the leader's profile
-            </p>
           </div>
           
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              Optional Questions
+            </p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Celebrations: What are you celebrating about this leader and/or their Circle?
+                </label>
+                <textarea
+                  value={celebrations}
+                  onChange={(e) => setCelebrations(e.target.value)}
+                  rows={2}
+                  placeholder="What wins or positive developments did you observe?"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Observations: What did you see, hear, or experience?
+                </label>
+                <textarea
+                  value={observations}
+                  onChange={(e) => setObservations(e.target.value)}
+                  rows={2}
+                  placeholder="What stood out to you during the visit?"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  My next step to disciple this leader is...
+                </label>
+                <textarea
+                  value={nextStep}
+                  onChange={(e) => setNextStep(e.target.value)}
+                  rows={2}
+                  placeholder="What action will you take to help develop this leader?"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
               type="button"
               onClick={onClose}
@@ -241,10 +297,10 @@ const CompleteVisitModal: React.FC<CompleteVisitModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isLoading || !visitNote.trim()}
+              disabled={isLoading}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 touch-manipulation"
             >
-              {isLoading ? 'Completing...' : 'Complete Visit'}
+              {isLoading ? 'Recording...' : 'Record Visit'}
             </button>
           </div>
         </form>
@@ -252,6 +308,8 @@ const CompleteVisitModal: React.FC<CompleteVisitModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? ReactDOM.createPortal(modalContent, document.body) : null;
 };
 
 const CircleVisitsSection: React.FC<CircleVisitsSectionProps> = ({ leaderId, leaderName }) => {
@@ -261,6 +319,7 @@ const CircleVisitsSection: React.FC<CircleVisitsSectionProps> = ({ leaderId, lea
     scheduleVisit,
     completeVisit,
     cancelVisit,
+    deleteVisit,
     isLoading,
     error
   } = useCircleVisits();
@@ -313,11 +372,11 @@ const CircleVisitsSection: React.FC<CircleVisitsSectionProps> = ({ leaderId, lea
     }
   };
 
-  const handleCompleteVisit = async (note: string) => {
+  const handleCompleteVisit = async (note: string, celebrations?: string, observations?: string, nextStep?: string) => {
     if (!visitToComplete) return;
     
     try {
-      await completeVisit(visitToComplete.id, 'current_user', note); // TODO: Get actual user
+      await completeVisit(visitToComplete.id, 'current_user', note, celebrations, observations, nextStep); // TODO: Get actual user
       
       // Reload data
       const [historyData, nextVisitData] = await Promise.all([
@@ -348,6 +407,25 @@ const CircleVisitsSection: React.FC<CircleVisitsSectionProps> = ({ leaderId, lea
         setNextVisit(nextVisitData);
       } catch (err) {
         console.error('Error canceling visit:', err);
+      }
+    }
+  };
+
+  const handleDeleteVisit = async (visitId: string, visitDate: string) => {
+    const confirmed = confirm(`Are you sure you want to delete this visit scheduled for ${formatDate(visitDate)}? This action cannot be undone.`);
+    if (confirmed) {
+      try {
+        await deleteVisit(visitId);
+        
+        // Reload data
+        const [historyData, nextVisitData] = await Promise.all([
+          loadLeaderVisitHistory(leaderId),
+          getNextScheduledVisit(leaderId)
+        ]);
+        setVisits(historyData);
+        setNextVisit(nextVisitData);
+      } catch (err) {
+        console.error('Error deleting visit:', err);
       }
     }
   };
@@ -387,8 +465,9 @@ const CircleVisitsSection: React.FC<CircleVisitsSectionProps> = ({ leaderId, lea
     }
   };
 
-  // Show recent visits (last 5)
+  // Show recent visits (last 5), excluding the next scheduled visit if it's already shown above
   const recentVisits = visits
+    .filter(visit => !nextVisit || visit.id !== nextVisit.id) // Exclude the next visit
     .sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime())
     .slice(0, 5);
 
@@ -396,7 +475,7 @@ const CircleVisitsSection: React.FC<CircleVisitsSectionProps> = ({ leaderId, lea
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-900">Circle Visits</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Circle Visits</h3>
         <button
           onClick={() => setShowScheduleModal(true)}
           className="flex items-center space-x-2 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
@@ -406,8 +485,40 @@ const CircleVisitsSection: React.FC<CircleVisitsSectionProps> = ({ leaderId, lea
         </button>
       </div>
 
+      {/* External Links */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <a
+          href="https://form.jotform.com/230576051412144"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span>JotForm - Circle Visit Form</span>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+        </a>
+        <a
+          href="https://docs.google.com/spreadsheets/d/1PWorX0udibjgbskLU6lOQ5T8oS6AWGyCW-9x76CUbxs/edit#gid=1262105001"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span>View Submissions (Google Sheets)</span>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+        </a>
+      </div>
+
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded text-sm">
           {error}
         </div>
       )}
@@ -415,13 +526,13 @@ const CircleVisitsSection: React.FC<CircleVisitsSectionProps> = ({ leaderId, lea
       {/* Next Scheduled Visit */}
       {nextVisit && (
         <div className={`border rounded-lg p-4 ${
-          isVisitToday(nextVisit.visit_date) ? 'border-blue-300 bg-blue-50' :
-          isVisitOverdue(nextVisit.visit_date) ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50'
+          isVisitToday(nextVisit.visit_date) ? 'border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-900/20' :
+          isVisitOverdue(nextVisit.visit_date) ? 'border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-900/20' : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800'
         }`}>
           <div className="flex justify-between items-start">
             <div>
-              <h4 className="font-medium text-gray-900 mb-2">Next Scheduled Visit</h4>
-              <div className="flex items-center space-x-4 text-sm text-gray-600">
+              <h4 className="font-medium text-gray-900 dark:text-white mb-2">Next Scheduled Visit</h4>
+              <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
                 <div className="flex items-center">
                   <CalendarIcon className="h-4 w-4 mr-1" />
                   <span>{formatDate(nextVisit.visit_date)}</span>
@@ -439,7 +550,7 @@ const CircleVisitsSection: React.FC<CircleVisitsSectionProps> = ({ leaderId, lea
                 <div>Scheduled by {nextVisit.scheduled_by}</div>
               </div>
               {nextVisit.previsit_note && (
-                <p className="mt-2 text-sm text-gray-700 italic">
+                <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 italic">
                   "{nextVisit.previsit_note}"
                 </p>
               )}
@@ -457,9 +568,16 @@ const CircleVisitsSection: React.FC<CircleVisitsSectionProps> = ({ leaderId, lea
               </button>
               <button
                 onClick={() => handleCancelVisit(nextVisit.id)}
-                className="text-red-600 hover:text-red-800 text-sm px-2 py-1"
+                className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm px-2 py-1"
               >
                 Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteVisit(nextVisit.id, nextVisit.visit_date)}
+                className="text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors p-1"
+                title="Delete visit"
+              >
+                <TrashIcon className="h-4 w-4" />
               </button>
             </div>
           </div>
@@ -468,38 +586,57 @@ const CircleVisitsSection: React.FC<CircleVisitsSectionProps> = ({ leaderId, lea
 
       {/* Visit History */}
       <div className="space-y-3">
-        <h4 className="font-medium text-gray-900">Recent Visits</h4>
+        <h4 className="font-medium text-gray-900 dark:text-white">Recent Visits</h4>
         
         {isLoading ? (
           <div className="animate-pulse space-y-2">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-16 bg-gray-200 rounded"></div>
+              <div key={i} className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
             ))}
           </div>
         ) : recentVisits.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 border border-gray-200 rounded-lg">
-            <CalendarIcon className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
+            <CalendarIcon className="h-8 w-8 mx-auto mb-2 text-gray-400 dark:text-gray-500" />
             <p>No visits recorded yet</p>
             <p className="text-sm">Schedule a visit to get started</p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {recentVisits.map((visit) => (
-              <div key={visit.id} className="border border-gray-200 rounded-lg p-3">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3">
-                      <div className="flex items-center text-sm text-gray-600">
-                        <CalendarIcon className="h-4 w-4 mr-1" />
-                        <span>{formatDate(visit.visit_date)}</span>
-                      </div>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(visit.status)}`}>
-                        {visit.status}
-                      </span>
+              <div key={visit.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                      <CalendarIcon className="h-4 w-4 mr-1" />
+                      <span>{formatDate(visit.visit_date)}</span>
                     </div>
-                    
-                    {visit.status === 'completed' && visit.completed_by && (
-                      <p className="text-sm text-gray-600 mt-1">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(visit.status)}`}>
+                      {visit.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {visit.status === 'scheduled' && (
+                      <button
+                        onClick={() => handleCancelVisit(visit.id)}
+                        className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-xs px-2 py-1"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDeleteVisit(visit.id, visit.visit_date)}
+                      className="text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors p-1"
+                      title="Delete visit"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+                
+                {visit.status === 'completed' && (
+                  <div className="mt-3 space-y-2">
+                    {visit.completed_by && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
                         Completed by {visit.completed_by}
                         {visit.completed_at && (
                           <span className="ml-2">
@@ -509,24 +646,45 @@ const CircleVisitsSection: React.FC<CircleVisitsSectionProps> = ({ leaderId, lea
                       </p>
                     )}
                     
-                    {visit.status === 'canceled' && visit.cancel_reason && (
-                      <p className="text-sm text-red-600 mt-1 italic">
-                        Canceled: {visit.cancel_reason}
-                      </p>
+                    {visit.celebrations && (
+                      <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded p-2">
+                        <p className="text-xs font-semibold text-yellow-800 dark:text-yellow-300 mb-1">🎉 Celebrations</p>
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{visit.celebrations}</p>
+                      </div>
                     )}
                     
-                    {visit.previsit_note && (
-                      <p className="text-sm text-gray-700 mt-1 italic">
-                        "{visit.previsit_note}"
-                      </p>
+                    {visit.observations && (
+                      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2">
+                        <p className="text-xs font-semibold text-blue-800 dark:text-blue-300 mb-1">👁️ Observations</p>
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{visit.observations}</p>
+                      </div>
+                    )}
+                    
+                    {visit.next_step && (
+                      <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-2">
+                        <p className="text-xs font-semibold text-green-800 dark:text-green-300 mb-1">➡️ Next Step</p>
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{visit.next_step}</p>
+                      </div>
                     )}
                   </div>
-                </div>
+                )}
+                
+                {visit.status === 'canceled' && visit.cancel_reason && (
+                  <p className="text-sm text-red-600 dark:text-red-400 mt-2 italic">
+                    Canceled: {visit.cancel_reason}
+                  </p>
+                )}
+                
+                {visit.previsit_note && visit.status === 'scheduled' && (
+                  <p className="text-sm text-gray-700 dark:text-gray-300 mt-2 italic">
+                    "{visit.previsit_note}"
+                  </p>
+                )}
               </div>
             ))}
             
             {visits.length > 5 && (
-              <button className="w-full text-center text-blue-600 hover:text-blue-800 text-sm py-2">
+              <button className="w-full text-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm py-2">
                 View all {visits.length} visits
               </button>
             )}

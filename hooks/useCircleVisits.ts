@@ -207,7 +207,14 @@ export const useCircleVisits = () => {
   }, []);
 
   // Complete a visit - this will be atomic with creating a note
-  const completeVisit = useCallback(async (visitId: string, completedBy: string, visitNote: string) => {
+  const completeVisit = useCallback(async (
+    visitId: string, 
+    completedBy: string, 
+    visitNote: string,
+    celebrations?: string,
+    observations?: string,
+    nextStep?: string
+  ) => {
     setIsLoading(true);
     setError(null);
 
@@ -226,13 +233,16 @@ export const useCircleVisits = () => {
 
       const completedAt = new Date().toISOString();
 
-      // Update visit status
+      // Update visit status and add the optional question responses
       const { error: updateError } = await supabase
         .from('circle_visits')
         .update({
           status: 'completed',
           completed_at: completedAt,
           completed_by: completedBy,
+          celebrations: celebrations || null,
+          observations: observations || null,
+          next_step: nextStep || null,
           updated_at: completedAt
         })
         .eq('id', visitId);
@@ -241,12 +251,31 @@ export const useCircleVisits = () => {
         throw updateError;
       }
 
+      // Build the note content with all the responses
+      let noteContent = `Circle Visit completed on ${new Date(visit.visit_date).toLocaleDateString()}.\n\n`;
+      
+      if (visitNote) {
+        noteContent += `${visitNote}\n\n`;
+      }
+      
+      if (celebrations) {
+        noteContent += `**Celebrations:** ${celebrations}\n\n`;
+      }
+      
+      if (observations) {
+        noteContent += `**Observations:** ${observations}\n\n`;
+      }
+      
+      if (nextStep) {
+        noteContent += `**Next Step:** ${nextStep}\n`;
+      }
+
       // Create a note for the visit completion
       const { error: noteError } = await supabase
         .from('notes')
         .insert({
           circle_leader_id: visit.leader_id,
-          content: `Circle Visit completed on ${new Date(visit.visit_date).toLocaleDateString()}.\n\n${visitNote}`,
+          content: noteContent.trim(),
           created_by: completedBy,
           created_at: completedAt
         });
@@ -303,6 +332,32 @@ export const useCircleVisits = () => {
     }
   }, []);
 
+  // Delete a visit
+  const deleteVisit = useCallback(async (visitId: string) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const { error } = await supabase
+        .from('circle_visits')
+        .delete()
+        .eq('id', visitId);
+
+      if (error) {
+        console.error('Error deleting visit:', error);
+        throw error;
+      }
+
+      return true;
+    } catch (err: any) {
+      console.error('Error in deleteVisit:', err);
+      setError('Failed to delete visit. Please try again.');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   return {
     isLoading,
     error,
@@ -314,6 +369,7 @@ export const useCircleVisits = () => {
     scheduleVisit,
     rescheduleVisit,
     completeVisit,
-    cancelVisit
+    cancelVisit,
+    deleteVisit
   };
 };
