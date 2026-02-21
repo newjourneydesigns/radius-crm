@@ -86,28 +86,33 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch profile' }, { status: 500 });
     }
 
-    // Get email preferences (or return defaults if not set or table doesn't exist)
-    let emailPrefs = null;
-    let prefsError: any = null;
-    
+    // Get email preferences from users table columns
+    let emailPrefs: Record<string, unknown> | null = null;
     try {
-      const result = await supabase
-        .from('user_email_preferences')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-      
-      emailPrefs = result.data;
-      prefsError = result.error;
+      const { data: userPrefs } = await supabase
+        .from('users')
+        .select('daily_email_subscribed, daily_email_time')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (userPrefs) {
+        emailPrefs = {
+          email_enabled: userPrefs.daily_email_subscribed ?? false,
+          email_address: null,
+          include_follow_ups: true,
+          include_overdue_tasks: true,
+          include_planned_encouragements: true,
+          include_upcoming_meetings: false,
+          preferred_time: userPrefs.daily_email_time || '08:00',
+          timezone: 'UTC'
+        };
+      }
     } catch (error: any) {
-      // Table might not exist yet, that's okay
-      console.log('Email preferences table not accessible:', error.message);
-      prefsError = error;
+      console.log('Could not load email prefs from users table:', error.message);
     }
 
-    // If no preferences exist or table doesn't exist, return default values
-    const preferences = (prefsError || !emailPrefs) ? {
-      email_enabled: true,
+    // Fall back to defaults
+    const preferences = emailPrefs ?? {
+      email_enabled: false,
       email_address: null,
       include_follow_ups: true,
       include_overdue_tasks: true,
@@ -115,12 +120,12 @@ export async function GET(request: NextRequest) {
       include_upcoming_meetings: false,
       preferred_time: '08:00',
       timezone: 'UTC'
-    } : emailPrefs;
+    };
 
     return NextResponse.json({
       profile: userProfile,
       preferences,
-      hasPreferences: !prefsError && !!emailPrefs
+      hasPreferences: !!emailPrefs
     });
 
   } catch (error: any) {
@@ -175,73 +180,34 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update email preferences if provided
+    // Stored in the users table (daily_email_subscribed, daily_email_time columns)
     if (preferences) {
       try {
-        const {
-          email_enabled,
-          email_address,
-          include_follow_ups,
-          include_overdue_tasks,
-          include_planned_encouragements,
-          include_upcoming_meetings,
-          preferred_time,
-          timezone
-        } = preferences;
+        const updatePayload: Record<string, unknown> = {};
 
-        // Check if preferences already exist
-        const { data: existingPrefs } = await supabase
-          .from('user_email_preferences')
-          .select('id')
-          .eq('user_id', user.id)
-          .single();
+        // Map legacy preference fields to our actual columns
+        if (typeof preferences.email_enabled === 'boolean') {
+          updatePayload.daily_email_subscribed = preferences.email_enabled;
+        }
+        if (preferences.preferred_time) {
+          updatePayload.daily_email_time = preferences.preferred_time;
+        }
 
-        if (existingPrefs) {
-          // Update existing preferences
-          const { error: updateError } = await supabase
-            .from('user_email_preferences')
-            .update({
-              email_enabled,
-              email_address,
-              include_follow_ups,
-              include_overdue_tasks,
-              include_planned_encouragements,
-              include_upcoming_meetings,
-              preferred_time,
-              timezone
-            })
-            .eq('user_id', user.id);
+        // Only update if there's something to write
+        if (Object.keys(updatePayload).length > 0) {
+          const { error: prefUpdateError } = await supabase
+            .from('users')
+            .update(updatePayload)
+            .eq('id', user.id);
 
-          if (updateError) {
-            console.error('Error updating preferences:', updateError);
-            return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 });
-          }
-        } else {
-          // Insert new preferences
-          const { error: insertError } = await supabase
-            .from('user_email_preferences')
-            .insert({
-              user_id: user.id,
-              email_enabled,
-              email_address,
-              include_follow_ups,
-              include_overdue_tasks,
-              include_planned_encouragements,
-              include_upcoming_meetings,
-              preferred_time,
-              timezone
-            });
-
-          if (insertError) {
-            console.error('Error inserting preferences:', insertError);
-            return NextResponse.json({ error: 'Failed to create preferences' }, { status: 500 });
+          if (prefUpdateError) {
+            console.error('Error updating email preferences:', prefUpdateError);
+            // Non-fatal — continue without failing the whole request
           }
         }
       } catch (error: any) {
-        // Table might not exist yet
-        console.error('Error updating email preferences (table may not exist):', error.message);
-        return NextResponse.json({ 
-          error: 'Email preferences feature not available. Please run the database migration first.' 
-        }, { status: 503 });
+        console.error('Error updating email preferences:', error.message);
+        // Non-fatal — don't fail the request
       }
     }
 
