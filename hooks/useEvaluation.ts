@@ -1,11 +1,14 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { ScorecardDimension } from '../lib/supabase';
 import {
   CategoryEvaluation,
   AnswerValue,
+  EvaluationQuestion,
   calculateSuggestedScore,
   EVALUATION_QUESTIONS,
+  loadEvaluationQuestions,
+  getFinalScore,
 } from '../lib/evaluationQuestions';
 
 export interface EvaluationState {
@@ -17,11 +20,33 @@ export const useEvaluation = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dbQuestions, setDbQuestions] = useState<Record<ScorecardDimension, EvaluationQuestion[]>>(EVALUATION_QUESTIONS);
+  const questionsLoadedRef = useRef(false);
+
+  // Load questions from DB (with fallback to hardcoded)
+  const loadQuestions = useCallback(async () => {
+    if (questionsLoadedRef.current) return dbQuestions;
+    try {
+      const questions = await loadEvaluationQuestions();
+      setDbQuestions(questions);
+      questionsLoadedRef.current = true;
+      return questions;
+    } catch {
+      return EVALUATION_QUESTIONS;
+    }
+  }, [dbQuestions]);
+
+  const getQuestions = useCallback((category: ScorecardDimension): EvaluationQuestion[] => {
+    return dbQuestions[category] || EVALUATION_QUESTIONS[category] || [];
+  }, [dbQuestions]);
 
   const loadEvaluations = useCallback(async (leaderId: number) => {
     setIsLoading(true);
     setError(null);
     try {
+      // Load DB questions in parallel with evaluations
+      const questionsPromise = loadQuestions();
+
       const { data, error: fetchError } = await supabase
         .from('leader_category_evaluations')
         .select('*')
@@ -65,6 +90,9 @@ export const useEvaluation = () => {
           updated_at: e.updated_at || e.created_at || undefined,
         };
       }
+
+      // Ensure questions are loaded
+      await questionsPromise;
 
       setEvaluations(state);
     } catch (err: any) {
@@ -151,7 +179,10 @@ export const useEvaluation = () => {
     setError(null);
     try {
       const evaluation = evaluations[category];
-      if (!evaluation) return false;
+      if (!evaluation) {
+        console.warn('No evaluation data for category:', category);
+        return false;
+      }
 
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -178,8 +209,16 @@ export const useEvaluation = () => {
         return false;
       }
 
-      // Upsert/delete answers
-      const questions = EVALUATION_QUESTIONS[category];
+      // Use DB questions (fallback to hardcoded)
+      const questions = dbQuestions[category] || EVALUATION_QUESTIONS[category];
+
+      // Build a label map for question_text persistence
+      const labelMap: Record<string, string> = {};
+      for (const q of questions) {
+        labelMap[q.key] = q.label;
+      }
+
+      // Upsert/delete answers — include question_text
       for (const q of questions) {
         const answer = evaluation.answers[q.key];
         if (answer === undefined || answer === null) {
@@ -197,6 +236,7 @@ export const useEvaluation = () => {
                 evaluation_id: evalData.id,
                 question_key: q.key,
                 answer,
+                question_text: labelMap[q.key] || q.key,
                 updated_at: new Date().toISOString(),
               },
               { onConflict: 'evaluation_id,question_key' }
@@ -204,11 +244,87 @@ export const useEvaluation = () => {
         }
       }
 
+      // Also handle answers for question keys not in current questions (legacy)
+      const questionKeys = new Set(questions.map(q => q.key));
+      for (const [key, answer] of Object.entries(evaluation.answers)) {
+        if (!questionKeys.has(key)) {
+          if (answer === undefined || answer === null) {
+            await supabase
+              .from('leader_category_answers')
+              .delete()
+              .eq('evaluation_id', evalData.id)
+              .eq('question_key', key);
+          } else {
+            await supabase
+              .from('leader_category_answers')
+              .upsert(
+                {
+                  evaluation_id: evalData.id,
+                  question_key: key,
+                  answer,
+                  question_text: key,
+                  updated_at: new Date().toISOString(),
+                },
+                { onConflict: 'evaluation_id,question_key' }
+              );
+          }
+        }
+      }
+
       // Update the local state with the DB id
       setEvaluations(prev => ({
         ...prev,
-        [category]: { ...prev[category], id: evalData.id },
+        [category]: { ...prev[category], id: evalData.id, updated_at: new Date().toISOString() },
       }));
+
+      // ── Always save scorecard as a note on the leader's profile ──
+      const suggestedScore = calculateSuggestedScore(evaluation.answers);
+      const finalScore = getFinalScore(evaluation.manual_override_score, suggestedScore, null);
+      const categoryLabel = category.charAt(0).toUpperCase() + category.slice(1);
+
+      // Build the note content
+      const answeredQuestions = questions.filter(q => evaluation.answers[q.key] === 'yes' || evaluation.answers[q.key] === 'no');
+      const yesCount = answeredQuestions.filter(q => evaluation.answers[q.key] === 'yes').length;
+
+      const noteLines: string[] = [];
+      noteLines.push(`📋 Scorecard: ${categoryLabel} — Score: ${finalScore ?? 'N/A'}/5`);
+
+      if (evaluation.manual_override_score !== null) {
+        noteLines.push(`   ⚡ Manual override: ${evaluation.manual_override_score}/5`);
+      }
+      if (suggestedScore !== null) {
+        noteLines.push(`   📊 Suggested: ${suggestedScore}/5 (${yesCount}/${answeredQuestions.length} yes)`);
+      }
+
+      noteLines.push('');
+
+      if (answeredQuestions.length > 0) {
+        for (const q of answeredQuestions) {
+          const answerIcon = evaluation.answers[q.key] === 'yes' ? '✅' : '❌';
+          noteLines.push(`   ${answerIcon} ${labelMap[q.key] || q.key}`);
+        }
+      }
+
+      if (evaluation.context_notes) {
+        noteLines.push('');
+        noteLines.push(`   Notes: ${evaluation.context_notes}`);
+      }
+
+      const noteContent = noteLines.join('\n');
+
+      if (user?.id) {
+        const { error: noteError } = await supabase
+          .from('notes')
+          .insert({
+            circle_leader_id: leaderId,
+            content: noteContent,
+            created_by: user.id,
+          });
+          
+        if (noteError) {
+          console.error('Error saving scorecard note:', noteError);
+        }
+      }
 
       return true;
     } catch (err: any) {
@@ -218,7 +334,7 @@ export const useEvaluation = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [evaluations]);
+  }, [evaluations, dbQuestions]);
 
   const getSuggestedScore = useCallback((category: ScorecardDimension): number | null => {
     const evaluation = evaluations[category];
@@ -231,8 +347,10 @@ export const useEvaluation = () => {
     isLoading,
     isSaving,
     error,
+    dbQuestions,
     loadEvaluations,
     getEvaluation,
+    getQuestions,
     updateAnswer,
     setOverride,
     setContextNotes,

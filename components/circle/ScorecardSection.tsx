@@ -17,15 +17,17 @@ const DIMENSIONS = [
 interface ScorecardSectionProps {
   leaderId: number;
   isAdmin: boolean;
+  onNoteSaved?: () => void;
 }
 
-export default function ScorecardSection({ leaderId, isAdmin }: ScorecardSectionProps) {
+export default function ScorecardSection({ leaderId, isAdmin, onNoteSaved }: ScorecardSectionProps) {
   const { ratings, isLoading, loadRatings, submitScores, updateScore, deleteScore, getLatestScores, getTrend } = useScorecard();
   const {
     isLoading: evalLoading,
     isSaving: evalSaving,
     loadEvaluations,
     getEvaluation,
+    getQuestions,
     updateAnswer,
     setOverride,
     setContextNotes,
@@ -254,10 +256,11 @@ export default function ScorecardSection({ leaderId, isAdmin }: ScorecardSection
               manualOverride={evalData.manual_override_score}
               contextNotes={evalData.context_notes}
               existingScore={existingScore}
+              questions={getQuestions(activeDimension)}
               onAnswerChange={(qKey, answer) => updateAnswer(activeDimension, leaderId, qKey, answer)}
               onOverrideChange={(score) => setOverride(activeDimension, leaderId, score)}
               onContextChange={(notes) => setContextNotes(activeDimension, leaderId, notes)}
-              onSave={async () => { await saveEvaluation(leaderId, activeDimension); }}
+              onSave={async () => { await saveEvaluation(leaderId, activeDimension); onNoteSaved?.(); }}
               onClose={() => setActiveDimension(null)}
               isSaving={evalSaving}
             />
@@ -273,7 +276,7 @@ export default function ScorecardSection({ leaderId, isAdmin }: ScorecardSection
                   const evalData = getEvaluation(dim.key);
                   const suggested = getSuggestedScore(dim.key);
                   const answeredCount = Object.values(evalData.answers).filter(a => a === 'yes' || a === 'no').length;
-                  const totalQuestions = 7;
+                  const totalQuestions = getQuestions(dim.key).length;
                   const isFromEval = !effectiveScores.hasDirectScores && score !== null;
 
                   return (

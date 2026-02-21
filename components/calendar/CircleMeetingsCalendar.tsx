@@ -4,8 +4,6 @@ import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import type { DatesSetArg, EventClickArg, EventContentArg } from '@fullcalendar/core';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { DateClickArg } from '@fullcalendar/interaction';
@@ -19,8 +17,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const FullCalendar = dynamic(() => import('@fullcalendar/react'), { ssr: false });
 
-const CALENDAR_VIEW_STORAGE_KEY = 'radius.calendar.view';
-const DEFAULT_CALENDAR_VIEW = 'dayGridMonth';
+const DEFAULT_CALENDAR_VIEW = 'listWeek';
 
 type CalendarEvent = {
   id: string;
@@ -331,22 +328,8 @@ export default function CircleMeetingsCalendar({
   const [selectedEventGroupName, setSelectedEventGroupName] = useState<string>('');
   const [selectedCcbProfileLink, setSelectedCcbProfileLink] = useState<string | null>(null);
   const [expandedEventIds, setExpandedEventIds] = useState<Set<string>>(new Set());
-  const [initialView] = useState(() => {
-    if (typeof window === 'undefined') return DEFAULT_CALENDAR_VIEW;
-    try {
-      return window.localStorage.getItem(CALENDAR_VIEW_STORAGE_KEY) || DEFAULT_CALENDAR_VIEW;
-    } catch {
-      return DEFAULT_CALENDAR_VIEW;
-    }
-  });
-  const [currentViewType, setCurrentViewType] = useState<string>(() => {
-    if (typeof window === 'undefined') return DEFAULT_CALENDAR_VIEW;
-    try {
-      return window.localStorage.getItem(CALENDAR_VIEW_STORAGE_KEY) || DEFAULT_CALENDAR_VIEW;
-    } catch {
-      return DEFAULT_CALENDAR_VIEW;
-    }
-  });
+  const [initialView] = useState(DEFAULT_CALENDAR_VIEW);
+  const [currentViewType, setCurrentViewType] = useState(DEFAULT_CALENDAR_VIEW);
 
   // Default meeting length; can be made configurable later.
   const durationMinutes = 60;
@@ -367,13 +350,6 @@ export default function CircleMeetingsCalendar({
   const onDatesSet = useCallback((arg: DatesSetArg) => {
     setVisibleRange({ start: arg.start, end: arg.end });
     setCurrentViewType(arg.view.type);
-    if (typeof window !== 'undefined') {
-      try {
-        window.localStorage.setItem(CALENDAR_VIEW_STORAGE_KEY, arg.view.type);
-      } catch {
-        // ignore
-      }
-    }
     try {
       const focused = arg.view?.calendar?.getDate?.();
       if (focused) {
@@ -698,85 +674,16 @@ export default function CircleMeetingsCalendar({
       )}
 
       <div className="calendar-shell">
-        {/* Mobile View Toggle Buttons - Moved to top for better UX */}
-        {isMobile && (
-          <div className="mb-4 flex items-center justify-center gap-2 p-2 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-            <button
-              onClick={() => {
-                const calendarEl = document.querySelector('.calendar-shell .fc');
-                if (calendarEl && (calendarEl as any).fcApi) {
-                  (calendarEl as any).fcApi.changeView('timeGridDay');
-                }
-              }}
-              className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                currentViewType === 'timeGridDay'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-              }`}
-            >
-              Day
-            </button>
-            <button
-              onClick={() => {
-                const calendarEl = document.querySelector('.calendar-shell .fc');
-                if (calendarEl && (calendarEl as any).fcApi) {
-                  (calendarEl as any).fcApi.changeView('timeGridWeek');
-                }
-              }}
-              className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                currentViewType === 'timeGridWeek'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-              }`}
-            >
-              Week
-            </button>
-            <button
-              onClick={() => {
-                const calendarEl = document.querySelector('.calendar-shell .fc');
-                if (calendarEl && (calendarEl as any).fcApi) {
-                  (calendarEl as any).fcApi.changeView('dayGridMonth');
-                }
-              }}
-              className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                currentViewType === 'dayGridMonth'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-              }`}
-            >
-              Month
-            </button>
-            <button
-              onClick={() => {
-                const calendarEl = document.querySelector('.calendar-shell .fc');
-                if (calendarEl && (calendarEl as any).fcApi) {
-                  (calendarEl as any).fcApi.changeView('listWeek');
-                }
-              }}
-              className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                currentViewType === 'listWeek'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-              }`}
-            >
-              List
-            </button>
-          </div>
-        )}
-        
         <FullCalendar
-          plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+          plugins={[listPlugin, interactionPlugin]}
           initialView={initialView}
           headerToolbar={
             isMobile
               ? { left: 'prev,next', center: 'title', right: 'today' }
-              : { left: 'prev,next today', center: 'title', right: 'timeGridDay,timeGridWeek,dayGridMonth,listWeek' }
+              : { left: 'prev,next today', center: 'title', right: '' }
           }
           footerToolbar={undefined}
           buttonText={{
-            timeGridDay: 'Day',
-            timeGridWeek: 'Week',
-            dayGridMonth: 'Month',
             listWeek: 'List',
           }}
           titleFormat={

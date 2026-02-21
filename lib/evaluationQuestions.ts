@@ -1,4 +1,5 @@
 import { ScorecardDimension } from './supabase';
+import { supabase } from './supabase';
 
 // ── Question Definitions ────────────────────────────────────
 
@@ -7,6 +8,7 @@ export interface EvaluationQuestion {
   label: string;
 }
 
+// Default hardcoded questions — used as fallback if no DB questions exist
 export const EVALUATION_QUESTIONS: Record<ScorecardDimension, EvaluationQuestion[]> = {
   reach: [
     { key: 'leader_invited_last_30_days', label: 'Leader has personally invited someone in the last 30 days' },
@@ -103,4 +105,85 @@ export function getFinalScore(
   if (manualOverride !== null) return manualOverride;
   if (suggestedScore !== null) return suggestedScore;
   return fallbackScore;
+}
+
+// ── Database Question Loading ───────────────────────────────
+
+let _cachedQuestions: Record<ScorecardDimension, EvaluationQuestion[]> | null = null;
+let _cacheTimestamp: number = 0;
+const CACHE_TTL = 60000; // 1 minute cache
+
+/**
+ * Load evaluation questions from the scorecard_questions table.
+ * Falls back to hardcoded EVALUATION_QUESTIONS if DB table doesn't exist or is empty.
+ * Caches results for 1 minute.
+ */
+export async function loadEvaluationQuestions(): Promise<Record<ScorecardDimension, EvaluationQuestion[]>> {
+  // Return cache if still valid
+  if (_cachedQuestions && (Date.now() - _cacheTimestamp) < CACHE_TTL) {
+    return _cachedQuestions;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('scorecard_questions')
+      .select('*')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true });
+
+    if (error || !data || data.length === 0) {
+      // Fallback to hardcoded defaults
+      _cachedQuestions = EVALUATION_QUESTIONS;
+      _cacheTimestamp = Date.now();
+      return EVALUATION_QUESTIONS;
+    }
+
+    // Group by category
+    const result: Record<string, EvaluationQuestion[]> = {
+      reach: [],
+      connect: [],
+      disciple: [],
+      develop: [],
+    };
+
+    for (const q of data) {
+      if (result[q.category]) {
+        result[q.category].push({
+          key: q.question_key,
+          label: q.label,
+        });
+      }
+    }
+
+    _cachedQuestions = result as Record<ScorecardDimension, EvaluationQuestion[]>;
+    _cacheTimestamp = Date.now();
+    return _cachedQuestions;
+  } catch (err) {
+    console.error('Error loading evaluation questions from DB:', err);
+    // Fallback to hardcoded defaults
+    return EVALUATION_QUESTIONS;
+  }
+}
+
+/**
+ * Invalidate the cached questions (call after modifying questions in settings)
+ */
+export function invalidateQuestionsCache() {
+  _cachedQuestions = null;
+  _cacheTimestamp = 0;
+}
+
+/**
+ * Build a question key → label map for a given set of questions.
+ * Used to persist question text with answers.
+ */
+export function buildQuestionLabelMap(questions: Record<ScorecardDimension, EvaluationQuestion[]>): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const category of Object.values(questions)) {
+    for (const q of category) {
+      map[q.key] = q.label;
+    }
+  }
+  return map;
 }

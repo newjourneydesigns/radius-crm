@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ScorecardDimension } from '../../lib/supabase';
 import {
+  EvaluationQuestion,
   EVALUATION_QUESTIONS,
   AnswerValue,
   calculateSuggestedScore,
@@ -19,6 +20,7 @@ interface CategoryEvaluationProps {
   manualOverride: number | null;
   contextNotes: string;
   existingScore: number | null;
+  questions?: EvaluationQuestion[];
   onAnswerChange: (questionKey: string, answer: AnswerValue) => void;
   onOverrideChange: (score: number | null) => void;
   onContextChange: (notes: string) => void;
@@ -36,6 +38,7 @@ export default function CategoryEvaluation({
   manualOverride,
   contextNotes,
   existingScore,
+  questions: questionsProp,
   onAnswerChange,
   onOverrideChange,
   onContextChange,
@@ -43,7 +46,7 @@ export default function CategoryEvaluation({
   onClose,
   isSaving,
 }: CategoryEvaluationProps) {
-  const questions = EVALUATION_QUESTIONS[category];
+  const questions = questionsProp || EVALUATION_QUESTIONS[category];
   const suggestedScore = calculateSuggestedScore(answers);
   const finalScore = getFinalScore(manualOverride, suggestedScore, existingScore);
   const isOverridden = manualOverride !== null;

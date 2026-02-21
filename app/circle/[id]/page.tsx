@@ -2457,7 +2457,7 @@ export default function CircleLeaderProfilePage() {
           </div>
 
         {/* Progress Scorecard Section */}
-        <ScorecardSection leaderId={leaderId} isAdmin={isAdmin()} />
+        <ScorecardSection leaderId={leaderId} isAdmin={isAdmin()} onNoteSaved={reloadNotes} />
 
         {/* Progress Timeline Chart */}
         <ProgressTimeline ratings={scorecardRatings} />

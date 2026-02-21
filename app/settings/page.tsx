@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import NoteTemplatesManager from '../../components/settings/NoteTemplatesManager';
+import ScorecardQuestionsManager from '../../components/settings/ScorecardQuestionsManager';
 import ConfirmModal from '../../components/ui/ConfirmModal';
 import AlertModal from '../../components/ui/AlertModal';
 import ServiceWorkerUtils from '../../components/ServiceWorkerUtils';
@@ -46,7 +47,7 @@ export default function SettingsPage() {
   
   // UI state
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'directors' | 'circles' | 'statuses' | 'frequencies' | 'campuses' | 'templates' | 'app'>('directors');
+  const [activeTab, setActiveTab] = useState<'directors' | 'circles' | 'statuses' | 'frequencies' | 'campuses' | 'templates' | 'scorecard' | 'app'>('directors');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{isOpen: boolean, type: string, id: number, name: string}>({
     isOpen: false, type: '', id: 0, name: ''
   });
@@ -447,6 +448,7 @@ export default function SettingsPage() {
     { id: 'frequencies', label: 'Frequencies', icon: '📅' },
     { id: 'campuses', label: 'Campuses', icon: '🏢' },
     { id: 'templates', label: 'Note Templates', icon: '📝' },
+    { id: 'scorecard', label: 'Scorecard Questions', icon: '📋' },
     { id: 'app', label: 'App Management', icon: '⚙️' }
   ];
 
@@ -1030,6 +1032,21 @@ export default function SettingsPage() {
 
               <div className="p-6">
                 <NoteTemplatesManager />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'scorecard' && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-600">
+                <div>
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-white">Scorecard Questions</h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Customize the evaluation questions for each scorecard category (Reach, Connect, Disciple, Develop)</p>
+                </div>
+              </div>
+
+              <div className="p-6">
+                <ScorecardQuestionsManager />
               </div>
             </div>
           )}
