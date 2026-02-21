@@ -18,9 +18,14 @@
   }
 }
 
-/* Mobile bottom navigation spacing */
-.mobile-content-padding {
-  padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+/* Mobile bottom navigation spacing — clears the 58px fixed tab bar + safe area */
+.mobile-nav-padding {
+  padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 768px) {
+  .mobile-nav-padding {
+    padding-bottom: 0;
+  }
 }
 
 /* Dark Green Theme - Custom gradient background */

@@ -27,8 +27,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </>
       )}
 
-      {/* Main Content — extra bottom padding on mobile prevents the fixed bottom nav from overlapping content */}
-      <main className="pb-20 md:pb-0">{children}</main>
+      {/* Main Content — bottom padding clears the fixed bottom nav + safe area on mobile */}
+      <main className="mobile-nav-padding">{children}</main>
 
       {!hideChrome && (
         <>

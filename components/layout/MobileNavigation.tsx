@@ -139,15 +139,23 @@ export default function MobileNavigation() {
 
   return (
     <>
-      {/* Always mount GlobalSearch so its Cmd+K listener stays active */}
-      <div className="sr-only" aria-hidden="true"><GlobalSearch /></div>
+      {/* Mount GlobalSearch off-screen so its Cmd+K keyboard listener stays active */}
+      <div className="fixed -top-full -left-full opacity-0 pointer-events-none" aria-hidden="true">
+        <GlobalSearch />
+      </div>
 
       {/* ── Bottom tab bar ── */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-[10000] bg-gray-900 border-t border-gray-700/60"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        className="md:hidden fixed bottom-0 left-0 right-0 z-[10000]"
+        style={{
+          background: 'rgba(15, 23, 42, 0.96)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          borderTop: '1px solid rgba(255,255,255,0.07)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
       >
-        <div className="flex items-stretch h-16">
+        <div className="flex items-stretch h-[58px]">
           {/* Primary tabs */}
           {tabs.map(({ name, href, Icon }) => {
             const active = isActive(href);
@@ -155,40 +163,45 @@ export default function MobileNavigation() {
               <Link
                 key={href}
                 href={href}
-                className={`flex flex-col items-center justify-center flex-1 gap-0.5 text-[10px] font-medium transition-colors ${
-                  active ? 'text-blue-400' : 'text-gray-400 hover:text-gray-200'
-                }`}
+                className="relative flex flex-col items-center justify-center flex-1 gap-1 transition-colors"
               >
-                <span className={`p-1 rounded-lg transition-colors ${active ? 'bg-blue-600/20' : ''}`}>
+                {/* Active top indicator */}
+                {active && (
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2px] rounded-b-full bg-blue-400" />
+                )}
+                <span className={`transition-colors ${active ? 'text-blue-400' : 'text-gray-500'}`}>
                   <Icon filled={active} />
                 </span>
-                {name}
+                <span className={`text-[11px] font-medium leading-none transition-colors ${active ? 'text-blue-400' : 'text-gray-500'}`}>
+                  {name}
+                </span>
               </Link>
             );
           })}
 
-          {/* Search tab — fires Cmd+K to open GlobalSearch modal */}
+          {/* Search tab */}
           <button
             onClick={openSearch}
-            className="flex flex-col items-center justify-center flex-1 gap-0.5 text-[10px] font-medium text-gray-400 hover:text-gray-200 transition-colors"
+            className="relative flex flex-col items-center justify-center flex-1 gap-1 text-gray-500 hover:text-gray-300 transition-colors"
           >
-            <span className="p-1 rounded-lg">
-              <SearchIcon />
-            </span>
-            Search
+            <SearchIcon />
+            <span className="text-[11px] font-medium leading-none">Search</span>
           </button>
 
-          {/* More tab — opens drawer */}
+          {/* More tab */}
           <button
             onClick={() => setDrawerOpen(v => !v)}
-            className={`flex flex-col items-center justify-center flex-1 gap-0.5 text-[10px] font-medium transition-colors ${
-              drawerOpen ? 'text-blue-400' : 'text-gray-400 hover:text-gray-200'
-            }`}
+            className="relative flex flex-col items-center justify-center flex-1 gap-1 transition-colors"
           >
-            <span className={`p-1 rounded-lg transition-colors ${drawerOpen ? 'bg-blue-600/20' : ''}`}>
+            {drawerOpen && (
+              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2px] rounded-b-full bg-blue-400" />
+            )}
+            <span className={`transition-colors ${drawerOpen ? 'text-blue-400' : 'text-gray-500'}`}>
               <MenuIcon />
             </span>
-            More
+            <span className={`text-[11px] font-medium leading-none transition-colors ${drawerOpen ? 'text-blue-400' : 'text-gray-500'}`}>
+              More
+            </span>
           </button>
         </div>
       </nav>
@@ -203,7 +216,10 @@ export default function MobileNavigation() {
           />
 
           {/* Drawer panel */}
-          <div className="md:hidden fixed bottom-16 left-0 right-0 z-[9999] bg-gray-900 border border-gray-700/60 rounded-t-2xl shadow-2xl overflow-hidden max-h-[80vh] overflow-y-auto">
+          <div
+            className="md:hidden fixed left-0 right-0 z-[9999] bg-gray-900 border border-gray-700/60 rounded-t-2xl shadow-2xl overflow-hidden max-h-[80vh] overflow-y-auto"
+            style={{ bottom: 'calc(58px + env(safe-area-inset-bottom, 0px))' }}
+          >
             {/* Handle */}
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 rounded-full bg-gray-600" />
