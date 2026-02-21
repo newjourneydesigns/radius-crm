@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     const weekEnd = getDateOffset(today, 7);
     const tomorrow = getDateOffset(today, 1);
 
-    // ── 1. Todos ──────────────────────────────────────────────────────────
+    // ── 1. Todos (manual/untyped only — typed todos appear in their own sections) ──
     const { data: allTodos } = await supabase
       .from('todo_items')
       .select('id, text, due_date, notes, todo_type, linked_leader_id, linked_visit_id')
@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
       .eq('completed', false)
       .not('due_date', 'is', null)
       .lte('due_date', today)
+      .or('todo_type.eq.manual,todo_type.is.null')
       .order('due_date', { ascending: true });
 
     const { data: noDateTodosData } = await supabase
@@ -77,6 +78,7 @@ export async function POST(request: NextRequest) {
       .eq('user_id', user.id)
       .eq('completed', false)
       .is('due_date', null)
+      .or('todo_type.eq.manual,todo_type.is.null')
       .order('id', { ascending: true });
 
     const allTodosForLeaders = [...(allTodos || []), ...(noDateTodosData || [])];    
