@@ -13,7 +13,7 @@ const HomeIcon = ({ filled }: { filled?: boolean }) => filled ? (
   </svg>
 ) : (
   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7m-14 0l2 2m0 0v7a1 1 0 001 1h4v-4h4v4h4a1 1 0 001-1v-7m-14 0h14" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
   </svg>
 );
 const ChartIcon = ({ filled }: { filled?: boolean }) => filled ? (
@@ -253,7 +253,7 @@ export default function MobileNavigation() {
                   <Link
                     key={href}
                     href={href}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-colors ${
                       isActive(href)
                         ? 'text-blue-400 bg-blue-600/10'
                         : 'text-gray-200 hover:text-white hover:bg-gray-700/60'
@@ -277,7 +277,7 @@ export default function MobileNavigation() {
                 <Link
                   key={href}
                   href={href}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-colors ${
                     isActive(href)
                       ? 'text-blue-400 bg-blue-600/10'
                       : 'text-gray-200 hover:text-white hover:bg-gray-700/60'
@@ -294,7 +294,7 @@ export default function MobileNavigation() {
               <div className="px-3 pb-1">
                 <button
                   onClick={handleInstallClick}
-                  className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-emerald-400 hover:text-emerald-300 hover:bg-emerald-600/10 transition-colors"
+                  className="flex items-center gap-3 w-full px-3 py-2.5 rounded text-sm font-medium text-emerald-400 hover:text-emerald-300 hover:bg-emerald-600/10 transition-colors"
                 >
                   <DownloadIcon />
                   Install App
@@ -306,7 +306,7 @@ export default function MobileNavigation() {
             <div className="px-3 pb-4 pt-1 border-t border-gray-700/60 mt-2">
               <button
                 onClick={() => { signOut(); setDrawerOpen(false); }}
-                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+                className="flex items-center gap-3 w-full px-3 py-2.5 rounded text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
               >
                 <LogoutIcon />
                 Sign out

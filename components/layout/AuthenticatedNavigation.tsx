@@ -10,7 +10,7 @@ import GlobalSearch from './GlobalSearch';
 // ----- Icon components (heroicons-style, 20 × 20) -----
 const HomeIcon = () => (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7m-14 0l2 2m0 0v7a1 1 0 001 1h4v-4h4v4h4a1 1 0 001-1v-7m-14 0h14" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
   </svg>
 );
 const ChartIcon = () => (
@@ -73,7 +73,6 @@ const primaryNavItems = [
 ];
 const adminNavItems = [
   { name: 'CCB Explorer', href: '/ccb-explorer', icon: CompassIcon },
-  { name: 'Add Leader',   href: '/add-leader',   icon: UserPlusIcon },
 ];
 
 export default function AuthenticatedNavigation() {
@@ -203,20 +202,34 @@ export default function AuthenticatedNavigation() {
                       </Link>
                     ))}
 
-                    {/* Admin-only: Users management */}
+                    {/* Admin-only: Add Leader + Manage Users */}
                     {admin && (
-                      <Link
-                        href="/users"
-                        onClick={() => setUserMenuOpen(false)}
-                        className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
-                          isActive('/users')
-                            ? 'text-blue-400 bg-blue-600/10'
-                            : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
-                        }`}
-                      >
-                        <UsersIcon />
-                        Manage Users
-                      </Link>
+                      <>
+                        <Link
+                          href="/add-leader"
+                          onClick={() => setUserMenuOpen(false)}
+                          className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
+                            isActive('/add-leader')
+                              ? 'text-blue-400 bg-blue-600/10'
+                              : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
+                          }`}
+                        >
+                          <UserPlusIcon />
+                          Add Leader
+                        </Link>
+                        <Link
+                          href="/users"
+                          onClick={() => setUserMenuOpen(false)}
+                          className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
+                            isActive('/users')
+                              ? 'text-blue-400 bg-blue-600/10'
+                              : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
+                          }`}
+                        >
+                          <UsersIcon />
+                          Manage Users
+                        </Link>
+                      </>
                     )}
                   </div>
 
