@@ -1,10 +1,11 @@
-const CACHE_NAME = 'radius-v1.2.0';
-const STATIC_CACHE = 'radius-static-v1.2.0';
+const CACHE_NAME = 'radius-v1.3.0';
+const STATIC_CACHE = 'radius-static-v1.3.0';
 
 // Files to cache for offline functionality
+// Pages must use trailing slashes to match Next.js trailingSlash: true config
 const STATIC_FILES = [
   '/',
-  '/dashboard',
+  '/dashboard/',
   '/manifest.json',
   '/icon-192x192.png',
   '/icon-512x512.png',
@@ -100,7 +101,7 @@ self.addEventListener('fetch', (event) => {
           .catch(() => {
             // Return offline page or fallback for navigation requests
             if (event.request.mode === 'navigate') {
-              return caches.match('/dashboard');
+              return caches.match('/dashboard/');
             }
           });
       })
