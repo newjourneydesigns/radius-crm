@@ -4,8 +4,6 @@ import { Suspense, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../../lib/supabase';
 
-const ALLOWED_DOMAIN = 'valleycreek.org';
-
 function VerifyContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -39,15 +37,24 @@ function VerifyContent() {
           return;
         }
 
+        const userId = data.session.user?.id;
         const email = data.session.user?.email ?? '';
-        if (!email.toLowerCase().endsWith(`@${ALLOWED_DOMAIN}`)) {
-          console.warn('🚫 Unauthorized domain:', email);
+
+        // Verify user exists in our system (invite-only)
+        const { data: userProfile, error: profileError } = await supabase
+          .from('users')
+          .select('id, email, role')
+          .eq('id', userId)
+          .single();
+
+        if (profileError || !userProfile) {
+          console.warn('🚫 User not found in system:', email);
           await supabase.auth.signOut();
-          router.replace('/login?error=unauthorized_domain');
+          router.replace('/login?error=unauthorized_user');
           return;
         }
 
-        console.log('✅ Domain verified, redirecting to', next);
+        console.log('✅ User verified, redirecting to', next);
         router.replace(next);
       })
       .catch((err) => {
