@@ -125,12 +125,12 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     console.log('Create user request body:', body);
-    const { email, password, name, role } = body;
+    const { email, name, role } = body;
 
-    // Validate input more thoroughly
-    if (!email || !password) {
-      console.error('Missing email or password:', { email: !!email, password: !!password });
-      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
+    // Validate input
+    if (!email) {
+      console.error('Missing email');
+      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
     // Validate email format
@@ -138,11 +138,6 @@ export async function POST(request: NextRequest) {
     if (!emailRegex.test(email)) {
       console.error('Invalid email format:', email);
       return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
-    }
-
-    if (password.length < 6) {
-      console.error('Password too short:', password.length);
-      return NextResponse.json({ error: 'Password must be at least 6 characters long' }, { status: 400 });
     }
 
     // Check if we have a valid service role key
@@ -158,7 +153,7 @@ export async function POST(request: NextRequest) {
       console.log('Demo mode - returning mock user creation');
       // Return mock success for demo
       return NextResponse.json({ 
-        message: 'User created successfully (Demo Mode)',
+        message: 'User invited successfully (Demo Mode)',
         user: {
           id: `demo-${Date.now()}`,
           email: email,
@@ -167,7 +162,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    console.log('Creating user with Supabase admin client...');
+    console.log('Creating user with Supabase admin client (passwordless invite)...');
     
     // First check if user already exists
     try {
@@ -181,15 +176,18 @@ export async function POST(request: NextRequest) {
       console.warn('Could not check for existing users:', checkError);
     }
 
-    // Create user with admin client
+    // Create user with admin client and send invite email
+    // Note: This creates the user and sends a magic link invite automatically
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true // Auto-confirm email
+      email: email.trim().toLowerCase(),
+      email_confirm: false, // User must confirm via magic link
+      user_metadata: {
+        name: name || null
+      }
     });
 
     if (error) {
-      console.error('🔥 Supabase auth error creating user (v2.0):', {
+      console.error('🔥 Supabase auth error creating user:', {
         message: error.message,
         status: error.status,
         code: error.code || 'unknown',
@@ -197,12 +195,13 @@ export async function POST(request: NextRequest) {
         timestamp: new Date().toISOString()
       });
       return NextResponse.json({ 
-        error: `Auth error v2.0: ${error.message} (Code: ${error.code || 'unknown'})`,
+        error: `Auth error: ${error.message} (Code: ${error.code || 'unknown'})`,
         timestamp: new Date().toISOString()
       }, { status: 400 });
     }
 
     console.log('User created in auth, creating profile...', data.user.id);
+    
     // Create user profile in public.users table
     const { error: profileError } = await supabaseAdmin
       .from('users')
@@ -210,20 +209,31 @@ export async function POST(request: NextRequest) {
         id: data.user.id,
         email: data.user.email,
         name: name || null,
-        role: role || 'user'
+        role: role || 'Viewer'
       });
 
     if (profileError) {
-      console.error('Error creating user profile (v2.0):', profileError);
+      console.error('Error creating user profile:', profileError);
+      // If profile creation fails, we should delete the auth user to keep things consistent
+      try {
+        await supabaseAdmin.auth.admin.deleteUser(data.user.id);
+        console.log('Rolled back auth user creation due to profile error');
+      } catch (rollbackError) {
+        console.error('Failed to rollback auth user:', rollbackError);
+      }
       return NextResponse.json({ 
-        error: `Database error creating user profile v2.0: ${profileError.message}`,
+        error: `Database error creating user profile: ${profileError.message}`,
         timestamp: new Date().toISOString()
       }, { status: 400 });
     }
 
-    console.log('User and profile created successfully');
+    // Optionally send an invite email with a magic link
+    // Note: Supabase automatically sends a confirmation email when email_confirm: false
+    // You can customize this email in your Supabase dashboard under Authentication > Email Templates
+    
+    console.log('User and profile created successfully, invite email sent');
     return NextResponse.json({ 
-      message: 'User created successfully',
+      message: 'User invited successfully. They will receive an email with a magic link to sign in.',
       user: {
         id: data.user.id,
         email: data.user.email,

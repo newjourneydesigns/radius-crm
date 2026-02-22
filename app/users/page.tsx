@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import AlertModal from '../../components/ui/AlertModal';
-import PasswordModal from '../../components/ui/PasswordModal';
 
 interface User {
   id: string;
@@ -17,8 +16,6 @@ interface UserFormData {
   email: string;
   name: string;
   role: string;
-  password: string;
-  confirmPassword: string;
 }
 
 export default function UsersPage() {
@@ -27,22 +24,12 @@ export default function UsersPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [selectedUserEmail, setSelectedUserEmail] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [formData, setFormData] = useState<UserFormData>({
     email: '',
     name: '',
-    role: 'user',
-    password: '',
-    confirmPassword: ''
-  });
-
-  const [passwordData, setPasswordData] = useState({
-    newPassword: '',
-    confirmPassword: ''
+    role: 'Viewer'
   });
 
   const [showAlert, setShowAlert] = useState<{
@@ -93,13 +80,6 @@ export default function UsersPage() {
     }));
   };
 
-  const handlePasswordChange = (field: keyof typeof passwordData, value: string) => {
-    setPasswordData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
@@ -118,26 +98,6 @@ export default function UsersPage() {
       return;
     }
 
-    if (formData.password.length < 6) {
-      setShowAlert({
-        isOpen: true,
-        type: 'error',
-        title: 'Weak Password',
-        message: 'Password must be at least 6 characters long.'
-      });
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setShowAlert({
-        isOpen: true,
-        type: 'error',
-        title: 'Password Mismatch',
-        message: 'Passwords do not match.'
-      });
-      return;
-    }
-
     try {
       setIsSubmitting(true);
 
@@ -147,33 +107,30 @@ export default function UsersPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: formData.email,
+          email: formData.email.trim().toLowerCase(),
           name: formData.name,
           role: formData.role,
-          password: formData.password,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to create user');
+        throw new Error(data.error || 'Failed to invite user');
       }
 
       setShowAlert({
         isOpen: true,
         type: 'success',
-        title: 'User Created',
-        message: `User ${formData.email} has been successfully created.`
+        title: 'User Invited',
+        message: `Invitation sent to ${formData.email}. They will receive an email with a magic link to sign in.`
       });
 
       // Reset form
       setFormData({
         email: '',
         name: '',
-        role: 'user',
-        password: '',
-        confirmPassword: ''
+        role: 'Viewer'
       });
       setShowAddForm(false);
       
@@ -181,90 +138,16 @@ export default function UsersPage() {
       loadUsers();
 
     } catch (error: any) {
-      console.error('Error creating user:', error);
+      console.error('Error inviting user:', error);
       setShowAlert({
         isOpen: true,
         type: 'error',
-        title: 'Error Creating User',
-        message: error.message || 'Failed to create user. Please try again.'
+        title: 'Error Inviting User',
+        message: error.message || 'Failed to invite user. Please try again.'
       });
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleUpdatePassword = async () => {
-    if (passwordData.newPassword.length < 6) {
-      setShowAlert({
-        isOpen: true,
-        type: 'error',
-        title: 'Weak Password',
-        message: 'Password must be at least 6 characters long.'
-      });
-      return;
-    }
-
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setShowAlert({
-        isOpen: true,
-        type: 'error',
-        title: 'Password Mismatch',
-        message: 'Passwords do not match.'
-      });
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-
-      const response = await fetch(`/api/users/${selectedUserId}/password`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          newPassword: passwordData.newPassword,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to update password');
-      }
-      
-      setShowAlert({
-        isOpen: true,
-        type: 'success',
-        title: 'Password Updated',
-        message: `Password for ${selectedUserEmail} has been updated successfully.`
-      });
-
-      setPasswordData({
-        newPassword: '',
-        confirmPassword: ''
-      });
-      setShowPasswordModal(false);
-      setSelectedUserId(null);
-      setSelectedUserEmail('');
-
-    } catch (error: any) {
-      console.error('Error updating password:', error);
-      setShowAlert({
-        isOpen: true,
-        type: 'error',
-        title: 'Error Updating Password',
-        message: error.message || 'Failed to update password. Please try again.'
-      });
-    } finally {  
-      setIsSubmitting(false);
-    }
-  };
-
-  const openPasswordModal = (userId: string, email: string) => {
-    setSelectedUserId(userId);
-    setSelectedUserEmail(email);
-    setShowPasswordModal(true);
   };
 
   const openEditForm = (user: User) => {
@@ -272,9 +155,7 @@ export default function UsersPage() {
     setFormData({
       email: user.email,
       name: user.name || '',
-      role: user.role || 'user',
-      password: '',
-      confirmPassword: ''
+      role: user.role || 'Viewer'
     });
     setShowEditForm(true);
   };
@@ -425,15 +306,36 @@ export default function UsersPage() {
           </div>
         </div>
 
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3 flex-1">
+              <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                Passwordless Authentication
+              </h3>
+              <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
+                This system uses magic links for secure, password-free sign-in. When you invite a user, they'll receive an email with a link to access the system. Access is invite-only.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Add User Form */}
         {showAddForm && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-8">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Add New User</h2>
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Invite New User</h2>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                User will receive a magic link via email to sign in. No password required.
+              </p>
             </div>
             <form onSubmit={handleAddUser} className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
+                <div className="md:col-span-2">
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Email Address *
                   </label>
@@ -470,39 +372,9 @@ export default function UsersPage() {
                     onChange={(e) => handleFormChange('role', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option value="user">User</option>
-                    <option value="ACPD">ACPD</option>
                     <option value="Viewer">Viewer</option>
+                    <option value="ACPD">ACPD (Admin)</option>
                   </select>
-                </div>
-                <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Password *
-                  </label>
-                  <input
-                    type="password"
-                    id="password"
-                    value={formData.password}
-                    onChange={(e) => handleFormChange('password', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Minimum 6 characters"
-                    required
-                    minLength={6}
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Confirm Password *
-                  </label>
-                  <input
-                    type="password"
-                    id="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={(e) => handleFormChange('confirmPassword', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Re-enter password"
-                    required
-                  />
                 </div>
               </div>
               
@@ -511,7 +383,7 @@ export default function UsersPage() {
                   type="button"
                   onClick={() => {
                     setShowAddForm(false);
-                    setFormData({ email: '', name: '', role: 'user', password: '', confirmPassword: '' });
+                    setFormData({ email: '', name: '', role: 'Viewer' });
                   }}
                   className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                 >
@@ -522,7 +394,7 @@ export default function UsersPage() {
                   disabled={isSubmitting}
                   className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  {isSubmitting ? 'Creating...' : 'Create User'}
+                  {isSubmitting ? 'Sending Invite...' : 'Send Invite'}
                 </button>
               </div>
             </form>
@@ -587,7 +459,7 @@ export default function UsersPage() {
                   onClick={() => {
                     setShowEditForm(false);
                     setEditingUser(null);
-                    setFormData({ email: '', name: '', role: 'user', password: '', confirmPassword: '' });
+                    setFormData({ email: '', name: '', role: 'Viewer' });
                   }}
                   className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                 >
@@ -677,12 +549,6 @@ export default function UsersPage() {
                           Edit
                         </button>
                         <button
-                          onClick={() => openPasswordModal(user.id, user.email)}
-                          className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 transition-colors"
-                        >
-                          Password
-                        </button>
-                        <button
                           onClick={() => handleDeleteUser(user.id, user.email)}
                           className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 transition-colors"
                           disabled={isSubmitting}
@@ -698,24 +564,6 @@ export default function UsersPage() {
           )}
         </div>
       </div>
-
-      {/* Password Update Modal */}
-      <PasswordModal
-        isOpen={showPasswordModal}
-        onClose={() => {
-          setShowPasswordModal(false);
-          setPasswordData({ newPassword: '', confirmPassword: '' });
-          setSelectedUserId(null);
-          setSelectedUserEmail('');
-        }}
-        onConfirm={handleUpdatePassword}
-        title="Update Password"
-        userEmail={selectedUserEmail}
-        newPassword={passwordData.newPassword}
-        confirmPassword={passwordData.confirmPassword}
-        onPasswordChange={handlePasswordChange}
-        isLoading={isSubmitting}
-      />
 
       {/* Alert Modal */}
       <AlertModal

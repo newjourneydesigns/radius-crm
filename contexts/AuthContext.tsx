@@ -13,9 +13,7 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name: string) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
+  signInWithMagicLink: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   clearAuthData: () => Promise<void>;
   isAuthenticated: () => boolean;
@@ -159,57 +157,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      throw error;
-    }
-  };
-
-  const signUp = async (email: string, password: string, name: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
+  const signInWithMagicLink = async (email: string) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim().toLowerCase(),
       options: {
-        data: {
-          name: name
-        }
-      }
-    });
-
-    if (error) {
-      throw error;
-    }
-  };
-
-  const signInWithGoogle = async () => {
-    // Determine the correct redirect URL based on environment and domain
-    let redirectTo = `${window.location.origin}/auth/callback`;
-    
-    // If we're on myradiuscrm.com in production, ensure we redirect back to myradiuscrm.com
-    if (window.location.hostname === 'myradiuscrm.com') {
-      redirectTo = 'https://myradiuscrm.com/auth/callback';
-    }
-    // Fallback: if we're on a netlify domain, use that
-    else if (window.location.hostname.includes('netlify.app')) {
-      redirectTo = `${window.location.origin}/auth/callback`;
-    }
-    
-    console.log('🔍 AuthContext: Google OAuth redirect URL:', redirectTo);
-    
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: redirectTo,
-        // Enable PKCE flow explicitly for better security
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        }
+        // Don't create new users - they must be invited by admin first
+        shouldCreateUser: false,
+        emailRedirectTo: `${window.location.origin}/auth/callback`
       }
     });
 
@@ -274,9 +228,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = {
     user,
     loading,
-    signIn,
-    signUp,
-    signInWithGoogle,
+    signInWithMagicLink,
     signOut,
     clearAuthData,
     isAuthenticated,
