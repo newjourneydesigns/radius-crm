@@ -208,9 +208,7 @@ export default function UsersPage() {
       setFormData({
         email: '',
         name: '',
-        role: 'user',
-        password: '',
-        confirmPassword: ''
+        role: 'Viewer'
       });
       setShowEditForm(false);
       setEditingUser(null);
