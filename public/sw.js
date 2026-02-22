@@ -1,11 +1,8 @@
-const CACHE_NAME = 'radius-v1.3.0';
-const STATIC_CACHE = 'radius-static-v1.3.0';
+const CACHE_NAME = 'radius-v2.0.0';
+const STATIC_CACHE = 'radius-static-v2.0.0';
 
-// Files to cache for offline functionality
-// Pages must use trailing slashes to match Next.js trailingSlash: true config
+// Essential files to cache - only truly static assets that won't fail
 const STATIC_FILES = [
-  '/',
-  '/dashboard/',
   '/manifest.json',
   '/icon-192x192.png',
   '/icon-512x512.png',
@@ -13,31 +10,45 @@ const STATIC_FILES = [
 ];
 
 // Install event - cache essential resources
+// IMPORTANT: We cache static assets first (guaranteed to exist),
+// then attempt page caching separately so SW install never fails
 self.addEventListener('install', (event) => {
-  console.log('Service worker installing - caching essential resources');
+  console.log('Service worker installing v2.0.0');
   
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then((cache) => {
-        console.log('Caching essential files');
+        // Cache static files - these must succeed
         return cache.addAll(STATIC_FILES);
       })
-      .catch((error) => {
-        console.error('Failed to cache files during install:', error);
+      .then(() => {
+        // Attempt to cache pages separately - don't block install if they fail
+        return caches.open(CACHE_NAME).then((cache) => {
+          return Promise.allSettled([
+            cache.add('/'),
+            cache.add('/dashboard/')
+          ]);
+        });
       })
-      .finally(() => {
-        self.skipWaiting();
+      .then(() => {
+        console.log('Service worker installed successfully');
+        return self.skipWaiting();
+      })
+      .catch((error) => {
+        console.error('SW install cache error (non-fatal):', error);
+        // Still skip waiting even if caching fails - the SW must activate
+        return self.skipWaiting();
       })
   );
 });
 
-// Activate event - clean up old caches and take control
+// Activate event - clean up ALL old caches and take control immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          // Keep current caches, delete others
+          // Delete any cache that isn't the current version
           if (cacheName !== CACHE_NAME && cacheName !== STATIC_CACHE) {
             console.log('Deleting old cache:', cacheName);
             return caches.delete(cacheName);
@@ -45,7 +56,7 @@ self.addEventListener('activate', (event) => {
         })
       );
     }).then(() => {
-      console.log('Service worker activated - cache cleanup complete');
+      console.log('Service worker v2.0.0 activated - taking control of all clients');
       return self.clients.claim();
     })
   );

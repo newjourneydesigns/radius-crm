@@ -1,17 +1,18 @@
 {
+  "id": "/",
   "name": "RADIUS Circle Leader Management",
   "short_name": "RADIUS",
   "description": "Circle Leader Management System for RADIUS",
-  "start_url": "/dashboard/?utm_source=pwa",
+  "start_url": "/dashboard/",
   "display": "standalone",
-  "background_color": "#1f2937",
-  "theme_color": "#2563eb",
+  "display_override": ["standalone"],
+  "background_color": "#091b34",
+  "theme_color": "#091b34",
   "orientation": "portrait-primary",
   "categories": ["productivity", "business"],
-  "version": "1.1.0",
+  "version": "1.2.0",
   "scope": "/",
   "lang": "en-US",
-  "display_override": ["window-controls-overlay", "standalone"],
   "icons": [
     {
       "src": "/icon-16x16.png",
@@ -74,7 +75,7 @@
       "name": "Dashboard",
       "short_name": "Dashboard",
       "description": "View Circle Leaders Dashboard with campus filtering",
-      "url": "/dashboard/?utm_source=pwa_shortcut",
+      "url": "/dashboard/",
       "icons": [
         { 
           "src": "/icon-192x192.png", 
@@ -87,7 +88,7 @@
       "name": "Add Leader",
       "short_name": "Add Leader",
       "description": "Add New Circle Leader",
-      "url": "/add-leader/?utm_source=pwa_shortcut",
+      "url": "/add-leader/",
       "icons": [
         { 
           "src": "/icon-192x192.png", 
