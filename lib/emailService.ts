@@ -112,7 +112,7 @@ function leaderCard(
   bodyHtml: string,
   overdueDays?: number
 ): string {
-  const leaderUrl = `${appUrl}/circle/${leaderId}`;
+  const leaderUrl = `${appUrl}/circle/${leaderId}/`;
   const overdueTag = overdueDays && overdueDays > 0
     ? `<span style="margin-left:8px; background:#fee2e2; color:#dc2626; border-radius:4px; padding:2px 8px; font-size:11px; font-weight:600;">${overdueDays}d overdue</span>`
     : '';
@@ -133,8 +133,8 @@ function leaderCard(
 function todoRow(item: TodoItem, appUrl: string, today: string): string {
   const overdue = item.due_date && item.due_date < today ? daysDiff(item.due_date, today) : 0;
   const link = item.linked_leader_id
-    ? `${appUrl}/circle/${item.linked_leader_id}`
-    : `${appUrl}/dashboard`;
+    ? `${appUrl}/circle/${item.linked_leader_id}/`
+    : `${appUrl}/dashboard/`;
   return `
   <div style="background:#f9fafb; border:1px solid #e5e7eb; border-left:4px solid ${overdue > 0 ? '#ef4444' : '#6366f1'}; border-radius:6px; padding:10px 14px; margin-bottom:8px;">
     <div>
@@ -165,7 +165,7 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
   if (todos.dueToday.length > 0) {
     todosDueTodayHtml = sectionHeader('✅', 'Tasks Due Today', todos.dueToday.length, '#6366f1');
     todos.dueToday.forEach(t => { todosDueTodayHtml += todoRow(t, appUrl, date); });
-    todosDueTodayHtml += `<a href="${appUrl}/dashboard" style="font-size:12px; color:#6366f1; text-decoration:none; font-weight:600;">View all tasks →</a></div>`;
+    todosDueTodayHtml += `<a href="${appUrl}/dashboard/" style="font-size:12px; color:#6366f1; text-decoration:none; font-weight:600;">View all tasks →</a></div>`;
   }
 
   // OVERDUE TODOS
@@ -173,7 +173,7 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
   if (todos.overdue.length > 0) {
     todosOverdueHtml = sectionHeader('🚨', 'Overdue Tasks', todos.overdue.length, '#ef4444');
     todos.overdue.forEach(t => { todosOverdueHtml += todoRow(t, appUrl, date); });
-    todosOverdueHtml += `<a href="${appUrl}/dashboard" style="font-size:12px; color:#ef4444; text-decoration:none; font-weight:600;">View all overdue →</a></div>`;
+    todosOverdueHtml += `<a href="${appUrl}/dashboard/" style="font-size:12px; color:#ef4444; text-decoration:none; font-weight:600;">View all overdue →</a></div>`;
   }
 
   // NO-DATE TODOS
@@ -181,7 +181,7 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
   if (todos.noDate.length > 0) {
     todosNoDueDateHtml = sectionHeader('📋', 'Tasks (No Due Date)', todos.noDate.length, '#64748b');
     todos.noDate.forEach(t => { todosNoDueDateHtml += todoRow(t, appUrl, date); });
-    todosNoDueDateHtml += `<a href="${appUrl}/dashboard" style="font-size:12px; color:#64748b; text-decoration:none; font-weight:600;">View all tasks →</a></div>`;
+    todosNoDueDateHtml += `<a href="${appUrl}/dashboard/" style="font-size:12px; color:#64748b; text-decoration:none; font-weight:600;">View all tasks →</a></div>`;
   }
 
   // CIRCLE VISITS TODAY
@@ -293,7 +293,7 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
         ${encCount > 0 ? `<td style="text-align:center; padding:4px 12px;"><div style="font-size:22px; font-weight:800; color:#059669;">${encCount}</div><div style="font-size:11px; color:#6b7280; font-weight:600;">Encouragements</div></td>` : ''}
         ${fuCount > 0 ? `<td style="text-align:center; padding:4px 12px;"><div style="font-size:22px; font-weight:800; color:#7c3aed;">${fuCount}</div><div style="font-size:11px; color:#6b7280; font-weight:600;">Follow-Ups</div></td>` : ''}
         <td style="text-align:right; padding:4px 0;">
-          <a href="${appUrl}/dashboard" style="display:inline-block; padding:8px 18px; background:#4f46e5; color:white; text-decoration:none; border-radius:8px; font-size:13px; font-weight:700;">Open Dashboard →</a>
+          <a href="${appUrl}/dashboard/" style="display:inline-block; padding:8px 18px; background:#4f46e5; color:white; text-decoration:none; border-radius:8px; font-size:13px; font-weight:700;">Open Dashboard →</a>
         </td>
       </tr>
     </table>
@@ -314,7 +314,7 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
 
   <div style="text-align:center; padding:20px 0 8px; font-size:12px; color:#9ca3af;">
     <p style="margin:0 0 8px 0;">Radius CRM • <a href="${appUrl}" style="color:#6366f1; text-decoration:none;">Open App</a></p>
-    <p style="margin:0;">To unsubscribe, visit <a href="${appUrl}/settings" style="color:#6366f1; text-decoration:none;">Settings → Notifications</a></p>
+    <p style="margin:0;">To unsubscribe, visit <a href="${appUrl}/settings/" style="color:#6366f1; text-decoration:none;">Settings → Notifications</a></p>
   </div>
 
 </div>
