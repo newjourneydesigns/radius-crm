@@ -279,7 +279,12 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
 <body style="margin:0; padding:0; background-color:#f3f4f6; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
 <div style="max-width:640px; margin:0 auto; padding:24px 16px;">
 
-  <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed); border-radius:14px; padding:28px 32px; text-align:center; margin-bottom:8px;">
+  <!--[if mso]>
+  <div style="background-color:#4f46e5; border-radius:14px; padding:28px 32px; text-align:center; margin-bottom:8px;">
+  <![endif]-->
+  <!--[if !mso]><!-->
+  <div style="background-color:#4f46e5; background:linear-gradient(135deg,#4f46e5,#7c3aed); border-radius:14px; padding:28px 32px; text-align:center; margin-bottom:8px;">
+  <!--<![endif]-->
     <h1 style="margin:0 0 6px 0; font-size:24px; font-weight:800; color:#ffffff;">Your Daily Digest</h1>
     <p style="margin:0; font-size:14px; color:#e0e7ff;">${formatDate(date)}</p>
     <p style="margin:8px 0 0 0; font-size:13px; color:#c7d2fe;">Hi ${user.name || 'there'} 👋 Here's what needs your attention today.</p>

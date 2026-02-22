@@ -45,6 +45,7 @@ export default function ProfilePage() {
   
   // Form state
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
@@ -96,6 +97,7 @@ export default function ProfilePage() {
       setPreferences(data.preferences);
       setHasPreferences(data.hasPreferences);
       setName(data.profile.name || '');
+      setEmail(data.profile.email || '');
       
     } catch (error: any) {
       console.error('Error loading profile:', error);
@@ -130,7 +132,7 @@ export default function ProfilePage() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          profile: { name }
+          profile: { name, email }
         })
       });
 
@@ -431,13 +433,11 @@ export default function ProfilePage() {
                     <input
                       type="email"
                       id="email"
-                      value={profile?.email || ''}
-                      disabled
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter your email address"
                     />
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      Email address cannot be changed from this page
-                    </p>
                   </div>
                   
                   <div>
@@ -527,11 +527,11 @@ export default function ProfilePage() {
                       value={preferences.email_address || ''}
                       onChange={(e) => setPreferences(prev => ({ ...prev, email_address: e.target.value || null }))}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder={profile?.email || 'Enter alternate email'}
+                      placeholder={email || profile?.email || 'Enter alternate email'}
                       disabled={!preferences.email_enabled}
                     />
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      Leave blank to use your account email ({profile?.email})
+                      Leave blank to use your account email ({email || profile?.email})
                     </p>
                   </div>
 

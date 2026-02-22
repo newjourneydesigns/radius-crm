@@ -159,14 +159,17 @@ export async function PUT(request: NextRequest) {
 
     // Update profile if provided
     if (profile) {
-      const { name } = profile;
+      const { name, email: newEmail } = profile;
       
+      // Determine the email to store
+      const emailToStore = newEmail || user.email;
+
       // Use upsert to either update existing row or insert new one
       const { error: profileError } = await supabaseAdmin
         .from('users')
         .upsert({
           id: user.id,
-          email: user.email,
+          email: emailToStore,
           name,
           role: 'user'
         }, {
@@ -176,6 +179,21 @@ export async function PUT(request: NextRequest) {
       if (profileError) {
         console.error('Error updating profile:', profileError);
         return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+      }
+
+      // If email changed, also update in Supabase Auth
+      if (newEmail && newEmail !== user.email) {
+        const hasServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY !== 'demo-key';
+        if (hasServiceKey) {
+          const { error: authEmailError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+            email: newEmail,
+            email_confirm: true
+          });
+          if (authEmailError) {
+            console.error('Error updating auth email:', authEmailError);
+            return NextResponse.json({ error: `Failed to update email: ${authEmailError.message}` }, { status: 500 });
+          }
+        }
       }
     }
 

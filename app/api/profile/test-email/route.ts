@@ -22,6 +22,23 @@ function getDateOffset(baseDate: string, days: number): string {
   return d.toISOString().split('T')[0];
 }
 
+/**
+ * GET /api/profile/test-email
+ * Returns the status of required env vars — no auth needed, no email sent.
+ */
+export async function GET(_request: NextRequest) {
+  return NextResponse.json({
+    env: {
+      RESEND_API_KEY: process.env.RESEND_API_KEY ? 'SET ✓' : 'MISSING ✗',
+      EMAIL_FROM: process.env.EMAIL_FROM ? `SET ✓ (${process.env.EMAIL_FROM})` : 'MISSING ✗ (will use onboarding@resend.dev)',
+      EMAIL_FROM_NAME: process.env.EMAIL_FROM_NAME ? `SET ✓ (${process.env.EMAIL_FROM_NAME})` : 'MISSING ✗',
+      NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL ? `SET ✓ (${process.env.NEXT_PUBLIC_APP_URL})` : 'MISSING ✗ (will default to https://myradiuscrm.com)',
+      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET ✓' : 'MISSING ✗',
+      CRON_SECRET: process.env.CRON_SECRET ? 'SET ✓' : 'MISSING ✗',
+    }
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Authenticate the user via Bearer token
