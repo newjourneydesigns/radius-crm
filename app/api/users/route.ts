@@ -203,6 +203,10 @@ export async function POST(request: NextRequest) {
     console.log('User created in auth, creating profile...', data.user.id);
     
     // Create user profile in public.users table
+    // Note: Using service role key should bypass RLS
+    console.log('Using service role key:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'YES' : 'NO');
+    console.log('Service role key length:', process.env.SUPABASE_SERVICE_ROLE_KEY?.length || 0);
+    
     const { error: profileError } = await supabaseAdmin
       .from('users')
       .insert({
@@ -213,7 +217,15 @@ export async function POST(request: NextRequest) {
       });
 
     if (profileError) {
-      console.error('Error creating user profile:', profileError);
+      console.error('Error creating user profile:', {
+        message: profileError.message,
+        code: profileError.code,
+        details: profileError.details,
+        hint: profileError.hint,
+        user_id: data.user.id,
+        timestamp: new Date().toISOString()
+      });
+      
       // If profile creation fails, we should delete the auth user to keep things consistent
       try {
         await supabaseAdmin.auth.admin.deleteUser(data.user.id);
@@ -221,8 +233,9 @@ export async function POST(request: NextRequest) {
       } catch (rollbackError) {
         console.error('Failed to rollback auth user:', rollbackError);
       }
+      
       return NextResponse.json({ 
-        error: `Database error creating user profile: ${profileError.message}`,
+        error: `Database error creating user profile: ${profileError.message}. Hint: ${profileError.hint || 'Check RLS policies'}`,
         timestamp: new Date().toISOString()
       }, { status: 400 });
     }
