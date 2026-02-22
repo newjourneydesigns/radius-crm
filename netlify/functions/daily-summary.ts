@@ -3,12 +3,13 @@ import { schedule } from '@netlify/functions';
 /**
  * Netlify Scheduled Function - Personal Daily Digest
  *
- * Runs every day at 8:00 AM UTC.
- * Calls /api/daily-summary which sends a personalized digest email
- * to every user who has daily_email_subscribed = true.
+ * Runs every hour.
+ * Calls /api/daily-summary which checks each user's frequency setting
+ * (every N hours starting at 12am CST) and sends digests only to users
+ * whose current time slot matches their configured frequency.
  */
-const handler = schedule('0 8 * * *', async (event) => {
-  console.log('Running personal daily digest scheduled function...');
+const handler = schedule('0 * * * *', async (event) => {
+  console.log('Running personal digest scheduled function (hourly check)...');
 
   try {
     const appUrl = process.env.URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';

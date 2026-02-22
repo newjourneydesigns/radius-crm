@@ -23,6 +23,7 @@ interface EmailPreferences {
   include_upcoming_meetings: boolean;
   preferred_time: string;
   timezone: string;
+  frequency_hours: number;
 }
 
 export default function ProfilePage() {
@@ -36,7 +37,8 @@ export default function ProfilePage() {
     include_planned_encouragements: true,
     include_upcoming_meetings: false,
     preferred_time: '08:00',
-    timezone: 'UTC'
+    timezone: 'America/Chicago',
+    frequency_hours: 24
   });
   const [hasPreferences, setHasPreferences] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -533,6 +535,43 @@ export default function ProfilePage() {
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                       Leave blank to use your account email ({email || profile?.email})
                     </p>
+                  </div>
+
+                  {/* Email Content Sections */}
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">
+                      Email Frequency
+                    </h3>
+                    <div className="mb-2">
+                      <label htmlFor="frequency_hours" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Send digest every
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <select
+                          id="frequency_hours"
+                          value={preferences.frequency_hours}
+                          onChange={(e) => setPreferences(prev => ({ ...prev, frequency_hours: parseInt(e.target.value) }))}
+                          disabled={!preferences.email_enabled}
+                          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <option value={4}>4 hours</option>
+                          <option value={6}>6 hours</option>
+                          <option value={8}>8 hours</option>
+                          <option value={12}>12 hours</option>
+                          <option value={24}>24 hours</option>
+                        </select>
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          starting at 12:00 AM CST
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                        {preferences.frequency_hours === 24 && 'You\'ll receive one email per day at 12:00 AM CST.'}
+                        {preferences.frequency_hours === 12 && 'You\'ll receive emails at 12:00 AM and 12:00 PM CST.'}
+                        {preferences.frequency_hours === 8 && 'You\'ll receive emails at 12:00 AM, 8:00 AM, and 4:00 PM CST.'}
+                        {preferences.frequency_hours === 6 && 'You\'ll receive emails at 12:00 AM, 6:00 AM, 12:00 PM, and 6:00 PM CST.'}
+                        {preferences.frequency_hours === 4 && 'You\'ll receive emails at 12:00 AM, 4:00 AM, 8:00 AM, 12:00 PM, 4:00 PM, and 8:00 PM CST.'}
+                      </p>
+                    </div>
                   </div>
 
                   {/* Email Content Sections */}

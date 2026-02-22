@@ -235,8 +235,36 @@ function isAuthorized(request: NextRequest): boolean {
 }
 
 /**
+ * Get the current hour in CST (America/Chicago).
+ * Returns 0-23.
+ */
+function getCurrentCSTHour(): number {
+  const now = new Date();
+  // Use Intl to get the current hour in CST
+  const cstHourStr = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    hour: 'numeric',
+    hour12: false,
+  }).format(now);
+  return parseInt(cstHourStr, 10);
+}
+
+/**
+ * Check if a user should receive a digest right now based on their frequency setting.
+ * Emails are sent every N hours starting at 12am CST.
+ * e.g. frequency=8 → send at hours 0, 8, 16 CST
+ *      frequency=12 → send at hours 0, 12 CST
+ *      frequency=24 → send at hour 0 CST
+ */
+function shouldSendDigest(frequencyHours: number, currentCSTHour: number): boolean {
+  const freq = frequencyHours || 24;
+  return currentCSTHour % freq === 0;
+}
+
+/**
  * POST /api/daily-summary
- * Sends personal digest emails to all subscribed users.
+ * Sends personal digest emails to subscribed users whose frequency interval matches
+ * the current CST hour. The Netlify cron calls this every hour.
  * Accepts { force: true, testEmail: "..." } to send a demo to a specific address.
  */
 export async function POST(request: NextRequest) {
@@ -263,11 +291,12 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getSupabaseServiceClient();
+    const currentCSTHour = getCurrentCSTHour();
 
-    // Fetch all subscribed users
+    // Fetch all subscribed users with their frequency setting
     const { data: users, error: usersError } = await supabase
       .from('users')
-      .select('id, name, email')
+      .select('id, name, email, daily_email_frequency_hours, last_digest_sent_at')
       .eq('daily_email_subscribed', true)
       .not('email', 'is', null);
 
@@ -282,6 +311,7 @@ export async function POST(request: NextRequest) {
         message: 'No users are subscribed to daily digests.',
         sent: 0,
         skipped: 0,
+        currentCSTHour,
       });
     }
 
@@ -290,6 +320,24 @@ export async function POST(request: NextRequest) {
     const errors: string[] = [];
 
     for (const user of users) {
+      const frequencyHours = user.daily_email_frequency_hours || 24;
+
+      // Check if this user's frequency matches the current CST hour
+      if (!force && !shouldSendDigest(frequencyHours, currentCSTHour)) {
+        skipped++;
+        continue;
+      }
+
+      // Guard against double-sends: skip if we sent within the last (frequency - 1) hours
+      if (!force && user.last_digest_sent_at) {
+        const lastSent = new Date(user.last_digest_sent_at);
+        const hoursSinceLastSend = (Date.now() - lastSent.getTime()) / (1000 * 60 * 60);
+        if (hoursSinceLastSend < frequencyHours - 0.5) {
+          skipped++;
+          continue;
+        }
+      }
+
       try {
         const digestData = await buildDigestForUser(supabase, user, today);
         const hasContent =
@@ -307,7 +355,13 @@ export async function POST(request: NextRequest) {
         const result = await sendPersonalDigestEmail(digestData);
         if (result.success) {
           sent++;
-          console.log(`Digest sent to ${user.email} (${hasContent ? 'with items' : 'all clear'})`);
+          console.log(`Digest sent to ${user.email} (freq=${frequencyHours}h, ${hasContent ? 'with items' : 'all clear'})`);
+
+          // Update last_digest_sent_at
+          await supabase
+            .from('users')
+            .update({ last_digest_sent_at: new Date().toISOString() })
+            .eq('id', user.id);
         } else {
           errors.push(`${user.email}: ${result.error}`);
         }
@@ -324,6 +378,7 @@ export async function POST(request: NextRequest) {
       skipped,
       errors: errors.length > 0 ? errors : undefined,
       total: users.length,
+      currentCSTHour,
     });
   } catch (error: any) {
     console.error('Error in daily summary POST:', error);

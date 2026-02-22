@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
     try {
       const { data: userPrefs } = await supabaseAdmin
         .from('users')
-        .select('daily_email_subscribed, daily_email_time')
+        .select('daily_email_subscribed, daily_email_time, daily_email_frequency_hours')
         .eq('id', user.id)
         .maybeSingle();
       if (userPrefs) {
@@ -103,7 +103,8 @@ export async function GET(request: NextRequest) {
           include_planned_encouragements: true,
           include_upcoming_meetings: false,
           preferred_time: userPrefs.daily_email_time || '08:00',
-          timezone: 'UTC'
+          timezone: 'America/Chicago',
+          frequency_hours: userPrefs.daily_email_frequency_hours ?? 24
         };
       }
     } catch (error: any) {
@@ -119,7 +120,8 @@ export async function GET(request: NextRequest) {
       include_planned_encouragements: true,
       include_upcoming_meetings: false,
       preferred_time: '08:00',
-      timezone: 'UTC'
+      timezone: 'America/Chicago',
+      frequency_hours: 24
     };
 
     return NextResponse.json({
@@ -164,6 +166,15 @@ export async function PUT(request: NextRequest) {
       // Determine the email to store
       const emailToStore = newEmail || user.email;
 
+      // Fetch existing profile to preserve role and other fields
+      const { data: existingProfile } = await supabaseAdmin
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      const currentRole = existingProfile?.role || 'Viewer';
+
       // Use upsert to either update existing row or insert new one
       const { error: profileError } = await supabaseAdmin
         .from('users')
@@ -171,14 +182,14 @@ export async function PUT(request: NextRequest) {
           id: user.id,
           email: emailToStore,
           name,
-          role: 'user'
+          role: currentRole
         }, {
           onConflict: 'id'
         });
 
       if (profileError) {
         console.error('Error updating profile:', profileError);
-        return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+        return NextResponse.json({ error: `Failed to update profile: ${profileError.message}` }, { status: 500 });
       }
 
       // If email changed, also update in Supabase Auth
@@ -198,7 +209,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update email preferences if provided
-    // Stored in the users table (daily_email_subscribed, daily_email_time columns)
+    // Stored in the users table (daily_email_subscribed, daily_email_time, daily_email_frequency_hours columns)
     if (preferences) {
       try {
         const updatePayload: Record<string, unknown> = {};
@@ -209,6 +220,13 @@ export async function PUT(request: NextRequest) {
         }
         if (preferences.preferred_time) {
           updatePayload.daily_email_time = preferences.preferred_time;
+        }
+        if (typeof preferences.frequency_hours === 'number') {
+          // Validate: only allow 4, 6, 8, 12, 24
+          const validFrequencies = [4, 6, 8, 12, 24];
+          if (validFrequencies.includes(preferences.frequency_hours)) {
+            updatePayload.daily_email_frequency_hours = preferences.frequency_hours;
+          }
         }
 
         // Only update if there's something to write
