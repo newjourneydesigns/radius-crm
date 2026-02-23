@@ -2,7 +2,7 @@
 
 > **Version:** 1.4.0  
 > **Repository:** `newjourneydesigns/radius-crm` (branch: `main`)  
-> **Last Updated:** 2026-02-21
+> **Last Updated:** 2026-02-23
 
 ---
 
@@ -20,7 +20,7 @@ RADIUS is a **Circle Leader Management System** — a CRM-style web application 
 | **Language**     | TypeScript                                      |
 | **UI**           | React 18, Tailwind CSS 3, DaisyUI 5             |
 | **Database**     | Supabase (PostgreSQL) with Row-Level Security    |
-| **Auth**         | Supabase Auth (email/password + Google OAuth, PKCE flow) |
+| **Auth**         | Supabase Auth (magic link / passwordless, PKCE flow) |
 | **Calendar**     | FullCalendar v6                                 || **Charts**     | Chart.js 4 + react-chartjs-2 5                  || **Search**       | Fuse.js (client-side fuzzy search)              |
 | **Deployment**   | Netlify (with `@netlify/plugin-nextjs`)         |
 | **PWA**          | next-pwa                                        |
@@ -307,3 +307,7 @@ The project root contains numerous `.sql` and `.js` migration/fix scripts for ev
 - Global CSS (`styles/globals.css`) forces `background-color !important` on all `button` elements — use the `.score-btn` class with CSS custom properties (`--score-bg`, `--score-color`, `--score-border`, `--score-shadow`) to override for buttons needing custom colors
 - The `Encouragement`, `PrayerPoint`, and `CoachingNote` TypeScript interfaces in `lib/supabase.ts` must match the actual DB column names (`user_id` not `created_by`, `content` not `opportunity`, `message_type`/`message_date` not `message`/`sent_at`)
 - Future planned feature: **Circle Health Assessment** (Mission, Relationship, Transformation, Development) — reserved the "Health" naming for this; current scoring uses "Progress" naming throughout
+- **Global CSS aggressively overrides** `bg-white`, `bg-gray-50`, all `button`, `input`, `select`, `textarea`, and text color classes with `!important`. New components should use **inline styles** or **injected `<style>` tags via `createPortal`** to reliably control appearance — Tailwind classes alone will be overridden. The `search-trigger-btn` class pattern (CSS injected into `<head>`) is the recommended workaround.
+- `tailwind.config.ts` now includes `darkMode: 'class'` — added to support conditional dark mode styling; the app is always dark-themed via global CSS but this enables `dark:` variants in Tailwind
+- **GlobalSearch component** (`components/layout/GlobalSearch.tsx`) uses `createPortal` to render into `document.body` and injects a `<style>` block into `document.head` to override global button/bg styles within the search modal. It features keyboard navigation (↑↓ + Enter), Fuse.js fuzzy search, status dot indicators, and animated entry. The modal uses inline styles heavily to escape the global CSS `!important` overrides.
+- **Auth was migrated to passwordless magic link** — email/password login was removed in favor of Supabase magic link authentication. See `PASSWORDLESS_AUTH_MIGRATION.md` for details.
