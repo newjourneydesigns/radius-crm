@@ -411,14 +411,16 @@ function getCurrentCSTHour(): number {
 
 /**
  * Check if a user should receive a digest right now based on their frequency setting.
- * Emails are sent every N hours starting at 12am CST.
- * e.g. frequency=8 → send at hours 0, 8, 16 CST
- *      frequency=12 → send at hours 0, 12 CST
- *      frequency=24 → send at hour 0 CST
+ * Emails are sent every N hours starting at 4am CST.
+ * e.g. frequency=8 → send at hours 4, 12, 20 CST
+ *      frequency=12 → send at hours 4, 16 CST
+ *      frequency=24 → send at hour 4 CST
  */
 function shouldSendDigest(frequencyHours: number, currentCSTHour: number): boolean {
   const freq = frequencyHours || 24;
-  return currentCSTHour % freq === 0;
+  // Offset so 4am CST is the starting point (hour 0 of the cycle)
+  const offsetHour = (currentCSTHour - 4 + 24) % 24;
+  return offsetHour % freq === 0;
 }
 
 /**

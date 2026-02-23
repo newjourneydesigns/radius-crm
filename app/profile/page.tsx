@@ -561,15 +561,15 @@ export default function ProfilePage() {
                           <option value={24}>24 hours</option>
                         </select>
                         <span className="text-sm text-gray-500 dark:text-gray-400">
-                          starting at 12:00 AM CST
+                          starting at 4:00 AM CST
                         </span>
                       </div>
                       <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        {preferences.frequency_hours === 24 && 'You\'ll receive one email per day at 12:00 AM CST.'}
-                        {preferences.frequency_hours === 12 && 'You\'ll receive emails at 12:00 AM and 12:00 PM CST.'}
-                        {preferences.frequency_hours === 8 && 'You\'ll receive emails at 12:00 AM, 8:00 AM, and 4:00 PM CST.'}
-                        {preferences.frequency_hours === 6 && 'You\'ll receive emails at 12:00 AM, 6:00 AM, 12:00 PM, and 6:00 PM CST.'}
-                        {preferences.frequency_hours === 4 && 'You\'ll receive emails at 12:00 AM, 4:00 AM, 8:00 AM, 12:00 PM, 4:00 PM, and 8:00 PM CST.'}
+                        {preferences.frequency_hours === 24 && 'You\'ll receive one email per day at 4:00 AM CST.'}
+                        {preferences.frequency_hours === 12 && 'You\'ll receive emails at 4:00 AM and 4:00 PM CST.'}
+                        {preferences.frequency_hours === 8 && 'You\'ll receive emails at 4:00 AM, 12:00 PM, and 8:00 PM CST.'}
+                        {preferences.frequency_hours === 6 && 'You\'ll receive emails at 4:00 AM, 10:00 AM, 4:00 PM, and 10:00 PM CST.'}
+                        {preferences.frequency_hours === 4 && 'You\'ll receive emails at 4:00 AM, 8:00 AM, 12:00 PM, 4:00 PM, 8:00 PM, and 12:00 AM CST.'}
                       </p>
                     </div>
                   </div>

@@ -1166,7 +1166,7 @@ export default function SettingsPage() {
                 {digestSubscribed && (
                   <div className="mt-3 space-y-2">
                     <p className="text-xs text-gray-400 dark:text-gray-500">
-                      Digests are sent every {digestFrequencyHours} hour{digestFrequencyHours !== 1 ? 's' : ''} starting at 12:00 AM CST.
+                      Digests are sent every {digestFrequencyHours} hour{digestFrequencyHours !== 1 ? 's' : ''} starting at 4:00 AM CST.
                     </p>
                     <a
                       href="/profile"
