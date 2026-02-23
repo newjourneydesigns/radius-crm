@@ -1,5 +1,5 @@
-const CACHE_NAME = 'radius-v2.0.0';
-const STATIC_CACHE = 'radius-static-v2.0.0';
+const CACHE_NAME = 'radius-v2.1.0';
+const STATIC_CACHE = 'radius-static-v2.1.0';
 
 // Essential files to cache - only truly static assets that won't fail
 const STATIC_FILES = [
@@ -9,26 +9,17 @@ const STATIC_FILES = [
   '/apple-touch-icon.png'
 ];
 
-// Install event - cache essential resources
-// IMPORTANT: We cache static assets first (guaranteed to exist),
-// then attempt page caching separately so SW install never fails
+// Install event - cache essential static resources only
+// IMPORTANT: Do NOT pre-cache HTML pages — they reference hashed JS bundles
+// that change on every deploy, so stale HTML causes blank pages.
 self.addEventListener('install', (event) => {
-  console.log('Service worker installing v2.0.0');
+  console.log('Service worker installing v2.1.0');
   
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then((cache) => {
-        // Cache static files - these must succeed
+        // Cache static files only - these are stable across deploys
         return cache.addAll(STATIC_FILES);
-      })
-      .then(() => {
-        // Attempt to cache pages separately - don't block install if they fail
-        return caches.open(CACHE_NAME).then((cache) => {
-          return Promise.allSettled([
-            cache.add('/'),
-            cache.add('/dashboard/')
-          ]);
-        });
       })
       .then(() => {
         console.log('Service worker installed successfully');
@@ -56,13 +47,17 @@ self.addEventListener('activate', (event) => {
         })
       );
     }).then(() => {
-      console.log('Service worker v2.0.0 activated - taking control of all clients');
+      console.log('Service worker v2.1.0 activated - taking control of all clients');
       return self.clients.claim();
     })
   );
 });
 
-// Fetch event - implement cache-first strategy for static resources
+// Fetch event
+// - Navigation requests (HTML pages): NETWORK-FIRST so fresh HTML always loads
+//   the correct JS bundles after a deploy.
+// - Static assets (images, manifest): CACHE-FIRST for performance.
+// - Everything else (JS chunks, API calls): NETWORK-ONLY (pass through).
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') {
@@ -74,49 +69,54 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Return cached version if available
-        if (response) {
+  // Navigation requests (HTML pages) — network-first
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          // Cache the latest HTML for offline fallback
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
           return response;
-        }
-
-        // Otherwise fetch from network
-        return fetch(event.request)
-          .then((response) => {
-            // Don't cache if not a valid response
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
-
-            // Clone the response
-            const responseToCache = response.clone();
-
-            // Cache static resources
-            if (event.request.url.includes('.png') || 
-                event.request.url.includes('.jpg') || 
-                event.request.url.includes('.jpeg') ||
-                event.request.url.includes('.svg') ||
-                event.request.url.includes('.ico') ||
-                event.request.url.includes('manifest.json')) {
-              
-              caches.open(STATIC_CACHE)
-                .then((cache) => {
-                  cache.put(event.request, responseToCache);
-                });
-            }
-
-            return response;
-          })
-          .catch(() => {
-            // Return offline page or fallback for navigation requests
-            if (event.request.mode === 'navigate') {
-              return caches.match('/dashboard/');
-            }
+        })
+        .catch(() => {
+          // Offline — try the cached version
+          return caches.match(event.request).then((cached) => {
+            return cached || caches.match('/');
           });
+        })
+    );
+    return;
+  }
+
+  // Static assets — cache-first
+  const isStaticAsset =
+    event.request.url.includes('.png') ||
+    event.request.url.includes('.jpg') ||
+    event.request.url.includes('.jpeg') ||
+    event.request.url.includes('.svg') ||
+    event.request.url.includes('.ico') ||
+    event.request.url.includes('manifest.json');
+
+  if (isStaticAsset) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(event.request).then((response) => {
+          if (response && response.status === 200 && response.type === 'basic') {
+            const clone = response.clone();
+            caches.open(STATIC_CACHE).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        });
       })
-  );
+    );
+    return;
+  }
+
+  // All other requests (JS chunks, API calls, etc.) — pass through to network
 });
 
 // Handle messages from the client

@@ -20,7 +20,7 @@
 
 /* Mobile bottom navigation spacing — clears the 56px tab bar + safe area */
 .mobile-nav-padding {
-  padding-bottom: calc(62px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
 }
 @media (min-width: 768px) {
   .mobile-nav-padding {
@@ -41,7 +41,7 @@
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   backdrop-filter: saturate(180%) blur(20px);
   border-top: 0.5px solid rgba(255, 255, 255, 0.08);
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 6px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
 }
 
 .mobile-tab-bar-inner {

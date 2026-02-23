@@ -197,8 +197,17 @@ export default function ProgressTimeline({ ratings, height = 280 }: ProgressTime
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white">Progress Timeline</h2>
-        <p className="text-xs text-gray-500 mt-0.5">Score trends over time</p>
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-cyan-500/15 flex items-center justify-center">
+            <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white">Progress Timeline</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Score trends over time</p>
+          </div>
+        </div>
       </div>
       <div className="p-4 sm:p-6">
         <div style={{ height: height + 'px' }}>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useScorecard } from '../../hooks/useScorecard';
 import { useEvaluation } from '../../hooks/useEvaluation';
+import { useDevelopmentProspects } from '../../hooks/useDevelopmentProspects';
 import { ScorecardDimension } from '../../lib/supabase';
 import { calculateSuggestedScore, getFinalScore } from '../../lib/evaluationQuestions';
 import CategoryEvaluation from './CategoryEvaluation';
@@ -23,6 +24,7 @@ interface ScorecardSectionProps {
 
 export default function ScorecardSection({ leaderId, isAdmin, onNoteSaved, onAddToCoaching }: ScorecardSectionProps) {
   const { ratings, isLoading, loadRatings, submitScores, updateScore, deleteScore, getLatestScores, getTrend } = useScorecard();
+  const { prospects, loadAll: loadProspects } = useDevelopmentProspects();
   const {
     isLoading: evalLoading,
     isSaving: evalSaving,
@@ -48,7 +50,8 @@ export default function ScorecardSection({ leaderId, isAdmin, onNoteSaved, onAdd
   useEffect(() => {
     loadRatings(leaderId);
     loadEvaluations(leaderId);
-  }, [leaderId, loadRatings, loadEvaluations]);
+    loadProspects(leaderId);
+  }, [leaderId, loadRatings, loadEvaluations, loadProspects]);
 
   const latestScores = getLatestScores();
   const trend = getTrend();
@@ -213,13 +216,20 @@ export default function ScorecardSection({ leaderId, isAdmin, onNoteSaved, onAdd
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-        <div>
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white">Progress Scorecard</h2>
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-indigo-500/15 flex items-center justify-center">
+            <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white">Progress Scorecard</h2>
           {lastUpdatedDate && (
             <p className="text-xs text-gray-500 mt-0.5">
               Last updated: {new Date(lastUpdatedDate.length <= 10 ? lastUpdatedDate + 'T00:00:00' : lastUpdatedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </p>
           )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {effectiveScores.average !== null && (
@@ -350,6 +360,29 @@ export default function ScorecardSection({ leaderId, isAdmin, onNoteSaved, onAdd
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Development Prospects Summary */}
+            {prospects.filter(p => p.is_active).length > 0 && (
+              <div className="mt-4 p-3 sm:p-4 rounded-xl border border-orange-500/20 bg-orange-500/5">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="text-sm font-semibold text-orange-400">Being Developed</span>
+                  <span className="text-xs text-gray-500">({prospects.filter(p => p.is_active).length})</span>
+                </div>
+                <div className="space-y-1.5">
+                  {prospects.filter(p => p.is_active).map(prospect => (
+                    <div key={prospect.id} className="flex items-start gap-2">
+                      <span className="text-sm text-white font-medium">{prospect.name}</span>
+                      {prospect.notes && (
+                        <span className="text-xs text-gray-400 italic mt-0.5">— {prospect.notes}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

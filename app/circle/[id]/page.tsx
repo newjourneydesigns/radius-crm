@@ -235,8 +235,8 @@ const normalizeCircleTypeValue = (value: string | undefined | null): string => {
 // ── Sticky section-nav tab definitions ──────────────────────────────
 const SECTION_TABS = [
   { id: 'section-profile',   label: 'Profile' },
-  { id: 'section-pec',       label: 'Pray / Encourage / Coach / Develop', adminOnly: true },
-  { id: 'section-visits',    label: 'Circle Visits', adminOnly: true },
+  { id: 'section-pec',       label: 'Care', adminOnly: true },
+  { id: 'section-visits',    label: 'Circle Visits', mobileLabel: 'Visits', adminOnly: true },
   { id: 'section-scorecard', label: 'Scorecard' },
   { id: 'section-trends',    label: 'Trends' },
   { id: 'section-notes',     label: 'Notes' },
@@ -254,6 +254,8 @@ export default function CircleLeaderProfilePage() {
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const navRef = useRef<HTMLDivElement>(null);
   const isScrollingByClick = useRef(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
 
   const setSectionRef = useCallback((id: string) => (el: HTMLDivElement | null) => {
     sectionRefs.current[id] = el;
@@ -296,6 +298,17 @@ export default function CircleLeaderProfilePage() {
 
     // Re-enable observer after scroll finishes
     setTimeout(() => { isScrollingByClick.current = false; }, 800);
+  }, []);
+
+  // Close "More" overflow menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
   const [evalScores, setEvalScores] = useState<ScorecardRating[]>([]);
   
@@ -1628,7 +1641,103 @@ export default function CircleLeaderProfilePage() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        {/* ── Sticky Section Navigation ── */}
+        <div
+          ref={navRef}
+          className="sticky top-0 z-40 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700/60"
+        >
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          {(() => {
+            const filteredTabs = SECTION_TABS.filter((tab) => !('adminOnly' in tab && tab.adminOnly) || isAdmin());
+            const useOverflow = filteredTabs.length > 4;
+            const visibleTabs = useOverflow ? filteredTabs.slice(0, 3) : filteredTabs;
+            const overflowTabs = useOverflow ? filteredTabs.slice(3) : [];
+            const activeInOverflow = overflowTabs.some((t) => t.id === activeSection);
+
+            const tabClass = (isActive: boolean) =>
+              `whitespace-nowrap flex-shrink-0 px-3 py-3 text-sm font-medium transition-colors cursor-pointer border-b-2 ${
+                isActive ? 'border-blue-500 text-white' : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'
+              }`;
+
+            return (
+              <>
+                {/* Mobile: first 3 tabs + More overflow */}
+                <nav className="flex md:hidden" aria-label="Section navigation">
+                  {visibleTabs.map((tab) => (
+                    <div
+                      role="tab"
+                      tabIndex={0}
+                      key={tab.id}
+                      onClick={() => { scrollToSection(tab.id); setShowMoreMenu(false); }}
+                      onKeyDown={(e) => e.key === 'Enter' && scrollToSection(tab.id)}
+                      className={tabClass(activeSection === tab.id)}
+                    >
+                      {'mobileLabel' in tab ? tab.mobileLabel : tab.label}
+                    </div>
+                  ))}
+                  {overflowTabs.length > 0 && (
+                    <div className="relative ml-auto flex-shrink-0" ref={moreMenuRef}>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setShowMoreMenu((v) => !v)}
+                        onKeyDown={(e) => e.key === 'Enter' && setShowMoreMenu((v) => !v)}
+                        className={`flex items-center gap-1 px-3 py-3 text-sm font-medium transition-colors cursor-pointer border-b-2 ${
+                          activeInOverflow ? 'border-blue-500 text-white' : 'border-transparent text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        More
+                        <svg className={`w-3.5 h-3.5 transition-transform ${showMoreMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                      {showMoreMenu && (
+                        <div className="absolute right-0 top-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 min-w-[160px]">
+                          {overflowTabs.map((tab) => (
+                            <div
+                              key={tab.id}
+                              role="menuitem"
+                              tabIndex={0}
+                              onClick={() => { scrollToSection(tab.id); setShowMoreMenu(false); }}
+                              onKeyDown={(e) => e.key === 'Enter' && scrollToSection(tab.id)}
+                              className={`px-4 py-3 text-sm font-medium cursor-pointer transition-colors first:rounded-t-lg last:rounded-b-lg ${
+                                activeSection === tab.id
+                                  ? 'text-white bg-blue-600/25 border-l-2 border-blue-500 pl-3.5'
+                                  : 'text-gray-400 hover:text-white hover:bg-gray-700/60'
+                              }`}
+                            >
+                              {tab.label}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </nav>
+
+                {/* Desktop: all tabs */}
+                <nav className="hidden md:flex overflow-x-auto scrollbar-hide" aria-label="Section navigation">
+                  {filteredTabs.map((tab) => (
+                    <div
+                      role="tab"
+                      tabIndex={0}
+                      key={tab.id}
+                      onClick={() => scrollToSection(tab.id)}
+                      onKeyDown={(e) => e.key === 'Enter' && scrollToSection(tab.id)}
+                      className={tabClass(activeSection === tab.id)}
+                    >
+                      {tab.label}
+                    </div>
+                  ))}
+                </nav>
+              </>
+            );
+          })()}
+          </div>
+        </div>
+
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center mb-4">
@@ -1647,30 +1756,6 @@ export default function CircleLeaderProfilePage() {
               </p>
             </div>
           </div>
-        </div>
-
-        {/* ── Sticky Section Navigation ── */}
-        <div
-          ref={navRef}
-          className="sticky top-0 z-40 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 mb-6"
-        >
-          <nav className="flex overflow-x-auto scrollbar-hide -mb-px py-2 gap-1" aria-label="Section navigation">
-            {SECTION_TABS
-              .filter((tab) => !('adminOnly' in tab && tab.adminOnly) || isAdmin())
-              .map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => scrollToSection(tab.id)}
-                  className={`whitespace-nowrap flex-shrink-0 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    activeSection === tab.id
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-gray-700/60'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-          </nav>
         </div>
 
         {/* Mobile Quick Actions - Show on mobile only, right after the name */}
@@ -2668,7 +2753,14 @@ export default function CircleLeaderProfilePage() {
             {/* Notes Section */}
             <div id="section-notes" ref={setSectionRef('section-notes')} className="bg-white dark:bg-gray-800 rounded-lg shadow mt-6 scroll-mt-20">
               <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="text-lg font-medium text-gray-900 dark:text-white">Notes</h2>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </div>
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-white">Notes</h2>
+                </div>
               </div>
           <div className="p-4 sm:p-6">
             {/* Add Note */}

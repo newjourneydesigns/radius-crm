@@ -56,14 +56,27 @@ export function useDevelopmentProspects() {
     }
     if (data) {
       setProspects(prev => [data, ...prev]);
+
+      // Add system note to leader's notes
+      const noteText = notes?.trim() ? ` — "${notes.trim()}"` : '';
+      await supabase
+        .from('notes')
+        .insert([{
+          circle_leader_id: leaderId,
+          content: `Developing: Added ${name.trim()} as a development prospect.${noteText}`,
+          created_by: 'System',
+        }]);
     }
   }, []);
 
-  const updateProspect = useCallback(async (id: number, updates: { name?: string; notes?: string; is_active?: boolean }) => {
+  const updateProspect = useCallback(async (id: number, updates: { name?: string; notes?: string; is_active?: boolean }, leaderId?: number) => {
     const cleanUpdates: Record<string, unknown> = {};
     if (updates.name !== undefined) cleanUpdates.name = updates.name.trim();
     if (updates.notes !== undefined) cleanUpdates.notes = updates.notes.trim() || null;
     if (updates.is_active !== undefined) cleanUpdates.is_active = updates.is_active;
+
+    // Get the current prospect for change context
+    const current = prospects.find(p => p.id === id);
 
     const { error: updateError } = await supabase
       .from('development_prospects')
@@ -77,7 +90,33 @@ export function useDevelopmentProspects() {
     }
 
     setProspects(prev => prev.map(p => p.id === id ? { ...p, ...cleanUpdates } as DevelopmentProspect : p));
-  }, []);
+
+    // Add system note for name/notes edits (not for active/inactive toggles)
+    if (leaderId && current && (updates.name !== undefined || updates.notes !== undefined)) {
+      const parts: string[] = [];
+      if (updates.name !== undefined && updates.name.trim() !== current.name) {
+        parts.push(`name to "${updates.name.trim()}"`);
+      }
+      if (updates.notes !== undefined) {
+        const newNotes = updates.notes.trim();
+        if (newNotes && newNotes !== (current.notes || '')) {
+          parts.push(`notes to "${newNotes}"`);
+        } else if (!newNotes && current.notes) {
+          parts.push('cleared notes');
+        }
+      }
+      if (parts.length > 0) {
+        const displayName = updates.name?.trim() || current.name;
+        await supabase
+          .from('notes')
+          .insert([{
+            circle_leader_id: leaderId,
+            content: `Developing: Updated ${displayName} — ${parts.join(', ')}.`,
+            created_by: 'System',
+          }]);
+      }
+    }
+  }, [prospects]);
 
   const toggleActive = useCallback(async (id: number) => {
     const prospect = prospects.find(p => p.id === id);
