@@ -7,6 +7,7 @@ import {
   VisitItem,
   EncouragementItem,
   FollowUpItem,
+  NoteItem,
 } from '../../../lib/emailService';
 
 function getSupabaseServiceClient() {
@@ -166,11 +167,57 @@ async function buildDigestForUser(
   const fuDueToday: FollowUpItem[] = (followUpsRaw || []).filter(f => f.follow_up_date === today).map(toFU);
   const fuOverdue: FollowUpItem[] = (followUpsRaw || []).filter(f => !f.follow_up_date || f.follow_up_date < today).map(toFU);
 
+  // 5. Upcoming scheduled circle visits (beyond this week, next 30 days)
+  const monthEnd = getDateOffset(today, 30);
+  const afterWeek = getDateOffset(today, 8); // day after weekEnd
+  const { data: upcomingVisitsRaw } = await supabase
+    .from('circle_visits')
+    .select(`
+      id,
+      visit_date,
+      leader_id,
+      previsit_note,
+      circle_leaders!inner(name, campus)
+    `)
+    .eq('scheduled_by', user.id)
+    .eq('status', 'scheduled')
+    .gte('visit_date', afterWeek)
+    .lte('visit_date', monthEnd)
+    .order('visit_date', { ascending: true })
+    .limit(10);
+
+  const upcomingVisits: VisitItem[] = (upcomingVisitsRaw || []).map(toVisit);
+
+  // 6. Last 5 notes created by this user for circle leaders
+  const { data: notesRaw } = await supabase
+    .from('notes')
+    .select(`
+      id,
+      circle_leader_id,
+      content,
+      created_at,
+      circle_leaders!inner(name, campus)
+    `)
+    .eq('created_by', user.id)
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+  const recentNotes: NoteItem[] = (notesRaw || []).map((n: any) => ({
+    id: n.id,
+    circle_leader_id: n.circle_leader_id,
+    leader_name: n.circle_leaders?.name ?? 'Unknown',
+    leader_campus: n.circle_leaders?.campus,
+    content: n.content,
+    created_at: n.created_at,
+  }));
+
   return {
     user,
     date: today,
     todos: { dueToday: todosDueToday, overdue: todosOverdue, noDate: todosNoDate },
     circleVisits: { today: visitsToday, thisWeek: visitsThisWeek },
+    upcomingVisits,
+    recentNotes,
     encouragements: { dueToday: encsDueToday, overdue: encsOverdue },
     followUps: { dueToday: fuDueToday, overdue: fuOverdue },
   };
@@ -223,6 +270,14 @@ function buildDemoDigest(user: { id: string; name: string; email: string }, toda
         { id: 94, name: 'Lisa Park', campus: 'East Campus', follow_up_date: threeDaysAgo },
       ],
     },
+    upcomingVisits: [
+      { id: 'demo-3', visit_date: getDateOffset(today, 10), leader_id: 42, leader_name: 'Sarah Johnson', leader_campus: 'Main Campus', previsit_note: 'Follow up on fall plans' },
+      { id: 'demo-4', visit_date: getDateOffset(today, 14), leader_id: 67, leader_name: 'Mike Chen', leader_campus: 'North Campus', previsit_note: null },
+    ],
+    recentNotes: [
+      { id: 1, circle_leader_id: 42, leader_name: 'Sarah Johnson', leader_campus: 'Main Campus', content: 'Discussed fall semester plans and leadership development goals for the team.', created_at: yesterday },
+      { id: 2, circle_leader_id: 67, leader_name: 'Mike Chen', leader_campus: 'North Campus', content: 'Checked in about new member integration process.', created_at: threeDaysAgo },
+    ],
   };
 }
 

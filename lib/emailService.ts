@@ -37,6 +37,15 @@ export interface FollowUpItem {
   follow_up_date?: string | null;
 }
 
+export interface NoteItem {
+  id: number;
+  circle_leader_id: number;
+  leader_name: string;
+  leader_campus?: string;
+  content: string;
+  created_at: string;
+}
+
 export interface PersonalDigestData {
   user: { id: string; name: string; email: string };
   date: string;
@@ -49,6 +58,8 @@ export interface PersonalDigestData {
     today: VisitItem[];
     thisWeek: VisitItem[];
   };
+  upcomingVisits: VisitItem[];
+  recentNotes: NoteItem[];
   encouragements: {
     dueToday: EncouragementItem[];
     overdue: EncouragementItem[];
@@ -152,7 +163,7 @@ function todoRow(item: TodoItem, appUrl: string, today: string): string {
 
 export function generatePersonalDigestHTML(data: PersonalDigestData): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://myradiuscrm.com';
-  const { user, date, todos, circleVisits, encouragements, followUps } = data;
+  const { user, date, todos, circleVisits, upcomingVisits, recentNotes, encouragements, followUps } = data;
 
   const totalItems =
     todos.dueToday.length + todos.overdue.length + todos.noDate.length +
@@ -268,6 +279,40 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
        </div>`
     : '';
 
+  // UPCOMING SCHEDULED CIRCLE VISITS
+  let upcomingVisitsHtml = '';
+  if (upcomingVisits.length > 0) {
+    upcomingVisitsHtml = sectionHeader('🗓️', 'Upcoming Scheduled Circle Visits', upcomingVisits.length, '#0891b2');
+    upcomingVisits.forEach(v => {
+      upcomingVisitsHtml += leaderCard(appUrl, v.leader_id, v.leader_name, v.leader_campus,
+        `<div style="font-size:13px; color:#c9d6e3;"><strong>📅 ${formatDate(v.visit_date)}</strong>${v.previsit_note ? `<br><span style="color:#6b8ab0;">Note:</span> ${v.previsit_note}` : ''}</div>`
+      );
+    });
+    upcomingVisitsHtml += '</div>';
+  }
+
+  // RECENT NOTES
+  let recentNotesHtml = '';
+  if (recentNotes.length > 0) {
+    recentNotesHtml = sectionHeader('📝', 'Recent Notes', recentNotes.length, '#8b5cf6');
+    recentNotes.forEach(n => {
+      const noteDate = new Date(n.created_at).toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+      });
+      const truncatedContent = n.content.length > 200 ? n.content.substring(0, 200) + '…' : n.content;
+      recentNotesHtml += `
+      <div style="background:#0f2a4a; border:1px solid #1e3a5f; border-left:4px solid #8b5cf6; border-radius:6px; padding:10px 14px; margin-bottom:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <a href="${appUrl}/circle/${n.circle_leader_id}/" style="font-size:14px; font-weight:700; color:#8da9c4; text-decoration:none;">${n.leader_name}</a>
+          ${n.leader_campus ? `<span style="font-size:11px; color:#4c6785;">• ${n.leader_campus}</span>` : ''}
+        </div>
+        <div style="font-size:13px; color:#c9d6e3; margin-bottom:4px; line-height:1.5;">${truncatedContent}</div>
+        <div style="font-size:11px; color:#4c6785;">${noteDate}</div>
+      </div>`;
+    });
+    recentNotesHtml += '</div>';
+  }
+
   const taskCount = todos.dueToday.length + todos.overdue.length + todos.noDate.length;
   const visitCount = circleVisits.today.length + circleVisits.thisWeek.length;
   const encCount = encouragements.dueToday.length + encouragements.overdue.length;
@@ -321,6 +366,8 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
     ${encOverdue}
     ${fuOverdue}
     ${visitsWeek}
+    ${upcomingVisitsHtml}
+    ${recentNotesHtml}
   </div>
 
   <div style="text-align:center; padding:24px 0 8px;">

@@ -7,6 +7,7 @@ import {
   VisitItem,
   EncouragementItem,
   FollowUpItem,
+  NoteItem,
 } from '../../../../lib/emailService';
 
 function getSupabaseServiceClient() {
@@ -178,6 +179,38 @@ export async function POST(request: NextRequest) {
       follow_up_date: f.follow_up_date,
     });
 
+    // ── 5. Upcoming visits (8–30 days out) ────────────────────────────────
+    const day8 = getDateOffset(today, 8);
+    const day30 = getDateOffset(today, 30);
+    const { data: upcomingVisitsRaw } = await supabase
+      .from('circle_visits')
+      .select('id, visit_date, leader_id, previsit_note, circle_leaders!inner(name, campus)')
+      .eq('scheduled_by', user.id)
+      .eq('status', 'scheduled')
+      .gte('visit_date', day8)
+      .lte('visit_date', day30)
+      .order('visit_date', { ascending: true })
+      .limit(10);
+
+    const upcomingVisits: VisitItem[] = (upcomingVisitsRaw || []).map(toVisit);
+
+    // ── 6. Recent notes (last 5) ──────────────────────────────────────────
+    const { data: notesRaw } = await supabase
+      .from('notes')
+      .select('id, circle_leader_id, content, created_at, circle_leaders!inner(name, campus)')
+      .eq('created_by', user.id)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    const recentNotes: NoteItem[] = (notesRaw || []).map((n: any) => ({
+      id: n.id,
+      circle_leader_id: n.circle_leader_id,
+      leader_name: n.circle_leaders?.name ?? 'Unknown',
+      leader_campus: n.circle_leaders?.campus,
+      content: n.content,
+      created_at: n.created_at,
+    }));
+
     const digestData: PersonalDigestData = {
       user: { id: user.id, name: userName, email: recipientEmail },
       date: today,
@@ -198,6 +231,8 @@ export async function POST(request: NextRequest) {
         dueToday: (followUpsRaw || []).filter(f => f.follow_up_date === today).map(toFU),
         overdue: (followUpsRaw || []).filter(f => !f.follow_up_date || f.follow_up_date < today).map(toFU),
       },
+      upcomingVisits,
+      recentNotes,
     };
 
     const result = await sendPersonalDigestEmail(digestData);
