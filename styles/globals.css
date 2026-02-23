@@ -61,12 +61,23 @@
   flex: 1;
   gap: 2px;
   background: none;
+  background-color: transparent;
   border: none;
   outline: none;
+  box-shadow: none;
+  appearance: none;
+  -webkit-appearance: none;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   text-decoration: none;
   transition: transform 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.mobile-tab-item:focus,
+.mobile-tab-item:focus-visible {
+  outline: none;
+  background-color: transparent;
+  box-shadow: none;
 }
 
 .mobile-tab-item:active {
