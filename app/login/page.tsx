@@ -64,7 +64,8 @@ function LoginContent() {
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
         options: {
-          emailRedirectTo: `${redirectDomain}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
+          // Redirect directly to verify page (client-side) to preserve auth tokens
+          emailRedirectTo: `${redirectDomain}/auth/verify?next=${encodeURIComponent(redirectTo)}`,
           // Don't create a new user - only allow existing users
           shouldCreateUser: false,
         },

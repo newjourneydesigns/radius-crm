@@ -23,83 +23,86 @@ function VerifyContent() {
       next = '/dashboard';
     }
 
-    // Listen for auth state changes - Supabase will automatically process the URL hash
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('🔍 Auth event:', event, session ? 'Session exists' : 'No session');
+    console.log('🔍 Verify page loaded, full URL:', window.location.href);
+    console.log('🔍 URL search params:', Array.from(searchParams.entries()));
+    console.log('🔍 URL hash:', window.location.hash);
 
-      if (event === 'SIGNED_IN' && session) {
-        const userId = session.user?.id;
-        const email = session.user?.email ?? '';
+    const verifyAuth = async () => {
+      try {
+        // With implicit flow, Supabase automatically processes URL hash on page load
+        // Wait a moment for it to complete
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-        console.log('✅ Signed in:', email);
+        // Check if we have a session
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-        // Verify user exists in our system (invite-only)
-        const { data: userProfile, error: profileError } = await supabase
-          .from('users')
-          .select('id, email, role')
-          .eq('id', userId)
-          .single();
-
-        if (profileError || !userProfile) {
-          console.warn('🚫 User not found in system:', email);
-          await supabase.auth.signOut();
-          router.replace('/login?error=unauthorized_user');
+        if (sessionError) {
+          console.error('❌ Session error:', sessionError);
+          setError('Authentication failed. Please try again.');
+          setTimeout(() => router.replace('/login?error=auth_failed'), 2000);
           return;
         }
 
-        console.log('✅ User verified, redirecting to', next);
-        router.replace(next);
-      } else if (event === 'TOKEN_REFRESHED') {
-        console.log('🔄 Token refreshed');
-      }
-    });
+        if (!session) {
+          console.log('⏳ No session yet, waiting for auth state change...');
+          
+          // Set up listener for auth state changes
+          const { data: authListener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+            console.log('🔍 Auth state change:', event);
+            
+            if (event === 'SIGNED_IN' && newSession) {
+              await handleSession(newSession, next);
+            }
+          });
 
-    // Also check for existing session (in case auth state change already fired)
-    const checkExistingSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session) {
-        const userId = session.user?.id;
-        const email = session.user?.email ?? '';
-
-        console.log('✅ Existing session found:', email);
-
-        // Verify user exists in our system
-        const { data: userProfile, error: profileError } = await supabase
-          .from('users')
-          .select('id, email, role')
-          .eq('id', userId)
-          .single();
-
-        if (profileError || !userProfile) {
-          console.warn('🚫 User not found in system:', email);
-          await supabase.auth.signOut();
-          router.replace('/login?error=unauthorized_user');
-          return;
-        }
-
-        console.log('✅ User verified, redirecting to', next);
-        router.replace(next);
-      } else {
-        // No session yet, wait for auth state change or timeout
-        setTimeout(() => {
-          supabase.auth.getSession().then(({ data: { session } }) => {
-            if (!session) {
+          // Timeout after 5 seconds
+          setTimeout(async () => {
+            const { data: { session: finalSession } } = await supabase.auth.getSession();
+            if (!finalSession) {
               console.error('❌ No session after timeout');
               setError('Authentication timed out. Please try again.');
               setTimeout(() => router.replace('/login?error=auth_failed'), 2000);
             }
-          });
-        }, 3000);
+            authListener?.subscription.unsubscribe();
+          }, 5000);
+
+          return;
+        }
+
+        // We have a session, verify the user
+        await handleSession(session, next);
+      } catch (err) {
+        console.error('❌ Unexpected error:', err);
+        setError('An error occurred. Please try again.');
+        setTimeout(() => router.replace('/login?error=auth_failed'), 2000);
       }
     };
 
-    // Check after a brief delay to let URL hash processing complete
-    setTimeout(checkExistingSession, 1000);
+    const handleSession = async (session: any, next: string) => {
+      const userId = session.user?.id;
+      const email = session.user?.email ?? '';
 
-    return () => {
-      authListener?.subscription.unsubscribe();
+      console.log('✅ Session found for:', email);
+
+      // Verify user exists in our system (invite-only)
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('id, email, role')
+        .eq('id', userId)
+        .single();
+
+      if (profileError || !userProfile) {
+        console.warn('🚫 User not found in system:', email);
+        await supabase.auth.signOut();
+        router.replace('/login?error=unauthorized_user');
+        return;
+      }
+
+      console.log('✅ User verified, redirecting to', next);
+      router.replace(next);
     };
+
+    verifyAuth();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
