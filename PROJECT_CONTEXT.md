@@ -1,6 +1,6 @@
 # RADIUS CRM — Project Context
 
-> **Version:** 1.4.0  
+> **Version:** 1.5.0  
 > **Repository:** `newjourneydesigns/radius-crm` (branch: `main`)  
 > **Last Updated:** 2026-02-23
 
@@ -25,6 +25,8 @@ RADIUS is a **Circle Leader Management System** — a CRM-style web application 
 | **Deployment**   | Netlify (with `@netlify/plugin-nextjs`)         |
 | **PWA**          | next-pwa                                        |
 | **Node**         | >= 20.19.0                                      |
+| **AI Providers**  | Google Gemini 2.0 Flash (primary), Groq Llama 3.3 70B (fallback) — dual-provider with automatic failover |
+| **Speech**        | Browser Web Speech API (`webkitSpeechRecognition`) — no npm dependency |
 | **External API** | CCB (Church Community Builder) — XML-based API via `axios` + `fast-xml-parser` |
 
 ---
@@ -35,6 +37,8 @@ RADIUS is a **Circle Leader Management System** — a CRM-style web application 
 | --------------------------------- | ---------------------------- |
 | `NEXT_PUBLIC_SUPABASE_URL`        | Supabase project URL         |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY`   | Supabase anonymous API key   |
+| `GEMINI_API_KEY`                  | Google Gemini API key (AI summarization & meeting prep) |
+| `GROQ_API_KEY`                    | Groq API key (fallback AI provider) |
 
 Set in `.env.local` for development, Netlify dashboard for production.
 
@@ -85,6 +89,7 @@ Set in `.env.local` for development, Netlify dashboard for production.
 │       │   ├── event-profiles/
 │       │   ├── test-endpoints/
 │       │   └── test-groups/
+│       ├── ai-summarize/       # AI summarization & meeting prep API (Gemini→Groq fallback)
 │       ├── debug-users/        # Debug endpoint
 │       └── test/               # Test endpoint
 │
@@ -130,6 +135,9 @@ Set in `.env.local` for development, Netlify dashboard for production.
 │   │   ├── ConnectPersonModal.tsx
 │   │   ├── EventExplorerModal.tsx
 │   │   └── EventSummaryReminderModal.tsx
+│   ├── notes/                  # AI-powered note tools
+│   │   ├── DictateAndSummarize.tsx  # Voice dictation toolbar + AI summarize with preview/approve UX
+│   │   └── MeetingPrepAssistant.tsx # AI meeting prep briefing generator (Big 4 coaching, admin-only)
 │   ├── ui/                     # Generic UI primitives
 │   │   └── ScrollToTop.tsx
 │   ├── ProtectedRoute.tsx      # Auth guard wrapper
@@ -139,6 +147,7 @@ Set in `.env.local` for development, Netlify dashboard for production.
 │   └── AuthContext.tsx          # Auth state provider (Supabase session)
 │
 ├── hooks/                       # Custom React hooks
+│   ├── useSpeechRecognition.ts  # Browser speech-to-text with auto-restart, elapsed timer, reconnection detection
 │   ├── useCircleLeaders.ts      # Fetch & manage circle leaders
 │   ├── useTodayCircles.ts       # Today's circles filter
 │   ├── useNoteTemplates.ts      # Note template management
@@ -254,6 +263,9 @@ Set in `.env.local` for development, Netlify dashboard for production.
 15. **Progress Timeline** — Chart.js line chart plotting dimension scores over time with colored lines (blue=Reach, green=Connect, purple=Disciple, orange=Develop)
 16. **Progress Dashboard** (`/progress`) — Aggregated view with dimension averages, top/low performers, movers vs stagnant circles, trend indicators, filterable by campus/ACPD/status. Filters (campus, ACPD, status, active tab) persist in `localStorage`.
 17. **ACPD Tracking** — Per-leader tracking with collapsible accordion sections (Pray, Encourage, Coach). Pray: prayer points with answered toggle. Encourage: sent/planned message tracking. Coach: growth opportunities by dimension with resolved toggle.19. **Development Prospects** — Track people identified for leadership development inside the Develop scorecard category evaluation. Stores name + notes per prospect with active/inactive toggle. Active prospects are summarized below the Progress Scorecard grid. Adds and edits create system notes in the leader's notes (`created_by: 'System'`). Hook: `useDevelopmentProspects.ts`. Table: `development_prospects`. UI: embedded in `CategoryEvaluation.tsx` (Develop category) + summary in `ScorecardSection.tsx`.18. **Weekly Category Trend Charts** — Chart.js line charts showing per-category (Reach/Connect/Disciple/Develop) score trends bucketed by week (Sun→Sat, CST). Features: configurable time range selector (4w/8w/12w/All), goal line at score 4, week-over-week delta badges, trend slope indicators (↑ rising / → steady / ↓ falling), optional min/max range shading for aggregate views. Displayed on both the Circle Leader Profile page (single leader) and the Progress Dashboard (aggregate across all scored leaders). Evaluation-based scores are synthesized into scorecard ratings for chart rendering when no manual scores exist.
+20. **AI Voice Dictation** — Browser-native speech-to-text via Web Speech API (`webkitSpeechRecognition`). Features: visible recording timer with no artificial time cap, auto-restart on silence, reconnection detection. Available in both Circle Leader Notes and Dashboard Personal Notes. Component: `DictateAndSummarize.tsx`, Hook: `useSpeechRecognition.ts`.
+21. **AI Note Summarization** — Summarize dictated or typed notes using AI (Gemini primary, Groq fallback). Word-count-aware prompting: brief inputs get concise summaries, brain dumps get thorough multi-paragraph summaries. Preview & approve UX: shows summary card with "Use Summary" (replace), "Keep Both" (append), or "Discard" options. API: `app/api/ai-summarize/route.ts`.
+22. **AI Meeting Prep Assistant** — Admin-only feature on Circle Leader detail page. Generates a structured coaching briefing for one-on-one meetings organized around the Big 4 framework (Reach, Connect, Disciple, Develop). Sends leader profile, latest scorecard ratings (1-5), and recent notes to AI. Output includes: Leader Snapshot, per-dimension status/coaching questions/ideas, Conversation Starters, and Watch Items. Can be saved directly as a note. Component: `MeetingPrepAssistant.tsx`.
 
 ---
 
@@ -311,3 +323,5 @@ The project root contains numerous `.sql` and `.js` migration/fix scripts for ev
 - `tailwind.config.ts` now includes `darkMode: 'class'` — added to support conditional dark mode styling; the app is always dark-themed via global CSS but this enables `dark:` variants in Tailwind
 - **GlobalSearch component** (`components/layout/GlobalSearch.tsx`) uses `createPortal` to render into `document.body` and injects a `<style>` block into `document.head` to override global button/bg styles within the search modal. It features keyboard navigation (↑↓ + Enter), Fuse.js fuzzy search, status dot indicators, and animated entry. The modal uses inline styles heavily to escape the global CSS `!important` overrides.
 - **Auth was migrated to passwordless magic link** — email/password login was removed in favor of Supabase magic link authentication. See `PASSWORDLESS_AUTH_MIGRATION.md` for details.
+- **AI dual-provider architecture** — The `ai-summarize` API route tries Gemini first, then automatically falls back to Groq on rate limit (429) or error. Both free tiers have rate limits (Gemini: 15 req/min, Groq: 30 req/min). The route accepts a `mode` parameter: omitted or default uses note summarization prompts; `mode: 'meeting-prep'` uses a coaching assistant system prompt with 4096 max tokens. Environment variables `GEMINI_API_KEY` and `GROQ_API_KEY` must be set in Netlify for production.
+- **Web Speech API is Chrome/Edge only** — `webkitSpeechRecognition` is not supported in Firefox or Safari. The `useSpeechRecognition` hook exposes an `isSupported` flag; the dictation button is hidden when unsupported.
