@@ -21,6 +21,15 @@ import { supabase } from '../../lib/supabase';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
+interface DevelopingLeaderRow {
+  id: number;
+  name: string;
+  notes: string | null;
+  updated_at: string;
+  circle_leader_id: number;
+  circle_leader_name: string;
+}
+
 const DIMENSION_COLORS = {
   reach: { line: '#3b82f6', label: 'Reach' },
   connect: { line: '#22c55e', label: 'Connect' },
@@ -93,6 +102,8 @@ export default function ProgressDashboardPage() {
 
   const [campuses, setCampuses] = useState<string[]>([]);
   const [acpds, setAcpds] = useState<string[]>([]);
+  const [developingLeaders, setDevelopingLeaders] = useState<DevelopingLeaderRow[]>([]);
+  const [developingLoading, setDevelopingLoading] = useState(false);
 
   // Persist filters in localStorage
   const storageKey = 'radius_progress_filters';
@@ -136,6 +147,55 @@ export default function ProgressDashboardPage() {
       status: filterStatus || undefined,
     });
   }, [filterCampus, filterAcpd, filterStatus, loadData]);
+
+  // Load development prospects across all leaders (filtered)
+  useEffect(() => {
+    const loadDevelopingLeaders = async () => {
+      setDevelopingLoading(true);
+      try {
+        // First get circle leader IDs matching current filters
+        let leaderQuery = supabase.from('circle_leaders').select('id, name');
+        if (filterCampus) leaderQuery = leaderQuery.eq('campus', filterCampus);
+        if (filterAcpd) leaderQuery = leaderQuery.eq('acpd', filterAcpd);
+        if (filterStatus) leaderQuery = leaderQuery.eq('status', filterStatus);
+        const { data: leaders } = await leaderQuery;
+        if (!leaders || leaders.length === 0) {
+          setDevelopingLeaders([]);
+          return;
+        }
+        const leaderMap = new Map(leaders.map((l: any) => [l.id, l.name]));
+        const leaderIds = leaders.map((l: any) => l.id);
+
+        const { data: prospects } = await supabase
+          .from('development_prospects')
+          .select('id, name, notes, updated_at, circle_leader_id')
+          .in('circle_leader_id', leaderIds)
+          .eq('is_active', true)
+          .order('updated_at', { ascending: false });
+
+        if (prospects) {
+          setDevelopingLeaders(
+            prospects.map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              notes: p.notes,
+              updated_at: p.updated_at,
+              circle_leader_id: p.circle_leader_id,
+              circle_leader_name: leaderMap.get(p.circle_leader_id) || 'Unknown',
+            }))
+          );
+        } else {
+          setDevelopingLeaders([]);
+        }
+      } catch (err) {
+        console.error('Error loading developing leaders:', err);
+        setDevelopingLeaders([]);
+      } finally {
+        setDevelopingLoading(false);
+      }
+    };
+    loadDevelopingLeaders();
+  }, [filterCampus, filterAcpd, filterStatus]);
 
   // Aggregate timeline chart
   const aggregateChartData = useMemo(() => {
@@ -401,6 +461,68 @@ export default function ProgressDashboardPage() {
                         )
                       ))}
                     </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Developing Leaders */}
+              <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow">
+                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <h2 className="text-lg font-medium text-white">Developing Leaders</h2>
+                    <span className="px-2 py-0.5 text-xs rounded-full bg-orange-500/20 text-orange-400">
+                      {developingLeaders.length}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5">People being developed for leadership across all circles</p>
+                </div>
+                <div className="p-4">
+                  {developingLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-400"></div>
+                    </div>
+                  ) : developingLeaders.length === 0 ? (
+                    <div className="py-8 text-center">
+                      <p className="text-gray-500 text-sm">No developing leaders identified yet</p>
+                      <p className="text-gray-600 text-xs mt-1">Add development prospects from the Develop section on a circle leader&apos;s profile</p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Table header */}
+                      <div className="hidden sm:grid sm:grid-cols-12 gap-3 px-3 pb-2 text-xs text-gray-500 uppercase tracking-wide border-b border-gray-700/50 mb-1">
+                        <div className="col-span-3">Name</div>
+                        <div className="col-span-4">Notes</div>
+                        <div className="col-span-2">Last Updated</div>
+                        <div className="col-span-3">Circle Leader</div>
+                      </div>
+                      <div className="space-y-1">
+                        {developingLeaders.map(dl => (
+                          <Link
+                            key={dl.id}
+                            href={`/circle/${dl.circle_leader_id}`}
+                            className="block sm:grid sm:grid-cols-12 gap-3 p-3 rounded-lg hover:bg-gray-700/30 transition-colors group"
+                          >
+                            <div className="col-span-3">
+                              <span className="text-sm font-medium text-white group-hover:text-orange-400 transition-colors">{dl.name}</span>
+                            </div>
+                            <div className="col-span-4 mt-1 sm:mt-0">
+                              <span className="text-xs text-gray-400 line-clamp-2">{dl.notes || '—'}</span>
+                            </div>
+                            <div className="col-span-2 mt-1 sm:mt-0">
+                              <span className="text-xs text-gray-500">
+                                {new Date(dl.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </span>
+                            </div>
+                            <div className="col-span-3 mt-1 sm:mt-0">
+                              <span className="text-xs text-blue-400">{dl.circle_leader_name}</span>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    </>
                   )}
                 </div>
               </div>

@@ -22,6 +22,8 @@ import CategoryTrendCharts from '../../../components/charts/CategoryTrendCharts'
 import ScorecardSection from '../../../components/circle/ScorecardSection';
 import ACPDTrackingSection from '../../../components/circle/ACPDTrackingSection';
 import CircleVisitsSection from '../../../components/circle/CircleVisitsSection';
+import DictateAndSummarize from '../../../components/notes/DictateAndSummarize';
+import MeetingPrepAssistant from '../../../components/notes/MeetingPrepAssistant';
 import { useScorecard } from '../../../hooks/useScorecard';
 import { calculateSuggestedScore, getFinalScore, AnswerValue } from '../../../lib/evaluationQuestions';
 import { getEventSummaryButtonLabel, getEventSummaryColors, getEventSummaryState } from '../../../lib/event-summary-utils';
@@ -248,6 +250,21 @@ export default function CircleLeaderProfilePage() {
   const { user, isAdmin } = useAuth(); // Get current user information
   const { saveTemplate } = useNoteTemplates(); // Add note templates hook
   const { ratings: scorecardRatings, loadRatings: loadScorecardRatings } = useScorecard();
+
+  // Compute latest Big 4 scores for Meeting Prep
+  const latestBig4Scores = useMemo(() => {
+    if (!scorecardRatings || scorecardRatings.length === 0) return null;
+    const latest = scorecardRatings[0]; // already sorted by scored_date desc
+    const scores = [latest.reach_score, latest.connect_score, latest.disciple_score, latest.develop_score].filter(Boolean);
+    return {
+      reach: latest.reach_score || null,
+      connect: latest.connect_score || null,
+      disciple: latest.disciple_score || null,
+      develop: latest.develop_score || null,
+      average: scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null,
+      scoredDate: latest.scored_date || null,
+    };
+  }, [scorecardRatings]);
 
   // ── Sticky section-nav state ──────────────────────────────────────
   const [activeSection, setActiveSection] = useState<string>(SECTION_TABS[0].id);
@@ -669,6 +686,25 @@ export default function CircleLeaderProfilePage() {
       handleAddNote();
     }
   };
+
+  // Insert meeting prep briefing as a note
+  const handleInsertMeetingPrep = useCallback(async (prepText: string) => {
+    if (!prepText.trim() || !user?.id) return;
+    try {
+      const { error } = await supabase
+        .from('notes')
+        .insert({
+          circle_leader_id: leaderId,
+          content: prepText.trim(),
+          created_by: user.id,
+        });
+      if (!error) {
+        await reloadNotes();
+      }
+    } catch (err) {
+      console.error('Error saving meeting prep note:', err);
+    }
+  }, [leaderId, user?.id]);
 
   const handleTemplateSelect = (template: NoteTemplate) => {
     setNewNote(template.content);
@@ -1646,7 +1682,7 @@ export default function CircleLeaderProfilePage() {
           ref={navRef}
           className="sticky top-0 z-40 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700/60"
         >
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {(() => {
             const filteredTabs = SECTION_TABS.filter((tab) => !('adminOnly' in tab && tab.adminOnly) || isAdmin());
             const useOverflow = filteredTabs.length > 4;
@@ -2778,6 +2814,30 @@ export default function CircleLeaderProfilePage() {
                 </button>
               </div>
               <div className="space-y-4">
+                {isAdmin() && leader && (
+                  <MeetingPrepAssistant
+                    leaderName={leader.name}
+                    status={leader.status}
+                    campus={leader.campus}
+                    circleType={leader.circle_type}
+                    meetingDay={leader.day}
+                    meetingTime={leader.time}
+                    meetingFrequency={leader.frequency}
+                    latestScores={latestBig4Scores}
+                    recentNotes={notes.slice(0, 10).map(n => ({
+                      content: n.content,
+                      created_at: n.created_at,
+                      author: n.users?.name,
+                    }))}
+                    onInsertNote={handleInsertMeetingPrep}
+                    disabled={isSavingNote}
+                  />
+                )}
+                <DictateAndSummarize
+                  text={newNote}
+                  onTextChange={setNewNote}
+                  disabled={isSavingNote}
+                />
                 <textarea
                   id="newNote"
                   value={newNote}

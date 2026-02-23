@@ -9,13 +9,11 @@ import GlobalSearch from './GlobalSearch';
 /* ─────────────────────────────────────────────────────────
    SF-Symbols-inspired icons — clean, refined strokes
    ───────────────────────────────────────────────────────── */
-const HomeIcon = ({ active }: { active?: boolean }) => active ? (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12.707 2.293a1 1 0 00-1.414 0l-9 9a1 1 0 001.414 1.414L4 12.414V21a1 1 0 001 1h4a1 1 0 001-1v-4a2 2 0 114 0v4a1 1 0 001 1h4a1 1 0 001-1v-8.586l.293.293a1 1 0 001.414-1.414l-9-9z" />
-  </svg>
-) : (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a2 2 0 104 0m-4 0v-1a1 1 0 011-1h2a1 1 0 011 1v1m-4 0h4" />
+const HomeIcon = ({ active }: { active?: boolean }) => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 12l9-9 9 9" />
+    <path d="M9 21V12h6v9" />
+    <path d="M5 10v11h14V10" />
   </svg>
 );
 

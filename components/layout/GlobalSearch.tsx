@@ -28,6 +28,13 @@ export default function GlobalSearch() {
   const resultsRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
+  // Auto-focus input whenever modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [isOpen]);
+
   // Fuse.js configuration
   const fuseOptions = {
     includeScore: true,

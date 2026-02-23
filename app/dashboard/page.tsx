@@ -22,6 +22,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import Link from 'next/link';
 import { buildRepeatLabel, generateDueDates, toISODate, TodoRepeatRule } from '../../lib/todoRecurrence';
 import { ensureDefaultFrequencies } from '../../lib/frequencyUtils';
+import DictateAndSummarize from '../../components/notes/DictateAndSummarize';
 
 interface ContactModalData {
   isOpen: boolean;
@@ -80,6 +81,18 @@ function DashboardContent() {
   
   // Active section tracking for sticky navigation
   const [activeSection, setActiveSection] = useState('todo-list');
+  const [showDashMoreMenu, setShowDashMoreMenu] = useState(false);
+  const dashMoreMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dashMoreMenuRef.current && !dashMoreMenuRef.current.contains(e.target as Node)) {
+        setShowDashMoreMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Todo list state
   const [todos, setTodos] = useState<TodoItem[]>([]);
@@ -2276,6 +2289,106 @@ function DashboardContent() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        {/* ── Sticky Section Navigation ── */}
+        {(() => {
+          const allTabs = [
+            { id: 'todo-list', label: 'To Do' },
+            { id: 'personal-notes', label: 'Notes' },
+            { id: 'filters', label: 'Filters' },
+            ...(hasCampusSelection ? [
+              { id: 'status-overview', label: 'Status' },
+              { id: 'progress', label: 'Event Summaries', mobileLabel: 'Events' },
+              { id: 'follow-up', label: 'Follow Up' },
+              { id: 'recent-notes', label: 'Recent Notes', mobileLabel: 'Recent' },
+            ] : []),
+          ];
+          const useOverflow = allTabs.length > 4;
+          const visibleTabs = useOverflow ? allTabs.slice(0, 3) : allTabs;
+          const overflowTabs = useOverflow ? allTabs.slice(3) : [];
+          const activeInOverflow = overflowTabs.some((t) => t.id === activeSection);
+
+          const tabClass = (isActive: boolean) =>
+            `whitespace-nowrap flex-shrink-0 px-3 sm:px-4 py-3 text-sm font-medium transition-colors cursor-pointer border-b-2 ${
+              isActive ? 'border-blue-500 text-white' : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'
+            }`;
+
+          return (
+            <div id="dashboard-sticky-header" className="sticky top-0 z-[1000] bg-gray-900/95 backdrop-blur-sm border-b border-gray-700/60">
+              <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+                {/* Mobile nav */}
+                <nav className="flex md:hidden" aria-label="Dashboard navigation">
+                  {visibleTabs.map((tab) => (
+                    <div
+                      key={tab.id}
+                      role="tab"
+                      tabIndex={0}
+                      onClick={() => { scrollToSection(tab.id); setShowDashMoreMenu(false); }}
+                      onKeyDown={(e) => e.key === 'Enter' && scrollToSection(tab.id)}
+                      className={tabClass(activeSection === tab.id)}
+                    >
+                      {'mobileLabel' in tab ? tab.mobileLabel : tab.label}
+                    </div>
+                  ))}
+                  {overflowTabs.length > 0 && (
+                    <div className="relative ml-auto flex-shrink-0" ref={dashMoreMenuRef}>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setShowDashMoreMenu((v) => !v)}
+                        onKeyDown={(e) => e.key === 'Enter' && setShowDashMoreMenu((v) => !v)}
+                        className={`flex items-center gap-1 px-3 py-3 text-sm font-medium transition-colors cursor-pointer border-b-2 ${
+                          activeInOverflow ? 'border-blue-500 text-white' : 'border-transparent text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        More
+                        <svg className={`w-3.5 h-3.5 transition-transform ${showDashMoreMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                      {showDashMoreMenu && (
+                        <div className="absolute right-0 top-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 min-w-[160px]">
+                          {overflowTabs.map((tab) => (
+                            <div
+                              key={tab.id}
+                              role="menuitem"
+                              tabIndex={0}
+                              onClick={() => { scrollToSection(tab.id); setShowDashMoreMenu(false); }}
+                              onKeyDown={(e) => e.key === 'Enter' && scrollToSection(tab.id)}
+                              className={`px-4 py-3 text-sm font-medium cursor-pointer transition-colors first:rounded-t-lg last:rounded-b-lg ${
+                                activeSection === tab.id
+                                  ? 'text-white bg-blue-600/25 border-l-2 border-blue-500 pl-3.5'
+                                  : 'text-gray-400 hover:text-white hover:bg-gray-700/60'
+                              }`}
+                            >
+                              {tab.label}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </nav>
+
+                {/* Desktop nav */}
+                <nav className="hidden md:flex overflow-x-auto scrollbar-hide" aria-label="Dashboard navigation">
+                  {allTabs.map((tab) => (
+                    <div
+                      key={tab.id}
+                      role="tab"
+                      tabIndex={0}
+                      onClick={() => scrollToSection(tab.id)}
+                      onKeyDown={(e) => e.key === 'Enter' && scrollToSection(tab.id)}
+                      className={tabClass(activeSection === tab.id)}
+                    >
+                      {tab.label}
+                    </div>
+                  ))}
+                </nav>
+              </div>
+            </div>
+          );
+        })()}
+
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
           {/* Header */}
           <div className="mb-6 sm:mb-8">
@@ -2322,117 +2435,7 @@ function DashboardContent() {
             </div>
           </div>
 
-          {/* Sticky Section Navigation - Hidden on mobile, shown on desktop */}
-          <div id="dashboard-sticky-header" className="hidden md:block sticky top-0 z-[1000] bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 -mx-3 sm:-mx-4 lg:-mx-8 px-3 sm:px-4 lg:px-8 shadow-sm">
-              <nav className="flex space-x-6 overflow-x-auto py-3">
-                <button
-                  onClick={() => scrollToSection('todo-list')}
-                  className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                    activeSection === 'todo-list'
-                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                  }`}
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                  </svg>
-                  To Do
-                </button>
-
-                <button
-                  onClick={() => scrollToSection('personal-notes')}
-                  className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                    activeSection === 'personal-notes'
-                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                  }`}
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  Personal Notes
-                </button>
-
-                <button
-                  onClick={() => scrollToSection('filters')}
-                  className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                    activeSection === 'filters'
-                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                  }`}
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                  </svg>
-                  Filters
-                </button>
-
-                {hasCampusSelection && (
-                  <button
-                    onClick={() => scrollToSection('status-overview')}
-                    className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                      activeSection === 'status-overview'
-                        ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                    }`}
-                  >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                  Status
-                  </button>
-                )}
-
-                {hasCampusSelection && (
-                  <button
-                    onClick={() => scrollToSection('progress')}
-                    className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                      activeSection === 'progress'
-                        ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                    }`}
-                  >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                  Event Summaries
-                  </button>
-                )}
-
-                {hasCampusSelection && (
-                  <button
-                    onClick={() => scrollToSection('follow-up')}
-                    className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                      activeSection === 'follow-up'
-                        ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                    }`}
-                  >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Follow Up
-                  </button>
-                )}
-
-                {hasCampusSelection && (
-                  <button
-                    onClick={() => scrollToSection('recent-notes')}
-                    className={`flex items-center whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                      activeSection === 'recent-notes'
-                        ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                    }`}
-                  >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  Recent Notes
-                  </button>
-                )}
-              </nav>
-
-              {/* Active Filter Tags - Simplified for campus only */}
+          {/* Active Filter Tags - Simplified for campus only */}
               {filters.campus.length > 0 && (
                 <div className="pb-3">
                   <div className="flex items-center flex-wrap gap-2">
@@ -2471,7 +2474,6 @@ function DashboardContent() {
                   </div>
                 </div>
               )}
-            </div>
 
           {/* Tab Content */}
           {/* First-time / No-campus empty state */}
@@ -3023,6 +3025,11 @@ function DashboardContent() {
                   {/* Add New Note */}
                   <div className="space-y-3">
                     <div className="space-y-3">
+                      <DictateAndSummarize
+                        text={newNoteContent}
+                        onTextChange={setNewNoteContent}
+                        disabled={savingNoteId === -1}
+                      />
                       <textarea
                         value={newNoteContent}
                         onChange={(e) => setNewNoteContent(e.target.value)}
