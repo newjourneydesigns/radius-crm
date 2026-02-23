@@ -656,10 +656,10 @@ export default function ProfilePage() {
                         </div>
                         <div className="ml-3">
                           <label htmlFor="include_upcoming_meetings" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Upcoming Meetings (Coming Soon)
+                            Today&apos;s Circles
                           </label>
                           <p className="text-xs text-gray-500 dark:text-gray-400">
-                            Circle meetings scheduled for the next few days
+                            Circles meeting today and tomorrow
                           </p>
                         </div>
                       </div>

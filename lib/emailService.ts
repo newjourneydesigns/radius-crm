@@ -46,6 +46,16 @@ export interface NoteItem {
   created_at: string;
 }
 
+export interface CircleMeetingItem {
+  leader_id: number;
+  leader_name: string;
+  circle_type?: string;
+  day: string;
+  time: string;
+  frequency: string;
+  campus?: string;
+}
+
 export interface PersonalDigestData {
   user: { id: string; name: string; email: string };
   date: string;
@@ -60,6 +70,10 @@ export interface PersonalDigestData {
   };
   upcomingVisits: VisitItem[];
   recentNotes: NoteItem[];
+  upcomingCircles: {
+    today: CircleMeetingItem[];
+    tomorrow: CircleMeetingItem[];
+  };
   encouragements: {
     dueToday: EncouragementItem[];
     overdue: EncouragementItem[];
@@ -163,7 +177,7 @@ function todoRow(item: TodoItem, appUrl: string, today: string): string {
 
 export function generatePersonalDigestHTML(data: PersonalDigestData): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://myradiuscrm.com';
-  const { user, date, todos, circleVisits, upcomingVisits, recentNotes, encouragements, followUps } = data;
+  const { user, date, todos, circleVisits, upcomingVisits, recentNotes, upcomingCircles, encouragements, followUps } = data;
 
   const totalItems =
     todos.dueToday.length + todos.overdue.length + todos.noDate.length +
@@ -291,6 +305,40 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
     upcomingVisitsHtml += '</div>';
   }
 
+  // UPCOMING CIRCLES (today & tomorrow)
+  let upcomingCirclesHtml = '';
+  const allCircles = [...upcomingCircles.today, ...upcomingCircles.tomorrow];
+  if (allCircles.length > 0) {
+    upcomingCirclesHtml = sectionHeader('⭕', 'Upcoming Circles', allCircles.length, '#0d9488');
+    if (upcomingCircles.today.length > 0) {
+      upcomingCirclesHtml += `<div style="font-size:12px; font-weight:700; color:#8da9c4; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Today</div>`;
+      upcomingCircles.today.forEach(c => {
+        const leaderUrl = `${appUrl}/circle/${c.leader_id}/`;
+        upcomingCirclesHtml += `
+        <div style="background:#0f2a4a; border:1px solid #1e3a5f; border-left:4px solid #0d9488; border-radius:6px; padding:10px 14px; margin-bottom:8px;">
+          <a href="${leaderUrl}" style="font-size:15px; font-weight:700; color:#8da9c4; text-decoration:none;">${c.leader_name}${c.circle_type ? ` (${c.circle_type})` : ''}</a>
+          ${c.campus ? `<span style="margin-left:8px; font-size:12px; color:#6b8ab0;">• ${c.campus}</span>` : ''}
+          <div style="font-size:13px; color:#c9d6e3; margin-top:4px;">${c.day} | ${c.time} | ${c.frequency}</div>
+          <div style="margin-top:8px;"><a href="${leaderUrl}" style="display:inline-block; padding:5px 14px; background:#4f46e5; color:white; text-decoration:none; border-radius:6px; font-size:12px; font-weight:600;">View in Radius →</a></div>
+        </div>`;
+      });
+    }
+    if (upcomingCircles.tomorrow.length > 0) {
+      upcomingCirclesHtml += `<div style="font-size:12px; font-weight:700; color:#8da9c4; text-transform:uppercase; letter-spacing:0.5px; margin:${upcomingCircles.today.length > 0 ? '16' : '0'}px 0 8px 0;">Tomorrow</div>`;
+      upcomingCircles.tomorrow.forEach(c => {
+        const leaderUrl = `${appUrl}/circle/${c.leader_id}/`;
+        upcomingCirclesHtml += `
+        <div style="background:#0f2a4a; border:1px solid #1e3a5f; border-left:4px solid #0d9488; border-radius:6px; padding:10px 14px; margin-bottom:8px;">
+          <a href="${leaderUrl}" style="font-size:15px; font-weight:700; color:#8da9c4; text-decoration:none;">${c.leader_name}${c.circle_type ? ` (${c.circle_type})` : ''}</a>
+          ${c.campus ? `<span style="margin-left:8px; font-size:12px; color:#6b8ab0;">• ${c.campus}</span>` : ''}
+          <div style="font-size:13px; color:#c9d6e3; margin-top:4px;">${c.day} | ${c.time} | ${c.frequency}</div>
+          <div style="margin-top:8px;"><a href="${leaderUrl}" style="display:inline-block; padding:5px 14px; background:#4f46e5; color:white; text-decoration:none; border-radius:6px; font-size:12px; font-weight:600;">View in Radius →</a></div>
+        </div>`;
+      });
+    }
+    upcomingCirclesHtml += '</div>';
+  }
+
   // RECENT NOTES
   let recentNotesHtml = '';
   if (recentNotes.length > 0) {
@@ -366,6 +414,7 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
     ${encOverdue}
     ${fuOverdue}
     ${visitsWeek}
+    ${upcomingCirclesHtml}
     ${upcomingVisitsHtml}
     ${recentNotesHtml}
   </div>

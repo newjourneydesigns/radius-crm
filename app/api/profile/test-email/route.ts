@@ -8,6 +8,7 @@ import {
   EncouragementItem,
   FollowUpItem,
   NoteItem,
+  CircleMeetingItem,
 } from '../../../../lib/emailService';
 
 function getSupabaseServiceClient() {
@@ -21,6 +22,54 @@ function getDateOffset(baseDate: string, days: number): string {
   const d = new Date(baseDate + 'T00:00:00');
   d.setDate(d.getDate() + days);
   return d.toISOString().split('T')[0];
+}
+
+function getDayName(dateStr: string): string {
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  return dayNames[new Date(dateStr + 'T00:00:00').getDay()];
+}
+
+function getWeekOfMonth(dateStr: string): number {
+  const d = new Date(dateStr + 'T00:00:00');
+  return Math.ceil(d.getDate() / 7);
+}
+
+function doesCircleMeetOnDate(
+  dateStr: string,
+  leaderDay: string,
+  frequency: string | null,
+  meetingStartDate: string | null,
+): boolean {
+  if (getDayName(dateStr).toLowerCase() !== leaderDay.trim().toLowerCase()) return false;
+  const freq = (frequency ?? '').trim().toLowerCase();
+  const has1st = /\b(1st|first)\b/.test(freq);
+  const has2nd = /\b(2nd|second)\b/.test(freq);
+  const has3rd = /\b(3rd|third)\b/.test(freq);
+  const has4th = /\b(4th|fourth)\b/.test(freq);
+  const has5th = /\b(5th|fifth)\b/.test(freq);
+  const hasOrdinal = has1st || has2nd || has3rd || has4th || has5th;
+  const mentionsWeekly = freq.includes('weekly') || freq.includes('every week');
+  const isBiWeekly = freq.includes('bi-week') || freq.includes('biweekly') || freq.includes('every other') || freq.includes('2-week') || freq.includes('2 week');
+  if (hasOrdinal && !mentionsWeekly && !isBiWeekly) {
+    const weekNum = getWeekOfMonth(dateStr);
+    const allowed: number[] = [];
+    if (has1st) allowed.push(1);
+    if (has2nd) allowed.push(2);
+    if (has3rd) allowed.push(3);
+    if (has4th) allowed.push(4);
+    if (has5th) allowed.push(5);
+    return allowed.includes(weekNum);
+  }
+  if (isBiWeekly) {
+    if (!meetingStartDate) return true;
+    const target = new Date(dateStr + 'T00:00:00').getTime();
+    const anchor = new Date(meetingStartDate + 'T00:00:00').getTime();
+    const diffWeeks = Math.round((target - anchor) / (7 * 86400000));
+    return diffWeeks % 2 === 0;
+  }
+  if (freq.includes('quarter')) return false;
+  if (freq.includes('month')) return getWeekOfMonth(dateStr) === 1;
+  return true;
 }
 
 /**
@@ -211,6 +260,34 @@ export async function POST(request: NextRequest) {
       created_at: n.created_at,
     }));
 
+    // ── 7. Upcoming circles (meetings today & tomorrow) ──────────────────
+    const todayDayName = getDayName(today);
+    const tomorrowDayName = getDayName(tomorrow);
+    const dayNames = [todayDayName, tomorrowDayName];
+    const { data: circleLeadersRaw } = await supabase
+      .from('circle_leaders')
+      .select('id, name, circle_type, day, time, frequency, campus, meeting_start_date')
+      .in('day', dayNames)
+      .not('status', 'in', '("Inactive","Removed")')
+      .order('time', { ascending: true });
+
+    const toCircleMeeting = (l: any): CircleMeetingItem => ({
+      leader_id: l.id,
+      leader_name: l.name,
+      circle_type: l.circle_type ?? undefined,
+      day: l.day,
+      time: l.time ?? 'TBD',
+      frequency: l.frequency ?? 'Weekly',
+      campus: l.campus ?? undefined,
+    });
+
+    const circlesToday: CircleMeetingItem[] = (circleLeadersRaw || [])
+      .filter(l => doesCircleMeetOnDate(today, l.day, l.frequency, l.meeting_start_date))
+      .map(toCircleMeeting);
+    const circlesTomorrow: CircleMeetingItem[] = (circleLeadersRaw || [])
+      .filter(l => doesCircleMeetOnDate(tomorrow, l.day, l.frequency, l.meeting_start_date))
+      .map(toCircleMeeting);
+
     const digestData: PersonalDigestData = {
       user: { id: user.id, name: userName, email: recipientEmail },
       date: today,
@@ -233,6 +310,7 @@ export async function POST(request: NextRequest) {
       },
       upcomingVisits,
       recentNotes,
+      upcomingCircles: { today: circlesToday, tomorrow: circlesTomorrow },
     };
 
     const result = await sendPersonalDigestEmail(digestData);
