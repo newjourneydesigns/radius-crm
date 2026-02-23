@@ -53,7 +53,6 @@
 }
 
 .mobile-tab-item {
-  all: unset;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -61,11 +60,16 @@
   justify-content: center;
   flex: 1;
   gap: 2px;
+  background: none;
+  border: none;
+  outline: none;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   text-decoration: none;
   transition: transform 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .mobile-tab-item:active {

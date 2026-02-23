@@ -252,10 +252,10 @@ export default function MobileNavigation() {
               );
             }
             return (
-              <button key={id} role="tab" aria-selected={active} onClick={action}
+              <div key={id} role="tab" aria-selected={active} onClick={action} tabIndex={0}
                 className={`mobile-tab-item ${active ? 'active' : ''}`}>
                 {content}
-              </button>
+              </div>
             );
           })}
         </div>
