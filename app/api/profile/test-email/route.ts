@@ -267,6 +267,7 @@ export async function POST(request: NextRequest) {
     const { data: circleLeadersRaw } = await supabase
       .from('circle_leaders')
       .select('id, name, circle_type, day, time, frequency, campus, meeting_start_date')
+      .eq('acpd', userName)
       .in('day', dayNames)
       .not('status', 'in', '("Inactive","Removed")')
       .order('time', { ascending: true });

@@ -280,10 +280,11 @@ async function buildDigestForUser(
   const todayDayName = getDayName(today);
   const tomorrowDayName = getDayName(tomorrow);
   const dayNames = [todayDayName, tomorrowDayName];
-  // Query leaders whose day field matches today or tomorrow
+  // Query leaders whose day field matches today or tomorrow, filtered to user's ACPD purview
   const { data: circleLeadersRaw } = await supabase
     .from('circle_leaders')
     .select('id, name, circle_type, day, time, frequency, campus, meeting_start_date')
+    .eq('acpd', user.name)
     .in('day', dayNames)
     .not('status', 'in', '("Inactive","Removed")')
     .order('time', { ascending: true });

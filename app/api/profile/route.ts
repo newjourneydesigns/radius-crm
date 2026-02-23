@@ -91,17 +91,17 @@ export async function GET(request: NextRequest) {
     try {
       const { data: userPrefs } = await supabaseAdmin
         .from('users')
-        .select('daily_email_subscribed, daily_email_time, daily_email_frequency_hours')
+        .select('daily_email_subscribed, daily_email_time, daily_email_frequency_hours, include_follow_ups, include_overdue_tasks, include_planned_encouragements, include_upcoming_meetings')
         .eq('id', user.id)
         .maybeSingle();
       if (userPrefs) {
         emailPrefs = {
           email_enabled: userPrefs.daily_email_subscribed ?? false,
           email_address: null,
-          include_follow_ups: true,
-          include_overdue_tasks: true,
-          include_planned_encouragements: true,
-          include_upcoming_meetings: false,
+          include_follow_ups: userPrefs.include_follow_ups ?? true,
+          include_overdue_tasks: userPrefs.include_overdue_tasks ?? true,
+          include_planned_encouragements: userPrefs.include_planned_encouragements ?? true,
+          include_upcoming_meetings: userPrefs.include_upcoming_meetings ?? false,
           preferred_time: userPrefs.daily_email_time || '08:00',
           timezone: 'America/Chicago',
           frequency_hours: userPrefs.daily_email_frequency_hours ?? 24
@@ -227,6 +227,18 @@ export async function PUT(request: NextRequest) {
           if (validFrequencies.includes(preferences.frequency_hours)) {
             updatePayload.daily_email_frequency_hours = preferences.frequency_hours;
           }
+        }
+        if (typeof preferences.include_follow_ups === 'boolean') {
+          updatePayload.include_follow_ups = preferences.include_follow_ups;
+        }
+        if (typeof preferences.include_overdue_tasks === 'boolean') {
+          updatePayload.include_overdue_tasks = preferences.include_overdue_tasks;
+        }
+        if (typeof preferences.include_planned_encouragements === 'boolean') {
+          updatePayload.include_planned_encouragements = preferences.include_planned_encouragements;
+        }
+        if (typeof preferences.include_upcoming_meetings === 'boolean') {
+          updatePayload.include_upcoming_meetings = preferences.include_upcoming_meetings;
         }
 
         // Only update if there's something to write
