@@ -14,7 +14,6 @@ function VerifyContent() {
     if (ran.current) return;
     ran.current = true;
 
-    const code = searchParams.get('code');
     const raw = searchParams.get('next') || '/dashboard';
 
     // Sanitise the redirect target
@@ -23,22 +22,23 @@ function VerifyContent() {
       next = '/dashboard';
     }
 
-    if (!code) {
-      router.replace('/login');
-      return;
-    }
+    // With implicit flow, the session is automatically handled by Supabase client
+    // from the URL hash. We just need to wait for it and verify the user.
+    const checkSession = async () => {
+      try {
+        // Get the current session (should be set from URL hash)
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-    supabase.auth
-      .exchangeCodeForSession(code)
-      .then(async ({ data, error }) => {
-        if (error || !data.session) {
-          console.error('❌ Code exchange failed:', error?.message);
+        if (sessionError || !session) {
+          console.error('❌ No session found:', sessionError?.message);
           router.replace('/login?error=auth_failed');
           return;
         }
 
-        const userId = data.session.user?.id;
-        const email = data.session.user?.email ?? '';
+        const userId = session.user?.id;
+        const email = session.user?.email ?? '';
+
+        console.log('✅ Session found for:', email);
 
         // Verify user exists in our system (invite-only)
         const { data: userProfile, error: profileError } = await supabase
@@ -56,11 +56,15 @@ function VerifyContent() {
 
         console.log('✅ User verified, redirecting to', next);
         router.replace(next);
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error('❌ Unexpected verify error:', err);
         router.replace('/login?error=auth_failed');
-      });
+      }
+    };
+
+    // Give the Supabase client a moment to process the URL hash
+    const timer = setTimeout(checkSession, 500);
+    return () => clearTimeout(timer);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (

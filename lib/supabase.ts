@@ -23,7 +23,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: !supabaseUrl.includes('placeholder'), // Only persist sessions with real credentials
     autoRefreshToken: !supabaseUrl.includes('placeholder'), // Only refresh tokens with real credentials
-    flowType: 'pkce' // Use PKCE flow for OAuth
+    flowType: 'implicit' // Use implicit flow for magic links (PKCE not compatible with email links)
   }
 });
 
