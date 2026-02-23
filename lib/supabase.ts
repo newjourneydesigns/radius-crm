@@ -292,3 +292,14 @@ export interface CoachingNote {
   is_resolved: boolean;
   created_at: string;
 }
+
+export interface DevelopmentProspect {
+  id: number;
+  circle_leader_id: number;
+  user_id: string;
+  name: string;
+  notes?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}

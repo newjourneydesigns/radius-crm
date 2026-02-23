@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useACPDTracking } from '../../hooks/useACPDTracking';
+import { useDevelopmentProspects } from '../../hooks/useDevelopmentProspects';
 import { ScorecardDimension, EncourageMethod } from '../../lib/supabase';
 
 const DIMENSIONS: { key: ScorecardDimension; label: string; color: string; bg: string; border: string; dot: string }[] = [
@@ -35,9 +36,15 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
     addCoachingNote, toggleCoachingResolved, deleteCoachingNote,
   } = useACPDTracking();
 
+  const {
+    prospects, loadAll: loadProspects,
+    addProspect, updateProspect, toggleActive, deleteProspect,
+  } = useDevelopmentProspects();
+
   const [prayOpen, setPrayOpen] = useState(true);
   const [encourageOpen, setEncourageOpen] = useState(true);
   const [coachOpen, setCoachOpen] = useState(true);
+  const [developOpen, setDevelopOpen] = useState(true);
   const [newPrayer, setNewPrayer] = useState('');
   const [newEncourageNote, setNewEncourageNote] = useState('');
   const [newEncourageType, setNewEncourageType] = useState<'sent' | 'planned'>('sent');
@@ -48,10 +55,20 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
   const [showAnswered, setShowAnswered] = useState(false);
   const [showResolved, setShowResolved] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ type: string; id: number } | null>(null);
+  const [newProspectName, setNewProspectName] = useState('');
+  const [newProspectNotes, setNewProspectNotes] = useState('');
+  const [showInactive, setShowInactive] = useState(false);
+  const [editingProspectId, setEditingProspectId] = useState<number | null>(null);
+  const [editProspectName, setEditProspectName] = useState('');
+  const [editProspectNotes, setEditProspectNotes] = useState('');
+
+  const activeProspects = prospects.filter(p => p.is_active);
+  const inactiveProspects = prospects.filter(p => !p.is_active);
 
   useEffect(() => {
     loadAll(leaderId);
-  }, [leaderId, loadAll]);
+    loadProspects(leaderId);
+  }, [leaderId, loadAll, loadProspects]);
 
   const handleAddPrayer = async () => {
     if (!newPrayer.trim()) return;
@@ -72,6 +89,33 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
     setNewCoachContent('');
   };
 
+  const handleAddProspect = async () => {
+    if (!newProspectName.trim()) return;
+    await addProspect(leaderId, newProspectName, newProspectNotes || undefined);
+    setNewProspectName('');
+    setNewProspectNotes('');
+  };
+
+  const handleStartEditProspect = (prospect: { id: number; name: string; notes?: string }) => {
+    setEditingProspectId(prospect.id);
+    setEditProspectName(prospect.name);
+    setEditProspectNotes(prospect.notes || '');
+  };
+
+  const handleSaveEditProspect = async () => {
+    if (!editingProspectId || !editProspectName.trim()) return;
+    await updateProspect(editingProspectId, { name: editProspectName, notes: editProspectNotes || undefined });
+    setEditingProspectId(null);
+    setEditProspectName('');
+    setEditProspectNotes('');
+  };
+
+  const handleCancelEditProspect = () => {
+    setEditingProspectId(null);
+    setEditProspectName('');
+    setEditProspectNotes('');
+  };
+
   const handleTogglePrayerAnswered = async (prayerId: number) => {
     await togglePrayerAnswered(prayerId, leaderId);
     if (onNoteSaved) await onNoteSaved();
@@ -87,6 +131,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
       if (type === 'prayer') deletePrayerPoint(id);
       else if (type === 'encourage') deleteEncouragement(id);
       else if (type === 'coach') deleteCoachingNote(id);
+      else if (type === 'prospect') deleteProspect(id);
       setConfirmDelete(null);
     } else {
       setConfirmDelete({ type, id });
@@ -771,6 +816,242 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                   </div>
                 )}
               </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ═══ DEVELOP SECTION ═══════════════════════════════ */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+        <button
+          onClick={() => setDevelopOpen(!developOpen)}
+          className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-700/20 transition-colors"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+              <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <div className="text-left">
+              <h3 className="text-sm font-semibold text-white">Develop</h3>
+              <p className="text-[10px] text-gray-500">
+                {activeProspects.length > 0
+                  ? `${activeProspects.length} person${activeProspects.length !== 1 ? 's' : ''} being developed`
+                  : 'Track people being developed by this leader'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {activeProspects.length > 0 && (
+              <span className="min-w-[20px] h-[20px] flex items-center justify-center px-1.5 text-[10px] font-bold rounded-full bg-emerald-500/20 text-emerald-400">
+                {activeProspects.length}
+              </span>
+            )}
+            <svg className={`w-4 h-4 text-gray-400 transition-transform ${developOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </button>
+
+        {developOpen && (
+          <div className="px-5 pb-5 space-y-4 border-t border-gray-700/40">
+            {/* Add new prospect form */}
+            <div className="pt-4 space-y-2">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newProspectName}
+                  onChange={e => setNewProspectName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleAddProspect()}
+                  placeholder="Person's name..."
+                  className="flex-1 px-3 py-2.5 bg-gray-900/50 border border-gray-600 rounded-xl text-sm text-white placeholder-gray-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 focus:outline-none transition-all"
+                />
+                <button
+                  onClick={handleAddProspect}
+                  disabled={!newProspectName.trim()}
+                  className="score-btn px-4 py-2.5 text-sm font-medium rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  style={{
+                    '--score-bg': 'rgb(16 185 129)',
+                    '--score-color': 'white',
+                    '--score-border': 'rgb(5 150 105)',
+                    '--score-shadow': 'rgba(16, 185, 129, 0.3)',
+                  } as React.CSSProperties}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+              </div>
+              <textarea
+                value={newProspectNotes}
+                onChange={e => setNewProspectNotes(e.target.value)}
+                placeholder="Notes (optional)..."
+                rows={2}
+                className="w-full px-3 py-2.5 bg-gray-900/50 border border-gray-600 rounded-xl text-sm text-white placeholder-gray-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 focus:outline-none transition-all resize-none"
+              />
+            </div>
+
+            {/* Empty state */}
+            {activeProspects.length === 0 && inactiveProspects.length === 0 && (
+              <div className="text-center py-6 text-gray-500">
+                <svg className="w-10 h-10 mx-auto mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <p className="text-xs">No one being developed yet</p>
+                <p className="text-[10px] mt-0.5">Add a name above to start tracking</p>
+              </div>
+            )}
+
+            {/* Active prospects list */}
+            {activeProspects.map(prospect => (
+              <div key={prospect.id} className="bg-gray-900/40 rounded-xl border border-gray-700/50 p-3">
+                {editingProspectId === prospect.id ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={editProspectName}
+                      onChange={e => setEditProspectName(e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 focus:outline-none"
+                    />
+                    <textarea
+                      value={editProspectNotes}
+                      onChange={e => setEditProspectNotes(e.target.value)}
+                      placeholder="Notes..."
+                      rows={2}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 focus:outline-none resize-none"
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={handleCancelEditProspect}
+                        className="px-3 py-1.5 text-xs text-gray-400 hover:text-white transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveEditProspect}
+                        disabled={!editProspectName.trim()}
+                        className="score-btn px-3 py-1.5 text-xs font-medium rounded-lg disabled:opacity-30"
+                        style={{
+                          '--score-bg': 'rgb(16 185 129)',
+                          '--score-color': 'white',
+                          '--score-border': 'rgb(5 150 105)',
+                          '--score-shadow': 'rgba(16, 185, 129, 0.3)',
+                        } as React.CSSProperties}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                            <span className="text-[10px] font-bold text-emerald-400">
+                              {prospect.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <h4 className="text-sm font-medium text-white truncate">{prospect.name}</h4>
+                        </div>
+                        {prospect.notes && (
+                          <p className="text-xs text-gray-400 mt-1.5 ml-8 whitespace-pre-wrap">{prospect.notes}</p>
+                        )}
+                        <p className="text-[10px] text-gray-600 mt-1 ml-8">Added {formatTimestamp(prospect.created_at)}</p>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => handleStartEditProspect(prospect)}
+                          className="p-1.5 text-gray-500 hover:text-emerald-400 transition-colors"
+                          title="Edit"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => toggleActive(prospect.id)}
+                          className="p-1.5 text-gray-500 hover:text-yellow-400 transition-colors"
+                          title="Mark as inactive"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDelete('prospect', prospect.id)}
+                          className={`p-1.5 transition-colors ${confirmDelete?.type === 'prospect' && confirmDelete?.id === prospect.id ? 'text-red-400' : 'text-gray-500 hover:text-red-400'}`}
+                          title={confirmDelete?.type === 'prospect' && confirmDelete?.id === prospect.id ? 'Click again to delete' : 'Delete'}
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Inactive prospects toggle */}
+            {inactiveProspects.length > 0 && (
+              <div>
+                <button
+                  onClick={() => setShowInactive(!showInactive)}
+                  className="flex items-center gap-2 text-xs text-gray-500 hover:text-emerald-400 transition-colors py-1"
+                >
+                  <svg className={`w-3 h-3 transition-transform ${showInactive ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                  <span>{inactiveProspects.length} inactive</span>
+                </button>
+
+                {showInactive && (
+                  <div className="space-y-2 mt-2">
+                    {inactiveProspects.map(prospect => (
+                      <div key={prospect.id} className="bg-gray-900/20 rounded-xl border border-gray-700/30 p-3 opacity-60">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full bg-gray-600/20 flex items-center justify-center flex-shrink-0">
+                                <span className="text-[10px] font-bold text-gray-500">
+                                  {prospect.name.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                              <h4 className="text-sm font-medium text-gray-400 truncate line-through">{prospect.name}</h4>
+                            </div>
+                            {prospect.notes && (
+                              <p className="text-xs text-gray-500 mt-1.5 ml-8 whitespace-pre-wrap">{prospect.notes}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button
+                              onClick={() => toggleActive(prospect.id)}
+                              className="p-1.5 text-gray-500 hover:text-emerald-400 transition-colors"
+                              title="Reactivate"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleDelete('prospect', prospect.id)}
+                              className={`p-1.5 transition-colors ${confirmDelete?.type === 'prospect' && confirmDelete?.id === prospect.id ? 'text-red-400' : 'text-gray-500 hover:text-red-400'}`}
+                              title={confirmDelete?.type === 'prospect' && confirmDelete?.id === prospect.id ? 'Click again to delete' : 'Delete'}
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}

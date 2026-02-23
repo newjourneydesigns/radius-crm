@@ -235,7 +235,7 @@ const normalizeCircleTypeValue = (value: string | undefined | null): string => {
 // ── Sticky section-nav tab definitions ──────────────────────────────
 const SECTION_TABS = [
   { id: 'section-profile',   label: 'Profile' },
-  { id: 'section-pec',       label: 'Pray / Encourage / Coach', adminOnly: true },
+  { id: 'section-pec',       label: 'Pray / Encourage / Coach / Develop', adminOnly: true },
   { id: 'section-visits',    label: 'Circle Visits', adminOnly: true },
   { id: 'section-scorecard', label: 'Scorecard' },
   { id: 'section-trends',    label: 'Trends' },
