@@ -238,7 +238,6 @@ export default function GlobalSearch() {
             display: 'flex',
             alignItems: 'flex-start',
             justifyContent: 'center',
-            paddingTop: 'min(20vh, 160px)',
             padding: '1rem',
             paddingTop: 'min(18vh, 140px)',
             background: 'radial-gradient(ellipse at center top, rgba(9, 27, 52, 0.85) 0%, rgba(0, 0, 0, 0.7) 100%)',
