@@ -23,54 +23,52 @@ function VerifyContent() {
       next = '/dashboard';
     }
 
-    console.log('🔍 Verify page loaded, full URL:', window.location.href);
-    console.log('🔍 URL search params:', Array.from(searchParams.entries()));
-    console.log('🔍 URL hash:', window.location.hash);
+    console.log('🔍 Verify page loaded');
+    console.log('🔍 URL params:', Array.from(searchParams.entries()));
 
     const verifyAuth = async () => {
       try {
-        // With implicit flow, Supabase automatically processes URL hash on page load
-        // Wait a moment for it to complete
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Check if we have a session
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-        if (sessionError) {
-          console.error('❌ Session error:', sessionError);
-          setError('Authentication failed. Please try again.');
-          setTimeout(() => router.replace('/login?error=auth_failed'), 2000);
-          return;
-        }
-
-        if (!session) {
-          console.log('⏳ No session yet, waiting for auth state change...');
+        // With PKCE flow and detectSessionInUrl enabled, Supabase automatically
+        // detects auth codes in the URL and exchanges them for a session.
+        // We just need to wait for it to complete and then verify the user.
+        
+        // Listen for auth state changes
+        const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+          console.log('🔍 Auth state change:', event);
           
-          // Set up listener for auth state changes
-          const { data: authListener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-            console.log('🔍 Auth state change:', event);
-            
-            if (event === 'SIGNED_IN' && newSession) {
-              await handleSession(newSession, next);
-            }
-          });
+          if (event === 'SIGNED_IN' && session) {
+            console.log('✅ Signed in:', session.user.email);
+            await handleSession(session, next);
+          } else if (event === 'USER_UPDATED' && session) {
+            console.log('✅ User updated:', session.user.email);
+            await handleSession(session, next);
+          }
+        });
 
-          // Timeout after 5 seconds
-          setTimeout(async () => {
-            const { data: { session: finalSession } } = await supabase.auth.getSession();
-            if (!finalSession) {
-              console.error('❌ No session after timeout');
-              setError('Authentication timed out. Please try again.');
-              setTimeout(() => router.replace('/login?error=auth_failed'), 2000);
-            }
+        // Also check for existing session (might already be processed)
+        setTimeout(async () => {
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          if (session) {
+            console.log('✅ Session already exists:', session.user.email);
             authListener?.subscription.unsubscribe();
-          }, 5000);
-
-          return;
-        }
-
-        // We have a session, verify the user
-        await handleSession(session, next);
+            await handleSession(session, next);
+          } else {
+            console.log('⏳ Waiting for auth state change...');
+            
+            // Timeout after 5 seconds
+            setTimeout(async () => {
+              const { data: { session: finalSession } } = await supabase.auth.getSession();
+              if (!finalSession) {
+                console.error('❌ No session after timeout');
+                console.log('🔍 Checking localStorage for verifier:', localStorage.getItem('supabase.auth.code_verifier'));
+                setError('Authentication timed out. Please try signing in again.');
+                authListener?.subscription.unsubscribe();
+                setTimeout(() => router.replace('/login?error=auth_failed'), 2000);
+              }
+            }, 5000);
+          }
+        }, 1000);
       } catch (err) {
         console.error('❌ Unexpected error:', err);
         setError('An error occurred. Please try again.');
@@ -82,7 +80,7 @@ function VerifyContent() {
       const userId = session.user?.id;
       const email = session.user?.email ?? '';
 
-      console.log('✅ Session found for:', email);
+      console.log('🔍 Verifying user in system:', email);
 
       // Verify user exists in our system (invite-only)
       const { data: userProfile, error: profileError } = await supabase
@@ -92,7 +90,7 @@ function VerifyContent() {
         .single();
 
       if (profileError || !userProfile) {
-        console.warn('🚫 User not found in system:', email);
+        console.warn('🚫 User not found in system:', email, profileError);
         await supabase.auth.signOut();
         router.replace('/login?error=unauthorized_user');
         return;
