@@ -44,6 +44,30 @@ function VerifyContent() {
 
     const verify = async () => {
       try {
+        // Add detailed debugging
+        console.log('🔍 Verify page loaded');
+        console.log('🔍 Full URL:', window.location.href);
+        console.log('🔍 Search params:', window.location.search);
+        console.log('🔍 Hash:', window.location.hash);
+        
+        // Check for auth code or error in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const authCode = urlParams.get('code');
+        const urlError = urlParams.get('error');
+        
+        console.log('🔍 Auth code present:', !!authCode, authCode?.substring(0, 20));
+        console.log('🔍 Error in URL:', urlError);
+        
+        // Check localStorage for PKCE verifier
+        const storageKeys = Object.keys(localStorage).filter(k => k.includes('supabase'));
+        console.log('🔍 Supabase storage keys:', storageKeys.length, 'keys');
+        storageKeys.forEach(key => {
+          const value = localStorage.getItem(key);
+          if (value && (key.includes('verifier') || key.includes('pkce'))) {
+            console.log(`🔍 ${key}:`, value.substring(0, 30) + '...');
+          }
+        });
+        
         // With implicit flow, Supabase puts tokens in the URL hash (#access_token=…)
         // The Supabase client with detectSessionInUrl: true will automatically
         // pick them up and create a session. We listen for that event.
@@ -51,8 +75,10 @@ function VerifyContent() {
         let resolved = false;
 
         const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+          console.log('🔍 Auth state change:', event, session ? 'Has session' : 'No session');
           if (resolved) return;
           if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') && session) {
+            console.log('✅ Session established:', session.user.email);
             resolved = true;
             listener?.subscription.unsubscribe();
             await handleSession(session);
@@ -61,7 +87,9 @@ function VerifyContent() {
 
         // Check if a session already exists (e.g. tokens were processed before listener attached)
         const { data: { session: existing } } = await supabase.auth.getSession();
+        console.log('🔍 Existing session check:', existing ? 'Found' : 'Not found');
         if (existing && !resolved) {
+          console.log('✅ Using existing session:', existing.user.email);
           resolved = true;
           listener?.subscription.unsubscribe();
           await handleSession(existing);
@@ -73,10 +101,15 @@ function VerifyContent() {
           if (resolved) return;
           const { data: { session: lastChance } } = await supabase.auth.getSession();
           if (lastChance) {
+            console.log('✅ Session found on final check');
             resolved = true;
             listener?.subscription.unsubscribe();
             await handleSession(lastChance);
           } else {
+            console.error('❌ No session after timeout');
+            console.log('🔍 Checking localStorage again...');
+            const keys = Object.keys(localStorage).filter(k => k.includes('supabase'));
+            keys.forEach(k => console.log(`  - ${k}`));
             resolved = true;
             listener?.subscription.unsubscribe();
             setError('Authentication timed out. Redirecting to login…');
