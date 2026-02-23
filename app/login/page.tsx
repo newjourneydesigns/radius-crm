@@ -57,11 +57,14 @@ function LoginContent() {
     setError('');
     
     try {
+      // Use production domain for redirects to ensure consistent sessions
+      const redirectDomain = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+      
       // First, check if user exists in our system by attempting to sign in with OTP
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
+          emailRedirectTo: `${redirectDomain}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
           // Don't create a new user - only allow existing users
           shouldCreateUser: false,
         },
