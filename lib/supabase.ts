@@ -21,10 +21,10 @@ if (typeof window !== 'undefined' && supabaseUrl.includes('placeholder')) {
 // Create Supabase client with proper fallbacks
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: !supabaseUrl.includes('placeholder'), // Only persist sessions with real credentials
-    autoRefreshToken: !supabaseUrl.includes('placeholder'), // Only refresh tokens with real credentials
-    detectSessionInUrl: true, // Detect and handle auth redirects
-    flowType: 'pkce' // Use PKCE flow (recommended for magic links when redirecting to same domain)
+    persistSession: !supabaseUrl.includes('placeholder'),
+    autoRefreshToken: !supabaseUrl.includes('placeholder'),
+    detectSessionInUrl: true,
+    flowType: 'implicit' // Implicit flow — tokens arrive in URL hash, works across browsers/tabs
   }
 });
 

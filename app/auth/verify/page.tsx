@@ -11,78 +11,21 @@ function VerifyContent() {
   const ran = useRef(false);
 
   useEffect(() => {
-    // Guard against double-invocation in React strict mode
     if (ran.current) return;
     ran.current = true;
 
+    // Determine redirect target from query params or hash
     const raw = searchParams.get('next') || '/dashboard';
-
-    // Sanitise the redirect target
     let next = raw;
     if (!next.startsWith('/') || next.startsWith('//') || next.startsWith('/login') || next.startsWith('/auth')) {
       next = '/dashboard';
     }
 
-    console.log('🔍 Verify page loaded');
-    console.log('🔍 URL params:', Array.from(searchParams.entries()));
-
-    const verifyAuth = async () => {
-      try {
-        // With PKCE flow and detectSessionInUrl enabled, Supabase automatically
-        // detects auth codes in the URL and exchanges them for a session.
-        // We just need to wait for it to complete and then verify the user.
-        
-        // Listen for auth state changes
-        const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-          console.log('🔍 Auth state change:', event);
-          
-          if (event === 'SIGNED_IN' && session) {
-            console.log('✅ Signed in:', session.user.email);
-            await handleSession(session, next);
-          } else if (event === 'USER_UPDATED' && session) {
-            console.log('✅ User updated:', session.user.email);
-            await handleSession(session, next);
-          }
-        });
-
-        // Also check for existing session (might already be processed)
-        setTimeout(async () => {
-          const { data: { session } } = await supabase.auth.getSession();
-          
-          if (session) {
-            console.log('✅ Session already exists:', session.user.email);
-            authListener?.subscription.unsubscribe();
-            await handleSession(session, next);
-          } else {
-            console.log('⏳ Waiting for auth state change...');
-            
-            // Timeout after 5 seconds
-            setTimeout(async () => {
-              const { data: { session: finalSession } } = await supabase.auth.getSession();
-              if (!finalSession) {
-                console.error('❌ No session after timeout');
-                console.log('🔍 Checking localStorage for verifier:', localStorage.getItem('supabase.auth.code_verifier'));
-                setError('Authentication timed out. Please try signing in again.');
-                authListener?.subscription.unsubscribe();
-                setTimeout(() => router.replace('/login?error=auth_failed'), 2000);
-              }
-            }, 5000);
-          }
-        }, 1000);
-      } catch (err) {
-        console.error('❌ Unexpected error:', err);
-        setError('An error occurred. Please try again.');
-        setTimeout(() => router.replace('/login?error=auth_failed'), 2000);
-      }
-    };
-
-    const handleSession = async (session: any, next: string) => {
+    const handleSession = async (session: any) => {
       const userId = session.user?.id;
       const email = session.user?.email ?? '';
 
-      console.log('🔍 Verifying user in system:', email);
-
-      // Verify user exists in our system (invite-only)
+      // Verify user exists in our invite-only system
       const { data: userProfile, error: profileError } = await supabase
         .from('users')
         .select('id, email, role')
@@ -90,23 +33,70 @@ function VerifyContent() {
         .single();
 
       if (profileError || !userProfile) {
-        console.warn('🚫 User not found in system:', email, profileError);
+        console.warn('User not in system:', email);
         await supabase.auth.signOut();
         router.replace('/login?error=unauthorized_user');
         return;
       }
 
-      console.log('✅ User verified, redirecting to', next);
       router.replace(next);
     };
 
-    verifyAuth();
+    const verify = async () => {
+      try {
+        // With implicit flow, Supabase puts tokens in the URL hash (#access_token=…)
+        // The Supabase client with detectSessionInUrl: true will automatically
+        // pick them up and create a session. We listen for that event.
+
+        let resolved = false;
+
+        const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (resolved) return;
+          if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') && session) {
+            resolved = true;
+            listener?.subscription.unsubscribe();
+            await handleSession(session);
+          }
+        });
+
+        // Check if a session already exists (e.g. tokens were processed before listener attached)
+        const { data: { session: existing } } = await supabase.auth.getSession();
+        if (existing && !resolved) {
+          resolved = true;
+          listener?.subscription.unsubscribe();
+          await handleSession(existing);
+          return;
+        }
+
+        // Fallback timeout — 8 seconds is generous
+        setTimeout(async () => {
+          if (resolved) return;
+          const { data: { session: lastChance } } = await supabase.auth.getSession();
+          if (lastChance) {
+            resolved = true;
+            listener?.subscription.unsubscribe();
+            await handleSession(lastChance);
+          } else {
+            resolved = true;
+            listener?.subscription.unsubscribe();
+            setError('Authentication timed out. Redirecting to login…');
+            setTimeout(() => router.replace('/login?error=auth_failed'), 1500);
+          }
+        }, 8000);
+      } catch (err) {
+        console.error('Verify error:', err);
+        setError('Something went wrong. Please try again.');
+        setTimeout(() => router.replace('/login?error=auth_failed'), 2000);
+      }
+    };
+
+    verify();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center gap-4">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
-      <p className="text-sm text-gray-500 dark:text-gray-400">
+    <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center gap-4">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
+      <p className="text-sm text-gray-400">
         {error || 'Verifying your account…'}
       </p>
     </div>
@@ -117,8 +107,8 @@ export default function VerifyPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+        <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
         </div>
       }
     >

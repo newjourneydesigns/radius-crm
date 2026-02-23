@@ -18,14 +18,276 @@
   }
 }
 
-/* Mobile bottom navigation spacing — clears the 58px fixed tab bar + safe area */
+/* Mobile bottom navigation spacing — clears the 56px tab bar + safe area */
 .mobile-nav-padding {
-  padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
 }
 @media (min-width: 768px) {
   .mobile-nav-padding {
     padding-bottom: 0;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Apple-inspired Mobile Tab Bar
+   ═══════════════════════════════════════════════════════════ */
+.mobile-tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
+  background: rgba(15, 20, 30, 0.72);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.mobile-tab-bar-inner {
+  display: flex;
+  align-items: stretch;
+  height: 50px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.mobile-tab-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 2px;
+  background: none;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  text-decoration: none;
+  transition: transform 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.mobile-tab-item:active {
+  transform: scale(0.88);
+}
+
+.mobile-tab-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.35);
+  transition: color 0.2s ease;
+}
+
+.mobile-tab-icon.active {
+  color: #3b82f6;
+}
+
+.mobile-tab-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.35);
+  transition: color 0.2s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+}
+
+.mobile-tab-label.active {
+  color: #3b82f6;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Apple-inspired Bottom Sheet
+   ═══════════════════════════════════════════════════════════ */
+.mobile-sheet {
+  background: rgba(28, 33, 44, 0.92);
+  -webkit-backdrop-filter: saturate(180%) blur(40px);
+  backdrop-filter: saturate(180%) blur(40px);
+  border-radius: 16px 16px 0 0;
+  box-shadow:
+    0 -8px 32px rgba(0, 0, 0, 0.4),
+    0 0 0 0.5px rgba(255, 255, 255, 0.06) inset;
+  max-height: 75vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Custom scrollbar for the sheet */
+.mobile-sheet::-webkit-scrollbar {
+  width: 0;
+}
+
+.mobile-sheet-handle {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 4px;
+  cursor: grab;
+}
+
+.mobile-sheet-handle-bar {
+  width: 36px;
+  height: 5px;
+  border-radius: 100px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* User card */
+.mobile-sheet-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px 14px;
+  margin: 0 12px;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
+}
+
+.mobile-sheet-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+}
+
+.mobile-sheet-user-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.mobile-sheet-user-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: white;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+}
+
+.mobile-sheet-user-email {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+  margin-top: 1px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+}
+
+.mobile-sheet-badge {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+}
+
+/* Sections */
+.mobile-sheet-section {
+  padding: 12px 12px 4px;
+}
+
+.mobile-sheet-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.3);
+  padding: 0 8px 6px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+}
+
+.mobile-sheet-group {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Menu rows */
+.mobile-sheet-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 14px;
+  font-size: 15px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.88);
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+}
+
+.mobile-sheet-row.bordered {
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.05);
+}
+
+.mobile-sheet-row:active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.mobile-sheet-row.active {
+  color: #3b82f6;
+}
+
+.mobile-sheet-row.active .mobile-sheet-row-icon {
+  color: #3b82f6;
+}
+
+.mobile-sheet-row.destructive {
+  color: #f87171;
+}
+
+.mobile-sheet-row.install {
+  color: #34d399;
+}
+
+.mobile-sheet-row-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.55);
+  flex-shrink: 0;
+}
+
+.mobile-sheet-row-icon.destructive {
+  background: rgba(248, 113, 113, 0.1);
+  color: #f87171;
+}
+
+.mobile-sheet-row-icon.install {
+  background: rgba(52, 211, 153, 0.1);
+  color: #34d399;
+}
+
+.mobile-sheet-row-label {
+  flex: 1;
+  text-align: left;
 }
 
 /* Dark Green Theme - Custom gradient background */

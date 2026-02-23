@@ -1,116 +1,160 @@
 'use client';
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../../contexts/AuthContext";
 import GlobalSearch from './GlobalSearch';
 
-// ── Icons ──────────────────────────────────────────────
-const HomeIcon = ({ filled }: { filled?: boolean }) => filled ? (
-  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M11.47 3.84a.75.75 0 011.06 0l8.69 8.69a.75.75 0 101.06-1.06l-1.56-1.561V4.125a.75.75 0 00-.75-.75h-2.25a.75.75 0 00-.75.75v3.045L12 4.5 2.47 11.47a.75.75 0 001.06 1.06l1.47-1.469V19.5a.75.75 0 00.75.75h4.5a.75.75 0 00.75-.75V16.5a.75.75 0 011.5 0V19.5a.75.75 0 00.75.75h4.5a.75.75 0 00.75-.75v-8.44l1.47 1.47a.75.75 0 001.06-1.06l-8.69-8.69z" />
+/* ─────────────────────────────────────────────────────────
+   SF-Symbols-inspired icons — clean, refined strokes
+   ───────────────────────────────────────────────────────── */
+const HomeIcon = ({ active }: { active?: boolean }) => active ? (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12.707 2.293a1 1 0 00-1.414 0l-9 9a1 1 0 001.414 1.414L4 12.414V21a1 1 0 001 1h4a1 1 0 001-1v-4a2 2 0 114 0v4a1 1 0 001 1h4a1 1 0 001-1v-8.586l.293.293a1 1 0 001.414-1.414l-9-9z" />
   </svg>
 ) : (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a2 2 0 104 0m-4 0v-1a1 1 0 011-1h2a1 1 0 011 1v1m-4 0h4" />
   </svg>
 );
-const ChartIcon = ({ filled }: { filled?: boolean }) => filled ? (
-  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+
+const ChartIcon = ({ active }: { active?: boolean }) => active ? (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
     <path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.036-.84-1.875-1.875-1.875h-.75zM9.75 8.625c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 01-1.875-1.875V8.625zM3 13.125c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 013 19.875v-6.75z" />
   </svg>
 ) : (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 21h18M5 21V11m4 10V7m4 14v-8m4 8V3" />
   </svg>
 );
-const CalendarIcon = ({ filled }: { filled?: boolean }) => filled ? (
-  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12.75 12.75a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM7.5 15.75a.75.75 0 100-1.5.75.75 0 000 1.5zM8.25 17.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM9.75 15.75a.75.75 0 100-1.5.75.75 0 000 1.5zM10.5 17.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM12 15.75a.75.75 0 100-1.5.75.75 0 000 1.5zM16.5 15.75a.75.75 0 100-1.5.75.75 0 000 1.5zM15 17.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM16.5 17.25a.75.75 0 100-1.5.75.75 0 000 1.5z" />
+
+const CalendarIcon = ({ active }: { active?: boolean }) => active ? (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
     <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 017.5 3v1.5h9V3A.75.75 0 0118 3v1.5h.75a3 3 0 013 3v11.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V7.5a3 3 0 013-3H6V3a.75.75 0 01.75-.75zm13.5 9a1.5 1.5 0 00-1.5-1.5H5.25a1.5 1.5 0 00-1.5 1.5v7.5a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5v-7.5z" clipRule="evenodd" />
   </svg>
 ) : (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-  </svg>
-);
-const SearchIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-  </svg>
-);
-const MenuIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-  </svg>
-);
-const CompassIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-  </svg>
-);
-const UserPlusIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-  </svg>
-);
-const UserIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-  </svg>
-);
-const UsersIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-  </svg>
-);
-const CogIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-  </svg>
-);
-const QuestionIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-  </svg>
-);
-const LogoutIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-  </svg>
-);
-const DownloadIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+    <line x1="16" y1="2" x2="16" y2="6" />
+    <line x1="8" y1="2" x2="8" y2="6" />
+    <line x1="3" y1="10" x2="21" y2="10" />
   </svg>
 );
 
-// ── Component ──────────────────────────────────────────
+const SearchIcon = ({ active }: { active?: boolean }) => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="8" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </svg>
+);
+
+const EllipsisIcon = ({ active }: { active?: boolean }) => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5">
+    <circle cx="12" cy="5" r={active ? 1.8 : 1.3} />
+    <circle cx="12" cy="12" r={active ? 1.8 : 1.3} />
+    <circle cx="12" cy="19" r={active ? 1.8 : 1.3} />
+  </svg>
+);
+
+/* ── Drawer icons ───────────────────────────────────── */
+const CompassIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+  </svg>
+);
+
+const UserPlusIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+    <circle cx="8.5" cy="7" r="4" />
+    <line x1="20" y1="8" x2="20" y2="14" />
+    <line x1="23" y1="11" x2="17" y2="11" />
+  </svg>
+);
+
+const UsersIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 00-3-3.87" />
+    <path d="M16 3.13a4 4 0 010 7.75" />
+  </svg>
+);
+
+const UserIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+);
+
+const CogIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+  </svg>
+);
+
+const QuestionIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
+  </svg>
+);
+
+const LogoutIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+    <polyline points="16 17 21 12 16 7" />
+    <line x1="21" y1="12" x2="9" y2="12" />
+  </svg>
+);
+
+const DownloadIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+);
+
+const ChevronRightIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-30">
+    <polyline points="9 18 15 12 9 6" />
+  </svg>
+);
+
+/* ─────────────────────────────────────────────────────────
+   Component
+   ───────────────────────────────────────────────────────── */
 export default function MobileNavigation() {
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [sheetY, setSheetY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const dragStartY = useRef(0);
   const pathname = usePathname();
   const { user, signOut, isAuthenticated, isAdmin } = useAuth();
 
-  const openSearch = () => {
-    const event = new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true });
-    document.dispatchEvent(event);
-  };
+  const triggerSearch = useCallback(() => {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }));
+  }, []);
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
-
   const admin = isAdmin();
 
   const initials = user?.name
     ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
     : user?.email?.[0].toUpperCase() ?? '?';
 
-  // PWA Install
+  /* PWA install prompt */
   useEffect(() => {
     const show = () => setShowInstallPrompt(true);
-    const hide  = () => setShowInstallPrompt(false);
+    const hide = () => setShowInstallPrompt(false);
     window.addEventListener('pwaInstallAvailable', show);
     window.addEventListener('pwaInstalled', hide);
     return () => {
@@ -125,198 +169,194 @@ export default function MobileNavigation() {
     }
   };
 
-  // Close drawer when route changes
-  useEffect(() => { setDrawerOpen(false); }, [pathname]);
+  /* Close sheet on route change */
+  useEffect(() => { setSheetOpen(false); setSheetY(0); }, [pathname]);
+
+  /* Drag-to-dismiss for the sheet */
+  const onTouchStart = (e: React.TouchEvent) => {
+    dragStartY.current = e.touches[0].clientY;
+    setIsDragging(true);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return;
+    const delta = e.touches[0].clientY - dragStartY.current;
+    if (delta > 0) setSheetY(delta);
+  };
+
+  const onTouchEnd = () => {
+    setIsDragging(false);
+    if (sheetY > 100) {
+      setSheetOpen(false);
+      setTimeout(() => setSheetY(0), 300);
+    } else {
+      setSheetY(0);
+    }
+  };
 
   if (!isAuthenticated()) return null;
 
-  // Bottom tab bar items
-  const tabs = [
-    { name: 'Home',     href: '/dashboard', Icon: HomeIcon },
-    { name: 'Progress', href: '/progress',  Icon: ChartIcon },
-    { name: 'Calendar', href: '/calendar',  Icon: CalendarIcon },
+  /* Tab items */
+  const tabs: { name: string; href?: string; Icon: React.FC<{ active?: boolean }>; action?: () => void; id: string }[] = [
+    { id: 'home', name: 'Home', href: '/dashboard', Icon: HomeIcon },
+    { id: 'progress', name: 'Progress', href: '/progress', Icon: ChartIcon },
+    { id: 'calendar', name: 'Calendar', href: '/calendar', Icon: CalendarIcon },
+    { id: 'search', name: 'Search', Icon: SearchIcon, action: triggerSearch },
+    { id: 'more', name: 'More', Icon: EllipsisIcon, action: () => setSheetOpen(v => !v) },
+  ];
+
+  /* Drawer menu sections */
+  const adminItems = [
+    { href: '/ccb-explorer', label: 'CCB Explorer', Icon: CompassIcon },
+    { href: '/add-leader', label: 'Add Leader', Icon: UserPlusIcon },
+    { href: '/users', label: 'Manage Users', Icon: UsersIcon },
+  ];
+
+  const accountItems = [
+    { href: '/profile', label: 'Profile', Icon: UserIcon },
+    { href: '/settings', label: 'Settings', Icon: CogIcon },
+    { href: '/help', label: 'Help & Support', Icon: QuestionIcon },
   ];
 
   return (
     <>
-      {/* Mount GlobalSearch off-screen so its Cmd+K keyboard listener stays active */}
+      {/* Off-screen GlobalSearch for Cmd+K listener */}
       <div className="fixed -top-full -left-full opacity-0 pointer-events-none" aria-hidden="true">
         <GlobalSearch />
       </div>
 
-      {/* ── Bottom tab bar ── */}
-      <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-[10000]"
-        style={{
-          background: 'rgba(15, 23, 42, 0.96)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          borderTop: '1px solid rgba(255,255,255,0.07)',
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        }}
-      >
-        <div className="flex items-stretch h-[58px]">
-          {/* Primary tabs */}
-          {tabs.map(({ name, href, Icon }) => {
-            const active = isActive(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                className="relative flex flex-col items-center justify-center flex-1 gap-1 transition-colors"
-              >
-                {/* Active top indicator */}
-                {active && (
-                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2px] rounded-b-full bg-blue-400" />
-                )}
-                <span className={`transition-colors ${active ? 'text-blue-400' : 'text-gray-500'}`}>
-                  <Icon filled={active} />
+      {/* ════════════════════════════════════════════════════
+          iOS-style Tab Bar
+         ════════════════════════════════════════════════════ */}
+      <nav className="mobile-tab-bar md:hidden" role="tablist">
+        <div className="mobile-tab-bar-inner">
+          {tabs.map(({ id, name, href, Icon, action }) => {
+            const active = href ? isActive(href) : (id === 'more' && sheetOpen);
+            const content = (
+              <>
+                <span className={`mobile-tab-icon ${active ? 'active' : ''}`}>
+                  <Icon active={active} />
                 </span>
-                <span className={`text-[11px] font-medium leading-none transition-colors ${active ? 'text-blue-400' : 'text-gray-500'}`}>
+                <span className={`mobile-tab-label ${active ? 'active' : ''}`}>
                   {name}
                 </span>
-              </Link>
+              </>
+            );
+
+            if (href) {
+              return (
+                <Link key={id} href={href} role="tab" aria-selected={active}
+                  className={`mobile-tab-item ${active ? 'active' : ''}`}>
+                  {content}
+                </Link>
+              );
+            }
+            return (
+              <button key={id} role="tab" aria-selected={active} onClick={action}
+                className={`mobile-tab-item ${active ? 'active' : ''}`}>
+                {content}
+              </button>
             );
           })}
-
-          {/* Search tab */}
-          <button
-            onClick={openSearch}
-            className="relative flex flex-col items-center justify-center flex-1 gap-1 text-gray-500 hover:text-gray-300 transition-colors"
-          >
-            <SearchIcon />
-            <span className="text-[11px] font-medium leading-none">Search</span>
-          </button>
-
-          {/* More tab */}
-          <button
-            onClick={() => setDrawerOpen(v => !v)}
-            className="relative flex flex-col items-center justify-center flex-1 gap-1 transition-colors"
-          >
-            {drawerOpen && (
-              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2px] rounded-b-full bg-blue-400" />
-            )}
-            <span className={`transition-colors ${drawerOpen ? 'text-blue-400' : 'text-gray-500'}`}>
-              <MenuIcon />
-            </span>
-            <span className={`text-[11px] font-medium leading-none transition-colors ${drawerOpen ? 'text-blue-400' : 'text-gray-500'}`}>
-              More
-            </span>
-          </button>
         </div>
       </nav>
 
-      {/* ── Slide-up Drawer ── */}
-      {drawerOpen && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="md:hidden fixed inset-0 z-[9998] bg-black/60 backdrop-blur-sm"
-            onClick={() => setDrawerOpen(false)}
-          />
+      {/* ════════════════════════════════════════════════════
+          iOS-style Bottom Sheet
+         ════════════════════════════════════════════════════ */}
+      {/* Backdrop */}
+      <div
+        className={`md:hidden fixed inset-0 z-[9998] transition-all duration-300 ${
+          sheetOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+        style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
+        onClick={() => setSheetOpen(false)}
+      />
 
-          {/* Drawer panel */}
-          <div
-            className="md:hidden fixed left-0 right-0 z-[9999] bg-gray-900 border border-gray-700/60 rounded-t-2xl shadow-2xl overflow-hidden max-h-[80vh] overflow-y-auto"
-            style={{ bottom: 'calc(58px + env(safe-area-inset-bottom, 0px))' }}
-          >
-            {/* Handle */}
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full bg-gray-600" />
-            </div>
+      {/* Sheet */}
+      <div
+        ref={sheetRef}
+        className={`md:hidden fixed left-0 right-0 z-[9999] mobile-sheet ${sheetOpen ? 'open' : ''}`}
+        style={{
+          bottom: 'calc(56px + env(safe-area-inset-bottom, 0px))',
+          transform: sheetOpen ? `translateY(${sheetY}px)` : 'translateY(100%)',
+          transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)',
+        }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        {/* Drag handle */}
+        <div className="mobile-sheet-handle">
+          <div className="mobile-sheet-handle-bar" />
+        </div>
 
-            {/* User info */}
-            <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-700/60">
-              <span className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold text-white ring-2 ring-blue-500/30 shrink-0">
-                {initials}
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
-                <p className="text-xs text-gray-400 truncate">{user?.email}</p>
-              </div>
-              {admin && (
-                <span className="ml-auto shrink-0 px-2 py-0.5 rounded text-[10px] font-medium bg-blue-600/20 text-blue-400 ring-1 ring-blue-500/30">
-                  Admin
-                </span>
-              )}
-            </div>
+        {/* User card */}
+        <div className="mobile-sheet-user">
+          <div className="mobile-sheet-avatar">{initials}</div>
+          <div className="mobile-sheet-user-info">
+            <p className="mobile-sheet-user-name">{user?.name || 'User'}</p>
+            <p className="mobile-sheet-user-email">{user?.email}</p>
+          </div>
+          {admin && <span className="mobile-sheet-badge">Admin</span>}
+        </div>
 
-            {/* Admin section */}
-            {admin && (
-              <div className="px-3 pt-3 pb-1">
-                <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-500">Admin</p>
-                {[
-                  { href: '/ccb-explorer', label: 'CCB Explorer', Icon: CompassIcon },
-                  { href: '/add-leader',   label: 'Add Leader',   Icon: UserPlusIcon },
-                  { href: '/users',        label: 'Manage Users', Icon: UsersIcon },
-                ].map(({ href, label, Icon }) => (
-                  <Link
-                    key={href}
-                    href={href}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-colors ${
-                      isActive(href)
-                        ? 'text-blue-400 bg-blue-600/10'
-                        : 'text-gray-200 hover:text-white hover:bg-gray-700/60'
-                    }`}
-                  >
-                    <Icon />
-                    {label}
-                  </Link>
-                ))}
-              </div>
-            )}
-
-            {/* General section */}
-            <div className="px-3 pt-3 pb-1">
-              <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-500">Account</p>
-              {[
-                { href: '/profile',  label: 'Profile',  Icon: UserIcon },
-                { href: '/settings', label: 'Settings', Icon: CogIcon },
-                { href: '/help',     label: 'Help',     Icon: QuestionIcon },
-              ].map(({ href, label, Icon }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-colors ${
-                    isActive(href)
-                      ? 'text-blue-400 bg-blue-600/10'
-                      : 'text-gray-200 hover:text-white hover:bg-gray-700/60'
-                  }`}
-                >
-                  <Icon />
-                  {label}
+        {/* Admin section */}
+        {admin && (
+          <div className="mobile-sheet-section">
+            <p className="mobile-sheet-section-title">Admin</p>
+            <div className="mobile-sheet-group">
+              {adminItems.map(({ href, label, Icon }, i) => (
+                <Link key={href} href={href}
+                  className={`mobile-sheet-row ${isActive(href) ? 'active' : ''} ${i < adminItems.length - 1 ? 'bordered' : ''}`}>
+                  <span className="mobile-sheet-row-icon"><Icon /></span>
+                  <span className="mobile-sheet-row-label">{label}</span>
+                  <ChevronRightIcon />
                 </Link>
               ))}
             </div>
+          </div>
+        )}
 
-            {/* PWA install */}
-            {showInstallPrompt && (
-              <div className="px-3 pb-1">
-                <button
-                  onClick={handleInstallClick}
-                  className="flex items-center gap-3 w-full px-3 py-2.5 rounded text-sm font-medium text-emerald-400 hover:text-emerald-300 hover:bg-emerald-600/10 transition-colors"
-                >
-                  <DownloadIcon />
-                  Install App
-                </button>
-              </div>
-            )}
+        {/* Account section */}
+        <div className="mobile-sheet-section">
+          <p className="mobile-sheet-section-title">Account</p>
+          <div className="mobile-sheet-group">
+            {accountItems.map(({ href, label, Icon }, i) => (
+              <Link key={href} href={href}
+                className={`mobile-sheet-row ${isActive(href) ? 'active' : ''} ${i < accountItems.length - 1 ? 'bordered' : ''}`}>
+                <span className="mobile-sheet-row-icon"><Icon /></span>
+                <span className="mobile-sheet-row-label">{label}</span>
+                <ChevronRightIcon />
+              </Link>
+            ))}
+          </div>
+        </div>
 
-            {/* Sign out */}
-            <div className="px-3 pb-4 pt-1 border-t border-gray-700/60 mt-2">
-              <button
-                onClick={() => { signOut(); setDrawerOpen(false); }}
-                className="flex items-center gap-3 w-full px-3 py-2.5 rounded text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
-              >
-                <LogoutIcon />
-                Sign out
+        {/* PWA Install */}
+        {showInstallPrompt && (
+          <div className="mobile-sheet-section">
+            <div className="mobile-sheet-group">
+              <button onClick={handleInstallClick} className="mobile-sheet-row install">
+                <span className="mobile-sheet-row-icon install"><DownloadIcon /></span>
+                <span className="mobile-sheet-row-label">Install App</span>
+                <ChevronRightIcon />
               </button>
             </div>
           </div>
-        </>
-      )}
+        )}
+
+        {/* Sign out */}
+        <div className="mobile-sheet-section" style={{ paddingBottom: '12px' }}>
+          <div className="mobile-sheet-group">
+            <button onClick={() => { signOut(); setSheetOpen(false); }}
+              className="mobile-sheet-row destructive">
+              <span className="mobile-sheet-row-icon destructive"><LogoutIcon /></span>
+              <span className="mobile-sheet-row-label">Sign Out</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </>
   );
 }
-
-
