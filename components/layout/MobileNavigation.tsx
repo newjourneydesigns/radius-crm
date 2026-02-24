@@ -125,6 +125,12 @@ const DownloadIcon = () => (
   </svg>
 );
 
+const CloudImportIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.338-2.32 3.75 3.75 0 013.572 5.345A4.501 4.501 0 0118 19.5H6.75z" />
+  </svg>
+);
+
 const ChevronRightIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-30">
     <polyline points="9 18 15 12 9 6" />
@@ -215,6 +221,7 @@ export default function MobileNavigation() {
     { href: '/bulk-message', label: 'Bulk Message', Icon: MessageBulkIcon },
     { href: '/add-leader', label: 'Add Leader', Icon: UserPlusIcon },
     { href: '/users', label: 'Manage Users', Icon: UsersIcon },
+    { href: '/import-circles', label: 'Import Circles', Icon: CloudImportIcon },
   ];
 
   const accountItems = [

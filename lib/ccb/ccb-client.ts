@@ -6,6 +6,7 @@
 
 import axios, { AxiosRequestConfig } from "axios";
 import { XMLParser } from "fast-xml-parser";
+import type { CCBGroup } from "../ccb-types";
 import { DateTime, Interval } from "luxon";
 
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -65,6 +66,10 @@ export class CCBClient {
   private readonly baseUrl: string;
   private readonly parser: XMLParser;
   private readonly config: CCBConfig;
+
+  // In-memory cache for group_profiles (avoids repeated full-list fetches)
+  private groupsCache: { data: CCBGroup[]; expiresAt: number } | null = null;
+  private static readonly GROUPS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
   constructor(config: CCBConfig) {
     this.config = config;
@@ -1131,6 +1136,126 @@ export class CCBClient {
     }
 
     return links;
+  }
+
+  // ---- Circle / Group import helpers ----
+
+  /**
+   * Search CCB groups by partial name. Results are cached for 5 minutes
+   * so repeated / refined searches don't re-hit the CCB API.
+   *
+   * @param partialName  Case-insensitive substring to match against group names.
+   *                     Pass empty string to return ALL groups.
+   * @returns Matched CCBGroup objects.
+   */
+  async searchGroups(partialName: string): Promise<CCBGroup[]> {
+    // Serve from cache when possible
+    if (!this.groupsCache || Date.now() > this.groupsCache.expiresAt) {
+      console.log('🔍 Fetching group_profiles from CCB (cache miss)');
+      const xml = await this.getXml({ srv: 'group_profiles' });
+      const groups = this.parseGroupDetails(xml);
+      this.groupsCache = {
+        data: groups,
+        expiresAt: Date.now() + CCBClient.GROUPS_CACHE_TTL,
+      };
+      console.log(`✅ Cached ${groups.length} groups from CCB`);
+    }
+
+    const term = partialName.toLowerCase().trim();
+    if (!term) return this.groupsCache.data;
+
+    return this.groupsCache.data.filter((g) =>
+      g.name.toLowerCase().includes(term)
+    );
+  }
+
+  /**
+   * Parse full group details from group_profiles XML.
+   * Extracts as many fields as CCB provides: name, campus, group type,
+   * main leader contact info, meeting day/time, etc.
+   */
+  private parseGroupDetails(xml: any): CCBGroup[] {
+    const response = xml?.ccb_api?.response;
+    if (!response) return [];
+
+    const groupsRoot = response.groups;
+    if (!groupsRoot) return [];
+
+    const groupArray = Array.isArray(groupsRoot.group)
+      ? groupsRoot.group
+      : groupsRoot.group
+        ? [groupsRoot.group]
+        : [];
+
+    return groupArray
+      .map((g: any): CCBGroup | null => {
+        const id = String(g['@_id'] || g.id || '').trim();
+        const name = String(g.name || g.group_name || '').trim();
+        if (!id || !name) return null;
+
+        // Skip inactive / archived groups (fallback filter if CCB doesn't
+        // honour include_inactive=false in the request params)
+        const inactive = g.inactive || g['@_inactive'];
+        if (inactive === true || inactive === 'true' || inactive === '1') return null;
+
+        // Main leader — nested object in CCB XML
+        const leader = g.main_leader || g.director || null;
+        let mainLeader: CCBGroup['mainLeader'] = undefined;
+        if (leader) {
+          const firstName = String(leader.first_name || leader.firstName || '').trim();
+          const lastName = String(leader.last_name || leader.lastName || '').trim();
+          mainLeader = {
+            id: String(leader['@_id'] || leader.id || '').trim() || undefined,
+            firstName: firstName || undefined,
+            lastName: lastName || undefined,
+            fullName: (() => {
+              const joined = [firstName, lastName].filter(Boolean).join(' ');
+              if (joined) return joined;
+              const raw = String(leader.full_name || leader.name || '').trim();
+              // Strip email-like values so the name field stays clean
+              if (raw && raw.includes('@')) return undefined;
+              return raw || undefined;
+            })(),
+            email: String(leader.email || '').trim() || undefined,
+            phone: String(leader.phone || leader.mobile_phone || leader.home_phone || '').trim() || undefined,
+          };
+        }
+
+        // Campus / site
+        const campus = String(
+          g.campus?.['#text'] || g.campus?.name || g.campus || g.site || ''
+        ).trim() || undefined;
+
+        // Group type / department
+        const groupType = String(
+          g.group_type?.['#text'] || g.group_type?.name || g.group_type ||
+          g.department?.['#text'] || g.department?.name || g.department || ''
+        ).trim() || undefined;
+
+        // Meeting day / time
+        const meetingDay = String(
+          g.meeting_day?.['#text'] || g.meeting_day || g.meet_day || ''
+        ).trim() || undefined;
+
+        const meetingTime = String(
+          g.meeting_time?.['#text'] || g.meeting_time || g.meet_time || ''
+        ).trim() || undefined;
+
+        // Description
+        const description = String(g.description || g.group_description || '').trim() || undefined;
+
+        return {
+          id,
+          name,
+          description,
+          campus,
+          groupType,
+          mainLeader,
+          meetingDay,
+          meetingTime,
+        };
+      })
+      .filter(Boolean) as CCBGroup[];
   }
 
   /**

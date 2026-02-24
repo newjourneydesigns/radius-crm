@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import Link from 'next/link';
@@ -34,6 +34,19 @@ const DB_FIELDS = [
   { key: 'ccb_profile_link', label: 'CCB Profile Link', required: false },
 ];
 
+interface MassUpdateLeader {
+  id: number;
+  name: string;
+  campus: string | null;
+  acpd: string | null;
+  status: string | null;
+}
+
+interface ReferenceData {
+  directors: { id: number; name: string }[];
+  campuses: { id: number; value: string }[];
+}
+
 export default function ImportPage() {
   const [csvData, setCsvData] = useState<CSVRow[]>([]);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
@@ -43,6 +56,121 @@ export default function ImportPage() {
   const [showPreview, setShowPreview] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'csv' | 'mass-update'>('csv');
+
+  // Mass Update state
+  const [massUpdateField, setMassUpdateField] = useState<'campus' | 'acpd'>('campus');
+  const [massUpdateValue, setMassUpdateValue] = useState('');
+  const [massUpdateFilterField, setMassUpdateFilterField] = useState<'all' | 'campus' | 'acpd'>('all');
+  const [massUpdateFilterValue, setMassUpdateFilterValue] = useState('');
+  const [massUpdateLeaders, setMassUpdateLeaders] = useState<MassUpdateLeader[]>([]);
+  const [massUpdateSelected, setMassUpdateSelected] = useState<Set<number>>(new Set());
+  const [massUpdateLoading, setMassUpdateLoading] = useState(false);
+  const [massUpdateSearching, setMassUpdateSearching] = useState(false);
+  const [massUpdateResult, setMassUpdateResult] = useState<{ updated: number; error?: string } | null>(null);
+  const [referenceData, setReferenceData] = useState<ReferenceData>({ directors: [], campuses: [] });
+
+  // Load reference data for dropdowns
+  useEffect(() => {
+    const loadReferenceData = async () => {
+      try {
+        const res = await fetch('/api/reference-data');
+        if (res.ok) {
+          const data = await res.json();
+          setReferenceData({
+            directors: data.directors || [],
+            campuses: data.campuses || [],
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load reference data:', err);
+      }
+    };
+    loadReferenceData();
+  }, []);
+
+  // Search/filter leaders for mass update  
+  const searchLeadersForMassUpdate = useCallback(async () => {
+    setMassUpdateSearching(true);
+    setMassUpdateResult(null);
+    setMassUpdateSelected(new Set());
+    try {
+      const res = await fetch('/api/circle-leaders');
+      if (!res.ok) throw new Error('Failed to fetch circle leaders');
+      const data = await res.json();
+      let leaders: MassUpdateLeader[] = (data.circleLeaders || []).map((l: any) => ({
+        id: l.id,
+        name: l.name,
+        campus: l.campus || null,
+        acpd: l.acpd || null,
+        status: l.status || null,
+      }));
+
+      // Apply filter
+      if (massUpdateFilterField === 'campus' && massUpdateFilterValue) {
+        leaders = leaders.filter(l => l.campus === massUpdateFilterValue);
+      } else if (massUpdateFilterField === 'acpd' && massUpdateFilterValue) {
+        leaders = leaders.filter(l => l.acpd === massUpdateFilterValue);
+      }
+
+      // Sort by name
+      leaders.sort((a, b) => a.name.localeCompare(b.name));
+      setMassUpdateLeaders(leaders);
+    } catch (err: any) {
+      console.error('Error searching leaders:', err);
+    } finally {
+      setMassUpdateSearching(false);
+    }
+  }, [massUpdateFilterField, massUpdateFilterValue]);
+
+  const toggleMassUpdateSelect = (id: number) => {
+    setMassUpdateSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const massUpdateSelectAll = () => {
+    setMassUpdateSelected(new Set(massUpdateLeaders.map(l => l.id)));
+  };
+
+  const massUpdateDeselectAll = () => {
+    setMassUpdateSelected(new Set());
+  };
+
+  const handleMassUpdate = async () => {
+    if (massUpdateSelected.size === 0 || !massUpdateValue) return;
+
+    setMassUpdateLoading(true);
+    setMassUpdateResult(null);
+    try {
+      const res = await fetch('/api/circle-leaders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          leaderIds: Array.from(massUpdateSelected),
+          field: massUpdateField,
+          value: massUpdateValue,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Update failed');
+
+      setMassUpdateResult({ updated: data.updated });
+
+      // Refresh the list to show updated values
+      await searchLeadersForMassUpdate();
+    } catch (err: any) {
+      setMassUpdateResult({ updated: 0, error: err.message });
+    } finally {
+      setMassUpdateLoading(false);
+    }
+  };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -370,10 +498,10 @@ export default function ImportPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                  Import Circle Leaders
+                  Import &amp; Manage Circle Leaders
                 </h1>
                 <p className="mt-2 text-gray-600 dark:text-gray-400">
-                  Upload a CSV file to import multiple Circle Leaders at once
+                  Import from CSV or mass-update ACPD &amp; Campus assignments
                 </p>
               </div>
               <div className="flex space-x-3">
@@ -387,7 +515,318 @@ export default function ImportPage() {
             </div>
           </div>
 
-          {!showPreview && !importResult && (
+          {/* Tab Switcher */}
+          <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => setActiveTab('csv')}
+                className={`whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'csv'
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                }`}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  CSV Import
+                </span>
+              </button>
+              <button
+                onClick={() => setActiveTab('mass-update')}
+                className={`whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'mass-update'
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                }`}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Mass Update
+                </span>
+              </button>
+            </nav>
+          </div>
+
+          {/* ===== MASS UPDATE TAB ===== */}
+          {activeTab === 'mass-update' && (
+            <div className="space-y-6">
+              {/* Step 1: Configure update */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+                <div className="p-6">
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-1">
+                    Mass Update ACPD or Campus
+                  </h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                    Select circle leaders and assign them a new ACPD or Campus value in bulk.
+                  </p>
+
+                  {/* Filter controls */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    {/* Filter by */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Filter Leaders By
+                      </label>
+                      <select
+                        value={massUpdateFilterField}
+                        onChange={(e) => {
+                          setMassUpdateFilterField(e.target.value as 'all' | 'campus' | 'acpd');
+                          setMassUpdateFilterValue('');
+                        }}
+                        className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      >
+                        <option value="all">All Leaders</option>
+                        <option value="campus">Current Campus</option>
+                        <option value="acpd">Current ACPD</option>
+                      </select>
+                    </div>
+
+                    {/* Filter value */}
+                    {massUpdateFilterField !== 'all' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          {massUpdateFilterField === 'campus' ? 'Campus' : 'ACPD'}
+                        </label>
+                        <select
+                          value={massUpdateFilterValue}
+                          onChange={(e) => setMassUpdateFilterValue(e.target.value)}
+                          className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                        >
+                          <option value="">-- Select --</option>
+                          {massUpdateFilterField === 'campus'
+                            ? referenceData.campuses.map((c) => (
+                                <option key={c.id} value={c.value}>{c.value}</option>
+                              ))
+                            : referenceData.directors.map((d) => (
+                                <option key={d.id} value={d.name}>{d.name}</option>
+                              ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Search button */}
+                    <div className="flex items-end">
+                      <button
+                        onClick={searchLeadersForMassUpdate}
+                        disabled={massUpdateSearching || (massUpdateFilterField !== 'all' && !massUpdateFilterValue)}
+                        className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-800 dark:bg-gray-600 dark:hover:bg-gray-500 disabled:bg-gray-400 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
+                      >
+                        {massUpdateSearching ? 'Loading...' : 'Load Leaders'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Update target controls */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div>
+                      <label className="block text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">
+                        Field to Update
+                      </label>
+                      <select
+                        value={massUpdateField}
+                        onChange={(e) => {
+                          setMassUpdateField(e.target.value as 'campus' | 'acpd');
+                          setMassUpdateValue('');
+                        }}
+                        className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      >
+                        <option value="campus">Campus</option>
+                        <option value="acpd">ACPD / Director</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">
+                        New Value
+                      </label>
+                      <select
+                        value={massUpdateValue}
+                        onChange={(e) => setMassUpdateValue(e.target.value)}
+                        className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      >
+                        <option value="">-- Select New Value --</option>
+                        {massUpdateField === 'campus'
+                          ? referenceData.campuses.map((c) => (
+                              <option key={c.id} value={c.value}>{c.value}</option>
+                            ))
+                          : referenceData.directors.map((d) => (
+                              <option key={d.id} value={d.name}>{d.name}</option>
+                            ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 2: Select leaders */}
+              {massUpdateLeaders.length > 0 && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                        Select Circle Leaders ({massUpdateLeaders.length} found)
+                      </h3>
+                      <div className="flex items-center space-x-3">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {massUpdateSelected.size} selected
+                        </span>
+                        <button
+                          onClick={massUpdateSelectAll}
+                          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          Select All
+                        </button>
+                        <button
+                          onClick={massUpdateDeselectAll}
+                          className="text-sm text-gray-500 dark:text-gray-400 hover:underline"
+                        >
+                          Deselect All
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto max-h-96 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
+                          <tr>
+                            <th className="px-4 py-3 text-left w-10">
+                              <input
+                                type="checkbox"
+                                checked={massUpdateSelected.size === massUpdateLeaders.length && massUpdateLeaders.length > 0}
+                                onChange={(e) => e.target.checked ? massUpdateSelectAll() : massUpdateDeselectAll()}
+                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              />
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                              Name
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                              Campus
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                              ACPD
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                              Status
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                          {massUpdateLeaders.map((leader) => (
+                            <tr
+                              key={leader.id}
+                              onClick={() => toggleMassUpdateSelect(leader.id)}
+                              className={`cursor-pointer transition-colors ${
+                                massUpdateSelected.has(leader.id)
+                                  ? 'bg-blue-50 dark:bg-blue-900/30'
+                                  : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                              }`}
+                            >
+                              <td className="px-4 py-3">
+                                <input
+                                  type="checkbox"
+                                  checked={massUpdateSelected.has(leader.id)}
+                                  onChange={() => toggleMassUpdateSelect(leader.id)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                              </td>
+                              <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
+                                {leader.name}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                                {leader.campus || '—'}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                                {leader.acpd || '—'}
+                              </td>
+                              <td className="px-4 py-3 text-sm">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  leader.status === 'active' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' :
+                                  leader.status === 'paused' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' :
+                                  leader.status === 'pipeline' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' :
+                                  leader.status === 'off-boarding' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' :
+                                  'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
+                                }`}>
+                                  {leader.status || '—'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Apply button */}
+                    <div className="mt-6 flex items-center justify-between">
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        {massUpdateSelected.size > 0 && massUpdateValue ? (
+                          <span>
+                            Will set <strong>{massUpdateField === 'campus' ? 'Campus' : 'ACPD'}</strong> to{' '}
+                            <strong>&ldquo;{massUpdateValue}&rdquo;</strong> for{' '}
+                            <strong>{massUpdateSelected.size}</strong> leader{massUpdateSelected.size !== 1 ? 's' : ''}
+                          </span>
+                        ) : (
+                          <span>Select leaders and a new value above to apply</span>
+                        )}
+                      </div>
+                      <button
+                        onClick={handleMassUpdate}
+                        disabled={massUpdateLoading || massUpdateSelected.size === 0 || !massUpdateValue}
+                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
+                      >
+                        {massUpdateLoading ? 'Updating...' : `Update ${massUpdateSelected.size} Leader${massUpdateSelected.size !== 1 ? 's' : ''}`}
+                      </button>
+                    </div>
+
+                    {/* Result banner */}
+                    {massUpdateResult && (
+                      <div className={`mt-4 p-4 rounded-md ${
+                        massUpdateResult.error
+                          ? 'bg-red-50 dark:bg-red-900/20'
+                          : 'bg-green-50 dark:bg-green-900/20'
+                      }`}>
+                        {massUpdateResult.error ? (
+                          <div className="flex items-center">
+                            <svg className="w-5 h-5 text-red-600 dark:text-red-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            <p className="text-sm text-red-800 dark:text-red-300">
+                              Update failed: {massUpdateResult.error}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="flex items-center">
+                            <svg className="w-5 h-5 text-green-600 dark:text-green-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <p className="text-sm text-green-800 dark:text-green-300">
+                              Successfully updated {massUpdateResult.updated} leader{massUpdateResult.updated !== 1 ? 's' : ''}!
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Empty state after search */}
+              {massUpdateLeaders.length === 0 && !massUpdateSearching && massUpdateFilterField !== 'all' && massUpdateFilterValue && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">
+                  <p className="text-gray-500 dark:text-gray-400">
+                    No circle leaders found matching the selected filter. Try a different filter.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ===== CSV IMPORT TAB ===== */}
+          {activeTab === 'csv' && !showPreview && !importResult && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
               <div className="p-6">
                 <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
@@ -437,7 +876,7 @@ export default function ImportPage() {
             </div>
           )}
 
-          {showPreview && !importResult && (
+          {activeTab === 'csv' && showPreview && !importResult && (
             <div className="space-y-6">
               {/* Field Mapping */}
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
@@ -543,7 +982,7 @@ export default function ImportPage() {
             </div>
           )}
 
-          {importResult && (
+          {activeTab === 'csv' && importResult && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
               <div className="p-6">
                 <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">

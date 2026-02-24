@@ -125,3 +125,55 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+// Mass update ACPD or Campus for multiple circle leaders
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { leaderIds, field, value } = body;
+
+    // Validate required fields
+    if (!leaderIds || !Array.isArray(leaderIds) || leaderIds.length === 0) {
+      return NextResponse.json(
+        { error: 'leaderIds must be a non-empty array' },
+        { status: 400 }
+      );
+    }
+
+    if (!field || !['campus', 'acpd'].includes(field)) {
+      return NextResponse.json(
+        { error: 'field must be "campus" or "acpd"' },
+        { status: 400 }
+      );
+    }
+
+    if (typeof value !== 'string' || value.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'value must be a non-empty string' },
+        { status: 400 }
+      );
+    }
+
+    const { data, error } = await supabase
+      .from('circle_leaders')
+      .update({ [field]: value.trim(), updated_at: new Date().toISOString() })
+      .in('id', leaderIds)
+      .select('id, name, campus, acpd');
+
+    if (error) {
+      console.error('Mass update error:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json(
+      { updated: data?.length || 0, leaders: data },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('Mass update API error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}

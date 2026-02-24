@@ -76,6 +76,11 @@ const MessageBulkIcon = () => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
   </svg>
 );
+const ImportCirclesIcon = () => (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.338-2.32 3.75 3.75 0 013.572 5.345A4.501 4.501 0 0118 19.5H6.75z" />
+  </svg>
+);
 
 const adminNavItems = [
   { name: 'CCB Explorer', href: '/ccb-explorer', icon: CompassIcon },
@@ -235,6 +240,18 @@ export default function AuthenticatedNavigation() {
                         >
                           <UsersIcon />
                           Manage Users
+                        </Link>
+                        <Link
+                          href="/import-circles"
+                          onClick={() => setUserMenuOpen(false)}
+                          className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
+                            isActive('/import-circles')
+                              ? 'text-blue-400 bg-blue-600/10'
+                              : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
+                          }`}
+                        >
+                          <ImportCirclesIcon />
+                          Import Circles
                         </Link>
                       </>
                     )}
