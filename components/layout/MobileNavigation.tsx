@@ -220,8 +220,8 @@ export default function MobileNavigation() {
   const tabs: { name: string; href?: string; Icon: React.FC<{ active?: boolean }>; action?: () => void; id: string }[] = [
     { id: 'home', name: 'Home', href: '/dashboard', Icon: HomeIcon },
     { id: 'prayer', name: 'Prayer', href: '/prayer', Icon: PrayerIcon },
-    { id: 'progress', name: 'Progress', href: '/progress', Icon: ChartIcon },
     { id: 'calendar', name: 'Calendar', href: '/calendar', Icon: CalendarIcon },
+    { id: 'search', name: 'Search', Icon: SearchIcon, action: triggerSearch },
     { id: 'more', name: 'More', Icon: EllipsisIcon, action: () => setSheetOpen(v => !v) },
   ];
 
@@ -321,6 +321,18 @@ export default function MobileNavigation() {
             <p className="mobile-sheet-user-email">{user?.email}</p>
           </div>
           {admin && <span className="mobile-sheet-badge">Admin</span>}
+        </div>
+
+        {/* Progress link */}
+        <div className="mobile-sheet-section">
+          <div className="mobile-sheet-group">
+            <Link href="/progress"
+              className={`mobile-sheet-row ${isActive('/progress') ? 'active' : ''}`}>
+              <span className="mobile-sheet-row-icon"><ChartIcon /></span>
+              <span className="mobile-sheet-row-label">Progress</span>
+              <ChevronRightIcon />
+            </Link>
+          </div>
         </div>
 
         {/* Admin section */}

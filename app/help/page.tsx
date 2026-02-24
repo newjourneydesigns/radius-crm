@@ -5,23 +5,24 @@ import Link from 'next/link';
 import ProtectedRoute from '../../components/ProtectedRoute';
 
 const sections = [
-  { id: 'overview',         title: 'Overview',                icon: '🏠' },
-  { id: 'dashboard',        title: 'Dashboard',               icon: '📊' },
-  { id: 'progress',         title: 'Progress Page',           icon: '📈' },
-  { id: 'calendar',         title: 'Calendar',                icon: '📅' },
-  { id: 'leaders',          title: 'Circle Leaders',          icon: '👥' },
-  { id: 'circle-profiles',  title: 'Leader Profiles',         icon: '👤' },
-  { id: 'circle-visits',    title: 'Circle Visits',           icon: '🏡' },
-  { id: 'todos',            title: 'To-Do Items',             icon: '✅' },
-  { id: 'event-summaries',  title: 'Event Summaries',         icon: '📋' },
-  { id: 'notes',            title: 'Notes & Templates',       icon: '📝' },
-  { id: 'encourage',        title: 'Encourage Feature',       icon: '💬' },
-  { id: 'filters',          title: 'Filtering & Search',      icon: '🔍' },
-  { id: 'contact',          title: 'Contact Features',        icon: '📞' },
-  { id: 'ccb',              title: 'CCB Explorer',            icon: '🧭' },
-  { id: 'settings',         title: 'Settings',                icon: '⚙️' },
-  { id: 'pwa',              title: 'Mobile App (PWA)',        icon: '📱' },
-  { id: 'admin',            title: 'Admin Tools',             icon: '🔐' },
+  { id: 'overview',         title: 'Overview' },
+  { id: 'dashboard',        title: 'Dashboard' },
+  { id: 'progress',         title: 'Progress Page' },
+  { id: 'calendar',         title: 'Calendar' },
+  { id: 'prayer',           title: 'Prayer List' },
+  { id: 'leaders',          title: 'Circle Leaders' },
+  { id: 'circle-profiles',  title: 'Leader Profiles' },
+  { id: 'circle-visits',    title: 'Circle Visits' },
+  { id: 'todos',            title: 'To-Do Items' },
+  { id: 'event-summaries',  title: 'Event Summaries' },
+  { id: 'notes',            title: 'Notes & Templates' },
+  { id: 'encourage',        title: 'Encourage Feature' },
+  { id: 'filters',          title: 'Filtering & Search' },
+  { id: 'contact',          title: 'Contact Features' },
+  { id: 'ccb',              title: 'CCB Explorer' },
+  { id: 'settings',         title: 'Settings' },
+  { id: 'pwa',              title: 'Mobile App (PWA)' },
+  { id: 'admin',            title: 'Admin Tools' },
 ];
 
 export default function HelpPage() {
@@ -101,7 +102,6 @@ export default function HelpPage() {
                             : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/60'
                         }`}
                       >
-                        <span className="text-base leading-none">{section.icon}</span>
                         <span>{section.title}</span>
                       </button>
                     ))}
@@ -116,7 +116,7 @@ export default function HelpPage() {
 
                 {/* ── Overview ── */}
                 <section id="overview" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">🏠 Overview</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Overview</h2>
                   <p className="text-gray-600 dark:text-gray-400 mb-4">RADIUS is a comprehensive Circle Leader Management System designed to help pastoral staff track, manage, and communicate with circle leaders effectively.</p>
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Key Features</h3>
                   <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-5">
@@ -142,7 +142,7 @@ export default function HelpPage() {
 
                 {/* ── Dashboard ── */}
                 <section id="dashboard" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">📊 Dashboard</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Dashboard</h2>
                   <p className="text-gray-600 dark:text-gray-400 mb-4">The Dashboard is the default landing page after login. It offers a campus-filtered bird's-eye view of your circle leaders and their current status.</p>
 
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Campus Filter</h3>
@@ -160,14 +160,14 @@ export default function HelpPage() {
                   <p className="text-gray-600 dark:text-gray-400 mb-4">The top of the dashboard shows aggregate counts: total leaders, event summaries received, leaders needing follow-up, and recent connections — all filtered by your campus selection.</p>
 
                   <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">💡 Tip</h4>
+                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">Tip</h4>
                     <p className="text-blue-700 dark:text-blue-300 text-sm">For deep filtering (status, circle type, meeting day, etc.) go to the <strong>Leaders</strong> page via the navigation.</p>
                   </div>
                 </section>
 
                 {/* ── Progress ── */}
                 <section id="progress" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">📈 Progress Page</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Progress Page</h2>
                   <p className="text-gray-600 dark:text-gray-400 mb-4">The Progress page (nav bar → <strong>Progress</strong>) gives a high-level view of pastoral engagement across all leaders and campuses.</p>
 
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">What You'll See</h3>
@@ -183,14 +183,14 @@ export default function HelpPage() {
                   <p className="text-gray-600 dark:text-gray-400 mb-4">The scorecard tracks your personal pastoral activity: notes added, connections logged, encouragements sent, and circle visits completed. Use it to monitor your own engagement rhythm.</p>
 
                   <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
-                    <h4 className="font-semibold text-green-800 dark:text-green-200 mb-1">🎯 Pro Tip</h4>
+                    <h4 className="font-semibold text-green-800 dark:text-green-200 mb-1">Pro Tip</h4>
                     <p className="text-green-700 dark:text-green-300 text-sm">Use the Progress page at the start of each week to identify leaders who haven't been contacted recently and prioritize your outreach.</p>
                   </div>
                 </section>
 
                 {/* ── Calendar ── */}
                 <section id="calendar" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">📅 Calendar</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Calendar</h2>
                   <p className="text-gray-600 dark:text-gray-400 mb-4">The Calendar page (nav bar → <strong>Calendar</strong>) shows a monthly/weekly/daily view of all scheduled events and tasks associated with your leaders.</p>
 
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">What Appears on the Calendar</h3>
@@ -205,9 +205,47 @@ export default function HelpPage() {
                   <p className="text-gray-600 dark:text-gray-400 mb-4">Use the arrows to move between months/weeks. Switch between month, week, and day views using the view selector. Click any event to see details or navigate to the associated leader profile.</p>
                 </section>
 
+                {/* ── Prayer List ── */}
+                <section id="prayer" className="p-6 sm:p-8">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Prayer List</h2>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">The Prayer page lets you track prayer points for your circle leaders and manage a personal general prayer list.</p>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">General Prayer Points</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-2">At the top of the page is a collapsible Prayer Points section for general prayers not tied to any specific leader.</p>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
+                    <li>Add a new prayer point using the text field and <strong>Add</strong> button</li>
+                    <li>Mark prayers as answered by clicking the checkbox</li>
+                    <li>Edit or delete any prayer inline</li>
+                    <li>The badge shows total count of active prayer points</li>
+                    <li>Collapse or expand the section using the arrow toggle</li>
+                  </ul>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Circle Leader Prayers</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-2">Below the general section is the Circle Leader Prayers area showing all your leaders with their associated prayer points.</p>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
+                    <li>Each leader appears as a collapsible card with their name, campus, and ACPD</li>
+                    <li>A count badge shows how many prayers each leader has</li>
+                    <li>Expand a leader to see, add, edit, or delete their prayers</li>
+                    <li>Mark individual prayers as answered</li>
+                  </ul>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Toolbar</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
+                    <li><strong>Search:</strong> Filter prayers and leaders by name or content</li>
+                    <li><strong>Campus &amp; ACPD filters:</strong> Narrow to specific campuses or ACPDs</li>
+                    <li><strong>Sort:</strong> Toggle alphabetical order (A–Z / Z–A)</li>
+                    <li><strong>Expand / Collapse All:</strong> Quickly open or close all leader cards</li>
+                  </ul>
+
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">Tip</h4>
+                    <p className="text-blue-700 dark:text-blue-300 text-sm">Use general Prayer Points for church-wide or personal prayers. Use Circle Leader Prayers to keep specific prayer needs tied to each leader for easy reference during your devotional time.</p>
+                  </div>
+                </section>
+
                 {/* ── Circle Leaders ── */}
                 <section id="leaders" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">👥 Circle Leaders</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Circle Leaders</h2>
                   <p className="text-gray-600 dark:text-gray-400 mb-4">The dedicated Circle Leaders page offers comprehensive filtering and management with detailed leader cards and extensive quick actions.</p>
 
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Leader Cards</h3>
@@ -238,14 +276,14 @@ export default function HelpPage() {
                   </ul>
 
                   <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
-                    <h4 className="font-semibold text-green-800 dark:text-green-200 mb-1">🎯 Pro Tip</h4>
+                    <h4 className="font-semibold text-green-800 dark:text-green-200 mb-1">Pro Tip</h4>
                     <p className="text-green-700 dark:text-green-300 text-sm">Use <strong>Status → Follow-Up Required</strong> alongside a campus filter to see exactly who needs attention today.</p>
                   </div>
                 </section>
 
                 {/* ── Leader Profiles ── */}
                 <section id="circle-profiles" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">👤 Leader Profiles</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Leader Profiles</h2>
                   <p className="text-gray-600 dark:text-gray-400 mb-4">Click any leader's name to open their full profile. This is the central hub for everything related to that leader.</p>
 
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Profile Information Panel</h3>
@@ -279,7 +317,7 @@ export default function HelpPage() {
 
                 {/* ── Circle Visits ── */}
                 <section id="circle-visits" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">🏡 Circle Visits</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Circle Visits</h2>
                   <p className="text-gray-600 dark:text-gray-400 mb-4">Circle Visits let you schedule and record visits to a leader's circle meeting — in-home, hosted, or otherwise. This helps track your pastoral presence in each group.</p>
 
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Scheduling a Visit</h3>
@@ -299,7 +337,7 @@ export default function HelpPage() {
 
                 {/* ── To-Do Items ── */}
                 <section id="todos" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">✅ To-Do Items</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">To-Do Items</h2>
                   <p className="text-gray-600 dark:text-gray-400 mb-4">To-Do items help you stay on top of tasks related to your circle leaders. They can be one-off or repeating, and optionally synced to notes.</p>
 
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Creating a To-Do</h3>
@@ -322,14 +360,14 @@ export default function HelpPage() {
                   <p className="text-gray-600 dark:text-gray-400 mb-4">When a to-do is completed you can optionally auto-generate a note in the leader's profile, keeping your interaction history up to date without extra steps.</p>
 
                   <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">💡 Calendar Integration</h4>
+                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">Calendar Integration</h4>
                     <p className="text-blue-700 dark:text-blue-300 text-sm">Any to-do with a due date automatically shows up on the Calendar page so you can plan your week visually.</p>
                   </div>
                 </section>
 
                 {/* ── Event Summaries ── */}
                 <section id="event-summaries" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">📋 Event Summaries</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Event Summaries</h2>
                   <p className="text-gray-600 dark:text-gray-400 mb-4">Event Summaries track whether each active leader has submitted their circle report for the current period. Only active leaders are included (invited, pipeline, and archived leaders are excluded).</p>
 
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Marking Received</h3>
@@ -348,7 +386,7 @@ export default function HelpPage() {
 
                 {/* ── Notes & Templates ── */}
                 <section id="notes" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">📝 Notes & Templates</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Notes & Templates</h2>
 
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Adding Notes</h3>
                   <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
@@ -374,14 +412,14 @@ export default function HelpPage() {
                   </ul>
 
                   <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
-                    <h4 className="font-semibold text-green-800 dark:text-green-200 mb-1">💡 Pro Tip</h4>
+                    <h4 className="font-semibold text-green-800 dark:text-green-200 mb-1">Pro Tip</h4>
                     <p className="text-green-700 dark:text-green-300 text-sm">Create templates for common scenarios like "Initial Contact," "Monthly Check-In," or "Needs Encouragement" to speed up your workflow.</p>
                   </div>
                 </section>
 
                 {/* ── Encourage ── */}
                 <section id="encourage" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">💬 Encourage Feature</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Encourage Feature</h2>
                   <p className="text-gray-600 dark:text-gray-400 mb-4">The Encourage feature lets you log intentional encouragements to your circle leaders — tracking what you sent, how you sent it, and what scripture you used.</p>
 
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Logging an Encouragement</h3>
@@ -398,7 +436,7 @@ export default function HelpPage() {
 
                 {/* ── Filtering & Search ── */}
                 <section id="filters" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">🔍 Filtering & Search</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Filtering & Search</h2>
 
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Global Search (⌘K / Ctrl K)</h3>
                   <p className="text-gray-600 dark:text-gray-400 mb-4">Press <kbd className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-xs font-mono">⌘K</kbd> (Mac) or <kbd className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-xs font-mono">Ctrl K</kbd> (Windows) anywhere in the app, or click the <strong>Search</strong> button in the top navigation. Search returns leaders by name, email, campus, and circle type.</p>
@@ -426,7 +464,7 @@ export default function HelpPage() {
 
                 {/* ── Contact Features ── */}
                 <section id="contact" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">📞 Contact Features</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Contact Features</h2>
 
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Contact Modal</h3>
                   <p className="text-gray-600 dark:text-gray-400 mb-2">Tap <strong>Contact</strong> on any leader card or profile to open the contact modal:</p>
@@ -451,7 +489,7 @@ export default function HelpPage() {
 
                 {/* ── CCB Explorer ── */}
                 <section id="ccb" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">🧭 CCB Explorer</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">CCB Explorer</h2>
                   <p className="text-gray-600 dark:text-gray-400 mb-4">CCB Explorer is an admin-only tool that lets you browse and search leader profiles directly from the church's CCB (Church Community Builder) database without leaving RADIUS.</p>
 
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Accessing CCB Explorer</h3>
@@ -466,14 +504,14 @@ export default function HelpPage() {
                   </ul>
 
                   <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4">
-                    <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-1">⚠️ Admin Only</h4>
+                    <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-1">Admin Only</h4>
                     <p className="text-yellow-700 dark:text-yellow-300 text-sm">CCB Explorer is restricted to Administrator accounts. Contact your site admin if you need access.</p>
                   </div>
                 </section>
 
                 {/* ── Settings ── */}
                 <section id="settings" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">⚙️ Settings</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Settings</h2>
                   <p className="text-gray-600 dark:text-gray-400 mb-4">Access Settings via your avatar → <strong>Settings</strong>.</p>
 
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Note Templates</h3>
@@ -488,7 +526,7 @@ export default function HelpPage() {
 
                 {/* ── PWA ── */}
                 <section id="pwa" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">📱 Mobile App (PWA)</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Mobile App (PWA)</h2>
                   <p className="text-gray-600 dark:text-gray-400 mb-4">RADIUS is a Progressive Web App (PWA) — you can install it on your phone or desktop and use it like a native app, including offline basic functionality.</p>
 
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Installing on iPhone (Safari)</h3>
@@ -514,14 +552,14 @@ export default function HelpPage() {
                   </ol>
 
                   <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">💡 Tip</h4>
+                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">Tip</h4>
                     <p className="text-blue-700 dark:text-blue-300 text-sm">Once installed, RADIUS launches full-screen without browser chrome, making it feel just like a native app.</p>
                   </div>
                 </section>
 
                 {/* ── Admin Tools ── */}
                 <section id="admin" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">🔐 Admin Tools</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Admin Tools</h2>
                   <p className="text-gray-600 dark:text-gray-400 mb-4">Admin accounts have access to additional tools for managing the system and its users.</p>
 
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Manage Users</h3>
@@ -540,12 +578,12 @@ export default function HelpPage() {
                   <p className="text-gray-600 dark:text-gray-400 mb-4">Admins can view and configure the leader scorecard questions used in the Progress page to ensure they align with your pastoral goals.</p>
 
                   <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4">
-                    <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-1">⚠️ Admin Only</h4>
+                    <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-1">Admin Only</h4>
                     <p className="text-yellow-700 dark:text-yellow-300 text-sm">Admin tools are only visible to users with the Admin role. Standard users will not see these menu items.</p>
                   </div>
 
                   <div className="mt-5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">📚 Need More Help?</h4>
+                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">Need More Help?</h4>
                     <p className="text-blue-700 dark:text-blue-300 text-sm">If you have questions not covered here, contact your system administrator or reach out via the email on your account profile.</p>
                   </div>
                 </section>

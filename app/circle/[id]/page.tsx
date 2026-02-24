@@ -24,6 +24,7 @@ import CircleVisitsSection from '../../../components/circle/CircleVisitsSection'
 import AttendanceTrends from '../../../components/circle/AttendanceTrends';
 import DictateAndSummarize from '../../../components/notes/DictateAndSummarize';
 import MeetingPrepAssistant from '../../../components/notes/MeetingPrepAssistant';
+import CircleLeaderProfileSkeleton from '../../../components/circle/CircleLeaderProfileSkeleton';
 import { useScorecard } from '../../../hooks/useScorecard';
 import { calculateSuggestedScore, getFinalScore, AnswerValue } from '../../../lib/evaluationQuestions';
 import { getEventSummaryButtonLabel, getEventSummaryColors, getEventSummaryState } from '../../../lib/event-summary-utils';
@@ -377,20 +378,32 @@ export default function CircleLeaderProfilePage() {
   const [frequencies, setFrequencies] = useState<Array<{id: number, value: string}>>([]);
 
   useEffect(() => {
-    // Load leader data from API
+    // Load all data in parallel for faster page load
     const loadLeaderData = async () => {
       try {
-        // Try to load from Supabase first
-        const { data: leaderData, error: leaderError } = await supabase
-          .from('circle_leaders')
-          .select('*')
-          .eq('id', leaderId)
-          .single();
+        // Fire ALL independent queries in parallel
+        const [
+          leaderResult,
+          directorsResult,
+          campusesResult,
+          statusesResult,
+          circleTypesResult,
+          frequenciesResult,
+          notesResult
+        ] = await Promise.all([
+          supabase.from('circle_leaders').select('*').eq('id', leaderId).single(),
+          supabase.from('acpd_list').select('id, name').eq('active', true).order('name'),
+          supabase.from('campuses').select('*').order('value'),
+          supabase.from('statuses').select('*').order('value'),
+          supabase.from('circle_types').select('*').order('value'),
+          supabase.from('frequencies').select('*').order('value'),
+          supabase.from('notes').select(`*, users!notes_created_by_fkey (name)`).eq('circle_leader_id', leaderId).order('created_at', { ascending: false })
+        ]);
 
-        if (leaderData && !leaderError) {
-          setLeader(leaderData);
+        // Process leader
+        if (leaderResult.data && !leaderResult.error) {
+          setLeader(leaderResult.data);
         } else {
-          // Fallback to mock data if not found
           setLeader({
             id: leaderId,
             name: 'John Smith',
@@ -408,17 +421,10 @@ export default function CircleLeaderProfilePage() {
           });
         }
 
-        // Load directors from database (ACPDs)
-        const { data: directorsData, error: directorsError } = await supabase
-          .from('acpd_list')
-          .select('id, name')
-          .eq('active', true)
-          .order('name');
-
-        if (directorsData && !directorsError) {
-          setDirectors(directorsData);
+        // Process directors
+        if (directorsResult.data && !directorsResult.error) {
+          setDirectors(directorsResult.data);
         } else {
-          // Fallback to mock directors
           setDirectors([
             { id: 1, name: 'Jane Doe' },
             { id: 2, name: 'John Smith' },
@@ -428,14 +434,7 @@ export default function CircleLeaderProfilePage() {
           ]);
         }
 
-        // Load reference data
-        const [campusesResult, statusesResult, circleTypesResult, frequenciesResult] = await Promise.all([
-          supabase.from('campuses').select('*').order('value'),
-          supabase.from('statuses').select('*').order('value'),
-          supabase.from('circle_types').select('*').order('value'),
-          supabase.from('frequencies').select('*').order('value')
-        ]);
-
+        // Process reference data
         if (campusesResult.data) setCampuses(campusesResult.data);
         if (statusesResult.data) setStatuses(uniqueByValue(statusesResult.data));
         if (circleTypesResult.data) {
@@ -447,57 +446,39 @@ export default function CircleLeaderProfilePage() {
         }
         if (frequenciesResult.data) setFrequencies(uniqueByValue(ensureDefaultFrequencies(frequenciesResult.data)));
 
-        // Load notes with user information
+        // Process notes
         console.log('🔍 Loading notes for leader:', leaderId);
-        const { data: notesData, error: notesError } = await supabase
-          .from('notes')
-          .select(`
-            *,
-            users!notes_created_by_fkey (name)
-          `)
-          .eq('circle_leader_id', leaderId)
-          .order('created_at', { ascending: false });
+        if (notesResult.data && !notesResult.error) {
+          setNotes(notesResult.data);
+        } else if (notesResult.error) {
+          console.error('🚨 Notes loading error:', notesResult.error);
+          // Try fallback query without user join
+          console.log('🔄 Trying fallback query without user join...');
+          const { data: fallbackNotesData, error: fallbackError } = await supabase
+            .from('notes')
+            .select('*')
+            .eq('circle_leader_id', leaderId)
+            .order('created_at', { ascending: false });
 
-        console.log('🔍 Notes query result:', { notesData, notesError });
-
-        if (notesData && !notesError) {
-          setNotes(notesData);
-        } else {
-          if (notesError) {
-            console.error('🚨 Notes loading error:', notesError);
-            console.error('🚨 Full error details:', JSON.stringify(notesError, null, 2));
-            
-            // Try fallback query without user join
-            console.log('🔄 Trying fallback query without user join...');
-            const { data: fallbackNotesData, error: fallbackError } = await supabase
-              .from('notes')
-              .select('*')
-              .eq('circle_leader_id', leaderId)
-              .order('created_at', { ascending: false });
-            
-            console.log('🔍 Fallback query result:', { fallbackNotesData, fallbackError });
-            
-            if (fallbackNotesData && !fallbackError) {
-              setNotes(fallbackNotesData);
-            } else {
-              // Use mock data as last resort
-              setNotes([
-                {
-                  id: 1,
-                  circle_leader_id: leaderId,
-                  content: 'Great meeting last week. Good participation from the group.',
-                  created_at: '2024-01-15T10:30:00Z',
-                  created_by: 'Admin'
-                },
-                {
-                  id: 2,
-                  circle_leader_id: leaderId,
-                  content: 'Need to follow up on attendance next week.',
-                  created_at: '2024-01-20T14:15:00Z',
-                  created_by: 'Jane Doe'
-                }
-              ]);
-            }
+          if (fallbackNotesData && !fallbackError) {
+            setNotes(fallbackNotesData);
+          } else {
+            setNotes([
+              {
+                id: 1,
+                circle_leader_id: leaderId,
+                content: 'Great meeting last week. Good participation from the group.',
+                created_at: '2024-01-15T10:30:00Z',
+                created_by: 'Admin'
+              },
+              {
+                id: 2,
+                circle_leader_id: leaderId,
+                content: 'Need to follow up on attendance next week.',
+                created_at: '2024-01-20T14:15:00Z',
+                created_by: 'Jane Doe'
+              }
+            ]);
           }
         }
       } catch (error) {
@@ -508,7 +489,7 @@ export default function CircleLeaderProfilePage() {
     };
 
     loadLeaderData();
-    loadScorecardRatings(leaderId);
+    loadScorecardRatings(leaderId); // Needed for MeetingPrepAssistant's latestBig4Scores
   }, [leaderId]);
 
   // Handle anchor link scrolling
@@ -1580,21 +1561,7 @@ export default function CircleLeaderProfilePage() {
   if (isLoading) {
     return (
       <ProtectedRoute>
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div className="animate-pulse">
-              <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-2"></div>
-              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-8"></div>
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <div className="space-y-4">
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <CircleLeaderProfileSkeleton />
       </ProtectedRoute>
     );
   }

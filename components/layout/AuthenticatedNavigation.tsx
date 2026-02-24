@@ -256,6 +256,22 @@ export default function AuthenticatedNavigation() {
                     </Link>
                   </div>
 
+                  {/* Help */}
+                  <div className="py-1 border-t border-gray-700/60">
+                    <Link
+                      href="/help"
+                      onClick={() => setUserMenuOpen(false)}
+                      className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
+                        isActive('/help')
+                          ? 'text-blue-400 bg-blue-600/10'
+                          : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
+                      }`}
+                    >
+                      <QuestionIcon />
+                      Help
+                    </Link>
+                  </div>
+
                   {/* Sign out */}
                   <div className="border-t border-gray-700/60 py-1">
                     <button
