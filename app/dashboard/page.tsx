@@ -213,7 +213,7 @@ function DashboardContent() {
     content: ''
   });
 
-  // Load recent notes (latest 10) filtered by current dashboard filters
+  // Load recent notes (latest 9) filtered by current dashboard filters
   const loadRecentNotes = async () => {
     setRecentNotesLoading(true);
     try {
@@ -231,7 +231,7 @@ function DashboardContent() {
         .select('id, circle_leader_id, content, created_at')
         .in('circle_leader_id', filteredLeaderIds)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(9);
       if (error) {
         console.error('Error loading recent notes:', error);
         setRecentNotes([]);
@@ -350,33 +350,49 @@ function DashboardContent() {
   const loadTodos = async () => {
     if (!user?.id) return;
     try {
-      // Step 1: Sync planned encouragements to todos
-      const { data: encouragements } = await supabase
-        .from('acpd_encouragements')
-        .select('id, circle_leader_id, message_date, note, encourage_method')
-        .eq('user_id', user.id)
-        .eq('message_type', 'planned');
-      
-      if (encouragements && encouragements.length > 0) {
-        // Get leader names for the encouragements
+      // Step 1 & 2: Fetch encouragements, follow-ups, and existing linked todos in parallel
+      const [encResult, fuResult, linkedResult] = await Promise.all([
+        supabase
+          .from('acpd_encouragements')
+          .select('id, circle_leader_id, message_date, note, encourage_method')
+          .eq('user_id', user.id)
+          .eq('message_type', 'planned'),
+        supabase
+          .from('circle_leaders')
+          .select('id, name, follow_up_date')
+          .eq('follow_up_required', true),
+        supabase
+          .from('todo_items')
+          .select('id, linked_encouragement_id, linked_leader_id, todo_type, created_at, due_date')
+          .eq('user_id', user.id)
+          .eq('completed', false)
+          .or('linked_encouragement_id.not.is.null,linked_leader_id.not.is.null')
+      ]);
+
+      const encouragements = encResult.data || [];
+      const followUps = fuResult.data || [];
+      const allLinked = linkedResult.data || [];
+
+      // Build sets of already-linked IDs to avoid N+1 existence checks
+      const linkedEncIds = new Set<number>();
+      const linkedFuLeaderIds = new Set<number>();
+      for (const t of allLinked) {
+        if (t.linked_encouragement_id) linkedEncIds.add(t.linked_encouragement_id);
+        if (t.linked_leader_id && t.todo_type === 'follow_up') linkedFuLeaderIds.add(t.linked_leader_id);
+      }
+
+      // Batch-insert missing encouragement todos
+      if (encouragements.length > 0) {
         const leaderIds = Array.from(new Set(encouragements.map(e => e.circle_leader_id)));
         const { data: leaders } = await supabase
           .from('circle_leaders')
           .select('id, name')
           .in('id', leaderIds);
-        
         const leaderMap = new Map(leaders?.map(l => [l.id, l.name]) || []);
-        
-        // Create todo items for encouragements that don't have one yet
-        for (const enc of encouragements) {
-          // Check if todo already exists (use limit(1) to avoid error when duplicates exist)
-          const { data: existingRows } = await supabase
-            .from('todo_items')
-            .select('id')
-            .eq('linked_encouragement_id', enc.id)
-            .limit(1);
-          
-          if (!existingRows || existingRows.length === 0) {
+
+        const encTodosToInsert = encouragements
+          .filter(enc => !linkedEncIds.has(enc.id))
+          .map(enc => {
             const leaderName = leaderMap.get(enc.circle_leader_id) || 'Unknown Leader';
             const methodLabel = enc.encourage_method === 'text' ? '💬 Text' 
               : enc.encourage_method === 'email' ? '📧 Email'
@@ -384,63 +400,56 @@ function DashboardContent() {
               : enc.encourage_method === 'in_person' ? '🤝 In Person'
               : enc.encourage_method === 'card' ? '✉️ Card'
               : '📝 Other';
-            
-            await supabase
-              .from('todo_items')
-              .insert({
-                user_id: user.id,
-                text: `Send encouragement to ${leaderName} via ${methodLabel}`,
-                notes: enc.note || null,
-                completed: false,
-                due_date: enc.message_date,
-                todo_type: 'encouragement',
-                linked_encouragement_id: enc.id
-              });
-          }
-        }
-      }
-      
-      // Step 2: Sync follow-ups to todos
-      const { data: followUps } = await supabase
-        .from('circle_leaders')
-        .select('id, name, follow_up_date')
-        .eq('follow_up_required', true);
-      
-      if (followUps && followUps.length > 0) {
-        // Create todo items for follow-ups that don't have one yet
-        for (const leader of followUps) {
-          // Check if todo already exists (use limit(1) to avoid error when duplicates exist)
-          const { data: existingRows } = await supabase
-            .from('todo_items')
-            .select('id')
-            .eq('linked_leader_id', leader.id)
-            .eq('todo_type', 'follow_up')
-            .limit(1);
-          
-          if (!existingRows || existingRows.length === 0) {
-            await supabase
-              .from('todo_items')
-              .insert({
-                user_id: user.id,
-                text: `Follow up with ${leader.name}`,
-                completed: false,
-                due_date: leader.follow_up_date,
-                todo_type: 'follow_up',
-                linked_leader_id: leader.id
-              });
-          }
-        }
-      }
-      
-      // Step 3: Clean up any duplicate linked todos
-      // Group by linked_encouragement_id and linked_leader_id+todo_type, keep only the oldest
-      const { data: allLinked } = await supabase
-        .from('todo_items')
-        .select('id, linked_encouragement_id, linked_leader_id, todo_type, created_at')
-        .eq('user_id', user.id)
-        .or('linked_encouragement_id.not.is.null,linked_leader_id.not.is.null');
+            return {
+              user_id: user.id,
+              text: `Send encouragement to ${leaderName} via ${methodLabel}`,
+              notes: enc.note || null,
+              completed: false,
+              due_date: enc.message_date,
+              todo_type: 'encouragement',
+              linked_encouragement_id: enc.id
+            };
+          });
 
-      if (allLinked && allLinked.length > 0) {
+        if (encTodosToInsert.length > 0) {
+          await supabase.from('todo_items').insert(encTodosToInsert);
+        }
+      }
+
+      // Batch-insert missing follow-up todos
+      if (followUps.length > 0) {
+        const fuTodosToInsert = followUps
+          .filter(leader => !linkedFuLeaderIds.has(leader.id))
+          .map(leader => ({
+            user_id: user.id,
+            text: `Follow up with ${leader.name}`,
+            completed: false,
+            due_date: leader.follow_up_date,
+            todo_type: 'follow_up',
+            linked_leader_id: leader.id
+          }));
+
+        if (fuTodosToInsert.length > 0) {
+          await supabase.from('todo_items').insert(fuTodosToInsert);
+        }
+
+        // Sync due_date for existing follow-up todos whose date has changed
+        const followUpMap = new Map(followUps.map(fu => [fu.id, fu.follow_up_date]));
+        for (const t of allLinked) {
+          if (t.linked_leader_id && t.todo_type === 'follow_up') {
+            const expectedDate = followUpMap.get(t.linked_leader_id);
+            if (expectedDate !== undefined && t.due_date !== expectedDate) {
+              await supabase
+                .from('todo_items')
+                .update({ due_date: expectedDate })
+                .eq('id', t.id);
+            }
+          }
+        }
+      }
+
+      // Step 3: Clean up any duplicate linked todos
+      if (allLinked.length > 0) {
         const dupIdsToDelete: number[] = [];
 
         // Encouragement duplicates
@@ -768,6 +777,13 @@ function DashboardContent() {
           ? { ...t, completed: nextCompleted, completed_at: nextCompleted ? completedAtValue : null }
           : t
       ));
+
+      // If a follow-up todo was toggled, refresh leaders data since the DB trigger
+      // updates the leader's follow_up_required/follow_up_date
+      if (todo.todo_type === 'follow_up' && todo.linked_leader_id) {
+        invalidateCache();
+        loadCircleLeaders(getServerFilters());
+      }
 
       // Keep recurring series topped up
       if (todo.series_id) {
@@ -1331,7 +1347,6 @@ function DashboardContent() {
       
       // If column doesn't exist, fall back to original query
       if (error && error.code === '42703') {
-        console.log('Pinned column not found, using fallback query');
         const fallbackQuery = await supabase
           .from('user_notes')
           .select('*')
@@ -1672,10 +1687,8 @@ function DashboardContent() {
   // Set hasCampusSelection to true if filters are loaded from localStorage with campus selection
   useEffect(() => {
     if (isInitialized && filters.campus.length > 0) {
-      console.log('🎯 [DashboardPage] Setting hasCampusSelection to true due to persisted filters:', filters.campus);
       setHasCampusSelection(true);
     } else if (isInitialized && filters.campus.length === 0) {
-      console.log('🎯 [DashboardPage] No campus in persisted filters, keeping hasCampusSelection false');
     }
   }, [isInitialized, filters.campus.length, isFirstVisit]);
 
@@ -1964,7 +1977,6 @@ function DashboardContent() {
     // Always exclude archive status by default unless explicitly showing all
     serverFilters.statusExclude = ['archive'];
     
-    console.log('🎯 [DashboardPage] Server filters:', serverFilters);
     return serverFilters;
   };
 
@@ -1984,7 +1996,6 @@ function DashboardContent() {
     if (!hasCampusSelection) return; // Don't load data until user makes campus selection
     
     const serverFilters = getServerFilters();
-    console.log('🟦 [DashboardPage] Filters passed to loadCircleLeaders:', serverFilters);
     loadCircleLeaders(serverFilters);
   }, [loadCircleLeaders, 
       hasCampusSelection,
@@ -2002,12 +2013,7 @@ function DashboardContent() {
   // Load recent notes when filtered leaders change
   useEffect(() => {
     if (!hasCampusSelection) return;
-    // Small delay to ensure filteredLeaders has been calculated
-    const timeoutId = setTimeout(() => {
-      loadRecentNotes();
-    }, 100);
-    
-    return () => clearTimeout(timeoutId);
+    loadRecentNotes();
   }, [filteredLeaders, hasCampusSelection]);
 
   // Load user's personal notes on component mount
@@ -2024,53 +2030,59 @@ function DashboardContent() {
 
   // Scroll spy effect to track active section
   useEffect(() => {
+    let rafId: number | null = null;
+    let ticking = false;
+
     const handleScroll = () => {
-      const sections = ['todo-list', 'personal-notes', 'filters', 'status-overview', 'follow-up', 'recent-notes', 'progress'];
-      
-      // Get current scroll position
-      const scrollY = window.scrollY;
-      
-      // If we're at the very top of the page (within 200px), always highlight the first section
-      if (scrollY <= 200) {
-        setActiveSection('todo-list');
-        return;
-      }
-      
-      // Find the section that's currently most visible in the viewport
-      let activeSection = 'todo-list'; // default
-      let maxVisibility = 0;
-      
-      sections.forEach(sectionId => {
-        const element = document.getElementById(sectionId);
-        if (element) {
-          const rect = element.getBoundingClientRect();
-          const viewportHeight = window.innerHeight;
-          
-          // Calculate how much of the section is visible
-          const visibleTop = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(0, rect.top));
-          const sectionHeight = rect.height;
-          const visibilityRatio = visibleTop / Math.max(1, sectionHeight);
-          
-          // Prefer sections that are near the top of the viewport (within 300px from top)
-          const distanceFromTop = Math.abs(rect.top);
-          const topBonus = distanceFromTop < 300 ? 1.5 : 1;
-          
-          const score = visibilityRatio * topBonus;
-          
-          if (score > maxVisibility) {
-            maxVisibility = score;
-            activeSection = sectionId;
-          }
+      if (ticking) return;
+      ticking = true;
+      rafId = requestAnimationFrame(() => {
+        ticking = false;
+        const sections = ['todo-list', 'personal-notes', 'filters', 'status-overview', 'follow-up', 'recent-notes', 'progress'];
+        
+        const scrollY = window.scrollY;
+        
+        if (scrollY <= 200) {
+          setActiveSection('todo-list');
+          return;
         }
+        
+        let bestSection = 'todo-list';
+        let maxVisibility = 0;
+        
+        sections.forEach(sectionId => {
+          const element = document.getElementById(sectionId);
+          if (element) {
+            const rect = element.getBoundingClientRect();
+            const viewportHeight = window.innerHeight;
+            
+            const visibleTop = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(0, rect.top));
+            const sectionHeight = rect.height;
+            const visibilityRatio = visibleTop / Math.max(1, sectionHeight);
+            
+            const distanceFromTop = Math.abs(rect.top);
+            const topBonus = distanceFromTop < 300 ? 1.5 : 1;
+            
+            const score = visibilityRatio * topBonus;
+            
+            if (score > maxVisibility) {
+              maxVisibility = score;
+              bestSection = sectionId;
+            }
+          }
+        });
+        
+        setActiveSection(bestSection);
       });
-      
-      setActiveSection(activeSection);
     };
 
-    window.addEventListener('scroll', handleScroll);
-    handleScroll(); // Check initial state
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
     
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
   }, []);
 
   // Custom scroll function to handle offset and show hidden sections
@@ -2233,9 +2245,10 @@ function DashboardContent() {
     invalidateCache();
     loadCircleLeaders(getServerFilters()); // Refresh the data to show the new note
     loadRecentNotes();   // Refresh recent notes table
-    // If a follow-up was cleared, refresh the FilterPanel follow-up table
+    // If a follow-up was cleared, refresh the FilterPanel follow-up table and todos
     if (addNoteModal.clearFollowUp) {
       setFilterPanelRefreshKey(prev => prev + 1);
+      loadTodos(); // Refresh todos so the follow-up todo shows as completed
     }
     const messageText = addNoteModal.clearFollowUp ? 'Follow-up cleared and note added successfully.' : 'The note has been successfully added.';
     setShowAlert({
@@ -3238,22 +3251,6 @@ function DashboardContent() {
         
         {/* Mobile Filter Drawer - Slide up from bottom */}
         <div className="md:hidden">
-          {/* Filter FAB - Fixed position */}
-          <button
-            onClick={() => scrollToSection('filters')}
-            className="fixed bottom-20 right-4 z-40 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 active:scale-95"
-            aria-label="Open Filters"
-          >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-            </svg>
-            {(filters.campus.length > 0 || filters.frequency.length > 0) && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                {filters.campus.length + filters.frequency.length}
-              </span>
-            )}
-          </button>
-          
           {/* Mobile Filter Sheet */}
           <div id="mobile-filters" className="mt-6">
             {!referenceDataLoading && (
@@ -3338,7 +3335,6 @@ function DashboardContent() {
                 </div>
                 {recentNotesVisible && (
                   <>
-                    {/* Card Grid View for All Screen Sizes */}
                     {recentNotesLoading ? (
                       <div className="flex items-center justify-center py-8">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500 mr-2"></div>
@@ -3349,7 +3345,7 @@ function DashboardContent() {
                         <span className="text-sm text-gray-500 dark:text-gray-400">No recent notes</span>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                      <div className="divide-y divide-gray-200 dark:divide-gray-700">
                         {recentNotes.map((note) => {
                           const leader = circleLeaders.find(l => l.id === note.circle_leader_id);
                           const leaderName = leader?.name || `Leader #${note.circle_leader_id}`;
@@ -3361,26 +3357,21 @@ function DashboardContent() {
                             minute: '2-digit'
                           });
                           return (
-                            <div
-                              key={note.id}
-                              className="flex flex-col h-full bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 shadow-sm hover:shadow-md transition-shadow p-5"
-                            >
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="font-semibold text-gray-900 dark:text-white text-base truncate">
-                                  {leader ? (
-                                    <Link href={`/circle/${note.circle_leader_id}`} className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                                      {leaderName}
-                                    </Link>
-                                  ) : (
-                                    <span>{leaderName}</span>
-                                  )}
-                                </div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400 ml-2 whitespace-nowrap">{dateStr}</div>
+                            <div key={note.id} className="py-3 first:pt-0 last:pb-0">
+                              <div className="font-medium text-sm text-gray-900 dark:text-white">
+                                {leader ? (
+                                  <Link href={`/circle/${note.circle_leader_id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                                    {leaderName}
+                                  </Link>
+                                ) : (
+                                  <span>{leaderName}</span>
+                                )}
                               </div>
-                              <div className="flex-1">
-                                <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words leading-relaxed">
-                                  {linkifyText(note.content)}
-                                </div>
+                              <div className="mt-1 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words leading-relaxed">
+                                {linkifyText(note.content)}
+                              </div>
+                              <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                {dateStr}
                               </div>
                             </div>
                           );

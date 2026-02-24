@@ -337,6 +337,9 @@ export default function CircleLeaderProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isUpdatingEventSummary, setIsUpdatingEventSummary] = useState(false);
   const [isUpdatingFollowUp, setIsUpdatingFollowUp] = useState(false);
+  const [showFollowUpDateModal, setShowFollowUpDateModal] = useState(false);
+  const [followUpDateValue, setFollowUpDateValue] = useState('');
+  const [showClearFollowUpConfirm, setShowClearFollowUpConfirm] = useState(false);
   const [noteError, setNoteError] = useState('');
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState('');
@@ -1221,75 +1224,139 @@ export default function CircleLeaderProfilePage() {
   };
 
   // Follow-up handlers
-  const handleToggleFollowUp = async () => {
+  const handleFollowUpClick = () => {
     if (!leader) return;
 
+    if (leader.follow_up_required) {
+      // Already enabled — ask if they want to turn it off
+      setShowClearFollowUpConfirm(true);
+    } else {
+      // Not enabled — show date picker to set a follow-up
+      setFollowUpDateValue('');
+      setShowFollowUpDateModal(true);
+    }
+  };
+
+  const handleFollowUpSave = async () => {
+    if (!leader || !followUpDateValue) return;
+
     setIsUpdatingFollowUp(true);
-    const newStatus = !leader.follow_up_required;
-
     try {
-      const updateData: any = { follow_up_required: newStatus };
-      
-      // If disabling follow-up, also clear the date
-      if (!newStatus) {
-        updateData.follow_up_date = null;
-      }
-
       const { error } = await supabase
         .from('circle_leaders')
-        .update(updateData)
+        .update({ follow_up_required: true, follow_up_date: followUpDateValue })
         .eq('id', leaderId);
 
       if (!error) {
         // Update local state
-        setLeader(prev => prev ? { 
-          ...prev, 
-          follow_up_required: newStatus,
-          follow_up_date: newStatus ? prev.follow_up_date : undefined
-        } : null);
-        
-        // Add a note about the status change
-        const statusText = newStatus ? 'enabled' : 'disabled';
+        setLeader(prev => prev ? { ...prev, follow_up_required: true, follow_up_date: followUpDateValue } : null);
+        setShowFollowUpDateModal(false);
+
+        // Create follow-up todo
+        if (user?.id) {
+          try {
+            // First, clean up any old completed follow-up todos for this leader
+            await supabase
+              .from('todo_items')
+              .delete()
+              .eq('user_id', user.id)
+              .eq('linked_leader_id', leaderId)
+              .eq('todo_type', 'follow_up')
+              .eq('completed', true);
+
+            const { data: existingTodos } = await supabase
+              .from('todo_items')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('linked_leader_id', leaderId)
+              .eq('todo_type', 'follow_up')
+              .eq('completed', false);
+
+            if (existingTodos && existingTodos.length > 0) {
+              const { error: updateErr } = await supabase
+                .from('todo_items')
+                .update({ due_date: followUpDateValue })
+                .eq('id', existingTodos[0].id);
+              if (updateErr) console.error('Error updating follow-up todo:', updateErr);
+            } else {
+              const { error: insertErr } = await supabase
+                .from('todo_items')
+                .insert({
+                  user_id: user.id,
+                  text: `Follow up with ${leader.name}`,
+                  completed: false,
+                  due_date: followUpDateValue,
+                  todo_type: 'follow_up',
+                  linked_leader_id: leaderId
+                });
+              if (insertErr) console.error('Error inserting follow-up todo:', insertErr);
+            }
+          } catch (todoError) {
+            console.error('Error creating follow-up todo:', todoError);
+          }
+        }
+
+        // Add system note
         await supabase
           .from('notes')
-          .insert([
-            {
-              circle_leader_id: leaderId,
-              content: `Follow-up status ${statusText}.`,
-              created_by: 'System'
-            }
-          ]);
+          .insert([{ circle_leader_id: leaderId, content: `Follow-up enabled with date ${followUpDateValue}.`, created_by: 'System' }]);
 
-        // Refresh notes to show the new system note
+        // Refresh notes
         const { data: notesData } = await supabase
           .from('notes')
-          .select(`
-            *,
-            users (name)
-          `)
+          .select(`*, users (name)`)
           .eq('circle_leader_id', leaderId)
           .order('created_at', { ascending: false });
+        if (notesData) setNotes(notesData);
 
-        if (notesData) {
-          setNotes(notesData);
-        }
+        setShowAlert({ isOpen: true, type: 'success', title: 'Follow-Up Set', message: `Follow-up scheduled for ${followUpDateValue}. A todo has been added to your list.` });
       } else {
-        console.error('Error updating follow-up status:', error);
-        setShowAlert({
-          isOpen: true,
-          type: 'error',
-          title: 'Update Failed',
-          message: 'Failed to update follow-up status. Please try again.'
-        });
+        console.error('Error setting follow-up:', error);
+        setShowAlert({ isOpen: true, type: 'error', title: 'Update Failed', message: 'Failed to set follow-up. Please try again.' });
       }
     } catch (error) {
-      console.error('Error updating follow-up status:', error);
-      setShowAlert({
-        isOpen: true,
-        type: 'error',
-        title: 'Update Failed',
-        message: 'Failed to update follow-up status. Please try again.'
-      });
+      console.error('Error setting follow-up:', error);
+      setShowAlert({ isOpen: true, type: 'error', title: 'Update Failed', message: 'Failed to set follow-up. Please try again.' });
+    } finally {
+      setIsUpdatingFollowUp(false);
+    }
+  };
+
+  const handleClearFollowUp = async () => {
+    if (!leader) return;
+
+    setIsUpdatingFollowUp(true);
+    setShowClearFollowUpConfirm(false);
+    try {
+      const { error } = await supabase
+        .from('circle_leaders')
+        .update({ follow_up_required: false, follow_up_date: null })
+        .eq('id', leaderId);
+
+      if (!error) {
+        setLeader(prev => prev ? { ...prev, follow_up_required: false, follow_up_date: undefined } : null);
+
+        // Add system note
+        await supabase
+          .from('notes')
+          .insert([{ circle_leader_id: leaderId, content: 'Follow-up cleared.', created_by: 'System' }]);
+
+        // Refresh notes
+        const { data: notesData } = await supabase
+          .from('notes')
+          .select(`*, users (name)`)
+          .eq('circle_leader_id', leaderId)
+          .order('created_at', { ascending: false });
+        if (notesData) setNotes(notesData);
+
+        setShowAlert({ isOpen: true, type: 'success', title: 'Follow-Up Cleared', message: `Follow-up for ${leader.name} has been cleared.` });
+      } else {
+        console.error('Error clearing follow-up:', error);
+        setShowAlert({ isOpen: true, type: 'error', title: 'Update Failed', message: 'Failed to clear follow-up. Please try again.' });
+      }
+    } catch (error) {
+      console.error('Error clearing follow-up:', error);
+      setShowAlert({ isOpen: true, type: 'error', title: 'Update Failed', message: 'Failed to clear follow-up. Please try again.' });
     } finally {
       setIsUpdatingFollowUp(false);
     }
@@ -1308,6 +1375,56 @@ export default function CircleLeaderProfilePage() {
         // Update local state
         setLeader(prev => prev ? { ...prev, follow_up_date: newDate || undefined } : null);
         
+        // Sync follow-up todo: create if missing, update due_date if exists
+        if (user?.id) {
+          try {
+            // First, clean up any old completed follow-up todos for this leader
+            await supabase
+              .from('todo_items')
+              .delete()
+              .eq('user_id', user.id)
+              .eq('linked_leader_id', leaderId)
+              .eq('todo_type', 'follow_up')
+              .eq('completed', true);
+
+            // Check if a follow-up todo already exists for this leader
+            const { data: existingTodos } = await supabase
+              .from('todo_items')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('linked_leader_id', leaderId)
+              .eq('todo_type', 'follow_up')
+              .eq('completed', false);
+
+            if (newDate) {
+              if (existingTodos && existingTodos.length > 0) {
+                // Update the existing todo's due_date
+                const { error: updateErr } = await supabase
+                  .from('todo_items')
+                  .update({ due_date: newDate })
+                  .eq('id', existingTodos[0].id);
+                if (updateErr) console.error('Error updating follow-up todo:', updateErr);
+              } else {
+                // Create a new follow-up todo
+                const { error: insertErr } = await supabase
+                  .from('todo_items')
+                  .insert({
+                    user_id: user.id,
+                    text: `Follow up with ${leader.name}`,
+                    completed: false,
+                    due_date: newDate,
+                    todo_type: 'follow_up',
+                    linked_leader_id: leaderId
+                  });
+                if (insertErr) console.error('Error inserting follow-up todo:', insertErr);
+              }
+            }
+          } catch (todoError) {
+            console.error('Error syncing follow-up todo:', todoError);
+            // Non-critical — don't block the main flow
+          }
+        }
+
         // Add a note about the date change
         const dateText = newDate ? `set to ${newDate}` : 'cleared';
         await supabase
@@ -1850,7 +1967,7 @@ export default function CircleLeaderProfilePage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-3">
             {/* Follow Up Toggle */}
             <button
-              onClick={handleToggleFollowUp}
+              onClick={handleFollowUpClick}
               disabled={isUpdatingFollowUp}
               className="flex items-center justify-between w-full text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded p-2 transition-colors disabled:opacity-50"
             >
@@ -1870,21 +1987,14 @@ export default function CircleLeaderProfilePage() {
               </span>
             </button>
 
-            {/* Follow Up Date - Only show when follow-up is required */}
-            {leader.follow_up_required && (
+            {/* Follow Up Date display - Only show when follow-up is required */}
+            {leader.follow_up_required && leader.follow_up_date && (
               <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Follow-up Date
-                  </label>
-                  <input
-                    type="date"
-                    value={leader.follow_up_date || ''}
-                    onChange={(e) => handleFollowUpDateChange(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Select a date"
-                  />
-                  {leader.follow_up_date ? (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm text-gray-900 dark:text-white font-medium">
+                      {new Date(leader.follow_up_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </div>
                     <div className={`text-xs ${
                       getFollowUpStatus(leader.follow_up_date).isOverdue 
                         ? 'text-red-600' 
@@ -1896,11 +2006,13 @@ export default function CircleLeaderProfilePage() {
                       {getFollowUpStatus(leader.follow_up_date).isApproaching && !getFollowUpStatus(leader.follow_up_date).isOverdue && 'Due Soon'}
                       {!getFollowUpStatus(leader.follow_up_date).isOverdue && !getFollowUpStatus(leader.follow_up_date).isApproaching && 'Scheduled'}
                     </div>
-                  ) : (
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      Please select a follow-up date
-                    </div>
-                  )}
+                  </div>
+                  <button
+                    onClick={() => { setFollowUpDateValue(leader.follow_up_date || ''); setShowFollowUpDateModal(true); }}
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-md transition-colors"
+                  >
+                    Change Date
+                  </button>
                 </div>
               </div>
             )}
@@ -2520,7 +2632,7 @@ export default function CircleLeaderProfilePage() {
             <div className="hidden lg:block bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-3">
               {/* Follow Up Toggle */}
               <button
-                onClick={handleToggleFollowUp}
+                onClick={handleFollowUpClick}
                 disabled={isUpdatingFollowUp}
                 className="flex items-center justify-between w-full text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded p-2 transition-colors disabled:opacity-50"
               >
@@ -2540,29 +2652,33 @@ export default function CircleLeaderProfilePage() {
                 </span>
               </button>
 
-              {/* Follow Up Date - Only show when follow-up is required */}
-              {leader.follow_up_required && (
+              {/* Follow Up Date display - Only show when follow-up is required */}
+              {leader.follow_up_required && leader.follow_up_date && (
                 <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
-                  <input
-                    type="date"
-                    value={leader.follow_up_date || ''}
-                    onChange={(e) => handleFollowUpDateChange(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Select a date"
-                  />
-                  {leader.follow_up_date && (
-                    <div className={`mt-1 text-xs ${
-                      getFollowUpStatus(leader.follow_up_date).isOverdue 
-                        ? 'text-red-600' 
-                        : getFollowUpStatus(leader.follow_up_date).isApproaching
-                        ? 'text-yellow-600'
-                        : 'text-green-600'
-                    }`}>
-                      {getFollowUpStatus(leader.follow_up_date).isOverdue && 'Overdue'}
-                      {getFollowUpStatus(leader.follow_up_date).isApproaching && !getFollowUpStatus(leader.follow_up_date).isOverdue && 'Due Soon'}
-                      {!getFollowUpStatus(leader.follow_up_date).isOverdue && !getFollowUpStatus(leader.follow_up_date).isApproaching && 'Scheduled'}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm text-gray-900 dark:text-white font-medium">
+                        {new Date(leader.follow_up_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </div>
+                      <div className={`text-xs ${
+                        getFollowUpStatus(leader.follow_up_date).isOverdue 
+                          ? 'text-red-600' 
+                          : getFollowUpStatus(leader.follow_up_date).isApproaching
+                          ? 'text-yellow-600'
+                          : 'text-green-600'
+                      }`}>
+                        {getFollowUpStatus(leader.follow_up_date).isOverdue && 'Overdue'}
+                        {getFollowUpStatus(leader.follow_up_date).isApproaching && !getFollowUpStatus(leader.follow_up_date).isOverdue && 'Due Soon'}
+                        {!getFollowUpStatus(leader.follow_up_date).isOverdue && !getFollowUpStatus(leader.follow_up_date).isApproaching && 'Scheduled'}
+                      </div>
                     </div>
-                  )}
+                    <button
+                      onClick={() => { setFollowUpDateValue(leader.follow_up_date || ''); setShowFollowUpDateModal(true); }}
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-md transition-colors"
+                    >
+                      Change Date
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -3016,6 +3132,71 @@ export default function CircleLeaderProfilePage() {
         onClose={() => setIsTemplateModalOpen(false)}
         onTemplateSelect={handleTemplateSelect}
         mode="select"
+      />
+
+      {/* Follow-Up Date Picker Modal */}
+      {showFollowUpDateModal && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4"
+          onClick={() => setShowFollowUpDateModal(false)}
+        >
+          <div 
+            className="w-full max-w-sm bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200/20 dark:border-gray-700/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-5">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                {leader?.follow_up_required ? 'Change Follow-Up Date' : 'Set Follow-Up'}
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                {leader?.follow_up_required 
+                  ? `Update the follow-up date for ${leader?.name || 'this leader'}.`
+                  : `Select a follow-up date for ${leader?.name || 'this leader'}. A todo will be added to your list.`
+                }
+              </p>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Follow-up Date
+                </label>
+                <input
+                  type="date"
+                  value={followUpDateValue}
+                  onChange={(e) => setFollowUpDateValue(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowFollowUpDateModal(false)}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={leader?.follow_up_required ? () => { handleFollowUpDateChange(followUpDateValue); setShowFollowUpDateModal(false); } : handleFollowUpSave}
+                  disabled={!followUpDateValue || isUpdatingFollowUp}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors"
+                >
+                  {isUpdatingFollowUp ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clear Follow-Up Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showClearFollowUpConfirm}
+        onClose={() => setShowClearFollowUpConfirm(false)}
+        onConfirm={handleClearFollowUp}
+        title="Clear Follow-Up"
+        message={`Would you like to turn off the follow-up for ${leader?.name || 'this leader'}? This will clear the follow-up date and mark any linked todo as complete.`}
+        confirmText={isUpdatingFollowUp ? 'Clearing...' : 'Turn Off'}
+        cancelText="Keep Active"
+        type="warning"
+        isLoading={isUpdatingFollowUp}
       />
     </ProtectedRoute>
   );

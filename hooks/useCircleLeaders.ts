@@ -50,9 +50,7 @@ const isCacheValid = (entry: CacheEntry): boolean => {
 
 // Clear all cache entries (used when data is modified)
 const clearCache = () => {
-  const cacheSize = cache.size;
   cache.clear();
-  console.log(`Cache cleared due to data modification (${cacheSize} entries removed)`);
 };
 
 // Get cache statistics for debugging
@@ -75,21 +73,15 @@ export const useCircleLeaders = () => {
   const loadingRef = useRef(false);
 
   const loadCircleLeaders = useCallback(async (filters?: CircleLeaderFilters) => {
-    // Debug: Log incoming filters on every load
-    console.log('🔄 [useCircleLeaders] loadCircleLeaders called with filters:', filters);
-
     if (loadingRef.current) {
-      console.log('Load already in progress, skipping');
       return;
     }
 
     // Check cache first
     const cacheKey = generateCacheKey(filters);
-    console.log('🗝️ [useCircleLeaders] Generated cacheKey:', cacheKey);
     const cachedEntry = cache.get(cacheKey);
 
     if (cachedEntry && isCacheValid(cachedEntry)) {
-      console.log('✅ [useCircleLeaders] Using cached data for cacheKey:', cacheKey);
       setCircleLeaders(cachedEntry.data);
       setIsLoading(false);
       setError(null);
@@ -108,20 +100,6 @@ export const useCircleLeaders = () => {
     setError(null);
 
     try {
-
-      // DEBUG: Log all distinct campus values in the database before filtering
-      const { data: campusValues, error: campusError } = await supabase
-        .from('circle_leaders')
-        .select('campus')
-        .neq('campus', '')
-        .neq('campus', null);
-      if (campusError) {
-        console.error('Error fetching campus values:', campusError);
-      } else {
-        const uniqueCampuses = Array.from(new Set((campusValues || []).map(row => row.campus)));
-        console.log('🟢 Distinct campus values in DB:', uniqueCampuses);
-      }
-
       const baseSelect = (includeSkipped: boolean) => (
         'id, name, email, phone, campus, acpd, status, day, time, frequency, meeting_start_date, circle_type, ' +
         'event_summary_state, event_summary_received' +
@@ -225,11 +203,6 @@ export const useCircleLeaders = () => {
       );
 
       // (filters already applied via applyServerFilters)
-
-      // Log the final query object for debugging
-      console.log('Final Supabase query object:', query);
-      // Execute the query
-      console.log('Executing Supabase query...');
       let { data: leaders, error: leadersError } = await query.order('name');
 
       // Backward-compat: if the DB hasn't been migrated yet, retry without event_summary_skipped
@@ -249,18 +222,6 @@ export const useCircleLeaders = () => {
           leaders = leaders.map((l: any) => ({ ...l, event_summary_skipped: false }));
         }
       }
-
-      console.log('🔍 Query results:', {
-        totalFound: leaders?.length || 0,
-        filters: filters,
-        sampleLeaders: leaders?.slice(0, 3).map(l => ({
-          name: l.name,
-          campus: l.campus,
-          status: l.status,
-          acpd: l.acpd
-        })),
-        raw: leaders
-      });
 
       if (leadersError) {
         console.error('Error loading circle leaders:', leadersError);
@@ -311,37 +272,40 @@ export const useCircleLeaders = () => {
 
           return false; // Unrecognized format => filter out
         });
-        const afterCount = filteredLeaders.length;
-        console.log(`[TimeOfDay Filter] Applied period: ${period}. Leaders before: ${beforeCount}, after: ${afterCount}`);
       }
 
-      // Load notes only for the filtered leaders (much more efficient)
-      let allNotes: any[] = [];
+      // Load only the latest note per leader (much more efficient than loading all notes)
+      const latestNotesMap = new Map();
       if (filteredLeaders.length > 0) {
         const leaderIds = filteredLeaders.map(leader => leader.id);
-        const { data: notesData, error: notesError } = await supabase
-          .from('notes')
-          .select('*')
-          .in('circle_leader_id', leaderIds)
-          .order('created_at', { ascending: false });
+        // Batch into chunks of 50 to avoid overly large IN clauses
+        const CHUNK_SIZE = 50;
+        const notePromises: Promise<void>[] = [];
+        for (let i = 0; i < leaderIds.length; i += CHUNK_SIZE) {
+          const chunk = leaderIds.slice(i, i + CHUNK_SIZE);
+          notePromises.push(
+            (async () => {
+              // For each chunk, we fetch notes ordered by created_at desc.
+              // We take only the first note per leader by using the Map (first-write-wins).
+              const { data: notesData, error: notesError } = await supabase
+                .from('notes')
+                .select('id, circle_leader_id, content, created_at, created_by')
+                .in('circle_leader_id', chunk)
+                .order('created_at', { ascending: false });
 
-        if (notesError) {
-          console.error('Error loading notes:', notesError);
-        } else {
-          allNotes = notesData || [];
+              if (notesError) {
+                console.error('Error loading notes:', notesError);
+                return;
+              }
+              (notesData || []).forEach((note: any) => {
+                if (!latestNotesMap.has(note.circle_leader_id)) {
+                  latestNotesMap.set(note.circle_leader_id, note);
+                }
+              });
+            })()
+          );
         }
-      }
-
-      console.log('Loaded', allNotes.length, 'notes for filtered leaders');
-
-      // Create a map of leader_id to their latest note
-      const latestNotesMap = new Map();
-      if (allNotes && allNotes.length > 0) {
-        allNotes.forEach((note: any) => {
-          if (!latestNotesMap.has(note.circle_leader_id)) {
-            latestNotesMap.set(note.circle_leader_id, note);
-          }
-        });
+        await Promise.all(notePromises);
       }
 
       // Combine leaders with their latest notes
@@ -356,8 +320,6 @@ export const useCircleLeaders = () => {
         timestamp: Date.now(),
         filterKey: cacheKey
       });
-
-      console.log('Data cached successfully', { cacheKey, dataLength: leadersWithNotes.length });
 
       setCircleLeaders(leadersWithNotes);
 

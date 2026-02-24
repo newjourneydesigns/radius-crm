@@ -216,12 +216,13 @@ export default function MobileNavigation() {
 
   if (!isAuthenticated()) return null;
 
-  /* Tab items */
-  const tabs: { name: string; href?: string; Icon: React.FC<{ active?: boolean }>; action?: () => void; id: string }[] = [
+  /* Tab items — split into left/right groups around the raised center button */
+  const leftTabs: { name: string; href?: string; Icon: React.FC<{ active?: boolean }>; action?: () => void; id: string }[] = [
     { id: 'home', name: 'Home', href: '/dashboard', Icon: HomeIcon },
     { id: 'prayer', name: 'Prayer', href: '/prayer', Icon: PrayerIcon },
+  ];
+  const rightTabs: { name: string; href?: string; Icon: React.FC<{ active?: boolean }>; action?: () => void; id: string }[] = [
     { id: 'calendar', name: 'Calendar', href: '/calendar', Icon: CalendarIcon },
-    { id: 'search', name: 'Search', Icon: SearchIcon, action: triggerSearch },
     { id: 'more', name: 'More', Icon: EllipsisIcon, action: () => setSheetOpen(v => !v) },
   ];
 
@@ -252,7 +253,45 @@ export default function MobileNavigation() {
          ════════════════════════════════════════════════════ */}
       <nav className="mobile-tab-bar md:hidden" role="tablist">
         <div className="mobile-tab-bar-inner">
-          {tabs.map(({ id, name, href, Icon, action }) => {
+          {/* Left tabs */}
+          {leftTabs.map(({ id, name, href, Icon, action }) => {
+            const active = href ? isActive(href) : false;
+            const content = (
+              <>
+                <span className={`mobile-tab-icon ${active ? 'active' : ''}`}>
+                  <Icon active={active} />
+                </span>
+                <span className={`mobile-tab-label ${active ? 'active' : ''}`}>
+                  {name}
+                </span>
+              </>
+            );
+            if (href) {
+              return (
+                <Link key={id} href={href} role="tab" aria-selected={active}
+                  className={`mobile-tab-item ${active ? 'active' : ''}`}>
+                  {content}
+                </Link>
+              );
+            }
+            return (
+              <div key={id} role="tab" aria-selected={active} onClick={action} tabIndex={0}
+                className={`mobile-tab-item ${active ? 'active' : ''}`}>
+                {content}
+              </div>
+            );
+          })}
+
+          {/* Raised center Search button */}
+          <div className="mobile-tab-item" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <button className="mobile-tab-raised-btn" type="button" onClick={triggerSearch} aria-label="Search">
+              <SearchIcon />
+            </button>
+            <div className="mobile-tab-raised-ring" />
+          </div>
+
+          {/* Right tabs */}
+          {rightTabs.map(({ id, name, href, Icon, action }) => {
             const active = href ? isActive(href) : (id === 'more' && sheetOpen);
             const content = (
               <>
@@ -264,7 +303,6 @@ export default function MobileNavigation() {
                 </span>
               </>
             );
-
             if (href) {
               return (
                 <Link key={id} href={href} role="tab" aria-selected={active}

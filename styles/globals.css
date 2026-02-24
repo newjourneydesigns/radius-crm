@@ -42,6 +42,7 @@
   backdrop-filter: saturate(180%) blur(20px);
   border-top: 0.5px solid rgba(255, 255, 255, 0.08);
   padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  overflow: visible;
 }
 
 .mobile-tab-bar-inner {
@@ -50,6 +51,7 @@
   height: 50px;
   max-width: 500px;
   margin: 0 auto;
+  overflow: visible;
 }
 
 .mobile-tab-item {
@@ -100,6 +102,57 @@
 
 .mobile-tab-label.active {
   color: #3b82f6;
+}
+
+/* Raised center search button — the "radius" circle */
+.mobile-tab-raised-btn {
+  position: absolute;
+  left: 50%;
+  top: -11px;
+  transform: translateX(-50%);
+  width: 54px;
+  height: 54px;
+  border-radius: 9999px !important;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid rgba(15, 20, 30, 0.9);
+  box-shadow:
+    0 -4px 16px rgba(59, 130, 246, 0.35),
+    0 2px 8px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.15s ease !important;
+  z-index: 10;
+  font-weight: inherit !important;
+  letter-spacing: inherit !important;
+}
+
+.mobile-tab-raised-btn:hover {
+  transform: translateX(-50%) !important;
+  filter: none !important;
+}
+
+.mobile-tab-raised-btn:active {
+  transform: translateX(-50%) scale(0.9) !important;
+  box-shadow:
+    0 -2px 8px rgba(59, 130, 246, 0.25),
+    0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Thin outer ring — the "radius" */
+.mobile-tab-raised-ring {
+  position: absolute;
+  left: 50%;
+  top: -14px;
+  transform: translateX(-50%);
+  width: 62px;
+  height: 62px;
+  border-radius: 9999px;
+  border: 1.5px solid rgba(59, 130, 246, 0.4);
+  pointer-events: none;
 }
 
 /* ═══════════════════════════════════════════════════════════

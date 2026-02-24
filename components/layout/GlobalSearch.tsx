@@ -524,7 +524,7 @@ export default function GlobalSearch() {
                     Search circle leaders
                   </p>
                   <p style={{ fontSize: '12px', color: 'rgba(141, 169, 196, 0.4)' }}>
-                    Type a name, campus, or email to find leaders
+                    Type a first or last name to find leaders
                   </p>
                 </div>
               )}

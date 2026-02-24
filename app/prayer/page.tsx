@@ -69,12 +69,35 @@ function PrayerListContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // UI controls
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-  const [searchQuery, setSearchQuery] = useState('');
+  // UI controls — restore from localStorage
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('prayer_sortDir');
+      if (saved === 'asc' || saved === 'desc') return saved;
+    }
+    return 'asc';
+  });
+  const [searchQuery, setSearchQuery] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('prayer_search') || '';
+    return '';
+  });
   const [expandedLeaders, setExpandedLeaders] = useState<Set<number>>(new Set());
-  const [filterCampus, setFilterCampus] = useState('');
-  const [filterAcpd, setFilterAcpd] = useState('');
+  const [filterCampus, setFilterCampus] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('prayer_campus') || '';
+    return '';
+  });
+  const [filterAcpd, setFilterAcpd] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('prayer_acpd') || '';
+    return '';
+  });
+
+  // Persist filters to localStorage
+  useEffect(() => {
+    localStorage.setItem('prayer_sortDir', sortDir);
+    localStorage.setItem('prayer_search', searchQuery);
+    localStorage.setItem('prayer_campus', filterCampus);
+    localStorage.setItem('prayer_acpd', filterAcpd);
+  }, [sortDir, searchQuery, filterCampus, filterAcpd]);
 
   // CRUD state
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
@@ -608,7 +631,7 @@ function PrayerListContent() {
             </button>
 
             {generalExpanded && (
-              <div className="mt-5">
+              <div>
                 {/* Add new */}
                 <div className="flex items-center gap-2 mb-6">
                   <input
@@ -726,7 +749,7 @@ function PrayerListContent() {
                     {/* Leader header */}
                     <button
                       onClick={() => toggleLeader(group.leaderId)}
-                      className="w-full flex items-center gap-3 px-4 py-3.5 text-left group/leader hover:bg-[#143050] transition-colors"
+                      className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-[#143050] transition-colors"
                     >
                       <svg
                         className={`w-3.5 h-3.5 text-[#4c6785] transition-transform flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}`}
@@ -737,7 +760,7 @@ function PrayerListContent() {
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <h3 className="text-[15px] font-bold text-white group-hover/leader:text-[#0b2545] truncate transition-colors">{group.leaderName}</h3>
+                          <h3 className="text-[15px] font-bold text-white truncate">{group.leaderName}</h3>
                           {group.leaderCampus && (
                             <span className="hidden sm:inline text-xs text-[#6b8ab0]">• {group.leaderCampus}</span>
                           )}
