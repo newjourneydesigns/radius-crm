@@ -5,12 +5,10 @@ import { useState } from 'react';
 interface SimpleCampusFilterProps {
   filters: {
     campus: string[];
-    frequency: string[];
   };
-  onFiltersChange: (filters: Partial<{ campus: string[]; frequency: string[] }>) => void;
+  onFiltersChange: (filters: Partial<{ campus: string[] }>) => void;
   onClearAllFilters: () => void;
   campuses: Array<{ id: number; value: string }>;
-  frequencies: Array<{ id: number; value: string }>;
   totalLeaders: number;
 }
 
@@ -19,7 +17,6 @@ export default function SimpleCampusFilter({
   onFiltersChange,
   onClearAllFilters,
   campuses,
-  frequencies,
   totalLeaders
 }: SimpleCampusFilterProps) {
   const [filtersVisible, setFiltersVisible] = useState(true);
@@ -34,21 +31,13 @@ export default function SimpleCampusFilter({
     });
   };
 
-  const handleFrequencyChange = (frequencyValue: string, checked: boolean) => {
-    const newFrequencyFilters = checked
-      ? [...filters.frequency, frequencyValue]
-      : filters.frequency.filter(f => f !== frequencyValue);
 
-    onFiltersChange({
-      frequency: newFrequencyFilters
-    });
-  };
 
   const toggleFilters = () => {
     setFiltersVisible(!filtersVisible);
   };
 
-  const hasActiveFilters = filters.campus.length > 0 || filters.frequency.length > 0;
+  const hasActiveFilters = filters.campus.length > 0;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
@@ -111,27 +100,7 @@ export default function SimpleCampusFilter({
               </div>
             </div>
 
-            {/* Frequency Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                Frequency
-              </label>
-              <div className="space-y-2">
-                {frequencies.map(freq => (
-                  <label key={freq.id} className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={filters.frequency.includes(freq.value)}
-                      onChange={(e) => handleFrequencyChange(freq.value, e.target.checked)}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700"
-                    />
-                    <span className="ml-3 text-sm text-gray-700 dark:text-gray-300">
-                      {freq.value}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
+
           </div>
         </div>
       )}

@@ -164,22 +164,49 @@ export async function POST(request: NextRequest) {
 
     console.log('Creating user with Supabase admin client (passwordless invite)...');
     
-    // First check if user already exists
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // First check if user already exists in auth
     try {
       const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-      const existingUser = existingUsers?.users?.find((u: any) => u.email === email);
+      const existingUser = existingUsers?.users?.find((u: any) => u.email === normalizedEmail);
       if (existingUser) {
-        console.error('User already exists:', email);
+        console.error('User already exists in auth:', normalizedEmail);
         return NextResponse.json({ error: 'A user with this email already exists' }, { status: 400 });
       }
     } catch (checkError) {
       console.warn('Could not check for existing users:', checkError);
     }
 
+    // Clean up any orphaned profile rows in public.users for this email
+    // (e.g. from a previous failed creation where auth user was rolled back but profile remained)
+    try {
+      const { data: orphanedProfiles } = await supabaseAdmin
+        .from('users')
+        .select('id, email')
+        .eq('email', normalizedEmail);
+      
+      if (orphanedProfiles && orphanedProfiles.length > 0) {
+        console.log(`Found ${orphanedProfiles.length} orphaned profile(s) for ${normalizedEmail}, cleaning up...`);
+        const { error: deleteError } = await supabaseAdmin
+          .from('users')
+          .delete()
+          .eq('email', normalizedEmail);
+        
+        if (deleteError) {
+          console.warn('Could not clean up orphaned profiles:', deleteError);
+        } else {
+          console.log('Orphaned profiles cleaned up successfully');
+        }
+      }
+    } catch (cleanupError) {
+      console.warn('Could not check for orphaned profiles:', cleanupError);
+    }
+
     // Create user with admin client and send invite email
-    // Note: This creates the user and sends a magic link invite automatically
+    // Note: The handle_new_user() trigger on auth.users will auto-create the public.users profile
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
-      email: email.trim().toLowerCase(),
+      email: normalizedEmail,
       email_confirm: false, // User must confirm via magic link
       user_metadata: {
         name: name || null
@@ -200,24 +227,22 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log('User created in auth, creating profile...', data.user.id);
+    console.log('User created in auth:', data.user.id);
     
-    // Create user profile in public.users table
-    // Note: Using service role key should bypass RLS
-    console.log('Using service role key:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'YES' : 'NO');
-    console.log('Service role key length:', process.env.SUPABASE_SERVICE_ROLE_KEY?.length || 0);
-    
+    // The handle_new_user() trigger should have created a profile in public.users.
+    // Now upsert the profile to ensure the correct name and role are set
+    // (the trigger defaults to 'Viewer' role and may use email as name).
     const { error: profileError } = await supabaseAdmin
       .from('users')
-      .insert({
+      .upsert({
         id: data.user.id,
         email: data.user.email,
-        name: name || null,
+        name: name || data.user.email,
         role: role || 'Viewer'
-      });
+      }, { onConflict: 'id' });
 
     if (profileError) {
-      console.error('Error creating user profile:', {
+      console.error('Error upserting user profile:', {
         message: profileError.message,
         code: profileError.code,
         details: profileError.details,
@@ -225,19 +250,9 @@ export async function POST(request: NextRequest) {
         user_id: data.user.id,
         timestamp: new Date().toISOString()
       });
-      
-      // If profile creation fails, we should delete the auth user to keep things consistent
-      try {
-        await supabaseAdmin.auth.admin.deleteUser(data.user.id);
-        console.log('Rolled back auth user creation due to profile error');
-      } catch (rollbackError) {
-        console.error('Failed to rollback auth user:', rollbackError);
-      }
-      
-      return NextResponse.json({ 
-        error: `Database error creating user profile: ${profileError.message}. Hint: ${profileError.hint || 'Check RLS policies'}`,
-        timestamp: new Date().toISOString()
-      }, { status: 400 });
+      // Don't roll back the auth user — the trigger already created a basic profile.
+      // Just log the error; the user can still sign in and the profile can be updated later.
+      console.warn('Profile upsert failed, but auth user and trigger-created profile should still exist');
     }
 
     // Optionally send an invite email with a magic link

@@ -1,25 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Line } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-} from 'chart.js';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useProgressDashboard, LeaderProgressSummary, EffectiveScores } from '../../hooks/useProgressDashboard';
-import CategoryTrendCharts from '../../components/charts/CategoryTrendCharts';
 import { supabase } from '../../lib/supabase';
-
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
 interface DevelopingLeaderRow {
   id: number;
@@ -97,7 +82,7 @@ function LeaderRow({ summary }: { summary: LeaderProgressSummary }) {
 export default function ProgressDashboardPage() {
   const {
     leaderSummaries, dimensionAverages, topPerformers, needsAttention,
-    movers, stagnant, unscored, timelineData, allScores, isLoading, loadData,
+    movers, stagnant, unscored, isLoading, loadData,
   } = useProgressDashboard();
 
   const [campuses, setCampuses] = useState<string[]>([]);
@@ -197,66 +182,6 @@ export default function ProgressDashboardPage() {
     loadDevelopingLeaders();
   }, [filterCampus, filterAcpd, filterStatus]);
 
-  // Aggregate timeline chart
-  const aggregateChartData = useMemo(() => {
-    if (timelineData.length === 0) return null;
-
-    return {
-      labels: timelineData.map(t => {
-        const d = new Date(t.date + 'T00:00:00');
-        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      }),
-      datasets: (['reach', 'connect', 'disciple', 'develop'] as const).map(dim => ({
-        label: DIMENSION_COLORS[dim].label,
-        data: timelineData.map(t => t[dim]),
-        borderColor: DIMENSION_COLORS[dim].line,
-        backgroundColor: 'transparent',
-        tension: 0.3,
-        pointRadius: 4,
-        pointHoverRadius: 7,
-        pointBackgroundColor: DIMENSION_COLORS[dim].line,
-        pointBorderColor: '#fff',
-        pointBorderWidth: 2,
-        borderWidth: 2,
-      })),
-    };
-  }, [timelineData]);
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: true,
-        position: 'top' as const,
-        labels: { color: '#8da9c4', usePointStyle: true, pointStyle: 'circle', padding: 16, font: { size: 12 } },
-      },
-      tooltip: {
-        backgroundColor: 'rgba(11, 37, 69, 0.95)',
-        titleColor: '#eef4ed',
-        bodyColor: '#8da9c4',
-        borderColor: 'rgba(76, 103, 133, 0.3)',
-        borderWidth: 1,
-        padding: 12,
-        cornerRadius: 8,
-      },
-    },
-    scales: {
-      y: {
-        min: 0.5, max: 5.5,
-        ticks: { stepSize: 1, callback: (v: any) => (v >= 1 && v <= 5 && Number.isInteger(v) ? v : ''), color: '#8da9c4', font: { size: 11 } },
-        grid: { color: 'rgba(76, 103, 133, 0.2)' },
-        border: { color: 'rgba(76, 103, 133, 0.3)' },
-      },
-      x: {
-        ticks: { color: '#8da9c4', font: { size: 11 }, maxRotation: 45 },
-        grid: { display: false },
-        border: { color: 'rgba(76, 103, 133, 0.3)' },
-      },
-    },
-    interaction: { intersect: false, mode: 'index' as const },
-  };
-
   const scoredCount = leaderSummaries.filter(s => s.hasAnyScore).length;
 
   const getActiveList = (): LeaderProgressSummary[] => {
@@ -347,37 +272,6 @@ export default function ProgressDashboardPage() {
                   </p>
                 </div>
               </div>
-
-              {/* Aggregate timeline chart */}
-              {aggregateChartData && timelineData.length >= 2 && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
-                  <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                    <h2 className="text-lg font-medium text-white">Progress Timeline — All Circles</h2>
-                    <p className="text-xs text-gray-500 mt-0.5">Average scores over time across {scoredCount} scored leaders</p>
-                  </div>
-                  <div className="p-4 sm:p-6">
-                    <div style={{ height: '300px' }}>
-                      <Line data={aggregateChartData} options={chartOptions} />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Weekly Category Trend Charts */}
-              {allScores.length > 0 && (
-                <div className="mb-6">
-                  <CategoryTrendCharts
-                    scores={allScores}
-                    title="Weekly Category Trends"
-                    subtitle={`Score trends by category across ${scoredCount} scored leaders — updates every Saturday at midnight CST`}
-                    chartHeight={200}
-                    isAggregate={true}
-                    showGoalLine={true}
-                    showRangeSelector={true}
-                    defaultRange="12w"
-                  />
-                </div>
-              )}
 
               {/* Scorecard Reminder Banner */}
               {unscored.length > 0 && (

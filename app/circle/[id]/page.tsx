@@ -17,8 +17,7 @@ import ConnectPersonModal from '../../../components/modals/ConnectPersonModal';
 import EventSummaryReminderModal from '../../../components/modals/EventSummaryReminderModal';
 import EventExplorerModal from '../../../components/modals/EventExplorerModal';
 import ProtectedRoute from '../../../components/ProtectedRoute';
-import ProgressTimeline from '../../../components/circle/ProgressTimeline';
-import CategoryTrendCharts from '../../../components/charts/CategoryTrendCharts';
+
 import ScorecardSection from '../../../components/circle/ScorecardSection';
 import ACPDTrackingSection from '../../../components/circle/ACPDTrackingSection';
 import CircleVisitsSection from '../../../components/circle/CircleVisitsSection';
@@ -327,7 +326,6 @@ export default function CircleLeaderProfilePage() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-  const [evalScores, setEvalScores] = useState<ScorecardRating[]>([]);
   
   const [leader, setLeader] = useState<CircleLeader | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -510,64 +508,6 @@ export default function CircleLeaderProfilePage() {
 
     loadLeaderData();
     loadScorecardRatings(leaderId);
-
-    // Load evaluation-based scores for the trend charts
-    const loadEvalScores = async () => {
-      try {
-        const { data: evals } = await supabase
-          .from('leader_category_evaluations')
-          .select('*')
-          .eq('leader_id', leaderId);
-
-        if (!evals || evals.length === 0) { setEvalScores([]); return; }
-
-        const evalIds = evals.map((e: any) => e.id);
-        const { data: answers } = await supabase
-          .from('leader_category_answers')
-          .select('*')
-          .in('evaluation_id', evalIds);
-
-        // Group answers by evaluation
-        const answersByEval: Record<number, Record<string, AnswerValue>> = {};
-        for (const a of (answers || [])) {
-          if (!answersByEval[a.evaluation_id]) answersByEval[a.evaluation_id] = {};
-          answersByEval[a.evaluation_id][a.question_key] = a.answer as AnswerValue;
-        }
-
-        // Build per-category scores from evaluations
-        const catScores: Record<string, { score: number | null; date: string }> = {};
-        for (const e of evals) {
-          const suggested = calculateSuggestedScore(answersByEval[e.id] || {});
-          const final = getFinalScore(e.manual_override_score, suggested, null);
-          catScores[e.category] = {
-            score: final,
-            date: (e.updated_at || e.created_at || new Date().toISOString()).split('T')[0],
-          };
-        }
-
-        // Synthesize a ScorecardRating so the chart can render it
-        const allDates = Object.values(catScores).map(c => c.date);
-        const latestDate = allDates.sort().pop() || new Date().toISOString().split('T')[0];
-
-        const synthetic: ScorecardRating = {
-          id: -1,
-          circle_leader_id: leaderId,
-          scored_by: '',
-          reach_score: catScores.reach?.score ?? 0,
-          connect_score: catScores.connect?.score ?? 0,
-          disciple_score: catScores.disciple?.score ?? 0,
-          develop_score: catScores.develop?.score ?? 0,
-          scored_date: latestDate,
-          created_at: latestDate,
-        };
-
-        setEvalScores([synthetic]);
-      } catch (err) {
-        console.error('Error loading evaluation scores for chart:', err);
-        setEvalScores([]);
-      }
-    };
-    loadEvalScores();
   }, [leaderId]);
 
   // Handle anchor link scrolling
@@ -2764,27 +2704,7 @@ export default function CircleLeaderProfilePage() {
           <ScorecardSection leaderId={leaderId} isAdmin={isAdmin()} onNoteSaved={reloadNotes} onAddToCoaching={handleAddToCoaching} />
         </div>
 
-        {/* Progress Timeline Chart */}
-        <div id="section-trends" ref={setSectionRef('section-trends')} className="mt-6 scroll-mt-20">
-          <ProgressTimeline ratings={scorecardRatings} />
 
-        {/* Weekly Category Trend Charts */}
-        {(scorecardRatings.length > 0 || evalScores.length > 0) && (
-          <div className="mt-6">
-            <CategoryTrendCharts
-              scores={scorecardRatings.length > 0 ? scorecardRatings : evalScores}
-              title="Weekly Category Trends"
-              subtitle={`${leader?.name ?? 'Leader'}'s score trends by category \u2014 updates every Saturday at midnight CST`}
-              chartHeight={180}
-              isAggregate={false}
-              showGoalLine={true}
-              showRangeSelector={true}
-              defaultRange="12w"
-              compact={false}
-            />
-          </div>
-        )}
-        </div>
 
             {/* Notes Section */}
             <div id="section-notes" ref={setSectionRef('section-notes')} className="bg-white dark:bg-gray-800 rounded-lg shadow mt-6 scroll-mt-20">

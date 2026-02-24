@@ -2679,7 +2679,7 @@ function DashboardContent() {
               {todosVisible && (
                 <div className="space-y-3">
                   {/* Add New Todo */}
-                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto] gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2">
                     <input
                       type="text"
                       value={newTodoText}
@@ -2715,19 +2715,6 @@ function DashboardContent() {
                       <option value="monthly">Repeat: Monthly</option>
                       <option value="yearly">Repeat: Yearly</option>
                     </select>
-
-                    <button
-                      type="button"
-                      onClick={addTodo}
-                      disabled={!newTodoText.trim()}
-                      className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 
-                               text-white text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed w-full sm:w-auto"
-                    >
-                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                      </svg>
-                      Add
-                    </button>
                   </div>
 
                   {/* Optional notes field (full-width for mobile comfort) */}
@@ -2744,6 +2731,19 @@ function DashboardContent() {
                     className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y min-h-[64px]"
                     rows={2}
                   />
+
+                  <button
+                    type="button"
+                    onClick={addTodo}
+                    disabled={!newTodoText.trim()}
+                    className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 
+                             text-white text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed w-full sm:w-auto"
+                  >
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Add
+                  </button>
 
                   {todoActionError && (
                     <div className="text-sm text-red-600 dark:text-red-300">
@@ -3227,12 +3227,11 @@ function DashboardContent() {
           {/* Show FilterPanel when data is loaded */}
           {!referenceDataLoading && (
             <FilterPanel 
-              filters={{ campus: filters.campus, frequency: filters.frequency }}
+              filters={{ campus: filters.campus }}
               onFiltersChange={(newFilters) => handleFiltersChange({ ...filters, ...newFilters })}
               onClearAllFilters={clearAllFilters}
               totalLeaders={filteredLeaders.length}
               campuses={campuses}
-              frequencies={frequencies}
             />
           )}
         </div>
@@ -3278,12 +3277,11 @@ function DashboardContent() {
                   </div>
                 </div>
                 <FilterPanel 
-                  filters={{ campus: filters.campus, frequency: filters.frequency }}
+                  filters={{ campus: filters.campus }}
                   onFiltersChange={(newFilters) => handleFiltersChange({ ...filters, ...newFilters })}
                   onClearAllFilters={clearAllFilters}
                   totalLeaders={filteredLeaders.length}
                   campuses={campuses}
-                  frequencies={frequencies}
                 />
               </div>
             )}
@@ -3313,32 +3311,8 @@ function DashboardContent() {
               </div>
             </div>
 
-            {/* Progress Section */}
-            <div id="progress">
-              {/* Event Summary Progress */}
-              <EventSummaryProgress
-                receivedCount={eventSummaryProgress.received}
-                totalCount={eventSummaryProgress.total}
-                onResetCheckboxes={handleResetCheckboxes}
-                filters={filters}
-              />
-
-              {/* Connections Progress */}
-              <ConnectionsProgress
-                filteredLeaderIds={filteredLeaderIds}
-                totalFilteredLeaders={filteredLeaders.length}
-              />
-            </div>
-
-            {/* Follow Up Section */}
-            <div id="follow-up">
-              <FollowUpTable
-                selectedCampuses={filters.campus}
-                onAddNote={(leaderId, name) => openAddNoteModal(leaderId, name)}
-                onClearFollowUp={handleClearFollowUp}
-                refreshKey={filterPanelRefreshKey}
-              />
-            </div>
+            {/* Progress Section removed as requested */}
+            {/* Follow Up Section removed as requested */}
 
             {/* Recent Notes */}
             <div id="recent-notes" className="mb-6">
@@ -3364,34 +3338,19 @@ function DashboardContent() {
                 </div>
                 {recentNotesVisible && (
                   <>
-                {/* Desktop Table View */}
-                <div className="hidden sm:block overflow-x-auto -mx-4 sm:mx-0">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead className="bg-gray-50 dark:bg-gray-900/40">
-                      <tr>
-                        <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Circle Leader</th>
-                        <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
-                        <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Note</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                      {recentNotesLoading ? (
-                        <tr>
-                          <td colSpan={3} className="px-4 sm:px-6 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                            <div className="flex items-center justify-center">
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500 mr-2"></div>
-                              Loading recent notes...
-                            </div>
-                          </td>
-                        </tr>
-                      ) : recentNotes.length === 0 ? (
-                        <tr>
-                          <td colSpan={3} className="px-4 sm:px-6 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                            No recent notes
-                          </td>
-                        </tr>
-                      ) : (
-                        recentNotes.map((note) => {
+                    {/* Card Grid View for All Screen Sizes */}
+                    {recentNotesLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500 mr-2"></div>
+                        <span className="text-sm text-gray-500 dark:text-gray-400">Loading recent notes...</span>
+                      </div>
+                    ) : recentNotes.length === 0 ? (
+                      <div className="text-center py-8">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">No recent notes</span>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                        {recentNotes.map((note) => {
                           const leader = circleLeaders.find(l => l.id === note.circle_leader_id);
                           const leaderName = leader?.name || `Leader #${note.circle_leader_id}`;
                           const dateStr = new Date(note.created_at).toLocaleString(undefined, {
@@ -3402,89 +3361,36 @@ function DashboardContent() {
                             minute: '2-digit'
                           });
                           return (
-                            <tr key={note.id}>
-                              <td className="px-4 sm:px-6 py-3 whitespace-nowrap">
-                                {leader ? (
-                                  <Link href={`/circle/${note.circle_leader_id}`} className="text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-semibold">
-                                    {leaderName}
-                                  </Link>
-                                ) : (
-                                  <span className="text-gray-700 dark:text-gray-300">{leaderName}</span>
-                                )}
-                              </td>
-                              <td className="px-4 sm:px-6 py-3 whitespace-nowrap text-gray-700 dark:text-gray-300">
-                                {dateStr}
-                              </td>
-                              <td className="px-4 sm:px-6 py-3 text-gray-800 dark:text-gray-200">
-                                <div className="max-w-3xl whitespace-pre-wrap break-words">
+                            <div
+                              key={note.id}
+                              className="flex flex-col h-full bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 shadow-sm hover:shadow-md transition-shadow p-5"
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="font-semibold text-gray-900 dark:text-white text-base truncate">
+                                  {leader ? (
+                                    <Link href={`/circle/${note.circle_leader_id}`} className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                                      {leaderName}
+                                    </Link>
+                                  ) : (
+                                    <span>{leaderName}</span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400 ml-2 whitespace-nowrap">{dateStr}</div>
+                              </div>
+                              <div className="flex-1">
+                                <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words leading-relaxed">
                                   {linkifyText(note.content)}
                                 </div>
-                              </td>
-                            </tr>
+                              </div>
+                            </div>
                           );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Mobile Card View */}
-                <div className="sm:hidden space-y-4">
-                  {recentNotesLoading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500 mr-2"></div>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">Loading recent notes...</span>
-                    </div>
-                  ) : recentNotes.length === 0 ? (
-                    <div className="text-center py-8">
-                      <span className="text-sm text-gray-500 dark:text-gray-400">No recent notes</span>
-                    </div>
-                  ) : (
-                    recentNotes.map((note) => {
-                      const leader = circleLeaders.find(l => l.id === note.circle_leader_id);
-                      const leaderName = leader?.name || `Leader #${note.circle_leader_id}`;
-                      const dateStr = new Date(note.created_at).toLocaleString(undefined, {
-                        year: 'numeric',
-                        month: 'short',
-                        day: '2-digit',
-                        hour: 'numeric',
-                        minute: '2-digit'
-                      });
-                      return (
-                        <div key={note.id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-                          {/* Circle Leader Name */}
-                          <div className="mb-2">
-                            <div className="font-medium text-gray-900 dark:text-white">
-                              {leader ? (
-                                <Link href={`/circle/${note.circle_leader_id}`} className="text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-semibold">
-                                  {leaderName}
-                                </Link>
-                              ) : (
-                                <span>{leaderName}</span>
-                              )}
-                            </div>
-                          </div>
-                          
-                          {/* Date of Note */}
-                          <div className="mb-3">
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
-                              {dateStr}
-                            </div>
-                          </div>
-                          
-                          {/* Note */}
-                          <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
-                            {linkifyText(note.content)}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
           </>
         )}
       </div>
