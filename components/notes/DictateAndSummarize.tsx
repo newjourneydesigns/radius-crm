@@ -67,10 +67,12 @@ export default function DictateAndSummarize({ text, onTextChange, disabled }: Di
     setSummarizeError('');
 
     try {
+      const payload = { text: text.trim() };
+      console.log('[DictateAndSummarize] Sending to /api/ai-summarize:', payload);
       const response = await fetch('/api/ai-summarize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: text.trim() }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
