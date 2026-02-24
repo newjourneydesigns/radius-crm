@@ -100,6 +100,23 @@ export const useACPDTracking = () => {
     }
   }, []);
 
+  const updatePrayerPoint = useCallback(async (id: number, content: string) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('acpd_prayer_points')
+        .update({ content, updated_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+      setPrayerPoints(prev =>
+        prev.map(p => p.id === id ? { ...p, content } : p)
+      );
+    } catch (err: any) {
+      console.error('Error updating prayer point:', err);
+      setError(err.message);
+    }
+  }, []);
+
   // ─── Encouragements ────────────────────────────────────────
 
   const loadEncouragements = useCallback(async (leaderId: number) => {
@@ -359,6 +376,7 @@ export const useACPDTracking = () => {
     loadPrayerPoints,
     addPrayerPoint,
     togglePrayerAnswered,
+    updatePrayerPoint,
     deletePrayerPoint,
     loadEncouragements,
     addEncouragement,

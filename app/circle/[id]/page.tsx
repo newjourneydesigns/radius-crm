@@ -21,6 +21,7 @@ import ProtectedRoute from '../../../components/ProtectedRoute';
 import ScorecardSection from '../../../components/circle/ScorecardSection';
 import ACPDTrackingSection from '../../../components/circle/ACPDTrackingSection';
 import CircleVisitsSection from '../../../components/circle/CircleVisitsSection';
+import AttendanceTrends from '../../../components/circle/AttendanceTrends';
 import DictateAndSummarize from '../../../components/notes/DictateAndSummarize';
 import MeetingPrepAssistant from '../../../components/notes/MeetingPrepAssistant';
 import { useScorecard } from '../../../hooks/useScorecard';
@@ -2704,7 +2705,12 @@ export default function CircleLeaderProfilePage() {
           <ScorecardSection leaderId={leaderId} isAdmin={isAdmin()} onNoteSaved={reloadNotes} onAddToCoaching={handleAddToCoaching} />
         </div>
 
-
+        {/* Attendance Trends Section */}
+        <div id="section-trends" ref={setSectionRef('section-trends')} className="mt-6 scroll-mt-20">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <AttendanceTrends leaderId={leaderId} leaderName={leader?.name || ''} />
+          </div>
+        </div>
 
             {/* Notes Section */}
             <div id="section-notes" ref={setSectionRef('section-notes')} className="bg-white dark:bg-gray-800 rounded-lg shadow mt-6 scroll-mt-20">

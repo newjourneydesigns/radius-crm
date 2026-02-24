@@ -140,9 +140,9 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    if (!field || !['campus', 'acpd'].includes(field)) {
+    if (!field || !['campus', 'acpd', 'frequency', 'circle_type'].includes(field)) {
       return NextResponse.json(
-        { error: 'field must be "campus" or "acpd"' },
+        { error: 'field must be "campus", "acpd", "frequency", or "circle_type"' },
         { status: 400 }
       );
     }

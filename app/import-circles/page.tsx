@@ -38,11 +38,15 @@ interface MassUpdateLeader {
   campus: string | null;
   acpd: string | null;
   status: string | null;
+  frequency: string | null;
+  circle_type: string | null;
 }
 
 interface ReferenceData {
   directors: { id: number; name: string }[];
   campuses: { id: number; value: string }[];
+  circleTypes: { id: number; value: string }[];
+  frequencies: { id: number; value: string }[];
 }
 
 export default function ImportCirclesPage() {
@@ -61,7 +65,7 @@ export default function ImportCirclesPage() {
   const router = useRouter();
 
   // Mass Update state
-  const [massUpdateField, setMassUpdateField] = useState<'campus' | 'acpd'>('campus');
+  const [massUpdateField, setMassUpdateField] = useState<'campus' | 'acpd' | 'frequency' | 'circle_type'>('campus');
   const [massUpdateValue, setMassUpdateValue] = useState('');
   const [massUpdateFilterField, setMassUpdateFilterField] = useState<'all' | 'campus' | 'acpd'>('all');
   const [massUpdateFilterValue, setMassUpdateFilterValue] = useState('');
@@ -70,10 +74,10 @@ export default function ImportCirclesPage() {
   const [massUpdateLoading, setMassUpdateLoading] = useState(false);
   const [massUpdateSearching, setMassUpdateSearching] = useState(false);
   const [massUpdateResult, setMassUpdateResult] = useState<{ updated: number; error?: string } | null>(null);
-  const [referenceData, setReferenceData] = useState<ReferenceData>({ directors: [], campuses: [] });
+  const [referenceData, setReferenceData] = useState<ReferenceData>({ directors: [], campuses: [], circleTypes: [], frequencies: [] });
 
   // Sort state for mass update table
-  type SortField = 'name' | 'campus' | 'acpd' | 'status';
+  type SortField = 'name' | 'campus' | 'acpd' | 'status' | 'frequency' | 'circle_type';
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
@@ -124,6 +128,8 @@ export default function ImportCirclesPage() {
           setReferenceData({
             directors: data.directors || [],
             campuses: data.campuses || [],
+            circleTypes: data.circleTypes || [],
+            frequencies: data.frequencies || [],
           });
         }
       } catch (err) {
@@ -148,6 +154,8 @@ export default function ImportCirclesPage() {
         campus: l.campus || null,
         acpd: l.acpd || null,
         status: l.status || null,
+        frequency: l.frequency || null,
+        circle_type: l.circle_type || null,
       }));
 
       if (massUpdateFilterField === 'campus' && massUpdateFilterValue) {
@@ -331,7 +339,7 @@ export default function ImportCirclesPage() {
                 Import &amp; Manage Circles
               </h1>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Import from CCB or mass-update ACPD &amp; Campus assignments.
+                Import from CCB or mass-update ACPD, Campus, Frequency &amp; Circle Type assignments.
               </p>
             </div>
             <Link
@@ -343,37 +351,33 @@ export default function ImportCirclesPage() {
           </div>
 
           {/* Tab Switcher */}
-          <div className="mb-6 border-b border-gray-700/60">
-            <nav className="-mb-px flex space-x-6">
+          <div className="mb-6">
+            <nav className="inline-flex rounded-lg bg-gray-200/60 dark:bg-gray-800 p-1 gap-1">
               <button
                 onClick={() => setActiveTab('ccb')}
-                className={`whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                   activeTab === 'ccb'
-                    ? 'border-blue-500 text-white'
-                    : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'
+                    ? 'bg-white dark:bg-blue-600 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                 }`}
               >
-                <span className="inline-flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                  </svg>
-                  Import from CCB
-                </span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                Import from CCB
               </button>
               <button
                 onClick={() => setActiveTab('mass-update')}
-                className={`whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                   activeTab === 'mass-update'
-                    ? 'border-blue-500 text-white'
-                    : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'
+                    ? 'bg-white dark:bg-blue-600 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                 }`}
               >
-                <span className="inline-flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Mass Update
-                </span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Mass Update
               </button>
             </nav>
           </div>
@@ -385,10 +389,10 @@ export default function ImportCirclesPage() {
               <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
                 <div className="p-6">
                   <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-1">
-                    Mass Update ACPD or Campus
+                    Mass Update Circles
                   </h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                    Select circle leaders and assign them a new ACPD or Campus value in bulk.
+                    Select circle leaders and update their Campus, ACPD, Frequency, or Circle Type in bulk.
                   </p>
 
                   {/* Filter controls */}
@@ -453,13 +457,15 @@ export default function ImportCirclesPage() {
                       <select
                         value={massUpdateField}
                         onChange={(e) => {
-                          setMassUpdateField(e.target.value as 'campus' | 'acpd');
+                          setMassUpdateField(e.target.value as 'campus' | 'acpd' | 'frequency' | 'circle_type');
                           setMassUpdateValue('');
                         }}
                         className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                       >
                         <option value="campus">Campus</option>
                         <option value="acpd">ACPD / Director</option>
+                        <option value="frequency">Frequency</option>
+                        <option value="circle_type">Circle Type</option>
                       </select>
                     </div>
                     <div>
@@ -476,8 +482,16 @@ export default function ImportCirclesPage() {
                           ? referenceData.campuses.map((c) => (
                               <option key={c.id} value={c.value}>{c.value}</option>
                             ))
-                          : referenceData.directors.map((d) => (
+                          : massUpdateField === 'acpd'
+                          ? referenceData.directors.map((d) => (
                               <option key={d.id} value={d.name}>{d.name}</option>
+                            ))
+                          : massUpdateField === 'frequency'
+                          ? referenceData.frequencies.map((f) => (
+                              <option key={f.id} value={f.value}>{f.value}</option>
+                            ))
+                          : referenceData.circleTypes.map((ct) => (
+                              <option key={ct.id} value={ct.value}>{ct.value}</option>
                             ))}
                       </select>
                     </div>
@@ -543,6 +557,18 @@ export default function ImportCirclesPage() {
                               <span className="inline-flex items-center">ACPD<SortIcon field="acpd" /></span>
                             </th>
                             <th
+                              onClick={() => handleSort('frequency')}
+                              className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:text-white select-none"
+                            >
+                              <span className="inline-flex items-center">Frequency<SortIcon field="frequency" /></span>
+                            </th>
+                            <th
+                              onClick={() => handleSort('circle_type')}
+                              className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:text-white select-none"
+                            >
+                              <span className="inline-flex items-center">Type<SortIcon field="circle_type" /></span>
+                            </th>
+                            <th
                               onClick={() => handleSort('status')}
                               className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:text-white select-none"
                             >
@@ -579,6 +605,12 @@ export default function ImportCirclesPage() {
                               <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                                 {leader.acpd || '—'}
                               </td>
+                              <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                                {leader.frequency || '—'}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                                {leader.circle_type || '—'}
+                              </td>
                               <td className="px-4 py-3 text-sm">
                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                                   leader.status === 'active' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' :
@@ -601,7 +633,7 @@ export default function ImportCirclesPage() {
                       <div className="text-sm text-gray-500 dark:text-gray-400">
                         {massUpdateSelected.size > 0 && massUpdateValue ? (
                           <span>
-                            Will set <strong>{massUpdateField === 'campus' ? 'Campus' : 'ACPD'}</strong> to{' '}
+                            Will set <strong>{massUpdateField === 'campus' ? 'Campus' : massUpdateField === 'acpd' ? 'ACPD' : massUpdateField === 'frequency' ? 'Frequency' : 'Circle Type'}</strong> to{' '}
                             <strong>&ldquo;{massUpdateValue}&rdquo;</strong> for{' '}
                             <strong>{massUpdateSelected.size}</strong> leader{massUpdateSelected.size !== 1 ? 's' : ''}
                           </span>

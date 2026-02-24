@@ -30,7 +30,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
   const {
     prayerPoints, encouragements, coachingNotes,
     isLoading, loadAll,
-    addPrayerPoint, togglePrayerAnswered, deletePrayerPoint,
+    addPrayerPoint, togglePrayerAnswered, updatePrayerPoint, deletePrayerPoint,
     addEncouragement, markEncouragementSent, deleteEncouragement,
     addCoachingNote, toggleCoachingResolved, deleteCoachingNote,
   } = useACPDTracking();
@@ -45,6 +45,8 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
   const [showAnswered, setShowAnswered] = useState(false);
   const [showResolved, setShowResolved] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ type: string; id: number } | null>(null);
+  const [editingPrayerId, setEditingPrayerId] = useState<number | null>(null);
+  const [editPrayerText, setEditPrayerText] = useState('');
 
   useEffect(() => {
     loadAll(leaderId);
@@ -209,28 +211,87 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                           <span className="sr-only">Mark answered</span>
                         </button>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-200 leading-relaxed">{prayer.content}</p>
-                          <p className="text-[10px] text-gray-500 mt-1">{formatTimestamp(prayer.created_at)}</p>
-                        </div>
-                        <button
-                          onClick={() => handleDelete('prayer', prayer.id)}
-                          className={`flex-shrink-0 p-1 rounded-md transition-all ${
-                            confirmDelete?.type === 'prayer' && confirmDelete?.id === prayer.id
-                              ? 'bg-red-500/20 text-red-400'
-                              : 'text-gray-600 sm:opacity-0 sm:group-hover:opacity-100 hover:text-red-400 hover:bg-red-500/10'
-                          }`}
-                          title={confirmDelete?.type === 'prayer' && confirmDelete?.id === prayer.id ? 'Click again to delete' : 'Delete'}
-                        >
-                          {confirmDelete?.type === 'prayer' && confirmDelete?.id === prayer.id ? (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
+                          {editingPrayerId === prayer.id ? (
+                            <div className="space-y-2">
+                              <textarea
+                                value={editPrayerText}
+                                onChange={e => setEditPrayerText(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    if (editPrayerText.trim()) {
+                                      updatePrayerPoint(prayer.id, editPrayerText.trim());
+                                      setEditingPrayerId(null);
+                                      setEditPrayerText('');
+                                    }
+                                  }
+                                  if (e.key === 'Escape') { setEditingPrayerId(null); setEditPrayerText(''); }
+                                }}
+                                rows={2}
+                                autoFocus
+                                className="w-full px-3 py-2 bg-gray-900/60 border border-amber-500/40 rounded-lg text-sm text-white placeholder-gray-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all resize-none"
+                              />
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => {
+                                    if (editPrayerText.trim()) {
+                                      updatePrayerPoint(prayer.id, editPrayerText.trim());
+                                      setEditingPrayerId(null);
+                                      setEditPrayerText('');
+                                    }
+                                  }}
+                                  disabled={!editPrayerText.trim()}
+                                  className="px-3 py-1 text-xs font-medium bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => { setEditingPrayerId(null); setEditPrayerText(''); }}
+                                  className="px-3 py-1 text-xs font-medium text-gray-400 hover:text-white bg-gray-700/50 hover:bg-gray-700 rounded-lg transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
                           ) : (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
+                            <>
+                              <p className="text-sm text-gray-200 leading-relaxed">{prayer.content}</p>
+                              <p className="text-[10px] text-gray-500 mt-1">{formatTimestamp(prayer.created_at)}</p>
+                            </>
                           )}
-                        </button>
+                        </div>
+                        {editingPrayerId !== prayer.id && (
+                          <>
+                            <button
+                              onClick={() => { setEditingPrayerId(prayer.id); setEditPrayerText(prayer.content); }}
+                              className="flex-shrink-0 p-1 rounded-md text-gray-600 sm:opacity-0 sm:group-hover:opacity-100 hover:text-amber-400 hover:bg-amber-500/10 transition-all"
+                              title="Edit prayer"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleDelete('prayer', prayer.id)}
+                              className={`flex-shrink-0 p-1 rounded-md transition-all ${
+                                confirmDelete?.type === 'prayer' && confirmDelete?.id === prayer.id
+                                  ? 'bg-red-500/20 text-red-400'
+                                  : 'text-gray-600 sm:opacity-0 sm:group-hover:opacity-100 hover:text-red-400 hover:bg-red-500/10'
+                              }`}
+                              title={confirmDelete?.type === 'prayer' && confirmDelete?.id === prayer.id ? 'Click again to delete' : 'Delete'}
+                            >
+                              {confirmDelete?.type === 'prayer' && confirmDelete?.id === prayer.id ? (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              ) : (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              )}
+                            </button>
+                          </>
+                        )}
                       </div>
                     ))}
                   </div>

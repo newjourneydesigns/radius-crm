@@ -65,9 +65,16 @@ const ChevronDownIcon = () => (
   </svg>
 );
 
+const PrayerIcon = () => (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+  </svg>
+);
+
 // ----- Nav definitions -----
 const primaryNavItems = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
+  { name: 'Prayer',    href: '/prayer',    icon: PrayerIcon },
   { name: 'Progress',  href: '/progress',  icon: ChartIcon },
   { name: 'Calendar',  href: '/calendar',  icon: CalendarIcon },
 ];
@@ -141,21 +148,6 @@ export default function AuthenticatedNavigation() {
               </Link>
             ))}
 
-            {/* Admin-only nav items */}
-            {admin && adminNavItems.map(({ name, href, icon: Icon }) => (
-              <Link
-                key={href}
-                href={href}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
-                  isActive(href)
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-900/40'
-                    : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
-                }`}
-              >
-                <Icon />
-                {name}
-              </Link>
-            ))}
           </div>
 
           {/* ── Right: Search + User menu ── */}
@@ -192,69 +184,76 @@ export default function AuthenticatedNavigation() {
                     )}
                   </div>
 
-                  {/* Menu items */}
-                  <div className="py-1">
-                    {[
-                      { href: '/profile',  label: 'Profile',  Icon: UserIcon },
-                      { href: '/settings', label: 'Settings', Icon: CogIcon },
-                      { href: '/help',     label: 'Help',     Icon: QuestionIcon },
-                    ].map(({ href, label, Icon }) => (
+                  {/* Admin tools */}
+                  {admin && (
+                    <div className="py-1">
+                      {[
+                        { href: '/ccb-explorer',    label: 'CCB Explorer',    Icon: CompassIcon },
+                        { href: '/bulk-message',    label: 'Bulk Message',    Icon: MessageBulkIcon },
+                        { href: '/add-leader',      label: 'Add Leader',      Icon: UserPlusIcon },
+                        { href: '/import-circles',  label: 'Import Circles',  Icon: ImportCirclesIcon },
+                      ].map(({ href, label, Icon }) => (
+                        <Link
+                          key={href}
+                          href={href}
+                          onClick={() => setUserMenuOpen(false)}
+                          className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
+                            isActive(href)
+                              ? 'text-blue-400 bg-blue-600/10'
+                              : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
+                          }`}
+                        >
+                          <Icon />
+                          {label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Manage Users & Settings */}
+                  <div className="py-1 border-t border-gray-700/60">
+                    {admin && (
                       <Link
-                        key={href}
-                        href={href}
+                        href="/users"
                         onClick={() => setUserMenuOpen(false)}
                         className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
-                          isActive(href)
+                          isActive('/users')
                             ? 'text-blue-400 bg-blue-600/10'
                             : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
                         }`}
                       >
-                        <Icon />
-                        {label}
+                        <UsersIcon />
+                        Manage Users
                       </Link>
-                    ))}
-
-                    {/* Admin-only: Add Leader + Manage Users */}
-                    {admin && (
-                      <>
-                        <Link
-                          href="/add-leader"
-                          onClick={() => setUserMenuOpen(false)}
-                          className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
-                            isActive('/add-leader')
-                              ? 'text-blue-400 bg-blue-600/10'
-                              : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
-                          }`}
-                        >
-                          <UserPlusIcon />
-                          Add Leader
-                        </Link>
-                        <Link
-                          href="/users"
-                          onClick={() => setUserMenuOpen(false)}
-                          className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
-                            isActive('/users')
-                              ? 'text-blue-400 bg-blue-600/10'
-                              : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
-                          }`}
-                        >
-                          <UsersIcon />
-                          Manage Users
-                        </Link>
-                        <Link
-                          href="/import-circles"
-                          onClick={() => setUserMenuOpen(false)}
-                          className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
-                            isActive('/import-circles')
-                              ? 'text-blue-400 bg-blue-600/10'
-                              : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
-                          }`}
-                        >
-                          <ImportCirclesIcon />
-                          Import Circles
-                        </Link>
-                      </>
                     )}
+                    <Link
+                      href="/settings"
+                      onClick={() => setUserMenuOpen(false)}
+                      className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
+                        isActive('/settings')
+                          ? 'text-blue-400 bg-blue-600/10'
+                          : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
+                      }`}
+                    >
+                      <CogIcon />
+                      Settings
+                    </Link>
+                  </div>
+
+                  {/* Profile */}
+                  <div className="py-1 border-t border-gray-700/60">
+                    <Link
+                      href="/profile"
+                      onClick={() => setUserMenuOpen(false)}
+                      className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
+                        isActive('/profile')
+                          ? 'text-blue-400 bg-blue-600/10'
+                          : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
+                      }`}
+                    >
+                      <UserIcon />
+                      Profile
+                    </Link>
                   </div>
 
                   {/* Sign out */}

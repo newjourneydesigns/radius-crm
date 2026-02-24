@@ -1259,6 +1259,109 @@ export class CCBClient {
   }
 
   /**
+   * BULK: Fetch ALL attendance records in a date range with a single API call.
+   * Returns a Map from event `@_id` → AttendanceSummary so callers can cross-
+   * reference against event IDs obtained from `event_profiles?group_id=X`.
+   *
+   * Two-phase usage:
+   *   1. `fetchAllAttendanceInRange(start, end)` → Map<eventId, LinkRow[]>
+   *   2. For each leader, `getGroupEventIds(groupId)` → string[]
+   *   3. Cross-reference to get each leader's attendance.
+   */
+  async fetchAllAttendanceInRange(
+    startDate: string,
+    endDate: string,
+    options: { includeAttendees?: boolean } = {}
+  ): Promise<Map<string, LinkRow[]>> {
+    const { includeAttendees = false } = options;
+
+    for (const [label, val] of [['start', startDate], ['end', endDate]] as const) {
+      if (!DateTime.fromFormat(val, 'yyyy-LL-dd').isValid) {
+        throw new Error(`Invalid ${label} date. Use YYYY-MM-DD format`);
+      }
+    }
+
+    if (IS_DEV) {
+      console.log(`📦 Bulk attendance fetch: ${startDate} → ${endDate}`);
+    }
+
+    const xml = await this.getXml({
+      srv: 'attendance_profiles',
+      start_date: startDate,
+      end_date: endDate,
+    });
+
+    const eventsRoot = xml?.ccb_api?.response?.events ?? null;
+    const rawEvents: any[] = Array.isArray(eventsRoot?.event)
+      ? eventsRoot.event
+      : eventsRoot?.event
+        ? [eventsRoot.event]
+        : [];
+
+    if (IS_DEV) {
+      console.log(`📦 Bulk fetch returned ${rawEvents.length} total events`);
+    }
+
+    // Index by event @_id (NOT group ID — attendance_profiles doesn't include group)
+    const byEventId = new Map<string, LinkRow[]>();
+
+    for (const event of rawEvents) {
+      const eventId = String(event?.['@_id'] ?? event?.id ?? '').trim();
+      const occurrence = String(event?.['@_occurrence'] ?? event?.occurrence ?? '').trim();
+      if (!eventId || !occurrence) continue;
+
+      const eventName = String(event?.name ?? event?.event_name ?? '').trim();
+
+      const attendance = this.normalizeAttendance(
+        { ccb_api: { response: { attendance: event } } },
+        includeAttendees
+      );
+      if (!attendance) continue;
+
+      const occurFormatted = DateTime.fromISO(occurrence).toFormat('yyyyLLdd');
+      const link = `https://${this.config.subdomain}.ccbchurch.com/event_detail.php?event_id=${encodeURIComponent(eventId)}&occur=${occurFormatted}`;
+
+      const row: LinkRow = {
+        eventId,
+        title: eventName,
+        occurDate: occurrence,
+        link,
+        attendance,
+      };
+
+      if (!byEventId.has(eventId)) {
+        byEventId.set(eventId, []);
+      }
+      byEventId.get(eventId)!.push(row);
+    }
+
+    if (IS_DEV) {
+      console.log(`📦 Bulk fetch: ${byEventId.size} distinct event IDs`);
+    }
+
+    return byEventId;
+  }
+
+  /**
+   * Get the list of event IDs that belong to a specific CCB group.
+   * Uses `event_profiles?group_id=X` — one fast call per group.
+   */
+  async getGroupEventIds(groupId: string): Promise<string[]> {
+    if (!groupId || !/^\d+$/.test(groupId)) return [];
+
+    try {
+      const xml = await this.getXml({ srv: 'event_profiles', group_id: groupId });
+      const events = this.normalizeFromEventProfiles(xml);
+      return events.map(e => e.eventId);
+    } catch (error) {
+      if (IS_DEV) {
+        console.warn(`📦 getGroupEventIds failed for group ${groupId}:`, error);
+      }
+      return [];
+    }
+  }
+
+  /**
    * Test connection to CCB API
    */
   async testConnection(): Promise<boolean> {
