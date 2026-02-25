@@ -210,6 +210,24 @@ export default function AuthenticatedNavigation() {
                     </div>
                   )}
 
+                  {/* Find a Circle */}
+                  <div className="py-1 border-t border-gray-700/60">
+                    <Link
+                      href="/search"
+                      onClick={() => setUserMenuOpen(false)}
+                      className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
+                        isActive('/search')
+                          ? 'text-blue-400 bg-blue-600/10'
+                          : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
+                      }`}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                      </svg>
+                      Find a Circle
+                    </Link>
+                  </div>
+
                   {/* Manage Users & Settings */}
                   <div className="py-1 border-t border-gray-700/60">
                     {admin && (

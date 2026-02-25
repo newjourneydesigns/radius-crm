@@ -128,7 +128,8 @@ function CalendarPageContent() {
           if (!actualError && actualData) {
             const uniqueCampuses = Array.from(new Set(actualData.map(i => i.campus).filter(Boolean) as string[])).sort();
             const uniqueDirectors = Array.from(new Set(actualData.map(i => i.acpd).filter(Boolean) as string[])).sort();
-            const uniqueCircleTypes = Array.from(new Set(actualData.map(i => i.circle_type).filter(Boolean) as string[])).sort();
+            const EXCLUDED_CT = new Set(['[object Object]', 'Admin']);
+            const uniqueCircleTypes = Array.from(new Set(actualData.map(i => i.circle_type).filter(v => Boolean(v) && typeof v === 'string' && !EXCLUDED_CT.has(v)) as string[])).sort();
             const uniqueFrequencies = Array.from(new Set(actualData.map(i => i.frequency).filter(Boolean) as string[])).sort();
 
             setCampuses(uniqueCampuses.map((value, idx) => ({ id: 1000 + idx, value })));
@@ -237,10 +238,14 @@ function CalendarPageContent() {
   }, [directors, circleLeaders, filters.acpd]);
 
   const derivedCircleTypes = useMemo(() => {
+    const EXCLUDED_CIRCLE_TYPES = new Set(['[object Object]', 'Admin']);
     const values = new Set<string>();
-    circleTypes.forEach(t => t?.value && values.add(t.value));
-    circleLeaders.forEach(l => l?.circle_type && values.add(l.circle_type));
-    filters.circleType.forEach(v => v && values.add(v));
+    circleTypes.forEach(t => t?.value && !EXCLUDED_CIRCLE_TYPES.has(t.value) && values.add(t.value));
+    circleLeaders.forEach(l => l?.circle_type && typeof l.circle_type === 'string' && !EXCLUDED_CIRCLE_TYPES.has(l.circle_type) && values.add(l.circle_type));
+    filters.circleType.forEach(v => v && !EXCLUDED_CIRCLE_TYPES.has(v) && values.add(v));
+    // Ensure YA sub-types are always present
+    values.add("YA | Men's");
+    values.add("YA | Women's");
     return Array.from(values)
       .sort((a, b) => a.localeCompare(b))
       .map((value, idx) => ({ id: idx + 1, value }));

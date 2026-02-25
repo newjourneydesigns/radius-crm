@@ -224,7 +224,7 @@ export default function CalendarFilterPanel({
             {/* Circle Type */}
             <div>
               <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Circle Type</div>
-              <div className="space-y-2 max-h-48 overflow-auto pr-1">
+              <div className="space-y-2">
                 {circleTypes.map(t => (
                   <label key={t.id} className="flex items-center gap-3">
                     <input

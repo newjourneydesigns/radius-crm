@@ -616,7 +616,7 @@ function PrayerListContent() {
               onClick={() => setGeneralExpanded(prev => !prev)}
               className="w-full"
             >
-              <div className="border-b-2 border-violet-500 pb-3.5 pt-2 mb-6 flex items-center gap-2.5 pl-2">
+              <div className="border-b-2 border-violet-500 pb-3.5 pt-2 mb-0 flex items-center gap-2.5 pl-2">
                 <span className="bg-violet-500 text-white rounded-full min-w-[22px] h-[22px] flex items-center justify-center px-1.5 text-[11px] font-bold flex-shrink-0">
                   {filteredGeneralPrayers.length}
                 </span>
@@ -631,7 +631,7 @@ function PrayerListContent() {
             </button>
 
             {generalExpanded && (
-              <div>
+              <div className="mt-5">
                 {/* Add new */}
                 <div className="flex items-center gap-2 mb-6">
                   <input

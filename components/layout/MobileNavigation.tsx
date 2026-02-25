@@ -373,6 +373,22 @@ export default function MobileNavigation() {
           </div>
         </div>
 
+        {/* Find a Circle */}
+        <div className="mobile-sheet-section">
+          <div className="mobile-sheet-group">
+            <Link href="/search"
+              className={`mobile-sheet-row ${isActive('/search') ? 'active' : ''}`}>
+              <span className="mobile-sheet-row-icon">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                </svg>
+              </span>
+              <span className="mobile-sheet-row-label">Find a Circle</span>
+              <ChevronRightIcon />
+            </Link>
+          </div>
+        </div>
+
         {/* Admin section */}
         {admin && (
           <div className="mobile-sheet-section">

@@ -21,7 +21,9 @@ function LoginContent() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState('');
   const [mounted, setMounted] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const cooldownRef = useRef<NodeJS.Timeout | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -29,6 +31,15 @@ function LoginContent() {
     const t = setTimeout(() => setMounted(true), 50);
     return () => clearTimeout(t);
   }, []);
+
+  // Cooldown countdown timer
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    cooldownRef.current = setTimeout(() => setCooldown(c => c - 1), 1000);
+    return () => {
+      if (cooldownRef.current) clearTimeout(cooldownRef.current);
+    };
+  }, [cooldown]);
 
   const redirectTo = useMemo(() => {
     const raw = searchParams.get('redirectTo') || '/dashboard';
@@ -53,21 +64,32 @@ function LoginContent() {
       setError(ERROR_MESSAGES.invalid_email);
       return;
     }
+    if (cooldown > 0) return; // Respect cooldown
 
     setIsLoading(true);
     setError('');
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({
+      // Race the OTP request against a 15-second timeout so it never hangs
+      const otpPromise = supabase.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
         options: {
           shouldCreateUser: false, // invite-only
         },
       });
 
+      const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) =>
+        setTimeout(() => resolve({ data: null, error: { message: 'Request timed out. Please check your connection and try again.' } }), 15000)
+      );
+
+      const { error } = await Promise.race([otpPromise, timeoutPromise]);
+
       if (error) {
         if (error.message.includes('not found') || error.message.includes('User not found') || error.message.includes('Signups not allowed')) {
           setError(ERROR_MESSAGES.unauthorized_user);
+        } else if (error.message.toLowerCase().includes('rate') || error.message.toLowerCase().includes('limit')) {
+          setError('Too many requests. Please wait a minute before trying again.');
+          setCooldown(60);
         } else {
           setError(error.message);
         }
@@ -75,6 +97,8 @@ function LoginContent() {
         return;
       }
 
+      // Start 60-second cooldown to prevent rate-limit stacking
+      setCooldown(60);
       setStep('code');
       setIsLoading(false);
       // Focus first OTP input after transition
@@ -256,16 +280,16 @@ function LoginContent() {
               <button
                 type="button"
                 onClick={handleSendCode as any}
-                disabled={isLoading}
-                className="text-sm text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
+                disabled={isLoading || cooldown > 0}
+                className="text-sm text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50 disabled:hover:text-blue-400"
               >
-                {isLoading ? 'Sending...' : 'Resend code'}
+                {isLoading ? 'Sending...' : cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
               </button>
             </div>
           </div>
 
           <p className="text-center text-xs text-gray-500">
-            Check your inbox and spam folder. Code expires in 5 minutes.
+            Code may take up to 60 seconds to arrive. Check your spam folder.
           </p>
         </div>
       </div>
@@ -325,7 +349,7 @@ function LoginContent() {
 
             <button
               type="submit"
-              disabled={isLoading || !email}
+              disabled={isLoading || !email || cooldown > 0}
               className="w-full relative py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-sm
                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900
                 flex items-center justify-center gap-3 transition-all duration-150
@@ -336,6 +360,8 @@ function LoginContent() {
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   <span>Sending code...</span>
                 </>
+              ) : cooldown > 0 ? (
+                <span>Resend in {cooldown}s</span>
               ) : (
                 <>
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

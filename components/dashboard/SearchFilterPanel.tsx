@@ -82,7 +82,7 @@ export default function SearchFilterPanel({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg mb-8 p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg mb-8 p-6 relative z-20">
       {/* Filters */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         {/* Campus Filter */}
@@ -218,15 +218,18 @@ export default function SearchFilterPanel({
       </div>
 
       {/* Clear Filters Button */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center pt-2">
         <button
           onClick={onClearAllFilters}
-          className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 border border-gray-300 dark:border-gray-600 hover:border-red-300 dark:hover:border-red-500/50 rounded-md transition-colors"
         >
-          Clear all filters
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          Clear All Filters
         </button>
-        <div className="text-sm text-gray-600 dark:text-gray-400">
-          {totalLeaders} leaders
+        <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
+          {totalLeaders} {totalLeaders === 1 ? 'circle' : 'circles'}
         </div>
       </div>
     </div>
