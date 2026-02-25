@@ -72,11 +72,18 @@ const PrayerIcon = () => (
 );
 
 // ----- Nav definitions -----
+const SearchNavIcon = () => (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+  </svg>
+);
+
 const primaryNavItems = [
-  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
-  { name: 'Prayer',    href: '/prayer',    icon: PrayerIcon },
-  { name: 'Progress',  href: '/progress',  icon: ChartIcon },
-  { name: 'Calendar',  href: '/calendar',  icon: CalendarIcon },
+  { name: 'Dashboard',      href: '/dashboard', icon: HomeIcon },
+  { name: 'Prayer',         href: '/prayer',    icon: PrayerIcon },
+  { name: 'Progress',       href: '/progress',  icon: ChartIcon },
+  { name: 'Event Tracker',  href: '/calendar',  icon: CalendarIcon },
+  { name: 'Find a Circle',  href: '/search',    icon: SearchNavIcon },
 ];
 const MessageBulkIcon = () => (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
@@ -172,7 +179,7 @@ export default function AuthenticatedNavigation() {
 
               {/* Dropdown panel */}
               {userMenuOpen && (
-                <div className="absolute right-0 mt-2 w-56 rounded-xl bg-gray-800 border border-gray-700/60 shadow-2xl ring-1 ring-black/10 z-[99999] overflow-hidden">
+                <div className="absolute right-0 mt-2 w-56 rounded-xl bg-gray-900 border border-gray-700 shadow-2xl ring-1 ring-black/30 z-[99999] overflow-hidden" style={{ opacity: 1, backdropFilter: 'none' }}>
                   {/* User info header */}
                   <div className="px-4 py-3 border-b border-gray-700/60">
                     <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
@@ -209,24 +216,6 @@ export default function AuthenticatedNavigation() {
                       ))}
                     </div>
                   )}
-
-                  {/* Find a Circle */}
-                  <div className="py-1 border-t border-gray-700/60">
-                    <Link
-                      href="/search"
-                      onClick={() => setUserMenuOpen(false)}
-                      className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
-                        isActive('/search')
-                          ? 'text-blue-400 bg-blue-600/10'
-                          : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
-                      }`}
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                      </svg>
-                      Find a Circle
-                    </Link>
-                  </div>
 
                   {/* Manage Users & Settings */}
                   <div className="py-1 border-t border-gray-700/60">

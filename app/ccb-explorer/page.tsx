@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import EventSummaryFollowUpModal from '../../components/modals/EventSummaryFollowUpModal';
+import CircleSummaryModal from '../../components/modals/CircleSummaryModal';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -38,6 +39,10 @@ export default function CCBExplorerPage() {
   const [showFollowUpModal, setShowFollowUpModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventData | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  const [summaryModalOpen, setSummaryModalOpen] = useState(false);
+  const [summaryText, setSummaryText] = useState<string | null>(null);
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Cleanup on unmount
@@ -209,6 +214,39 @@ export default function CCBExplorerPage() {
       document.body.removeChild(ta);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleSummarize = async () => {
+    if (events.length === 0) return;
+    setSummaryText(null);
+    setSummaryError(null);
+    setIsSummarizing(true);
+    setSummaryModalOpen(true);
+
+    try {
+      const response = await fetch('/api/ccb/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          events,
+          startDate,
+          endDate: endDate || startDate,
+          groupName,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || result.error) {
+        setSummaryError(result.error || 'Failed to generate summary. Please try again.');
+      } else {
+        setSummaryText(result.summary);
+      }
+    } catch (err: any) {
+      setSummaryError(err.message || 'An unexpected error occurred.');
+    } finally {
+      setIsSummarizing(false);
     }
   };
 
@@ -407,6 +445,17 @@ export default function CCBExplorerPage() {
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   {events.length} event{events.length !== 1 ? 's' : ''} found
                 </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleSummarize}
+                    disabled={loading}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 bg-purple-600 hover:bg-purple-700 text-white shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                    </svg>
+                    Analyze
+                  </button>
                 <button
                   onClick={handleCopyAll}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
@@ -427,6 +476,7 @@ export default function CCBExplorerPage() {
                     </>
                   )}
                 </button>
+                </div>
               </div>
 
               {/* Event Cards */}
@@ -583,6 +633,19 @@ export default function CCBExplorerPage() {
           onSave={handleSaveFollowUp}
         />
       )}
+
+      {/* Circle Summary Modal */}
+      <CircleSummaryModal
+        isOpen={summaryModalOpen}
+        onClose={() => setSummaryModalOpen(false)}
+        summary={summaryText}
+        isLoading={isSummarizing}
+        error={summaryError}
+        startDate={startDate}
+        endDate={endDate || startDate}
+        groupName={groupName}
+        eventCount={events.length}
+      />
     </ProtectedRoute>
   );
 }

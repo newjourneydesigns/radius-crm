@@ -93,7 +93,7 @@ export default function CalendarFilterPanel({
               </svg>
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Calendar Filters</h2>
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Event Tracker Filters</h2>
               <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                 {totalLeaders} circles
                 {hasActiveFilters ? ` • ${activeFilterCount} active` : ''}

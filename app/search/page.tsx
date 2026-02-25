@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 import { CircleLeader } from '../../lib/supabase';
 import DashboardFilterAdapter from '../../components/dashboard/DashboardFilterAdapter';
@@ -276,6 +277,23 @@ export default function SearchPage() {
           allLeaders={circles}
         />
 
+        {/* Circle Count */}
+        {!isLoading && (
+          <div className="mb-4 flex items-center justify-between">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {filteredCircles.length === circles.length ? (
+                <span>
+                  <span className="font-semibold text-gray-900 dark:text-white">{circles.length}</span> circle{circles.length !== 1 ? 's' : ''}
+                </span>
+              ) : (
+                <span>
+                  Showing <span className="font-semibold text-gray-900 dark:text-white">{filteredCircles.length}</span> of <span className="font-semibold text-gray-900 dark:text-white">{circles.length}</span> circle{circles.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </p>
+          </div>
+        )}
+
         {/* Results */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-visible">
           {isLoading ? (
@@ -368,18 +386,19 @@ export default function SearchPage() {
                         )}
                       </div>
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Contact
-                    </th>
+
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {filteredCircles.map((circle) => (
                     <tr key={circle.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        <Link
+                          href={`/circle/${circle.id}`}
+                          className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
+                        >
                           {circle.name || 'Unknown'}
-                        </div>
+                        </Link>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 dark:text-white">
@@ -401,9 +420,7 @@ export default function SearchPage() {
                           {circle.circle_type || '-'}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        <span className="text-gray-500 dark:text-gray-400">Contact leader directly</span>
-                      </td>
+
                     </tr>
                   ))}
                 </tbody>

@@ -47,6 +47,14 @@ const SearchIcon = ({ active }: { active?: boolean }) => (
   </svg>
 );
 
+const FindCircleIcon = ({ active }: { active?: boolean }) => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="7" />
+    <path d="M16.5 16.5L21 21" />
+    <path d="M8 11h6M11 8v6" />
+  </svg>
+);
+
 const PrayerIcon = ({ active }: { active?: boolean }) => active ? (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
     <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
@@ -150,6 +158,18 @@ const ChevronRightIcon = () => (
 /* ─────────────────────────────────────────────────────────
    Component
    ───────────────────────────────────────────────────────── */
+interface TabIconProps {
+  active?: boolean;
+}
+
+interface TabItem {
+  name: string;
+  href?: string;
+  Icon: React.FC<TabIconProps>;
+  action?: () => void;
+  id: string;
+}
+
 export default function MobileNavigation() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
@@ -217,12 +237,13 @@ export default function MobileNavigation() {
   if (!isAuthenticated()) return null;
 
   /* Tab items — split into left/right groups around the raised center button */
-  const leftTabs: { name: string; href?: string; Icon: React.FC<{ active?: boolean }>; action?: () => void; id: string }[] = [
+  const leftTabs: TabItem[] = [
     { id: 'home', name: 'Home', href: '/dashboard', Icon: HomeIcon },
     { id: 'prayer', name: 'Prayer', href: '/prayer', Icon: PrayerIcon },
   ];
-  const rightTabs: { name: string; href?: string; Icon: React.FC<{ active?: boolean }>; action?: () => void; id: string }[] = [
-    { id: 'calendar', name: 'Calendar', href: '/calendar', Icon: CalendarIcon },
+  const rightTabs: TabItem[] = [
+    { id: 'find-circle', name: 'Find Circle', href: '/search', Icon: FindCircleIcon },
+    { id: 'calendar', name: 'Event Tracker', href: '/calendar', Icon: CalendarIcon },
     { id: 'more', name: 'More', Icon: EllipsisIcon, action: () => setSheetOpen(v => !v) },
   ];
 
@@ -368,22 +389,6 @@ export default function MobileNavigation() {
               className={`mobile-sheet-row ${isActive('/progress') ? 'active' : ''}`}>
               <span className="mobile-sheet-row-icon"><ChartIcon /></span>
               <span className="mobile-sheet-row-label">Progress</span>
-              <ChevronRightIcon />
-            </Link>
-          </div>
-        </div>
-
-        {/* Find a Circle */}
-        <div className="mobile-sheet-section">
-          <div className="mobile-sheet-group">
-            <Link href="/search"
-              className={`mobile-sheet-row ${isActive('/search') ? 'active' : ''}`}>
-              <span className="mobile-sheet-row-icon">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                </svg>
-              </span>
-              <span className="mobile-sheet-row-label">Find a Circle</span>
               <ChevronRightIcon />
             </Link>
           </div>
