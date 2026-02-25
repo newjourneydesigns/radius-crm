@@ -55,8 +55,13 @@ export default function SearchFilterPanel({
     return campuses.sort();
   }, [allLeaders]);
 
+  const EXCLUDED_CIRCLE_TYPES = new Set(['[object Object]', 'Admin', 'Circle', "YA | Couple's"]);
   const uniqueCircleTypes = useMemo(() => {
-    const types = Array.from(new Set(allLeaders.map(leader => leader.circle_type).filter(Boolean))) as string[];
+    const types = Array.from(new Set(
+      allLeaders.map(leader => leader.circle_type).filter(
+        v => Boolean(v) && typeof v === 'string' && !EXCLUDED_CIRCLE_TYPES.has(v)
+      )
+    )) as string[];
     return types.sort();
   }, [allLeaders]);
 
