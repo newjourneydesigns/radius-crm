@@ -4,6 +4,7 @@ import { Suspense, useMemo, useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase } from '../../lib/supabase';
+import { getRememberMe, setRememberMe } from '../../lib/rememberMeStorage';
 import ProtectedRoute from '../../components/ProtectedRoute';
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -22,6 +23,7 @@ function LoginContent() {
   const [error, setError] = useState('');
   const [mounted, setMounted] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [rememberMe, setRememberMeState] = useState(true);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const cooldownRef = useRef<NodeJS.Timeout | null>(null);
   const searchParams = useSearchParams();
@@ -29,8 +31,14 @@ function LoginContent() {
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 50);
+    setRememberMeState(getRememberMe());
     return () => clearTimeout(t);
   }, []);
+
+  const handleRememberMeChange = (checked: boolean) => {
+    setRememberMeState(checked);
+    setRememberMe(checked);
+  };
 
   // Cooldown countdown timer
   useEffect(() => {
@@ -345,6 +353,25 @@ function LoginContent() {
                   transition-all duration-150"
                 disabled={isLoading}
               />
+            </div>
+
+            {/* Remember me */}
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2.5 cursor-pointer select-none group">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={e => handleRememberMeChange(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-600 bg-gray-900/50 text-blue-500
+                    accent-blue-500 cursor-pointer"
+                />
+                <span className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">
+                  Keep me signed in
+                </span>
+              </label>
+              <span className="text-[11px] text-gray-600">
+                {rememberMe ? 'Stays signed in' : 'Signs out on close'}
+              </span>
             </div>
 
             <button

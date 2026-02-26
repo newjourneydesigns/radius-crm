@@ -23,6 +23,7 @@ import Link from 'next/link';
 import { buildRepeatLabel, generateDueDates, toISODate, TodoRepeatRule } from '../../lib/todoRecurrence';
 import { ensureDefaultFrequencies } from '../../lib/frequencyUtils';
 import DictateAndSummarize from '../../components/notes/DictateAndSummarize';
+import RichTextEditor from '../../components/notes/RichTextEditor';
 
 interface ContactModalData {
   isOpen: boolean;
@@ -1958,6 +1959,21 @@ function DashboardContent() {
     return elements.length > 0 ? elements : text;
   };
 
+  // Render note content – HTML notes rendered directly; plain-text notes use linkifyText
+  const renderNoteContent = (content: string): React.ReactNode => {
+    if (!content) return null;
+    const looksLikeHtml = /<[a-z][\s\S]*>/i.test(content);
+    if (looksLikeHtml) {
+      return (
+        <div
+          dangerouslySetInnerHTML={{ __html: content }}
+          className="[&_a]:text-blue-600 [&_a]:dark:text-blue-400 [&_a]:underline"
+        />
+      );
+    }
+    return linkifyText(content);
+  };
+
   // Helper function to convert dashboard filters to server-side filters
   const getServerFilters = (): CircleLeaderFilters => {
     const serverFilters: CircleLeaderFilters = {};
@@ -3033,11 +3049,11 @@ function DashboardContent() {
                         onTextChange={setNewNoteContent}
                         disabled={savingNoteId === -1}
                       />
-                      <textarea
+                      <RichTextEditor
                         value={newNoteContent}
-                        onChange={(e) => setNewNoteContent(e.target.value)}
+                        onChange={setNewNoteContent}
                         placeholder="Add a new personal note..."
-                        className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y min-h-[80px]"
+                        disabled={savingNoteId === -1}
                       />
                       <button
                         onClick={saveNewUserNote}
@@ -3060,9 +3076,7 @@ function DashboardContent() {
                         )}
                       </button>
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      💡 Tip: Type markdown-style links like [Display Text](URL) to create clickable links
-                    </div>
+
                   </div>
 
                   {/* Existing Notes */}
@@ -3086,27 +3100,14 @@ function DashboardContent() {
                           {editingNoteId === note.id ? (
                             // Edit mode
                             <div className="space-y-3">
-                              <textarea
+                              <RichTextEditor
                                 value={editingContent}
-                                onChange={(e) => {
-                                  setEditingContent(e.target.value);
-                                  // Auto-resize as user types
-                                  const textarea = e.target as HTMLTextAreaElement;
-                                  textarea.style.height = 'auto';
-                                  textarea.style.height = Math.max(80, Math.min(600, textarea.scrollHeight)) + 'px';
-                                }}
-                                data-editing-id={note.id}
-                                className="w-full min-h-[80px] max-h-[600px] p-3 border border-gray-300 dark:border-gray-600 rounded-md 
-                                         bg-white dark:bg-gray-700 text-gray-900 dark:text-white 
-                                         focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
-                                         resize-y transition-colors"
+                                onChange={setEditingContent}
                                 disabled={savingNoteId === note.id}
-                                style={{ height: 'auto' }}
+                                minHeight="80px"
                               />
                               <div className="flex items-center justify-between">
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  {editingContent.length} characters
-                                </div>
+                                <div />
                                 <div className="flex items-center gap-2">
                                   <button
                                     onClick={cancelEditing}
@@ -3205,7 +3206,7 @@ function DashboardContent() {
                                 </div>
                               </div>
                               <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
-                                {linkifyText(note.content)}
+                                {renderNoteContent(note.content)}
                               </div>
                             </div>
                           )}

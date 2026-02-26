@@ -150,10 +150,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
     }, 1500);
 
+    // Refresh the session whenever the tab/window becomes visible again.
+    // This ensures the token is silently renewed after the device wakes from
+    // sleep or the user switches back from another tab, minimising stale-session
+    // sign-outs without any visible loading state.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        supabase.auth.getSession().catch(() => {
+          // getSession triggers autoRefreshToken if the access token is expired;
+          // we don't need to act on the result here — onAuthStateChange will
+          // fire TOKEN_REFRESHED if a refresh happens.
+        });
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       subscription.unsubscribe();
       if (debounceTimer) clearTimeout(debounceTimer);
       clearTimeout(safetyTimeout);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
@@ -194,21 +210,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setLoading(false);
     
-    // Clear browser storage
+    // Remove only Supabase-related keys from storage — do NOT call
+    // localStorage.clear() as that would also wipe non-auth app data such as
+    // theme preferences and the "remember me" setting.
     if (typeof window !== 'undefined') {
       try {
-        localStorage.clear();
-        sessionStorage.clear();
-        // Also clear specific Supabase keys
-        const keysToRemove: string[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && key.includes('supabase')) {
-            keysToRemove.push(key);
+        const stores: Storage[] = [window.localStorage, window.sessionStorage];
+        stores.forEach(store => {
+          const keysToRemove: string[] = [];
+          for (let i = 0; i < store.length; i++) {
+            const key = store.key(i);
+            if (key && key.includes('supabase')) {
+              keysToRemove.push(key);
+            }
           }
-        }
-        keysToRemove.forEach(key => localStorage.removeItem(key));
-        console.log('✅ AuthContext: Browser storage cleared');
+          keysToRemove.forEach(key => store.removeItem(key));
+        });
+        console.log('✅ AuthContext: Supabase storage keys cleared');
       } catch (error) {
         console.error('❌ AuthContext: Error clearing storage:', error);
       }

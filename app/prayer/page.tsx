@@ -690,7 +690,7 @@ function PrayerListContent() {
                               </div>
                             ) : (
                               <>
-                                <p className="text-sm text-[#e2e8f0] font-medium leading-relaxed">{gp.content}</p>
+                                <p className="text-sm text-[#e2e8f0] font-medium leading-relaxed whitespace-pre-wrap">{gp.content}</p>
                                 <div className="flex items-center justify-between mt-1.5">
                                   <span className="text-[11px] text-[#4c6785]">{timeAgo(gp.created_at)} · {formatDate(gp.created_at)}</span>
                                   {/* Mobile actions */}
@@ -820,7 +820,7 @@ function PrayerListContent() {
                                       </div>
                                     ) : (
                                       <>
-                                        <p className="text-sm text-[#e2e8f0] font-medium leading-relaxed">{prayer.content}</p>
+                                        <p className="text-sm text-[#e2e8f0] font-medium leading-relaxed whitespace-pre-wrap">{prayer.content}</p>
                                         <div className="flex items-center justify-between mt-1.5">
                                           <span className="text-[11px] text-[#4c6785]">{timeAgo(prayer.created_at)} · {formatDate(prayer.created_at)}</span>
                                           {/* Mobile actions */}

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { rememberMeStorage } from './rememberMeStorage';
 
 // Debug environment variables only in development (avoid leaking details in build logs)
 if (process.env.NODE_ENV === 'development') {
@@ -18,13 +19,18 @@ if (typeof window !== 'undefined' && supabaseUrl.includes('placeholder')) {
   console.warn('⚠️ Using placeholder Supabase credentials. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.');
 }
 
-// Create Supabase client with proper fallbacks
+const isPlaceholder = supabaseUrl.includes('placeholder');
+
+// Create Supabase client with proper fallbacks.
+// `rememberMeStorage` dynamically routes session tokens to localStorage (when
+// "remember me" is on, the default) or sessionStorage (when it is off).
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: !supabaseUrl.includes('placeholder'),
-    autoRefreshToken: !supabaseUrl.includes('placeholder'),
+    persistSession: !isPlaceholder,
+    autoRefreshToken: !isPlaceholder,
     detectSessionInUrl: true,
-    flowType: 'implicit' // Implicit flow — tokens arrive in URL hash, works across browsers/tabs
+    flowType: 'implicit', // Implicit flow — tokens arrive in URL hash, works across browsers/tabs
+    storage: typeof window !== 'undefined' ? rememberMeStorage : undefined,
   }
 });
 

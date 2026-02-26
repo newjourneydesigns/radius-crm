@@ -242,8 +242,7 @@ export default function MobileNavigation() {
     { id: 'prayer', name: 'Prayer', href: '/prayer', Icon: PrayerIcon },
   ];
   const rightTabs: TabItem[] = [
-    { id: 'find-circle', name: 'Find Circle', href: '/search', Icon: FindCircleIcon },
-    { id: 'calendar', name: 'Event Tracker', href: '/calendar', Icon: CalendarIcon },
+    { id: 'calendar', name: 'Events', href: '/calendar', Icon: CalendarIcon },
     { id: 'more', name: 'More', Icon: EllipsisIcon, action: () => setSheetOpen(v => !v) },
   ];
 
@@ -382,9 +381,15 @@ export default function MobileNavigation() {
           {admin && <span className="mobile-sheet-badge">Admin</span>}
         </div>
 
-        {/* Progress link */}
+        {/* Quick links */}
         <div className="mobile-sheet-section">
           <div className="mobile-sheet-group">
+            <Link href="/search"
+              className={`mobile-sheet-row bordered ${isActive('/search') ? 'active' : ''}`}>
+              <span className="mobile-sheet-row-icon"><FindCircleIcon /></span>
+              <span className="mobile-sheet-row-label">Find Circle</span>
+              <ChevronRightIcon />
+            </Link>
             <Link href="/progress"
               className={`mobile-sheet-row ${isActive('/progress') ? 'active' : ''}`}>
               <span className="mobile-sheet-row-icon"><ChartIcon /></span>
