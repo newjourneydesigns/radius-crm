@@ -21,7 +21,6 @@ import ProtectedRoute from '../../../components/ProtectedRoute';
 import ScorecardSection from '../../../components/circle/ScorecardSection';
 import ACPDTrackingSection from '../../../components/circle/ACPDTrackingSection';
 import CircleVisitsSection from '../../../components/circle/CircleVisitsSection';
-import AttendanceTrends from '../../../components/circle/AttendanceTrends';
 import DictateAndSummarize from '../../../components/notes/DictateAndSummarize';
 import MeetingPrepAssistant from '../../../components/notes/MeetingPrepAssistant';
 import CircleLeaderProfileSkeleton from '../../../components/circle/CircleLeaderProfileSkeleton';
@@ -241,7 +240,6 @@ const SECTION_TABS = [
   { id: 'section-pec',       label: 'Care', adminOnly: true },
   { id: 'section-visits',    label: 'Circle Visits', mobileLabel: 'Visits', adminOnly: true },
   { id: 'section-scorecard', label: 'Scorecard' },
-  { id: 'section-trends',    label: 'Trends' },
   { id: 'section-notes',     label: 'Notes' },
 ] as const;
 
@@ -2786,13 +2784,6 @@ export default function CircleLeaderProfilePage() {
         {/* Progress Scorecard Section */}
         <div id="section-scorecard" ref={setSectionRef('section-scorecard')} className="mt-6 scroll-mt-20">
           <ScorecardSection leaderId={leaderId} isAdmin={isAdmin()} onNoteSaved={reloadNotes} onAddToCoaching={handleAddToCoaching} />
-        </div>
-
-        {/* Attendance Trends Section */}
-        <div id="section-trends" ref={setSectionRef('section-trends')} className="mt-6 scroll-mt-20">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <AttendanceTrends leaderId={leaderId} leaderName={leader?.name || ''} />
-          </div>
         </div>
 
             {/* Notes Section */}

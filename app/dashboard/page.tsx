@@ -24,6 +24,7 @@ import { buildRepeatLabel, generateDueDates, toISODate, TodoRepeatRule } from '.
 import { ensureDefaultFrequencies } from '../../lib/frequencyUtils';
 import DictateAndSummarize from '../../components/notes/DictateAndSummarize';
 import RichTextEditor from '../../components/notes/RichTextEditor';
+import PublicNotesSection, { PublicNotesSectionHandle } from '../../components/dashboard/PublicNotesSection';
 
 interface ContactModalData {
   isOpen: boolean;
@@ -195,6 +196,7 @@ function DashboardContent() {
   const [newNoteContent, setNewNoteContent] = useState('');
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editingContent, setEditingContent] = useState('');
+  const [editingNotePublic, setEditingNotePublic] = useState(false);
   const [savingNoteId, setSavingNoteId] = useState<number | null>(null);
   const [userNotesVisible, setUserNotesVisible] = useState(() => {
     try {
@@ -204,6 +206,7 @@ function DashboardContent() {
       return true;
     }
   });
+  const [newNotePublic, setNewNotePublic] = useState(false);
   const [deleteNoteModal, setDeleteNoteModal] = useState<{
     isOpen: boolean;
     noteId: number | null;
@@ -213,6 +216,7 @@ function DashboardContent() {
     noteId: null,
     content: ''
   });
+  const publicNotesRef = useRef<PublicNotesSectionHandle>(null);
 
   // Load recent notes (latest 9) filtered by current dashboard filters
   const loadRecentNotes = async () => {
@@ -1394,7 +1398,7 @@ function DashboardContent() {
     try {
       const { data, error } = await supabase
         .from('user_notes')
-        .insert({ user_id: user.id, content: newNoteContent })
+        .insert({ user_id: user.id, content: newNoteContent, is_public: newNotePublic })
         .select()
         .single();
       
@@ -1419,6 +1423,11 @@ function DashboardContent() {
         });
       });
       setNewNoteContent('');
+      // If note was shared, refresh the public notes section
+      if (newNotePublic) {
+        setNewNotePublic(false);
+        publicNotesRef.current?.reload();
+      }
     } catch (e) {
       console.error('Error saving user note:', e);
     } finally {
@@ -1427,12 +1436,16 @@ function DashboardContent() {
   };
 
   // Update an existing note
-  const updateUserNote = async (noteId: number, content: string) => {
+  const updateUserNote = async (noteId: number, content: string, isPublic?: boolean) => {
     setSavingNoteId(noteId);
     try {
+      const updateData: { content: string; is_public?: boolean } = { content };
+      if (isPublic !== undefined) {
+        updateData.is_public = isPublic;
+      }
       const { error } = await supabase
         .from('user_notes')
-        .update({ content })
+        .update(updateData)
         .eq('id', noteId);
       
       if (error) {
@@ -1441,10 +1454,16 @@ function DashboardContent() {
       }
       
       setUserNotes(prev => prev.map(note => 
-        note.id === noteId ? { ...note, content } : note
+        note.id === noteId ? { ...note, content, ...(isPublic !== undefined ? { is_public: isPublic } : {}) } : note
       ));
       setEditingNoteId(null);
       setEditingContent('');
+      setEditingNotePublic(false);
+      // Refresh public notes if the note is or was public
+      const editedNote = userNotes.find(n => n.id === noteId);
+      if (editedNote?.is_public || isPublic) {
+        publicNotesRef.current?.reload();
+      }
     } catch (e) {
       console.error('Error updating user note:', e);
     } finally {
@@ -1559,11 +1578,63 @@ function DashboardContent() {
     }
   };
 
+  // Toggle public/private status of a note
+  const toggleNotePublic = async (noteId: number) => {
+    try {
+      const note = userNotes.find(n => n.id === noteId);
+      if (!note) return;
+
+      const newPublicState = !note.is_public;
+      const { error } = await supabase
+        .from('user_notes')
+        .update({ is_public: newPublicState })
+        .eq('id', noteId);
+
+      if (error) {
+        if (error.code === '42703') {
+          setShowAlert({
+            isOpen: true,
+            type: 'info',
+            title: 'Feature Not Available',
+            message: 'The share feature requires a database update. Please run the add_public_notes.sql migration first.'
+          });
+          return;
+        }
+        console.error('Error toggling note public status:', error);
+        return;
+      }
+
+      setUserNotes(prev => prev.map(n =>
+        n.id === noteId ? { ...n, is_public: newPublicState } : n
+      ));
+
+      // Refresh public notes section
+      publicNotesRef.current?.reload();
+
+      setShowAlert({
+        isOpen: true,
+        type: 'success',
+        title: newPublicState ? 'Note Shared' : 'Note Unshared',
+        message: newPublicState
+          ? 'This note is now visible to all Radius users.'
+          : 'This note is now private again.'
+      });
+    } catch (e) {
+      console.error('Error toggling note public status:', e);
+    }
+  };
+
   // Confirm delete note
   const confirmDeleteNote = async () => {
     if (deleteNoteModal.noteId) {
+      // Check if the note being deleted was public
+      const wasPublic = userNotes.find(n => n.id === deleteNoteModal.noteId)?.is_public;
       await deleteUserNote(deleteNoteModal.noteId);
       closeDeleteNoteModal();
+      // Refresh public notes if the deleted note was shared
+      if (wasPublic) {
+        publicNotesRef.current?.reload();
+      }
       setShowAlert({
         isOpen: true,
         type: 'success',
@@ -1577,6 +1648,8 @@ function DashboardContent() {
   const startEditingNote = (noteId: number, content: string) => {
     setEditingNoteId(noteId);
     setEditingContent(content);
+    const note = userNotes.find(n => n.id === noteId);
+    setEditingNotePublic(note?.is_public ?? false);
     
     // Auto-resize textarea to fit content after a short delay
     setTimeout(() => {
@@ -1592,6 +1665,7 @@ function DashboardContent() {
   const cancelEditing = () => {
     setEditingNoteId(null);
     setEditingContent('');
+    setEditingNotePublic(false);
   };
 
   // Reference data state
@@ -2052,7 +2126,7 @@ function DashboardContent() {
       ticking = true;
       rafId = requestAnimationFrame(() => {
         ticking = false;
-        const sections = ['todo-list', 'personal-notes', 'filters', 'status-overview', 'follow-up', 'recent-notes', 'progress'];
+        const sections = ['todo-list', 'personal-notes', 'public-notes', 'filters', 'status-overview', 'follow-up', 'recent-notes', 'progress'];
         
         const scrollY = window.scrollY;
         
@@ -2321,11 +2395,10 @@ function DashboardContent() {
           const allTabs = [
             { id: 'todo-list', label: 'To Do' },
             { id: 'personal-notes', label: 'Notes' },
+            { id: 'public-notes', label: 'Public Notes', mobileLabel: 'Public' },
             { id: 'filters', label: 'Filters' },
             ...(hasCampusSelection ? [
               { id: 'status-overview', label: 'Status' },
-              { id: 'progress', label: 'Event Summaries', mobileLabel: 'Events' },
-              { id: 'follow-up', label: 'Follow Up' },
               { id: 'recent-notes', label: 'Recent Notes', mobileLabel: 'Recent' },
             ] : []),
           ];
@@ -3055,11 +3128,37 @@ function DashboardContent() {
                         placeholder="Add a new personal note..."
                         disabled={savingNoteId === -1}
                       />
+                      <div className="flex items-center justify-between mt-2">
+                        <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                          <div
+                            role="switch"
+                            aria-checked={newNotePublic}
+                            tabIndex={0}
+                            onClick={() => setNewNotePublic(p => !p)}
+                            onKeyDown={(e) => e.key === 'Enter' && setNewNotePublic(p => !p)}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                              newNotePublic ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                                newNotePublic ? 'translate-x-[18px]' : 'translate-x-[3px]'
+                              }`}
+                            />
+                          </div>
+                          <span className={`text-xs font-medium ${
+                            newNotePublic
+                              ? 'text-green-700 dark:text-green-300'
+                              : 'text-gray-500 dark:text-gray-400'
+                          }`}>
+                            {newNotePublic ? 'Public — visible to all users' : 'Private'}
+                          </span>
+                        </label>
                       <button
                         onClick={saveNewUserNote}
                         disabled={!newNoteContent.trim() || savingNoteId === -1}
                         className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 
-                                 text-white text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed mt-2"
+                                 text-white text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed"
                       >
                         {savingNoteId === -1 ? (
                           <>
@@ -3075,6 +3174,7 @@ function DashboardContent() {
                           </>
                         )}
                       </button>
+                      </div>
                     </div>
 
                   </div>
@@ -3107,7 +3207,31 @@ function DashboardContent() {
                                 minHeight="80px"
                               />
                               <div className="flex items-center justify-between">
-                                <div />
+                                <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                                  <div
+                                    role="switch"
+                                    aria-checked={editingNotePublic}
+                                    tabIndex={0}
+                                    onClick={() => setEditingNotePublic(!editingNotePublic)}
+                                    onKeyDown={(e) => e.key === 'Enter' && setEditingNotePublic(!editingNotePublic)}
+                                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                      editingNotePublic ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                                    } ${savingNoteId === note.id ? 'opacity-50 pointer-events-none' : ''}`}
+                                  >
+                                    <span
+                                      className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                                        editingNotePublic ? 'translate-x-[18px]' : 'translate-x-[3px]'
+                                      }`}
+                                    />
+                                  </div>
+                                  <span className={`text-xs font-medium ${
+                                    editingNotePublic
+                                      ? 'text-green-700 dark:text-green-300'
+                                      : 'text-gray-500 dark:text-gray-400'
+                                  }`}>
+                                    {editingNotePublic ? 'Public — visible to all users' : 'Private'}
+                                  </span>
+                                </label>
                                 <div className="flex items-center gap-2">
                                   <button
                                     onClick={cancelEditing}
@@ -3118,7 +3242,7 @@ function DashboardContent() {
                                     Cancel
                                   </button>
                                   <button
-                                    onClick={() => updateUserNote(note.id, editingContent)}
+                                    onClick={() => updateUserNote(note.id, editingContent, editingNotePublic)}
                                     disabled={!editingContent.trim() || savingNoteId === note.id}
                                     className="inline-flex items-center px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 
                                              text-white text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed"
@@ -3159,8 +3283,37 @@ function DashboardContent() {
                                       minute: '2-digit'
                                     })}
                                   </div>
+                                  {note.is_public && (
+                                    <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded-full">
+                                      Public
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => toggleNotePublic(note.id)}
+                                    className={`inline-flex items-center px-2 py-1 text-sm font-medium rounded-md transition-colors ${note.is_public
+                                      ? 'text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50'
+                                      : 'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500'
+                                    }`}
+                                    title={note.is_public ? 'Make note private' : 'Share with all users'}
+                                  >
+                                    {note.is_public ? (
+                                      <>
+                                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Shared
+                                      </>
+                                    ) : (
+                                      <>
+                                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                                        </svg>
+                                        Share
+                                      </>
+                                    )}
+                                  </button>
                                   <button
                                     onClick={() => togglePinNote(note.id)}
                                     className={`inline-flex items-center px-2 py-1 text-sm font-medium rounded-md transition-colors ${note.pinned 
@@ -3218,6 +3371,9 @@ function DashboardContent() {
               )}
             </div>
           </div>
+
+              {/* Public Notes Section */}
+              <PublicNotesSection ref={publicNotesRef} />
 
         {/* Filters - Desktop visible, Mobile hidden (using FAB instead) */}
         <div id="filters" data-testid="filters-section" className="mt-6 hidden md:block">

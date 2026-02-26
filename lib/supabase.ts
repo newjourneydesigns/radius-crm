@@ -195,8 +195,10 @@ export interface UserNote {
   user_id: string;
   content: string;
   pinned?: boolean;
+  is_public?: boolean;
   created_at: string;
   updated_at: string;
+  users?: { name: string };
 }
 
 export interface TodoItem {

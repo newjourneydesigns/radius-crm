@@ -7,6 +7,8 @@ import { useDevelopmentProspects } from '../../hooks/useDevelopmentProspects';
 import { ScorecardDimension } from '../../lib/supabase';
 import { calculateSuggestedScore, getFinalScore } from '../../lib/evaluationQuestions';
 import CategoryEvaluation from './CategoryEvaluation';
+import ScorecardTrendChart from './ScorecardTrendChart';
+import { useScoreHistory } from '../../hooks/useScoreHistory';
 
 const DIMENSIONS = [
   { key: 'reach' as const, label: 'Reach', color: '#3b82f6', bgClass: 'bg-blue-500/10 border-blue-500/30', textClass: 'text-blue-400' },
@@ -38,6 +40,8 @@ export default function ScorecardSection({ leaderId, isAdmin, onNoteSaved, onAdd
     getSuggestedScore,
   } = useEvaluation();
 
+  const { history: scoreHistory, loadHistory: loadScoreHistory, recordScore, recordAllScores } = useScoreHistory();
+
   const [isRating, setIsRating] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -51,7 +55,8 @@ export default function ScorecardSection({ leaderId, isAdmin, onNoteSaved, onAdd
     loadRatings(leaderId);
     loadEvaluations(leaderId);
     loadProspects(leaderId);
-  }, [leaderId, loadRatings, loadEvaluations, loadProspects]);
+    loadScoreHistory(leaderId);
+  }, [leaderId, loadRatings, loadEvaluations, loadProspects, loadScoreHistory]);
 
   const latestScores = getLatestScores();
   const trend = getTrend();
@@ -110,6 +115,13 @@ export default function ScorecardSection({ leaderId, isAdmin, onNoteSaved, onAdd
     } else {
       await submitScores(leaderId, scores, note || undefined);
     }
+    // Record all 4 scores to history
+    await recordAllScores(leaderId, {
+      reach: scores.reach_score,
+      connect: scores.connect_score,
+      disciple: scores.disciple_score,
+      develop: scores.develop_score,
+    }, 'direct');
     setIsSubmitting(false);
     setIsRating(false);
     setEditingId(null);
@@ -264,7 +276,25 @@ export default function ScorecardSection({ leaderId, isAdmin, onNoteSaved, onAdd
               onAnswerChange={(qKey, answer) => updateAnswer(activeDimension, leaderId, qKey, answer)}
               onOverrideChange={(score) => setOverride(activeDimension, leaderId, score)}
               onContextChange={(notes) => setContextNotes(activeDimension, leaderId, notes)}
-              onSave={async () => { await saveEvaluation(leaderId, activeDimension); onNoteSaved?.(); }}
+              onSave={async () => {
+                await saveEvaluation(leaderId, activeDimension);
+                // Record ALL dimensions' scores to history (so all 4 lines get a point)
+                const allScores: Record<string, number> = {};
+                const dims: Array<'reach' | 'connect' | 'disciple' | 'develop'> = ['reach', 'connect', 'disciple', 'develop'];
+                for (const dim of dims) {
+                  const ed = getEvaluation(dim);
+                  const sg = getSuggestedScore(dim);
+                  const ds = latestScores[dim] ?? null;
+                  const fs = getFinalScore(ed.manual_override_score, sg, ds);
+                  if (fs !== null) {
+                    allScores[dim] = fs;
+                  }
+                }
+                if (Object.keys(allScores).length === 4) {
+                  await recordAllScores(leaderId, allScores as { reach: number; connect: number; disciple: number; develop: number }, 'evaluation');
+                }
+                onNoteSaved?.();
+              }}
               onClose={() => setActiveDimension(null)}
               isSaving={evalSaving}
               onAddToCoaching={onAddToCoaching}
@@ -362,6 +392,9 @@ export default function ScorecardSection({ leaderId, isAdmin, onNoteSaved, onAdd
                 )}
               </div>
             )}
+
+            {/* Score Trend Line Chart */}
+            <ScorecardTrendChart scoreHistory={scoreHistory} ratings={ratings} />
 
             {/* Development Prospects Summary */}
             {prospects.filter(p => p.is_active).length > 0 && (
