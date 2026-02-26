@@ -1,8 +1,8 @@
 # RADIUS CRM — Project Context
 
-> **Version:** 1.5.0  
+> **Version:** 1.6.0  
 > **Repository:** `newjourneydesigns/radius-crm` (branch: `main`)  
-> **Last Updated:** 2026-02-23
+> **Last Updated:** 2026-02-26
 
 ---
 
@@ -90,6 +90,9 @@ Set in `.env.local` for development, Netlify dashboard for production.
 │       │   ├── test-endpoints/
 │       │   └── test-groups/
 │       ├── ai-summarize/       # AI summarization & meeting prep API (Gemini→Groq fallback)
+│       ├── ccb/                # CCB proxy endpoints (continued)
+│       │   ├── summarize/      # CCB Explorer AI analysis — 10-section ministry report (Gemini→Groq)
+│       │   └── chat/           # CCB Explorer follow-up chat — multi-turn AI conversation
 │       ├── debug-users/        # Debug endpoint
 │       └── test/               # Test endpoint
 │
@@ -134,7 +137,8 @@ Set in `.env.local` for development, Netlify dashboard for production.
 │   │   ├── PasswordModal.tsx
 │   │   ├── ConnectPersonModal.tsx
 │   │   ├── EventExplorerModal.tsx
-│   │   └── EventSummaryReminderModal.tsx
+│   │   ├── EventSummaryReminderModal.tsx
+│   │   └── CircleSummaryModal.tsx  # CCB Explorer AI analysis modal with inline follow-up chat
 │   ├── notes/                  # AI-powered note tools
 │   │   ├── DictateAndSummarize.tsx  # Voice dictation toolbar + AI summarize with preview/approve UX
 │   │   └── MeetingPrepAssistant.tsx # AI meeting prep briefing generator (Big 4 coaching, admin-only)
@@ -266,6 +270,8 @@ Set in `.env.local` for development, Netlify dashboard for production.
 20. **AI Voice Dictation** — Browser-native speech-to-text via Web Speech API (`webkitSpeechRecognition`). Features: visible recording timer with no artificial time cap, auto-restart on silence, reconnection detection. Available in both Circle Leader Notes and Dashboard Personal Notes. Component: `DictateAndSummarize.tsx`, Hook: `useSpeechRecognition.ts`.
 21. **AI Note Summarization** — Summarize dictated or typed notes using AI (Gemini primary, Groq fallback). Word-count-aware prompting: brief inputs get concise summaries, brain dumps get thorough multi-paragraph summaries. Preview & approve UX: shows summary card with "Use Summary" (replace), "Keep Both" (append), or "Discard" options. API: `app/api/ai-summarize/route.ts`.
 22. **AI Meeting Prep Assistant** — Admin-only feature on Circle Leader detail page. Generates a structured coaching briefing for one-on-one meetings organized around the Big 4 framework (Reach, Connect, Disciple, Develop). Sends leader profile, latest scorecard ratings (1-5), and recent notes to AI. Output includes: Leader Snapshot, per-dimension status/coaching questions/ideas, Conversation Starters, and Watch Items. Can be saved directly as a note. Component: `MeetingPrepAssistant.tsx`.
+23. **CCB Explorer AI Analysis** — "Analyze" button (purple, sparkles icon) on the CCB Event Explorer page. Appears once events are loaded. Sends all fetched events (title, date, status, headcount, attendees, topic, notes, prayer requests) to `/api/ccb/summarize`, which generates a 10-section ministry strategist report: (1) Snapshot, (2) Major Spiritual Themes with embedded quotes, (3) Themes by Circle Type, (4) Cultural Indicators with quotes, (5) Prayer Request Categories listing all circles per category, (6) High-Weight Pastoral Moments, (7) Follow-Up Urgency (`Person — Circle — Reason`), (8) Leadership Development, (9) Strategic Recommendations, (10) Executive Summary. Rendered in `CircleSummaryModal` with a custom lightweight markdown renderer (no external library). Includes Copy Summary button. API: `app/api/ccb/summarize/route.ts` (8192 Gemini tokens, 8000 Groq tokens).
+24. **CCB Explorer Follow-Up Chat** — Inline chat panel within `CircleSummaryModal`. Available after analysis loads. AI is seeded with the full analysis as system context and responds with specific circle references, names, and quotes. Full conversation history is passed on every turn (2048 tokens/turn, Gemini→Groq fallback). Features: message bubbles (user=blue-right, AI=gray-left), animated 3-dot typing indicator, Enter to send (Shift+Enter for newline), AI replies rendered with the same markdown renderer, Copy conversation button (formats as `You: ...\n\nAI: ...` transcript), Clear button. API: `app/api/ccb/chat/route.ts`. Component: `components/modals/CircleSummaryModal.tsx`.
 
 ---
 
@@ -324,4 +330,6 @@ The project root contains numerous `.sql` and `.js` migration/fix scripts for ev
 - **GlobalSearch component** (`components/layout/GlobalSearch.tsx`) uses `createPortal` to render into `document.body` and injects a `<style>` block into `document.head` to override global button/bg styles within the search modal. It features keyboard navigation (↑↓ + Enter), Fuse.js fuzzy search, status dot indicators, and animated entry. The modal uses inline styles heavily to escape the global CSS `!important` overrides.
 - **Auth was migrated to passwordless magic link** — email/password login was removed in favor of Supabase magic link authentication. See `PASSWORDLESS_AUTH_MIGRATION.md` for details.
 - **AI dual-provider architecture** — The `ai-summarize` API route tries Gemini first, then automatically falls back to Groq on rate limit (429) or error. Both free tiers have rate limits (Gemini: 15 req/min, Groq: 30 req/min). The route accepts a `mode` parameter: omitted or default uses note summarization prompts; `mode: 'meeting-prep'` uses a coaching assistant system prompt with 4096 max tokens. Environment variables `GEMINI_API_KEY` and `GROQ_API_KEY` must be set in Netlify for production.
+- **CCB Explorer AI routes use the same dual-provider pattern** — `/api/ccb/summarize` requests 8192 output tokens (Gemini hard cap) and 8000 (Groq). `/api/ccb/chat` requests 2048 tokens per turn. For typical weekly usage (~15–25 circles), the 8192 token ceiling is sufficient. Larger date ranges with 40+ circles may truncate the Executive Summary section; Groq fallback has a much higher output ceiling.
+- **`CircleSummaryModal` uses no external markdown library** — all parsing is done inline in a `MarkdownContent` component. Quote detection handles `"`, `“`, `‘`, `> ` prefixes and bullet items beginning with quote characters or `Example:`. Section header regex uses `\d{1,2}` with a ≤50-char title length guard and parenthesis exclusion to avoid false positives on attendance lines like `1. Greg and Danita Moulin's circle (20 attendees)`.
 - **Web Speech API is Chrome/Edge only** — `webkitSpeechRecognition` is not supported in Firefox or Safari. The `useSpeechRecognition` hook exposes an `isSupported` flag; the dictation button is hidden when unsupported.
