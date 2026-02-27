@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Force date inputs to respect container width on iOS Safari */
+input[type="date"] {
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 /* Hide scrollbar utility (used for horizontal scroll navs) */
 .scrollbar-hide {
   -ms-overflow-style: none;  /* IE / Edge */

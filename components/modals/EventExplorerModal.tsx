@@ -217,8 +217,8 @@ export default function EventExplorerModal({
         )}
         
         {/* Input Fields */}
-        <div className="space-y-4">
-          <div>
+        <div className="space-y-4 overflow-hidden">
+          <div className="overflow-hidden">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Date
             </label>
@@ -227,6 +227,7 @@ export default function EventExplorerModal({
               value={date}
               onChange={(e) => setDate(e.target.value)}
               onKeyPress={handleKeyPress}
+              style={{ maxWidth: '100%', minWidth: 0 }}
               className="w-full px-4 py-3 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-200"
               disabled={loading}
             />
