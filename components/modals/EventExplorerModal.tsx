@@ -217,7 +217,7 @@ export default function EventExplorerModal({
         )}
         
         {/* Input Fields */}
-        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Date
@@ -227,12 +227,12 @@ export default function EventExplorerModal({
               value={date}
               onChange={(e) => setDate(e.target.value)}
               onKeyPress={handleKeyPress}
-              className="w-full px-3 sm:px-4 py-3 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-200 text-sm sm:text-base"
+              className="w-full px-4 py-3 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-200"
               disabled={loading}
             />
           </div>
 
-          <div className="min-w-0">
+          <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Group Name
             </label>
@@ -242,7 +242,7 @@ export default function EventExplorerModal({
               onChange={(e) => setGroupName(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="e.g., LVT | S1"
-              className="w-full px-3 sm:px-4 py-3 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-200 text-sm sm:text-base"
+              className="w-full px-4 py-3 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-200"
               disabled={loading}
             />
           </div>
