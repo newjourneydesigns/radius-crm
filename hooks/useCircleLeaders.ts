@@ -21,7 +21,7 @@ interface CacheEntry {
   filterKey: string;
 }
 
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+const CACHE_DURATION = 60 * 1000; // 60 seconds — kept short since Supabase Realtime handles cross-user freshness
 const cache = new Map<string, CacheEntry>();
 
 // Generate cache key from filters

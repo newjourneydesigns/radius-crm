@@ -217,8 +217,8 @@ export default function EventExplorerModal({
         )}
         
         {/* Input Fields */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="sm:w-auto sm:shrink-0">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Date
             </label>
@@ -232,7 +232,7 @@ export default function EventExplorerModal({
             />
           </div>
 
-          <div>
+          <div className="sm:flex-1 sm:min-w-0">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Group Name
             </label>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, Suspense, useRef } from 'react';
+import { useState, useEffect, useMemo, Suspense, useRef, useCallback } from 'react';
 import FilterPanel from '../../components/dashboard/SimpleCampusFilter';
 import { DashboardFilters } from '../../hooks/useDashboardFilters';
 import CircleStatusBar from '../../components/dashboard/CircleStatusBar';
@@ -23,6 +23,7 @@ import Link from 'next/link';
 import { buildRepeatLabel, generateDueDates, toISODate, TodoRepeatRule } from '../../lib/todoRecurrence';
 import { ensureDefaultFrequencies } from '../../lib/frequencyUtils';
 import DictateAndSummarize from '../../components/notes/DictateAndSummarize';
+import { useRealtimeSubscription, RealtimeSubscriptionConfig } from '../../hooks/useRealtimeSubscription';
 import RichTextEditor from '../../components/notes/RichTextEditor';
 import PublicNotesSection, { PublicNotesSectionHandle } from '../../components/dashboard/PublicNotesSection';
 
@@ -85,6 +86,11 @@ function DashboardContent() {
   const [activeSection, setActiveSection] = useState('todo-list');
   const [showDashMoreMenu, setShowDashMoreMenu] = useState(false);
   const dashMoreMenuRef = useRef<HTMLDivElement>(null);
+
+  // ── Real-Time subscription state ──
+  const [realtimeUpdated, setRealtimeUpdated] = useState(false);
+  const realtimeToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const realtimeDebounce = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -2098,6 +2104,86 @@ function DashboardContent() {
       filters.timeOfDay
   ]);
 
+  // ── Supabase Real-Time ──────────────────────────────────────────────
+  // Show the "Data updated" toast, auto-clearing after 2 s
+  const flashRealtimeToast = useCallback(() => {
+    setRealtimeUpdated(true);
+    if (realtimeToastTimer.current) clearTimeout(realtimeToastTimer.current);
+    realtimeToastTimer.current = setTimeout(() => setRealtimeUpdated(false), 2000);
+  }, []);
+
+  // Debounced handler — groups rapid row-level events (e.g. bulk resets)
+  // into a single re-fetch per table within a 300 ms window.
+  const handleRealtimeChange = useCallback(
+    (payload: any) => {
+      const table = (payload as any).table as string;
+      const eventType = payload.eventType;
+      console.log(`[Realtime] ${eventType} on ${table}`);
+
+      // Clear any pending debounce for this table
+      if (realtimeDebounce.current[table]) {
+        clearTimeout(realtimeDebounce.current[table]);
+      }
+
+      realtimeDebounce.current[table] = setTimeout(() => {
+        switch (table) {
+          case 'circle_leaders':
+            invalidateCache();
+            loadCircleLeaders(getServerFilters());
+            break;
+          case 'todo_items':
+            loadTodos();
+            break;
+          case 'notes':
+            invalidateCache();
+            loadCircleLeaders(getServerFilters());
+            loadRecentNotes();
+            break;
+          case 'user_notes':
+            loadUserNotes();
+            break;
+          case 'circle_visits':
+            setFilterPanelRefreshKey((k) => k + 1);
+            break;
+          default:
+            break;
+        }
+        flashRealtimeToast();
+      }, 300);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [invalidateCache, flashRealtimeToast],
+  );
+
+  // Build subscription configs (memoised to avoid re-subscribing on every render)
+  const realtimeSubscriptions: RealtimeSubscriptionConfig[] = useMemo(() => {
+    const subs: RealtimeSubscriptionConfig[] = [
+      { table: 'circle_leaders' },
+      { table: 'notes', event: 'INSERT' },
+      { table: 'circle_visits' },
+    ];
+    if (user?.id) {
+      subs.push({ table: 'todo_items', filter: `user_id=eq.${user.id}` });
+      subs.push({ table: 'user_notes', filter: `user_id=eq.${user.id}` });
+    }
+    return subs;
+  }, [user?.id]);
+
+  useRealtimeSubscription(
+    `dashboard-${user?.id ?? 'anon'}`,
+    realtimeSubscriptions,
+    handleRealtimeChange,
+    hasCampusSelection && !!user?.id,
+  );
+
+  // Cleanup debounce timers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(realtimeDebounce.current).forEach(clearTimeout);
+      if (realtimeToastTimer.current) clearTimeout(realtimeToastTimer.current);
+    };
+  }, []);
+
   // Load recent notes when filtered leaders change
   useEffect(() => {
     if (!hasCampusSelection) return;
@@ -3265,99 +3351,100 @@ function DashboardContent() {
                           ) : (
                             // View mode
                             <div>
-                              <div className="flex items-start justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                  {note.pinned && (
-                                    <div className="flex items-center text-yellow-600 dark:text-yellow-400">
-                                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                              {/* Date row */}
+                              <div className="flex items-center gap-2 mb-2">
+                                {note.pinned && (
+                                  <div className="flex items-center text-yellow-600 dark:text-yellow-400">
+                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                                    </svg>
+                                  </div>
+                                )}
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {new Date(note.updated_at || note.created_at).toLocaleDateString('en-US', { 
+                                    month: 'short', 
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                    hour: 'numeric',
+                                    minute: '2-digit'
+                                  })}
+                                </div>
+                                {note.is_public && (
+                                  <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded-full">
+                                    Public
+                                  </span>
+                                )}
+                              </div>
+                              {/* Buttons row */}
+                              <div className="flex items-center gap-1 flex-wrap mb-2">
+                                <button
+                                  onClick={() => toggleNotePublic(note.id)}
+                                  className={`inline-flex items-center px-2 py-1 text-sm font-medium rounded-md transition-colors ${note.is_public
+                                    ? 'text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50'
+                                    : 'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500'
+                                  }`}
+                                  title={note.is_public ? 'Make note private' : 'Share with all users'}
+                                >
+                                  {note.is_public ? (
+                                    <>
+                                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                      Shared
+                                    </>
+                                  ) : (
+                                    <>
+                                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                                      </svg>
+                                      Share
+                                    </>
+                                  )}
+                                </button>
+                                <button
+                                  onClick={() => togglePinNote(note.id)}
+                                  className={`inline-flex items-center px-2 py-1 text-sm font-medium rounded-md transition-colors ${note.pinned 
+                                    ? 'text-yellow-700 dark:text-yellow-300 bg-yellow-100 dark:bg-yellow-900/30 hover:bg-yellow-200 dark:hover:bg-yellow-900/50' 
+                                    : 'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500'
+                                  }`}
+                                  title={note.pinned ? 'Unpin note' : 'Pin note to top'}
+                                >
+                                  {note.pinned ? (
+                                    <>
+                                      <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
                                         <path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
                                       </svg>
-                                    </div>
+                                      Unpin
+                                    </>
+                                  ) : (
+                                    <>
+                                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16a2 2 0 01-2 2H7a2 2 0 01-2-2V5z" />
+                                      </svg>
+                                      Pin
+                                    </>
                                   )}
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                                    {new Date(note.updated_at || note.created_at).toLocaleDateString('en-US', { 
-                                      month: 'short', 
-                                      day: 'numeric',
-                                      year: 'numeric',
-                                      hour: 'numeric',
-                                      minute: '2-digit'
-                                    })}
-                                  </div>
-                                  {note.is_public && (
-                                    <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded-full">
-                                      Public
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    onClick={() => toggleNotePublic(note.id)}
-                                    className={`inline-flex items-center px-2 py-1 text-sm font-medium rounded-md transition-colors ${note.is_public
-                                      ? 'text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50'
-                                      : 'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500'
-                                    }`}
-                                    title={note.is_public ? 'Make note private' : 'Share with all users'}
-                                  >
-                                    {note.is_public ? (
-                                      <>
-                                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        Shared
-                                      </>
-                                    ) : (
-                                      <>
-                                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                                        </svg>
-                                        Share
-                                      </>
-                                    )}
-                                  </button>
-                                  <button
-                                    onClick={() => togglePinNote(note.id)}
-                                    className={`inline-flex items-center px-2 py-1 text-sm font-medium rounded-md transition-colors ${note.pinned 
-                                      ? 'text-yellow-700 dark:text-yellow-300 bg-yellow-100 dark:bg-yellow-900/30 hover:bg-yellow-200 dark:hover:bg-yellow-900/50' 
-                                      : 'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500'
-                                    }`}
-                                    title={note.pinned ? 'Unpin note' : 'Pin note to top'}
-                                  >
-                                    {note.pinned ? (
-                                      <>
-                                        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                          <path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-                                        </svg>
-                                        Unpin
-                                      </>
-                                    ) : (
-                                      <>
-                                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16a2 2 0 01-2 2H7a2 2 0 01-2-2V5z" />
-                                        </svg>
-                                        Pin
-                                      </>
-                                    )}
-                                  </button>
-                                  <button
-                                    onClick={() => startEditingNote(note.id, note.content)}
-                                    className="inline-flex items-center px-2 py-1 text-sm font-medium rounded-md transition-colors text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50"
-                                  >
-                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                    </svg>
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={() => openDeleteNoteModal(note.id, note.content)}
-                                    className="inline-flex items-center px-2 py-1 text-sm font-medium rounded-md transition-colors text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50"
-                                  >
-                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                    Delete
-                                  </button>
-                                </div>
+                                </button>
+                                <button
+                                  onClick={() => startEditingNote(note.id, note.content)}
+                                  className="inline-flex items-center px-2 py-1 text-sm font-medium rounded-md transition-colors text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50"
+                                >
+                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => openDeleteNoteModal(note.id, note.content)}
+                                  className="inline-flex items-center px-2 py-1 text-sm font-medium rounded-md transition-colors text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50"
+                                >
+                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                  Delete
+                                </button>
                               </div>
+                              {/* Content */}
                               <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
                                 {renderNoteContent(note.content)}
                               </div>
@@ -3662,6 +3749,19 @@ function DashboardContent() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+      {/* ── Real-time "Data updated" toast ── */}
+      {realtimeUpdated && (
+        <div
+          className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-lg transition-opacity duration-300"
+          role="status"
+          aria-live="polite"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+          Data updated
         </div>
       )}
     </ProtectedRoute>

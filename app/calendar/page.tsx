@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import CircleMeetingsCalendar from '../../components/calendar/CircleMeetingsCalendar';
@@ -9,6 +9,7 @@ import { useLeaderFilters } from '../../hooks/useLeaderFilters';
 import { useCircleLeaders, type CircleLeaderFilters } from '../../hooks/useCircleLeaders';
 import { supabase } from '../../lib/supabase';
 import { ensureDefaultFrequencies } from '../../lib/frequencyUtils';
+import { useRealtimeSubscription } from '../../hooks/useRealtimeSubscription';
 
 type RefItem = { id: number; value: string };
 type DirectorItem = { id: number; name: string };
@@ -165,6 +166,38 @@ function CalendarPageContent() {
 
     loadCircleLeaders(serverFilters);
   }, [filters, isInitialized, loadCircleLeaders]);
+
+  // ── Supabase Real-Time ──────────────────────────────────────────
+  const { invalidateCache } = useCircleLeaders();
+
+  const handleCalendarRealtime = useCallback(
+    () => {
+      if (!isInitialized) return;
+      invalidateCache();
+      const serverFilters: CircleLeaderFilters = {
+        campus: filters.campus,
+        acpd: filters.acpd,
+        status: filters.status.filter(s => s !== 'follow-up'),
+        meetingDay: filters.meetingDay,
+        circleType: filters.circleType,
+        frequency: filters.frequency,
+        eventSummary: filters.eventSummary,
+      };
+      loadCircleLeaders(serverFilters);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [invalidateCache, loadCircleLeaders, isInitialized, JSON.stringify(filters)],
+  );
+
+  useRealtimeSubscription(
+    'calendar',
+    [
+      { table: 'circle_leaders', event: 'UPDATE' },
+      { table: 'circle_visits', event: '*' },
+    ],
+    handleCalendarRealtime,
+    isInitialized,
+  );
 
   // Apply the same client-side filters as Leaders page
   const filteredLeaders = useMemo(() => {

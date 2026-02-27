@@ -28,9 +28,10 @@ const PublicNotesSection = forwardRef<PublicNotesSectionHandle>(function PublicN
   const loadPublicNotes = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Step 1: Fetch public notes (no embedded join — user_notes FK points to auth.users, not public.users)
+      const { data: notesData, error } = await supabase
         .from('user_notes')
-        .select('*, users:user_id(name)')
+        .select('*')
         .eq('is_public', true)
         .order('pinned', { ascending: false })
         .order('created_at', { ascending: false });
@@ -46,7 +47,26 @@ const PublicNotesSection = forwardRef<PublicNotesSectionHandle>(function PublicN
         return;
       }
 
-      setPublicNotes(data || []);
+      if (!notesData || notesData.length === 0) {
+        setPublicNotes([]);
+        return;
+      }
+
+      // Step 2: Look up author names from the public.users table
+      const uniqueUserIds = Array.from(new Set(notesData.map(n => n.user_id)));
+      const { data: usersData } = await supabase
+        .from('users')
+        .select('id, name')
+        .in('id', uniqueUserIds);
+
+      const userMap = new Map((usersData || []).map(u => [u.id, u.name]));
+
+      const enriched: PublicNote[] = notesData.map(note => ({
+        ...note,
+        users: userMap.has(note.user_id) ? { name: userMap.get(note.user_id)! } : undefined,
+      }));
+
+      setPublicNotes(enriched);
     } catch (e) {
       console.error('Error loading public notes:', e);
     } finally {
