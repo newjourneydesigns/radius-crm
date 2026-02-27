@@ -44,16 +44,11 @@ export default function Modal({
     };
   }, [isOpen, onClose]);
 
-  // Focus management
+  // Focus management - focus the modal container itself for keyboard a11y
+  // without triggering visible focus rings on child elements
   useEffect(() => {
     if (isOpen && modalRef.current) {
-      const focusableElements = modalRef.current.querySelectorAll(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      const firstElement = focusableElements[0] as HTMLElement;
-      if (firstElement) {
-        firstElement.focus();
-      }
+      modalRef.current.focus();
     }
   }, [isOpen]);
 
@@ -94,7 +89,8 @@ export default function Modal({
     >
       <div 
         ref={modalRef}
-        className={`bg-white dark:bg-gray-900 rounded-xl shadow-2xl ${sizeClasses[size]} max-h-[95vh] overflow-y-auto transform transition-all animate-in zoom-in-95 duration-200 border border-gray-200/20 dark:border-gray-700/50`}
+        tabIndex={-1}
+        className={`bg-white dark:bg-gray-900 rounded-xl shadow-2xl ${sizeClasses[size]} max-h-[95vh] overflow-y-auto transform transition-all animate-in zoom-in-95 duration-200 border border-gray-200/20 dark:border-gray-700/50 outline-none`}
         onClick={(e) => e.stopPropagation()}
         style={{
           position: 'relative',
@@ -112,7 +108,7 @@ export default function Modal({
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-all duration-200 p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 touch-manipulation flex-shrink-0"
+            className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-all duration-200 p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 touch-manipulation flex-shrink-0"
             aria-label="Close modal"
           >
             <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">

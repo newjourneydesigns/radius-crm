@@ -218,7 +218,7 @@ export default function EventExplorerModal({
         
         {/* Input Fields */}
         <div className="flex flex-col sm:flex-row gap-4">
-          <div className="sm:w-auto sm:shrink-0">
+          <div className="w-full sm:w-auto sm:shrink-0">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Date
             </label>
@@ -227,7 +227,7 @@ export default function EventExplorerModal({
               value={date}
               onChange={(e) => setDate(e.target.value)}
               onKeyPress={handleKeyPress}
-              className="w-full px-4 py-3 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-200"
+              className="w-full sm:w-auto px-4 py-3 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-200"
               disabled={loading}
             />
           </div>
