@@ -9,6 +9,7 @@ import {
   FollowUpItem,
   NoteItem,
   CircleMeetingItem,
+  BirthdayItem,
 } from '../../../lib/emailService';
 
 function getSupabaseServiceClient() {
@@ -306,9 +307,27 @@ async function buildDigestForUser(
     .filter(l => doesCircleMeetOnDate(tomorrow, l.day, l.frequency, l.meeting_start_date))
     .map(toCircleMeeting);
 
+  // 8. Birthdays today — query all leaders with a birthday and filter by today's month/day
+  const { data: birthdayLeaders } = await supabase
+    .from('circle_leaders')
+    .select('id, name, campus, birthday')
+    .not('birthday', 'is', null)
+    .not('status', 'in', '("Inactive","Removed")');
+
+  const todayDate = new Date(today + 'T00:00:00');
+  const todayMonth = todayDate.getMonth() + 1;
+  const todayDay = todayDate.getDate();
+
+  const birthdays: BirthdayItem[] = (birthdayLeaders || []).filter(l => {
+    if (!l.birthday) return false;
+    const parts = (l.birthday as string).split('-');
+    return parseInt(parts[1], 10) === todayMonth && parseInt(parts[2], 10) === todayDay;
+  }).map(l => ({ id: l.id, name: l.name, campus: l.campus ?? undefined, birthday: l.birthday }));
+
   return {
     user,
     date: today,
+    birthdays,
     todos: { dueToday: todosDueToday, overdue: todosOverdue, noDate: todosNoDate },
     circleVisits: { today: visitsToday, thisWeek: visitsThisWeek },
     upcomingVisits,
@@ -330,6 +349,7 @@ function buildDemoDigest(user: { id: string; name: string; email: string }, toda
   return {
     user,
     date: today,
+    birthdays: [],
     todos: {
       dueToday: [
         { id: 1, text: 'Prepare for small group debrief', due_date: today, notes: 'Review last week\'s notes first', todo_type: 'manual', linked_leader_id: null, linked_leader_name: null, linked_visit_id: null },

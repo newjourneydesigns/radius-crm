@@ -102,6 +102,9 @@ function DashboardContent() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Birthday state
+  const [todayBirthdays, setTodayBirthdays] = useState<{id: number; name: string; campus?: string; birthday: string}[]>([]);
+
   // Todo list state
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [newTodoText, setNewTodoText] = useState('');
@@ -2202,6 +2205,35 @@ function DashboardContent() {
     loadTodos();
   }, [user?.id]);
 
+  // Load today's birthdays from circle leaders
+  const loadBirthdays = async () => {
+    try {
+      const { data } = await supabase
+        .from('circle_leaders')
+        .select('id, name, campus, birthday')
+        .not('birthday', 'is', null)
+        .not('status', 'in', '("Inactive","Removed")');
+      if (!data) return;
+      const now = new Date();
+      const todayMonth = now.getMonth() + 1; // 1-based
+      const todayDay = now.getDate();
+      const matches = data.filter(l => {
+        if (!l.birthday) return false;
+        const parts = l.birthday.split('-');
+        const m = parseInt(parts[1], 10);
+        const d = parseInt(parts[2], 10);
+        return m === todayMonth && d === todayDay;
+      });
+      setTodayBirthdays(matches);
+    } catch {
+      // silently ignore
+    }
+  };
+
+  useEffect(() => {
+    loadBirthdays();
+  }, [user?.id]);
+
   // Scroll spy effect to track active section
   useEffect(() => {
     let rafId: number | null = null;
@@ -2691,6 +2723,25 @@ function DashboardContent() {
           {/* To Do List Section */}
           <div id="todo-list" className="mt-8 relative z-10">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 sm:p-6">
+              {/* Birthday Banner */}
+              {todayBirthdays.length > 0 && (
+                <div style={{background: 'linear-gradient(135deg, #fef3c7, #fde68a)', border: '1px solid #f59e0b', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', display: 'flex', alignItems: 'flex-start', gap: '10px'}}>
+                  <span style={{fontSize: '22px', lineHeight: 1}}>🎂</span>
+                  <div style={{flex: 1}}>
+                    <div style={{fontWeight: 700, color: '#92400e', fontSize: '14px', marginBottom: '4px'}}>
+                      {todayBirthdays.length === 1 ? "It's a birthday today!" : `${todayBirthdays.length} birthdays today!`}
+                    </div>
+                    <div style={{display: 'flex', flexWrap: 'wrap', gap: '6px'}}>
+                      {todayBirthdays.map(l => (
+                        <a key={l.id} href={`/circle/${l.id}/`} style={{display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#f59e0b', color: 'white', borderRadius: '9999px', padding: '2px 10px', fontSize: '13px', fontWeight: 600, textDecoration: 'none'}}>
+                          {l.name}
+                          {l.campus ? <span style={{opacity: 0.85, fontSize: '11px'}}>• {l.campus}</span> : null}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
               {/* Header with title and actions */}
               <div className="flex flex-col gap-2 mb-4">
                 <div className="flex items-center justify-between">

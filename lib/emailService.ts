@@ -56,9 +56,17 @@ export interface CircleMeetingItem {
   campus?: string;
 }
 
+export interface BirthdayItem {
+  id: number;
+  name: string;
+  campus?: string;
+  birthday: string;
+}
+
 export interface PersonalDigestData {
   user: { id: string; name: string; email: string };
   date: string;
+  birthdays: BirthdayItem[];
   todos: {
     dueToday: TodoItem[];
     overdue: TodoItem[];
@@ -177,9 +185,10 @@ function todoRow(item: TodoItem, appUrl: string, today: string): string {
 
 export function generatePersonalDigestHTML(data: PersonalDigestData): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://myradiuscrm.com';
-  const { user, date, todos, circleVisits, upcomingVisits, recentNotes, upcomingCircles, encouragements, followUps } = data;
+  const { user, date, birthdays, todos, circleVisits, upcomingVisits, recentNotes, upcomingCircles, encouragements, followUps } = data;
 
   const totalItems =
+    (birthdays || []).length +
     todos.dueToday.length + todos.overdue.length + todos.noDate.length +
     circleVisits.today.length + circleVisits.thisWeek.length +
     encouragements.dueToday.length + encouragements.overdue.length +
@@ -207,6 +216,18 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
     todosNoDueDateHtml = sectionHeader('📋', 'Tasks (No Due Date)', todos.noDate.length, '#64748b');
     todos.noDate.forEach(t => { todosNoDueDateHtml += todoRow(t, appUrl, date); });
     todosNoDueDateHtml += `<a href="${appUrl}/dashboard/" style="font-size:12px; color:#64748b; text-decoration:none; font-weight:600;">View all tasks →</a></div>`;
+  }
+
+  // BIRTHDAYS TODAY
+  let birthdaysHtml = '';
+  if ((birthdays || []).length > 0) {
+    birthdaysHtml = sectionHeader('🎂', "Today's Birthdays", birthdays.length, '#f59e0b');
+    birthdays.forEach(l => {
+      birthdaysHtml += leaderCard(appUrl, l.id, l.name, l.campus,
+        `<div style="font-size:13px; color:#fde68a; font-weight:600;">🎉 Birthday today! Send them a message.</div>`
+      );
+    });
+    birthdaysHtml += `<a href="${appUrl}/dashboard/" style="font-size:12px; color:#f59e0b; text-decoration:none; font-weight:600;">Go to dashboard →</a></div>`;
   }
 
   // CIRCLE VISITS TODAY
@@ -365,6 +386,7 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
   const visitCount = circleVisits.today.length + circleVisits.thisWeek.length;
   const encCount = encouragements.dueToday.length + encouragements.overdue.length;
   const fuCount = followUps.dueToday.length + followUps.overdue.length;
+  const birthdayCount = (birthdays || []).length;
 
   return `<!DOCTYPE html>
 <html>
@@ -396,6 +418,7 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
         ${visitCount > 0 ? `<td style="text-align:center; padding:4px 12px;"><div style="font-size:22px; font-weight:800; color:#0891b2;">${visitCount}</div><div style="font-size:11px; color:#6b8ab0; font-weight:600;">Visits</div></td>` : ''}
         ${encCount > 0 ? `<td style="text-align:center; padding:4px 12px;"><div style="font-size:22px; font-weight:800; color:#059669;">${encCount}</div><div style="font-size:11px; color:#6b8ab0; font-weight:600;">Encouragements</div></td>` : ''}
         ${fuCount > 0 ? `<td style="text-align:center; padding:4px 12px;"><div style="font-size:22px; font-weight:800; color:#7c3aed;">${fuCount}</div><div style="font-size:11px; color:#6b8ab0; font-weight:600;">Follow-Ups</div></td>` : ''}
+        ${birthdayCount > 0 ? `<td style="text-align:center; padding:4px 12px;"><div style="font-size:22px; font-weight:800; color:#f59e0b;">${birthdayCount}</div><div style="font-size:11px; color:#6b8ab0; font-weight:600;">🎂 Birthdays</div></td>` : ''}
         <td style="text-align:right; padding:4px 0;">
           <a href="${appUrl}/dashboard/" style="display:inline-block; padding:8px 18px; background:#4f46e5; color:white; text-decoration:none; border-radius:8px; font-size:13px; font-weight:700;">Open Dashboard →</a>
         </td>
@@ -405,6 +428,7 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
 
   <div style="background:#0b2545; border-radius:12px; padding:20px 24px; border:1px solid #1e3a5f;">
     ${noItemsMsg}
+    ${birthdaysHtml}
     ${visitsToday}
     ${encToday}
     ${fuToday}

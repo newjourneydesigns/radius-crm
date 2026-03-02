@@ -147,7 +147,7 @@ export default function PersonLookupPage() {
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: contactPhone ? 'repeat(3, 1fr)' : '1fr',
+                gridTemplateColumns: contactPhone ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)',
                 gap: '1px',
                 background: '#374151',
               }}
@@ -302,6 +302,47 @@ export default function PersonLookupPage() {
                   No Email
                 </div>
               )}
+
+              {/* CCB Profile */}
+              <a
+                href={`https://valleycreekchurch.ccbchurch.com/goto/individuals/${selectedPerson.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '16px 8px',
+                  background: '#1f2937',
+                  color: '#818cf8',
+                  textDecoration: 'none',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  transition: 'background 0.15s',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = '#374151')
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = '#1f2937')
+                }
+              >
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                CCB
+              </a>
             </div>
 
             {/* Clear selection */}

@@ -27,6 +27,7 @@ import DictateAndSummarize from '../../../components/notes/DictateAndSummarize';
 import MeetingPrepAssistant from '../../../components/notes/MeetingPrepAssistant';
 import CircleLeaderProfileSkeleton from '../../../components/circle/CircleLeaderProfileSkeleton';
 import { useScorecard } from '../../../hooks/useScorecard';
+import { useRealtimeSubscription, RealtimeSubscriptionConfig } from '../../../hooks/useRealtimeSubscription';
 import { calculateSuggestedScore, getFinalScore, AnswerValue } from '../../../lib/evaluationQuestions';
 import { getEventSummaryButtonLabel, getEventSummaryColors, getEventSummaryState } from '../../../lib/event-summary-utils';
 
@@ -524,6 +525,64 @@ export default function CircleLeaderProfilePage() {
     loadScorecardRatings(leaderId); // Needed for MeetingPrepAssistant's latestBig4Scores
   }, [leaderId]);
 
+  // ── Supabase Real-Time for this leader ────────────────────────────
+  const realtimeDebounce = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  const handleLeaderRealtime = useCallback(
+    (payload: any) => {
+      const table = (payload as any).table as string;
+      // Debounce rapid events per-table (300 ms)
+      if (realtimeDebounce.current[table]) clearTimeout(realtimeDebounce.current[table]);
+      realtimeDebounce.current[table] = setTimeout(() => {
+        switch (table) {
+          case 'circle_leaders':
+            reloadLeader();
+            break;
+          case 'notes':
+            reloadNotes();
+            break;
+          case 'circle_visits':
+            // CircleVisitsSection manages its own state — bump a key to force re-fetch
+            setAcpdKey(prev => prev + 1);
+            break;
+          case 'acpd_prayer_points':
+          case 'acpd_encouragements':
+          case 'acpd_coaching_notes':
+            setAcpdKey(prev => prev + 1);
+            break;
+          case 'circle_leader_scores':
+            loadScorecardRatings(leaderId);
+            break;
+        }
+      }, 300);
+    },
+    [reloadLeader, leaderId, loadScorecardRatings],
+  );
+
+  const leaderRealtimeSubs: RealtimeSubscriptionConfig[] = useMemo(() => [
+    { table: 'circle_leaders', event: 'UPDATE', filter: `id=eq.${leaderId}` },
+    { table: 'notes', event: '*', filter: `circle_leader_id=eq.${leaderId}` },
+    { table: 'circle_visits', event: '*', filter: `leader_id=eq.${leaderId}` },
+    { table: 'acpd_prayer_points', event: '*', filter: `circle_leader_id=eq.${leaderId}` },
+    { table: 'acpd_encouragements', event: '*', filter: `circle_leader_id=eq.${leaderId}` },
+    { table: 'acpd_coaching_notes', event: '*', filter: `circle_leader_id=eq.${leaderId}` },
+    { table: 'circle_leader_scores', event: '*', filter: `circle_leader_id=eq.${leaderId}` },
+  ], [leaderId]);
+
+  useRealtimeSubscription(
+    `leader-${leaderId}`,
+    leaderRealtimeSubs,
+    handleLeaderRealtime,
+    leaderId > 0,
+  );
+
+  // Cleanup debounce timers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(realtimeDebounce.current).forEach(clearTimeout);
+    };
+  }, []);
+
   // Handle anchor link scrolling
   useEffect(() => {
     const hash = window.location.hash;
@@ -564,6 +623,16 @@ export default function CircleLeaderProfilePage() {
     setAcpdKey(prev => prev + 1);
     return data;
   };
+
+  // Lightweight reload of just the leader row (used by real-time)
+  const reloadLeader = useCallback(async () => {
+    const { data } = await supabase
+      .from('circle_leaders')
+      .select('*')
+      .eq('id', leaderId)
+      .single();
+    if (data) setLeader(data);
+  }, [leaderId]);
 
   // Function to reload notes data
   const reloadNotes = async () => {
@@ -1519,6 +1588,7 @@ export default function CircleLeaderProfilePage() {
       follow_up_date: leader.follow_up_date,
       ccb_profile_link: leader.ccb_profile_link,
       ccb_group_id: leader.ccb_group_id || extractCcbGroupId(leader.ccb_profile_link) || '',
+      birthday: leader.birthday || '',
       additional_leader_name: leader.additional_leader_name,
       additional_leader_phone: leader.additional_leader_phone,
       additional_leader_email: leader.additional_leader_email
@@ -1552,6 +1622,7 @@ export default function CircleLeaderProfilePage() {
           follow_up_date: editedLeader.follow_up_date || null,
           ccb_profile_link: editedLeader.ccb_profile_link || null,
           ccb_group_id: editedLeader.ccb_group_id || null,
+          birthday: editedLeader.birthday || null,
           additional_leader_name: editedLeader.additional_leader_name || null,
           additional_leader_phone: editedLeader.additional_leader_phone || null,
           additional_leader_email: editedLeader.additional_leader_email || null
@@ -2484,6 +2555,25 @@ export default function CircleLeaderProfilePage() {
                         />
                       ) : (
                         <span className="text-sm text-gray-900 dark:text-white">{leader.ccb_group_id || 'Not set'}</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div className="sm:col-span-1">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">🎂 Birthday</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="date"
+                          value={editedLeader.birthday !== undefined ? editedLeader.birthday : (leader.birthday || '')}
+                          onChange={(e) => handleLeaderFieldChange('birthday', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">
+                          {leader.birthday
+                            ? new Date(leader.birthday + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                            : 'Not set'}
+                        </span>
                       )}
                     </dd>
                   </div>
