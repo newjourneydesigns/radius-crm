@@ -89,6 +89,7 @@ Set in `.env.local` for development, Netlify dashboard for production.
 │       │   ├── event-profile/
 │       │   ├── event-profiles/
 │       │   ├── person-search/   # CCB individual search (name or phone)
+│       │   ├── group-roster/    # CCB group roster/participants lookup
 │       │   ├── test-endpoints/
 │       │   └── test-groups/
 │       ├── ai-summarize/       # AI summarization & meeting prep API (Gemini→Groq fallback)
@@ -265,6 +266,7 @@ Set in `.env.local` for development, Netlify dashboard for production.
 11. **CCB Event Explorer** (`/ccb-explorer`) — Standalone tool to search CCB events by date range and group name, with per-day API fetching, progress indicator, and copy-all-content button
 25. **Person Lookup** (`/person-lookup`) — Dedicated CCB person search page accessible from the navigation menu. Search by name or phone, view contact details, and take immediate action via Text (sms:), Call (tel:), or Email (mailto:) buttons. Uses the shared `CCBPersonLookup` component and `/api/ccb/person-search` endpoint.
 26. **CCB Person Search** — Reusable search component (`CCBPersonLookup.tsx`) for looking up individuals in CCB by name or phone. Used across ConnectPersonModal, Circle Leader edit form, Add Leader page, and the Person Lookup page. API route: `POST /api/ccb/person-search`. CCB client method: `searchIndividuals()` in `lib/ccb/ccb-client.ts`.
+27. **Circle Roster** (`/circle/[id]/roster`) — Secondary page accessible from the Circle Leader Profile. Fetches CCB group participants via `getGroupParticipants()` and caches them in `circle_roster_cache` table. Features: search/filter roster members, Refresh button to re-sync from CCB, last-synced timestamp, and Text/Call/Email action buttons per member. Requires `ccb_group_id` on the leader record. API route: `POST /api/ccb/group-roster`.
 12. **User Management** — Admin can manage users, roles, and campus assignments
 12. **Import** — Bulk data import capability
 13. **PWA** — Installable, mobile-optimized with service worker caching

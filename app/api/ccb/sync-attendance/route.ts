@@ -277,6 +277,8 @@ export async function POST(request: NextRequest) {
     noRecordFilled: 0,
     leadersProcessed: 0,
     leadersWithData: 0,
+    rosterRefreshed: 0,
+    rosterErrors: 0,
     ccbEventsTotal: totalCCBEvents,
     missingEventIds,
     mode,
@@ -392,6 +394,42 @@ export async function POST(request: NextRequest) {
         }
 
         results.synced++;
+      }
+
+      // 6. Refresh roster cache for this leader's group (additive only — never remove members)
+      try {
+        const participants = await ccbClient.getGroupParticipants(String(leader.ccb_group_id));
+        if (participants.length > 0) {
+          const now = new Date().toISOString();
+          const { error: rosterError } = await supabase
+            .from('circle_roster_cache')
+            .upsert(
+              participants.map((p) => ({
+                circle_leader_id: leader.id,
+                ccb_group_id: String(leader.ccb_group_id),
+                ccb_individual_id: p.id,
+                first_name: p.firstName,
+                last_name: p.lastName,
+                full_name: p.fullName,
+                email: p.email,
+                phone: p.phone,
+                mobile_phone: p.mobilePhone,
+                fetched_at: now,
+              })),
+              { onConflict: 'circle_leader_id,ccb_individual_id' }
+            );
+
+          if (rosterError) {
+            console.error(`Roster cache error for ${leader.name}:`, rosterError);
+            results.rosterErrors++;
+          } else {
+            console.log(`  ✅ Roster refreshed for ${leader.name}: ${participants.length} members`);
+            results.rosterRefreshed++;
+          }
+        }
+      } catch (rosterErr) {
+        console.error(`Roster fetch failed for ${leader.name}:`, rosterErr);
+        results.rosterErrors++;
       }
     } catch (err) {
       console.error(`Sync failed for leader ${leader.name} (${leader.id}):`, err);

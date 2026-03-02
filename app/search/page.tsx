@@ -14,6 +14,7 @@ interface CircleSearchResult {
   day: string;
   time: string;
   circle_type: string;
+  ccb_group_id?: string;
 }
 
 interface DashboardFilters {
@@ -35,6 +36,7 @@ export default function SearchPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
+  const [rosterCounts, setRosterCounts] = useState<Record<number, number>>({});
 
   // State for filters - using dashboard filter structure
   const [filters, setFilters] = useState<DashboardFilters>({
@@ -73,7 +75,7 @@ export default function SearchPage() {
       try {
         const { data: allData, error: allError } = await supabase
           .from('circle_leaders')
-          .select('id, name, campus, day, time, circle_type, status')
+          .select('id, name, campus, day, time, circle_type, status, ccb_group_id')
           .order('name');
 
         if (allError) {
@@ -87,6 +89,18 @@ export default function SearchPage() {
 
         setCircles(visibleCircles);
         setFilteredCircles(visibleCircles);
+
+        // Fetch roster counts from cache
+        const { data: rosterData } = await supabase
+          .from('circle_roster_cache')
+          .select('circle_leader_id');
+        if (rosterData) {
+          const counts: Record<number, number> = {};
+          rosterData.forEach((r: { circle_leader_id: number }) => {
+            counts[r.circle_leader_id] = (counts[r.circle_leader_id] || 0) + 1;
+          });
+          setRosterCounts(counts);
+        }
       } catch (error) {
         console.error('Error loading circles:', error);
         setError('Failed to load circles. Please try again.');
@@ -387,6 +401,15 @@ export default function SearchPage() {
                       </div>
                     </th>
 
+                    <th 
+                      scope="col" 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Roster</span>
+                      </div>
+                    </th>
+
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -419,6 +442,29 @@ export default function SearchPage() {
                         <div className="text-sm text-gray-900 dark:text-white">
                           {circle.circle_type || '-'}
                         </div>
+                      </td>
+
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {rosterCounts[circle.id] ? (
+                          <Link
+                            href={`/circle/${circle.id}/roster`}
+                            className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-900/20 hover:bg-cyan-100 dark:hover:bg-cyan-900/30 rounded-full transition-colors"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            {rosterCounts[circle.id]}
+                          </Link>
+                        ) : circle.ccb_group_id ? (
+                          <Link
+                            href={`/circle/${circle.id}/roster`}
+                            className="text-xs text-gray-400 dark:text-gray-500 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
+                          >
+                            View
+                          </Link>
+                        ) : (
+                          <span className="text-xs text-gray-300 dark:text-gray-600">—</span>
+                        )}
                       </td>
 
                     </tr>

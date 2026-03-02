@@ -1464,6 +1464,97 @@ export class CCBClient {
   }
 
   /**
+   * Get group participants (roster) for a given CCB group ID.
+   * Uses `group_participants` service which returns all members of a group.
+   */
+  async getGroupParticipants(groupId: string): Promise<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    fullName: string;
+    email: string;
+    phone: string;
+    mobilePhone: string;
+  }[]> {
+    if (!groupId) throw new Error('Group ID is required');
+
+    if (IS_DEV) {
+      console.log(`🔍 CCB Group Participants: fetching for group ${groupId}`);
+    }
+
+    try {
+      // Try group_participants service first (preferred, returns participant details)
+      const xml = await this.getXml({
+        srv: 'group_participants',
+        id: groupId,
+        include_inactive: 'false',
+      });
+
+      if (IS_DEV) {
+        console.log(`🔍 CCB group_participants raw:`, JSON.stringify(xml, null, 2).slice(0, 2000));
+      }
+
+      const response = xml?.ccb_api?.response;
+      if (!response) return [];
+
+      // CCB may nest participants under response.participants or response.groups.group.participants
+      const participantsRoot =
+        response.participants ||
+        response.groups?.group?.participants ||
+        response.group?.participants ||
+        {};
+      const partArray = Array.isArray(participantsRoot.participant)
+        ? participantsRoot.participant
+        : participantsRoot.participant
+          ? [participantsRoot.participant]
+          : [];
+
+      return partArray.map((p: any) => {
+        const firstName = String(p.first_name || p.name?.first || '').trim();
+        const lastName = String(p.last_name || p.name?.last || '').trim();
+        const email = String(p.email || '').trim();
+
+        // Phone parsing — same structure as individual search
+        const phonesContainer = p.phones || {};
+        const phoneEntries = Array.isArray(phonesContainer.phone)
+          ? phonesContainer.phone
+          : phonesContainer.phone
+            ? [phonesContainer.phone]
+            : [];
+
+        const getPhoneByType = (...types: string[]): string => {
+          for (const type of types) {
+            const entry = phoneEntries.find((ph: any) => ph?.['@_type'] === type);
+            const val = entry?.['#text'] || '';
+            if (val) return String(val).trim();
+          }
+          return '';
+        };
+
+        const mobilePhone = getPhoneByType('mobile', 'contact');
+        const phone = getPhoneByType('home', 'contact', 'work');
+
+        if (IS_DEV) {
+          console.log(`🔍 CCB Participant "${firstName} ${lastName}" — phone: "${phone}" | mobile: "${mobilePhone}" | email: "${email}"`);
+        }
+
+        return {
+          id: String(p['@_id'] || p.id || '').trim(),
+          firstName,
+          lastName,
+          fullName: `${firstName} ${lastName}`.trim(),
+          email,
+          phone,
+          mobilePhone,
+        };
+      }).filter((p: any) => p.id && p.fullName);
+    } catch (error) {
+      console.error('CCB group participants fetch failed:', error);
+      throw new Error(`Failed to fetch group participants: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
    * Test connection to CCB API
    */
   async testConnection(): Promise<boolean> {

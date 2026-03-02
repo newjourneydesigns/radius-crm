@@ -373,6 +373,14 @@ export default function CircleLeaderProfilePage() {
   
   // Key to force ACPD section to remount & refetch after coaching note added from scorecard
   const [acpdKey, setAcpdKey] = useState(0);
+  const [rosterCount, setRosterCount] = useState<number | null>(null);
+
+  // Extract CCB Group ID from profile link URL (e.g. /groups/3682/events -> 3682)
+  const extractCcbGroupId = (url: string | null | undefined): string | null => {
+    if (!url) return null;
+    const match = url.match(/\/groups\/(\d+)/i);
+    return match ? match[1] : null;
+  };
 
   // Reference data state
   const [campuses, setCampuses] = useState<Array<{id: number, value: string}>>([]);
@@ -405,7 +413,28 @@ export default function CircleLeaderProfilePage() {
 
         // Process leader
         if (leaderResult.data && !leaderResult.error) {
-          setLeader(leaderResult.data);
+          // Auto-populate ccb_group_id from profile link if missing
+          const ld = leaderResult.data;
+          if (!ld.ccb_group_id && ld.ccb_profile_link) {
+            const extracted = ld.ccb_profile_link.match(/\/groups\/(\d+)/i);
+            if (extracted) {
+              ld.ccb_group_id = extracted[1];
+              // Persist it silently
+              supabase.from('circle_leaders').update({ ccb_group_id: extracted[1] }).eq('id', leaderId).then();
+            }
+          }
+          setLeader(ld);
+
+          // Fetch roster count from cache
+          if (ld.ccb_group_id) {
+            supabase
+              .from('circle_roster_cache')
+              .select('id', { count: 'exact', head: true })
+              .eq('circle_leader_id', leaderId)
+              .then(({ count }) => {
+                if (count !== null) setRosterCount(count);
+              });
+          }
         } else {
           setLeader({
             id: leaderId,
@@ -1489,6 +1518,7 @@ export default function CircleLeaderProfilePage() {
       follow_up_required: leader.follow_up_required,
       follow_up_date: leader.follow_up_date,
       ccb_profile_link: leader.ccb_profile_link,
+      ccb_group_id: leader.ccb_group_id || extractCcbGroupId(leader.ccb_profile_link) || '',
       additional_leader_name: leader.additional_leader_name,
       additional_leader_phone: leader.additional_leader_phone,
       additional_leader_email: leader.additional_leader_email
@@ -1521,6 +1551,7 @@ export default function CircleLeaderProfilePage() {
           follow_up_required: editedLeader.follow_up_required || false,
           follow_up_date: editedLeader.follow_up_date || null,
           ccb_profile_link: editedLeader.ccb_profile_link || null,
+          ccb_group_id: editedLeader.ccb_group_id || null,
           additional_leader_name: editedLeader.additional_leader_name || null,
           additional_leader_phone: editedLeader.additional_leader_phone || null,
           additional_leader_email: editedLeader.additional_leader_email || null
@@ -1635,10 +1666,17 @@ export default function CircleLeaderProfilePage() {
   };
 
   const handleLeaderFieldChange = (field: keyof CircleLeader, value: string | boolean) => {
-    setEditedLeader(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setEditedLeader(prev => {
+      const updated = { ...prev, [field]: value };
+      // Auto-extract CCB Group ID when profile link changes
+      if (field === 'ccb_profile_link' && typeof value === 'string') {
+        const match = value.match(/\/groups\/(\d+)/i);
+        if (match) {
+          updated.ccb_group_id = match[1];
+        }
+      }
+      return updated;
+    });
   };
 
   const formatDateTime = (dateString: string) => {
@@ -2102,6 +2140,29 @@ export default function CircleLeaderProfilePage() {
                 </div>
               </a>
             )}
+
+            {/* View Roster Link */}
+            {leader?.ccb_group_id && (
+              <Link
+                href={`/circle/${leaderId}/roster`}
+                className="w-full flex items-center justify-between px-3 py-2 bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/30 rounded text-sm"
+              >
+                <div className="flex items-center">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  View Roster
+                </div>
+                <div className="flex items-center gap-2">
+                  {rosterCount !== null && rosterCount > 0 && (
+                    <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold bg-cyan-600 text-white rounded-full">{rosterCount}</span>
+                  )}
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -2407,6 +2468,22 @@ export default function CircleLeaderProfilePage() {
                             'Not specified'
                           )}
                         </span>
+                      )}
+                    </dd>
+                  </div>
+                  <div className="sm:col-span-1">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">CCB Group ID</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editedLeader.ccb_group_id !== undefined ? editedLeader.ccb_group_id : (leader.ccb_group_id || '')}
+                          onChange={(e) => handleLeaderFieldChange('ccb_group_id', e.target.value)}
+                          placeholder="e.g. 201"
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{leader.ccb_group_id || 'Not set'}</span>
                       )}
                     </dd>
                   </div>
@@ -2781,6 +2858,29 @@ export default function CircleLeaderProfilePage() {
                       CCB Profile
                     </div>
                   </a>
+                )}
+
+                {/* View Roster Link */}
+                {leader?.ccb_group_id && (
+                  <Link
+                    href={`/circle/${leaderId}/roster`}
+                    className="w-full flex items-center justify-between px-3 py-2 bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/30 rounded text-sm"
+                  >
+                    <div className="flex items-center">
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      View Roster
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {rosterCount !== null && rosterCount > 0 && (
+                        <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold bg-cyan-600 text-white rounded-full">{rosterCount}</span>
+                      )}
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </Link>
                 )}
               </div>
             </div>

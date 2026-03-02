@@ -20,6 +20,7 @@ const sections = [
   { id: 'filters',          title: 'Filtering & Search' },
   { id: 'contact',          title: 'Contact Features' },
   { id: 'person-lookup',    title: 'Person Lookup' },
+  { id: 'circle-roster',    title: 'Circle Roster' },
   { id: 'ccb',              title: 'CCB Explorer' },
   { id: 'settings',         title: 'Settings' },
   { id: 'pwa',              title: 'Mobile App (PWA)' },
@@ -134,6 +135,7 @@ export default function HelpPage() {
                     <li>Progress page with aggregate stats and scorecard</li>
                     <li>CCB Explorer for browsing church database profiles</li>
                     <li>Person Lookup — search CCB by name or phone, then text, call, or email</li>
+                    <li>Circle Roster — view and cache CCB group members with contact actions</li>
                     <li>PWA — installable on iPhone, Android, and desktop</li>
                   </ul>
                   <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
@@ -517,6 +519,29 @@ export default function HelpPage() {
                   <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
                     <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">Tip</h4>
                     <p className="text-blue-700 dark:text-blue-300 text-sm">Person Lookup uses the same CCB search available on the Add Leader and Circle Profile edit pages. Use it when you need to quickly find someone&apos;s contact info without navigating to a specific leader profile.</p>
+                  </div>
+                </section>
+
+                {/* ── Circle Roster ── */}
+                <section id="circle-roster" className="p-6 sm:p-8">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Circle Roster</h2>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">The Circle Roster page displays the CCB group members for a leader&apos;s circle. It caches the roster locally so you can view it offline and provides a one-tap refresh to sync the latest data from CCB.</p>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Accessing the Roster</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">Open any Circle Leader Profile that has a CCB Group ID configured. A <strong>View Roster</strong> button appears in the quick actions area. Tap it to open the roster page.</p>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Roster Features</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
+                    <li>Group members are fetched from CCB and cached in the database</li>
+                    <li>Use the <strong>Refresh</strong> button to re-fetch the latest roster from CCB</li>
+                    <li>Search/filter members by name or email</li>
+                    <li>Each member shows <strong>Text</strong>, <strong>Call</strong>, and <strong>Email</strong> action buttons</li>
+                    <li>The page shows when the roster was last synced</li>
+                  </ul>
+
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">Note</h4>
+                    <p className="text-blue-700 dark:text-blue-300 text-sm">The roster requires a CCB Group ID on the leader profile. If you don&apos;t see the View Roster button, edit the leader and add their CCB Group ID first.</p>
                   </div>
                 </section>
 
