@@ -2213,6 +2213,7 @@ function DashboardContent() {
         .from('circle_leaders')
         .select('id, name, campus, birthday')
         .not('birthday', 'is', null)
+        .neq('birthday', '')
         .not('status', 'in', '("Inactive","Removed")');
       if (!data) return;
       const now = new Date();
@@ -2220,9 +2221,19 @@ function DashboardContent() {
       const todayDay = now.getDate();
       const matches = data.filter(l => {
         if (!l.birthday) return false;
-        const parts = l.birthday.split('-');
-        const m = parseInt(parts[1], 10);
-        const d = parseInt(parts[2], 10);
+        const raw = l.birthday.trim();
+        let m: number, d: number;
+        if (raw.includes('/')) {
+          const parts = raw.split('/');
+          m = parseInt(parts[0], 10);
+          d = parseInt(parts[1], 10);
+        } else if (raw.includes('-')) {
+          const parts = raw.split('-');
+          m = parseInt(parts[1], 10);
+          d = parseInt(parts[2], 10);
+        } else {
+          return false;
+        }
         return m === todayMonth && d === todayDay;
       });
       setTodayBirthdays(matches);
@@ -2734,10 +2745,10 @@ function DashboardContent() {
                     </div>
                     <div style={{display: 'flex', flexWrap: 'wrap', gap: '6px'}}>
                       {todayBirthdays.map(l => (
-                        <a key={l.id} href={`/circle/${l.id}/`} style={{display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#92400e', color: '#fef3c7', borderRadius: '9999px', padding: '4px 12px', fontSize: '13px', fontWeight: 600, textDecoration: 'none', border: '1px solid #b45309'}}>
+                        <Link key={l.id} href={`/circle/${l.id}/`} style={{display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#92400e', color: '#fef3c7', borderRadius: '9999px', padding: '4px 12px', fontSize: '13px', fontWeight: 600, textDecoration: 'none', border: '1px solid #b45309'}}>
                           🎉 {l.name}
                           {l.campus ? <span style={{opacity: 0.7, fontSize: '11px'}}>• {l.campus}</span> : null}
-                        </a>
+                        </Link>
                       ))}
                     </div>
                   </div>

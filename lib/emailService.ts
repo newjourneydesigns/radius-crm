@@ -61,6 +61,7 @@ export interface BirthdayItem {
   name: string;
   campus?: string;
   birthday: string;
+  phone?: string;
 }
 
 export interface PersonalDigestData {

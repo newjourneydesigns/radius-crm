@@ -20,7 +20,14 @@ function getSupabaseServiceClient() {
 }
 
 function getTodayDate(): string {
-  return new Date().toISOString().split('T')[0];
+  // Use CST (America/Chicago) so birthday matching and due-date logic
+  // align with the church's timezone rather than UTC.
+  const now = new Date();
+  const cst = new Date(now.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+  const y = cst.getFullYear();
+  const m = String(cst.getMonth() + 1).padStart(2, '0');
+  const d = String(cst.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function getDateOffset(baseDate: string, days: number): string {
@@ -325,8 +332,9 @@ async function buildDigestForUser(
   // 8. Birthdays today — query all leaders with a birthday and filter by today's month/day
   const { data: birthdayLeaders } = await supabase
     .from('circle_leaders')
-    .select('id, name, campus, birthday')
+    .select('id, name, campus, birthday, phone')
     .not('birthday', 'is', null)
+    .neq('birthday', '')
     .not('status', 'in', '("Inactive","Removed")');
 
   const todayDate = new Date(today + 'T00:00:00');
@@ -335,9 +343,23 @@ async function buildDigestForUser(
 
   const birthdays: BirthdayItem[] = (birthdayLeaders || []).filter(l => {
     if (!l.birthday) return false;
-    const parts = (l.birthday as string).split('-');
-    return parseInt(parts[1], 10) === todayMonth && parseInt(parts[2], 10) === todayDay;
-  }).map(l => ({ id: l.id, name: l.name, campus: l.campus ?? undefined, birthday: l.birthday }));
+    const raw = (l.birthday as string).trim();
+    let month: number, day: number;
+    if (raw.includes('/')) {
+      // M/D/YYYY format
+      const parts = raw.split('/');
+      month = parseInt(parts[0], 10);
+      day = parseInt(parts[1], 10);
+    } else if (raw.includes('-')) {
+      // YYYY-MM-DD format
+      const parts = raw.split('-');
+      month = parseInt(parts[1], 10);
+      day = parseInt(parts[2], 10);
+    } else {
+      return false;
+    }
+    return month === todayMonth && day === todayDay;
+  }).map(l => ({ id: l.id, name: l.name, campus: l.campus ?? undefined, birthday: l.birthday, phone: l.phone || undefined }));
 
   // Apply email section preferences — zero out disabled sections
   return {
@@ -376,7 +398,7 @@ function buildDemoDigest(user: { id: string; name: string; email: string }, toda
     user,
     date: today,
     birthdays: [
-      { id: 101, name: 'Sarah Johnson', campus: 'Main Campus', birthday: today },
+      { id: 101, name: 'Sarah Johnson', campus: 'Main Campus', birthday: today, phone: '5551234567' },
       { id: 102, name: 'David Kim', campus: 'North Campus', birthday: today },
     ],
     todos: {

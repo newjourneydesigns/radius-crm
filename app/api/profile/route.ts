@@ -159,7 +159,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { profile, preferences, password } = body;
+    const { profile, preferences } = body;
 
     // Update profile if provided
     if (profile) {
@@ -261,24 +261,6 @@ export async function PUT(request: NextRequest) {
       } catch (error: any) {
         console.error('Error updating email preferences:', error.message);
         // Non-fatal — don't fail the request
-      }
-    }
-
-    // Update password if provided (requires admin client)
-    if (password && password.newPassword) {
-      if (!process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY === 'demo-key') {
-        return NextResponse.json({ 
-          message: 'Password update skipped (Demo Mode)',
-        });
-      }
-
-      const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
-        password: password.newPassword
-      });
-
-      if (passwordError) {
-        console.error('Error updating password:', passwordError);
-        return NextResponse.json({ error: 'Failed to update password' }, { status: 500 });
       }
     }
 

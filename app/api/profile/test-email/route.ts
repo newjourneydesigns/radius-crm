@@ -9,6 +9,7 @@ import {
   FollowUpItem,
   NoteItem,
   CircleMeetingItem,
+  BirthdayItem,
 } from '../../../../lib/emailService';
 
 function getSupabaseServiceClient() {
@@ -124,7 +125,9 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     const userName = profileRow?.name || recipientEmail.split('@')[0];
-    const today = new Date().toISOString().split('T')[0];
+    // Use CST so date logic matches the church's timezone
+    const nowCST = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+    const today = `${nowCST.getFullYear()}-${String(nowCST.getMonth() + 1).padStart(2, '0')}-${String(nowCST.getDate()).padStart(2, '0')}`;
     const weekEnd = getDateOffset(today, 7);
     const tomorrow = getDateOffset(today, 1);
 
@@ -289,30 +292,81 @@ export async function POST(request: NextRequest) {
       .filter(l => doesCircleMeetOnDate(tomorrow, l.day, l.frequency, l.meeting_start_date))
       .map(toCircleMeeting);
 
+    // ── 8. Birthdays today ─────────────────────────────────────────────
+    const { data: birthdayLeaders } = await supabase
+      .from('circle_leaders')
+      .select('id, name, campus, birthday, phone')
+      .not('birthday', 'is', null)
+      .neq('birthday', '')
+      .not('status', 'in', '("Inactive","Removed")');
+
+    const todayDate = new Date(today + 'T00:00:00');
+    const todayMonth = todayDate.getMonth() + 1;
+    const todayDay = todayDate.getDate();
+
+    const birthdays: BirthdayItem[] = (birthdayLeaders || []).filter(l => {
+      if (!l.birthday) return false;
+      const raw = (l.birthday as string).trim();
+      let month: number, day: number;
+      if (raw.includes('/')) {
+        const parts = raw.split('/');
+        month = parseInt(parts[0], 10);
+        day = parseInt(parts[1], 10);
+      } else if (raw.includes('-')) {
+        const parts = raw.split('-');
+        month = parseInt(parts[1], 10);
+        day = parseInt(parts[2], 10);
+      } else {
+        return false;
+      }
+      return month === todayMonth && day === todayDay;
+    }).map(l => ({ id: l.id, name: l.name, campus: l.campus ?? undefined, birthday: l.birthday, phone: l.phone || undefined }));
+
+    // ── Fetch section preferences ──────────────────────────────────────
+    const { data: userPrefs } = await supabase
+      .from('users')
+      .select('include_follow_ups, include_overdue_tasks, include_planned_encouragements, include_upcoming_meetings, include_birthdays')
+      .eq('id', user.id)
+      .single();
+
+    const sectionPrefs = {
+      include_follow_ups: userPrefs?.include_follow_ups ?? true,
+      include_overdue_tasks: userPrefs?.include_overdue_tasks ?? true,
+      include_planned_encouragements: userPrefs?.include_planned_encouragements ?? true,
+      include_upcoming_meetings: userPrefs?.include_upcoming_meetings ?? false,
+      include_birthdays: userPrefs?.include_birthdays ?? true,
+    };
+
     const digestData: PersonalDigestData = {
       user: { id: user.id, name: userName, email: recipientEmail },
       date: today,
-      birthdays: [],
+      birthdays: sectionPrefs.include_birthdays ? birthdays : [],
       todos: {
         dueToday: todosRaw.filter(t => t.due_date === today),
-        overdue: todosRaw.filter(t => t.due_date !== null && t.due_date < today),
+        overdue: sectionPrefs.include_overdue_tasks ? todosRaw.filter(t => t.due_date !== null && t.due_date < today) : [],
         noDate: todosNoDate,
       },
       circleVisits: {
         today: (visitsRaw || []).filter(v => v.visit_date === today).map(toVisit),
         thisWeek: (visitsRaw || []).filter(v => v.visit_date >= tomorrow && v.visit_date <= weekEnd).map(toVisit),
       },
-      encouragements: {
-        dueToday: (encsRaw || []).filter(e => e.message_date === today).map(toEnc),
-        overdue: (encsRaw || []).filter(e => e.message_date < today).map(toEnc),
-      },
-      followUps: {
-        dueToday: (followUpsRaw || []).filter(f => f.follow_up_date === today).map(toFU),
-        overdue: (followUpsRaw || []).filter(f => !f.follow_up_date || f.follow_up_date < today).map(toFU),
-      },
+      encouragements: sectionPrefs.include_planned_encouragements
+        ? {
+            dueToday: (encsRaw || []).filter(e => e.message_date === today).map(toEnc),
+            overdue: (encsRaw || []).filter(e => e.message_date < today).map(toEnc),
+          }
+        : { dueToday: [], overdue: [] },
+      followUps: sectionPrefs.include_follow_ups
+        ? {
+            dueToday: (followUpsRaw || []).filter(f => f.follow_up_date === today).map(toFU),
+            overdue: (followUpsRaw || []).filter(f => !f.follow_up_date || f.follow_up_date < today).map(toFU),
+          }
+        : { dueToday: [], overdue: [] },
       upcomingVisits,
       recentNotes,
-      upcomingCircles: { today: circlesToday, tomorrow: circlesTomorrow },
+      upcomingCircles: sectionPrefs.include_upcoming_meetings
+        ? { today: circlesToday, tomorrow: circlesTomorrow }
+        : { today: [], tomorrow: [] },
     };
 
     const result = await sendPersonalDigestEmail(digestData);

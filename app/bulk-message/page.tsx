@@ -20,6 +20,8 @@ interface Recipient {
   circleType?: string;
   day?: string;
   acpd?: string;
+  isAdditionalLeader?: boolean;
+  circleLeaderName?: string;
   additionalLeaderName?: string;
   additionalLeaderPhone?: string;
 }
@@ -58,7 +60,8 @@ const resolveMessage = (template: string, recipient: Recipient): string => {
     .replace(/\{\{name\}\}/g, recipient.name)
     .replace(/\{\{campus\}\}/g, recipient.campus || '')
     .replace(/\{\{day\}\}/g, recipient.day || '')
-    .replace(/\{\{circle_type\}\}/g, recipient.circleType || '');
+    .replace(/\{\{circle_type\}\}/g, recipient.circleType || '')
+    .replace(/\{\{circle_leader\}\}/g, recipient.circleLeaderName || '');
 };
 
 const openMessagesApp = (phone: string, message: string) => {
@@ -94,6 +97,7 @@ const toRecipient = (leader: CircleLeader): Recipient | null => {
     circleType: leader.circle_type,
     day: leader.day,
     acpd: leader.acpd,
+    isAdditionalLeader: false,
     additionalLeaderName: leader.additional_leader_name || undefined,
     additionalLeaderPhone: leader.additional_leader_phone || undefined,
   };
@@ -127,7 +131,7 @@ function BulkMessageContent() {
   const [filterDay, setFilterDay] = useState<string[]>([]);
   const [filterAcpd, setFilterAcpd] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [includeCoLeaders, setIncludeCoLeaders] = useState(false);
+  const [includeAdditionalLeaders, setIncludeAdditionalLeaders] = useState(false);
 
   // Message state
   const [message, setMessage] = useState('');
@@ -212,24 +216,26 @@ function BulkMessageContent() {
         seenPhones.add(r.phone);
         result.push(r);
       }
-      // Include co-leaders if toggled
-      if (includeCoLeaders && l.additional_leader_phone) {
-        const coPhone = normalizePhone(l.additional_leader_phone);
-        if (coPhone.length >= 7 && !seenPhones.has(coPhone)) {
-          seenPhones.add(coPhone);
-          const coName = l.additional_leader_name || 'Co-Leader';
-          let coFirst = coName;
-          if (coName.includes(' ')) coFirst = coName.split(' ')[0];
+      // Include additional leaders if toggled
+      if (includeAdditionalLeaders && l.additional_leader_phone) {
+        const alPhone = normalizePhone(l.additional_leader_phone);
+        if (alPhone.length >= 7 && !seenPhones.has(alPhone)) {
+          seenPhones.add(alPhone);
+          const alName = l.additional_leader_name || 'Additional Leader';
+          let alFirst = alName;
+          if (alName.includes(' ')) alFirst = alName.split(' ')[0];
           result.push({
             id: l.id * -1, // negative to differentiate
-            name: coName,
-            firstName: coFirst,
-            phone: coPhone,
+            name: alName,
+            firstName: alFirst,
+            phone: alPhone,
             campus: l.campus,
             status: l.status,
             circleType: l.circle_type,
             day: l.day,
             acpd: l.acpd,
+            isAdditionalLeader: true,
+            circleLeaderName: l.name || '',
           });
         }
       }
@@ -247,7 +253,7 @@ function BulkMessageContent() {
     }
 
     return result;
-  }, [leaders, filterCampus, filterStatus, filterCircleType, filterDay, filterAcpd, searchQuery, includeCoLeaders]);
+  }, [leaders, filterCampus, filterStatus, filterCircleType, filterDay, filterAcpd, searchQuery, includeAdditionalLeaders]);
 
   // ─── Current / next recipient ──────────────────────────────
   const currentRecipient = recipients[currentIndex] || null;
@@ -574,29 +580,33 @@ function BulkMessageContent() {
                   </div>
                 )}
 
-                {/* Search + Co-leaders toggle */}
-                <div className="flex flex-col sm:flex-row gap-4 pt-2 border-t border-gray-800">
-                  <div className="flex-1">
-                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Search</label>
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search name, phone, campus..."
-                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow placeholder:text-gray-600"
-                    />
+                {/* Additional Leaders Toggle */}
+                <div>
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Additional Leaders</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      onClick={() => setIncludeAdditionalLeaders(!includeAdditionalLeaders)}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
+                        includeAdditionalLeaders
+                          ? 'bg-purple-600 border-purple-500 text-white shadow-md shadow-purple-900/30'
+                          : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'
+                      }`}
+                    >
+                      Include Additional Leaders
+                    </button>
                   </div>
-                  <div className="flex items-end">
-                    <label className="flex items-center gap-2 cursor-pointer bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 hover:border-gray-600 transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={includeCoLeaders}
-                        onChange={(e) => setIncludeCoLeaders(e.target.checked)}
-                        className="checkbox checkbox-sm checkbox-primary"
-                      />
-                      <span className="text-xs font-medium text-gray-400">Include co-leaders</span>
-                    </label>
-                  </div>
+                </div>
+
+                {/* Search */}
+                <div className="pt-2 border-t border-gray-800">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Search</label>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search name, phone, campus..."
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow placeholder:text-gray-600"
+                  />
                 </div>
               </div>
             </section>
@@ -611,7 +621,10 @@ function BulkMessageContent() {
                   Recipients ({recipients.length})
                 </h2>
                 <span className="text-[10px] text-gray-500 font-medium">
-                  {leaders.filter(l => !l.phone).length} leaders without phone excluded
+                  {includeAdditionalLeaders && (
+                    <span className="text-purple-400 mr-2">{recipients.filter(r => r.isAdditionalLeader).length} additional</span>
+                  )}
+                  {leaders.filter(l => !l.phone).length} without phone excluded
                 </span>
               </div>
 
@@ -641,9 +654,14 @@ function BulkMessageContent() {
                         >
                           <td className="px-4 py-2 text-gray-600 text-xs font-mono">{idx + 1}</td>
                           <td className="px-4 py-2">
-                            <span className="text-white font-medium">{r.name}</span>
-                            {r.id < 0 && (
-                              <span className="ml-1.5 text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded font-bold uppercase">Co-Leader</span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-white font-medium">{r.name}</span>
+                              {r.isAdditionalLeader && (
+                                <span className="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded font-bold uppercase">Additional</span>
+                              )}
+                            </div>
+                            {r.isAdditionalLeader && r.circleLeaderName && (
+                              <p className="text-[10px] text-gray-500 mt-0.5">{r.circleLeaderName}&apos;s Circle</p>
                             )}
                           </td>
                           <td className="px-4 py-2 text-gray-400 font-mono text-xs">{r.phone}</td>
@@ -702,6 +720,7 @@ function BulkMessageContent() {
                   { label: 'Campus', tag: '{{campus}}' },
                   { label: 'Day', tag: '{{day}}' },
                   { label: 'Circle Type', tag: '{{circle_type}}' },
+                  { label: 'Circle Leader', tag: '{{circle_leader}}' },
                 ].map(({ label, tag }) => (
                   <button
                     key={tag}
@@ -834,6 +853,12 @@ function BulkMessageContent() {
                       <h3 className="text-xl font-bold text-white mt-1 truncate">{currentRecipient?.name}</h3>
                       <div className="flex gap-2 items-center mt-1.5">
                         <span className="text-[10px] text-gray-500 font-mono bg-gray-800 px-2 py-0.5 rounded">{currentRecipient?.phone}</span>
+                        {currentRecipient?.isAdditionalLeader && (
+                          <span className="text-[10px] text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded font-bold uppercase">Additional Leader</span>
+                        )}
+                        {currentRecipient?.isAdditionalLeader && currentRecipient?.circleLeaderName && (
+                          <span className="text-[10px] text-gray-500 font-medium">{currentRecipient.circleLeaderName}&apos;s Circle</span>
+                        )}
                         {currentRecipient?.campus && (
                           <span className="text-[10px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded font-medium">{currentRecipient.campus}</span>
                         )}

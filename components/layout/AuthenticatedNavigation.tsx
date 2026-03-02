@@ -65,6 +65,12 @@ const ChevronDownIcon = () => (
   </svg>
 );
 
+const BirthdayCakeIcon = () => (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v-2m0 0V4m0 2h.01M21 16.05V19a2 2 0 01-2 2H5a2 2 0 01-2-2v-2.95M21 16.05c-1.5.5-3 .75-4.5.45-1.5-.3-3-.3-4.5 0s-3 .3-4.5-.45M21 16.05V13a2 2 0 00-2-2H5a2 2 0 00-2 2v3.05" />
+  </svg>
+);
+
 const PrayerIcon = () => (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
@@ -196,6 +202,7 @@ export default function AuthenticatedNavigation() {
                     <div className="py-1">
                       {[
                         { href: '/person-lookup',   label: 'Person Lookup',   Icon: SearchNavIcon },
+                        { href: '/birthday-list',   label: 'Birthday List',   Icon: BirthdayCakeIcon },
                         { href: '/ccb-explorer',    label: 'CCB Explorer',    Icon: CompassIcon },
                         { href: '/bulk-message',    label: 'Bulk Message',    Icon: MessageBulkIcon },
                         { href: '/add-leader',      label: 'Add Leader',      Icon: UserPlusIcon },

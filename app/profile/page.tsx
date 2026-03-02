@@ -50,11 +50,8 @@ export default function ProfilePage() {
   // Form state
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  
   // UI state
-  const [activeTab, setActiveTab] = useState<'profile' | 'email' | 'password'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'email'>('profile');
   const [showAlert, setShowAlert] = useState<{
     isOpen: boolean;
     type: 'success' | 'error' | 'warning' | 'info';
@@ -220,87 +217,6 @@ export default function ProfilePage() {
     }
   };
 
-  const handleUpdatePassword = async () => {
-    if (!newPassword || !confirmPassword) {
-      setShowAlert({
-        isOpen: true,
-        type: 'error',
-        title: 'Missing Fields',
-        message: 'Please enter both password fields.'
-      });
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      setShowAlert({
-        isOpen: true,
-        type: 'error',
-        title: 'Password Too Short',
-        message: 'Password must be at least 6 characters long.'
-      });
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setShowAlert({
-        isOpen: true,
-        type: 'error',
-        title: 'Passwords Don\'t Match',
-        message: 'The passwords you entered do not match.'
-      });
-      return;
-    }
-
-    try {
-      setIsSaving(true);
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await fetch('/api/profile', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          password: { newPassword }
-        })
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to update password');
-      }
-
-      setShowAlert({
-        isOpen: true,
-        type: 'success',
-        title: 'Password Updated',
-        message: 'Your password has been updated successfully.'
-      });
-      
-      // Clear password fields
-      setNewPassword('');
-      setConfirmPassword('');
-      
-    } catch (error: any) {
-      console.error('Error updating password:', error);
-      setShowAlert({
-        isOpen: true,
-        type: 'error',
-        title: 'Error Updating Password',
-        message: error.message || 'Failed to update password'
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const handleSendTestEmail = async () => {
     if (!user) return;
     
@@ -389,7 +305,6 @@ export default function ProfilePage() {
               {[
                 { id: 'profile', label: 'Profile' },
                 { id: 'email', label: 'Email Settings' },
-                { id: 'password', label: 'Password' },
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -698,61 +613,6 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* Password Tab */}
-          {activeTab === 'password' && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="text-lg font-medium text-gray-900 dark:text-white">Change Password</h2>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Update your password to keep your account secure
-                </p>
-              </div>
-              <div className="p-6">
-                <div className="space-y-6 max-w-md">
-                  <div>
-                    <label htmlFor="new_password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      New Password
-                    </label>
-                    <input
-                      type="password"
-                      id="new_password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Enter new password"
-                    />
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      Must be at least 6 characters
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Confirm New Password
-                    </label>
-                    <input
-                      type="password"
-                      id="confirm_password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Confirm new password"
-                    />
-                  </div>
-                </div>
-                
-                <div className="mt-6 flex justify-end">
-                  <button
-                    onClick={handleUpdatePassword}
-                    disabled={isSaving}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {isSaving ? 'Updating...' : 'Update Password'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Alert Modal */}

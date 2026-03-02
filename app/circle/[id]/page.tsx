@@ -1591,7 +1591,8 @@ export default function CircleLeaderProfilePage() {
       birthday: leader.birthday || '',
       additional_leader_name: leader.additional_leader_name,
       additional_leader_phone: leader.additional_leader_phone,
-      additional_leader_email: leader.additional_leader_email
+      additional_leader_email: leader.additional_leader_email,
+      additional_leader_birthday: leader.additional_leader_birthday || ''
     };
     
     setEditedLeader(editData);
@@ -1625,7 +1626,8 @@ export default function CircleLeaderProfilePage() {
           birthday: editedLeader.birthday || null,
           additional_leader_name: editedLeader.additional_leader_name || null,
           additional_leader_phone: editedLeader.additional_leader_phone || null,
-          additional_leader_email: editedLeader.additional_leader_email || null
+          additional_leader_email: editedLeader.additional_leader_email || null,
+          additional_leader_birthday: editedLeader.additional_leader_birthday || null
         })
         .eq('id', leaderId)
         .select()
@@ -2675,6 +2677,25 @@ export default function CircleLeaderProfilePage() {
                         />
                       ) : (
                         <span className="text-sm text-gray-900 dark:text-white">{leader.additional_leader_email || 'Not provided'}</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div className="sm:col-span-1">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">🎂 Birthday</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="date"
+                          value={editedLeader.additional_leader_birthday !== undefined ? editedLeader.additional_leader_birthday : (leader.additional_leader_birthday || '')}
+                          onChange={(e) => handleLeaderFieldChange('additional_leader_birthday', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">
+                          {leader.additional_leader_birthday
+                            ? new Date(leader.additional_leader_birthday + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                            : 'Not set'}
+                        </span>
                       )}
                     </dd>
                   </div>

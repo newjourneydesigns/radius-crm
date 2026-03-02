@@ -101,6 +101,7 @@ export interface CircleLeader {
   additional_leader_name?: string;
   additional_leader_phone?: string;
   additional_leader_email?: string;
+  additional_leader_birthday?: string;
   uuid?: string;
   created_at?: string;
   updated_at?: string;

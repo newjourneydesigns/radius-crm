@@ -155,6 +155,12 @@ const ChevronRightIcon = () => (
   </svg>
 );
 
+const BirthdayCakeIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 8v-2m0 0V4m0 2h.01M21 16.05V19a2 2 0 01-2 2H5a2 2 0 01-2-2v-2.95M21 16.05c-1.5.5-3 .75-4.5.45-1.5-.3-3-.3-4.5 0s-3 .3-4.5-.45M21 16.05V13a2 2 0 00-2-2H5a2 2 0 00-2 2v3.05" />
+  </svg>
+);
+
 /* ─────────────────────────────────────────────────────────
    Component
    ───────────────────────────────────────────────────────── */
@@ -249,6 +255,7 @@ export default function MobileNavigation() {
   /* Drawer menu sections */
   const adminItems = [
     { href: '/ccb-explorer', label: 'CCB Explorer', Icon: CompassIcon },
+    { href: '/birthday-list', label: 'Birthday List', Icon: BirthdayCakeIcon },
     { href: '/bulk-message', label: 'Bulk Message', Icon: MessageBulkIcon },
     { href: '/add-leader', label: 'Add Leader', Icon: UserPlusIcon },
     { href: '/users', label: 'Manage Users', Icon: UsersIcon },
