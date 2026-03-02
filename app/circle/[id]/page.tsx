@@ -528,6 +528,16 @@ export default function CircleLeaderProfilePage() {
   // ── Supabase Real-Time for this leader ────────────────────────────
   const realtimeDebounce = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
+  // Lightweight reload of just the leader row (used by real-time)
+  const reloadLeader = useCallback(async () => {
+    const { data } = await supabase
+      .from('circle_leaders')
+      .select('*')
+      .eq('id', leaderId)
+      .single();
+    if (data) setLeader(data);
+  }, [leaderId]);
+
   const handleLeaderRealtime = useCallback(
     (payload: any) => {
       const table = (payload as any).table as string;
@@ -623,16 +633,6 @@ export default function CircleLeaderProfilePage() {
     setAcpdKey(prev => prev + 1);
     return data;
   };
-
-  // Lightweight reload of just the leader row (used by real-time)
-  const reloadLeader = useCallback(async () => {
-    const { data } = await supabase
-      .from('circle_leaders')
-      .select('*')
-      .eq('id', leaderId)
-      .single();
-    if (data) setLeader(data);
-  }, [leaderId]);
 
   // Function to reload notes data
   const reloadNotes = async () => {
