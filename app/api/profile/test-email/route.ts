@@ -292,6 +292,7 @@ export async function POST(request: NextRequest) {
     const digestData: PersonalDigestData = {
       user: { id: user.id, name: userName, email: recipientEmail },
       date: today,
+      birthdays: [],
       todos: {
         dueToday: todosRaw.filter(t => t.due_date === today),
         overdue: todosRaw.filter(t => t.due_date !== null && t.due_date < today),
