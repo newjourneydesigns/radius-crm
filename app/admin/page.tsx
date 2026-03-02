@@ -1,6 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 interface FetchResult {
   id: number;
@@ -34,6 +40,13 @@ export default function AdminPage() {
   const [isRunning, setIsRunning] = useState(false);
   const [isDryRunning, setIsDryRunning] = useState(false);
   const [response, setResponse] = useState<ApiResponse | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setAccessToken(data.session?.access_token || null);
+    });
+  }, []);
 
   async function run(dryRun: boolean) {
     if (dryRun) setIsDryRunning(true);
@@ -41,9 +54,11 @@ export default function AdminPage() {
     setResponse(null);
 
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
       const res = await fetch('/api/admin/bulk-fetch-rosters', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ nameFilter, includeAll, dryRun }),
       });
       const data = await res.json();
@@ -57,19 +72,19 @@ export default function AdminPage() {
   }
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '32px 16px', fontFamily: 'system-ui, sans-serif' }}>
+    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '32px 16px', fontFamily: 'system-ui, sans-serif', color: '#e2e8f0' }}>
       <div style={{ marginBottom: '24px' }}>
-        <a href="/dashboard" style={{ fontSize: '13px', color: '#6b7280', textDecoration: 'none' }}>← Back to Dashboard</a>
+        <a href="/dashboard" style={{ fontSize: '13px', color: '#94a3b8', textDecoration: 'none' }}>← Back to Dashboard</a>
       </div>
 
-      <h1 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '4px' }}>Bulk Fetch Rosters</h1>
-      <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '28px' }}>
+      <h1 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '4px', color: '#f1f5f9' }}>Bulk Fetch Rosters</h1>
+      <p style={{ fontSize: '14px', color: '#94a3b8', marginBottom: '28px' }}>
         Finds circles matching the name filter that have a CCB Group ID but no cached roster, then fetches each from CCB.
       </p>
 
-      <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '20px', marginBottom: '20px' }}>
+      <div style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(148, 163, 184, 0.15)', borderRadius: '10px', padding: '20px', marginBottom: '20px' }}>
         <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
+          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: '#cbd5e1' }}>
             Name filter (case-insensitive substring match)
           </label>
           <input
@@ -81,16 +96,17 @@ export default function AdminPage() {
               width: '100%',
               padding: '8px 12px',
               fontSize: '14px',
-              border: '1px solid #d1d5db',
+              border: '1px solid rgba(148, 163, 184, 0.25)',
               borderRadius: '6px',
-              background: includeAll ? '#f3f4f6' : '#fff',
-              color: includeAll ? '#9ca3af' : '#111',
+              background: includeAll ? 'rgba(30, 41, 59, 0.5)' : 'rgba(15, 23, 42, 0.8)',
+              color: includeAll ? '#64748b' : '#f1f5f9',
               boxSizing: 'border-box',
+              outline: 'none',
             }}
           />
         </div>
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', marginBottom: '20px' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', marginBottom: '20px', color: '#cbd5e1' }}>
           <input
             type="checkbox"
             checked={includeAll}
@@ -99,7 +115,7 @@ export default function AdminPage() {
           Process ALL leaders missing a roster (ignore name filter)
         </label>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <button
             onClick={() => run(true)}
             disabled={isDryRunning || isRunning}
@@ -107,11 +123,12 @@ export default function AdminPage() {
               padding: '8px 18px',
               fontSize: '13px',
               fontWeight: 600,
-              border: '1px solid #d1d5db',
+              border: '1px solid rgba(148, 163, 184, 0.25)',
               borderRadius: '6px',
-              background: '#fff',
+              background: 'rgba(51, 65, 85, 0.6)',
+              color: '#e2e8f0',
               cursor: isDryRunning || isRunning ? 'not-allowed' : 'pointer',
-              opacity: isDryRunning || isRunning ? 0.6 : 1,
+              opacity: isDryRunning || isRunning ? 0.5 : 1,
             }}
           >
             {isDryRunning ? 'Checking…' : 'Dry Run (preview only)'}
@@ -125,9 +142,10 @@ export default function AdminPage() {
               fontWeight: 700,
               border: 'none',
               borderRadius: '6px',
-              background: isRunning || isDryRunning ? '#93c5fd' : '#1d4ed8',
+              background: isRunning || isDryRunning ? '#1e40af' : '#2563eb',
               color: '#fff',
               cursor: isRunning || isDryRunning ? 'not-allowed' : 'pointer',
+              opacity: isRunning || isDryRunning ? 0.6 : 1,
             }}
           >
             {isRunning ? 'Fetching… (this may take a few minutes)' : 'Fetch Missing Rosters'}
@@ -136,24 +154,24 @@ export default function AdminPage() {
       </div>
 
       {response && (
-        <div style={{ border: '1px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden' }}>
+        <div style={{ border: '1px solid rgba(148, 163, 184, 0.15)', borderRadius: '10px', overflow: 'hidden' }}>
           {/* Summary bar */}
-          <div style={{ background: response.error ? '#fef2f2' : '#f0fdf4', borderBottom: '1px solid #e5e7eb', padding: '14px 20px' }}>
+          <div style={{ background: response.error ? 'rgba(127, 29, 29, 0.3)' : response.dryRun ? 'rgba(30, 58, 95, 0.5)' : 'rgba(20, 83, 45, 0.3)', borderBottom: '1px solid rgba(148, 163, 184, 0.12)', padding: '14px 20px' }}>
             {response.error ? (
-              <p style={{ margin: 0, color: '#dc2626', fontSize: '14px' }}>Error: {response.error}</p>
+              <p style={{ margin: 0, color: '#fca5a5', fontSize: '14px', fontWeight: 600 }}>Error: {response.error}</p>
             ) : response.dryRun ? (
-              <div style={{ fontSize: '14px', color: '#374151' }}>
-                <strong>Dry run</strong> — filter: <code style={{ background: '#e5e7eb', padding: '1px 5px', borderRadius: '3px' }}>{response.nameFilter}</code>
-                <span style={{ margin: '0 10px', color: '#d1d5db' }}>|</span>
+              <div style={{ fontSize: '14px', color: '#cbd5e1' }}>
+                <strong style={{ color: '#93c5fd' }}>Dry run</strong> — filter: <code style={{ background: 'rgba(51, 65, 85, 0.8)', padding: '2px 6px', borderRadius: '3px', color: '#e2e8f0' }}>{response.nameFilter}</code>
+                <span style={{ margin: '0 10px', color: '#475569' }}>|</span>
                 {response.totalMatching} matching &nbsp;·&nbsp; {response.alreadyCached} already cached &nbsp;·&nbsp;
-                <strong style={{ color: response.missingRosters! > 0 ? '#d97706' : '#16a34a' }}> {response.missingRosters} need fetching</strong>
+                <strong style={{ color: response.missingRosters! > 0 ? '#fbbf24' : '#4ade80' }}>{response.missingRosters} need fetching</strong>
               </div>
             ) : (
-              <div style={{ fontSize: '14px', color: '#374151', display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
-                <span>✅ <strong>{response.succeeded}</strong> fetched</span>
+              <div style={{ fontSize: '14px', color: '#cbd5e1', display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
+                <span>✅ <strong style={{ color: '#4ade80' }}>{response.succeeded}</strong> fetched</span>
                 <span>⏭️ <strong>{response.alreadyCached}</strong> already cached</span>
-                {response.empty! > 0 && <span>🔲 <strong>{response.empty}</strong> empty</span>}
-                {response.failed! > 0 && <span style={{ color: '#dc2626' }}>❌ <strong>{response.failed}</strong> failed</span>}
+                {response.empty! > 0 && <span>🔲 <strong style={{ color: '#fbbf24' }}>{response.empty}</strong> empty</span>}
+                {response.failed! > 0 && <span>❌ <strong style={{ color: '#fca5a5' }}>{response.failed}</strong> failed</span>}
               </div>
             )}
           </div>
@@ -162,39 +180,39 @@ export default function AdminPage() {
           {((response.dryRun ? response.leaders : response.results) || []).length > 0 && (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead>
-                <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                  <th style={{ textAlign: 'left', padding: '10px 16px', fontWeight: 600, color: '#374151' }}>Leader</th>
-                  <th style={{ textAlign: 'left', padding: '10px 16px', fontWeight: 600, color: '#374151' }}>Group ID</th>
+                <tr style={{ background: 'rgba(30, 41, 59, 0.6)', borderBottom: '1px solid rgba(148, 163, 184, 0.12)' }}>
+                  <th style={{ textAlign: 'left', padding: '10px 16px', fontWeight: 600, color: '#94a3b8' }}>Leader</th>
+                  <th style={{ textAlign: 'left', padding: '10px 16px', fontWeight: 600, color: '#94a3b8' }}>Group ID</th>
                   {!response.dryRun && (
                     <>
-                      <th style={{ textAlign: 'right', padding: '10px 16px', fontWeight: 600, color: '#374151' }}>Members</th>
-                      <th style={{ textAlign: 'left', padding: '10px 16px', fontWeight: 600, color: '#374151' }}>Status</th>
+                      <th style={{ textAlign: 'right', padding: '10px 16px', fontWeight: 600, color: '#94a3b8' }}>Members</th>
+                      <th style={{ textAlign: 'left', padding: '10px 16px', fontWeight: 600, color: '#94a3b8' }}>Status</th>
                     </>
                   )}
                 </tr>
               </thead>
               <tbody>
                 {(response.dryRun ? response.leaders! : response.results!).map((row, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td style={{ padding: '9px 16px', color: '#111827' }}>
-                      <a href={`/circle/${'id' in row ? row.id : (row as any).id}/`} style={{ color: '#1d4ed8', textDecoration: 'none' }}>
+                  <tr key={i} style={{ borderBottom: '1px solid rgba(148, 163, 184, 0.08)' }}>
+                    <td style={{ padding: '9px 16px', color: '#e2e8f0' }}>
+                      <a href={`/circle/${'id' in row ? row.id : (row as any).id}/`} style={{ color: '#60a5fa', textDecoration: 'none' }}>
                         {row.name}
                       </a>
                       {'campus' in row && row.campus && (
-                        <span style={{ marginLeft: '6px', fontSize: '11px', color: '#9ca3af' }}>{row.campus}</span>
+                        <span style={{ marginLeft: '6px', fontSize: '11px', color: '#64748b' }}>{row.campus}</span>
                       )}
                     </td>
-                    <td style={{ padding: '9px 16px', color: '#6b7280', fontFamily: 'monospace' }}>{row.ccb_group_id}</td>
+                    <td style={{ padding: '9px 16px', color: '#94a3b8', fontFamily: 'monospace', fontSize: '12px' }}>{row.ccb_group_id}</td>
                     {!response.dryRun && 'status' in row && (
                       <>
-                        <td style={{ padding: '9px 16px', textAlign: 'right', color: '#374151' }}>
+                        <td style={{ padding: '9px 16px', textAlign: 'right', color: '#cbd5e1' }}>
                           {(row as FetchResult).memberCount ?? '—'}
                         </td>
                         <td style={{ padding: '9px 16px' }}>
-                          {(row as FetchResult).status === 'success' && <span style={{ color: '#16a34a', fontWeight: 600 }}>✅ OK</span>}
-                          {(row as FetchResult).status === 'empty' && <span style={{ color: '#d97706' }}>Empty</span>}
+                          {(row as FetchResult).status === 'success' && <span style={{ color: '#4ade80', fontWeight: 600 }}>✅ OK</span>}
+                          {(row as FetchResult).status === 'empty' && <span style={{ color: '#fbbf24' }}>Empty</span>}
                           {(row as FetchResult).status === 'error' && (
-                            <span style={{ color: '#dc2626' }} title={(row as FetchResult).error}>❌ {(row as FetchResult).error?.slice(0, 60)}</span>
+                            <span style={{ color: '#fca5a5' }} title={(row as FetchResult).error}>❌ {(row as FetchResult).error?.slice(0, 60)}</span>
                           )}
                         </td>
                       </>
@@ -206,7 +224,7 @@ export default function AdminPage() {
           )}
 
           {response.message && (
-            <div style={{ padding: '16px 20px', fontSize: '14px', color: '#374151' }}>{response.message}</div>
+            <div style={{ padding: '16px 20px', fontSize: '14px', color: '#cbd5e1' }}>{response.message}</div>
           )}
         </div>
       )}

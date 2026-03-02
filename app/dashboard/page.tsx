@@ -104,6 +104,7 @@ function DashboardContent() {
 
   // Birthday state
   const [todayBirthdays, setTodayBirthdays] = useState<{id: number; name: string; campus?: string; birthday: string}[]>([]);
+  const [birthdayBannerDismissed, setBirthdayBannerDismissed] = useState(false);
 
   // Todo list state
   const [todos, setTodos] = useState<TodoItem[]>([]);
@@ -2724,22 +2725,29 @@ function DashboardContent() {
           <div id="todo-list" className="mt-8 relative z-10">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 sm:p-6">
               {/* Birthday Banner */}
-              {todayBirthdays.length > 0 && (
-                <div style={{background: 'linear-gradient(135deg, #fef3c7, #fde68a)', border: '1px solid #f59e0b', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', display: 'flex', alignItems: 'flex-start', gap: '10px'}}>
-                  <span style={{fontSize: '22px', lineHeight: 1}}>🎂</span>
+              {todayBirthdays.length > 0 && !birthdayBannerDismissed && (
+                <div style={{background: '#1e293b', border: '1px solid #f59e0b', borderRadius: '10px', padding: '12px 14px', marginBottom: '16px', display: 'flex', alignItems: 'flex-start', gap: '10px'}}>
+                  <span style={{fontSize: '24px', lineHeight: 1, marginTop: '1px'}}>🎂</span>
                   <div style={{flex: 1}}>
-                    <div style={{fontWeight: 700, color: '#92400e', fontSize: '14px', marginBottom: '4px'}}>
+                    <div style={{fontWeight: 700, color: '#fbbf24', fontSize: '15px', marginBottom: '6px'}}>
                       {todayBirthdays.length === 1 ? "It's a birthday today!" : `${todayBirthdays.length} birthdays today!`}
                     </div>
                     <div style={{display: 'flex', flexWrap: 'wrap', gap: '6px'}}>
                       {todayBirthdays.map(l => (
-                        <a key={l.id} href={`/circle/${l.id}/`} style={{display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#f59e0b', color: 'white', borderRadius: '9999px', padding: '2px 10px', fontSize: '13px', fontWeight: 600, textDecoration: 'none'}}>
-                          {l.name}
-                          {l.campus ? <span style={{opacity: 0.85, fontSize: '11px'}}>• {l.campus}</span> : null}
+                        <a key={l.id} href={`/circle/${l.id}/`} style={{display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#92400e', color: '#fef3c7', borderRadius: '9999px', padding: '4px 12px', fontSize: '13px', fontWeight: 600, textDecoration: 'none', border: '1px solid #b45309'}}>
+                          🎉 {l.name}
+                          {l.campus ? <span style={{opacity: 0.7, fontSize: '11px'}}>• {l.campus}</span> : null}
                         </a>
                       ))}
                     </div>
                   </div>
+                  <button
+                    onClick={() => setBirthdayBannerDismissed(true)}
+                    style={{background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#6b7280', fontSize: '18px', lineHeight: 1, flexShrink: 0}}
+                    title="Dismiss"
+                  >
+                    ✕
+                  </button>
                 </div>
               )}
               {/* Header with title and actions */}

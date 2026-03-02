@@ -23,13 +23,42 @@ function getServiceClient() {
  * dryRun      – if true, return the list of leaders that would be fetched without calling CCB
  */
 export async function POST(request: NextRequest) {
-  // Simple auth guard — require the CRON_SECRET header if set
+  // Auth guard — accept either:
+  //   1. A valid Supabase user session token (from browser), or
+  //   2. The CRON_SECRET bearer token (for automated calls)
+  const authHeader = request.headers.get('authorization');
+  const token = authHeader?.replace('Bearer ', '');
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const auth = request.headers.get('authorization');
-    if (auth !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  let authenticated = false;
+
+  // Check Supabase session token first
+  if (token && token !== cronSecret) {
+    try {
+      const anonClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { auth: { persistSession: false } }
+      );
+      const { data: { user }, error } = await anonClient.auth.getUser(token);
+      if (user && !error) authenticated = true;
+    } catch {
+      // fall through
     }
+  }
+
+  // Check CRON_SECRET
+  if (!authenticated && cronSecret && token === cronSecret) {
+    authenticated = true;
+  }
+
+  // If no CRON_SECRET is set and no valid user token, allow (dev mode)
+  if (!authenticated && !cronSecret) {
+    authenticated = true;
+  }
+
+  if (!authenticated) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   let nameFilter = 'LVT | S1';
