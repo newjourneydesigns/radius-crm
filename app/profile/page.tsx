@@ -21,6 +21,7 @@ interface EmailPreferences {
   include_overdue_tasks: boolean;
   include_planned_encouragements: boolean;
   include_upcoming_meetings: boolean;
+  include_birthdays: boolean;
   preferred_time: string;
   timezone: string;
   frequency_hours: number;
@@ -36,6 +37,7 @@ export default function ProfilePage() {
     include_overdue_tasks: true,
     include_planned_encouragements: true,
     include_upcoming_meetings: false,
+    include_birthdays: true,
     preferred_time: '08:00',
     timezone: 'America/Chicago',
     frequency_hours: 24
@@ -648,6 +650,27 @@ export default function ProfilePage() {
                           </label>
                           <p className="text-xs text-gray-500 dark:text-gray-400">
                             Circles meeting today and tomorrow
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start">
+                        <div className="flex items-center h-5">
+                          <input
+                            id="include_birthdays"
+                            type="checkbox"
+                            checked={preferences.include_birthdays}
+                            onChange={(e) => setPreferences(prev => ({ ...prev, include_birthdays: e.target.checked }))}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            disabled={!preferences.email_enabled}
+                          />
+                        </div>
+                        <div className="ml-3">
+                          <label htmlFor="include_birthdays" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Birthdays
+                          </label>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Circle leaders with a birthday today
                           </p>
                         </div>
                       </div>

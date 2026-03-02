@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
     try {
       const { data: userPrefs } = await supabaseAdmin
         .from('users')
-        .select('daily_email_subscribed, daily_email_time, daily_email_frequency_hours, include_follow_ups, include_overdue_tasks, include_planned_encouragements, include_upcoming_meetings')
+        .select('daily_email_subscribed, daily_email_time, daily_email_frequency_hours, include_follow_ups, include_overdue_tasks, include_planned_encouragements, include_upcoming_meetings, include_birthdays')
         .eq('id', user.id)
         .maybeSingle();
       if (userPrefs) {
@@ -102,6 +102,7 @@ export async function GET(request: NextRequest) {
           include_overdue_tasks: userPrefs.include_overdue_tasks ?? true,
           include_planned_encouragements: userPrefs.include_planned_encouragements ?? true,
           include_upcoming_meetings: userPrefs.include_upcoming_meetings ?? false,
+          include_birthdays: userPrefs.include_birthdays ?? true,
           preferred_time: userPrefs.daily_email_time || '08:00',
           timezone: 'America/Chicago',
           frequency_hours: userPrefs.daily_email_frequency_hours ?? 24
@@ -119,6 +120,7 @@ export async function GET(request: NextRequest) {
       include_overdue_tasks: true,
       include_planned_encouragements: true,
       include_upcoming_meetings: false,
+      include_birthdays: true,
       preferred_time: '08:00',
       timezone: 'America/Chicago',
       frequency_hours: 24
@@ -239,6 +241,9 @@ export async function PUT(request: NextRequest) {
         }
         if (typeof preferences.include_upcoming_meetings === 'boolean') {
           updatePayload.include_upcoming_meetings = preferences.include_upcoming_meetings;
+        }
+        if (typeof preferences.include_birthdays === 'boolean') {
+          updatePayload.include_birthdays = preferences.include_birthdays;
         }
 
         // Only update if there's something to write

@@ -317,7 +317,7 @@ export default function SearchPage() {
           allLeaders={circles}
         />
 
-        {/* Circle Count */}
+        {/* Circle Count + Roster Total */}
         {!isLoading && (
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -330,6 +330,14 @@ export default function SearchPage() {
                   Showing <span className="font-semibold text-gray-900 dark:text-white">{filteredCircles.length}</span> of <span className="font-semibold text-gray-900 dark:text-white">{circles.length}</span> circle{circles.length !== 1 ? 's' : ''}
                 </span>
               )}
+              {(() => {
+                const totalRoster = filteredCircles.reduce((sum, c) => sum + (rosterCounts[c.id] || 0), 0);
+                return totalRoster > 0 ? (
+                  <span className="ml-3 text-gray-400 dark:text-gray-500">
+                    · <span className="font-semibold text-gray-900 dark:text-white">{totalRoster}</span> total roster member{totalRoster !== 1 ? 's' : ''}
+                  </span>
+                ) : null;
+              })()}
             </p>
           </div>
         )}

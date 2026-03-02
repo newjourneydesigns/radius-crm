@@ -104,6 +104,21 @@ async function buildDigestForUser(
   const weekEnd = getDateOffset(today, 7);
   const tomorrow = getDateOffset(today, 1);
 
+  // Fetch user's email section preferences
+  const { data: userPrefs } = await supabase
+    .from('users')
+    .select('include_follow_ups, include_overdue_tasks, include_planned_encouragements, include_upcoming_meetings, include_birthdays')
+    .eq('id', user.id)
+    .single();
+
+  const sectionPrefs = {
+    include_follow_ups: userPrefs?.include_follow_ups ?? true,
+    include_overdue_tasks: userPrefs?.include_overdue_tasks ?? true,
+    include_planned_encouragements: userPrefs?.include_planned_encouragements ?? true,
+    include_upcoming_meetings: userPrefs?.include_upcoming_meetings ?? false,
+    include_birthdays: userPrefs?.include_birthdays ?? true,
+  };
+
   // 1a. Incomplete todos with a due date (due today or overdue)
   // Only include manual/untyped todos — follow_up, encouragement, and circle_visit
   // types are already shown in their own dedicated sections to avoid double-counting.
@@ -324,17 +339,28 @@ async function buildDigestForUser(
     return parseInt(parts[1], 10) === todayMonth && parseInt(parts[2], 10) === todayDay;
   }).map(l => ({ id: l.id, name: l.name, campus: l.campus ?? undefined, birthday: l.birthday }));
 
+  // Apply email section preferences — zero out disabled sections
   return {
     user,
     date: today,
-    birthdays,
-    todos: { dueToday: todosDueToday, overdue: todosOverdue, noDate: todosNoDate },
+    birthdays: sectionPrefs.include_birthdays ? birthdays : [],
+    todos: {
+      dueToday: todosDueToday,
+      overdue: sectionPrefs.include_overdue_tasks ? todosOverdue : [],
+      noDate: todosNoDate,
+    },
     circleVisits: { today: visitsToday, thisWeek: visitsThisWeek },
     upcomingVisits,
     recentNotes,
-    upcomingCircles: { today: circlesToday, tomorrow: circlesTomorrow },
-    encouragements: { dueToday: encsDueToday, overdue: encsOverdue },
-    followUps: { dueToday: fuDueToday, overdue: fuOverdue },
+    upcomingCircles: sectionPrefs.include_upcoming_meetings
+      ? { today: circlesToday, tomorrow: circlesTomorrow }
+      : { today: [], tomorrow: [] },
+    encouragements: sectionPrefs.include_planned_encouragements
+      ? { dueToday: encsDueToday, overdue: encsOverdue }
+      : { dueToday: [], overdue: [] },
+    followUps: sectionPrefs.include_follow_ups
+      ? { dueToday: fuDueToday, overdue: fuOverdue }
+      : { dueToday: [], overdue: [] },
   };
 }
 
