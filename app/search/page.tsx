@@ -30,6 +30,10 @@ interface DashboardFilters {
 }
 
 export default function SearchPage() {
+  // localStorage key for persisting filters
+  const STORAGE_KEY = 'radius-find-circle-filters';
+  const SORT_STORAGE_KEY = 'radius-find-circle-sort';
+
   // State for circle data
   const [circles, setCircles] = useState<CircleSearchResult[]>([]);
   const [filteredCircles, setFilteredCircles] = useState<CircleSearchResult[]>([]);
@@ -39,12 +43,14 @@ export default function SearchPage() {
   const [rosterCounts, setRosterCounts] = useState<Record<number, number>>({});
 
   // State for filters - using dashboard filter structure
-  const [filters, setFilters] = useState<DashboardFilters>({
-    campus: [],
-    meetingDay: [],
-    circleType: [],
-    timeOfDay: 'all',
-    searchTerm: ''
+  // Initialise from localStorage when available
+  const [filters, setFilters] = useState<DashboardFilters>(() => {
+    if (typeof window === 'undefined') return { campus: [], meetingDay: [], circleType: [], timeOfDay: 'all', searchTerm: '' };
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return { campus: [], meetingDay: [], circleType: [], timeOfDay: 'all', searchTerm: '' };
   });
 
   // State for export modal
@@ -54,10 +60,24 @@ export default function SearchPage() {
   const [sortConfig, setSortConfig] = useState<{
     key: keyof CircleSearchResult | null;
     direction: 'asc' | 'desc';
-  }>({
-    key: 'name',
-    direction: 'asc'
+  }>(() => {
+    if (typeof window === 'undefined') return { key: 'name', direction: 'asc' };
+    try {
+      const saved = localStorage.getItem(SORT_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return { key: 'name', direction: 'asc' };
   });
+
+  // Persist filters to localStorage whenever they change
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(filters)); } catch { /* ignore */ }
+  }, [filters]);
+
+  // Persist sort config to localStorage whenever it changes
+  useEffect(() => {
+    try { localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify(sortConfig)); } catch { /* ignore */ }
+  }, [sortConfig]);
 
   // Ensure client-side hydration
   useEffect(() => {
@@ -188,13 +208,19 @@ export default function SearchPage() {
 
   // Clear all filters
   const clearAllFilters = () => {
-    setFilters({
+    const defaults: DashboardFilters = {
       campus: [],
       meetingDay: [],
       circleType: [],
       timeOfDay: 'all',
       searchTerm: ''
-    });
+    };
+    setFilters(defaults);
+    setSortConfig({ key: 'name', direction: 'asc' });
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(SORT_STORAGE_KEY);
+    } catch { /* ignore */ }
   };
 
   // Format time display - convert 24hr to 12hr AM/PM format

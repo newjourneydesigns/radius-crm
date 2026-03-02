@@ -592,6 +592,32 @@ export default function CircleRosterPage() {
                       </a>
                     )}
 
+                    {/* CCB Individual Profile */}
+                    <a
+                      href={`https://valleycreekchurch.ccbchurch.com/goto/individuals/${person.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '5px 10px',
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        color: '#94a3b8',
+                        background: '#1e293b',
+                        border: '1px solid #334155',
+                        borderRadius: '6px',
+                        textDecoration: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      CCB
+                    </a>
+
                     {/* No contact info */}
                     {!hasPhone && !hasEmail && (
                       <span style={{ fontSize: '12px', color: '#6b7280', fontStyle: 'italic' }}>
