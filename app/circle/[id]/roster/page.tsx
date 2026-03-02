@@ -71,11 +71,29 @@ export default function CircleRosterPage() {
         }
 
         // Load cached roster
-        const { data: cached, error: cacheErr } = await supabase
+        let cached: any[] | null = null;
+        let cacheErr: any = null;
+
+        // Try with birthday column first
+        const result1 = await supabase
           .from('circle_roster_cache')
           .select('ccb_individual_id, first_name, last_name, full_name, email, phone, mobile_phone, birthday, fetched_at')
           .eq('circle_leader_id', leaderId)
           .order('full_name');
+
+        if (result1.error) {
+          // Birthday column may not exist — retry without it
+          const result2 = await supabase
+            .from('circle_roster_cache')
+            .select('ccb_individual_id, first_name, last_name, full_name, email, phone, mobile_phone, fetched_at')
+            .eq('circle_leader_id', leaderId)
+            .order('full_name');
+          cached = result2.data;
+          cacheErr = result2.error;
+        } else {
+          cached = result1.data;
+          cacheErr = result1.error;
+        }
 
         if (!cacheErr && cached && cached.length > 0) {
           setRoster(
@@ -132,7 +150,8 @@ export default function CircleRosterPage() {
 
       // Insert new cache entries
       if (people.length > 0) {
-        const rows = people.map((p) => ({
+        const now = new Date().toISOString();
+        const baseRows = people.map((p) => ({
           circle_leader_id: parseInt(leaderId),
           ccb_group_id: ccbGroupId,
           ccb_individual_id: p.id,
@@ -142,16 +161,28 @@ export default function CircleRosterPage() {
           email: p.email || '',
           phone: p.phone || '',
           mobile_phone: p.mobilePhone || '',
+          fetched_at: now,
+        }));
+
+        // Try with birthday column first, fall back without it
+        const rowsWithBirthday = people.map((p, i) => ({
+          ...baseRows[i],
           birthday: p.birthday || '',
-          fetched_at: new Date().toISOString(),
         }));
 
         const { error: insertErr } = await supabase
           .from('circle_roster_cache')
-          .insert(rows);
+          .insert(rowsWithBirthday);
 
         if (insertErr) {
-          console.error('Failed to cache roster:', insertErr);
+          // Birthday column may not exist yet — retry without it
+          console.warn('Insert with birthday failed, retrying without:', insertErr.message);
+          const { error: retryErr } = await supabase
+            .from('circle_roster_cache')
+            .insert(baseRows);
+          if (retryErr) {
+            console.error('Failed to cache roster:', retryErr);
+          }
         }
       }
 
