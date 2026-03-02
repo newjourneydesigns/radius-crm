@@ -96,6 +96,7 @@ export interface CircleLeader {
   follow_up_date?: string;
   follow_up_note?: string;
   ccb_profile_link?: string;
+  ccb_group_id?: string;
   additional_leader_name?: string;
   additional_leader_phone?: string;
   additional_leader_email?: string;
