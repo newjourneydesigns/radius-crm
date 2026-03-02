@@ -1,8 +1,8 @@
 # RADIUS CRM — Project Context
 
-> **Version:** 1.6.0  
+> **Version:** 1.7.0  
 > **Repository:** `newjourneydesigns/radius-crm` (branch: `main`)  
-> **Last Updated:** 2026-02-26
+> **Last Updated:** 2026-03-01
 
 ---
 
@@ -68,6 +68,7 @@ Set in `.env.local` for development, Netlify dashboard for production.
 │   ├── users/                  # User management
 │   ├── ccb/                    # CCB integration scripts
 │   ├── ccb-events/             # CCB events UI
+│   ├── person-lookup/          # CCB person search with text/call/email actions
 │   ├── ccb-explorer/           # Standalone CCB Event Explorer (date range search)
 │   ├── func/                   # Function test page
 │   ├── help/                   # Help page
@@ -87,6 +88,7 @@ Set in `.env.local` for development, Netlify dashboard for production.
 │       │   ├── event-attendance/
 │       │   ├── event-profile/
 │       │   ├── event-profiles/
+│       │   ├── person-search/   # CCB individual search (name or phone)
 │       │   ├── test-endpoints/
 │       │   └── test-groups/
 │       ├── ai-summarize/       # AI summarization & meeting prep API (Gemini→Groq fallback)
@@ -143,6 +145,7 @@ Set in `.env.local` for development, Netlify dashboard for production.
 │   │   ├── DictateAndSummarize.tsx  # Voice dictation toolbar + AI summarize with preview/approve UX
 │   │   └── MeetingPrepAssistant.tsx # AI meeting prep briefing generator (Big 4 coaching, admin-only)
 │   ├── ui/                     # Generic UI primitives
+│   │   ├── CCBPersonLookup.tsx  # Reusable CCB person search component (name/phone)
 │   │   └── ScrollToTop.tsx
 │   ├── ProtectedRoute.tsx      # Auth guard wrapper
 │   └── ServiceWorkerUtils.tsx  # PWA service worker helper
@@ -260,6 +263,8 @@ Set in `.env.local` for development, Netlify dashboard for production.
 9. **Global Search** — Fuse.js fuzzy search across leaders
 10. **CCB Integration** — Pull attendance data, event profiles, and group info from Church Community Builder API
 11. **CCB Event Explorer** (`/ccb-explorer`) — Standalone tool to search CCB events by date range and group name, with per-day API fetching, progress indicator, and copy-all-content button
+25. **Person Lookup** (`/person-lookup`) — Dedicated CCB person search page accessible from the navigation menu. Search by name or phone, view contact details, and take immediate action via Text (sms:), Call (tel:), or Email (mailto:) buttons. Uses the shared `CCBPersonLookup` component and `/api/ccb/person-search` endpoint.
+26. **CCB Person Search** — Reusable search component (`CCBPersonLookup.tsx`) for looking up individuals in CCB by name or phone. Used across ConnectPersonModal, Circle Leader edit form, Add Leader page, and the Person Lookup page. API route: `POST /api/ccb/person-search`. CCB client method: `searchIndividuals()` in `lib/ccb/ccb-client.ts`.
 12. **User Management** — Admin can manage users, roles, and campus assignments
 12. **Import** — Bulk data import capability
 13. **PWA** — Installable, mobile-optimized with service worker caching

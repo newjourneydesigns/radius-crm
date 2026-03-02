@@ -19,6 +19,7 @@ const sections = [
   { id: 'encourage',        title: 'Encourage Feature' },
   { id: 'filters',          title: 'Filtering & Search' },
   { id: 'contact',          title: 'Contact Features' },
+  { id: 'person-lookup',    title: 'Person Lookup' },
   { id: 'ccb',              title: 'CCB Explorer' },
   { id: 'settings',         title: 'Settings' },
   { id: 'pwa',              title: 'Mobile App (PWA)' },
@@ -132,6 +133,7 @@ export default function HelpPage() {
                     <li>Calendar view of scheduled meetings and events</li>
                     <li>Progress page with aggregate stats and scorecard</li>
                     <li>CCB Explorer for browsing church database profiles</li>
+                    <li>Person Lookup — search CCB by name or phone, then text, call, or email</li>
                     <li>PWA — installable on iPhone, Android, and desktop</li>
                   </ul>
                   <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
@@ -485,6 +487,37 @@ export default function HelpPage() {
 
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Contact Info Handling</h3>
                   <p className="text-gray-600 dark:text-gray-400">Contact buttons only appear when a phone number or email is on file. Missing contact info is clearly indicated so you can update the leader's profile.</p>
+                </section>
+
+                {/* ── Person Lookup ── */}
+                <section id="person-lookup" className="p-6 sm:p-8">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Person Lookup</h2>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">The Person Lookup page lets you search CCB (Church Community Builder) for any individual by name or phone number and quickly reach out to them via text, call, or email.</p>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Accessing Person Lookup</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">Click your avatar/name in the top-right navigation and select <strong>Person Lookup</strong> (admin only). On mobile, open the <strong>More</strong> menu and tap <strong>Person Lookup</strong> at the top of the quick links.</p>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Searching</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
+                    <li>Type a person's name (first, last, or both) to search CCB</li>
+                    <li>Enter a phone number (7+ digits) to search by phone instead</li>
+                    <li>Results appear automatically after a brief delay — no need to press Enter</li>
+                    <li>Select a person from the dropdown to view their details</li>
+                  </ul>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Contact Actions</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-2">Once you select a person, a contact card appears with their name, phone, and email. Three action buttons are available:</p>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
+                    <li><strong>Text</strong> — opens your device's messaging app with their number</li>
+                    <li><strong>Call</strong> — opens your phone dialer with their number</li>
+                    <li><strong>Email</strong> — opens your email client addressed to them</li>
+                  </ul>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">Click <strong>Clear &amp; Search Again</strong> to reset and look up another person.</p>
+
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">Tip</h4>
+                    <p className="text-blue-700 dark:text-blue-300 text-sm">Person Lookup uses the same CCB search available on the Add Leader and Circle Profile edit pages. Use it when you need to quickly find someone&apos;s contact info without navigating to a specific leader profile.</p>
+                  </div>
                 </section>
 
                 {/* ── CCB Explorer ── */}

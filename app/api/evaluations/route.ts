@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/evaluations — upsert an evaluation with answers
-// Body: { leader_id, category, manual_override_score?, context_notes?, answers: { question_key: 'yes'|'no'|null } }
+// Body: { leader_id, category, manual_override_score?, context_notes?, answers: { question_key: 'yes'|'no'|'unsure'|null } }
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

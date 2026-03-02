@@ -384,6 +384,12 @@ export default function MobileNavigation() {
         {/* Quick links */}
         <div className="mobile-sheet-section">
           <div className="mobile-sheet-group">
+            <Link href="/person-lookup"
+              className={`mobile-sheet-row bordered ${isActive('/person-lookup') ? 'active' : ''}`}>
+              <span className="mobile-sheet-row-icon"><SearchIcon /></span>
+              <span className="mobile-sheet-row-label">Person Lookup</span>
+              <ChevronRightIcon />
+            </Link>
             <Link href="/search"
               className={`mobile-sheet-row bordered ${isActive('/search') ? 'active' : ''}`}>
               <span className="mobile-sheet-row-icon"><FindCircleIcon /></span>

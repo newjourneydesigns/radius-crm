@@ -15,6 +15,8 @@ import LogConnectionModal from '../../../components/dashboard/LogConnectionModal
 import NoteTemplateModal from '../../../components/dashboard/NoteTemplateModal';
 import ConnectPersonModal from '../../../components/modals/ConnectPersonModal';
 import EventSummaryReminderModal from '../../../components/modals/EventSummaryReminderModal';
+import CCBPersonLookup from '../../../components/ui/CCBPersonLookup';
+import type { CCBPerson } from '../../../components/ui/CCBPersonLookup';
 import EventExplorerModal from '../../../components/modals/EventExplorerModal';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 
@@ -2138,6 +2140,25 @@ export default function CircleLeaderProfilePage() {
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
                     {leaderError}
+                  </div>
+                )}
+
+                {isEditing && (
+                  <div className="mb-4">
+                    <CCBPersonLookup
+                      size="sm"
+                      label="Fill from CCB"
+                      placeholder="Search CCB by name or phone to auto-fill..."
+                      onSelect={(person: CCBPerson) => {
+                        handleLeaderFieldChange('name', person.fullName);
+                        if (person.mobilePhone || person.phone) {
+                          handleLeaderFieldChange('phone', person.mobilePhone || person.phone);
+                        }
+                        if (person.email) {
+                          handleLeaderFieldChange('email', person.email);
+                        }
+                      }}
+                    />
                   </div>
                 )}
                 

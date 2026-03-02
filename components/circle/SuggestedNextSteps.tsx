@@ -34,13 +34,14 @@ export default function SuggestedNextSteps({
   if (steps.length === 0) return null;
 
   const noSteps = steps.filter(s => s.answerType === 'no');
+  const unsureSteps = steps.filter(s => s.answerType === 'unsure');
   const yesSteps = steps.filter(s => s.answerType === 'yes');
 
   const handleAddToCoaching = async (step: NextStepItem) => {
     if (!onAddToCoaching || addedKeys.has(step.questionKey)) return;
     setAddingKey(step.questionKey);
     try {
-      const prefix = step.answerType === 'no' ? '📋 Growth Area' : '🚀 Next Level';
+      const prefix = step.answerType === 'no' ? '📋 Growth Area' : step.answerType === 'unsure' ? '🤔 Needs Clarity' : '🚀 Next Level';
       const content = `${prefix}: ${step.nextStep}`;
       await onAddToCoaching(leaderId, category, content);
       setAddedKeys(prev => new Set(prev).add(step.questionKey));
@@ -55,6 +56,7 @@ export default function SuggestedNextSteps({
     const isAdding = addingKey === step.questionKey;
     const isAdded = addedKeys.has(step.questionKey);
     const isGrowth = step.answerType === 'no';
+    const isUnsure = step.answerType === 'unsure';
 
     return (
       <div
@@ -63,11 +65,15 @@ export default function SuggestedNextSteps({
       >
         <div
           className="mt-0.5 shrink-0 w-5 h-5 rounded-full flex items-center justify-center"
-          style={{ backgroundColor: isGrowth ? 'rgba(239,68,68,0.15)' : `${color}20` }}
+          style={{ backgroundColor: isGrowth ? 'rgba(239,68,68,0.15)' : isUnsure ? 'rgba(245,158,11,0.15)' : `${color}20` }}
         >
           {isGrowth ? (
             <svg className="w-3 h-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          ) : isUnsure ? (
+            <svg className="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01" />
             </svg>
           ) : (
             <svg className="w-3 h-3" style={{ color }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -165,6 +171,21 @@ export default function SuggestedNextSteps({
               </p>
               <div className="space-y-2">
                 {noSteps.map(renderStep)}
+              </div>
+            </div>
+          )}
+
+          {/* Needs clarity (from "unsure" answers) */}
+          {unsureSteps.length > 0 && (
+            <div>
+              <p className="text-[10px] uppercase tracking-wide text-amber-400/70 font-medium mb-1.5 flex items-center gap-1">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01" />
+                </svg>
+                Needs Clarity ({unsureSteps.length})
+              </p>
+              <div className="space-y-2">
+                {unsureSteps.map(renderStep)}
               </div>
             </div>
           )}

@@ -310,7 +310,7 @@ export default function ScorecardSection({ leaderId, isAdmin, onNoteSaved, onAdd
                   const delta = effectiveScores.hasDirectScores ? trend[dim.key] : 0;
                   const evalData = getEvaluation(dim.key);
                   const suggested = getSuggestedScore(dim.key);
-                  const answeredCount = Object.values(evalData.answers).filter(a => a === 'yes' || a === 'no').length;
+                  const answeredCount = Object.values(evalData.answers).filter(a => a === 'yes' || a === 'no' || a === 'unsure').length;
                   const totalQuestions = getQuestions(dim.key).length;
                   const isFromEval = !effectiveScores.hasDirectScores && score !== null;
 

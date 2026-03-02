@@ -1362,6 +1362,108 @@ export class CCBClient {
   }
 
   /**
+   * Search for individuals in CCB by name or phone number.
+   * Uses the `individual_search` CCB API service.
+   */
+  async searchIndividuals(query: string): Promise<Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    fullName: string;
+    email: string;
+    phone: string;
+    mobilePhone: string;
+  }>> {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+
+    // Determine if query looks like a phone number
+    const digitsOnly = trimmed.replace(/\D/g, '');
+    const isPhone = digitsOnly.length >= 7;
+
+    const params: Record<string, string | number | boolean> = {
+      srv: 'individual_search',
+    };
+
+    if (isPhone) {
+      // Search by phone — CCB supports phone as a search param
+      params.phone = trimmed;
+    } else {
+      // Search by name — split into first/last if space detected
+      const parts = trimmed.split(/\s+/);
+      if (parts.length >= 2) {
+        params.first_name = parts[0];
+        params.last_name = parts.slice(1).join(' ');
+      } else {
+        params.last_name = parts[0];
+      }
+    }
+
+    if (IS_DEV) {
+      console.log(`🔍 CCB Individual Search: ${JSON.stringify(params)}`);
+    }
+
+    try {
+      const xml = await this.getXml(params);
+      const response = xml?.ccb_api?.response;
+      if (!response) return [];
+
+      // CCB may use 'individuals' or directly contain the data
+      const individualsRoot = response.individuals || response;
+      if (!individualsRoot) return [];
+
+      const indArray = Array.isArray(individualsRoot.individual)
+        ? individualsRoot.individual
+        : individualsRoot.individual
+          ? [individualsRoot.individual]
+          : [];
+
+      return indArray.map((ind: any) => {
+        const firstName = String(ind.first_name || '').trim();
+        const lastName = String(ind.last_name || '').trim();
+        const email = String(ind.email || '').trim();
+
+        // CCB returns phones as: { phones: { phone: [ { "#text": "...", "@_type": "mobile" }, ... ] } }
+        const phonesContainer = ind.phones || {};
+        const phoneEntries = Array.isArray(phonesContainer.phone)
+          ? phonesContainer.phone
+          : phonesContainer.phone
+            ? [phonesContainer.phone]
+            : [];
+
+        const getPhoneByType = (...types: string[]): string => {
+          for (const type of types) {
+            const entry = phoneEntries.find((p: any) => p?.['@_type'] === type);
+            const val = entry?.['#text'] || '';
+            if (val) return String(val).trim();
+          }
+          return '';
+        };
+
+        const mobilePhone = getPhoneByType('mobile', 'contact');
+        const phone = getPhoneByType('home', 'contact', 'work');
+
+        if (IS_DEV) {
+          console.log(`🔍 CCB Individual "${firstName} ${lastName}" — phone: "${phone}" | mobile: "${mobilePhone}"`);
+        }
+
+        return {
+          id: String(ind['@_id'] || ind.id || '').trim(),
+          firstName,
+          lastName,
+          fullName: `${firstName} ${lastName}`.trim(),
+          email,
+          phone,
+          mobilePhone,
+        };
+      }).filter((p: any) => p.id && p.fullName);
+    } catch (error) {
+      console.error('CCB individual search failed:', error);
+      throw new Error(`Failed to search individuals: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
    * Test connection to CCB API
    */
   async testConnection(): Promise<boolean> {

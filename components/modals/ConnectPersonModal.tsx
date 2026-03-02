@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
+import CCBPersonLookup from '../ui/CCBPersonLookup';
+import type { CCBPerson } from '../ui/CCBPersonLookup';
 
 interface ConnectPersonModalProps {
   isOpen: boolean;
@@ -26,6 +28,7 @@ export default function ConnectPersonModal({
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
+  const [lookupKey, setLookupKey] = useState(0);
 
   useEffect(() => {
     setMounted(true);
@@ -76,6 +79,7 @@ ${personName}`;
       setPhone('');
       setEmail('');
       setMessage('');
+      setLookupKey(k => k + 1);
       onClose();
     } catch (err) {
       setError('Failed to send. Please try again.');
@@ -101,7 +105,14 @@ ${personName}`;
     setMessage('');
     setError('');
     setCopySuccess(false);
+    setLookupKey(k => k + 1);
     onClose();
+  };
+
+  const handleCCBSelect = (person: CCBPerson) => {
+    setPersonName(person.fullName);
+    setPhone(person.mobilePhone || person.phone || '');
+    setEmail(person.email || '');
   };
 
   if (!mounted) return null;
@@ -114,6 +125,23 @@ ${personName}`;
       size="lg"
     >
       <div className="space-y-4">
+        {/* CCB Person Lookup */}
+        <CCBPersonLookup
+          key={lookupKey}
+          onSelect={handleCCBSelect}
+          autoFocus
+        />
+
+        {/* Divider */}
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-200 dark:border-gray-700"></div>
+          </div>
+          <div className="relative flex justify-center text-xs">
+            <span className="px-2 bg-white dark:bg-gray-800 text-gray-400">or enter manually</span>
+          </div>
+        </div>
+
         {/* Form Fields */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -125,7 +153,6 @@ ${personName}`;
             onChange={(e) => setPersonName(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Enter name"
-            autoFocus
           />
         </div>
 

@@ -195,6 +195,7 @@ export default function AuthenticatedNavigation() {
                   {admin && (
                     <div className="py-1">
                       {[
+                        { href: '/person-lookup',   label: 'Person Lookup',   Icon: SearchNavIcon },
                         { href: '/ccb-explorer',    label: 'CCB Explorer',    Icon: CompassIcon },
                         { href: '/bulk-message',    label: 'Bulk Message',    Icon: MessageBulkIcon },
                         { href: '/add-leader',      label: 'Add Leader',      Icon: UserPlusIcon },

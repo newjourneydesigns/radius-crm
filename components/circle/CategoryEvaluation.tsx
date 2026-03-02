@@ -56,7 +56,7 @@ export default function CategoryEvaluation({
   const finalScore = getFinalScore(manualOverride, suggestedScore, existingScore);
   const isOverridden = manualOverride !== null;
 
-  const answeredCount = Object.values(answers).filter(a => a === 'yes' || a === 'no').length;
+  const answeredCount = Object.values(answers).filter(a => a === 'yes' || a === 'no' || a === 'unsure').length;
   const yesCount = Object.values(answers).filter(a => a === 'yes').length;
 
   const [showAllQuestions, setShowAllQuestions] = useState(true);
@@ -118,7 +118,7 @@ export default function CategoryEvaluation({
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  const handleAnswerTap = (questionKey: string, currentAnswer: AnswerValue, newAnswer: 'yes' | 'no') => {
+  const handleAnswerTap = (questionKey: string, currentAnswer: AnswerValue, newAnswer: 'yes' | 'no' | 'unsure') => {
     // If tapping the same answer, clear it (toggle to unanswered)
     if (currentAnswer === newAnswer) {
       onAnswerChange(questionKey, null);
@@ -256,7 +256,7 @@ export default function CategoryEvaluation({
                   key={q.key}
                   className="flex items-center gap-2 py-1.5 group"
                 >
-                  {/* Yes/No buttons */}
+                  {/* Yes/No/Unsure buttons */}
                   <div className="flex gap-1 shrink-0">
                     <button
                       onClick={() => handleAnswerTap(q.key, currentAnswer, 'yes')}
@@ -285,6 +285,20 @@ export default function CategoryEvaluation({
                       } as React.CSSProperties}
                     >
                       No
+                    </button>
+                    <button
+                      onClick={() => handleAnswerTap(q.key, currentAnswer, 'unsure')}
+                      className={`score-btn w-10 h-7 rounded text-[10px] font-semibold transition-all ${
+                        currentAnswer === 'unsure' ? '' : 'opacity-40 hover:opacity-70'
+                      }`}
+                      style={{
+                        '--score-bg': currentAnswer === 'unsure' ? '#f59e0b' : 'rgba(255,255,255,0.05)',
+                        '--score-color': currentAnswer === 'unsure' ? '#fff' : 'rgba(255,255,255,0.5)',
+                        '--score-border': currentAnswer === 'unsure' ? '#f59e0b' : 'rgba(255,255,255,0.1)',
+                        '--score-shadow': 'none',
+                      } as React.CSSProperties}
+                    >
+                      ?
                     </button>
                   </div>
                   {/* Label */}

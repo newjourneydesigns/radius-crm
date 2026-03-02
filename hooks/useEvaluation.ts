@@ -283,7 +283,7 @@ export const useEvaluation = () => {
       const categoryLabel = category.charAt(0).toUpperCase() + category.slice(1);
 
       // Build the note content
-      const answeredQuestions = questions.filter(q => evaluation.answers[q.key] === 'yes' || evaluation.answers[q.key] === 'no');
+      const answeredQuestions = questions.filter(q => evaluation.answers[q.key] === 'yes' || evaluation.answers[q.key] === 'no' || evaluation.answers[q.key] === 'unsure');
       const yesCount = answeredQuestions.filter(q => evaluation.answers[q.key] === 'yes').length;
 
       const noteLines: string[] = [];
@@ -300,7 +300,7 @@ export const useEvaluation = () => {
 
       if (answeredQuestions.length > 0) {
         for (const q of answeredQuestions) {
-          const answerIcon = evaluation.answers[q.key] === 'yes' ? '✅' : '❌';
+          const answerIcon = evaluation.answers[q.key] === 'yes' ? '✅' : evaluation.answers[q.key] === 'unsure' ? '🤔' : '❌';
           noteLines.push(`   ${answerIcon} ${labelMap[q.key] || q.key}`);
         }
       }

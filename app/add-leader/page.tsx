@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { ensureDefaultFrequencies, formatFrequencyLabel } from '../../lib/frequencyUtils';
+import CCBPersonLookup from '../../components/ui/CCBPersonLookup';
+import type { CCBPerson } from '../../components/ui/CCBPersonLookup';
 
 interface Director {
   id: number;
@@ -171,6 +173,30 @@ export default function AddLeaderPage() {
               <h2 className="text-lg font-medium text-gray-900 dark:text-white">Circle Information</h2>
             </div>
             <div className="p-4 sm:p-6 space-y-4">
+              {/* CCB Person Lookup */}
+              <div className="col-span-full">
+                <CCBPersonLookup
+                  label="Fill from CCB"
+                  placeholder="Search CCB by name or phone to auto-fill..."
+                  onSelect={(person: CCBPerson) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      name: person.fullName,
+                      phone: person.mobilePhone || person.phone || prev.phone,
+                      email: person.email || prev.email,
+                    }));
+                  }}
+                />
+                <div className="relative mt-3 mb-1">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-200 dark:border-gray-700"></div>
+                  </div>
+                  <div className="relative flex justify-center text-xs">
+                    <span className="px-2 bg-white dark:bg-gray-800 text-gray-400">or enter manually</span>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">

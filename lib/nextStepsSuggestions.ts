@@ -133,7 +133,7 @@ export interface NextStepItem {
   questionKey: string;
   questionLabel: string;
   nextStep: string;
-  answerType: 'yes' | 'no';
+  answerType: 'yes' | 'no' | 'unsure';
 }
 
 /**
@@ -141,7 +141,7 @@ export interface NextStepItem {
  * Returns steps for both "no" (growth areas) and "yes" (keep pushing) answers.
  */
 export function getNextStepsForCategory(
-  answers: Record<string, 'yes' | 'no' | null>,
+  answers: Record<string, 'yes' | 'no' | 'unsure' | null>,
   questions: Array<{ key: string; label: string }>
 ): NextStepItem[] {
   const steps: NextStepItem[] = [];
@@ -149,10 +149,12 @@ export function getNextStepsForCategory(
   for (const q of questions) {
     const answer = answers[q.key];
     if (answer && NEXT_STEPS[q.key]) {
+      // 'unsure' uses the 'no' next step (growth area)
+      const stepKey = answer === 'unsure' ? 'no' : answer;
       steps.push({
         questionKey: q.key,
         questionLabel: q.label,
-        nextStep: NEXT_STEPS[q.key][answer],
+        nextStep: NEXT_STEPS[q.key][stepKey],
         answerType: answer,
       });
     }

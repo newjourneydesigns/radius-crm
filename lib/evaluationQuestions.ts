@@ -50,7 +50,7 @@ export const EVALUATION_QUESTIONS: Record<ScorecardDimension, EvaluationQuestion
 
 // ── Scoring Logic ───────────────────────────────────────────
 
-export type AnswerValue = 'yes' | 'no' | null;
+export type AnswerValue = 'yes' | 'no' | 'unsure' | null;
 
 export interface CategoryAnswer {
   question_key: string;
@@ -76,9 +76,10 @@ export function calculateSuggestedScore(answers: Record<string, AnswerValue>): n
   let questionCount = 0;
 
   for (const answer of Object.values(answers)) {
-    if (answer === 'yes' || answer === 'no') {
+    if (answer === 'yes' || answer === 'no' || answer === 'unsure') {
       questionCount++;
       if (answer === 'yes') yesCount++;
+      // 'unsure' counts as answered but not as yes (same effect as 'no' on ratio)
     }
   }
 
