@@ -34,6 +34,25 @@ interface ApiResponse {
   error?: string;
 }
 
+interface BirthdayResult {
+  id: number;
+  name: string;
+  birthday: string | null;
+  matchType: string;
+}
+
+interface BirthdayResponse {
+  dryRun?: boolean;
+  totalMissing?: number;
+  matched?: number;
+  unmatched?: number;
+  updated?: number;
+  failed?: number;
+  results?: BirthdayResult[];
+  error?: string;
+  success?: boolean;
+}
+
 export default function AdminPage() {
   const [nameFilter, setNameFilter] = useState('LVT | S1');
   const [includeAll, setIncludeAll] = useState(false);
@@ -41,6 +60,11 @@ export default function AdminPage() {
   const [isDryRunning, setIsDryRunning] = useState(false);
   const [response, setResponse] = useState<ApiResponse | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+
+  // Birthday backfill state
+  const [bdayRunning, setBdayRunning] = useState(false);
+  const [bdayDryRunning, setBdayDryRunning] = useState(false);
+  const [bdayResponse, setBdayResponse] = useState<BirthdayResponse | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -68,6 +92,29 @@ export default function AdminPage() {
     } finally {
       setIsRunning(false);
       setIsDryRunning(false);
+    }
+  }
+
+  async function runBirthday(dryRun: boolean) {
+    if (dryRun) setBdayDryRunning(true);
+    else setBdayRunning(true);
+    setBdayResponse(null);
+
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+      const res = await fetch('/api/admin/backfill-birthdays', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ dryRun }),
+      });
+      const data = await res.json();
+      setBdayResponse(data);
+    } catch (err: any) {
+      setBdayResponse({ error: err.message });
+    } finally {
+      setBdayRunning(false);
+      setBdayDryRunning(false);
     }
   }
 
@@ -228,6 +275,98 @@ export default function AdminPage() {
           )}
         </div>
       )}
+
+      {/* ── Birthday Backfill Section ── */}
+      <div style={{ borderTop: '1px solid rgba(148, 163, 184, 0.12)', marginTop: '40px', paddingTop: '32px' }}>
+        <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '4px', color: '#f1f5f9' }}>🎂 Backfill Leader Birthdays</h2>
+        <p style={{ fontSize: '14px', color: '#94a3b8', marginBottom: '20px' }}>
+          Matches circle leader names to roster members and copies their birthday from the cached roster data.
+        </p>
+
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '20px' }}>
+          <button
+            onClick={() => runBirthday(true)}
+            disabled={bdayDryRunning || bdayRunning}
+            style={{
+              padding: '8px 18px', fontSize: '13px', fontWeight: 600,
+              border: '1px solid rgba(148, 163, 184, 0.25)', borderRadius: '6px',
+              background: 'rgba(51, 65, 85, 0.6)', color: '#e2e8f0',
+              cursor: bdayDryRunning || bdayRunning ? 'not-allowed' : 'pointer',
+              opacity: bdayDryRunning || bdayRunning ? 0.5 : 1,
+            }}
+          >
+            {bdayDryRunning ? 'Checking…' : 'Dry Run (preview matches)'}
+          </button>
+          <button
+            onClick={() => runBirthday(false)}
+            disabled={bdayRunning || bdayDryRunning}
+            style={{
+              padding: '8px 22px', fontSize: '13px', fontWeight: 700,
+              border: 'none', borderRadius: '6px',
+              background: bdayRunning || bdayDryRunning ? '#92400e' : '#d97706',
+              color: '#fff',
+              cursor: bdayRunning || bdayDryRunning ? 'not-allowed' : 'pointer',
+              opacity: bdayRunning || bdayDryRunning ? 0.6 : 1,
+            }}
+          >
+            {bdayRunning ? 'Updating…' : 'Backfill Birthdays'}
+          </button>
+        </div>
+
+        {bdayResponse && (
+          <div style={{ border: '1px solid rgba(148, 163, 184, 0.15)', borderRadius: '10px', overflow: 'hidden' }}>
+            {/* Summary */}
+            <div style={{ background: bdayResponse.error ? 'rgba(127, 29, 29, 0.3)' : bdayResponse.dryRun ? 'rgba(30, 58, 95, 0.5)' : 'rgba(20, 83, 45, 0.3)', borderBottom: '1px solid rgba(148, 163, 184, 0.12)', padding: '14px 20px' }}>
+              {bdayResponse.error ? (
+                <p style={{ margin: 0, color: '#fca5a5', fontSize: '14px', fontWeight: 600 }}>Error: {bdayResponse.error}</p>
+              ) : (
+                <div style={{ fontSize: '14px', color: '#cbd5e1', display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
+                  {bdayResponse.dryRun && <span style={{ color: '#93c5fd', fontWeight: 700 }}>Dry run</span>}
+                  <span><strong>{bdayResponse.totalMissing}</strong> leaders missing birthday</span>
+                  <span>🎂 <strong style={{ color: '#4ade80' }}>{bdayResponse.matched}</strong> matched</span>
+                  <span style={{ color: '#94a3b8' }}>{bdayResponse.unmatched} unmatched</span>
+                  {!bdayResponse.dryRun && bdayResponse.updated !== undefined && (
+                    <span>✅ <strong style={{ color: '#4ade80' }}>{bdayResponse.updated}</strong> updated</span>
+                  )}
+                  {!bdayResponse.dryRun && (bdayResponse.failed || 0) > 0 && (
+                    <span>❌ <strong style={{ color: '#fca5a5' }}>{bdayResponse.failed}</strong> failed</span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Results table */}
+            {bdayResponse.results && bdayResponse.results.length > 0 && (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(30, 41, 59, 0.6)', borderBottom: '1px solid rgba(148, 163, 184, 0.12)' }}>
+                    <th style={{ textAlign: 'left', padding: '10px 16px', fontWeight: 600, color: '#94a3b8' }}>Leader</th>
+                    <th style={{ textAlign: 'left', padding: '10px 16px', fontWeight: 600, color: '#94a3b8' }}>Birthday</th>
+                    <th style={{ textAlign: 'left', padding: '10px 16px', fontWeight: 600, color: '#94a3b8' }}>Match</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bdayResponse.results.map((row, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid rgba(148, 163, 184, 0.08)' }}>
+                      <td style={{ padding: '9px 16px', color: '#e2e8f0' }}>
+                        <a href={`/circle/${row.id}/`} style={{ color: '#60a5fa', textDecoration: 'none' }}>{row.name}</a>
+                      </td>
+                      <td style={{ padding: '9px 16px', color: row.birthday ? '#fbbf24' : '#475569', fontFamily: 'monospace', fontSize: '12px' }}>
+                        {row.birthday || '—'}
+                      </td>
+                      <td style={{ padding: '9px 16px' }}>
+                        {row.matchType === 'own-roster' && <span style={{ color: '#4ade80', fontWeight: 600 }}>✅ Own roster</span>}
+                        {row.matchType === 'cross-roster' && <span style={{ color: '#93c5fd' }}>↗ Cross-roster</span>}
+                        {row.matchType === 'no-match' && <span style={{ color: '#475569' }}>—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

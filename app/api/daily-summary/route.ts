@@ -375,7 +375,10 @@ function buildDemoDigest(user: { id: string; name: string; email: string }, toda
   return {
     user,
     date: today,
-    birthdays: [],
+    birthdays: [
+      { id: 101, name: 'Sarah Johnson', campus: 'Main Campus', birthday: today },
+      { id: 102, name: 'David Kim', campus: 'North Campus', birthday: today },
+    ],
     todos: {
       dueToday: [
         { id: 1, text: 'Prepare for small group debrief', due_date: today, notes: 'Review last week\'s notes first', todo_type: 'manual', linked_leader_id: null, linked_leader_name: null, linked_visit_id: null },
