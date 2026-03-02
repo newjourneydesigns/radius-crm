@@ -13,6 +13,7 @@ interface RosterPerson {
   email: string;
   phone: string;
   mobilePhone: string;
+  birthday: string;
 }
 
 interface CachedRosterPerson {
@@ -23,6 +24,7 @@ interface CachedRosterPerson {
   email: string;
   phone: string;
   mobile_phone: string;
+  birthday: string;
 }
 
 export default function CircleRosterPage() {
@@ -71,7 +73,7 @@ export default function CircleRosterPage() {
         // Load cached roster
         const { data: cached, error: cacheErr } = await supabase
           .from('circle_roster_cache')
-          .select('ccb_individual_id, first_name, last_name, full_name, email, phone, mobile_phone, fetched_at')
+          .select('ccb_individual_id, first_name, last_name, full_name, email, phone, mobile_phone, birthday, fetched_at')
           .eq('circle_leader_id', leaderId)
           .order('full_name');
 
@@ -85,6 +87,7 @@ export default function CircleRosterPage() {
               email: c.email || '',
               phone: c.phone || '',
               mobilePhone: c.mobile_phone || '',
+              birthday: c.birthday || '',
             }))
           );
           setLastFetched(cached[0]?.fetched_at || null);
@@ -139,6 +142,7 @@ export default function CircleRosterPage() {
           email: p.email || '',
           phone: p.phone || '',
           mobile_phone: p.mobilePhone || '',
+          birthday: p.birthday || '',
           fetched_at: new Date().toISOString(),
         }));
 
@@ -394,6 +398,17 @@ export default function CircleRosterPage() {
               const hasPhone = !!contactPhone;
               const hasEmail = !!person.email;
 
+              // Format birthday (CCB returns YYYY-MM-DD or M/D/YYYY)
+              let birthdayDisplay = '';
+              if (person.birthday) {
+                try {
+                  const bd = new Date(person.birthday + 'T00:00:00');
+                  if (!isNaN(bd.getTime())) {
+                    birthdayDisplay = bd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  }
+                } catch { /* ignore */ }
+              }
+
               return (
                 <div
                   key={person.id}
@@ -452,6 +467,14 @@ export default function CircleRosterPage() {
                               <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
                             </svg>
                             {contactPhone}
+                          </span>
+                        )}
+                        {birthdayDisplay && (
+                          <span style={{ fontSize: '12px', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                            <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" style={{ flexShrink: 0 }}>
+                              <path fillRule="evenodd" d="M6 3a1 1 0 011-1h.01a1 1 0 010 2H7a1 1 0 01-1-1zm2 3a1 1 0 00-2 0v1a2 2 0 00-2 2v1a2 2 0 00-2 2v.683a3.7 3.7 0 011.055.485 1.704 1.704 0 001.89 0 3.704 3.704 0 014.11 0 1.704 1.704 0 001.89 0 3.704 3.704 0 014.11 0 1.704 1.704 0 001.89 0A3.7 3.7 0 0118 12.683V12a2 2 0 00-2-2V9a2 2 0 00-2-2V6a1 1 0 10-2 0v1h-1V6a1 1 0 10-2 0v1H8V6zm10 8.868a3.704 3.704 0 01-4.055-.036 1.704 1.704 0 00-1.89 0 3.704 3.704 0 01-4.11 0 1.704 1.704 0 00-1.89 0A3.704 3.704 0 012 14.868V17a1 1 0 001 1h14a1 1 0 001-1v-2.132zM13 2a1 1 0 011 1 1 1 0 11-2 0 1 1 0 011-1zm-1 4a1 1 0 10-2 0v1H8V6a1 1 0 10-2 0v1H5a1 1 0 000 2h10a1 1 0 100-2h-1V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            {birthdayDisplay}
                           </span>
                         )}
                       </div>

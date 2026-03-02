@@ -16,10 +16,13 @@ export async function POST(request: NextRequest) {
     const client = createCCBClient();
     const participants = await client.getGroupParticipants(String(groupId));
 
+    // Enrich members missing phone data with individual profile lookups
+    const enriched = await client.enrichRosterWithPhones(participants);
+
     return NextResponse.json({
       success: true,
-      data: participants,
-      count: participants.length,
+      data: enriched,
+      count: enriched.length,
     });
   } catch (error) {
     console.error('CCB group roster error:', error);

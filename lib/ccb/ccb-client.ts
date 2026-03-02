@@ -1566,6 +1566,139 @@ export class CCBClient {
       return false;
     }
   }
+
+  /**
+   * Fetch an individual's profile by CCB ID.
+   * Returns phone numbers, email, and birthday.
+   * Uses `individual_profile_from_id` service.
+   */
+  async getIndividualProfile(individualId: string): Promise<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    fullName: string;
+    email: string;
+    phone: string;
+    mobilePhone: string;
+    birthday: string;
+  } | null> {
+    if (!individualId) return null;
+
+    try {
+      const xml = await this.getXml({
+        srv: 'individual_profile_from_id',
+        individual_id: individualId,
+      });
+
+      const response = xml?.ccb_api?.response;
+      if (!response) return null;
+
+      const ind =
+        response.individuals?.individual ||
+        response.individual ||
+        null;
+      if (!ind) return null;
+
+      const firstName = String(ind.first_name || '').trim();
+      const lastName = String(ind.last_name || '').trim();
+      const email = String(ind.email || '').trim();
+      const birthday = String(ind.birthday || '').trim();
+
+      const phonesContainer = ind.phones || {};
+      const phoneEntries = Array.isArray(phonesContainer.phone)
+        ? phonesContainer.phone
+        : phonesContainer.phone
+          ? [phonesContainer.phone]
+          : [];
+
+      const getPhoneByType = (...types: string[]): string => {
+        for (const type of types) {
+          const entry = phoneEntries.find((p: any) => p?.['@_type'] === type);
+          const val = entry?.['#text'] || '';
+          if (val) return String(val).trim();
+        }
+        return '';
+      };
+
+      const mobilePhone = getPhoneByType('mobile', 'contact');
+      const phone = getPhoneByType('home', 'contact', 'work');
+
+      if (IS_DEV) {
+        console.log(`🔍 CCB Individual Profile #${individualId}: ${firstName} ${lastName} — phone: "${phone}" | mobile: "${mobilePhone}"`);
+      }
+
+      return {
+        id: String(ind['@_id'] || ind.id || individualId).trim(),
+        firstName,
+        lastName,
+        fullName: `${firstName} ${lastName}`.trim(),
+        email,
+        phone,
+        mobilePhone,
+        birthday,
+      };
+    } catch (error) {
+      console.error(`CCB individual profile fetch failed for ID ${individualId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Enrich an array of roster members with phone data from individual profiles.
+   * Only fetches profiles for members missing both phone and mobilePhone.
+   * Throttles requests to avoid CCB rate limiting.
+   */
+  async enrichRosterWithPhones(
+    roster: Array<{
+      id: string;
+      firstName: string;
+      lastName: string;
+      fullName: string;
+      email: string;
+      phone: string;
+      mobilePhone: string;
+    }>,
+    throttleMs: number = 500,
+  ): Promise<Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    fullName: string;
+    email: string;
+    phone: string;
+    mobilePhone: string;
+    birthday: string;
+  }>> {
+    const enriched = roster.map((p) => ({ ...p, birthday: '' }));
+    const needsEnrichment = enriched.filter((p) => !p.phone && !p.mobilePhone);
+
+    if (needsEnrichment.length === 0) {
+      if (IS_DEV) console.log('✅ All roster members already have phone data');
+      return enriched;
+    }
+
+    if (IS_DEV) {
+      console.log(`📞 Enriching ${needsEnrichment.length}/${roster.length} roster members with phone data…`);
+    }
+
+    for (let i = 0; i < needsEnrichment.length; i++) {
+      const member = needsEnrichment[i];
+      // Throttle between calls
+      if (i > 0) await new Promise((r) => setTimeout(r, throttleMs));
+
+      const profile = await this.getIndividualProfile(member.id);
+      if (profile) {
+        member.phone = profile.phone || member.phone;
+        member.mobilePhone = profile.mobilePhone || member.mobilePhone;
+        member.birthday = profile.birthday || '';
+        if (IS_DEV) {
+          console.log(`  📞 ${member.fullName}: phone="${member.phone}" mobile="${member.mobilePhone}"`);
+        }
+      }
+    }
+
+    return enriched;
+  }
 }
 
 // ---- Factory function ----
