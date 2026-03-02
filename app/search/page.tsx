@@ -153,8 +153,8 @@ export default function SearchPage() {
     // Apply sorting
     if (sortConfig.key) {
       filtered.sort((a, b) => {
-        const aValue = a[sortConfig.key!];
-        const bValue = b[sortConfig.key!];
+        const aValue = a[sortConfig.key!] ?? '';
+        const bValue = b[sortConfig.key!] ?? '';
         
         if (aValue < bValue) {
           return sortConfig.direction === 'asc' ? -1 : 1;
