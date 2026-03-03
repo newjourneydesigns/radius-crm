@@ -383,7 +383,7 @@ export const AI_TOOLS: ToolDefinition[] = [
   {
     name: 'log_connection',
     description:
-      'Log an interaction/connection with a circle leader. Use when the user says they called, texted, emailed, or met with a leader and wants to record it.',
+      'Log an interaction/connection with a circle leader. IMPORTANT: Before calling this tool, make sure you have a valid connection type, a date, and optionally a note. If the user didn\'t specify the connection type or date, ask them before calling this tool. Resolve relative dates like "today" or "yesterday" to YYYY-MM-DD.',
     parameters: {
       type: 'object',
       properties: {
@@ -393,19 +393,19 @@ export const AI_TOOLS: ToolDefinition[] = [
         },
         connection_type: {
           type: 'string',
-          description: 'The type of interaction',
+          description: 'The type of interaction — must be one of the enum values',
           enum: ['Phone Call', 'Text Message', 'Email', 'In-Person Meeting', 'Video Call', 'Social Media', 'Other'],
+        },
+        date: {
+          type: 'string',
+          description: 'Date of the connection in YYYY-MM-DD format. Ask the user if not provided.',
         },
         note: {
           type: 'string',
           description: 'Optional note about the interaction',
         },
-        date: {
-          type: 'string',
-          description: 'Date of the connection in YYYY-MM-DD format. Defaults to today if not specified.',
-        },
       },
-      required: ['leader_name', 'connection_type'],
+      required: ['leader_name', 'connection_type', 'date'],
     },
   },
   {
@@ -688,7 +688,7 @@ export function describeToolCall(name: string, args: Record<string, unknown>): s
     case 'update_leader_status':
       return `Change ${args.leader_name}'s status to ${args.status}`;
     case 'log_connection':
-      return `Log a ${args.connection_type || 'connection'} with ${args.leader_name}`;
+      return `Log a ${args.connection_type || 'connection'} with ${args.leader_name} on ${args.date}${args.note ? ' — ' + args.note : ''}`;
     case 'log_encouragement':
       return `Log an encouragement for ${args.leader_name}`;
     case 'set_event_summary':
