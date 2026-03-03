@@ -306,9 +306,10 @@ export async function executeTool(
   switch (name) {
     // ---- SEARCH LEADERS ----
     case 'search_leaders': {
+      // Use { count: 'exact' } to get the true total count alongside the data
       let query = supabase
         .from('circle_leaders')
-        .select('id, name, email, phone, campus, acpd, day, time, frequency, status, circle_type, birthday, follow_up_required, follow_up_date, follow_up_note')
+        .select('id, name, email, phone, campus, acpd, day, time, frequency, status, circle_type, birthday, follow_up_required, follow_up_date, follow_up_note', { count: 'exact' })
         .order('name');
 
       if (args.query) {
@@ -321,15 +322,24 @@ export async function executeTool(
         query = query.ilike('day', `%${args.day}%`);
       }
       if (args.status) {
-        query = query.eq('status', args.status);
+        query = query.eq('status', args.status as string);
       }
       if (args.acpd) {
         query = query.ilike('acpd', `%${args.acpd}%`);
       }
 
-      const { data, error } = await query.limit(10);
+      // Fetch up to 50 results, but totalCount reflects ALL matching rows
+      const { data, error, count: totalCount } = await query.limit(50);
       if (error) return { toolName: name, result: { error: error.message } };
-      return { toolName: name, result: { leaders: data, count: data?.length || 0 } };
+      return {
+        toolName: name,
+        result: {
+          leaders: data,
+          count: data?.length || 0,
+          totalCount: totalCount ?? data?.length ?? 0,
+          note: (totalCount ?? 0) > 50 ? `Showing first 50 of ${totalCount} total matching leaders` : undefined,
+        },
+      };
     }
 
     // ---- GET LEADER DETAILS ----
@@ -442,9 +452,17 @@ export async function executeTool(
         query = query.eq('completed', false);
       }
 
+      // Get exact total count first
+      const countQuery = supabase
+        .from('todo_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      if (!showCompleted) countQuery.eq('completed', false);
+      const { count: totalTodos } = await countQuery;
+
       const { data, error } = await query.limit(limit);
       if (error) return { toolName: name, result: { error: error.message } };
-      return { toolName: name, result: { todos: data, count: data?.length || 0 } };
+      return { toolName: name, result: { todos: data, count: data?.length || 0, totalCount: totalTodos ?? data?.length ?? 0 } };
     }
 
     // ---- COMPLETE TODO ----
