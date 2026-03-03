@@ -54,6 +54,10 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
     isReady,
     lastNavigateTo,
     clearNavigateTo,
+    pendingToolCall,
+    isConfirming,
+    confirmToolCall,
+    rejectToolCall,
   } = useRadiusAssistant();
 
   const {
@@ -111,7 +115,7 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading]);
+  }, [messages, isLoading, pendingToolCall]);
 
   // Focus input when drawer opens
   useEffect(() => {
@@ -138,6 +142,16 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
     await sendMessage(text);
     justSentRef.current = false;
   }, [inputText, isLoading, sendMessage, resetTranscript, isListening, stopListening]);
+
+  // Handle confirm/reject for write actions
+  const handleConfirm = useCallback(async () => {
+    const success = await confirmToolCall();
+    if (success) router.refresh();
+  }, [confirmToolCall, router]);
+
+  const handleReject = useCallback(() => {
+    rejectToolCall();
+  }, [rejectToolCall]);
 
   // Handle keyboard
   const handleKeyDown = useCallback(
@@ -266,6 +280,39 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
     .radius-new-chat-btn:hover {
       background-color: rgba(59, 130, 246, 0.2) !important;
     }
+    .radius-cancel-action-btn {
+      background-color: transparent !important;
+      color: ${COLORS.textMuted} !important;
+      border: 1px solid ${COLORS.border} !important;
+      border-radius: 6px !important;
+      font-size: 12px !important;
+      padding: 6px 16px !important;
+      cursor: pointer !important;
+    }
+    .radius-cancel-action-btn:hover {
+      background-color: rgba(141, 169, 196, 0.15) !important;
+    }
+    .radius-cancel-action-btn:disabled {
+      opacity: 0.5 !important;
+      cursor: not-allowed !important;
+    }
+    .radius-confirm-action-btn {
+      background-color: #22c55e !important;
+      color: white !important;
+      border: none !important;
+      border-radius: 6px !important;
+      font-size: 12px !important;
+      font-weight: 600 !important;
+      padding: 6px 16px !important;
+      cursor: pointer !important;
+    }
+    .radius-confirm-action-btn:hover {
+      background-color: #16a34a !important;
+    }
+    .radius-confirm-action-btn:disabled {
+      background-color: rgba(34, 197, 94, 0.5) !important;
+      cursor: not-allowed !important;
+    }
     @keyframes radius-pulse {
       0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
       50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
@@ -379,6 +426,57 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
         {messages.map((msg, i) => (
           <MessageBubble key={i} message={msg} />
         ))}
+
+        {/* Pending tool confirmation card */}
+        {pendingToolCall && !isLoading && (
+          <div style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
+            <div
+              style={{
+                maxWidth: '85%',
+                padding: '12px 14px',
+                borderRadius: '16px 16px 16px 4px',
+                backgroundColor: COLORS.assistantBubble,
+                border: `1px solid rgba(59, 130, 246, 0.3)`,
+                fontSize: '14px',
+                lineHeight: '1.5',
+                color: COLORS.text,
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '10px',
+                  fontSize: '13px',
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={COLORS.accent} strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 8v4" />
+                  <path d="M12 16h.01" />
+                </svg>
+                <span>{pendingToolCall.description}</span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  className="radius-confirm-action-btn"
+                  onClick={handleConfirm}
+                  disabled={isConfirming}
+                >
+                  {isConfirming ? 'Working...' : 'Confirm'}
+                </button>
+                <button
+                  className="radius-cancel-action-btn"
+                  onClick={handleReject}
+                  disabled={isConfirming}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {isLoading && <TypingIndicator />}
 

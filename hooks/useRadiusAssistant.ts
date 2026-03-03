@@ -17,6 +17,12 @@ export interface ChatMessage {
   timestamp: number;
 }
 
+export interface PendingToolCall {
+  name: string;
+  args: Record<string, unknown>;
+  description: string;
+}
+
 interface UseRadiusAssistantReturn {
   messages: ChatMessage[];
   isLoading: boolean;
@@ -27,6 +33,10 @@ interface UseRadiusAssistantReturn {
   isReady: boolean; // true once auth context is available
   lastNavigateTo: string | null; // page path from navigate_to_page tool
   clearNavigateTo: () => void;
+  pendingToolCall: PendingToolCall | null;
+  isConfirming: boolean;
+  confirmToolCall: () => Promise<boolean>; // returns true if write succeeded
+  rejectToolCall: () => void;
 }
 
 const STORAGE_KEY = 'radius-assistant-conversation-id';
@@ -40,6 +50,8 @@ export function useRadiusAssistant(): UseRadiusAssistantReturn {
   const [error, setError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [lastNavigateTo, setLastNavigateTo] = useState<string | null>(null);
+  const [pendingToolCall, setPendingToolCall] = useState<PendingToolCall | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const isLoadingRef = useRef(false); // Ref to prevent double-send race condition
   const rateLimitedUntilRef = useRef(0); // Timestamp when rate limit expires
@@ -95,6 +107,9 @@ export function useRadiusAssistant(): UseRadiusAssistantReturn {
         return;
       }
 
+      // Clear any pending tool call when sending a new message
+      setPendingToolCall(null);
+
       isLoadingRef.current = true;
 
       const userMessage: ChatMessage = {
@@ -145,6 +160,15 @@ export function useRadiusAssistant(): UseRadiusAssistantReturn {
           throw new Error(data.error || `Error: ${res.status}`);
         }
 
+        // Handle pending tool call (write action needs confirmation)
+        if (data.pendingToolCall) {
+          setPendingToolCall(data.pendingToolCall as PendingToolCall);
+          if (data.conversationId) {
+            setConversationId(data.conversationId);
+          }
+          return;
+        }
+
         const assistantMessage: ChatMessage = {
           role: 'assistant',
           content: data.reply,
@@ -190,10 +214,89 @@ export function useRadiusAssistant(): UseRadiusAssistantReturn {
 
   const clearNavigateTo = useCallback(() => setLastNavigateTo(null), []);
 
+  const confirmToolCall = useCallback(async (): Promise<boolean> => {
+    if (!pendingToolCall || !user || isConfirming) return false;
+
+    setIsConfirming(true);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/ai-assistant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          confirmTool: {
+            name: pendingToolCall.name,
+            args: pendingToolCall.args,
+          },
+          conversationId,
+          userId: user.id,
+          userName: user.name || user.email || 'User',
+          userRole: user.role || 'Viewer',
+        }),
+      });
+
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error('Invalid response from server');
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || `Error: ${res.status}`);
+      }
+
+      const assistantMessage: ChatMessage = {
+        role: 'assistant',
+        content: data.reply,
+        toolAction: data.toolAction,
+        timestamp: Date.now(),
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+      setPendingToolCall(null);
+
+      if (data.conversationId) {
+        setConversationId(data.conversationId);
+      }
+
+      return true;
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Something went wrong';
+      setError(errorMsg);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: `Sorry, I couldn't complete that action: ${errorMsg}`,
+          timestamp: Date.now(),
+        },
+      ]);
+      setPendingToolCall(null);
+      return false;
+    } finally {
+      setIsConfirming(false);
+    }
+  }, [pendingToolCall, user, conversationId, isConfirming]);
+
+  const rejectToolCall = useCallback(() => {
+    setPendingToolCall(null);
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: 'assistant',
+        content: 'Action cancelled.',
+        timestamp: Date.now(),
+      },
+    ]);
+  }, []);
+
   const startNewConversation = useCallback(() => {
     setMessages([]);
     setConversationId(null);
     setLastNavigateTo(null);
+    setPendingToolCall(null);
     setError(null);
     try {
       localStorage.removeItem(STORAGE_KEY);
@@ -213,5 +316,9 @@ export function useRadiusAssistant(): UseRadiusAssistantReturn {
     isReady: !!user,
     lastNavigateTo,
     clearNavigateTo,
+    pendingToolCall,
+    isConfirming,
+    confirmToolCall,
+    rejectToolCall,
   };
 }

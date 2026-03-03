@@ -66,6 +66,10 @@ export const AI_TOOLS: ToolDefinition[] = [
           description: 'Filter to only leaders who need follow-up. "true" to show only those needing follow-up.',
           enum: ['true', 'false'],
         },
+        circle_type: {
+          type: 'string',
+          description: 'Filter by circle type. Values use "YA" prefix for Young Adult circles. Examples: "Men\'s", "Women\'s", "Couples", "YA | Coed", "YA | Men\'s", "YA | Women\'s", "YA | Couples". To find any Young Adult circle, use "YA".',
+        },
       },
       required: [],
     },
@@ -655,6 +659,102 @@ async function resolveLeaderByName(
   return data;
 }
 
+// ---- Write tools that require client-side confirmation ----
+
+export const WRITE_TOOLS = [
+  'create_todo', 'complete_todo', 'add_leader_note', 'schedule_circle_visit',
+  'set_follow_up', 'update_leader_status', 'log_connection', 'log_encouragement',
+  'set_event_summary', 'update_leader_profile', 'add_prayer_point',
+  'resolve_prayer_point', 'delete_todo', 'cancel_circle_visit', 'add_coaching_note',
+];
+
+/**
+ * Human-readable description of a write tool call (for the confirmation card).
+ */
+export function describeToolCall(name: string, args: Record<string, unknown>): string {
+  switch (name) {
+    case 'create_todo':
+      return `Create a todo: "${args.text}"`;
+    case 'complete_todo':
+      return 'Mark a todo as completed';
+    case 'add_leader_note':
+      return `Add a note for ${args.leader_name}`;
+    case 'schedule_circle_visit':
+      return `Schedule a visit for ${args.leader_name} on ${args.visit_date}`;
+    case 'set_follow_up':
+      return args.required === 'true'
+        ? `Mark ${args.leader_name} for follow-up`
+        : `Clear follow-up on ${args.leader_name}`;
+    case 'update_leader_status':
+      return `Change ${args.leader_name}'s status to ${args.status}`;
+    case 'log_connection':
+      return `Log a ${args.connection_type || 'connection'} with ${args.leader_name}`;
+    case 'log_encouragement':
+      return `Log an encouragement for ${args.leader_name}`;
+    case 'set_event_summary':
+      return `Set event summary for ${args.leader_name} to "${args.state}"`;
+    case 'update_leader_profile':
+      return `Update profile for ${args.leader_name}`;
+    case 'add_prayer_point':
+      return `Add a prayer point for ${args.leader_name}`;
+    case 'resolve_prayer_point':
+      return `Resolve a prayer point for ${args.leader_name}`;
+    case 'delete_todo':
+      return 'Delete a todo item';
+    case 'cancel_circle_visit':
+      return `Cancel a circle visit for ${args.leader_name}`;
+    case 'add_coaching_note':
+      return `Add a coaching note for ${args.leader_name}`;
+    default:
+      return `Perform action: ${name}`;
+  }
+}
+
+/**
+ * Human-readable completion message after a write tool is executed.
+ */
+export function generateToolCompletionMessage(name: string, args: Record<string, unknown>, result: unknown): string {
+  const res = result as Record<string, unknown>;
+  if (res?.error) return `Sorry, I couldn't complete that action: ${res.error}`;
+
+  switch (name) {
+    case 'create_todo':
+      return `Done! I've created a todo: "${args.text}"${args.due_date ? ` (due ${args.due_date})` : ''}.`;
+    case 'complete_todo':
+      return 'Done! I\'ve marked that todo as completed.';
+    case 'add_leader_note':
+      return `Done! I've added a note for ${args.leader_name}.`;
+    case 'schedule_circle_visit':
+      return `Done! I've scheduled a visit for ${args.leader_name} on ${args.visit_date}.`;
+    case 'set_follow_up':
+      return args.required === 'true'
+        ? `Done! I've marked ${args.leader_name} for follow-up.`
+        : `Done! I've cleared the follow-up on ${args.leader_name}.`;
+    case 'update_leader_status':
+      return `Done! I've updated ${args.leader_name}'s status to ${args.status}.`;
+    case 'log_connection':
+      return `Done! I've logged a ${args.connection_type || 'connection'} with ${args.leader_name}.`;
+    case 'log_encouragement':
+      return `Done! I've logged an encouragement for ${args.leader_name}.`;
+    case 'set_event_summary':
+      return `Done! I've set the event summary for ${args.leader_name} to "${args.state}".`;
+    case 'update_leader_profile':
+      return `Done! I've updated the profile for ${args.leader_name}.`;
+    case 'add_prayer_point':
+      return `Done! I've added a prayer point for ${args.leader_name}.`;
+    case 'resolve_prayer_point':
+      return `Done! I've resolved a prayer point for ${args.leader_name}.`;
+    case 'delete_todo':
+      return 'Done! I\'ve deleted that todo.';
+    case 'cancel_circle_visit':
+      return `Done! I've canceled the visit for ${args.leader_name}.`;
+    case 'add_coaching_note':
+      return `Done! I've added a coaching note for ${args.leader_name}.`;
+    default:
+      return 'Done! The action has been completed.';
+  }
+}
+
 export async function executeTool(
   toolCall: ToolCall,
   userId: string,
@@ -664,7 +764,6 @@ export async function executeTool(
   const { name, args } = toolCall;
 
   // Server-side write protection — only ACPDs can perform write operations
-  const WRITE_TOOLS = ['create_todo', 'complete_todo', 'add_leader_note', 'schedule_circle_visit', 'set_follow_up', 'update_leader_status', 'log_connection', 'log_encouragement', 'set_event_summary', 'update_leader_profile', 'add_prayer_point', 'resolve_prayer_point', 'delete_todo', 'cancel_circle_visit', 'add_coaching_note'];
   if (WRITE_TOOLS.includes(name) && userRole !== 'ACPD') {
     return {
       toolName: name,
@@ -698,6 +797,9 @@ export async function executeTool(
       }
       if (args.follow_up === 'true') {
         query = query.eq('follow_up_required', true);
+      }
+      if (args.circle_type) {
+        query = query.ilike('circle_type', `%${args.circle_type}%`);
       }
 
       // Fetch up to 50 results, but totalCount reflects ALL matching rows

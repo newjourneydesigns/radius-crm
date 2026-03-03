@@ -17,6 +17,9 @@ import {
   getGroqToolDeclarations,
   ToolCall,
   ToolResult,
+  WRITE_TOOLS,
+  describeToolCall,
+  generateToolCompletionMessage,
 } from '../../../lib/ai-tools';
 
 // ---- Types ----
@@ -28,12 +31,13 @@ interface ConversationMessage {
 }
 
 interface RequestBody {
-  message: string;
+  message?: string;
   conversationId?: string;
   userId: string;
   userName: string;
   userRole: string;
   userCampus?: string;
+  confirmTool?: { name: string; args: Record<string, unknown> };
 }
 
 // ---- Supabase service client ----
@@ -360,7 +364,7 @@ export async function POST(request: NextRequest) {
     const body: RequestBody = await request.json();
     const { message, conversationId, userId, userName, userRole, userCampus } = body;
 
-    if (!message?.trim()) {
+    if (!body.confirmTool && !message?.trim()) {
       return NextResponse.json({ error: 'No message provided.' }, { status: 400 });
     }
     if (!userId) {
@@ -376,8 +380,29 @@ export async function POST(request: NextRequest) {
       history = await loadConversation(supabase, conversationId, userId);
     }
 
+    // ---- Handle tool confirmation (user clicked Confirm) ----
+    if (body.confirmTool) {
+      const toolResult = await executeTool(
+        { name: body.confirmTool.name, args: body.confirmTool.args },
+        userId,
+        userRole
+      );
+      const completionMessage = generateToolCompletionMessage(
+        body.confirmTool.name,
+        body.confirmTool.args,
+        toolResult.result
+      );
+      history.push({ role: 'assistant', content: completionMessage, toolAction: toolResult.actionLabel });
+      const savedConvId = await saveConversation(supabase, convId, userId, history);
+      return NextResponse.json({
+        reply: completionMessage,
+        conversationId: savedConvId,
+        toolAction: toolResult.actionLabel,
+      });
+    }
+
     // Add user's new message
-    history.push({ role: 'user', content: message.trim() });
+    history.push({ role: 'user', content: message!.trim() });
 
     // Build system prompt
     const today = getTodayCST();
@@ -393,6 +418,7 @@ export async function POST(request: NextRequest) {
     let finalReply = '';
     let actionLabel: string | undefined;
     let navigateTo: string | undefined;
+    let pendingToolCall: { name: string; args: Record<string, unknown>; description: string } | undefined;
     const hasAnyFallback = !!(openaiKey || groqKey);
 
     // ---- Try Gemini first ----
@@ -405,7 +431,9 @@ export async function POST(request: NextRequest) {
         userRole
       );
 
-      if (geminiResult.reply) {
+      if (geminiResult.pendingToolCall) {
+        pendingToolCall = geminiResult.pendingToolCall;
+      } else if (geminiResult.reply) {
         finalReply = geminiResult.reply;
         actionLabel = geminiResult.actionLabel;
         navigateTo = geminiResult.navigateTo;
@@ -422,7 +450,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ---- OpenAI fallback (GPT-4o-mini) ----
-    if (!finalReply && openaiKey) {
+    if (!finalReply && !pendingToolCall && openaiKey) {
       const openaiResult = await handleOpenAIConversation(
         openaiKey,
         systemPrompt,
@@ -431,7 +459,9 @@ export async function POST(request: NextRequest) {
         userRole
       );
 
-      if (openaiResult.reply) {
+      if (openaiResult.pendingToolCall) {
+        pendingToolCall = openaiResult.pendingToolCall;
+      } else if (openaiResult.reply) {
         finalReply = openaiResult.reply;
         actionLabel = openaiResult.actionLabel;
         navigateTo = openaiResult.navigateTo;
@@ -448,7 +478,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ---- Groq fallback (Llama 3.3 70B) ----
-    if (!finalReply && groqKey) {
+    if (!finalReply && !pendingToolCall && groqKey) {
       const groqResult = await handleGroqConversation(
         groqKey,
         systemPrompt,
@@ -457,7 +487,9 @@ export async function POST(request: NextRequest) {
         userRole
       );
 
-      if (groqResult.reply) {
+      if (groqResult.pendingToolCall) {
+        pendingToolCall = groqResult.pendingToolCall;
+      } else if (groqResult.reply) {
         finalReply = groqResult.reply;
         actionLabel = groqResult.actionLabel;
         navigateTo = groqResult.navigateTo;
@@ -467,6 +499,15 @@ export async function POST(request: NextRequest) {
           : groqResult.error || 'AI service error.';
         return NextResponse.json({ error: errorMsg }, { status: groqResult.status || 500 });
       }
+    }
+
+    // ---- Return pending tool call (write action needs confirmation) ----
+    if (pendingToolCall) {
+      const savedConvId = await saveConversation(supabase, convId, userId, history);
+      return NextResponse.json({
+        pendingToolCall,
+        conversationId: savedConvId,
+      });
     }
 
     if (!finalReply) {
@@ -502,6 +543,7 @@ async function handleGeminiConversation(
   reply?: string;
   actionLabel?: string;
   navigateTo?: string;
+  pendingToolCall?: { name: string; args: Record<string, unknown>; description: string };
   error?: string;
   status?: number;
   rateLimited?: boolean;
@@ -525,6 +567,18 @@ async function handleGeminiConversation(
 
     // If we get function calls, execute them
     if (result.functionCalls) {
+      // Intercept write tools — require client-side confirmation
+      const writeFC = result.functionCalls.find(fc => WRITE_TOOLS.includes(fc.name));
+      if (writeFC) {
+        return {
+          pendingToolCall: {
+            name: writeFC.name,
+            args: writeFC.args,
+            description: describeToolCall(writeFC.name, writeFC.args),
+          },
+        };
+      }
+
       const toolResults: ToolResult[] = [];
 
       for (const fc of result.functionCalls) {
@@ -582,6 +636,7 @@ async function handleGroqConversation(
   reply?: string;
   actionLabel?: string;
   navigateTo?: string;
+  pendingToolCall?: { name: string; args: Record<string, unknown>; description: string };
   error?: string;
   status?: number;
   rateLimited?: boolean;
@@ -605,6 +660,18 @@ async function handleGroqConversation(
 
     // If we get tool calls, execute them
     if (result.toolCalls) {
+      // Intercept write tools — require client-side confirmation
+      const writeTC = result.toolCalls.find(tc => WRITE_TOOLS.includes(tc.name));
+      if (writeTC) {
+        return {
+          pendingToolCall: {
+            name: writeTC.name,
+            args: writeTC.args,
+            description: describeToolCall(writeTC.name, writeTC.args),
+          },
+        };
+      }
+
       // Add assistant message with tool calls
       messages.push({
         role: 'assistant',
@@ -656,6 +723,7 @@ async function handleOpenAIConversation(
   reply?: string;
   actionLabel?: string;
   navigateTo?: string;
+  pendingToolCall?: { name: string; args: Record<string, unknown>; description: string };
   error?: string;
   status?: number;
   rateLimited?: boolean;
@@ -678,6 +746,18 @@ async function handleOpenAIConversation(
     }
 
     if (result.toolCalls) {
+      // Intercept write tools — require client-side confirmation
+      const writeTC = result.toolCalls.find(tc => WRITE_TOOLS.includes(tc.name));
+      if (writeTC) {
+        return {
+          pendingToolCall: {
+            name: writeTC.name,
+            args: writeTC.args,
+            description: describeToolCall(writeTC.name, writeTC.args),
+          },
+        };
+      }
+
       messages.push({
         role: 'assistant',
         content: null,
