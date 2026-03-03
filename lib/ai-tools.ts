@@ -383,7 +383,7 @@ export const AI_TOOLS: ToolDefinition[] = [
   {
     name: 'log_connection',
     description:
-      'Log an interaction/connection with a circle leader. IMPORTANT: Before calling this tool, make sure you have a valid connection type, a date, and optionally a note. If the user didn\'t specify the connection type or date, ask them before calling this tool. Valid types are: Phone, Text, Email, In Person, Zoom, One-On-One, Circle Visit, Circle Leader Equipping, Other. Map user input to the closest type (e.g. "text message" → "Text", "phone call" → "Phone", "video call" → "Zoom", "in person" or "face to face" → "In Person"). Resolve relative dates like "today" or "yesterday" to YYYY-MM-DD.',
+      'Log an interaction/connection with a circle leader. IMPORTANT: Before calling this tool, make sure you have a valid connection type, a date, and optionally a note. If the user didn\'t specify the connection type or date, ask them before calling this tool. Valid types are: Phone, Text, Email, In Person, Zoom, One-On-One, Circle Visit, Circle Leader Equipping, Other. Map user input to the closest type (e.g. "text message" → "Text", "phone call" → "Phone", "video call" → "Zoom", "in person" or "face to face" → "In Person"). Resolve relative dates like "today" or "yesterday" to YYYY-MM-DD. IMPORTANT: If the user includes ANY extra text beyond the type, name, and date, treat it as the note. For example "log text with John today - great job!" means note="great job!"',
     parameters: {
       type: 'object',
       properties: {
@@ -742,7 +742,7 @@ export function generateToolCompletionMessage(name: string, args: Record<string,
     case 'update_leader_status':
       return `Done! I've updated ${args.leader_name}'s status to ${args.status}.`;
     case 'log_connection':
-      return `Done! I've logged a ${args.connection_type || 'connection'} with ${args.leader_name}.`;
+      return `Done! I've logged a ${args.connection_type || 'connection'} with ${args.leader_name}${args.note ? ' with note: "' + args.note + '"' : ''}.`;
     case 'log_encouragement':
       return args.status === 'planned'
         ? `Done! I've planned an encouragement for ${args.leader_name} on ${args.date}.`

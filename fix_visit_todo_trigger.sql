@@ -24,7 +24,7 @@ BEGIN
         linked_visit_id,
         linked_leader_id
       ) VALUES (
-        NEW.scheduled_by,
+        NEW.scheduled_by::uuid,
         'Circle Visit: ' || COALESCE(leader_name, 'Leader'),
         false,
         NEW.visit_date,
