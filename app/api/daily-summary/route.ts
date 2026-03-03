@@ -11,6 +11,7 @@ import {
   CircleMeetingItem,
   BirthdayItem,
 } from '../../../lib/emailService';
+import { fetchWeather, WeatherData } from '../../../lib/weatherService';
 
 function getSupabaseServiceClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -514,7 +515,9 @@ export async function POST(request: NextRequest) {
 
     // Test mode: send demo digest to a specified address
     if (force && testEmail) {
+      const weather = await fetchWeather();
       const demoData = buildDemoDigest({ id: 'test', name: 'Test User', email: testEmail }, today);
+      demoData.weather = weather;
       const result = await sendPersonalDigestEmail(demoData);
       return NextResponse.json({
         success: result.success,
@@ -552,6 +555,9 @@ export async function POST(request: NextRequest) {
     let skipped = 0;
     const errors: string[] = [];
 
+    // Fetch weather once for all users (same location)
+    const weather = await fetchWeather();
+
     for (const user of users) {
       const frequencyHours = user.daily_email_frequency_hours || 24;
 
@@ -573,6 +579,7 @@ export async function POST(request: NextRequest) {
 
       try {
         const digestData = await buildDigestForUser(supabase, user, today);
+        digestData.weather = weather;
         const hasContent =
           digestData.todos.dueToday.length > 0 ||
           digestData.todos.overdue.length > 0 ||
