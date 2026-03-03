@@ -8,6 +8,7 @@ export interface User {
   email: string;
   name: string;
   role: 'ACPD' | 'Viewer';
+  ai_assistant_enabled?: boolean;
 }
 
 interface AuthContextType {
@@ -18,6 +19,7 @@ interface AuthContextType {
   clearAuthData: () => Promise<void>;
   isAuthenticated: () => boolean;
   isAdmin: () => boolean;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -39,7 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const resolveUser = async (authUser: { id: string; email?: string; user_metadata?: any }) => {
       const profilePromise = supabase
         .from('users')
-        .select('id, email, name, role')
+        .select('id, email, name, role, ai_assistant_enabled')
         .eq('id', authUser.id)
         .single();
 
@@ -67,6 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: authUser.email || '',
         name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
         role: isValleyCreek ? 'ACPD' : 'Viewer',
+        ai_assistant_enabled: false,
       };
       console.log('🔄 AuthContext: Fallback user created:', fallback.name);
       return fallback;
@@ -243,6 +246,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return user?.role === 'ACPD';
   };
 
+  const refreshUser = async () => {
+    if (!user) return;
+    try {
+      const { data: profile } = await supabase
+        .from('users')
+        .select('id, email, name, role, ai_assistant_enabled')
+        .eq('id', user.id)
+        .single();
+      if (profile) {
+        setUser(profile as User);
+      }
+    } catch (err) {
+      console.error('❌ AuthContext: refreshUser failed:', err);
+    }
+  };
+
   const value = {
     user,
     loading,
@@ -251,6 +270,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearAuthData,
     isAuthenticated,
     isAdmin,
+    refreshUser,
   };
 
   return (

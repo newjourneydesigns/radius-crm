@@ -314,3 +314,19 @@ export interface DevelopmentProspect {
   created_at: string;
   updated_at: string;
 }
+
+// ---- AI Assistant Types ----
+
+export interface AIConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  toolAction?: string; // e.g. "created_todo", "added_note" — for UI badges
+}
+
+export interface AIConversation {
+  id: string;
+  user_id: string;
+  messages: AIConversationMessage[];
+  created_at: string;
+  updated_at: string;
+}

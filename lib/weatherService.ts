@@ -1,13 +1,22 @@
 /**
- * Weather Service for Flower Mound, TX 75028
+ * Weather Service — per-user location support
  * Uses Open-Meteo API — completely free, no API key required.
  * https://open-meteo.com/
+ *
+ * Default location: Flower Mound, TX 75028
+ * Users can set their own city/state/zip in email preferences.
  */
 
-// Flower Mound, TX 75028 coordinates
-const LATITUDE = 33.0237;
-const LONGITUDE = -97.0967;
-const LOCATION_NAME = 'Flower Mound, TX';
+// Default: Flower Mound, TX 75028
+const DEFAULT_LATITUDE = 33.0237;
+const DEFAULT_LONGITUDE = -97.0967;
+const DEFAULT_LOCATION_NAME = 'Flower Mound, TX';
+
+export interface WeatherLocation {
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
+}
 
 export interface WeatherData {
   location: string;
@@ -21,6 +30,14 @@ export interface WeatherData {
   highTemp: number;           // Today's high in °F
   lowTemp: number;            // Today's low in °F
   precipChance: number;       // Precipitation probability %
+}
+
+interface GeoResult {
+  latitude: number;
+  longitude: number;
+  name: string;
+  admin1?: string; // state/region
+  country_code?: string;
 }
 
 /** Map WMO weather codes to descriptions and emoji */
@@ -41,14 +58,87 @@ function weatherCodeToInfo(code: number): { description: string; emoji: string }
 }
 
 /**
- * Fetch current weather for Flower Mound, TX from Open-Meteo.
+ * Geocode a city/state or zip code to lat/lon using Open-Meteo's free geocoding API.
+ * Returns null if geocoding fails.
+ */
+async function geocodeLocation(location: WeatherLocation): Promise<{ lat: number; lon: number; name: string } | null> {
+  try {
+    // Build search query: prefer "city, state" if available, fall back to zip
+    let query = '';
+    if (location.city && location.state) {
+      query = `${location.city}, ${location.state}`;
+    } else if (location.city) {
+      query = location.city;
+    } else if (location.zip) {
+      query = location.zip;
+    } else {
+      return null;
+    }
+
+    const url = new URL('https://geocoding-api.open-meteo.com/v1/search');
+    url.searchParams.set('name', query);
+    url.searchParams.set('count', '5');
+    url.searchParams.set('language', 'en');
+    url.searchParams.set('format', 'json');
+
+    const response = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!response.ok) {
+      console.error(`Geocoding API error: ${response.status}`);
+      return null;
+    }
+
+    const json = await response.json();
+    const results: GeoResult[] = json.results || [];
+
+    if (results.length === 0) {
+      console.warn(`No geocoding results for "${query}"`);
+      return null;
+    }
+
+    // Try to find a US result first
+    const usResult = results.find(r => r.country_code === 'US') || results[0];
+    const displayName = usResult.admin1
+      ? `${usResult.name}, ${usResult.admin1}`
+      : usResult.name;
+
+    return {
+      lat: usResult.latitude,
+      lon: usResult.longitude,
+      name: displayName,
+    };
+  } catch (error: any) {
+    console.error('Geocoding failed:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Fetch current weather from Open-Meteo.
+ * If a user location is provided, geocode it first. Falls back to Flower Mound, TX.
  * Returns null if the request fails (the email should still send without weather).
  */
-export async function fetchWeather(): Promise<WeatherData | null> {
+export async function fetchWeather(location?: WeatherLocation | null): Promise<WeatherData | null> {
   try {
+    let lat = DEFAULT_LATITUDE;
+    let lon = DEFAULT_LONGITUDE;
+    let locationName = DEFAULT_LOCATION_NAME;
+
+    // If user has a custom location, try to geocode it
+    if (location && (location.city || location.zip)) {
+      const geo = await geocodeLocation(location);
+      if (geo) {
+        lat = geo.lat;
+        lon = geo.lon;
+        locationName = geo.name;
+      }
+    }
+
     const url = new URL('https://api.open-meteo.com/v1/forecast');
-    url.searchParams.set('latitude', String(LATITUDE));
-    url.searchParams.set('longitude', String(LONGITUDE));
+    url.searchParams.set('latitude', String(lat));
+    url.searchParams.set('longitude', String(lon));
     url.searchParams.set('current', 'temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m');
     url.searchParams.set('daily', 'temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code');
     url.searchParams.set('temperature_unit', 'fahrenheit');
@@ -78,7 +168,7 @@ export async function fetchWeather(): Promise<WeatherData | null> {
     const { description, emoji } = weatherCodeToInfo(current.weather_code);
 
     return {
-      location: LOCATION_NAME,
+      location: locationName,
       temperature: Math.round(current.temperature_2m),
       feelsLike: Math.round(current.apparent_temperature),
       humidity: Math.round(current.relative_humidity_2m),

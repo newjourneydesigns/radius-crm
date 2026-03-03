@@ -11,7 +11,7 @@ import {
   CircleMeetingItem,
   BirthdayItem,
 } from '../../../lib/emailService';
-import { fetchWeather, WeatherData } from '../../../lib/weatherService';
+import { fetchWeather, WeatherData, WeatherLocation } from '../../../lib/weatherService';
 
 function getSupabaseServiceClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -529,10 +529,10 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseServiceClient();
     const currentCSTHour = getCurrentCSTHour();
 
-    // Fetch all subscribed users with their frequency setting
+    // Fetch all subscribed users with their frequency setting and weather location
     const { data: users, error: usersError } = await supabase
       .from('users')
-      .select('id, name, email, daily_email_frequency_hours, last_digest_sent_at')
+      .select('id, name, email, daily_email_frequency_hours, last_digest_sent_at, weather_city, weather_state, weather_zip, include_weather')
       .eq('daily_email_subscribed', true)
       .not('email', 'is', null);
 
@@ -555,8 +555,8 @@ export async function POST(request: NextRequest) {
     let skipped = 0;
     const errors: string[] = [];
 
-    // Fetch weather once for all users (same location)
-    const weather = await fetchWeather();
+    // Cache weather results by location key to avoid duplicate API calls
+    const weatherCache = new Map<string, WeatherData | null>();
 
     for (const user of users) {
       const frequencyHours = user.daily_email_frequency_hours || 24;
@@ -579,7 +579,23 @@ export async function POST(request: NextRequest) {
 
       try {
         const digestData = await buildDigestForUser(supabase, user, today);
-        digestData.weather = weather;
+
+        // Fetch weather for this user's location if weather is enabled
+        const includeWeather = user.include_weather !== false;
+        if (includeWeather) {
+          const userLocation: WeatherLocation = {
+            city: user.weather_city || null,
+            state: user.weather_state || null,
+            zip: user.weather_zip || null,
+          };
+          const locationKey = `${userLocation.city || ''}|${userLocation.state || ''}|${userLocation.zip || ''}`;
+          if (!weatherCache.has(locationKey)) {
+            weatherCache.set(locationKey, await fetchWeather(userLocation));
+          }
+          digestData.weather = weatherCache.get(locationKey) ?? null;
+        } else {
+          digestData.weather = null;
+        }
         const hasContent =
           digestData.todos.dueToday.length > 0 ||
           digestData.todos.overdue.length > 0 ||

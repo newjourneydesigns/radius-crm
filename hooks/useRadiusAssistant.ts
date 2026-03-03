@@ -1,0 +1,198 @@
+'use client';
+
+// =============================================================
+// useRadiusAssistant — React hook for the Radius AI assistant
+// =============================================================
+// Manages conversation state, API calls, voice input, and
+// conversation persistence via localStorage + Supabase.
+// =============================================================
+
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  toolAction?: string; // e.g. "created_todo", "added_note"
+  timestamp: number;
+}
+
+interface UseRadiusAssistantReturn {
+  messages: ChatMessage[];
+  isLoading: boolean;
+  error: string | null;
+  conversationId: string | null;
+  sendMessage: (text: string) => Promise<void>;
+  startNewConversation: () => void;
+  isReady: boolean; // true once auth context is available
+}
+
+const STORAGE_KEY = 'radius-assistant-conversation-id';
+const MESSAGES_STORAGE_KEY = 'radius-assistant-messages';
+const RATE_LIMIT_COOLDOWN_MS = 5000; // 5-second cooldown after rate limit
+
+export function useRadiusAssistant(): UseRadiusAssistantReturn {
+  const { user } = useAuth();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const isLoadingRef = useRef(false); // Ref to prevent double-send race condition
+  const rateLimitedUntilRef = useRef(0); // Timestamp when rate limit expires
+
+  // Load conversation ID and cached messages from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedId = localStorage.getItem(STORAGE_KEY);
+      if (savedId) setConversationId(savedId);
+
+      const savedMessages = localStorage.getItem(MESSAGES_STORAGE_KEY);
+      if (savedMessages) {
+        const parsed = JSON.parse(savedMessages) as ChatMessage[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed);
+        }
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, []);
+
+  // Persist conversation ID and messages when they change
+  useEffect(() => {
+    try {
+      if (conversationId) {
+        localStorage.setItem(STORAGE_KEY, conversationId);
+      }
+    } catch {
+      // Ignore
+    }
+  }, [conversationId]);
+
+  useEffect(() => {
+    try {
+      if (messages.length > 0) {
+        localStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify(messages));
+      }
+    } catch {
+      // Ignore
+    }
+  }, [messages]);
+
+  const sendMessage = useCallback(
+    async (text: string) => {
+      // Use ref for instant guard — state can be stale in closures
+      if (!text.trim() || !user || isLoadingRef.current) return;
+
+      // Rate limit cooldown
+      if (Date.now() < rateLimitedUntilRef.current) {
+        const secsLeft = Math.ceil((rateLimitedUntilRef.current - Date.now()) / 1000);
+        setError(`Rate limited — please wait ${secsLeft}s before trying again.`);
+        return;
+      }
+
+      isLoadingRef.current = true;
+
+      const userMessage: ChatMessage = {
+        role: 'user',
+        content: text.trim(),
+        timestamp: Date.now(),
+      };
+
+      setMessages((prev) => [...prev, userMessage]);
+      setIsLoading(true);
+      setError(null);
+
+      // Cancel any pending request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      try {
+        const res = await fetch('/api/ai-assistant', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: text.trim(),
+            conversationId,
+            userId: user.id,
+            userName: user.name || user.email || 'User',
+            userRole: user.role || 'Viewer',
+            userCampus: undefined,
+          }),
+          signal: controller.signal,
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          // Set cooldown on rate limit
+          if (res.status === 429) {
+            rateLimitedUntilRef.current = Date.now() + RATE_LIMIT_COOLDOWN_MS;
+          }
+          throw new Error(data.error || `Error: ${res.status}`);
+        }
+
+        const assistantMessage: ChatMessage = {
+          role: 'assistant',
+          content: data.reply,
+          toolAction: data.toolAction,
+          timestamp: Date.now(),
+        };
+
+        setMessages((prev) => [...prev, assistantMessage]);
+
+        if (data.conversationId) {
+          setConversationId(data.conversationId);
+        }
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        const errorMsg = err instanceof Error ? err.message : 'Something went wrong';
+        setError(errorMsg);
+
+        // Add error as a system message so the user sees it in the chat
+        const isRateLimit = errorMsg.toLowerCase().includes('rate');
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: isRateLimit
+              ? `⏳ ${errorMsg}`
+              : `Sorry, I ran into an issue: ${errorMsg}`,
+            timestamp: Date.now(),
+          },
+        ]);
+      } finally {
+        setIsLoading(false);
+        isLoadingRef.current = false;
+        abortControllerRef.current = null;
+      }
+    },
+    [user, conversationId]
+  );
+
+  const startNewConversation = useCallback(() => {
+    setMessages([]);
+    setConversationId(null);
+    setError(null);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(MESSAGES_STORAGE_KEY);
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  return {
+    messages,
+    isLoading,
+    error,
+    conversationId,
+    sendMessage,
+    startNewConversation,
+    isReady: !!user,
+  };
+}
