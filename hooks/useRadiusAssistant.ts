@@ -25,6 +25,8 @@ interface UseRadiusAssistantReturn {
   sendMessage: (text: string) => Promise<void>;
   startNewConversation: () => void;
   isReady: boolean; // true once auth context is available
+  lastNavigateTo: string | null; // page path from navigate_to_page tool
+  clearNavigateTo: () => void;
 }
 
 const STORAGE_KEY = 'radius-assistant-conversation-id';
@@ -37,6 +39,7 @@ export function useRadiusAssistant(): UseRadiusAssistantReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [lastNavigateTo, setLastNavigateTo] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const isLoadingRef = useRef(false); // Ref to prevent double-send race condition
   const rateLimitedUntilRef = useRef(0); // Timestamp when rate limit expires
@@ -154,6 +157,11 @@ export function useRadiusAssistant(): UseRadiusAssistantReturn {
         if (data.conversationId) {
           setConversationId(data.conversationId);
         }
+
+        // If the AI used the navigate_to_page tool, surface the path
+        if (data.navigateTo) {
+          setLastNavigateTo(data.navigateTo);
+        }
       } catch (err: unknown) {
         if (err instanceof Error && err.name === 'AbortError') return;
         const errorMsg = err instanceof Error ? err.message : 'Something went wrong';
@@ -180,9 +188,12 @@ export function useRadiusAssistant(): UseRadiusAssistantReturn {
     [user, conversationId]
   );
 
+  const clearNavigateTo = useCallback(() => setLastNavigateTo(null), []);
+
   const startNewConversation = useCallback(() => {
     setMessages([]);
     setConversationId(null);
+    setLastNavigateTo(null);
     setError(null);
     try {
       localStorage.removeItem(STORAGE_KEY);
@@ -200,5 +211,7 @@ export function useRadiusAssistant(): UseRadiusAssistantReturn {
     sendMessage,
     startNewConversation,
     isReady: !!user,
+    lastNavigateTo,
+    clearNavigateTo,
   };
 }

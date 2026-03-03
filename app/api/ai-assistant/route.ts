@@ -392,6 +392,7 @@ export async function POST(request: NextRequest) {
 
     let finalReply = '';
     let actionLabel: string | undefined;
+    let navigateTo: string | undefined;
     const hasAnyFallback = !!(openaiKey || groqKey);
 
     // ---- Try Gemini first ----
@@ -400,12 +401,14 @@ export async function POST(request: NextRequest) {
         geminiKey,
         systemPrompt,
         history,
-        userId
+        userId,
+        userRole
       );
 
       if (geminiResult.reply) {
         finalReply = geminiResult.reply;
         actionLabel = geminiResult.actionLabel;
+        navigateTo = geminiResult.navigateTo;
       } else if (geminiResult.rateLimited && hasAnyFallback) {
         console.log('Gemini rate-limited, falling back…');
       } else if (!hasAnyFallback) {
@@ -424,12 +427,14 @@ export async function POST(request: NextRequest) {
         openaiKey,
         systemPrompt,
         history,
-        userId
+        userId,
+        userRole
       );
 
       if (openaiResult.reply) {
         finalReply = openaiResult.reply;
         actionLabel = openaiResult.actionLabel;
+        navigateTo = openaiResult.navigateTo;
       } else if (openaiResult.rateLimited && groqKey) {
         console.log('OpenAI rate-limited, falling back to Groq…');
       } else if (!groqKey) {
@@ -448,12 +453,14 @@ export async function POST(request: NextRequest) {
         groqKey,
         systemPrompt,
         history,
-        userId
+        userId,
+        userRole
       );
 
       if (groqResult.reply) {
         finalReply = groqResult.reply;
         actionLabel = groqResult.actionLabel;
+        navigateTo = groqResult.navigateTo;
       } else {
         const errorMsg = groqResult.rateLimited
           ? 'All AI providers are rate-limited — please wait a moment and try again.'
@@ -474,6 +481,7 @@ export async function POST(request: NextRequest) {
       reply: finalReply,
       conversationId: savedConvId,
       toolAction: actionLabel,
+      navigateTo,
     });
   } catch (error: unknown) {
     console.error('AI assistant error:', error);
@@ -488,10 +496,12 @@ async function handleGeminiConversation(
   apiKey: string,
   systemPrompt: string,
   history: ConversationMessage[],
-  userId: string
+  userId: string,
+  userRole: string
 ): Promise<{
   reply?: string;
   actionLabel?: string;
+  navigateTo?: string;
   error?: string;
   status?: number;
   rateLimited?: boolean;
@@ -499,6 +509,7 @@ async function handleGeminiConversation(
   const tools = getGeminiToolDeclarations();
   let contents = toGeminiContents(history);
   let actionLabel: string | undefined;
+  let navigateTo: string | undefined;
 
   // Tool execution loop (max 5 rounds to prevent infinite loops)
   for (let round = 0; round < 5; round++) {
@@ -509,7 +520,7 @@ async function handleGeminiConversation(
 
     // If we get a text reply, we're done
     if (result.reply) {
-      return { reply: result.reply, actionLabel };
+      return { reply: result.reply, actionLabel, navigateTo };
     }
 
     // If we get function calls, execute them
@@ -519,10 +530,14 @@ async function handleGeminiConversation(
       for (const fc of result.functionCalls) {
         const toolResult = await executeTool(
           { name: fc.name, args: fc.args } as ToolCall,
-          userId
+          userId,
+          userRole
         );
         toolResults.push(toolResult);
         if (toolResult.actionLabel) actionLabel = toolResult.actionLabel;
+        // Extract navigation from tool result
+        const res = toolResult.result as Record<string, unknown>;
+        if (res?.navigateTo) navigateTo = res.navigateTo as string;
       }
 
       // Add the model's function call to contents
@@ -561,10 +576,12 @@ async function handleGroqConversation(
   apiKey: string,
   systemPrompt: string,
   history: ConversationMessage[],
-  userId: string
+  userId: string,
+  userRole: string
 ): Promise<{
   reply?: string;
   actionLabel?: string;
+  navigateTo?: string;
   error?: string;
   status?: number;
   rateLimited?: boolean;
@@ -572,6 +589,7 @@ async function handleGroqConversation(
   const tools = getGroqToolDeclarations();
   let messages = toGroqMessages(history);
   let actionLabel: string | undefined;
+  let navigateTo: string | undefined;
 
   // Tool execution loop (max 5 rounds)
   for (let round = 0; round < 5; round++) {
@@ -582,7 +600,7 @@ async function handleGroqConversation(
 
     // If we get a text reply, we're done
     if (result.reply) {
-      return { reply: result.reply, actionLabel };
+      return { reply: result.reply, actionLabel, navigateTo };
     }
 
     // If we get tool calls, execute them
@@ -602,9 +620,12 @@ async function handleGroqConversation(
       for (const tc of result.toolCalls) {
         const toolResult = await executeTool(
           { name: tc.name, args: tc.args } as ToolCall,
-          userId
+          userId,
+          userRole
         );
         if (toolResult.actionLabel) actionLabel = toolResult.actionLabel;
+        const res = toolResult.result as Record<string, unknown>;
+        if (res?.navigateTo) navigateTo = res.navigateTo as string;
 
         messages.push({
           role: 'tool',
@@ -629,10 +650,12 @@ async function handleOpenAIConversation(
   apiKey: string,
   systemPrompt: string,
   history: ConversationMessage[],
-  userId: string
+  userId: string,
+  userRole: string
 ): Promise<{
   reply?: string;
   actionLabel?: string;
+  navigateTo?: string;
   error?: string;
   status?: number;
   rateLimited?: boolean;
@@ -641,6 +664,7 @@ async function handleOpenAIConversation(
   const tools = getGroqToolDeclarations();
   let messages = toGroqMessages(history);
   let actionLabel: string | undefined;
+  let navigateTo: string | undefined;
 
   // Tool execution loop (max 5 rounds)
   for (let round = 0; round < 5; round++) {
@@ -650,7 +674,7 @@ async function handleOpenAIConversation(
     if (result.error) return { error: result.error, status: result.status };
 
     if (result.reply) {
-      return { reply: result.reply, actionLabel };
+      return { reply: result.reply, actionLabel, navigateTo };
     }
 
     if (result.toolCalls) {
@@ -667,9 +691,12 @@ async function handleOpenAIConversation(
       for (const tc of result.toolCalls) {
         const toolResult = await executeTool(
           { name: tc.name, args: tc.args } as ToolCall,
-          userId
+          userId,
+          userRole
         );
         if (toolResult.actionLabel) actionLabel = toolResult.actionLabel;
+        const res = toolResult.result as Record<string, unknown>;
+        if (res?.navigateTo) navigateTo = res.navigateTo as string;
 
         messages.push({
           role: 'tool',

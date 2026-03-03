@@ -52,6 +52,8 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
     sendMessage,
     startNewConversation,
     isReady,
+    lastNavigateTo,
+    clearNavigateTo,
   } = useRadiusAssistant();
 
   const {
@@ -94,6 +96,16 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
     }
     return () => document.body.classList.remove('ai-chat-open');
   }, [isMobile, isOpen]);
+
+  // Navigate when the AI returns a navigateTo path
+  useEffect(() => {
+    if (lastNavigateTo) {
+      router.push(lastNavigateTo);
+      clearNavigateTo();
+      // Close drawer after navigation (floating mode)
+      if (!fullPage) setIsOpen(false);
+    }
+  }, [lastNavigateTo, clearNavigateTo, router, fullPage]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -358,7 +370,7 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
         }}
       >
         {messages.length === 0 && !isLoading && (
-          <WelcomeMessage userName={user.name?.split(' ')[0] || 'there'} />
+          <WelcomeMessage userName={user.name?.split(' ')[0] || 'there'} onSendMessage={sendMessage} />
         )}
 
         {messages.map((msg, i) => (
@@ -538,15 +550,15 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
       {/* Chat drawer */}
       {isOpen && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop — no blur so the page stays readable */}
           <div
             onClick={handleClose}
             style={{
               position: 'fixed',
               inset: 0,
-              backgroundColor: isMobile ? 'rgba(0, 0, 0, 0.6)' : 'rgba(0, 0, 0, 0.4)',
+              backgroundColor: isMobile ? 'rgba(0, 0, 0, 0.5)' : 'transparent',
               zIndex: isMobile ? 10001 : 9998,
-              backdropFilter: 'blur(2px)',
+              pointerEvents: isMobile ? 'auto' : 'auto',
             }}
           />
 
@@ -600,7 +612,15 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
 
 // ---- Sub-components ----
 
-function WelcomeMessage({ userName }: { userName: string }) {
+function WelcomeMessage({ userName, onSendMessage }: { userName: string; onSendMessage: (text: string) => void }) {
+  const examples = [
+    'Show me my upcoming todos',
+    'Who has a birthday coming up?',
+    'Take me to the dashboard',
+    'Add a note that John\'s mom is in the hospital',
+    'Show me prayer points for John Smith',
+  ];
+
   return (
     <div
       style={{
@@ -643,15 +663,13 @@ function WelcomeMessage({ userName }: { userName: string }) {
           maxWidth: '320px',
         }}
       >
-        {[
-          '"Remind me tomorrow to call John Smith"',
-          '"When does John Smith\'s circle meet?"',
-          '"Add a note that John\'s mom is in the hospital"',
-          '"Show me my upcoming todos"',
-          '"Schedule a visit to John\'s circle next Tuesday"',
-        ].map((example, i) => (
+        {examples.map((example, i) => (
           <div
             key={i}
+            onClick={() => onSendMessage(example)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter') onSendMessage(example); }}
             style={{
               fontSize: '12px',
               color: COLORS.accent,
@@ -660,9 +678,13 @@ function WelcomeMessage({ userName }: { userName: string }) {
               borderRadius: '8px',
               padding: '8px 12px',
               textAlign: 'left',
+              cursor: 'pointer',
+              transition: 'background-color 0.15s ease',
             }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.18)')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.08)')}
           >
-            {example}
+            &ldquo;{example}&rdquo;
           </div>
         ))}
       </div>
@@ -805,7 +827,11 @@ function inlineMarkdown(text: string): string {
     .replace(/>/g, '&gt;')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`(.+?)`/g, `<code style="background:rgba(141,169,196,0.15);padding:1px 5px;border-radius:3px;font-size:12px;">$1</code>`);
+    .replace(/`(.+?)`/g, `<code style="background:rgba(141,169,196,0.15);padding:1px 5px;border-radius:3px;font-size:12px;">$1</code>`)
+    // Markdown-style links: [text](url)
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, `<a href="$2" target="_blank" rel="noopener noreferrer" style="color:${COLORS.accent};text-decoration:underline;">$1</a>`)
+    // Bare URLs
+    .replace(/(^|\s)(https?:\/\/[^\s<]+)/g, `$1<a href="$2" target="_blank" rel="noopener noreferrer" style="color:${COLORS.accent};text-decoration:underline;">$2</a>`);
 }
 
 function getActionLabel(action: string): string {
@@ -818,6 +844,8 @@ function getActionLabel(action: string): string {
       return 'Note added';
     case 'scheduled_visit':
       return 'Visit scheduled';
+    case 'navigated':
+      return 'Navigated';
     default:
       return 'Action taken';
   }

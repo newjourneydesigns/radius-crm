@@ -61,6 +61,11 @@ export const AI_TOOLS: ToolDefinition[] = [
           type: 'string',
           description: 'Filter by ACPD (director) name',
         },
+        follow_up: {
+          type: 'string',
+          description: 'Filter to only leaders who need follow-up. "true" to show only those needing follow-up.',
+          enum: ['true', 'false'],
+        },
       },
       required: [],
     },
@@ -231,7 +236,7 @@ export const AI_TOOLS: ToolDefinition[] = [
   {
     name: 'get_prayer_points',
     description:
-      'Get prayer points for the current user. If a leader_name is provided, returns ACPD-specific prayer points for that leader. If no leader_name, returns the user\'s general prayer points. Use when the user asks about prayer requests, what to pray for, or prayer items for a specific leader.',
+      'Get prayer points for the current user. If a leader_name is provided, returns ACPD-specific prayer points for that leader. If no leader_name, returns the user\'s general prayer points. Use when the user asks about prayer requests, what to pray for, or prayer items.',
     parameters: {
       type: 'object',
       properties: {
@@ -331,6 +336,26 @@ export const AI_TOOLS: ToolDefinition[] = [
       required: ['leader_name'],
     },
   },
+  {
+    name: 'navigate_to_page',
+    description:
+      'Navigate the user to a specific page in Radius CRM. Use when the user asks to "go to", "take me to", "open", or "show me" a page. Can also navigate to a specific leader\'s profile by name.',
+    parameters: {
+      type: 'object',
+      properties: {
+        page: {
+          type: 'string',
+          description: 'The page to navigate to',
+          enum: ['dashboard', 'prayer', 'progress', 'calendar', 'search', 'settings', 'profile', 'help', 'assistant', 'birthday-list', 'bulk-message', 'ccb-explorer', 'add-leader', 'users', 'event-summaries', 'leader-profile', 'leader-roster'],
+        },
+        leader_name: {
+          type: 'string',
+          description: 'When page is "leader-profile" or "leader-roster", the name of the leader to navigate to',
+        },
+      },
+      required: ['page'],
+    },
+  },
 ];
 
 // ---- Gemini format conversion ----
@@ -401,10 +426,20 @@ async function resolveLeaderByName(
 
 export async function executeTool(
   toolCall: ToolCall,
-  userId: string
+  userId: string,
+  userRole: string = 'Viewer'
 ): Promise<ToolResult> {
   const supabase = getServiceClient();
   const { name, args } = toolCall;
+
+  // Server-side write protection — only ACPDs can perform write operations
+  const WRITE_TOOLS = ['create_todo', 'complete_todo', 'add_leader_note', 'schedule_circle_visit'];
+  if (WRITE_TOOLS.includes(name) && userRole !== 'ACPD') {
+    return {
+      toolName: name,
+      result: { error: 'Write operations require ACPD access. You have read-only (Viewer) access.' },
+    };
+  }
 
   switch (name) {
     // ---- SEARCH LEADERS ----
@@ -429,6 +464,9 @@ export async function executeTool(
       }
       if (args.acpd) {
         query = query.ilike('acpd', `%${args.acpd}%`);
+      }
+      if (args.follow_up === 'true') {
+        query = query.eq('follow_up_required', true);
       }
 
       // Fetch up to 50 results, but totalCount reflects ALL matching rows
@@ -628,8 +666,8 @@ export async function executeTool(
         .from('notes')
         .insert({
           circle_leader_id: leader.id,
+          user_id: userId,
           content: args.content as string,
-          created_by: 'Radius AI',
           created_at: new Date().toISOString(),
         })
         .select()
@@ -773,7 +811,7 @@ export async function executeTool(
         }
 
         const leader = leaders[0];
-        let query = supabase
+        let prayerQuery = supabase
           .from('acpd_prayer_points')
           .select('id, content, is_answered, created_at, updated_at')
           .eq('circle_leader_id', leader.id)
@@ -782,10 +820,10 @@ export async function executeTool(
           .limit(20);
 
         if (!includeAnswered) {
-          query = query.eq('is_answered', false);
+          prayerQuery = prayerQuery.eq('is_answered', false);
         }
 
-        const { data, error: prayerErr } = await query;
+        const { data, error: prayerErr } = await prayerQuery;
         if (prayerErr) return { toolName: name, result: { error: prayerErr.message } };
         return {
           toolName: name,
@@ -798,7 +836,7 @@ export async function executeTool(
         };
       } else {
         // General prayer points
-        let query = supabase
+        let generalQuery = supabase
           .from('general_prayer_points')
           .select('id, content, is_answered, created_at, updated_at')
           .eq('user_id', userId)
@@ -806,10 +844,10 @@ export async function executeTool(
           .limit(20);
 
         if (!includeAnswered) {
-          query = query.eq('is_answered', false);
+          generalQuery = generalQuery.eq('is_answered', false);
         }
 
-        const { data, error: prayerErr } = await query;
+        const { data, error: prayerErr } = await generalQuery;
         if (prayerErr) return { toolName: name, result: { error: prayerErr.message } };
         return {
           toolName: name,
@@ -840,7 +878,7 @@ export async function executeTool(
       }
 
       const leader = leaders[0];
-      const limit = parseInt(args.limit as string) || 10;
+      const scoreLimit = parseInt(args.limit as string) || 10;
 
       // Get full scorecard history
       const { data: scores, error: scoreErr } = await supabase
@@ -848,7 +886,7 @@ export async function executeTool(
         .select('reach_score, connect_score, disciple_score, develop_score, notes, scored_date, created_at')
         .eq('circle_leader_id', leader.id)
         .order('scored_date', { ascending: false })
-        .limit(limit);
+        .limit(scoreLimit);
 
       if (scoreErr) return { toolName: name, result: { error: scoreErr.message } };
 
@@ -861,7 +899,7 @@ export async function executeTool(
           .eq('circle_leader_id', leader.id)
           .eq('dimension', args.dimension as string)
           .order('recorded_at', { ascending: false })
-          .limit(limit);
+          .limit(scoreLimit);
         dimensionHistory = dimData;
       }
 
@@ -894,7 +932,7 @@ export async function executeTool(
       }
 
       const leader = leaders[0];
-      const limit = parseInt(args.limit as string) || 10;
+      const encLimit = parseInt(args.limit as string) || 10;
 
       const { data, error: encErr } = await supabase
         .from('acpd_encouragements')
@@ -902,7 +940,7 @@ export async function executeTool(
         .eq('circle_leader_id', leader.id)
         .eq('user_id', userId)
         .order('message_date', { ascending: false })
-        .limit(limit);
+        .limit(encLimit);
 
       if (encErr) return { toolName: name, result: { error: encErr.message } };
       return {
@@ -970,7 +1008,7 @@ export async function executeTool(
       const leader = leaders[0];
       const includeResolved = args.include_resolved === 'true';
 
-      let query = supabase
+      let coachQuery = supabase
         .from('acpd_coaching_notes')
         .select('id, dimension, content, is_resolved, created_at')
         .eq('circle_leader_id', leader.id)
@@ -979,13 +1017,13 @@ export async function executeTool(
         .limit(10);
 
       if (args.dimension) {
-        query = query.eq('dimension', args.dimension as string);
+        coachQuery = coachQuery.eq('dimension', args.dimension as string);
       }
       if (!includeResolved) {
-        query = query.eq('is_resolved', false);
+        coachQuery = coachQuery.eq('is_resolved', false);
       }
 
-      const { data, error: coachErr } = await query;
+      const { data, error: coachErr } = await coachQuery;
       if (coachErr) return { toolName: name, result: { error: coachErr.message } };
       return {
         toolName: name,
@@ -994,6 +1032,70 @@ export async function executeTool(
           coachingNotes: data || [],
           count: data?.length || 0,
         },
+      };
+    }
+
+    // ---- NAVIGATE TO PAGE ----
+    case 'navigate_to_page': {
+      const PAGE_ROUTES: Record<string, string> = {
+        'dashboard': '/dashboard',
+        'prayer': '/prayer',
+        'progress': '/progress',
+        'calendar': '/calendar',
+        'search': '/search',
+        'settings': '/settings',
+        'profile': '/profile',
+        'help': '/help',
+        'assistant': '/assistant',
+        'birthday-list': '/birthday-list',
+        'bulk-message': '/bulk-message',
+        'ccb-explorer': '/ccb-explorer',
+        'add-leader': '/add-leader',
+        'users': '/users',
+        'event-summaries': '/dashboard/event-summaries',
+      };
+
+      const page = args.page as string;
+
+      // Handle leader-specific pages
+      if (page === 'leader-profile' || page === 'leader-roster') {
+        if (!args.leader_name) {
+          return { toolName: name, result: { error: 'Please specify which leader to navigate to.' } };
+        }
+        const leaders = await resolveLeaderByName(supabase, args.leader_name as string);
+        if ('error' in leaders) {
+          return { toolName: name, result: { error: leaders.error } };
+        }
+        if (leaders.length > 1) {
+          return {
+            toolName: name,
+            result: {
+              ambiguous: true,
+              message: `Multiple leaders match "${args.leader_name}". Please specify which one:`,
+              matches: leaders.map((l) => ({ id: l.id, name: l.name, campus: l.campus, circle_type: l.circle_type })),
+            },
+          };
+        }
+        const leader = leaders[0];
+        const path = page === 'leader-roster'
+          ? `/circle/${leader.id}/roster`
+          : `/circle/${leader.id}`;
+        return {
+          toolName: name,
+          result: { navigateTo: path, label: `${leader.name}'s ${page === 'leader-roster' ? 'roster' : 'profile'}` },
+          actionLabel: 'navigated',
+        };
+      }
+
+      const route = PAGE_ROUTES[page];
+      if (!route) {
+        return { toolName: name, result: { error: `Unknown page: "${page}". Available pages: ${Object.keys(PAGE_ROUTES).join(', ')}` } };
+      }
+
+      return {
+        toolName: name,
+        result: { navigateTo: route, label: page },
+        actionLabel: 'navigated',
       };
     }
 

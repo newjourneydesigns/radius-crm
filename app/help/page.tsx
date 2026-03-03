@@ -14,7 +14,6 @@ const sections = [
   { id: 'circle-profiles',  title: 'Leader Profiles' },
   { id: 'circle-visits',    title: 'Circle Visits' },
   { id: 'todos',            title: 'To-Do Items' },
-  { id: 'event-summaries',  title: 'Event Summaries' },
   { id: 'notes',            title: 'Notes & Templates' },
   { id: 'encourage',        title: 'Encourage Feature' },
   { id: 'filters',          title: 'Filtering & Search' },
@@ -369,24 +368,7 @@ export default function HelpPage() {
                   </div>
                 </section>
 
-                {/* ── Event Summaries ── */}
-                <section id="event-summaries" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Event Summaries</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Event Summaries track whether each active leader has submitted their circle report for the current period. Only active leaders are included (invited, pipeline, and archived leaders are excluded).</p>
 
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Marking Received</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>From a leader card (dashboard or Leaders page): click the <strong>Event Summary</strong> toggle button.</li>
-                    <li>From the leader's profile: toggle the Event Summary switch in the info panel.</li>
-                    <li>From the dedicated <strong>Event Summaries</strong> panel on the dashboard.</li>
-                  </ul>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Filtering by Summary Status</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">On both the Dashboard and Leaders page, use the <strong>Event Summary</strong> filter drop-down to show only leaders who have or haven't submitted. The Progress page shows summary stats at a glance.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">4-State Tracking</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Event summary status has four states: <strong>Not Received</strong>, <strong>Received</strong>, <strong>Late</strong>, and <strong>Excused</strong>. Use the drop-down on the leader card or profile to set the correct state.</p>
-                </section>
 
                 {/* ── Notes & Templates ── */}
                 <section id="notes" className="p-6 sm:p-8">
