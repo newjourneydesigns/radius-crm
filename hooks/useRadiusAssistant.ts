@@ -126,7 +126,13 @@ export function useRadiusAssistant(): UseRadiusAssistantReturn {
           signal: controller.signal,
         });
 
-        const data = await res.json();
+        // Silently handle non-JSON responses (e.g. stale service worker)
+        let data;
+        try {
+          data = await res.json();
+        } catch {
+          throw new Error('Invalid response from server');
+        }
 
         if (!res.ok) {
           // Set cooldown on rate limit
