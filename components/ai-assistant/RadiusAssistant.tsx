@@ -416,7 +416,7 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
               flex: 1,
               resize: 'none',
               padding: '10px 14px',
-              fontSize: '14px',
+              fontSize: isMobile ? '16px' : '14px',
               lineHeight: '1.4',
               minHeight: '40px',
               maxHeight: '120px',
