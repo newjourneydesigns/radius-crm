@@ -66,6 +66,7 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
   const [isOpen, setIsOpen] = useState(fullPage);
   const [inputText, setInputText] = useState('');
   const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
@@ -74,6 +75,25 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Mobile detection
+  useEffect(() => {
+    const mql = window.matchMedia('(max-width: 767px)');
+    setIsMobile(mql.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+
+  // Toggle body class to hide mobile tab bar when chat is open
+  useEffect(() => {
+    if (isMobile && isOpen) {
+      document.body.classList.add('ai-chat-open');
+    } else {
+      document.body.classList.remove('ai-chat-open');
+    }
+    return () => document.body.classList.remove('ai-chat-open');
+  }, [isMobile, isOpen]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -244,6 +264,14 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
     }
     .radius-typing-dot:nth-child(2) { animation-delay: 0.2s; }
     .radius-typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes radius-slide-in-mobile {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    @keyframes radius-slide-in-desktop {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
   `;
 
   // ---- Chat drawer content ----
@@ -253,7 +281,7 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
       style={{
         display: 'flex',
         flexDirection: 'column',
-        height: fullPage ? 'calc(100vh - 140px)' : '100%',
+        height: fullPage ? (isMobile ? '100%' : 'calc(100vh - 140px)') : '100%',
         backgroundColor: COLORS.bg,
         color: COLORS.text,
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -265,7 +293,7 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '14px 16px',
+          padding: isMobile ? 'max(14px, env(safe-area-inset-top)) 16px 14px 16px' : '14px 16px',
           borderBottom: `1px solid ${COLORS.borderLight}`,
           backgroundColor: COLORS.bgCard,
           backdropFilter: 'blur(20px)',
@@ -345,7 +373,7 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
       {/* Input area */}
       <div
         style={{
-          padding: '12px 16px',
+          padding: isMobile ? '12px 16px max(12px, env(safe-area-inset-bottom))' : '12px 16px',
           borderTop: `1px solid ${COLORS.borderLight}`,
           backgroundColor: COLORS.bgCard,
           backdropFilter: 'blur(20px)',
@@ -449,7 +477,11 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
       <>
         <style dangerouslySetInnerHTML={{ __html: styleContent }} />
         <div
-          style={{
+          style={isMobile ? {
+            width: '100%',
+            height: '100dvh',
+            overflow: 'hidden',
+          } : {
             maxWidth: '800px',
             margin: '0 auto',
             height: 'calc(100vh - 140px)',
@@ -479,7 +511,7 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
           onClick={() => setIsOpen(true)}
           style={{
             position: 'fixed',
-            bottom: '80px',
+            bottom: isMobile ? 'calc(70px + env(safe-area-inset-bottom, 0px) + 8px)' : '80px',
             right: '16px',
             zIndex: 9998,
             width: '56px',
@@ -512,8 +544,8 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
             style={{
               position: 'fixed',
               inset: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.4)',
-              zIndex: 9998,
+              backgroundColor: isMobile ? 'rgba(0, 0, 0, 0.6)' : 'rgba(0, 0, 0, 0.4)',
+              zIndex: isMobile ? 10001 : 9998,
               backdropFilter: 'blur(2px)',
             }}
           />
@@ -522,7 +554,19 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
           <div
             ref={drawerRef}
             className="radius-assistant-container"
-            style={{
+            style={isMobile ? {
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: '100%',
+              height: '100dvh',
+              zIndex: 10002,
+              borderRadius: 0,
+              overflow: 'hidden',
+              animation: 'radius-slide-in-mobile 0.35s cubic-bezier(0.32, 0.72, 0, 1)',
+            } : {
               position: 'fixed',
               bottom: 0,
               right: 0,
@@ -540,22 +584,13 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
               border: `1px solid ${COLORS.border}`,
               borderRight: 'none',
               borderBottom: 'none',
-              animation: 'radius-slide-in 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              animation: 'radius-slide-in-desktop 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
             {chatContent}
           </div>
 
-          <style
-            dangerouslySetInnerHTML={{
-              __html: `
-              @keyframes radius-slide-in {
-                from { transform: translateY(20px); opacity: 0; }
-                to { transform: translateY(0); opacity: 1; }
-              }
-            `,
-            }}
-          />
+
         </>
       )}
     </>,

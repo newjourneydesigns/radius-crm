@@ -228,6 +228,109 @@ export const AI_TOOLS: ToolDefinition[] = [
       required: [],
     },
   },
+  {
+    name: 'get_prayer_points',
+    description:
+      'Get prayer points for the current user. If a leader_name is provided, returns ACPD-specific prayer points for that leader. If no leader_name, returns the user\'s general prayer points. Use when the user asks about prayer requests, what to pray for, or prayer items for a specific leader.',
+    parameters: {
+      type: 'object',
+      properties: {
+        leader_name: {
+          type: 'string',
+          description: 'Optional — the name of a circle leader to get prayer points for. If omitted, returns general prayer points.',
+        },
+        include_answered: {
+          type: 'string',
+          description: 'Whether to include answered prayer points. "true" to include, "false" (default) for only active.',
+          enum: ['true', 'false'],
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'get_score_history',
+    description:
+      'Get the Big 4 scorecard history for a circle leader over time. Returns multiple scored entries ordered by date, so you can see trends and changes in Reach, Connect, Disciple, and Develop scores. Use when the user asks about score trends, progress over time, or scorecard history.',
+    parameters: {
+      type: 'object',
+      properties: {
+        leader_name: {
+          type: 'string',
+          description: 'The name of the circle leader to get score history for',
+        },
+        dimension: {
+          type: 'string',
+          description: 'Optional — filter to a specific Big 4 dimension',
+          enum: ['reach', 'connect', 'disciple', 'develop'],
+        },
+        limit: {
+          type: 'string',
+          description: 'Maximum number of score entries to return (default: 10)',
+        },
+      },
+      required: ['leader_name'],
+    },
+  },
+  {
+    name: 'get_encouragements',
+    description:
+      'Get the encouragement history for a circle leader — when and how the user encouraged them. Use when the user asks "when did I last encourage X?" or "show my encouragement history for X" or wants to review past encouragements.',
+    parameters: {
+      type: 'object',
+      properties: {
+        leader_name: {
+          type: 'string',
+          description: 'The name of the circle leader to get encouragement history for',
+        },
+        limit: {
+          type: 'string',
+          description: 'Maximum number of encouragement entries to return (default: 10)',
+        },
+      },
+      required: ['leader_name'],
+    },
+  },
+  {
+    name: 'get_circle_roster',
+    description:
+      'Get the list of members in a circle leader\'s group. Returns names, contact info, and birthdays. Use when the user asks "who is in X\'s circle?" or "how many members does X have?" or about upcoming birthdays in a group.',
+    parameters: {
+      type: 'object',
+      properties: {
+        leader_name: {
+          type: 'string',
+          description: 'The name of the circle leader whose roster to view',
+        },
+      },
+      required: ['leader_name'],
+    },
+  },
+  {
+    name: 'get_coaching_notes',
+    description:
+      'Get coaching notes for a circle leader. These are dimension-specific observations and action items that the ACPD has recorded. Can filter by Big 4 dimension and resolution status. Use when the user asks about coaching notes, unresolved coaching items, or coaching history for a leader.',
+    parameters: {
+      type: 'object',
+      properties: {
+        leader_name: {
+          type: 'string',
+          description: 'The name of the circle leader to get coaching notes for',
+        },
+        dimension: {
+          type: 'string',
+          description: 'Optional — filter to a specific Big 4 dimension',
+          enum: ['reach', 'connect', 'disciple', 'develop'],
+        },
+        include_resolved: {
+          type: 'string',
+          description: 'Whether to include resolved coaching notes. "true" to include, "false" (default) for only unresolved.',
+          enum: ['true', 'false'],
+        },
+      },
+      required: ['leader_name'],
+    },
+  },
 ];
 
 // ---- Gemini format conversion ----
@@ -644,6 +747,252 @@ export async function executeTool(
           dayOfWeek: dayOfWeek,
           circlesMeetingToday: todayCircles || [],
           circleCount: todayCircles?.length || 0,
+        },
+      };
+    }
+
+    // ---- GET PRAYER POINTS ----
+    case 'get_prayer_points': {
+      const includeAnswered = args.include_answered === 'true';
+
+      if (args.leader_name) {
+        // Leader-specific prayer points from acpd_prayer_points
+        const leaders = await resolveLeaderByName(supabase, args.leader_name as string);
+        if ('error' in leaders) {
+          return { toolName: name, result: { error: leaders.error } };
+        }
+        if (leaders.length > 1) {
+          return {
+            toolName: name,
+            result: {
+              ambiguous: true,
+              message: `Multiple leaders match "${args.leader_name}". Please specify which one:`,
+              matches: leaders.map((l) => ({ id: l.id, name: l.name, campus: l.campus, circle_type: l.circle_type })),
+            },
+          };
+        }
+
+        const leader = leaders[0];
+        let query = supabase
+          .from('acpd_prayer_points')
+          .select('id, content, is_answered, created_at, updated_at')
+          .eq('circle_leader_id', leader.id)
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        if (!includeAnswered) {
+          query = query.eq('is_answered', false);
+        }
+
+        const { data, error: prayerErr } = await query;
+        if (prayerErr) return { toolName: name, result: { error: prayerErr.message } };
+        return {
+          toolName: name,
+          result: {
+            type: 'leader_prayer_points',
+            leader_name: leader.name,
+            prayerPoints: data || [],
+            count: data?.length || 0,
+          },
+        };
+      } else {
+        // General prayer points
+        let query = supabase
+          .from('general_prayer_points')
+          .select('id, content, is_answered, created_at, updated_at')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        if (!includeAnswered) {
+          query = query.eq('is_answered', false);
+        }
+
+        const { data, error: prayerErr } = await query;
+        if (prayerErr) return { toolName: name, result: { error: prayerErr.message } };
+        return {
+          toolName: name,
+          result: {
+            type: 'general_prayer_points',
+            prayerPoints: data || [],
+            count: data?.length || 0,
+          },
+        };
+      }
+    }
+
+    // ---- GET SCORE HISTORY ----
+    case 'get_score_history': {
+      const leaders = await resolveLeaderByName(supabase, args.leader_name as string);
+      if ('error' in leaders) {
+        return { toolName: name, result: { error: leaders.error } };
+      }
+      if (leaders.length > 1) {
+        return {
+          toolName: name,
+          result: {
+            ambiguous: true,
+            message: `Multiple leaders match "${args.leader_name}". Please specify which one:`,
+            matches: leaders.map((l) => ({ id: l.id, name: l.name, campus: l.campus, circle_type: l.circle_type })),
+          },
+        };
+      }
+
+      const leader = leaders[0];
+      const limit = parseInt(args.limit as string) || 10;
+
+      // Get full scorecard history
+      const { data: scores, error: scoreErr } = await supabase
+        .from('circle_leader_scores')
+        .select('reach_score, connect_score, disciple_score, develop_score, notes, scored_date, created_at')
+        .eq('circle_leader_id', leader.id)
+        .order('scored_date', { ascending: false })
+        .limit(limit);
+
+      if (scoreErr) return { toolName: name, result: { error: scoreErr.message } };
+
+      // If a specific dimension was requested, also get granular history
+      let dimensionHistory: { score: unknown; source: unknown; recorded_at: unknown }[] | null = null;
+      if (args.dimension) {
+        const { data: dimData } = await supabase
+          .from('scorecard_score_history')
+          .select('score, source, recorded_at')
+          .eq('circle_leader_id', leader.id)
+          .eq('dimension', args.dimension as string)
+          .order('recorded_at', { ascending: false })
+          .limit(limit);
+        dimensionHistory = dimData;
+      }
+
+      return {
+        toolName: name,
+        result: {
+          leader_name: leader.name,
+          scoreHistory: scores || [],
+          count: scores?.length || 0,
+          ...(dimensionHistory ? { dimensionDetail: { dimension: args.dimension, history: dimensionHistory } } : {}),
+        },
+      };
+    }
+
+    // ---- GET ENCOURAGEMENTS ----
+    case 'get_encouragements': {
+      const leaders = await resolveLeaderByName(supabase, args.leader_name as string);
+      if ('error' in leaders) {
+        return { toolName: name, result: { error: leaders.error } };
+      }
+      if (leaders.length > 1) {
+        return {
+          toolName: name,
+          result: {
+            ambiguous: true,
+            message: `Multiple leaders match "${args.leader_name}". Please specify which one:`,
+            matches: leaders.map((l) => ({ id: l.id, name: l.name, campus: l.campus, circle_type: l.circle_type })),
+          },
+        };
+      }
+
+      const leader = leaders[0];
+      const limit = parseInt(args.limit as string) || 10;
+
+      const { data, error: encErr } = await supabase
+        .from('acpd_encouragements')
+        .select('id, message_type, message_date, note, encourage_method, created_at')
+        .eq('circle_leader_id', leader.id)
+        .eq('user_id', userId)
+        .order('message_date', { ascending: false })
+        .limit(limit);
+
+      if (encErr) return { toolName: name, result: { error: encErr.message } };
+      return {
+        toolName: name,
+        result: {
+          leader_name: leader.name,
+          encouragements: data || [],
+          count: data?.length || 0,
+        },
+      };
+    }
+
+    // ---- GET CIRCLE ROSTER ----
+    case 'get_circle_roster': {
+      const leaders = await resolveLeaderByName(supabase, args.leader_name as string);
+      if ('error' in leaders) {
+        return { toolName: name, result: { error: leaders.error } };
+      }
+      if (leaders.length > 1) {
+        return {
+          toolName: name,
+          result: {
+            ambiguous: true,
+            message: `Multiple leaders match "${args.leader_name}". Please specify which one:`,
+            matches: leaders.map((l) => ({ id: l.id, name: l.name, campus: l.campus, circle_type: l.circle_type })),
+          },
+        };
+      }
+
+      const leader = leaders[0];
+      const { data, error: rosterErr } = await supabase
+        .from('circle_roster_cache')
+        .select('full_name, first_name, last_name, email, phone, mobile_phone, birthday')
+        .eq('circle_leader_id', leader.id)
+        .order('full_name');
+
+      if (rosterErr) return { toolName: name, result: { error: rosterErr.message } };
+      return {
+        toolName: name,
+        result: {
+          leader_name: leader.name,
+          members: data || [],
+          memberCount: data?.length || 0,
+        },
+      };
+    }
+
+    // ---- GET COACHING NOTES ----
+    case 'get_coaching_notes': {
+      const leaders = await resolveLeaderByName(supabase, args.leader_name as string);
+      if ('error' in leaders) {
+        return { toolName: name, result: { error: leaders.error } };
+      }
+      if (leaders.length > 1) {
+        return {
+          toolName: name,
+          result: {
+            ambiguous: true,
+            message: `Multiple leaders match "${args.leader_name}". Please specify which one:`,
+            matches: leaders.map((l) => ({ id: l.id, name: l.name, campus: l.campus, circle_type: l.circle_type })),
+          },
+        };
+      }
+
+      const leader = leaders[0];
+      const includeResolved = args.include_resolved === 'true';
+
+      let query = supabase
+        .from('acpd_coaching_notes')
+        .select('id, dimension, content, is_resolved, created_at')
+        .eq('circle_leader_id', leader.id)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (args.dimension) {
+        query = query.eq('dimension', args.dimension as string);
+      }
+      if (!includeResolved) {
+        query = query.eq('is_resolved', false);
+      }
+
+      const { data, error: coachErr } = await query;
+      if (coachErr) return { toolName: name, result: { error: coachErr.message } };
+      return {
+        toolName: name,
+        result: {
+          leader_name: leader.name,
+          coachingNotes: data || [],
+          count: data?.length || 0,
         },
       };
     }

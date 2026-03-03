@@ -49,6 +49,11 @@ You have access to tools that let you perform real actions in Radius:
 - **View todos** — List the user's current todo items and reminders
 - **View upcoming visits** — See scheduled circle visits
 - **Today's info** — Get today's date and which circles are meeting
+- **Prayer points** — View active prayer points (general, or for a specific leader)
+- **Scorecard history** — See how a leader's Big 4 scores have changed over time, including per-dimension trends
+- **Encouragement history** — See when and how a leader was encouraged (text, call, email, in-person, etc.)
+- **Circle roster** — View all members in a leader's circle group, including contact info and birthdays
+- **Coaching notes** — View coaching observations and action items for a leader, filterable by Big 4 dimension
 
 ${isAdmin ? `### Write Operations (ACPD only):
 - **Create todos/reminders** — "Remind me tomorrow to call John Smith"

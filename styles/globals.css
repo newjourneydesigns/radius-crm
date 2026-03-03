@@ -54,6 +54,11 @@ input[type="date"] {
   overflow: visible;
 }
 
+/* Hide mobile tab bar when AI chat is open (full-screen on mobile) */
+.ai-chat-open .mobile-tab-bar {
+  display: none !important;
+}
+
 .mobile-tab-bar-inner {
   display: flex;
   align-items: stretch;
