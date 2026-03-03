@@ -368,8 +368,6 @@ export default function HelpPage() {
                   </div>
                 </section>
 
-
-
                 {/* ── Notes & Templates ── */}
                 <section id="notes" className="p-6 sm:p-8">
                   <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Notes & Templates</h2>

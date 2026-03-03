@@ -55,8 +55,7 @@ Set in `.env.local` for development, Netlify dashboard for production.
 │   │   ├── callback/
 │   │   └── auth-code-error/
 │   ├── dashboard/              # Main dashboard with leader cards & filters
-│   │   ├── page.tsx
-│   │   └── event-summaries/    # Event summary management
+│   │   └── page.tsx
 │   ├── leaders/                # Leader listing page
 │   ├── circle/[id]/            # Individual circle leader detail page
 │   ├── add-leader/             # Add new leader form
@@ -257,7 +256,7 @@ Set in `.env.local` for development, Netlify dashboard for production.
 2. **Circle Leader Detail** (`/circle/[id]`) — Full profile with notes, connections, visits, and event summaries
 3. **Connections Tracking** — Log and view connection history per leader
 4. **Circle Visits** — Schedule, complete, and cancel visit records
-5. **Event Summaries** — Track event summary submissions with 4-state workflow
+5. **Event Summaries** — Track event summary submissions with 4-state workflow (managed via Calendar page, leader cards, and profiles)
 6. **Follow-Up Workflow** — Set follow-up dates/notes, mark as required, clear with modal
 7. **Notes & Templates** — Rich note system with templates, pinning support
 8. **Calendar View** — FullCalendar integration showing meetings and visits

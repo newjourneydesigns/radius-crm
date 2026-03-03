@@ -68,6 +68,7 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
   const [isOpen, setIsOpen] = useState(fullPage);
   const [inputText, setInputText] = useState('');
   const [mounted, setMounted] = useState(false);
+  const justSentRef = useRef(false);
   const [isMobile, setIsMobile] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -121,7 +122,7 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
 
   // Handle voice transcript → input field
   useEffect(() => {
-    if (transcript) {
+    if (transcript && !justSentRef.current) {
       setInputText(transcript);
     }
   }, [transcript]);
@@ -130,10 +131,12 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
   const handleSend = useCallback(async () => {
     const text = inputText.trim();
     if (!text || isLoading) return;
+    justSentRef.current = true;
     setInputText('');
     resetTranscript();
     if (isListening) stopListening();
     await sendMessage(text);
+    justSentRef.current = false;
   }, [inputText, isLoading, sendMessage, resetTranscript, isListening, stopListening]);
 
   // Handle keyboard
@@ -846,6 +849,30 @@ function getActionLabel(action: string): string {
       return 'Visit scheduled';
     case 'navigated':
       return 'Navigated';
+    case 'follow_up_set':
+      return 'Follow-up marked';
+    case 'follow_up_cleared':
+      return 'Follow-up cleared';
+    case 'status_updated':
+      return 'Status updated';
+    case 'connection_logged':
+      return 'Connection logged';
+    case 'encouragement_logged':
+      return 'Encouragement logged';
+    case 'event_summary_set':
+      return 'Event summary updated';
+    case 'profile_updated':
+      return 'Profile updated';
+    case 'prayer_added':
+      return 'Prayer added';
+    case 'prayer_resolved':
+      return 'Prayer answered';
+    case 'todo_deleted':
+      return 'Todo deleted';
+    case 'visit_canceled':
+      return 'Visit canceled';
+    case 'coaching_note_added':
+      return 'Coaching note added';
     default:
       return 'Action taken';
   }

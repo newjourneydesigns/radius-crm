@@ -194,6 +194,26 @@ export const AI_TOOLS: ToolDefinition[] = [
     },
   },
   {
+    name: 'set_follow_up',
+    description:
+      'Mark or unmark a circle leader as needing follow-up. Use this when the user asks to flag a leader for follow-up, mark follow-up required, or clear/remove follow-up from a leader.',
+    parameters: {
+      type: 'object',
+      properties: {
+        leader_name: {
+          type: 'string',
+          description: 'The name of the circle leader',
+        },
+        required: {
+          type: 'string',
+          description: 'Whether follow-up is required. "true" to mark for follow-up, "false" to clear follow-up.',
+          enum: ['true', 'false'],
+        },
+      },
+      required: ['leader_name', 'required'],
+    },
+  },
+  {
     name: 'get_meeting_schedule',
     description:
       'Find out when a circle leader\'s group meets — their meeting day, time, frequency, and next meeting date. Use this when the user asks "when does X meet?" or similar.',
@@ -337,6 +357,217 @@ export const AI_TOOLS: ToolDefinition[] = [
     },
   },
   {
+    name: 'update_leader_status',
+    description:
+      'Change a circle leader\'s status. Use when the user asks to set, change, or update a leader\'s status (e.g. make them active, mark as paused, move to pipeline, etc.).',
+    parameters: {
+      type: 'object',
+      properties: {
+        leader_name: {
+          type: 'string',
+          description: 'The name of the circle leader',
+        },
+        status: {
+          type: 'string',
+          description: 'The new status to set',
+          enum: ['invited', 'on-boarding', 'pipeline', 'active', 'paused', 'off-boarding'],
+        },
+      },
+      required: ['leader_name', 'status'],
+    },
+  },
+  {
+    name: 'log_connection',
+    description:
+      'Log an interaction/connection with a circle leader. Use when the user says they called, texted, emailed, or met with a leader and wants to record it.',
+    parameters: {
+      type: 'object',
+      properties: {
+        leader_name: {
+          type: 'string',
+          description: 'The name of the circle leader',
+        },
+        connection_type: {
+          type: 'string',
+          description: 'The type of interaction',
+          enum: ['Phone Call', 'Text Message', 'Email', 'In-Person Meeting', 'Video Call', 'Social Media', 'Other'],
+        },
+        note: {
+          type: 'string',
+          description: 'Optional note about the interaction',
+        },
+        date: {
+          type: 'string',
+          description: 'Date of the connection in YYYY-MM-DD format. Defaults to today if not specified.',
+        },
+      },
+      required: ['leader_name', 'connection_type'],
+    },
+  },
+  {
+    name: 'log_encouragement',
+    description:
+      'Log an encouragement sent to a circle leader. Use when the user says they encouraged, sent a message to, or reached out to uplift a leader.',
+    parameters: {
+      type: 'object',
+      properties: {
+        leader_name: {
+          type: 'string',
+          description: 'The name of the circle leader',
+        },
+        method: {
+          type: 'string',
+          description: 'How the encouragement was delivered',
+          enum: ['text', 'email', 'call', 'in_person', 'card', 'other'],
+        },
+        note: {
+          type: 'string',
+          description: 'Optional note or scripture reference included with the encouragement',
+        },
+      },
+      required: ['leader_name', 'method'],
+    },
+  },
+  {
+    name: 'set_event_summary',
+    description:
+      'Set the event summary state for a circle leader. Use when the user wants to mark a leader\'s event summary as received, not received, did not meet, or skipped.',
+    parameters: {
+      type: 'object',
+      properties: {
+        leader_name: {
+          type: 'string',
+          description: 'The name of the circle leader',
+        },
+        state: {
+          type: 'string',
+          description: 'The event summary state to set',
+          enum: ['not_received', 'received', 'did_not_meet', 'skipped'],
+        },
+      },
+      required: ['leader_name', 'state'],
+    },
+  },
+  {
+    name: 'update_leader_profile',
+    description:
+      'Update fields on a circle leader\'s profile such as phone, email, campus, meeting day, time, circle type, or ACPD. Use when the user asks to change a leader\'s contact info or meeting details.',
+    parameters: {
+      type: 'object',
+      properties: {
+        leader_name: {
+          type: 'string',
+          description: 'The name of the circle leader to update',
+        },
+        phone: { type: 'string', description: 'New phone number' },
+        email: { type: 'string', description: 'New email address' },
+        campus: { type: 'string', description: 'New campus assignment' },
+        day: { type: 'string', description: 'New meeting day (e.g. Monday, Tuesday)' },
+        time: { type: 'string', description: 'New meeting time (e.g. 7:00 PM)' },
+        circle_type: { type: 'string', description: 'New circle type' },
+        acpd: { type: 'string', description: 'New ACPD name' },
+        frequency: { type: 'string', description: 'New meeting frequency (e.g. weekly, biweekly)' },
+      },
+      required: ['leader_name'],
+    },
+  },
+  {
+    name: 'add_prayer_point',
+    description:
+      'Add a prayer point. Can be a general prayer point or one specific to a circle leader. Use when the user asks to add a prayer request or prayer item.',
+    parameters: {
+      type: 'object',
+      properties: {
+        content: {
+          type: 'string',
+          description: 'The prayer point text',
+        },
+        leader_name: {
+          type: 'string',
+          description: 'Optional — the name of the circle leader this prayer is for. Omit for a general prayer point.',
+        },
+      },
+      required: ['content'],
+    },
+  },
+  {
+    name: 'resolve_prayer_point',
+    description:
+      'Mark a prayer point as answered/resolved. Use when the user says a prayer has been answered or wants to resolve a prayer item.',
+    parameters: {
+      type: 'object',
+      properties: {
+        prayer_content: {
+          type: 'string',
+          description: 'Text of the prayer point to match (partial match supported)',
+        },
+        leader_name: {
+          type: 'string',
+          description: 'Optional — the leader the prayer belongs to. Omit for general prayer points.',
+        },
+      },
+      required: ['prayer_content'],
+    },
+  },
+  {
+    name: 'delete_todo',
+    description:
+      'Delete a to-do item. Use when the user asks to remove or delete a specific todo.',
+    parameters: {
+      type: 'object',
+      properties: {
+        todo_text: {
+          type: 'string',
+          description: 'The title/text of the todo to delete (partial match supported)',
+        },
+      },
+      required: ['todo_text'],
+    },
+  },
+  {
+    name: 'cancel_circle_visit',
+    description:
+      'Cancel a scheduled circle visit. Use when the user asks to cancel an upcoming visit.',
+    parameters: {
+      type: 'object',
+      properties: {
+        leader_name: {
+          type: 'string',
+          description: 'The name of the circle leader whose visit to cancel',
+        },
+        reason: {
+          type: 'string',
+          description: 'Optional reason for cancellation',
+        },
+      },
+      required: ['leader_name'],
+    },
+  },
+  {
+    name: 'add_coaching_note',
+    description:
+      'Add a coaching note/observation for a circle leader, categorized by Big 4 dimension (Reach, Connect, Disciple, Develop). Use when the user wants to record a coaching observation or action item for a leader.',
+    parameters: {
+      type: 'object',
+      properties: {
+        leader_name: {
+          type: 'string',
+          description: 'The name of the circle leader',
+        },
+        dimension: {
+          type: 'string',
+          description: 'The Big 4 dimension this coaching note relates to',
+          enum: ['reach', 'connect', 'disciple', 'develop'],
+        },
+        content: {
+          type: 'string',
+          description: 'The coaching note content',
+        },
+      },
+      required: ['leader_name', 'dimension', 'content'],
+    },
+  },
+  {
     name: 'navigate_to_page',
     description:
       'Navigate the user to a specific page in Radius CRM. Use when the user asks to "go to", "take me to", "open", or "show me" a page. Can also navigate to a specific leader\'s profile by name.',
@@ -433,7 +664,7 @@ export async function executeTool(
   const { name, args } = toolCall;
 
   // Server-side write protection — only ACPDs can perform write operations
-  const WRITE_TOOLS = ['create_todo', 'complete_todo', 'add_leader_note', 'schedule_circle_visit'];
+  const WRITE_TOOLS = ['create_todo', 'complete_todo', 'add_leader_note', 'schedule_circle_visit', 'set_follow_up', 'update_leader_status', 'log_connection', 'log_encouragement', 'set_event_summary', 'update_leader_profile', 'add_prayer_point', 'resolve_prayer_point', 'delete_todo', 'cancel_circle_visit', 'add_coaching_note'];
   if (WRITE_TOOLS.includes(name) && userRole !== 'ACPD') {
     return {
       toolName: name,
@@ -716,6 +947,42 @@ export async function executeTool(
         toolName: name,
         result: { success: true, visit: data, leader_name: leader.name },
         actionLabel: 'scheduled_visit',
+      };
+    }
+
+    // ---- SET FOLLOW-UP ----
+    case 'set_follow_up': {
+      const leaders = await resolveLeaderByName(supabase, args.leader_name as string);
+      if ('error' in leaders) {
+        return { toolName: name, result: { error: leaders.error } };
+      }
+      if (leaders.length > 1) {
+        return {
+          toolName: name,
+          result: {
+            ambiguous: true,
+            message: `Multiple leaders match "${args.leader_name}". Please specify which one:`,
+            matches: leaders.map((l) => ({ id: l.id, name: l.name, campus: l.campus, circle_type: l.circle_type })),
+          },
+        };
+      }
+
+      const leader = leaders[0];
+      const isRequired = args.required === 'true';
+      const { error } = await supabase
+        .from('circle_leaders')
+        .update({ follow_up_required: isRequired })
+        .eq('id', leader.id);
+
+      if (error) return { toolName: name, result: { error: error.message } };
+      return {
+        toolName: name,
+        result: {
+          success: true,
+          leader_name: leader.name,
+          follow_up_required: isRequired,
+        },
+        actionLabel: isRequired ? 'follow_up_set' : 'follow_up_cleared',
       };
     }
 
@@ -1096,6 +1363,402 @@ export async function executeTool(
         toolName: name,
         result: { navigateTo: route, label: page },
         actionLabel: 'navigated',
+      };
+    }
+
+    // ---- UPDATE LEADER STATUS ----
+    case 'update_leader_status': {
+      const leaders = await resolveLeaderByName(supabase, args.leader_name as string);
+      if ('error' in leaders) return { toolName: name, result: { error: leaders.error } };
+      if (leaders.length > 1) {
+        return {
+          toolName: name,
+          result: {
+            ambiguous: true,
+            message: `Multiple leaders match "${args.leader_name}". Please specify which one:`,
+            matches: leaders.map((l) => ({ id: l.id, name: l.name, campus: l.campus, circle_type: l.circle_type })),
+          },
+        };
+      }
+      const leader = leaders[0];
+      const newStatus = args.status as string;
+      const { error } = await supabase
+        .from('circle_leaders')
+        .update({ status: newStatus })
+        .eq('id', leader.id);
+      if (error) return { toolName: name, result: { error: error.message } };
+      return {
+        toolName: name,
+        result: { success: true, leader_name: leader.name, new_status: newStatus },
+        actionLabel: 'status_updated',
+      };
+    }
+
+    // ---- LOG CONNECTION ----
+    case 'log_connection': {
+      const leaders = await resolveLeaderByName(supabase, args.leader_name as string);
+      if ('error' in leaders) return { toolName: name, result: { error: leaders.error } };
+      if (leaders.length > 1) {
+        return {
+          toolName: name,
+          result: {
+            ambiguous: true,
+            message: `Multiple leaders match "${args.leader_name}". Please specify which one:`,
+            matches: leaders.map((l) => ({ id: l.id, name: l.name, campus: l.campus, circle_type: l.circle_type })),
+          },
+        };
+      }
+      const leader = leaders[0];
+      // Look up connection_type_id from the connection_types table
+      const { data: typeData, error: typeError } = await supabase
+        .from('connection_types')
+        .select('id')
+        .eq('name', args.connection_type as string)
+        .single();
+      if (typeError || !typeData) {
+        return { toolName: name, result: { error: `Unknown connection type: "${args.connection_type}"` } };
+      }
+      const connDate = (args.date as string) || getTodayCST();
+      const { data, error } = await supabase
+        .from('connections')
+        .insert({
+          circle_leader_id: leader.id,
+          connection_type_id: typeData.id,
+          date_of_connection: connDate,
+          note: (args.note as string) || null,
+        })
+        .select()
+        .single();
+      if (error) return { toolName: name, result: { error: error.message } };
+      return {
+        toolName: name,
+        result: { success: true, connection: data, leader_name: leader.name, type: args.connection_type },
+        actionLabel: 'connection_logged',
+      };
+    }
+
+    // ---- LOG ENCOURAGEMENT ----
+    case 'log_encouragement': {
+      const leaders = await resolveLeaderByName(supabase, args.leader_name as string);
+      if ('error' in leaders) return { toolName: name, result: { error: leaders.error } };
+      if (leaders.length > 1) {
+        return {
+          toolName: name,
+          result: {
+            ambiguous: true,
+            message: `Multiple leaders match "${args.leader_name}". Please specify which one:`,
+            matches: leaders.map((l) => ({ id: l.id, name: l.name, campus: l.campus, circle_type: l.circle_type })),
+          },
+        };
+      }
+      const leader = leaders[0];
+      const { data, error } = await supabase
+        .from('acpd_encouragements')
+        .insert({
+          circle_leader_id: leader.id,
+          user_id: userId,
+          message_type: 'sent',
+          encourage_method: args.method as string,
+          message_date: getTodayCST(),
+          note: (args.note as string) || null,
+        })
+        .select()
+        .single();
+      if (error) return { toolName: name, result: { error: error.message } };
+      return {
+        toolName: name,
+        result: { success: true, encouragement: data, leader_name: leader.name, method: args.method },
+        actionLabel: 'encouragement_logged',
+      };
+    }
+
+    // ---- SET EVENT SUMMARY ----
+    case 'set_event_summary': {
+      const leaders = await resolveLeaderByName(supabase, args.leader_name as string);
+      if ('error' in leaders) return { toolName: name, result: { error: leaders.error } };
+      if (leaders.length > 1) {
+        return {
+          toolName: name,
+          result: {
+            ambiguous: true,
+            message: `Multiple leaders match "${args.leader_name}". Please specify which one:`,
+            matches: leaders.map((l) => ({ id: l.id, name: l.name, campus: l.campus, circle_type: l.circle_type })),
+          },
+        };
+      }
+      const leader = leaders[0];
+      const state = args.state as string;
+      const { error } = await supabase
+        .from('circle_leaders')
+        .update({ event_summary_state: state })
+        .eq('id', leader.id);
+      if (error) return { toolName: name, result: { error: error.message } };
+      return {
+        toolName: name,
+        result: { success: true, leader_name: leader.name, event_summary_state: state },
+        actionLabel: 'event_summary_set',
+      };
+    }
+
+    // ---- UPDATE LEADER PROFILE ----
+    case 'update_leader_profile': {
+      const leaders = await resolveLeaderByName(supabase, args.leader_name as string);
+      if ('error' in leaders) return { toolName: name, result: { error: leaders.error } };
+      if (leaders.length > 1) {
+        return {
+          toolName: name,
+          result: {
+            ambiguous: true,
+            message: `Multiple leaders match "${args.leader_name}". Please specify which one:`,
+            matches: leaders.map((l) => ({ id: l.id, name: l.name, campus: l.campus, circle_type: l.circle_type })),
+          },
+        };
+      }
+      const leader = leaders[0];
+      const allowedFields = ['phone', 'email', 'campus', 'day', 'time', 'circle_type', 'acpd', 'frequency'];
+      const updateData: Record<string, string> = {};
+      for (const field of allowedFields) {
+        if (args[field]) updateData[field] = args[field] as string;
+      }
+      if (Object.keys(updateData).length === 0) {
+        return { toolName: name, result: { error: 'No fields specified to update. Provide at least one field (phone, email, campus, day, time, circle_type, acpd, frequency).' } };
+      }
+      const { error } = await supabase
+        .from('circle_leaders')
+        .update(updateData)
+        .eq('id', leader.id);
+      if (error) return { toolName: name, result: { error: error.message } };
+      return {
+        toolName: name,
+        result: { success: true, leader_name: leader.name, updated_fields: updateData },
+        actionLabel: 'profile_updated',
+      };
+    }
+
+    // ---- ADD PRAYER POINT ----
+    case 'add_prayer_point': {
+      const content = args.content as string;
+      if (args.leader_name) {
+        // Leader-specific prayer point
+        const leaders = await resolveLeaderByName(supabase, args.leader_name as string);
+        if ('error' in leaders) return { toolName: name, result: { error: leaders.error } };
+        if (leaders.length > 1) {
+          return {
+            toolName: name,
+            result: {
+              ambiguous: true,
+              message: `Multiple leaders match "${args.leader_name}". Please specify which one:`,
+              matches: leaders.map((l) => ({ id: l.id, name: l.name, campus: l.campus, circle_type: l.circle_type })),
+            },
+          };
+        }
+        const leader = leaders[0];
+        const { data, error } = await supabase
+          .from('acpd_prayer_points')
+          .insert({ circle_leader_id: leader.id, user_id: userId, content, is_answered: false })
+          .select()
+          .single();
+        if (error) return { toolName: name, result: { error: error.message } };
+        return {
+          toolName: name,
+          result: { success: true, prayer_point: data, leader_name: leader.name },
+          actionLabel: 'prayer_added',
+        };
+      } else {
+        // General prayer point
+        const { data, error } = await supabase
+          .from('general_prayer_points')
+          .insert({ user_id: userId, content, is_answered: false })
+          .select()
+          .single();
+        if (error) return { toolName: name, result: { error: error.message } };
+        return {
+          toolName: name,
+          result: { success: true, prayer_point: data, type: 'general' },
+          actionLabel: 'prayer_added',
+        };
+      }
+    }
+
+    // ---- RESOLVE PRAYER POINT ----
+    case 'resolve_prayer_point': {
+      const prayerContent = args.prayer_content as string;
+      if (args.leader_name) {
+        // Leader-specific prayer point
+        const leaders = await resolveLeaderByName(supabase, args.leader_name as string);
+        if ('error' in leaders) return { toolName: name, result: { error: leaders.error } };
+        if (leaders.length > 1) {
+          return {
+            toolName: name,
+            result: {
+              ambiguous: true,
+              message: `Multiple leaders match "${args.leader_name}". Please specify which one:`,
+              matches: leaders.map((l) => ({ id: l.id, name: l.name, campus: l.campus, circle_type: l.circle_type })),
+            },
+          };
+        }
+        const leader = leaders[0];
+        const { data: prayers, error: fetchErr } = await supabase
+          .from('acpd_prayer_points')
+          .select('id, content')
+          .eq('circle_leader_id', leader.id)
+          .eq('user_id', userId)
+          .eq('is_answered', false)
+          .ilike('content', `%${prayerContent}%`)
+          .limit(1);
+        if (fetchErr) return { toolName: name, result: { error: fetchErr.message } };
+        if (!prayers || prayers.length === 0) {
+          return { toolName: name, result: { error: `No unresolved prayer point matching "${prayerContent}" found for ${leader.name}.` } };
+        }
+        const { error } = await supabase
+          .from('acpd_prayer_points')
+          .update({ is_answered: true, updated_at: new Date().toISOString() })
+          .eq('id', prayers[0].id);
+        if (error) return { toolName: name, result: { error: error.message } };
+        return {
+          toolName: name,
+          result: { success: true, resolved_prayer: prayers[0].content, leader_name: leader.name },
+          actionLabel: 'prayer_resolved',
+        };
+      } else {
+        // General prayer point
+        const { data: prayers, error: fetchErr } = await supabase
+          .from('general_prayer_points')
+          .select('id, content')
+          .eq('user_id', userId)
+          .eq('is_answered', false)
+          .ilike('content', `%${prayerContent}%`)
+          .limit(1);
+        if (fetchErr) return { toolName: name, result: { error: fetchErr.message } };
+        if (!prayers || prayers.length === 0) {
+          return { toolName: name, result: { error: `No unresolved general prayer point matching "${prayerContent}" found.` } };
+        }
+        const { error } = await supabase
+          .from('general_prayer_points')
+          .update({ is_answered: true, updated_at: new Date().toISOString() })
+          .eq('id', prayers[0].id);
+        if (error) return { toolName: name, result: { error: error.message } };
+        return {
+          toolName: name,
+          result: { success: true, resolved_prayer: prayers[0].content, type: 'general' },
+          actionLabel: 'prayer_resolved',
+        };
+      }
+    }
+
+    // ---- DELETE TODO ----
+    case 'delete_todo': {
+      const todoText = args.todo_text as string;
+      const { data: todos, error: fetchErr } = await supabase
+        .from('todo_items')
+        .select('id, text')
+        .eq('user_id', userId)
+        .ilike('text', `%${todoText}%`)
+        .limit(5);
+      if (fetchErr) return { toolName: name, result: { error: fetchErr.message } };
+      if (!todos || todos.length === 0) {
+        return { toolName: name, result: { error: `No todo found matching "${todoText}".` } };
+      }
+      if (todos.length > 1) {
+        return {
+          toolName: name,
+          result: {
+            ambiguous: true,
+            message: `Multiple todos match "${todoText}". Please specify which one:`,
+            matches: todos.map((t) => ({ id: t.id, text: t.text })),
+          },
+        };
+      }
+      const { error } = await supabase
+        .from('todo_items')
+        .delete()
+        .eq('id', todos[0].id);
+      if (error) return { toolName: name, result: { error: error.message } };
+      return {
+        toolName: name,
+        result: { success: true, deleted_todo: todos[0].text },
+        actionLabel: 'todo_deleted',
+      };
+    }
+
+    // ---- CANCEL CIRCLE VISIT ----
+    case 'cancel_circle_visit': {
+      const leaders = await resolveLeaderByName(supabase, args.leader_name as string);
+      if ('error' in leaders) return { toolName: name, result: { error: leaders.error } };
+      if (leaders.length > 1) {
+        return {
+          toolName: name,
+          result: {
+            ambiguous: true,
+            message: `Multiple leaders match "${args.leader_name}". Please specify which one:`,
+            matches: leaders.map((l) => ({ id: l.id, name: l.name, campus: l.campus, circle_type: l.circle_type })),
+          },
+        };
+      }
+      const leader = leaders[0];
+      // Find the next scheduled visit for this leader
+      const { data: visits, error: visitErr } = await supabase
+        .from('circle_visits')
+        .select('id, visit_date, previsit_note')
+        .eq('leader_id', leader.id)
+        .eq('status', 'scheduled')
+        .gte('visit_date', getTodayCST())
+        .order('visit_date', { ascending: true })
+        .limit(1);
+      if (visitErr) return { toolName: name, result: { error: visitErr.message } };
+      if (!visits || visits.length === 0) {
+        return { toolName: name, result: { error: `No upcoming scheduled visit found for ${leader.name}.` } };
+      }
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from('circle_visits')
+        .update({
+          status: 'canceled',
+          canceled_at: now,
+          canceled_by: userId,
+          cancel_reason: (args.reason as string) || null,
+          updated_at: now,
+        })
+        .eq('id', visits[0].id);
+      if (error) return { toolName: name, result: { error: error.message } };
+      return {
+        toolName: name,
+        result: { success: true, leader_name: leader.name, visit_date: visits[0].visit_date },
+        actionLabel: 'visit_canceled',
+      };
+    }
+
+    // ---- ADD COACHING NOTE ----
+    case 'add_coaching_note': {
+      const leaders = await resolveLeaderByName(supabase, args.leader_name as string);
+      if ('error' in leaders) return { toolName: name, result: { error: leaders.error } };
+      if (leaders.length > 1) {
+        return {
+          toolName: name,
+          result: {
+            ambiguous: true,
+            message: `Multiple leaders match "${args.leader_name}". Please specify which one:`,
+            matches: leaders.map((l) => ({ id: l.id, name: l.name, campus: l.campus, circle_type: l.circle_type })),
+          },
+        };
+      }
+      const leader = leaders[0];
+      const { data, error } = await supabase
+        .from('acpd_coaching_notes')
+        .insert({
+          circle_leader_id: leader.id,
+          user_id: userId,
+          dimension: args.dimension as string,
+          content: args.content as string,
+          is_resolved: false,
+        })
+        .select()
+        .single();
+      if (error) return { toolName: name, result: { error: error.message } };
+      return {
+        toolName: name,
+        result: { success: true, coaching_note: data, leader_name: leader.name, dimension: args.dimension },
+        actionLabel: 'coaching_note_added',
       };
     }
 
