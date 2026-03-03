@@ -383,7 +383,7 @@ export const AI_TOOLS: ToolDefinition[] = [
   {
     name: 'log_connection',
     description:
-      'Log an interaction/connection with a circle leader. IMPORTANT: Before calling this tool, make sure you have a valid connection type, a date, and optionally a note. If the user didn\'t specify the connection type or date, ask them before calling this tool. Resolve relative dates like "today" or "yesterday" to YYYY-MM-DD.',
+      'Log an interaction/connection with a circle leader. IMPORTANT: Before calling this tool, make sure you have a valid connection type, a date, and optionally a note. If the user didn\'t specify the connection type or date, ask them before calling this tool. Valid types are: Phone, Text, Email, In Person, Zoom, One-On-One, Circle Visit, Circle Leader Equipping, Other. Map user input to the closest type (e.g. "text message" → "Text", "phone call" → "Phone", "video call" → "Zoom", "in person" or "face to face" → "In Person"). Resolve relative dates like "today" or "yesterday" to YYYY-MM-DD.',
     parameters: {
       type: 'object',
       properties: {
@@ -394,7 +394,7 @@ export const AI_TOOLS: ToolDefinition[] = [
         connection_type: {
           type: 'string',
           description: 'The type of interaction — must be one of the enum values',
-          enum: ['Phone Call', 'Text Message', 'Email', 'In-Person Meeting', 'Video Call', 'Social Media', 'Other'],
+          enum: ['Phone', 'Text', 'Email', 'In Person', 'Zoom', 'One-On-One', 'Circle Visit', 'Circle Leader Equipping', 'Other'],
         },
         date: {
           type: 'string',
@@ -411,7 +411,7 @@ export const AI_TOOLS: ToolDefinition[] = [
   {
     name: 'log_encouragement',
     description:
-      'Log an encouragement sent to a circle leader. Use when the user says they encouraged, sent a message to, or reached out to uplift a leader.',
+      'Log an encouragement for a circle leader. Can be "sent" (already delivered) or "planned" (scheduled to send later). Ask the user if they already sent it or plan to send it. Also ask for the date and method.',
     parameters: {
       type: 'object',
       properties: {
@@ -419,17 +419,26 @@ export const AI_TOOLS: ToolDefinition[] = [
           type: 'string',
           description: 'The name of the circle leader',
         },
+        status: {
+          type: 'string',
+          description: 'Whether the encouragement was already sent or is planned for the future',
+          enum: ['sent', 'planned'],
+        },
         method: {
           type: 'string',
-          description: 'How the encouragement was delivered',
+          description: 'How the encouragement was or will be delivered',
           enum: ['text', 'email', 'call', 'in_person', 'card', 'other'],
+        },
+        date: {
+          type: 'string',
+          description: 'Date the encouragement was sent or is planned for, in YYYY-MM-DD format. Ask the user if not provided.',
         },
         note: {
           type: 'string',
           description: 'Optional note or scripture reference included with the encouragement',
         },
       },
-      required: ['leader_name', 'method'],
+      required: ['leader_name', 'status', 'method', 'date'],
     },
   },
   {
@@ -690,7 +699,7 @@ export function describeToolCall(name: string, args: Record<string, unknown>): s
     case 'log_connection':
       return `Log a ${args.connection_type || 'connection'} with ${args.leader_name} on ${args.date}${args.note ? ' — ' + args.note : ''}`;
     case 'log_encouragement':
-      return `Log an encouragement for ${args.leader_name}`;
+      return `Log a ${args.status === 'planned' ? 'planned' : 'sent'} encouragement (${args.method}) for ${args.leader_name} on ${args.date}${args.note ? ' — ' + args.note : ''}`;
     case 'set_event_summary':
       return `Set event summary for ${args.leader_name} to "${args.state}"`;
     case 'update_leader_profile':
@@ -735,7 +744,9 @@ export function generateToolCompletionMessage(name: string, args: Record<string,
     case 'log_connection':
       return `Done! I've logged a ${args.connection_type || 'connection'} with ${args.leader_name}.`;
     case 'log_encouragement':
-      return `Done! I've logged an encouragement for ${args.leader_name}.`;
+      return args.status === 'planned'
+        ? `Done! I've planned an encouragement for ${args.leader_name} on ${args.date}.`
+        : `Done! I've logged an encouragement for ${args.leader_name}.`;
     case 'set_event_summary':
       return `Done! I've set the event summary for ${args.leader_name} to "${args.state}".`;
     case 'update_leader_profile':
@@ -1559,9 +1570,9 @@ export async function executeTool(
         .insert({
           circle_leader_id: leader.id,
           user_id: userId,
-          message_type: 'sent',
+          message_type: (args.status as string) || 'sent',
           encourage_method: args.method as string,
-          message_date: getTodayCST(),
+          message_date: (args.date as string) || getTodayCST(),
           note: (args.note as string) || null,
         })
         .select()

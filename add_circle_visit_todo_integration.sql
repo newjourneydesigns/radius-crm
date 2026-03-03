@@ -33,6 +33,7 @@ BEGIN
       
       -- Create a todo for the scheduled visit
       INSERT INTO todo_items (
+        user_id,
         text,
         completed,
         due_date,
@@ -41,6 +42,7 @@ BEGIN
         linked_visit_id,
         linked_leader_id
       ) VALUES (
+        NEW.scheduled_by,
         'Circle Visit: ' || COALESCE(leader_name, 'Leader'),
         false,
         NEW.visit_date,
