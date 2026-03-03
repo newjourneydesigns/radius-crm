@@ -1543,6 +1543,19 @@ export async function executeTool(
         .select()
         .single();
       if (error) return { toolName: name, result: { error: error.message } };
+
+      // Also create a corresponding note on the leader's Notes tab if a note was provided
+      if (args.note) {
+        await supabase
+          .from('notes')
+          .insert({
+            circle_leader_id: leader.id,
+            user_id: userId,
+            content: `[${args.connection_type} — ${connDate}] ${args.note}`,
+            created_at: new Date().toISOString(),
+          });
+      }
+
       return {
         toolName: name,
         result: { success: true, connection: data, leader_name: leader.name, type: args.connection_type },
