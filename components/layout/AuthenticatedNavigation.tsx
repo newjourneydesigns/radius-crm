@@ -84,10 +84,20 @@ const SearchNavIcon = () => (
   </svg>
 );
 
+const BoardIcon = () => (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <rect x="3" y="3" width="7" height="9" rx="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <rect x="14" y="3" width="7" height="5" rx="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <rect x="14" y="12" width="7" height="9" rx="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <rect x="3" y="16" width="7" height="5" rx="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 const primaryNavItems = [
   { name: 'Dashboard',      href: '/dashboard', icon: HomeIcon },
   { name: 'Prayer',         href: '/prayer',    icon: PrayerIcon },
   { name: 'Progress',       href: '/progress',  icon: ChartIcon },
+  { name: 'Boards',         href: '/boards',    icon: BoardIcon },
   { name: 'Event Tracker',  href: '/calendar',  icon: CalendarIcon },
   { name: 'Find a Circle',  href: '/search',    icon: SearchNavIcon },
 ];
