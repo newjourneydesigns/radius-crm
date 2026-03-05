@@ -392,6 +392,15 @@ export interface CardChecklist {
   created_at: string;
 }
 
+export interface ChecklistTemplate {
+  id: string;
+  user_id: string;
+  board_id: string;
+  name: string;
+  items: string[];
+  created_at: string;
+}
+
 // ---- AI Assistant Types ----
 
 export interface AIConversationMessage {

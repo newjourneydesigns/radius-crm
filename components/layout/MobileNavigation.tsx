@@ -374,7 +374,7 @@ export default function MobileNavigation() {
         ref={sheetRef}
         className={`md:hidden fixed left-0 right-0 z-[9999] mobile-sheet ${sheetOpen ? 'open' : ''}`}
         style={{
-          bottom: 'calc(56px + env(safe-area-inset-bottom, 0px))',
+          bottom: 'calc(68px + env(safe-area-inset-bottom, 0px))',
           transform: sheetOpen ? `translateY(${sheetY}px)` : 'translateY(100%)',
           transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)',
         }}

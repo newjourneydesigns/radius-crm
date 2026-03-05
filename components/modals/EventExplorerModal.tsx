@@ -1,7 +1,55 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import Modal from '../ui/Modal';
+
+// ── Day-of-week helpers ────────────────────────────────────────
+
+const DAY_MAP: Record<string, number> = {
+  sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
+  thursday: 4, friday: 5, saturday: 6,
+};
+
+/** Return recent dates that fall on `dayName` (4 past + today if applicable). */
+function getRecentMeetingDates(dayName: string, count = 6): string[] {
+  const target = DAY_MAP[dayName.toLowerCase().trim()];
+  if (target === undefined) return [];
+
+  const dates: string[] = [];
+  const cursor = new Date();
+  cursor.setHours(12, 0, 0, 0);
+
+  // Walk backwards from today up to 60 days to collect meeting dates
+  for (let i = 0; i < 60 && dates.length < count; i++) {
+    if (cursor.getDay() === target) {
+      dates.push(cursor.toISOString().split('T')[0]);
+    }
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return dates; // most recent first
+}
+
+/** Return a start/end date pair for a preset range of meeting-day weeks. */
+function getMeetingDateRange(dayName: string, weeks: number): { start: string; end: string } | null {
+  const target = DAY_MAP[dayName.toLowerCase().trim()];
+  if (target === undefined) return null;
+
+  // Find the most recent occurrence of this day (including today)
+  const end = new Date();
+  end.setHours(12, 0, 0, 0);
+  while (end.getDay() !== target) {
+    end.setDate(end.getDate() - 1);
+  }
+
+  const start = new Date(end);
+  start.setDate(start.getDate() - (weeks - 1) * 7);
+
+  return {
+    start: start.toISOString().split('T')[0],
+    end: end.toISOString().split('T')[0],
+  };
+}
 
 interface EventData {
   eventId: string;
@@ -26,6 +74,7 @@ interface EventExplorerModalProps {
   initialDate?: string;
   initialGroupName?: string;
   ccbProfileLink?: string | null;
+  meetingDay?: string | null;
 }
 
 export default function EventExplorerModal({
@@ -34,8 +83,11 @@ export default function EventExplorerModal({
   initialDate = '',
   initialGroupName = '',
   ccbProfileLink = null,
+  meetingDay = null,
 }: EventExplorerModalProps) {
   const [date, setDate] = useState(initialDate);
+  const [endDate, setEndDate] = useState('');
+  const [rangeMode, setRangeMode] = useState(false);
   const [groupName, setGroupName] = useState(initialGroupName);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,10 +96,18 @@ export default function EventExplorerModal({
   const [copied, setCopied] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // Pre-compute recent meeting dates from meetingDay prop
+  const meetingDates = useMemo(
+    () => (meetingDay ? getRecentMeetingDates(meetingDay) : []),
+    [meetingDay]
+  );
+
   // Update state when modal opens with new initial values
   useEffect(() => {
     if (isOpen) {
       setDate(initialDate);
+      setEndDate('');
+      setRangeMode(false);
       setGroupName(initialGroupName);
       setError(null);
       setEvents([]);
@@ -78,6 +138,10 @@ export default function EventExplorerModal({
       setError('Please enter both date and group name');
       return;
     }
+    if (rangeMode && !endDate) {
+      setError('Please enter an end date');
+      return;
+    }
 
     // Cancel any existing request
     if (abortControllerRef.current) {
@@ -94,12 +158,17 @@ export default function EventExplorerModal({
     setHasSearched(true);
 
     try {
+      const payload: Record<string, string> = { date, groupName };
+      if (rangeMode && endDate) {
+        payload.endDate = endDate;
+      }
+
       const response = await fetch('/api/ccb/event-attendance', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ date, groupName }),
+        body: JSON.stringify(payload),
         signal: abortController.signal,
       });
 
@@ -218,10 +287,39 @@ export default function EventExplorerModal({
         
         {/* Input Fields */}
         <div className="space-y-4 overflow-hidden">
+          {/* Segmented toggle: Single Date / Date Range */}
+          <div className="flex rounded-xl bg-gray-200/80 dark:bg-black/40 p-1.5 gap-1.5">
+            <button
+              type="button"
+              onClick={() => { setRangeMode(false); setEndDate(''); }}
+              disabled={loading}
+              className={`flex-1 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${
+                !rangeMode
+                  ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30'
+                  : 'text-gray-400 dark:text-gray-500'
+              } disabled:opacity-50`}
+            >
+              Single Date
+            </button>
+            <button
+              type="button"
+              onClick={() => setRangeMode(true)}
+              disabled={loading}
+              className={`flex-1 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${
+                rangeMode
+                  ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30'
+                  : 'text-gray-400 dark:text-gray-500'
+              } disabled:opacity-50`}
+            >
+              Date Range
+            </button>
+          </div>
+
           <div className="overflow-hidden">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Date
+              {rangeMode ? 'Start Date' : 'Date'}
             </label>
+
             <input
               type="date"
               value={date}
@@ -231,6 +329,90 @@ export default function EventExplorerModal({
               className="w-full px-4 py-3 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-200"
               disabled={loading}
             />
+
+            {/* End Date (range mode only) */}
+            {rangeMode && (
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  min={date || undefined}
+                  style={{ maxWidth: '100%', minWidth: 0 }}
+                  className="w-full px-4 py-3 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-200"
+                  disabled={loading}
+                />
+              </div>
+            )}
+
+            {/* Quick-pick buttons */}
+            {meetingDay && meetingDates.length > 0 && (
+              <div className="mt-2">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">
+                  {rangeMode ? `${meetingDay} ranges` : `${meetingDay} meetings`}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {rangeMode ? (
+                    // Range presets
+                    <>
+                      {[
+                        { label: 'Last 4 weeks', weeks: 4 },
+                        { label: 'Last 8 weeks', weeks: 8 },
+                        { label: 'Last 12 weeks', weeks: 12 },
+                      ].map((preset) => {
+                        const range = getMeetingDateRange(meetingDay, preset.weeks);
+                        if (!range) return null;
+                        const isSelected = date === range.start && endDate === range.end;
+                        return (
+                          <button
+                            key={preset.weeks}
+                            type="button"
+                            onClick={() => {
+                              setDate(range.start);
+                              setEndDate(range.end);
+                            }}
+                            disabled={loading}
+                            className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-all duration-150 ${
+                              isSelected
+                                ? 'bg-blue-600 text-white shadow-sm'
+                                : 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 border border-blue-200 dark:border-blue-800'
+                            } disabled:opacity-50`}
+                          >
+                            {preset.label}
+                          </button>
+                        );
+                      })}
+                    </>
+                  ) : (
+                    // Single-date quick picks
+                    meetingDates.map((d) => {
+                      const dt = new Date(d + 'T12:00:00');
+                      const label = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      const isSelected = date === d;
+                      return (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => setDate(d)}
+                          disabled={loading}
+                          className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-all duration-150 ${
+                            isSelected
+                              ? 'bg-blue-600 text-white shadow-sm'
+                              : 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 border border-blue-200 dark:border-blue-800'
+                          } disabled:opacity-50`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           <div>
@@ -252,7 +434,7 @@ export default function EventExplorerModal({
         {/* Fetch Button */}
         <button
           onClick={handleFetchData}
-          disabled={loading || !date || !groupName}
+          disabled={loading || !date || !groupName || (rangeMode && !endDate)}
           className="w-full px-4 py-3 bg-blue-600/90 hover:bg-blue-600 text-white rounded-xl font-medium text-sm tracking-tight transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
         >
           {loading ? (

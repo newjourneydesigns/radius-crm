@@ -154,12 +154,13 @@ function daysAgo(n: number): string {
   return toDateStr(d);
 }
 
+// Semester start date — all syncs go back to at least this date
+const SEMESTER_START = '2026-01-18';
+
 // ════════════════════════════════════════════════════════════════════
 // POST — trigger attendance sync
 //
-// Modes (via ?mode= query param):
-//   "daily"    (default) — sync last 2 weeks only, 1 API call
-//   "backfill"           — sync last 6 months (one-time catch-up)
+// Syncs from semester start (2026-01-18) to today. Single CCB API call.
 //
 // Requires event IDs to be pre-cached via POST /api/ccb/discover-events.
 //
@@ -178,14 +179,13 @@ export async function POST(request: NextRequest) {
 
   const supabase = getServiceClient();
   const url = new URL(request.url);
-  const mode = url.searchParams.get('mode') || 'daily';
   const singleLeaderId = url.searchParams.get('leaderId');
 
-  // Date range based on mode
+  // Always sync from semester start to today (1 API call either way)
   const endDate = toDateStr(new Date());
-  const startDate = mode === 'backfill' ? daysAgo(180) : daysAgo(14);
+  const startDate = SEMESTER_START;
 
-  console.log(`📦 Attendance sync: mode=${mode}, range=${startDate} → ${endDate}`);
+  console.log(`📦 Attendance sync: range=${startDate} → ${endDate}`);
 
   // Load leaders with cached event IDs
   let query = supabase
@@ -281,7 +281,6 @@ export async function POST(request: NextRequest) {
     rosterErrors: 0,
     ccbEventsTotal: totalCCBEvents,
     missingEventIds,
-    mode,
     dateRange: { startDate, endDate },
   };
 

@@ -4,9 +4,9 @@ import { schedule } from '@netlify/functions';
  * Netlify Scheduled Function — Sync Circle Attendance from CCB
  *
  * Runs daily at 6:00 AM CT (11:00 UTC).
- * Calls /api/ccb/sync-attendance which pulls the last 6 months of
- * attendance data from CCB and upserts it into the
- * circle_meeting_occurrences table.
+ * Calls /api/ccb/sync-attendance which pulls attendance from
+ * semester start (2026-01-18) to today and upserts into
+ * circle_meeting_occurrences table. 1 CCB API call.
  */
 const handler = schedule('0 11 * * *', async (event) => {
   console.log('Running circle attendance sync...');

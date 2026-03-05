@@ -321,6 +321,71 @@ The project root contains numerous `.sql` and `.js` migration/fix scripts for ev
 
 ---
 
+## Rich Text Editor Pattern (Reusable)
+
+The project uses a **lightweight contentEditable rich text editor** — no external library (no TipTap, Slate, Draft.js, etc.). This pattern was first implemented in the Kanban Board Notes panel and is intended to be reused anywhere rich text editing is needed.
+
+### Architecture
+
+- **HTML `contentEditable`** — A `<div>` with `contentEditable` serves as the editing surface. Content is stored and persisted as raw HTML.
+- **`document.execCommand()`** — Toolbar buttons call `execCommand()` to apply formatting. Each button uses `onMouseDown` with `e.preventDefault()` to preserve the user's text selection before applying the command.
+- **Auto-save** — Input triggers a debounced save (1.5s timeout via `setTimeout`). Also saves on blur and on panel close. No explicit "Save" button needed.
+- **Stored as HTML** — The `innerHTML` of the contentEditable div is persisted to the database. On load, the HTML is set back via `ref.current.innerHTML = ...`.
+- **Plain text migration** — If existing content has no HTML tags (legacy plain text), newlines are converted to `<br>` on load: `html.replace(/\n/g, '<br>')`.
+
+### Toolbar Commands
+
+| Button | `execCommand` Call | Description |
+| --- | --- | --- |
+| **B** | `bold` | Toggle bold |
+| **I** | `italic` | Toggle italic |
+| **U** | `underline` | Toggle underline |
+| **S** | `strikeThrough` | Toggle strikethrough |
+| **H** | `formatBlock`, `<h3>` | Apply heading |
+| Bullet | `insertUnorderedList` | Toggle bullet list |
+| Number | `insertOrderedList` | Toggle numbered list |
+| Link | `createLink` with `prompt()` | Insert/wrap link |
+
+### Key Implementation Details
+
+1. **Toolbar buttons use `onMouseDown` + `e.preventDefault()`** — This is critical. Without it, clicking a toolbar button steals focus from the editable area and clears the text selection, making formatting impossible.
+
+2. **Links are Cmd+Click to open** — Since the area is always editable, normal clicks place the cursor. Links open in a new tab via `(e.metaKey || e.ctrlKey)` check on the click handler. A CSS `::after` pseudo-element tooltip on hover shows "⌘ click to open".
+
+3. **List styles need `!important`** — Global CSS resets strip `list-style-type`. The editor CSS explicitly sets:
+   - `ul { list-style-type: disc !important; }`
+   - `ol { list-style-type: decimal !important; }`
+   - `li { display: list-item !important; }`
+
+4. **Empty state placeholder** — Uses `:empty::before` CSS pseudo-element with `content: 'Start typing...'` styled as italic gray text.
+
+5. **All button styles need `!important`** — Due to `globals.css` line 436 forcing `button { background-color: rgba(76, 103, 133, 0.8) !important; }`, toolbar button styles must use `!important` on background, border, color, etc.
+
+### Icons Used (from `BoardIcons.tsx`)
+
+`Bold`, `Italic`, `Underline`, `Strikethrough`, `Heading`, `ListBullet`, `ListOrdered`, `LinkIcon`
+
+### CSS Classes (prefix: `kb-note-`)
+
+- `.kb-note-toolbar` — Flex row container for toolbar buttons
+- `.kb-note-tool-btn` — Individual toolbar button (32×32px, transparent bg, hover: indigo glow)
+- `.kb-note-tool-sep` — Vertical 1px separator between button groups
+- `.kb-note-editable` — The contentEditable div (caret-color: indigo, styled headings/lists/links/blockquotes)
+
+### How to Reuse
+
+To add rich text editing to any new area:
+
+1. Create a `ref = useRef<HTMLDivElement>(null)` for the editable div
+2. On load, set `ref.current.innerHTML = savedHtml` (with plain-text migration if needed)
+3. Add an `onInput` handler that debounces saving `ref.current.innerHTML`
+4. Add an `onBlur` handler that saves immediately
+5. Copy the toolbar JSX (toolbar buttons calling `execCommand` via `onMouseDown`)
+6. Copy the CSS classes (`.kb-note-toolbar`, `.kb-note-tool-btn`, `.kb-note-tool-sep`, `.kb-note-editable` or create new prefixed variants)
+7. For links: add `onClick` handler checking `e.metaKey || e.ctrlKey` on `<a>` elements
+
+---
+
 ## Known Considerations
 
 - Auth is **client-side only** — Edge middleware does not enforce redirects

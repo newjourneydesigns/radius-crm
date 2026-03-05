@@ -310,6 +310,21 @@ export const useEvaluation = () => {
         noteLines.push(`   Notes: ${evaluation.context_notes}`);
       }
 
+      // Include development prospects for the Develop category
+      if (category === 'develop') {
+        const { data: prospects } = await supabase
+          .from('development_prospects')
+          .select('name')
+          .eq('circle_leader_id', leaderId)
+          .eq('is_active', true)
+          .order('created_at', { ascending: true });
+
+        if (prospects && prospects.length > 0) {
+          noteLines.push('');
+          noteLines.push(`   👥 Being Developed: ${prospects.map(p => p.name).join(', ')}`);
+        }
+      }
+
       const noteContent = noteLines.join('\n');
 
       if (user?.id) {

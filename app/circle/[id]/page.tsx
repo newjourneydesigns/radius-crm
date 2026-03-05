@@ -23,6 +23,7 @@ import ProtectedRoute from '../../../components/ProtectedRoute';
 import ScorecardSection from '../../../components/circle/ScorecardSection';
 import ACPDTrackingSection from '../../../components/circle/ACPDTrackingSection';
 import CircleVisitsSection from '../../../components/circle/CircleVisitsSection';
+import AttendanceTrends from '../../../components/circle/AttendanceTrends';
 import DictateAndSummarize from '../../../components/notes/DictateAndSummarize';
 import MeetingPrepAssistant from '../../../components/notes/MeetingPrepAssistant';
 import CircleLeaderProfileSkeleton from '../../../components/circle/CircleLeaderProfileSkeleton';
@@ -360,6 +361,7 @@ export default function CircleLeaderProfilePage() {
   const [isDeletingNote, setIsDeletingNote] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [isSavingAsTemplate, setIsSavingAsTemplate] = useState<number | null>(null);
+  const [noteSearchQuery, setNoteSearchQuery] = useState('');
   const [editedLeader, setEditedLeader] = useState<Partial<CircleLeader>>({});
   const [isSavingLeader, setIsSavingLeader] = useState(false);
   const [leaderError, setLeaderError] = useState('');
@@ -374,6 +376,8 @@ export default function CircleLeaderProfilePage() {
   
   // Key to force ACPD section to remount & refetch after coaching note added from scorecard
   const [acpdKey, setAcpdKey] = useState(0);
+  // Key to force AttendanceTrends refresh after pulling event summaries
+  const [attendanceRefreshKey, setAttendanceRefreshKey] = useState(0);
   const [rosterCount, setRosterCount] = useState<number | null>(null);
 
   // Extract CCB Group ID from profile link URL (e.g. /groups/3682/events -> 3682)
@@ -1911,22 +1915,62 @@ export default function CircleLeaderProfilePage() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center mb-4">
+        <div className="mb-6">
+          <div className="flex items-start gap-3">
             <button
               onClick={() => window.history.back()}
-              className="mr-4 p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              className="mt-1.5 p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white shrink-0"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <div>
-              <h1 className="text-3xl font-bold text-blue-600 dark:text-blue-400">{leader.name}</h1>
-              <p className="mt-2 text-gray-600 dark:text-gray-400">
-                Circle Leader Profile
-              </p>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h1 className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400 truncate">{leader.name}</h1>
+                {leader.status && (() => {
+                  const statusColors: Record<string, string> = {
+                    'invited': 'bg-blue-900/20 text-blue-300',
+                    'pipeline': 'bg-indigo-900/20 text-indigo-300',
+                    'active': 'bg-green-900/20 text-green-300',
+                    'paused': 'bg-yellow-900/20 text-yellow-300',
+                    'off-boarding': 'bg-red-900/20 text-red-300',
+                  };
+                  const label = leader.status === 'off-boarding' ? 'Off-boarding' : leader.status.charAt(0).toUpperCase() + leader.status.slice(1);
+                  return (
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${statusColors[leader.status] || 'bg-gray-700 text-gray-300'}`}>
+                      {label}
+                    </span>
+                  );
+                })()}
+              </div>
+              {/* Context line: circle type, meeting day & time */}
+              {(leader.circle_type || leader.day) && (
+                <p className="mt-1 text-sm text-gray-400">
+                  {[normalizeCircleTypeValue(leader.circle_type), leader.day && leader.time ? `${leader.day}s at ${formatTimeToAMPM(leader.time)}` : leader.day ? `${leader.day}s` : null].filter(Boolean).join(' · ')}
+                </p>
+              )}
             </div>
+            <button
+              onClick={isEditing ? handleCancelLeaderEdit : handleEditLeader}
+              className="shrink-0 mt-1 inline-flex items-center px-3 py-1.5 bg-gray-100/80 dark:bg-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-gray-200/80 dark:hover:bg-gray-600/60 rounded-lg transition-all duration-200 text-sm font-medium"
+            >
+              {isEditing ? (
+                <>
+                  <svg className="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  <span className="hidden sm:inline">Cancel</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  <span className="hidden sm:inline">Edit</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
 
@@ -2047,27 +2091,6 @@ export default function CircleLeaderProfilePage() {
                       </button>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setShowEventExplorerModal(true)}
-                      className="w-full flex items-center px-3 py-2 bg-gray-50 dark:bg-gray-700/40 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 rounded text-sm"
-                    >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      View Event Summary
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setShowEventSummaryReminderModal(true)}
-                      className="w-full flex items-center px-3 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded text-sm"
-                    >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                      </svg>
-                      Event Summary Reminder
-                    </button>
                   </div>
                 );
               })()}
@@ -2244,28 +2267,8 @@ export default function CircleLeaderProfilePage() {
           <div className="lg:col-span-2 space-y-6">
             {/* Circle Information */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-lg font-medium text-gray-900 dark:text-white">Circle Information</h2>
-                <button
-                  onClick={isEditing ? handleCancelLeaderEdit : handleEditLeader}
-                  className="inline-flex items-center px-3 py-2 bg-gray-100/80 dark:bg-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-gray-200/80 dark:hover:bg-gray-600/60 rounded-xl transition-all duration-200 text-sm font-medium hover:scale-[1.02] active:scale-[0.98] backdrop-blur-sm"
-                >
-                  {isEditing ? (
-                    <>
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                      Cancel
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                      Edit
-                    </>
-                  )}
-                </button>
               </div>
               <div className="p-6">
                 {leaderError && (
@@ -2808,27 +2811,6 @@ export default function CircleLeaderProfilePage() {
                       </button>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => setShowEventExplorerModal(true)}
-                        className="w-full flex items-center px-3 py-2 bg-gray-50 dark:bg-gray-700/40 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 rounded text-sm"
-                      >
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        View Event Summary
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setShowEventSummaryReminderModal(true)}
-                        className="w-full flex items-center px-3 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded text-sm"
-                      >
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                        </svg>
-                        Event Summary Reminder
-                      </button>
                     </div>
                   );
                 })()}
@@ -2997,6 +2979,38 @@ export default function CircleLeaderProfilePage() {
             </div>
           </div>
 
+        {/* Attendance Trends Section */}
+        {leader && (
+          <div id="section-attendance" ref={setSectionRef('section-attendance')} className="mt-6 scroll-mt-20">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
+              <AttendanceTrends leaderId={leaderId} leaderName={leader.name} meetingDay={leader.day} refreshKey={attendanceRefreshKey} />
+              {/* Event Summary action buttons */}
+              <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  type="button"
+                  onClick={() => setShowEventExplorerModal(true)}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 border border-blue-200 dark:border-blue-800 rounded-lg text-sm font-medium transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                  </svg>
+                  Pull Event Summary
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowEventSummaryReminderModal(true)}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800 rounded-lg text-sm font-medium transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  Send Reminder
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ACPD Tracking Section */}
         {isAdmin() && leader && (
           <div id="section-pec" ref={setSectionRef('section-pec')} className="mt-6 scroll-mt-20">
@@ -3129,12 +3143,46 @@ export default function CircleLeaderProfilePage() {
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center justify-between mb-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {notes.length} {notes.length === 1 ? 'note' : 'notes'}
+                      {noteSearchQuery
+                        ? `${notes.filter(n => {
+                            const q = noteSearchQuery.toLowerCase();
+                            return n.content?.toLowerCase().includes(q) || n.users?.name?.toLowerCase().includes(q) || n.created_by?.toLowerCase().includes(q);
+                          }).length} of ${notes.length} notes`
+                        : `${notes.length} ${notes.length === 1 ? 'note' : 'notes'}`}
                     </p>
+                    <div className="relative w-full sm:w-64">
+                      <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      <input
+                        type="text"
+                        value={noteSearchQuery}
+                        onChange={(e) => setNoteSearchQuery(e.target.value)}
+                        placeholder="Search notes..."
+                        className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                      />
+                      {noteSearchQuery && (
+                        <button
+                          onClick={() => setNoteSearchQuery('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                          title="Clear search"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  {notes.map((note, index) => (
+                  {(noteSearchQuery
+                    ? notes.filter(n => {
+                        const q = noteSearchQuery.toLowerCase();
+                        return n.content?.toLowerCase().includes(q) || n.users?.name?.toLowerCase().includes(q) || n.created_by?.toLowerCase().includes(q);
+                      })
+                    : notes
+                  ).map((note, index) => (
                     <div key={note.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                         <div className="flex-1 min-w-0">
@@ -3367,6 +3415,23 @@ export default function CircleLeaderProfilePage() {
                       </div>
                     </div>
                   ))}
+                  {noteSearchQuery && notes.filter(n => {
+                    const q = noteSearchQuery.toLowerCase();
+                    return n.content?.toLowerCase().includes(q) || n.users?.name?.toLowerCase().includes(q) || n.created_by?.toLowerCase().includes(q);
+                  }).length === 0 && (
+                    <div className="text-center py-8">
+                      <svg className="mx-auto h-10 w-10 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">No notes matching &ldquo;{noteSearchQuery}&rdquo;</p>
+                      <button
+                        onClick={() => setNoteSearchQuery('')}
+                        className="mt-2 text-sm text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300 transition-colors"
+                      >
+                        Clear search
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -3425,10 +3490,14 @@ export default function CircleLeaderProfilePage() {
       {/* CCB Event Explorer Modal (re-used from Calendar page) */}
       <EventExplorerModal
         isOpen={showEventExplorerModal}
-        onClose={() => setShowEventExplorerModal(false)}
+        onClose={() => {
+          setShowEventExplorerModal(false);
+          setAttendanceRefreshKey((k) => k + 1);
+        }}
         initialDate={getLocalISODate()}
         initialGroupName={leader?.name || ''}
         ccbProfileLink={leader?.ccb_profile_link || null}
+        meetingDay={leader?.day || null}
       />
 
       {/* Delete Circle Leader Confirmation Modal */}

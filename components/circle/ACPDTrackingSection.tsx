@@ -648,19 +648,29 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
             <div className="space-y-2 pt-4">
               <div className="flex gap-2">
                 <div className="flex flex-wrap gap-1.5 flex-1">
-                  {DIMENSIONS.map(d => (
-                    <button
-                      key={d.key}
-                      onClick={() => setNewCoachDimension(d.key)}
-                      className={`px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-all ${
-                        newCoachDimension === d.key
-                          ? `${d.bg} ${d.color} ${d.border}`
-                          : 'border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-500'
-                      }`}
-                    >
-                      {d.label}
-                    </button>
-                  ))}
+                  {DIMENSIONS.map(d => {
+                    const isActive = newCoachDimension === d.key;
+                    const colorMap: Record<ScorecardDimension, { activeBg: string; activeText: string; activeBorder: string; ring: string }> = {
+                      reach:    { activeBg: 'bg-blue-500/25',   activeText: 'text-blue-300',   activeBorder: 'border-blue-400',   ring: 'ring-blue-400/40' },
+                      connect:  { activeBg: 'bg-green-500/25',  activeText: 'text-green-300',  activeBorder: 'border-green-400',  ring: 'ring-green-400/40' },
+                      disciple: { activeBg: 'bg-purple-500/25', activeText: 'text-purple-300', activeBorder: 'border-purple-400', ring: 'ring-purple-400/40' },
+                      develop:  { activeBg: 'bg-orange-500/25', activeText: 'text-orange-300', activeBorder: 'border-orange-400', ring: 'ring-orange-400/40' },
+                    };
+                    const c = colorMap[d.key];
+                    return (
+                      <button
+                        key={d.key}
+                        onClick={() => setNewCoachDimension(d.key)}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all duration-150 ${
+                          isActive
+                            ? `${c.activeBg} ${c.activeText} ${c.activeBorder} ring-2 ${c.ring} shadow-sm`
+                            : 'border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-500'
+                        }`}
+                      >
+                        {d.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               <div className="flex gap-2">

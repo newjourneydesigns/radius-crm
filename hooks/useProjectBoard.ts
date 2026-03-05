@@ -10,6 +10,7 @@ import type {
   CardComment,
   CardChecklist,
   CardPriority,
+  ChecklistTemplate,
 } from '../lib/supabase';
 
 // ── Full board shape ──
@@ -38,6 +39,7 @@ const DEFAULT_LABELS = [
 export function useProjectBoard() {
   const [boards, setBoards] = useState<ProjectBoard[]>([]);
   const [board, setBoard] = useState<FullBoard | null>(null);
+  const [checklistTemplates, setChecklistTemplates] = useState<ChecklistTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -403,6 +405,30 @@ export function useProjectBoard() {
     }
   }, []);
 
+  const reorderCardsInColumn = useCallback(async (boardId: string, columnId: string, cardIds: string[]) => {
+    setError(null);
+    // Optimistic
+    setBoard(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        cards: prev.cards.map(c => {
+          const idx = cardIds.indexOf(c.id);
+          if (idx !== -1) return { ...c, column_id: columnId, position: idx };
+          return c;
+        }),
+      };
+    });
+    try {
+      const updates = cardIds.map((id, idx) =>
+        supabase.from('board_cards').update({ column_id: columnId, position: idx }).eq('id', id)
+      );
+      await Promise.all(updates);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }, []);
+
   // ─── Comments ──────────────────────────────────────────────
   const addComment = useCallback(async (boardId: string, cardId: string, content: string) => {
     setError(null);
@@ -548,6 +574,89 @@ export function useProjectBoard() {
     }
   }, []);
 
+  // ─── Checklist Templates ────────────────────────────────────
+  const fetchChecklistTemplates = useCallback(async (boardId: string) => {
+    try {
+      const { data, error: err } = await supabase
+        .from('checklist_templates')
+        .select('*')
+        .eq('board_id', boardId)
+        .order('created_at', { ascending: false });
+      if (err) throw err;
+      setChecklistTemplates(data || []);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }, []);
+
+  const saveChecklistTemplate = useCallback(async (boardId: string, name: string, items: string[]) => {
+    setError(null);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+      const { data, error: err } = await supabase
+        .from('checklist_templates')
+        .insert([{ board_id: boardId, user_id: user.id, name, items }])
+        .select()
+        .single();
+      if (err) throw err;
+      setChecklistTemplates(prev => [data, ...prev]);
+      return data as ChecklistTemplate;
+    } catch (err: any) {
+      setError(err.message);
+      return null;
+    }
+  }, []);
+
+  const deleteChecklistTemplate = useCallback(async (templateId: string) => {
+    setError(null);
+    try {
+      const { error: err } = await supabase
+        .from('checklist_templates')
+        .delete()
+        .eq('id', templateId);
+      if (err) throw err;
+      setChecklistTemplates(prev => prev.filter(t => t.id !== templateId));
+      return true;
+    } catch (err: any) {
+      setError(err.message);
+      return false;
+    }
+  }, []);
+
+  const applyChecklistTemplate = useCallback(async (boardId: string, cardId: string, templateId: string) => {
+    setError(null);
+    try {
+      const template = checklistTemplates.find(t => t.id === templateId);
+      if (!template) throw new Error('Template not found');
+      const existing = board?.cards.find(c => c.id === cardId)?.checklists || [];
+      let maxPos = existing.reduce((m: number, cl: any) => Math.max(m, cl.position), -1);
+      const rows = template.items.map((title: string) => ({
+        card_id: cardId,
+        title,
+        position: ++maxPos,
+      }));
+      const { data, error: err } = await supabase
+        .from('card_checklists')
+        .insert(rows)
+        .select();
+      if (err) throw err;
+      setBoard(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          cards: prev.cards.map(c =>
+            c.id === cardId ? { ...c, checklists: [...(c.checklists || []), ...(data || [])] } : c
+          ),
+        };
+      });
+      return true;
+    } catch (err: any) {
+      setError(err.message);
+      return false;
+    }
+  }, [checklistTemplates, board?.cards]);
+
   // ─── Labels ────────────────────────────────────────────────
   const addLabel = useCallback(async (boardId: string, name: string, color: string) => {
     setError(null);
@@ -614,12 +723,13 @@ export function useProjectBoard() {
   }, []);
 
   return {
-    boards, board, loading, error,
+    boards, board, loading, error, checklistTemplates,
     fetchBoards, createBoard, fetchBoard, updateBoard, deleteBoard,
     addColumn, updateColumn, deleteColumn, reorderColumns,
-    addCard, updateCard, deleteCard, moveCard,
+    addCard, updateCard, deleteCard, moveCard, reorderCardsInColumn,
     addComment, deleteComment,
     addChecklistItem, toggleChecklistItem, deleteChecklistItem,
+    fetchChecklistTemplates, saveChecklistTemplate, deleteChecklistTemplate, applyChecklistTemplate,
     addLabel, updateLabel, deleteLabel,
     setBoard,
   };

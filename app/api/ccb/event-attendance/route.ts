@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 
 export const dynamic = 'force-dynamic';
@@ -6,7 +7,7 @@ export const dynamic = 'force-dynamic';
 // Simple in-memory rate limiter
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
-const RATE_LIMIT_MAX = 10; // 10 requests per minute per user
+const RATE_LIMIT_MAX = 30; // 30 requests per minute per user
 
 // Response cache to minimize CCB API calls
 const responseCache = new Map<string, { data: any; expiresAt: number }>();
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
   try {
     // Parse request body
     const body = await request.json();
-    const { date, groupName } = body;
+    const { date, endDate, groupName } = body;
 
     // Validate required fields
     if (!date || !groupName) {
@@ -59,6 +60,8 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    const effectiveEndDate = endDate || date;
 
     // Simple authentication check - in production, verify user session
     // For now, we'll use IP or a simple identifier
@@ -73,7 +76,7 @@ export async function POST(request: Request) {
     }
 
     // Check cache
-    const cacheKey = `${groupName}:${date}`;
+    const cacheKey = `${groupName}:${date}:${effectiveEndDate}`;
     const cached = getCachedResponse(cacheKey);
     if (cached) {
       console.log(`📦 Returning cached response for ${cacheKey}`);
@@ -84,16 +87,16 @@ export async function POST(request: Request) {
     const ccbClient = createCCBClient();
 
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🔍 Fetching CCB events for group "${groupName}" on ${date}`);
+      console.log(`🔍 Fetching CCB events for group "${groupName}" from ${date} to ${effectiveEndDate}`);
     } else {
-      console.log(`🔍 Fetching CCB events on ${date}`);
+      console.log(`🔍 Fetching CCB events from ${date} to ${effectiveEndDate}`);
     }
 
     // OPTIMIZED: Use fast search method (10-20x faster!)
     const events = await ccbClient.searchEventsByDateAndName(
       groupName,
       date,
-      date,
+      effectiveEndDate,
       {
         includeAttendees: true,
       }
@@ -122,6 +125,13 @@ export async function POST(request: Request) {
         })) || [],
       };
     });
+
+    // ── Write-through: upsert attendance into circle_meeting_occurrences ──
+    if (formattedEvents.length > 0) {
+      recordAttendance(groupName, formattedEvents).catch((err) => {
+        console.warn('⚠️ Attendance write-through failed (non-blocking):', err);
+      });
+    }
 
     const response = {
       success: true,
@@ -273,6 +283,150 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+// ── Attendance write-through helper ────────────────────────────────
+
+interface FormattedEvent {
+  eventId: string;
+  title: string;
+  date: string;
+  headCount: number | null;
+  didNotMeet: boolean;
+  attendees: Array<{ id?: string; name?: string; status?: string }>;
+  notes: string | null;
+  topic: string | null;
+  prayerRequests: string | null;
+}
+
+async function recordAttendance(
+  groupName: string,
+  events: FormattedEvent[]
+): Promise<void> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) return;
+
+  const supabase = createClient(supabaseUrl, serviceKey);
+
+  // Pre-load all circle leaders once so we can match per-event.
+  const { data: allLeaders } = await supabase
+    .from('circle_leaders')
+    .select('id, name');
+
+  if (!allLeaders || allLeaders.length === 0) return;
+
+  for (const event of events) {
+    // Match leader from the CCB event title, e.g. "LVT | S1 | Trip Ochenski".
+    // Circle leaders in the DB are stored as just "Trip Ochenski".
+    const leaderId = findLeaderForEvent(event.title, groupName, allLeaders);
+
+    if (!leaderId) {
+      console.log(`ℹ️ No circle leader matched for event "${event.title}" — skipping`);
+      continue;
+    }
+    if (!event.date) continue;
+
+    // Total = tracked attendees + additional headcount (visitors/kids not individually tracked)
+    const attendeeCount = event.attendees.length || 0;
+    const extraHeadCount = event.headCount || 0;
+    const totalCount = (attendeeCount + extraHeadCount) || null;
+
+    const { data: occ, error: occError } = await supabase
+      .from('circle_meeting_occurrences')
+      .upsert(
+        {
+          leader_id: leaderId,
+          ccb_event_id: event.eventId || null,
+          meeting_date: event.date,
+          status: event.didNotMeet ? 'did_not_meet' : 'met',
+          headcount: totalCount,
+          regular_count: null,
+          visitor_count: null,
+          source: 'event_summary',
+          raw_payload: {
+            eventId: event.eventId,
+            title: event.title,
+            headCount: event.headCount,
+            didNotMeet: event.didNotMeet,
+            topic: event.topic,
+            notes: event.notes,
+            attendeeCount: event.attendees.length,
+          },
+          synced_at: new Date().toISOString(),
+        },
+        { onConflict: 'leader_id,meeting_date' }
+      )
+      .select('id')
+      .single();
+
+    if (occError) {
+      console.warn(`⚠️ Attendance upsert failed for ${event.date}:`, occError.message);
+      continue;
+    }
+
+    if (occ && event.attendees.length > 0) {
+      await supabase
+        .from('circle_meeting_attendees')
+        .delete()
+        .eq('occurrence_id', occ.id);
+
+      await supabase.from('circle_meeting_attendees').insert(
+        event.attendees.map((a) => ({
+          occurrence_id: occ.id,
+          ccb_individual_id: a.id || '',
+          name: a.name || 'Unknown',
+          attendance_type: a.status?.toLowerCase().includes('visit')
+            ? 'visitor'
+            : 'regular',
+        }))
+      );
+    }
+  }
+
+  console.log(
+    `✅ Attendance write-through complete: ${events.length} event(s) processed`
+  );
+}
+
+/**
+ * Extract leader name from CCB event title and match to a circle leader.
+ * CCB titles: "LVT | S1 | Trip Ochenski"
+ * DB leaders:  "Trip Ochenski"
+ */
+function findLeaderForEvent(
+  eventTitle: string,
+  searchGroupName: string,
+  leaders: { id: number; name: string }[]
+): number | null {
+  // Strategy 1: Extract name after the last pipe in the event title
+  if (eventTitle.includes('|')) {
+    const namePart = eventTitle.split('|').pop()!.trim().toLowerCase();
+    if (namePart) {
+      const match = leaders.find(
+        (l) => l.name.toLowerCase() === namePart ||
+               namePart.includes(l.name.toLowerCase()) ||
+               l.name.toLowerCase().includes(namePart)
+      );
+      if (match) return match.id;
+    }
+  }
+
+  // Strategy 2: Full event title contains a leader name
+  const titleLower = eventTitle.toLowerCase();
+  const titleMatch = leaders.find((l) => titleLower.includes(l.name.toLowerCase()));
+  if (titleMatch) return titleMatch.id;
+
+  // Strategy 3: Search group name contains a leader name
+  const searchLower = searchGroupName.toLowerCase();
+  const searchMatch = leaders.find((l) => searchLower.includes(l.name.toLowerCase()));
+  if (searchMatch) return searchMatch.id;
+
+  // Strategy 4: Leader name contains the search group name
+  const groupMatch = leaders.find((l) => l.name.toLowerCase().includes(searchLower));
+  if (groupMatch) return groupMatch.id;
+
+  return null;
 }
 
 // Optional: GET endpoint to test API connection

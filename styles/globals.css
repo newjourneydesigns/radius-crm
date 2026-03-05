@@ -27,9 +27,9 @@ input[type="date"] {
   }
 }
 
-/* Mobile bottom navigation spacing — clears the 56px tab bar + safe area */
+/* Mobile bottom navigation spacing — clears the tab bar + safe area */
 .mobile-nav-padding {
-  padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px));
 }
 @media (min-width: 768px) {
   .mobile-nav-padding {
@@ -62,7 +62,7 @@ input[type="date"] {
 .mobile-tab-bar-inner {
   display: flex;
   align-items: stretch;
-  height: 50px;
+  height: 62px;
   max-width: 500px;
   margin: 0 auto;
   overflow: visible;
@@ -75,7 +75,7 @@ input[type="date"] {
   align-items: center;
   justify-content: center;
   flex: 1;
-  gap: 2px;
+  gap: 4px;
   background: none;
   border: none;
   outline: none;
@@ -105,7 +105,7 @@ input[type="date"] {
 }
 
 .mobile-tab-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.01em;
   line-height: 1;

@@ -10,7 +10,7 @@
  * • Trend indicator compares last 3 months vs prior 3 months
  */
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Line, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -28,6 +28,7 @@ import {
   useCircleAttendance,
   type AttendanceSummary,
 } from '../../hooks/useCircleAttendance';
+import EventExplorerModal from '../modals/EventExplorerModal';
 
 ChartJS.register(
   CategoryScale,
@@ -46,6 +47,8 @@ ChartJS.register(
 interface AttendanceTrendsProps {
   leaderId: number;
   leaderName: string;
+  meetingDay?: string | null;
+  refreshKey?: number;
 }
 
 type ViewMode = 'weekly' | 'monthly';
@@ -60,16 +63,21 @@ const STATUS_COLORS: Record<string, { bg: string; border: string }> = {
 
 // ── Component ──────────────────────────────────────────────────
 
-export default function AttendanceTrends({ leaderId, leaderName }: AttendanceTrendsProps) {
-  const { loadAttendance, isLoading, error } = useCircleAttendance();
+export default function AttendanceTrends({ leaderId, leaderName, meetingDay, refreshKey = 0 }: AttendanceTrendsProps) {
+  const { loadAttendance, invalidateCache, isLoading, error } = useCircleAttendance();
   const [summary, setSummary] = useState<AttendanceSummary | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('weekly');
+  const [explorerOpen, setExplorerOpen] = useState(false);
+  const [explorerDate, setExplorerDate] = useState('');
+  const weeklyChartRef = useRef<any>(null);
+  const monthlyChartRef = useRef<any>(null);
 
   useEffect(() => {
+    if (refreshKey > 0) invalidateCache(leaderId);
     loadAttendance(leaderId).then((data) => {
       if (data) setSummary(data);
     });
-  }, [leaderId, loadAttendance]);
+  }, [leaderId, loadAttendance, refreshKey, invalidateCache]);
 
   // ── Weekly chart data ────────────────────────────────────────
 
@@ -89,12 +97,28 @@ export default function AttendanceTrends({ leaderId, leaderName }: AttendanceTre
       (d) => STATUS_COLORS[d.status]?.bg || 'rgba(156,163,175,0.4)'
     );
 
+    const values = data.map((d) => d.headcount ?? 0);
+
+    // Linear regression for trend line
+    const n = values.length;
+    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    for (let i = 0; i < n; i++) {
+      sumX += i;
+      sumY += values[i];
+      sumXY += i * values[i];
+      sumX2 += i * i;
+    }
+    const denom = n * sumX2 - sumX * sumX;
+    const slope = denom !== 0 ? (n * sumXY - sumX * sumY) / denom : 0;
+    const intercept = denom !== 0 ? (sumY - slope * sumX) / n : (sumY / n || 0);
+    const trendValues = values.map((_, i) => Math.round((slope * i + intercept) * 10) / 10);
+
     return {
       labels,
       datasets: [
         {
           label: 'Attendance',
-          data: data.map((d) => d.headcount ?? 0),
+          data: values,
           borderColor: '#22c55e',
           backgroundColor: 'rgba(34, 197, 94, 0.1)',
           pointBackgroundColor: pointColors,
@@ -103,6 +127,17 @@ export default function AttendanceTrends({ leaderId, leaderName }: AttendanceTre
           pointHoverRadius: 7,
           fill: true,
           tension: 0.3,
+        },
+        {
+          label: 'Trend',
+          data: trendValues,
+          borderColor: 'rgba(250, 204, 21, 0.7)',
+          borderDash: [6, 4],
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          fill: false,
+          tension: 0,
         },
       ],
     };
@@ -144,6 +179,25 @@ export default function AttendanceTrends({ leaderId, leaderName }: AttendanceTre
     };
   }, [summary]);
 
+  // ── Handle chart click → open Event Explorer ────────────────
+
+  const handleChartClick = useCallback(
+    (_event: any, elements: any[]) => {
+      if (!summary || elements.length === 0) return;
+      const idx = elements[0].index;
+
+      if (viewMode === 'weekly') {
+        const occ = summary.weeklyData[idx];
+        if (occ) {
+          setExplorerDate(occ.meeting_date);
+          setExplorerOpen(true);
+        }
+      }
+      // Monthly view: no single date to open
+    },
+    [summary, viewMode]
+  );
+
   // ── Chart options ────────────────────────────────────────────
 
   const chartOptions = useMemo(
@@ -151,6 +205,7 @@ export default function AttendanceTrends({ leaderId, leaderName }: AttendanceTre
       responsive: true,
       maintainAspectRatio: false,
       interaction: { intersect: false, mode: 'index' as const },
+      onClick: handleChartClick,
       plugins: {
         legend: {
           display: viewMode === 'monthly',
@@ -166,10 +221,9 @@ export default function AttendanceTrends({ leaderId, leaderName }: AttendanceTre
                 const lines = [
                   `Status: ${occ.status.replace(/_/g, ' ')}`,
                 ];
-                if (occ.regular_count != null)
-                  lines.push(`Regulars: ${occ.regular_count}`);
-                if (occ.visitor_count != null)
-                  lines.push(`Visitors: ${occ.visitor_count}`);
+                if (occ.headcount != null)
+                  lines.push(`Total: ${occ.headcount}`);
+                lines.push('Click to view event summary');
                 return lines;
               }
               return '';
@@ -194,7 +248,7 @@ export default function AttendanceTrends({ leaderId, leaderName }: AttendanceTre
         },
       },
     }),
-    [viewMode, summary]
+    [viewMode, summary, handleChartClick]
   );
 
   // ── Loading skeleton ─────────────────────────────────────────
@@ -273,7 +327,7 @@ export default function AttendanceTrends({ leaderId, leaderName }: AttendanceTre
   return (
     <div>
       {/* Header with view toggle */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-5">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             Attendance Trends
@@ -287,7 +341,7 @@ export default function AttendanceTrends({ leaderId, leaderName }: AttendanceTre
             </p>
           )}
         </div>
-        <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+        <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden self-start sm:self-auto">
           <button
             onClick={() => setViewMode('weekly')}
             className={`px-3 py-1.5 text-xs font-medium transition-colors ${
@@ -312,65 +366,93 @@ export default function AttendanceTrends({ leaderId, leaderName }: AttendanceTre
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-        <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-green-700 dark:text-green-300">
+      <div className="grid grid-cols-4 gap-2 sm:gap-3 mb-5">
+        <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2 sm:p-3 text-center">
+          <div className="text-xl sm:text-2xl font-bold text-green-700 dark:text-green-300">
             {overallStats.avgAttendance}
           </div>
-          <div className="text-xs text-green-600 dark:text-green-400">
+          <div className="text-[10px] sm:text-xs text-green-600 dark:text-green-400">
             Avg Attendance
           </div>
         </div>
-        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2 sm:p-3 text-center">
+          <div className="text-xl sm:text-2xl font-bold text-blue-700 dark:text-blue-300">
             {overallStats.peakAttendance}
           </div>
-          <div className="text-xs text-blue-600 dark:text-blue-400">Peak</div>
+          <div className="text-[10px] sm:text-xs text-blue-600 dark:text-blue-400">Peak</div>
         </div>
-        <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+        <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-2 sm:p-3 text-center">
+          <div className="text-xl sm:text-2xl font-bold text-orange-700 dark:text-orange-300">
             {overallStats.didNotMeetCount}
           </div>
-          <div className="text-xs text-orange-600 dark:text-orange-400">
+          <div className="text-[10px] sm:text-xs text-orange-600 dark:text-orange-400">
             Did Not Meet
           </div>
         </div>
-        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-gray-700 dark:text-gray-300">
+        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2 sm:p-3 text-center">
+          <div className="text-xl sm:text-2xl font-bold text-gray-700 dark:text-gray-300">
             {overallStats.noRecordCount}
           </div>
-          <div className="text-xs text-gray-600 dark:text-gray-400">
+          <div className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400">
             No Record
           </div>
         </div>
       </div>
 
-      {/* Chart */}
-      <div className="h-64 sm:h-72">
+      {/* Chart — click a weekly data point to pull event summary */}
+      <div className="h-56 sm:h-72 cursor-pointer -mx-2 sm:mx-0">
         {viewMode === 'weekly' && weeklyChartData ? (
-          <Line data={weeklyChartData} options={chartOptions} />
+          <Line ref={weeklyChartRef} data={weeklyChartData} options={chartOptions} />
         ) : monthlyChartData ? (
-          <Bar data={monthlyChartData} options={chartOptions} />
+          <Bar ref={monthlyChartRef} data={monthlyChartData} options={chartOptions} />
         ) : null}
       </div>
 
       {/* Legend for weekly view */}
       {viewMode === 'weekly' && (
-        <div className="flex items-center justify-center gap-4 mt-3 text-xs text-gray-500 dark:text-gray-400">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block" />{' '}
-            Met
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />{' '}
-            Did Not Meet
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-gray-400 inline-block" />{' '}
-            No Record
-          </span>
-        </div>
+        <>
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mt-3 text-xs text-gray-500 dark:text-gray-400">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+              Met
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
+              Did Not Meet
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-gray-400 inline-block" />
+              No Record
+            </span>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-between mt-1 gap-0.5">
+            <p className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500">
+              Click a data point to view the event summary
+            </p>
+            {lastSyncedLabel && (
+              <p className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500">
+                {lastSyncedLabel}
+              </p>
+            )}
+          </div>
+        </>
       )}
+
+      {/* Event Explorer Modal — opened when clicking a chart data point */}
+      <EventExplorerModal
+        isOpen={explorerOpen}
+        onClose={() => {
+          setExplorerOpen(false);
+          // Re-fetch attendance data in case new event summaries were pulled
+          invalidateCache(leaderId);
+          loadAttendance(leaderId).then((data) => {
+            if (data) setSummary(data);
+          });
+        }}
+        initialDate={explorerDate}
+        initialGroupName={leaderName}
+        meetingDay={meetingDay}
+      />
     </div>
   );
 }

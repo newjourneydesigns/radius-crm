@@ -143,19 +143,22 @@ export function useCircleAttendance() {
             ? allHeadcounts.reduce((a, b) => a + b, 0) / allHeadcounts.length
             : 0;
 
-        // Trend: compare last half avg vs first half avg
-        const midpoint = Math.floor(monthlyAverages.length / 2);
-        const recentSlice = monthlyAverages.slice(midpoint);
-        const priorSlice = monthlyAverages.slice(0, midpoint);
+        // Trend: compare last 3 weeks avg vs prior 3 weeks avg (weekly data)
+        const recentWeeks = metMeetings
+          .sort((a, b) => b.meeting_date.localeCompare(a.meeting_date))
+          .slice(0, 3);
+        const priorWeeks = metMeetings
+          .sort((a, b) => b.meeting_date.localeCompare(a.meeting_date))
+          .slice(3, 6);
         const recentAvg =
-          recentSlice.length > 0
-            ? recentSlice.reduce((s, m) => s + m.avgAttendance, 0) /
-              recentSlice.length
+          recentWeeks.length > 0
+            ? recentWeeks.reduce((s, o) => s + (o.headcount || 0), 0) /
+              recentWeeks.length
             : 0;
         const priorAvg =
-          priorSlice.length > 0
-            ? priorSlice.reduce((s, m) => s + m.avgAttendance, 0) /
-              priorSlice.length
+          priorWeeks.length > 0
+            ? priorWeeks.reduce((s, o) => s + (o.headcount || 0), 0) /
+              priorWeeks.length
             : 0;
 
         const trend: 'up' | 'down' | 'flat' =

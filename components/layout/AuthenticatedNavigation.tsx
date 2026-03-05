@@ -2,24 +2,24 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../../contexts/AuthContext";
 import GlobalSearch from './GlobalSearch';
 
 // ----- Icon components (heroicons-style, 20 × 20) -----
 const HomeIcon = () => (
-  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+  <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
   </svg>
 );
 const ChartIcon = () => (
-  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+  <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
   </svg>
 );
 const CalendarIcon = () => (
-  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+  <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
   </svg>
 );
@@ -59,11 +59,6 @@ const LogoutIcon = () => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
   </svg>
 );
-const ChevronDownIcon = () => (
-  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-  </svg>
-);
 
 const BirthdayCakeIcon = () => (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
@@ -72,12 +67,11 @@ const BirthdayCakeIcon = () => (
 );
 
 const PrayerIcon = () => (
-  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+  <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
   </svg>
 );
 
-// ----- Nav definitions -----
 const SearchNavIcon = () => (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
@@ -85,7 +79,7 @@ const SearchNavIcon = () => (
 );
 
 const BoardIcon = () => (
-  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+  <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
     <rect x="3" y="3" width="7" height="9" rx="1.5" strokeLinecap="round" strokeLinejoin="round" />
     <rect x="14" y="3" width="7" height="5" rx="1.5" strokeLinecap="round" strokeLinejoin="round" />
     <rect x="14" y="12" width="7" height="9" rx="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -93,46 +87,73 @@ const BoardIcon = () => (
   </svg>
 );
 
-const primaryNavItems = [
-  { name: 'Dashboard',      href: '/dashboard', icon: HomeIcon },
-  { name: 'Prayer',         href: '/prayer',    icon: PrayerIcon },
-  { name: 'Progress',       href: '/progress',  icon: ChartIcon },
-  { name: 'Boards',         href: '/boards',    icon: BoardIcon },
-  { name: 'Event Tracker',  href: '/calendar',  icon: CalendarIcon },
-  { name: 'Find a Circle',  href: '/search',    icon: SearchNavIcon },
-];
 const MessageBulkIcon = () => (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
   </svg>
 );
+
 const ImportCirclesIcon = () => (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.338-2.32 3.75 3.75 0 013.572 5.345A4.501 4.501 0 0118 19.5H6.75z" />
   </svg>
 );
 
-const adminNavItems = [
-  { name: 'CCB Explorer', href: '/ccb-explorer', icon: CompassIcon },
-  { name: 'Bulk Message', href: '/bulk-message', icon: MessageBulkIcon },
+const ToolsIcon = () => (
+  <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+  </svg>
+);
+
+// ----- Nav definitions -----
+const primaryNavItems = [
+  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
+  { name: 'Prayer',    href: '/prayer',    icon: PrayerIcon },
+  { name: 'Progress',  href: '/progress',  icon: ChartIcon },
+  { name: 'Boards',    href: '/boards',    icon: BoardIcon },
+  { name: 'Events',    href: '/calendar',  icon: CalendarIcon },
+];
+
+const toolsNavItems = [
+  { href: '/search',        label: 'Find a Circle',  Icon: SearchNavIcon },
+  { href: '/person-lookup', label: 'Person Lookup',   Icon: SearchNavIcon },
+  { href: '/birthday-list', label: 'Birthday List',   Icon: BirthdayCakeIcon },
+];
+
+const adminToolsNavItems = [
+  { href: '/ccb-explorer',   label: 'CCB Explorer',    Icon: CompassIcon },
+  { href: '/bulk-message',   label: 'Bulk Message',    Icon: MessageBulkIcon },
+  { href: '/add-leader',     label: 'Add Leader',      Icon: UserPlusIcon },
+  { href: '/import-circles', label: 'Import Circles',  Icon: ImportCirclesIcon },
+  { href: '/users',          label: 'Manage Users',    Icon: UsersIcon },
 ];
 
 export default function AuthenticatedNavigation() {
   const { user, signOut, isAuthenticated, isAdmin } = useAuth();
+  const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const toolsMenuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 
-  // Close user menu when clicking outside
+  const closeAll = useCallback(() => {
+    setToolsMenuOpen(false);
+    setUserMenuOpen(false);
+  }, []);
+
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
-        setUserMenuOpen(false);
-      }
+      const target = event.target as Node;
+      if (toolsMenuRef.current && !toolsMenuRef.current.contains(target)) setToolsMenuOpen(false);
+      if (userMenuRef.current && !userMenuRef.current.contains(target)) setUserMenuOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Close menus on route change
+  useEffect(() => { closeAll(); }, [pathname, closeAll]);
 
   if (!isAuthenticated()) return null;
 
@@ -143,164 +164,138 @@ export default function AuthenticatedNavigation() {
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
 
+  const dropdownLinkClass = (href: string) =>
+    `flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
+      isActive(href)
+        ? 'text-blue-400 bg-blue-600/10'
+        : 'text-gray-300 hover:text-white hover:bg-gray-700/50'
+    }`;
+
   return (
-    <nav className="hidden md:block bg-gray-900 border-b border-gray-700/60 shadow-xl relative z-[10000]">
+    <nav className="hidden md:block bg-gray-900/95 backdrop-blur-md border-b border-gray-700/40 shadow-lg shadow-black/20 relative z-[10000]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-14">
 
           {/* ── Left: Brand ── */}
-          <Link href="/dashboard" className="flex items-center space-x-2.5 shrink-0">
-            <Image src="/icon-32x32.png" alt="RADIUS" width={32} height={32} className="rounded-lg" />
-            <span className="text-lg font-bold text-white tracking-tight">RADIUS</span>
+          <Link href="/dashboard" className="flex items-center space-x-2 shrink-0 group">
+            <Image src="/icon-32x32.png" alt="RADIUS" width={28} height={28} className="rounded-lg group-hover:scale-105 transition-transform" />
+            <span className="text-base font-bold text-white tracking-tight">RADIUS</span>
           </Link>
 
           {/* ── Center: Primary nav ── */}
-          <div className="flex items-center space-x-1">
+          <div className="flex items-center gap-0.5">
             {primaryNavItems.map(({ name, href, icon: Icon }) => (
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150 ${
                   isActive(href)
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-900/40'
-                    : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
+                    ? 'bg-blue-600/90 text-white shadow-sm shadow-blue-900/30'
+                    : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
                 }`}
               >
                 <Icon />
                 {name}
               </Link>
             ))}
-
           </div>
 
-          {/* ── Right: Search + User menu ── */}
-          <div className="flex items-center gap-2">
+          {/* ── Right: Search + Tools + User ── */}
+          <div className="flex items-center gap-1">
             <GlobalSearch />
 
-            {/* User dropdown */}
-            <div className="relative" ref={userMenuRef}>
+            {/* Tools dropdown */}
+            <div className="relative" ref={toolsMenuRef}>
               <button
-                onClick={() => setUserMenuOpen(v => !v)}
-                aria-expanded={userMenuOpen}
+                onClick={() => { setToolsMenuOpen(v => !v); setUserMenuOpen(false); }}
+                aria-expanded={toolsMenuOpen}
                 aria-haspopup="true"
-                className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm text-gray-300 hover:text-white hover:bg-gray-700/60 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                className={`p-2 rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${
+                  toolsMenuOpen
+                    ? 'bg-white/[0.08] text-white'
+                    : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
+                }`}
+                title="Tools"
               >
-                {/* Avatar */}
-                <span className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white ring-2 ring-blue-500/30 shrink-0">
-                  {initials}
-                </span>
-                <span className="max-w-[120px] truncate font-medium">{user?.name || user?.email}</span>
-                <ChevronDownIcon />
+                <ToolsIcon />
               </button>
 
-              {/* Dropdown panel */}
+              {toolsMenuOpen && (
+                <div className="absolute right-0 mt-2 w-52 rounded-xl bg-gray-900 border border-gray-700/60 shadow-2xl shadow-black/40 ring-1 ring-black/20 z-[99999] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                  <div className="px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Tools</p>
+                  </div>
+                  <div className="py-1">
+                    {toolsNavItems.map(({ href, label, Icon }) => (
+                      <Link key={href} href={href} onClick={closeAll} className={dropdownLinkClass(href)}>
+                        <Icon /> {label}
+                      </Link>
+                    ))}
+                  </div>
+                  {admin && (
+                    <>
+                      <div className="border-t border-gray-700/40 px-3 py-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Admin</p>
+                      </div>
+                      <div className="py-1">
+                        {adminToolsNavItems.map(({ href, label, Icon }) => (
+                          <Link key={href} href={href} onClick={closeAll} className={dropdownLinkClass(href)}>
+                            <Icon /> {label}
+                          </Link>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* User avatar dropdown */}
+            <div className="relative" ref={userMenuRef}>
+              <button
+                onClick={() => { setUserMenuOpen(v => !v); setToolsMenuOpen(false); }}
+                aria-expanded={userMenuOpen}
+                aria-haspopup="true"
+                className={`p-1 rounded-full transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500/40 ring-offset-1 ring-offset-gray-900 ${
+                  userMenuOpen ? 'ring-2 ring-blue-500/50' : ''
+                }`}
+                title={user?.name || user?.email || 'Account'}
+              >
+                <span className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-xs font-bold text-white shadow-sm">
+                  {initials}
+                </span>
+              </button>
+
               {userMenuOpen && (
-                <div className="absolute right-0 mt-2 w-56 rounded-xl bg-gray-900 border border-gray-700 shadow-2xl ring-1 ring-black/30 z-[99999] overflow-hidden" style={{ opacity: 1, backdropFilter: 'none' }}>
+                <div className="absolute right-0 mt-2 w-56 rounded-xl bg-gray-900 border border-gray-700/60 shadow-2xl shadow-black/40 ring-1 ring-black/20 z-[99999] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
                   {/* User info header */}
-                  <div className="px-4 py-3 border-b border-gray-700/60">
+                  <div className="px-4 py-3 border-b border-gray-700/40">
                     <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
-                    <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+                    <p className="text-xs text-gray-500 truncate">{user?.email}</p>
                     {admin && (
-                      <span className="mt-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-600/20 text-blue-400 ring-1 ring-blue-500/30">
+                      <span className="mt-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/20">
                         Admin
                       </span>
                     )}
                   </div>
 
-                  {/* Admin tools */}
-                  {admin && (
-                    <div className="py-1">
-                      {[
-                        { href: '/person-lookup',   label: 'Person Lookup',   Icon: SearchNavIcon },
-                        { href: '/birthday-list',   label: 'Birthday List',   Icon: BirthdayCakeIcon },
-                        { href: '/ccb-explorer',    label: 'CCB Explorer',    Icon: CompassIcon },
-                        { href: '/bulk-message',    label: 'Bulk Message',    Icon: MessageBulkIcon },
-                        { href: '/add-leader',      label: 'Add Leader',      Icon: UserPlusIcon },
-                        { href: '/import-circles',  label: 'Import Circles',  Icon: ImportCirclesIcon },
-                      ].map(({ href, label, Icon }) => (
-                        <Link
-                          key={href}
-                          href={href}
-                          onClick={() => setUserMenuOpen(false)}
-                          className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
-                            isActive(href)
-                              ? 'text-blue-400 bg-blue-600/10'
-                              : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
-                          }`}
-                        >
-                          <Icon />
-                          {label}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Manage Users & Settings */}
-                  <div className="py-1 border-t border-gray-700/60">
-                    {admin && (
-                      <Link
-                        href="/users"
-                        onClick={() => setUserMenuOpen(false)}
-                        className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
-                          isActive('/users')
-                            ? 'text-blue-400 bg-blue-600/10'
-                            : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
-                        }`}
-                      >
-                        <UsersIcon />
-                        Manage Users
-                      </Link>
-                    )}
-                    <Link
-                      href="/settings"
-                      onClick={() => setUserMenuOpen(false)}
-                      className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
-                        isActive('/settings')
-                          ? 'text-blue-400 bg-blue-600/10'
-                          : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
-                      }`}
-                    >
-                      <CogIcon />
-                      Settings
+                  {/* Account links */}
+                  <div className="py-1">
+                    <Link href="/profile"  onClick={closeAll} className={dropdownLinkClass('/profile')}>
+                      <UserIcon /> Profile
                     </Link>
-                  </div>
-
-                  {/* Profile */}
-                  <div className="py-1 border-t border-gray-700/60">
-                    <Link
-                      href="/profile"
-                      onClick={() => setUserMenuOpen(false)}
-                      className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
-                        isActive('/profile')
-                          ? 'text-blue-400 bg-blue-600/10'
-                          : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
-                      }`}
-                    >
-                      <UserIcon />
-                      Profile
+                    <Link href="/settings" onClick={closeAll} className={dropdownLinkClass('/settings')}>
+                      <CogIcon /> Settings
                     </Link>
-                  </div>
-
-                  {/* Help */}
-                  <div className="py-1 border-t border-gray-700/60">
-                    <Link
-                      href="/help"
-                      onClick={() => setUserMenuOpen(false)}
-                      className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
-                        isActive('/help')
-                          ? 'text-blue-400 bg-blue-600/10'
-                          : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
-                      }`}
-                    >
-                      <QuestionIcon />
-                      Help
+                    <Link href="/help"     onClick={closeAll} className={dropdownLinkClass('/help')}>
+                      <QuestionIcon /> Help
                     </Link>
                   </div>
 
                   {/* Sign out */}
-                  <div className="border-t border-gray-700/60 py-1">
+                  <div className="border-t border-gray-700/40 py-1">
                     <button
-                      onClick={() => { signOut(); setUserMenuOpen(false); }}
+                      onClick={() => { signOut(); closeAll(); }}
                       className="flex w-full items-center gap-2.5 px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
                     >
                       <LogoutIcon />
