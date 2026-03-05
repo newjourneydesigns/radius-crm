@@ -37,7 +37,7 @@ export default function RichTextEditor({
     savedRange: null,
   });
 
-  const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false, underline: false });
+  const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false, underline: false, strikeThrough: false });
 
   const refreshFormats = useCallback(() => {
     const editor = editorRef.current;
@@ -51,6 +51,7 @@ export default function RichTextEditor({
       bold: document.queryCommandState('bold'),
       italic: document.queryCommandState('italic'),
       underline: document.queryCommandState('underline'),
+      strikeThrough: document.queryCommandState('strikeThrough'),
     });
   }, []);
 
@@ -88,9 +89,9 @@ export default function RichTextEditor({
     onChange(next);
   }, [onChange]);
 
-  const execFormat = (command: string) => {
+  const execFormat = (command: string, value?: string) => {
     editorRef.current?.focus();
-    document.execCommand(command, false);
+    document.execCommand(command, false, value);
     refreshFormats();
     handleInput();
   };
@@ -225,6 +226,56 @@ export default function RichTextEditor({
         <ToolbarButton command="underline" title="Underline (⌘U)">
           <span className="underline">U</span>
         </ToolbarButton>
+        <ToolbarButton command="strikeThrough" title="Strikethrough">
+          <span className="line-through">S</span>
+        </ToolbarButton>
+        <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1" />
+        <button
+          type="button"
+          title="Heading"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            execFormat('formatBlock', '<h3>');
+          }}
+          disabled={disabled}
+          className="px-2 py-1 rounded text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          H
+        </button>
+        <button
+          type="button"
+          title="Bullet list"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            execFormat('insertUnorderedList');
+          }}
+          disabled={disabled}
+          className="px-2 py-1 rounded text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <line x1="9" y1="6" x2="20" y2="6" /><line x1="9" y1="12" x2="20" y2="12" /><line x1="9" y1="18" x2="20" y2="18" />
+            <circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none" />
+            <circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none" />
+            <circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          title="Numbered list"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            execFormat('insertOrderedList');
+          }}
+          disabled={disabled}
+          className="px-2 py-1 rounded text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <line x1="10" y1="6" x2="20" y2="6" /><line x1="10" y1="12" x2="20" y2="12" /><line x1="10" y1="18" x2="20" y2="18" />
+            <text x="2" y="8" fontSize="8" fill="currentColor" stroke="none" fontFamily="sans-serif">1</text>
+            <text x="2" y="14" fontSize="8" fill="currentColor" stroke="none" fontFamily="sans-serif">2</text>
+            <text x="2" y="20" fontSize="8" fill="currentColor" stroke="none" fontFamily="sans-serif">3</text>
+          </svg>
+        </button>
         <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1" />
         <button
           type="button"
@@ -303,7 +354,11 @@ export default function RichTextEditor({
           onCompositionEnd={() => { isComposing.current = false; handleInput(); }}
           className={`px-3 py-2 text-sm text-gray-900 dark:text-white outline-none break-words overflow-auto
             ${disabled ? 'opacity-60 cursor-not-allowed' : ''}
-            [&_a]:text-blue-600 [&_a]:dark:text-blue-400 [&_a]:underline`}
+            [&_a]:text-blue-600 [&_a]:dark:text-blue-400 [&_a]:underline
+            [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-2 [&_h3]:mb-1
+            [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-1
+            [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-1
+            [&_li]:display-list-item`}
           style={{ minHeight }}
         />
         {/* Placeholder */}

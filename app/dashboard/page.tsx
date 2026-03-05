@@ -3515,7 +3515,11 @@ function DashboardContent() {
                                 </button>
                               </div>
                               {/* Content */}
-                              <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
+                              <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words
+                                [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-2 [&_h3]:mb-1
+                                [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-1
+                                [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-1
+                                [&_li]:display-list-item">
                                 {renderNoteContent(note.content)}
                               </div>
                             </div>

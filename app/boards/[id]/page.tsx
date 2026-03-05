@@ -1406,6 +1406,7 @@ function BoardPage() {
   const [editingBoardTitle, setEditingBoardTitle] = useState(false);
   const [showLabelManager, setShowLabelManager] = useState(false);
   const [showNotePanel, setShowNotePanel] = useState(false);
+  const [noteSaveStatus, setNoteSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [showImportModal, setShowImportModal] = useState(false);
   const [dragCardId, setDragCardId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
@@ -1439,12 +1440,20 @@ function BoardPage() {
     }
   }, [board?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const saveNoteNow = useCallback(() => {
+  const saveNoteNow = useCallback(async () => {
     if (!noteRef.current || !board) return;
     if (noteSaveTimer.current) clearTimeout(noteSaveTimer.current);
     const html = noteRef.current.innerHTML;
     if (html !== (board.notes || '')) {
-      updateBoard(boardId, { notes: html });
+      setNoteSaveStatus('saving');
+      const result = await updateBoard(boardId, { notes: html });
+      if (result) {
+        setNoteSaveStatus('saved');
+        setTimeout(() => setNoteSaveStatus('idle'), 2000);
+      } else {
+        console.error('Failed to save board notes to database');
+        setNoteSaveStatus('error');
+      }
     }
   }, [board, boardId, updateBoard]);
 
@@ -2063,6 +2072,9 @@ function BoardPage() {
           <div className="kb-note-header-title">
             <StickyNote size={16} />
             Board Notes
+            {noteSaveStatus === 'saving' && <span className="kb-note-save-status saving">Saving…</span>}
+            {noteSaveStatus === 'saved' && <span className="kb-note-save-status saved">Saved</span>}
+            {noteSaveStatus === 'error' && <span className="kb-note-save-status error">Save failed</span>}
           </div>
           <button className="kb-note-close-btn" onClick={closeNotePanel} title="Close notes">
             <X size={18} />
@@ -3362,6 +3374,22 @@ const kanbanStyles = `
     font-weight: 600;
     font-size: 14px;
     color: #e2e8f0;
+  }
+  .kb-note-save-status {
+    font-size: 11px;
+    font-weight: 400;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: 4px;
+  }
+  .kb-note-save-status.saving {
+    color: #94a3b8;
+  }
+  .kb-note-save-status.saved {
+    color: #22c55e;
+  }
+  .kb-note-save-status.error {
+    color: #ef4444;
   }
   .kb-note-close-btn {
     display: flex !important;
