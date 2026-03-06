@@ -1360,6 +1360,28 @@ export default function CircleLeaderProfilePage() {
         if (notesData) {
           setNotes(notesData);
         }
+
+        // When marked as "Yes" (received), sync last 3 weeks of attendance + roster from CCB
+        if (nextState === 'received' && leader.ccb_group_id) {
+          fetch('/api/ccb/sync-leader-attendance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ leaderId }),
+          })
+            .then((res) => res.json())
+            .then((result) => {
+              if (result.success) {
+                console.log(`✅ CCB sync complete for ${leader.name}: ${result.synced} events, roster=${result.rosterCount}`);
+                // Refresh attendance graph
+                setAttendanceRefreshKey((k) => k + 1);
+                // Refresh roster count
+                if (result.rosterRefreshed && result.rosterCount > 0) {
+                  setRosterCount(result.rosterCount);
+                }
+              }
+            })
+            .catch((err) => console.warn('CCB sync after event summary failed (non-blocking):', err));
+        }
       } else {
         console.error('Error updating event summary status:', error);
         setShowAlert({

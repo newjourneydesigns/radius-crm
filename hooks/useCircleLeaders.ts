@@ -387,6 +387,22 @@ export const useCircleLeaders = () => {
             : leader
         )
       );
+
+      // When marked as "Yes" (received), sync last 3 weeks of attendance + roster from CCB
+      if (state === 'received') {
+        fetch('/api/ccb/sync-leader-attendance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ leaderId }),
+        })
+          .then((res) => res.json())
+          .then((result) => {
+            if (result.success) {
+              console.log(`✅ CCB sync complete for leader ${leaderId}: ${result.synced} events, roster=${result.rosterCount}`);
+            }
+          })
+          .catch((err) => console.warn('CCB sync after event summary failed (non-blocking):', err));
+      }
     } catch (error) {
       console.error('Error in setEventSummaryState:', error);
       setError('Error updating event summary');
