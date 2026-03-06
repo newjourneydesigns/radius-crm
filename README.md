@@ -50,6 +50,28 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) to view the application.
 
+### Viewing the App in Dev Without Supabase (Demo Mode)
+
+If you just want to explore the UI without setting up a Supabase project, enable **Demo Mode**:
+
+1. Copy the example env file:
+   ```bash
+   cp .env.example .env.local
+   ```
+2. Set demo mode in `.env.local`:
+   ```
+   NEXT_PUBLIC_DEMO_MODE=true
+   ```
+3. Start the dev server:
+   ```bash
+   npm install
+   npm run dev
+   ```
+
+Open [http://localhost:3000](http://localhost:3000) — you will be automatically signed in as **Demo User** (ACPD role) and can navigate all pages. A yellow banner at the top of every page reminds you that no real data is connected.
+
+> ⚠️ **Never** set `NEXT_PUBLIC_DEMO_MODE=true` in a production `.env` file — it bypasses all authentication.
+
 ## Deployment to Netlify
 
 ### Method 1: GitHub Integration (Recommended)

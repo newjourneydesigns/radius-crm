@@ -11,13 +11,22 @@ import { AuthProvider, useAuth } from "../contexts/AuthContext";
 
 function LayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, isDemo } = useAuth();
   const hideChrome = pathname === '/login' || pathname.startsWith('/auth');
 
   return (
     <>
       {!hideChrome && (
         <>
+          {/* Demo mode banner — visible on all screen sizes */}
+          {isDemo && (
+            <div className="bg-amber-500 text-amber-950 text-center text-xs font-semibold py-1.5 px-4 sticky top-0 z-[10002]">
+              🎭 Demo Mode — no live data. Set{' '}
+              <code className="font-mono bg-amber-400/50 px-1 rounded">NEXT_PUBLIC_DEMO_MODE=false</code>{' '}
+              in <code className="font-mono bg-amber-400/50 px-1 rounded">.env.local</code> to connect to Supabase.
+            </div>
+          )}
+
           {/* Mobile Navigation */}
           <MobileNavigation />
 
