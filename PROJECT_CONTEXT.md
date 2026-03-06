@@ -1,8 +1,8 @@
 # RADIUS CRM — Project Context
 
-> **Version:** 1.7.0  
+> **Version:** 1.8.0  
 > **Repository:** `newjourneydesigns/radius-crm` (branch: `main`)  
-> **Last Updated:** 2026-03-01
+> **Last Updated:** 2026-03-05
 
 ---
 
@@ -69,6 +69,8 @@ Set in `.env.local` for development, Netlify dashboard for production.
 │   ├── ccb-events/             # CCB events UI
 │   ├── person-lookup/          # CCB person search with text/call/email actions
 │   ├── ccb-explorer/           # Standalone CCB Event Explorer (date range search)
+│   ├── boards/                 # Kanban project boards listing
+│   │   └── [id]/               # Individual board detail (Kanban columns, cards, notes panel)
 │   ├── func/                   # Function test page
 │   ├── help/                   # Help page
 │   ├── privacy-policy/         # Privacy policy
@@ -93,6 +95,7 @@ Set in `.env.local` for development, Netlify dashboard for production.
 │       │   └── test-groups/
 │       ├── ai-summarize/       # AI summarization & meeting prep API (Gemini→Groq fallback)
 │       ├── ccb/                # CCB proxy endpoints (continued)
+│       │   ├── sync-attendance/ # Daily auto-sync attendance from CCB (cron-triggered)
 │       │   ├── summarize/      # CCB Explorer AI analysis — 10-section ministry report (Gemini→Groq)
 │       │   └── chat/           # CCB Explorer follow-up chat — multi-turn AI conversation
 │       ├── debug-users/        # Debug endpoint
@@ -141,6 +144,8 @@ Set in `.env.local` for development, Netlify dashboard for production.
 │   │   ├── EventExplorerModal.tsx
 │   │   ├── EventSummaryReminderModal.tsx
 │   │   └── CircleSummaryModal.tsx  # CCB Explorer AI analysis modal with inline follow-up chat
+│   ├── icons/                  # Custom SVG icon components
+│   │   └── BoardIcons.tsx       # Rich text editor toolbar icons + Kanban board icons
 │   ├── notes/                  # AI-powered note tools
 │   │   ├── DictateAndSummarize.tsx  # Voice dictation toolbar + AI summarize with preview/approve UX
 │   │   └── MeetingPrepAssistant.tsx # AI meeting prep briefing generator (Big 4 coaching, admin-only)
@@ -163,8 +168,9 @@ Set in `.env.local` for development, Netlify dashboard for production.
 │   ├── useACPDTracking.ts       # Prayer points, encouragements, coaching notes CRUD
 │   ├── useProgressDashboard.ts  # Aggregate dashboard data across all leaders
 │   ├── useDashboardFilters.ts   # Dashboard filter state
-│   └── useLeaderFilters.ts      # Leader page filter state
-│
+│   └── useLeaderFilters.ts      # Leader page filter state│   ├── useProjectBoard.ts      # Kanban board CRUD: boards, columns, cards, labels, comments, checklists
+│   ├── useCircleAttendance.ts   # CCB attendance data fetching + trend calculation
+│   ├── useEvaluation.ts         # Leader evaluation hook│
 ├── lib/                         # Shared utilities & clients
 │   ├── supabase.ts              # Supabase client initialization
 │   ├── auth-middleware.ts       # Server-side auth helpers
@@ -216,6 +222,15 @@ Set in `.env.local` for development, Netlify dashboard for production.
 | `leader_category_evaluations` | Per-leader evaluation results by category with optional manual override score |
 | `leader_category_answers`     | Per-question Yes/No answers linked to an evaluation, with question_text snapshot |
 | `development_prospects`        | People identified for leadership development per circle leader (name, notes, active status) |
+| `project_boards`               | Kanban project boards (title, description, notes, is_public, owner) |
+| `board_columns`                | Columns within a board (title, position, color) |
+| `board_cards`                  | Cards within columns (title, description, priority, dates, assignee, archived) |
+| `board_labels`                 | Color-coded labels per board (name, color) |
+| `card_label_assignments`       | Many-to-many: cards ↔ labels |
+| `card_comments`                | Threaded comments on board cards |
+| `card_checklists`              | Checklist items on cards (title, position, is_completed) |
+| `checklist_templates`          | Reusable checklist templates per board |
+| `circle_meeting_occurrences`   | Cached CCB attendance records per meeting date (status, headcount, topic, notes) |
 
 ### Reference Tables
 
@@ -277,6 +292,10 @@ Set in `.env.local` for development, Netlify dashboard for production.
 21. **AI Note Summarization** — Summarize dictated or typed notes using AI (Gemini primary, Groq fallback). Word-count-aware prompting: brief inputs get concise summaries, brain dumps get thorough multi-paragraph summaries. Preview & approve UX: shows summary card with "Use Summary" (replace), "Keep Both" (append), or "Discard" options. API: `app/api/ai-summarize/route.ts`.
 22. **AI Meeting Prep Assistant** — Admin-only feature on Circle Leader detail page. Generates a structured coaching briefing for one-on-one meetings organized around the Big 4 framework (Reach, Connect, Disciple, Develop). Sends leader profile, latest scorecard ratings (1-5), and recent notes to AI. Output includes: Leader Snapshot, per-dimension status/coaching questions/ideas, Conversation Starters, and Watch Items. Can be saved directly as a note. Component: `MeetingPrepAssistant.tsx`.
 23. **CCB Explorer AI Analysis** — "Analyze" button (purple, sparkles icon) on the CCB Event Explorer page. Appears once events are loaded. Sends all fetched events (title, date, status, headcount, attendees, topic, notes, prayer requests) to `/api/ccb/summarize`, which generates a 10-section ministry strategist report: (1) Snapshot, (2) Major Spiritual Themes with embedded quotes, (3) Themes by Circle Type, (4) Cultural Indicators with quotes, (5) Prayer Request Categories listing all circles per category, (6) High-Weight Pastoral Moments, (7) Follow-Up Urgency (`Person — Circle — Reason`), (8) Leadership Development, (9) Strategic Recommendations, (10) Executive Summary. Rendered in `CircleSummaryModal` with a custom lightweight markdown renderer (no external library). Includes Copy Summary button. API: `app/api/ccb/summarize/route.ts` (8192 Gemini tokens, 8000 Groq tokens).
+28. **Kanban Project Boards** (`/boards`) — Full drag-and-drop Kanban board system for project management. Features: create multiple boards with title/description, customizable columns (default: To Do, In Progress, Review, Done), cards with priority levels (Low/Medium/High/Urgent with color badges), start/due dates, assignee, and archive toggle. Cards support color-coded **labels** (Bug, Feature, Enhancement, Urgent defaults), **comments**, and **checklists** with completion toggles. **Checklist templates** can be saved and reused. A slide-in **Board Notes panel** provides a lightweight contentEditable rich text editor (bold, italic, underline, strikethrough, headings, lists, links) with auto-save. **Public/Private sharing**: boards default to private (owner-only); toggling public makes them read-only visible to all authenticated users. Navigation: primary nav item between Progress and Events. Hook: `useProjectBoard.ts`. Tables: `project_boards`, `board_columns`, `board_cards`, `board_labels`, `card_label_assignments`, `card_comments`, `card_checklists`, `checklist_templates`. Icons: `BoardIcons.tsx`.
+29. **Attendance Auto-Sync** — Netlify scheduled function runs daily at 6:00 AM CT, calling `/api/ccb/sync-attendance` to pull CCB attendance data for all leaders from semester start (2026-01-18) to today. Upserts into `circle_meeting_occurrences`. Fills "no_record" gaps for expected meeting dates with no CCB data. Protected by `CRON_SECRET` bearer token.
+30. **Attendance Trend Line** — The attendance chart on Circle Leader profiles now includes a **linear regression trend line** (dashed yellow) overlaid on the weekly line chart. Summary cards show avg/peak attendance, did-not-meet count, no-record count. A trend indicator (↑ Trending up / ↓ Trending down / → Stable) compares last 3 months vs prior 3 months. Shows "Last synced" timestamp.
+31. **Event Explorer Date Range** — The Event Explorer modal now supports a **segmented toggle** between Single Date and Date Range modes. Date Range mode has start/end pickers plus preset buttons (Last 4/8/12 weeks) auto-aligned to the circle's meeting day. Single Date mode shows quick-pick buttons for recent meeting dates.
 24. **CCB Explorer Follow-Up Chat** — Inline chat panel within `CircleSummaryModal`. Available after analysis loads. AI is seeded with the full analysis as system context and responds with specific circle references, names, and quotes. Full conversation history is passed on every turn (2048 tokens/turn, Gemini→Groq fallback). Features: message bubbles (user=blue-right, AI=gray-left), animated 3-dot typing indicator, Enter to send (Shift+Enter for newline), AI replies rendered with the same markdown renderer, Copy conversation button (formats as `You: ...\n\nAI: ...` transcript), Clear button. API: `app/api/ccb/chat/route.ts`. Component: `components/modals/CircleSummaryModal.tsx`.
 
 ---
