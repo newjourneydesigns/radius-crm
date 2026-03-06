@@ -27,8 +27,16 @@ interface EventData {
 
 export default function CCBExplorerPage() {
   const { user } = useAuth();
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+
+  // Default to last 12 weeks
+  const today = new Date();
+  const twelveWeeksAgo = new Date(today);
+  twelveWeeksAgo.setDate(today.getDate() - 84);
+  const defaultEnd = today.toISOString().slice(0, 10);
+  const defaultStart = twelveWeeksAgo.toISOString().slice(0, 10);
+
+  const [startDate, setStartDate] = useState(defaultStart);
+  const [endDate, setEndDate] = useState(defaultEnd);
   const [groupName, setGroupName] = useState('');
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState('');

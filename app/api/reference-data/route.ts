@@ -157,7 +157,8 @@ export async function GET() {
           value: normalizeFrequencyValue(f.value)
         })),
         (f: any) => normalizeFrequencyValue(f?.value || '')
-      )
+      ),
+      acpds: uniqueACPDs.sort(),
     };
 
     if (process.env.NODE_ENV === 'development') {

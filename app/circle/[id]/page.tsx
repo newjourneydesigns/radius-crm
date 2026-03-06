@@ -529,6 +529,63 @@ export default function CircleLeaderProfilePage() {
     loadScorecardRatings(leaderId); // Needed for MeetingPrepAssistant's latestBig4Scores
   }, [leaderId]);
 
+  // ── Auto-sync attendance from CCB if stale (>6 days) ──────────────
+  const attendanceSyncAttempted = useRef(false);
+  useEffect(() => {
+    if (!leader?.name || !leader?.ccb_group_id || attendanceSyncAttempted.current) return;
+    attendanceSyncAttempted.current = true;
+
+    (async () => {
+      try {
+        // Check the most recent synced_at for this leader
+        const { data: latest } = await supabase
+          .from('circle_meeting_occurrences')
+          .select('synced_at')
+          .eq('leader_id', leaderId)
+          .not('synced_at', 'is', null)
+          .order('synced_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        const sixDaysMs = 6 * 24 * 60 * 60 * 1000;
+        const isStale = !latest?.synced_at ||
+          (Date.now() - new Date(latest.synced_at).getTime()) > sixDaysMs;
+
+        if (!isStale) return;
+
+        console.log(`🔄 Attendance data stale for leader ${leaderId} (${leader.name}), auto-syncing from CCB…`);
+
+        // Use the event-attendance API (searches CCB by name + date range)
+        // and writes through to circle_meeting_occurrences automatically
+        const today = new Date();
+        const fourWeeksAgo = new Date(today);
+        fourWeeksAgo.setDate(today.getDate() - 28);
+
+        const res = await fetch('/api/ccb/event-attendance/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: fourWeeksAgo.toISOString().split('T')[0],
+            endDate: today.toISOString().split('T')[0],
+            groupName: leader.name,
+          }),
+        });
+
+        if (res.ok) {
+          const result = await res.json();
+          console.log(`✅ Attendance auto-sync complete for ${leader.name}: ${result.count || 0} events`);
+          if (result.count > 0) {
+            setAttendanceRefreshKey((k) => k + 1);
+          }
+        } else {
+          console.warn(`⚠️ Attendance auto-sync failed for ${leader.name}:`, res.status);
+        }
+      } catch (err) {
+        console.warn('Attendance auto-sync error:', err);
+      }
+    })();
+  }, [leader?.name, leader?.ccb_group_id, leaderId]);
+
   // ── Supabase Real-Time for this leader ────────────────────────────
   const realtimeDebounce = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -1944,10 +2001,22 @@ export default function CircleLeaderProfilePage() {
                   );
                 })()}
               </div>
-              {/* Context line: circle type, meeting day & time */}
+              {/* Context line: circle type, frequency, meeting day & time */}
               {(leader.circle_type || leader.day) && (
                 <p className="mt-1 text-sm text-gray-400">
-                  {[normalizeCircleTypeValue(leader.circle_type), leader.day && leader.time ? `${leader.day}s at ${formatTimeToAMPM(leader.time)}` : leader.day ? `${leader.day}s` : null].filter(Boolean).join(' · ')}
+                  {[
+                    normalizeCircleTypeValue(leader.circle_type),
+                    (() => {
+                      const freq = leader.frequency && leader.frequency !== 'Weekly' ? formatFrequencyLabel(leader.frequency) : null;
+                      if (leader.day && leader.time) {
+                        return freq ? `${freq} ${leader.day}s at ${formatTimeToAMPM(leader.time)}` : `${leader.day}s at ${formatTimeToAMPM(leader.time)}`;
+                      }
+                      if (leader.day) {
+                        return freq ? `${freq} ${leader.day}s` : `${leader.day}s`;
+                      }
+                      return freq;
+                    })()
+                  ].filter(Boolean).join(' · ')}
                 </p>
               )}
             </div>

@@ -102,18 +102,39 @@ export default function EventExplorerModal({
     [meetingDay]
   );
 
+  // Track whether we've auto-fetched for this modal open
+  const autoFetchedRef = useRef(false);
+
   // Update state when modal opens with new initial values
   useEffect(() => {
     if (isOpen) {
-      setDate(initialDate);
-      setEndDate('');
-      setRangeMode(false);
+      // Default to last 12 weeks range
+      const today = new Date();
+      const twelveWeeksAgo = new Date(today);
+      twelveWeeksAgo.setDate(today.getDate() - 84);
+
+      let defaultStart = twelveWeeksAgo.toISOString().split('T')[0];
+      let defaultEnd = today.toISOString().split('T')[0];
+
+      // If we have meetingDay info, use meeting-day-aware range
+      if (meetingDay) {
+        const range = getMeetingDateRange(meetingDay, 12);
+        if (range) {
+          defaultStart = range.start;
+          defaultEnd = range.end;
+        }
+      }
+
+      setDate(initialDate || defaultStart);
+      setEndDate(defaultEnd);
+      setRangeMode(true);
       setGroupName(initialGroupName);
       setError(null);
       setEvents([]);
       setHasSearched(false);
+      autoFetchedRef.current = false;
     }
-  }, [isOpen, initialDate, initialGroupName]);
+  }, [isOpen, initialDate, initialGroupName, meetingDay]);
 
   // Cancel any pending requests when modal closes
   useEffect(() => {
@@ -123,6 +144,9 @@ export default function EventExplorerModal({
       setLoading(false);
     }
   }, [isOpen]);
+
+  // We need a ref to the fetch function for the auto-fetch effect
+  const handleFetchRef = useRef<() => void>(() => {});
 
   // Cleanup on unmount
   useEffect(() => {
@@ -198,6 +222,17 @@ export default function EventExplorerModal({
       }
     }
   };
+
+  // Keep the ref pointing to the latest handleFetchData
+  handleFetchRef.current = handleFetchData;
+
+  // Auto-fetch last 12 weeks when modal opens with a group name
+  useEffect(() => {
+    if (isOpen && !autoFetchedRef.current && initialGroupName) {
+      autoFetchedRef.current = true;
+      handleFetchRef.current();
+    }
+  }, [isOpen, initialGroupName, date, endDate, rangeMode, groupName]);
 
   const handleCopyAll = async () => {
     if (events.length === 0) return;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 export interface DashboardFilters {
@@ -36,10 +36,15 @@ export const useDashboardFilters = () => {
   const [filters, setFilters] = useState<DashboardFilters>(defaultFilters);
   const [isInitialized, setIsInitialized] = useState(false); // Start uninitialized until localStorage is checked
   const [isFirstVisit, setIsFirstVisit] = useState(false);
+  const initRef = useRef(false);
   const searchParams = useSearchParams();
 
   // Load saved filters on mount - check URL params first, then localStorage
+  // Uses a ref guard so this only runs ONCE, even if searchParams changes reference
   useEffect(() => {
+    if (initRef.current) return;
+    initRef.current = true;
+
     try {
       let initialFilters = { ...defaultFilters };
       let hasUrlParams = false;

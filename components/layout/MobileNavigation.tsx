@@ -418,6 +418,17 @@ export default function MobileNavigation() {
               <span className="mobile-sheet-row-label">Progress</span>
               <ChevronRightIcon />
             </Link>
+            <Link href="/circle-dashboard"
+              className={`mobile-sheet-row bordered ${isActive('/circle-dashboard') ? 'active' : ''}`}>
+              <span className="mobile-sheet-row-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z" />
+                  <path d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z" />
+                </svg>
+              </span>
+              <span className="mobile-sheet-row-label">Circle Dashboard</span>
+              <ChevronRightIcon />
+            </Link>
             <Link href="/boards"
               className={`mobile-sheet-row ${isActive('/boards') ? 'active' : ''}`}>
               <span className="mobile-sheet-row-icon"><BoardIcon /></span>
