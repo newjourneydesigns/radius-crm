@@ -19,6 +19,16 @@ interface SettingsItem {
   value: string;
 }
 
+const uniqueByValue = <T extends { value: string }>(items: T[]): T[] => {
+  const map = new Map<string, T>();
+  for (const item of items || []) {
+    const key = (item?.value || '').trim().toLowerCase();
+    if (!key) continue;
+    if (!map.has(key)) map.set(key, item);
+  }
+  return Array.from(map.values());
+};
+
 export default function AddLeaderPage() {
   const [formData, setFormData] = useState({
     name: '',
@@ -70,10 +80,10 @@ export default function AddLeaderPage() {
         setDirectors(formattedDirectors);
       }
       
-      if (campusesResult.data) setCampuses(campusesResult.data);
-      if (circleTypesResult.data) setCircleTypes(circleTypesResult.data);
-      if (statusesResult.data) setStatuses(statusesResult.data);
-      if (frequenciesResult.data) setFrequencies(ensureDefaultFrequencies(frequenciesResult.data));
+      if (campusesResult.data) setCampuses(uniqueByValue(campusesResult.data));
+      if (circleTypesResult.data) setCircleTypes(uniqueByValue(circleTypesResult.data));
+      if (statusesResult.data) setStatuses(uniqueByValue(statusesResult.data));
+      if (frequenciesResult.data) setFrequencies(uniqueByValue(ensureDefaultFrequencies(frequenciesResult.data)));
     } catch (error) {
       console.error('Error loading reference data:', error);
     } finally {
