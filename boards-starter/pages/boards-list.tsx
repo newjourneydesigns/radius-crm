@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../../contexts/AuthContext';
-import { useProjectBoard } from '../../hooks/useProjectBoard';
-import ProtectedRoute from '../../components/ProtectedRoute';
+/* AUTH: Replace with your auth hook */
+import { useAuth } from '../contexts/AuthContext';
+import { useProjectBoard } from '../hooks/useProjectBoard';
 import {
   Plus,
   LayoutDashboard,
@@ -15,7 +15,7 @@ import {
   Globe,
   Lock,
   User,
-} from '../../components/icons/BoardIcons';
+} from '../components/BoardIcons';
 
 function BoardsListPage() {
   const { user } = useAuth();
@@ -25,15 +25,6 @@ function BoardsListPage() {
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [creating, setCreating] = useState(false);
-
-  // Restore last boards view (board detail or calendar)
-  useEffect(() => {
-    const lastRoute = localStorage.getItem('boards-last-route');
-    if (lastRoute && lastRoute !== '/boards') {
-      localStorage.removeItem('boards-last-route');
-      router.replace(lastRoute);
-    }
-  }, [router]);
 
   useEffect(() => {
     fetchBoards();
@@ -58,23 +49,14 @@ function BoardsListPage() {
       <div className="kb-container">
         {/* Header */}
         <div className="kb-header">
-          <h1 className="kb-page-title">Project Boards</h1>
-          <div className="kb-toolbar">
-            <div className="kb-view-switcher">
-              <button className="kb-view-btn active">
-                <FolderKanban size={15} />
-                Boards
-              </button>
-              <button className="kb-view-btn" onClick={() => router.push('/boards/calendar')}>
-                <Calendar size={15} />
-                Calendar
-              </button>
-            </div>
-            <button className="kb-btn kb-btn-primary" onClick={() => setShowCreate(true)}>
-              <Plus size={16} />
-              New Board
-            </button>
+          <div className="kb-header-left">
+            <FolderKanban size={28} style={{ color: '#818cf8' }} />
+            <h1 className="kb-page-title">GSD Board</h1>
           </div>
+          <button className="kb-btn kb-btn-primary" onClick={() => setShowCreate(true)}>
+            <Plus size={16} />
+            New Board
+          </button>
         </div>
 
         {/* Create modal */}
@@ -179,13 +161,8 @@ function BoardsListPage() {
   );
 }
 
-export default function Page() {
-  return (
-    <ProtectedRoute>
-      <BoardsListPage />
-    </ProtectedRoute>
-  );
-}
+/* AUTH: Wrap with your own auth guard in layout/middleware */
+export default BoardsListPage;
 
 const boardsListStyles = `
   .kb-root {
@@ -200,56 +177,21 @@ const boardsListStyles = `
     padding: 24px 16px 100px;
   }
   .kb-header {
-    margin-bottom: 28px;
-  }
-  .kb-page-title {
-    font-size: 26px !important;
-    font-weight: 700 !important;
-    color: #f9fafb !important;
-    margin: 0 0 16px 0 !important;
-  }
-  .kb-toolbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-  }
-  .kb-view-switcher {
-    display: flex;
-    background: #1a1d27;
-    border: 1px solid #2a2d3a;
-    border-radius: 10px;
-    padding: 3px;
-    gap: 2px;
-  }
-  .kb-view-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 7px 16px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    border: none;
-    outline: none;
-    background: transparent !important;
-    color: #6b7280 !important;
-    transition: all 0.15s ease;
-    white-space: nowrap;
-  }
-  .kb-view-btn:hover {
-    color: #d1d5db !important;
-    background: rgba(255,255,255,0.04) !important;
-  }
-  .kb-view-btn.active {
-    background: #2563eb !important;
-    color: #fff !important;
-    box-shadow: 0 1px 4px rgba(37,99,235,0.3);
+    margin-bottom: 32px;
   }
   .kb-header-left {
     display: flex;
     align-items: center;
     gap: 12px;
+  }
+  .kb-page-title {
+    font-size: 24px !important;
+    font-weight: 700 !important;
+    color: #f9fafb !important;
+    margin: 0 !important;
   }
 
   /* Buttons */

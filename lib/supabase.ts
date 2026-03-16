@@ -360,6 +360,11 @@ export interface BoardCard {
   assignee?: string;
   created_by?: string;
   is_archived: boolean;
+  repeat_rule?: string | null;
+  repeat_interval?: number | null;
+  repeat_days?: number[] | null;
+  series_id?: string | null;
+  is_series_master?: boolean | null;
   created_at: string;
   updated_at: string;
   // Joined data
@@ -389,6 +394,7 @@ export interface CardChecklist {
   title: string;
   is_completed: boolean;
   position: number;
+  due_date?: string;
   created_at: string;
 }
 

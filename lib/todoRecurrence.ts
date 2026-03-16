@@ -62,6 +62,24 @@ export const nextDueDate = (currentISO: string, rule: Exclude<TodoRepeatRule, 'n
   return toISODate(next);
 };
 
+/**
+ * For daily repeat with specific days-of-week selected.
+ * days: array of JS day indices (0=Sun, 1=Mon, ... 6=Sat).
+ * Finds the next matching day after currentISO.
+ */
+export const nextDueDateForDays = (currentISO: string, days: number[]) => {
+  if (!days.length) return nextDueDate(currentISO, 'daily', 1);
+  const sorted = [...days].sort((a, b) => a - b);
+  let d = fromISODate(currentISO);
+  // Advance at least one day, then find next matching day-of-week
+  for (let i = 0; i < 8; i++) {
+    d = addDays(d, 1);
+    if (sorted.includes(d.getDay())) return toISODate(d);
+  }
+  // Fallback – should never reach here
+  return toISODate(addDays(fromISODate(currentISO), 1));
+};
+
 export const buildRepeatLabel = (rule: TodoRepeatRule, interval = 1) => {
   if (rule === 'none') return '';
 

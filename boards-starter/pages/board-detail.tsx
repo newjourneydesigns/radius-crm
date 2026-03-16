@@ -1,23 +1,29 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { useProjectBoard, FullBoard } from '../../../hooks/useProjectBoard';
-import { useAuth } from '../../../contexts/AuthContext';
-import ProtectedRoute from '../../../components/ProtectedRoute';
-import type { BoardCard, BoardColumn, BoardLabel, CardPriority, ChecklistTemplate } from '../../../lib/supabase';
+import { useRouter, useParams } from 'next/navigation';
+import { useProjectBoard, FullBoard } from '../hooks/useProjectBoard';
+// AUTH: Replace with your auth context
+import { useAuth } from '../contexts/AuthContext';
+import type { BoardCard, BoardColumn, BoardLabel, CardPriority, ChecklistTemplate } from '../types/board-types';
 import {
   Plus, ArrowLeft, Search, MoreHorizontal, Trash2, Edit3,
   GripVertical, MessageSquare, CheckSquare, CalendarDays, Tag,
   X, ChevronDown, ChevronLeft, ChevronRight, Clock, User, Flag, AlertCircle, Pencil,
   FolderKanban, Check, Globe, Lock, StickyNote, UserPlus, Download, Copy,
   Zap, ArrowDownAZ, ArrowUpZA, Bold, Italic, Underline, Strikethrough,
-  LinkIcon, Heading, ListBullet, ListOrdered, SlidersHorizontal, Repeat2,
-  LayoutDashboard,
-} from '../../../components/icons/BoardIcons';
-import { supabase } from '../../../lib/supabase';
-import type { CircleLeader } from '../../../lib/supabase';
-import { buildRepeatLabel, type TodoRepeatRule } from '../../../lib/todoRecurrence';
+  LinkIcon, Heading, ListBullet, ListOrdered, SlidersHorizontal,
+} from '../components/BoardIcons';
+// AUTH: Replace with your Supabase client import
+import { supabase } from '../lib/supabase';
+
+// Inlined from CRM — adapt to your domain's person/contact type
+interface CircleLeader {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string;
+}
 
 /* ═══════════════════════════════════════════════════════════
    Priority helpers
@@ -136,7 +142,6 @@ function CardDetailModal({
   onDeleteComment,
   onAddChecklistItem,
   onToggleChecklistItem,
-  onUpdateChecklistDueDate,
   onDeleteChecklistItem,
   onMoveCard,
   checklistTemplates,
@@ -154,7 +159,6 @@ function CardDetailModal({
   onDeleteComment: (commentId: string) => Promise<void>;
   onAddChecklistItem: (title: string) => Promise<void>;
   onToggleChecklistItem: (itemId: string, val: boolean) => Promise<void>;
-  onUpdateChecklistDueDate: (itemId: string, dueDate: string | null) => Promise<void>;
   onDeleteChecklistItem: (itemId: string) => Promise<void>;
   onMoveCard: (newColumnId: string) => Promise<void>;
   checklistTemplates: ChecklistTemplate[];
@@ -170,9 +174,6 @@ function CardDetailModal({
   const [editDueDate, setEditDueDate] = useState(card.due_date || '');
   const [editAssignee, setEditAssignee] = useState(card.assignee || '');
   const [editLabels, setEditLabels] = useState<string[]>((card.labels || []).map(l => l.id));
-  const [editRepeatRule, setEditRepeatRule] = useState<TodoRepeatRule>((card.repeat_rule as TodoRepeatRule) || 'none');
-  const [editRepeatInterval, setEditRepeatInterval] = useState(card.repeat_interval || 1);
-  const [editRepeatDays, setEditRepeatDays] = useState<number[]>(card.repeat_days || []);
   const [commentText, setCommentText] = useState('');
   const [checklistText, setChecklistText] = useState('');
   const [saving, setSaving] = useState(false);
@@ -197,9 +198,6 @@ function CardDetailModal({
       due_date: editDueDate || null,
       assignee: editAssignee || null,
       label_ids: editLabels,
-      repeat_rule: editRepeatRule === 'none' ? null : editRepeatRule,
-      repeat_interval: editRepeatRule === 'none' ? 1 : editRepeatInterval,
-      repeat_days: editRepeatRule === 'daily' && editRepeatDays.length > 0 ? editRepeatDays : null,
     });
     setSaving(false);
     onClose();
@@ -357,18 +355,6 @@ function CardDetailModal({
                     <span className={`kb-checklist-text ${item.is_completed ? 'completed' : ''}`}>
                       {item.title}
                     </span>
-                    <div className="kb-checklist-due-wrapper">
-                      <input
-                        type="date"
-                        className={`kb-checklist-due-input${item.due_date && !item.is_completed && new Date(item.due_date + 'T00:00:00') < new Date(new Date().toDateString()) ? ' overdue' : ''}${item.due_date && !item.is_completed && new Date(item.due_date + 'T00:00:00').toDateString() === new Date().toDateString() ? ' due-today' : ''}`}
-                        value={item.due_date || ''}
-                        onChange={e => onUpdateChecklistDueDate(item.id, e.target.value || null)}
-                        title={item.due_date ? `Due: ${new Date(item.due_date + 'T00:00:00').toLocaleDateString()}` : 'Set due date'}
-                      />
-                      {item.due_date && !item.is_completed && new Date(item.due_date + 'T00:00:00') < new Date(new Date().toDateString()) && (
-                        <span className="kb-checklist-overdue-badge">Overdue</span>
-                      )}
-                    </div>
                     <button className="kb-btn-icon-sm" onClick={() => onDeleteChecklistItem(item.id)}>
                       <X size={11} />
                     </button>
@@ -561,82 +547,6 @@ function CardDetailModal({
               />
             </div>
 
-            {/* Repeat */}
-            <div className="kb-form-group">
-              <div className="kb-detail-section-label"><Repeat2 size={13} /> Repeat</div>
-              <select
-                className="kb-input"
-                value={editRepeatRule}
-                onChange={e => {
-                  const val = e.target.value as TodoRepeatRule;
-                  setEditRepeatRule(val);
-                  if (val !== 'daily') setEditRepeatDays([]);
-                }}
-              >
-                <option value="none">None</option>
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="yearly">Yearly</option>
-              </select>
-              {editRepeatRule === 'daily' && (
-                <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
-                  {(['S','M','T','W','T','F','S'] as const).map((label, idx) => {
-                    const active = editRepeatDays.includes(idx);
-                    return (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setEditRepeatDays(prev =>
-                          prev.includes(idx) ? prev.filter(d => d !== idx) : [...prev, idx].sort()
-                        )}
-                        style={{
-                          width: 30, height: 30, borderRadius: 6, border: 'none',
-                          fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                          background: active ? '#6366f1' : '#1e2030',
-                          color: active ? '#fff' : '#6b7280',
-                          transition: 'all 0.15s',
-                        }}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {editRepeatRule !== 'none' && editRepeatRule !== 'daily' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-                  <span style={{ color: '#9ca3af', fontSize: 12 }}>Every</span>
-                  <input
-                    className="kb-input"
-                    type="number"
-                    min={1}
-                    max={365}
-                    value={editRepeatInterval}
-                    onChange={e => setEditRepeatInterval(Math.max(1, parseInt(e.target.value) || 1))}
-                    style={{ width: 56, textAlign: 'center' }}
-                  />
-                  <span style={{ color: '#9ca3af', fontSize: 12 }}>
-                    {editRepeatRule === 'weekly' ? 'week(s)' : editRepeatRule === 'monthly' ? 'month(s)' : 'year(s)'}
-                  </span>
-                </div>
-              )}
-              {editRepeatRule !== 'none' && editRepeatRule !== 'daily' && (
-                <div style={{ marginTop: 4, fontSize: 11, color: '#6b7280' }}>
-                  {buildRepeatLabel(editRepeatRule, editRepeatInterval)}
-                  {!editDueDate && ' — set a due date for repeat to work'}
-                </div>
-              )}
-              {editRepeatRule === 'daily' && (
-                <div style={{ marginTop: 4, fontSize: 11, color: '#6b7280' }}>
-                  {editRepeatDays.length > 0
-                    ? `Repeats on ${editRepeatDays.map(d => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join(', ')}`
-                    : 'Every day'}
-                  {!editDueDate && ' — set a due date for repeat to work'}
-                </div>
-              )}
-            </div>
-
             {/* Move to column */}
             <div className="kb-form-group">
               <div className="kb-detail-section-label"><ChevronDown size={13} /> Move to List</div>
@@ -752,17 +662,6 @@ function KanbanCard({
             {card.due_date && (
               <span>{isOverdue ? 'Overdue' : isDueSoon ? (daysUntilDue === 0 ? 'Today' : daysUntilDue === 1 ? 'Tomorrow' : 'In 2 days') : new Date(card.due_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
             )}
-          </span>
-        )}
-
-        {/* Repeat indicator */}
-        {card.repeat_rule && card.repeat_rule !== 'none' && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#6366f1', fontSize: 10 }} title={
-            card.repeat_rule === 'daily' && card.repeat_days?.length
-              ? `Repeats on ${card.repeat_days.map(d => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join(', ')}`
-              : buildRepeatLabel((card.repeat_rule as TodoRepeatRule), card.repeat_interval || 1)
-          }>
-            <Repeat2 size={10} />
           </span>
         )}
 
@@ -1488,7 +1387,6 @@ function ListActionsModal({
 function BoardPage() {
   const params = useParams();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const boardId = params.id as string;
   const { user } = useAuth();
   const {
@@ -1496,12 +1394,11 @@ function BoardPage() {
     addColumn, updateColumn, deleteColumn, reorderColumns,
     addCard, updateCard, deleteCard, moveCard, reorderCardsInColumn,
     addComment, deleteComment,
-    addChecklistItem, toggleChecklistItem, updateChecklistItemDueDate, deleteChecklistItem,
+    addChecklistItem, toggleChecklistItem, deleteChecklistItem,
     fetchChecklistTemplates, saveChecklistTemplate, deleteChecklistTemplate, applyChecklistTemplate,
     checklistTemplates,
     addLabel, updateLabel, deleteLabel,
     loading, setBoard,
-    createNextRepeatCard,
   } = useProjectBoard();
 
   const [search, setSearch] = useState('');
@@ -1524,15 +1421,7 @@ function BoardPage() {
   const [dragOverPos, setDragOverPos] = useState<'above' | 'below'>('below');
   const [listActionsColId, setListActionsColId] = useState<string | null>(null);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
-  const [searchExpanded, setSearchExpanded] = useState(false);
-  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-  const [boardView, setBoardView] = useState<'board' | 'list'>(() => {
-    if (typeof window === 'undefined') return 'board';
-    return (localStorage.getItem('boards-view-mode') as 'board' | 'list') || 'board';
-  });
-  useEffect(() => { localStorage.setItem('boards-view-mode', boardView); }, [boardView]);
   const noteRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const noteSaveTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const newCardRef = useRef<HTMLInputElement>(null);
@@ -1542,7 +1431,6 @@ function BoardPage() {
     if (boardId) {
       fetchBoard(boardId);
       fetchChecklistTemplates(boardId);
-      localStorage.setItem('boards-last-route', `/boards/${boardId}`);
     }
   }, [boardId, fetchBoard, fetchChecklistTemplates]);
 
@@ -1703,13 +1591,6 @@ function BoardPage() {
       if (sourceCards.length > 0) {
         await reorderCardsInColumn(boardId, oldColId, sourceCards.map(c => c.id));
       }
-      // If card has repeat rule and was dropped in the last column, create next occurrence
-      if (draggedCard.repeat_rule && draggedCard.repeat_rule !== 'none' && draggedCard.due_date && board.columns.length > 0) {
-        const lastCol = board.columns[board.columns.length - 1];
-        if (colId === lastCol.id) {
-          await createNextRepeatCard(draggedCard, board.columns[0].id);
-        }
-      }
     }
 
     setDragCardId(null);
@@ -1742,19 +1623,6 @@ function BoardPage() {
     setSelectedCard(card);
   }, []);
 
-  // Auto-open card from URL query param (e.g. from calendar click)
-  useEffect(() => {
-    const cardId = searchParams.get('card');
-    if (cardId && board && !selectedCard) {
-      const card = board.cards.find(c => c.id === cardId);
-      if (card) {
-        setSelectedCard(card);
-        // Clean up the URL param
-        router.replace(`/boards/${boardId}`, { scroll: false });
-      }
-    }
-  }, [board, searchParams, boardId, router, selectedCard]);
-
   // Keep selectedCard in sync with board
   const activeCard = useMemo(() => {
     if (!selectedCard || !board) return null;
@@ -1780,7 +1648,7 @@ function BoardPage() {
         <div className="kb-loading">
           <AlertCircle size={32} style={{ color: '#ef4444', marginBottom: 12 }} />
           <p style={{ color: '#9ca3af' }}>Board not found</p>
-          <button className="kb-btn kb-btn-ghost" onClick={() => { localStorage.removeItem('boards-last-route'); router.push('/boards'); }} style={{ marginTop: 16 }}>
+          <button className="kb-btn kb-btn-ghost" onClick={() => router.push('/boards')} style={{ marginTop: 16 }}>
             <ArrowLeft size={14} /> Back to Boards
           </button>
         </div>
@@ -1797,7 +1665,7 @@ function BoardPage() {
       {/* ── Top bar ── */}
       <div className="kb-topbar">
         <div className="kb-topbar-left">
-          <button className="kb-btn-icon" onClick={() => { localStorage.removeItem('boards-last-route'); router.push('/boards'); }} title="Back to boards">
+          <button className="kb-btn-icon" onClick={() => router.push('/boards')} title="Back to boards">
             <ArrowLeft size={18} />
           </button>
           <FolderKanban size={20} style={{ color: '#818cf8' }} />
@@ -1812,106 +1680,71 @@ function BoardPage() {
         </div>
 
         <div className="kb-topbar-right">
-          {/* Filter dropdown */}
-          <div style={{ position: 'relative' }}>
-            <button
-              className={`kb-filter-btn ${(filterPriority || filterLabel || filterDate) ? 'kb-filter-btn-active' : ''}`}
-              onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-              title="Filters"
-            >
-              <SlidersHorizontal size={15} />
-              {(filterPriority || filterLabel || filterDate) && (
-                <span className="kb-filter-badge">
-                  {[filterPriority, filterLabel, filterDate].filter(Boolean).length}
-                </span>
-              )}
-            </button>
-            {showFilterDropdown && (
-              <>
-                <div className="kb-click-away" onClick={() => setShowFilterDropdown(false)} />
-                <div className="kb-filter-dropdown">
-                  <div className="kb-filter-dropdown-title">Filters</div>
-                  <label className="kb-filter-row-label">Priority</label>
-                  <select
-                    className="kb-filter-select"
-                    value={filterPriority}
-                    onChange={e => setFilterPriority(e.target.value as CardPriority | '')}
-                  >
-                    <option value="">All Priorities</option>
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
-                  </select>
-                  {board.labels.length > 0 && (
-                    <>
-                      <label className="kb-filter-row-label">Label</label>
-                      <select
-                        className="kb-filter-select"
-                        value={filterLabel}
-                        onChange={e => setFilterLabel(e.target.value)}
-                      >
-                        <option value="">All Labels</option>
-                        {board.labels.map(l => (
-                          <option key={l.id} value={l.id}>{l.name}</option>
-                        ))}
-                      </select>
-                    </>
-                  )}
-                  <label className="kb-filter-row-label">Date</label>
-                  <select
-                    className="kb-filter-select"
-                    value={filterDate}
-                    onChange={e => setFilterDate(e.target.value)}
-                  >
-                    <option value="">All Dates</option>
-                    <option value="overdue">Overdue</option>
-                    <option value="today">Due Today</option>
-                    <option value="week">Due This Week</option>
-                    <option value="month">Due This Month</option>
-                    <option value="no-dates">No Dates</option>
-                  </select>
-                  {(filterPriority || filterLabel || filterDate) && (
-                    <button
-                      className="kb-filter-clear-btn"
-                      onClick={() => { setFilterPriority(''); setFilterLabel(''); setFilterDate(''); }}
-                    >
-                      Clear All
-                    </button>
-                  )}
-                </div>
-              </>
+          {/* Search */}
+          <div className="kb-search-box">
+            <Search size={14} style={{ color: '#6b7280' }} />
+            <input
+              className="kb-search-input"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search cards..."
+            />
+            {search && (
+              <button className="kb-btn-icon-sm" onClick={() => setSearch('')}><X size={12} /></button>
             )}
           </div>
 
-          {/* View toggle */}
-          <div className="kb-view-toggle">
-            <button
-              className={`kb-view-btn ${boardView === 'board' ? 'active' : ''}`}
-              onClick={() => setBoardView('board')}
-              title="Board view"
+          {/* Filters — inline on desktop, toggle on mobile */}
+          <div className="kb-filters-inline">
+            {/* Priority filter */}
+            <select
+              className="kb-filter-select"
+              value={filterPriority}
+              onChange={e => setFilterPriority(e.target.value as CardPriority | '')}
             >
-              <LayoutDashboard size={14} />
-              Board
-            </button>
-            <button
-              className={`kb-view-btn ${boardView === 'list' ? 'active' : ''}`}
-              onClick={() => setBoardView('list')}
-              title="List view"
+              <option value="">All Priorities</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+
+            {/* Label filter */}
+            {board.labels.length > 0 && (
+              <select
+                className="kb-filter-select"
+                value={filterLabel}
+                onChange={e => setFilterLabel(e.target.value)}
+              >
+                <option value="">All Labels</option>
+                {board.labels.map(l => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
+                ))}
+              </select>
+            )}
+
+            {/* Date filter */}
+            <select
+              className="kb-filter-select"
+              value={filterDate}
+              onChange={e => setFilterDate(e.target.value)}
             >
-              <ListBullet size={14} />
-              List
-            </button>
+              <option value="">All Dates</option>
+              <option value="overdue">Overdue</option>
+              <option value="today">Due Today</option>
+              <option value="week">Due This Week</option>
+              <option value="month">Due This Month</option>
+              <option value="no-dates">No Dates</option>
+            </select>
           </div>
 
-          {/* Calendar view */}
+          {/* Mobile filter toggle */}
           <button
-            className="kb-note-toggle"
-            onClick={() => router.push(`/boards/calendar?board=${boardId}`)}
-            title="Calendar view"
+            className={`kb-mobile-filter-btn ${(filterPriority || filterLabel || filterDate) ? 'has-active' : ''}`}
+            onClick={() => setShowMobileFilters(!showMobileFilters)}
+            title="Filters"
           >
-            <CalendarDays size={15} />
-            Calendar
+            <SlidersHorizontal size={15} />
           </button>
 
           {/* Note panel toggle */}
@@ -1933,7 +1766,7 @@ function BoardPage() {
               <>
                 <div className="kb-click-away" onClick={() => setShowBoardMenu(false)} />
                 <div className="kb-dropdown">
-                  <button className="kb-dropdown-item" onClick={() => { setShowBoardMenu(false); localStorage.removeItem('boards-last-route'); router.push('/boards'); }}>
+                  <button className="kb-dropdown-item" onClick={() => { setShowBoardMenu(false); router.push('/boards'); }}>
                     <ArrowLeft size={14} /> All Boards
                   </button>
                   <button className="kb-dropdown-item" onClick={() => { setShowBoardMenu(false); setShowLabelManager(true); }}>
@@ -1958,7 +1791,6 @@ function BoardPage() {
                     onClick={async () => {
                       if (confirm('Delete this board and all its cards? This cannot be undone.')) {
                         await deleteBoardFn(boardId);
-                        localStorage.removeItem('boards-last-route');
                         router.push('/boards');
                       }
                     }}
@@ -1972,19 +1804,63 @@ function BoardPage() {
         </div>
       </div>
 
-      {/* ── Search bar ── */}
-      <div className="kb-search-bar">
-        <Search size={14} className="kb-search-bar-icon" />
-        <input
-          className="kb-search-bar-input"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search cards..."
-        />
-        {search && (
-          <button className="kb-btn-icon-sm" onClick={() => setSearch('')} style={{ color: '#6b7280' }}><X size={14} /></button>
-        )}
-      </div>
+      {/* ── Mobile filter panel ── */}
+      {showMobileFilters && (
+        <div className="kb-mobile-filter-panel">
+          <div className="kb-mobile-filter-row">
+            <label className="kb-mobile-filter-label">Priority</label>
+            <select
+              className="kb-filter-select"
+              value={filterPriority}
+              onChange={e => setFilterPriority(e.target.value as CardPriority | '')}
+            >
+              <option value="">All Priorities</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </div>
+          {board.labels.length > 0 && (
+            <div className="kb-mobile-filter-row">
+              <label className="kb-mobile-filter-label">Label</label>
+              <select
+                className="kb-filter-select"
+                value={filterLabel}
+                onChange={e => setFilterLabel(e.target.value)}
+              >
+                <option value="">All Labels</option>
+                {board.labels.map(l => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="kb-mobile-filter-row">
+            <label className="kb-mobile-filter-label">Date</label>
+            <select
+              className="kb-filter-select"
+              value={filterDate}
+              onChange={e => setFilterDate(e.target.value)}
+            >
+              <option value="">All Dates</option>
+              <option value="overdue">Overdue</option>
+              <option value="today">Due Today</option>
+              <option value="week">Due This Week</option>
+              <option value="month">Due This Month</option>
+              <option value="no-dates">No Dates</option>
+            </select>
+          </div>
+          {(filterPriority || filterLabel || filterDate) && (
+            <button
+              className="kb-mobile-filter-clear"
+              onClick={() => { setFilterPriority(''); setFilterLabel(''); setFilterDate(''); }}
+            >
+              Clear All Filters
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── Label Manager Modal ── */}
       {showLabelManager && board && (
@@ -2018,100 +1894,8 @@ function BoardPage() {
         />
       )}
 
-      {/* ── List View ── */}
-      {boardView === 'list' && (
-        <div className="kb-list-view">
-          {columns.map(col => {
-            const colCards = getColumnCards(col.id);
-            return (
-              <div key={col.id} className="kb-list-group">
-                <div className="kb-list-group-header">
-                  <span className="kb-column-dot" style={{ background: col.color }} />
-                  <span className="kb-list-group-title">{col.title}</span>
-                  <span className="kb-list-group-count">{colCards.length}</span>
-                  <button className="kb-btn-icon-sm" onClick={() => setAddingCardCol(col.id)} title="Add card"><Plus size={14} /></button>
-                </div>
-                {colCards.length === 0 && (
-                  <div className="kb-list-empty">No cards</div>
-                )}
-                {colCards.map(card => {
-                  const pri = PRIORITY_CONFIG[card.priority] || PRIORITY_CONFIG.medium;
-                  const labels = card.labels || [];
-                  const comments = card.comments || [];
-                  const checklists = card.checklists || [];
-                  const completedCount = checklists.filter(c => c.is_completed).length;
-                  const now = new Date(); now.setHours(0,0,0,0);
-                  const dueDate = card.due_date ? new Date(card.due_date + 'T00:00:00') : null;
-                  const daysUntilDue = dueDate ? Math.ceil((dueDate.getTime() - now.getTime()) / 86400000) : null;
-                  const isOverdue = daysUntilDue !== null && daysUntilDue < 0;
-                  const isDueSoon = daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 2;
-
-                  return (
-                    <div key={card.id} className="kb-list-row" onClick={() => openCardDetail(card)}>
-                      <span className="kb-list-priority" style={{ background: pri.color }} title={pri.label} />
-                      <div className="kb-list-row-main">
-                        <span className="kb-list-row-title">{card.title}</span>
-                        {labels.length > 0 && (
-                          <div className="kb-list-row-labels">
-                            {labels.map(l => (
-                              <span key={l.id} className="kb-list-row-label" style={{ background: l.color }}>{l.name}</span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <div className="kb-list-row-meta">
-                        {card.assignee && (
-                          <span className="kb-list-row-assignee"><User size={11} /> {card.assignee}</span>
-                        )}
-                        {(card.start_date || card.due_date) && (
-                          <span className={`kb-list-row-date ${isOverdue ? 'overdue' : ''} ${isDueSoon ? 'due-soon' : ''}`}>
-                            <CalendarDays size={11} />
-                            {card.due_date
-                              ? (isOverdue ? 'Overdue' : isDueSoon ? (daysUntilDue === 0 ? 'Today' : daysUntilDue === 1 ? 'Tomorrow' : 'In 2 days')
-                                : new Date(card.due_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
-                              : card.start_date && new Date(card.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                            }
-                          </span>
-                        )}
-                        {comments.length > 0 && (
-                          <span className="kb-list-row-count"><MessageSquare size={11} /> {comments.length}</span>
-                        )}
-                        {checklists.length > 0 && (
-                          <span className={`kb-list-row-count ${completedCount === checklists.length ? 'done' : ''}`}>
-                            <CheckSquare size={11} /> {completedCount}/{checklists.length}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-                {addingCardCol === col.id && (
-                  <div className="kb-list-quick-add">
-                    <input
-                      ref={newCardRef}
-                      className="kb-input"
-                      value={newCardTitle}
-                      onChange={e => setNewCardTitle(e.target.value)}
-                      placeholder="Card title..."
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') handleQuickAddCard(col.id);
-                        if (e.key === 'Escape') { setAddingCardCol(null); setNewCardTitle(''); }
-                      }}
-                    />
-                    <div className="kb-quick-add-actions">
-                      <button className="kb-btn kb-btn-primary kb-btn-sm" onClick={() => handleQuickAddCard(col.id)}>Add</button>
-                      <button className="kb-btn-icon-sm" onClick={() => { setAddingCardCol(null); setNewCardTitle(''); }}><X size={14} /></button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
       {/* ── Kanban columns ── */}
-      {boardView === 'board' && <div className="kb-columns-scroll">
+      <div className="kb-columns-scroll">
         <div className="kb-columns">
           {columns.map(col => {
             const colCards = getColumnCards(col.id);
@@ -2279,7 +2063,7 @@ function BoardPage() {
             )}
           </div>
         </div>
-      </div>}
+      </div>
 
       {/* ── Note Panel (slide-in from right) ── */}
       <div className={`kb-note-panel ${showNotePanel ? 'open' : ''}`}>
@@ -2336,18 +2120,8 @@ function BoardPage() {
           onDeleteComment={async (commentId) => { await deleteComment(boardId, activeCard.id, commentId); }}
           onAddChecklistItem={async (title) => { await addChecklistItem(boardId, activeCard.id, title); }}
           onToggleChecklistItem={async (itemId, val) => { await toggleChecklistItem(boardId, activeCard.id, itemId, val); }}
-          onUpdateChecklistDueDate={async (itemId, dueDate) => { await updateChecklistItemDueDate(boardId, activeCard.id, itemId, dueDate); }}
           onDeleteChecklistItem={async (itemId) => { await deleteChecklistItem(boardId, activeCard.id, itemId); }}
-          onMoveCard={async (newColumnId) => {
-            await moveCard(boardId, activeCard.id, newColumnId, 0);
-            // If card has repeat rule and is moved to the last column, create next occurrence
-            if (activeCard.repeat_rule && activeCard.repeat_rule !== 'none' && activeCard.due_date && board.columns.length > 0) {
-              const lastCol = board.columns[board.columns.length - 1];
-              if (newColumnId === lastCol.id) {
-                await createNextRepeatCard(activeCard, board.columns[0].id);
-              }
-            }
-          }}
+          onMoveCard={async (newColumnId) => { await moveCard(boardId, activeCard.id, newColumnId, 0); }}
           checklistTemplates={checklistTemplates}
           onSaveTemplate={async (name, items) => { await saveChecklistTemplate(boardId, name, items); }}
           onDeleteTemplate={async (templateId) => { await deleteChecklistTemplate(templateId); }}
@@ -2407,12 +2181,10 @@ function BoardPage() {
   );
 }
 
+// AUTH: The original app wrapped this in <ProtectedRoute>.
+// Add your own auth guard if needed.
 export default function Page() {
-  return (
-    <ProtectedRoute>
-      <BoardPage />
-    </ProtectedRoute>
-  );
+  return <BoardPage />;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -2477,103 +2249,28 @@ const kanbanStyles = `
     letter-spacing: 0.04em;
   }
 
-  /* ── Search bar ── */
-  .kb-search-bar {
+  /* ── Search ── */
+  .kb-search-box {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    border-bottom: 1px solid #1e2130;
-    background: rgba(15, 17, 23, 0.6);
+    gap: 6px;
+    padding: 6px 12px;
+    background: #1a1d27 !important;
+    border: 1px solid #2a2d3a;
+    border-radius: 10px;
+    transition: border-color 0.15s ease;
   }
-  .kb-search-bar-icon { color: #4b5563; flex-shrink: 0; }
-  .kb-search-bar-input {
-    flex: 1;
+  .kb-search-box:focus-within { border-color: #6366f1; }
+  .kb-search-input {
     background: transparent !important;
     border: none !important;
     outline: none !important;
     color: #e5e7eb !important;
     font-size: 13px !important;
-    padding: 4px 0 !important;
+    width: 160px;
+    padding: 0 !important;
   }
-  .kb-search-bar-input::placeholder { color: #4b5563 !important; }
-
-  /* ── Filter button + dropdown ── */
-  .kb-filter-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    border: 1px solid #2a2d3a;
-    background: #1a1d27;
-    color: #6b7280;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    padding: 0;
-    flex-shrink: 0;
-  }
-  .kb-filter-btn:hover { border-color: #6366f1; color: #e5e7eb; }
-  .kb-filter-btn-active { border-color: #6366f1 !important; color: #a5b4fc !important; background: rgba(99, 102, 241, 0.1) !important; }
-  .kb-filter-badge {
-    position: absolute;
-    top: -4px;
-    right: -4px;
-    min-width: 16px;
-    height: 16px;
-    border-radius: 8px;
-    background: #6366f1;
-    color: #fff;
-    font-size: 10px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
-  }
-  .kb-filter-dropdown {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
-    z-index: 50;
-    background: #1a1d27;
-    border: 1px solid #2a2d3a;
-    border-radius: 12px;
-    padding: 12px 14px;
-    min-width: 200px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-  }
-  .kb-filter-dropdown-title {
-    font-size: 12px;
-    font-weight: 700;
-    color: #6b7280;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 2px;
-  }
-  .kb-filter-row-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: #9ca3af;
-    margin-top: 4px;
-  }
-  .kb-filter-clear-btn {
-    margin-top: 6px;
-    align-self: flex-end;
-    font-size: 11px;
-    font-weight: 600;
-    color: #6366f1;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    padding: 4px 0;
-  }
-  .kb-filter-clear-btn:hover { color: #818cf8; }
+  .kb-search-input::placeholder { color: #4b5563 !important; }
 
   /* ── Filter select ── */
   .kb-filter-select {
@@ -3239,31 +2936,6 @@ const kanbanStyles = `
   }
   .kb-checklist-text { font-size: 13px; color: #d1d5db; flex: 1; }
   .kb-checklist-text.completed { text-decoration: line-through; color: #6b7280; }
-  .kb-checklist-due-wrapper { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
-  .kb-checklist-due-input {
-    font-size: 11px;
-    padding: 2px 4px;
-    border: 1px solid transparent;
-    border-radius: 4px;
-    background: rgba(255,255,255,0.05);
-    color: #9ca3af;
-    cursor: pointer;
-    width: 110px;
-    transition: border-color 0.15s ease, color 0.15s ease;
-  }
-  .kb-checklist-due-input:hover { border-color: #4b5563; }
-  .kb-checklist-due-input:focus { border-color: #6366f1; color: #d1d5db; outline: none; }
-  .kb-checklist-due-input::-webkit-calendar-picker-indicator { filter: invert(0.7); cursor: pointer; }
-  .kb-checklist-due-input.overdue { color: #f87171; border-color: rgba(248,113,113,0.4); }
-  .kb-checklist-due-input.due-today { color: #fbbf24; border-color: rgba(251,191,36,0.4); }
-  .kb-checklist-overdue-badge {
-    font-size: 9px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #f87171;
-    white-space: nowrap;
-  }
   .kb-checklist-add { display: flex; gap: 8px; align-items: center; }
 
   /* ── Checklist Templates ── */
@@ -3847,159 +3519,6 @@ const kanbanStyles = `
     background: rgba(99, 102, 241, 0.2) !important;
     color: #818cf8 !important;
   }
-
-  /* ── View toggle ── */
-  .kb-view-toggle {
-    display: flex;
-    gap: 6px;
-  }
-  .kb-view-btn {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    padding: 6px 13px;
-    font-size: 13px;
-    font-weight: 500;
-    color: #6b7280;
-    background: #1a1d27;
-    border: 1px solid #2a2d3a;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
-  }
-  .kb-view-btn:hover { color: #e5e7eb; background: #252836; }
-  .kb-view-btn.active {
-    background: #6366f1 !important;
-    color: #fff !important;
-    border-color: #6366f1 !important;
-  }
-
-  /* ── List View ── */
-  .kb-list-view {
-    flex: 1;
-    overflow-y: auto;
-    padding: 0 16px 100px;
-  }
-  .kb-list-group {
-    margin-bottom: 8px;
-  }
-  .kb-list-group-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
-    position: sticky;
-    top: 0;
-    z-index: 5;
-    background: #0f1117;
-    border-bottom: 1px solid #22252f;
-  }
-  .kb-list-group-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: #e5e7eb;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-  }
-  .kb-list-group-count {
-    font-size: 11px;
-    font-weight: 600;
-    color: #6b7280;
-    background: #1a1d27;
-    padding: 1px 7px;
-    border-radius: 10px;
-  }
-  .kb-list-empty {
-    padding: 12px 16px;
-    font-size: 12px;
-    color: #4b5563;
-    font-style: italic;
-  }
-  .kb-list-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
-    cursor: pointer;
-    border-bottom: 1px solid #1a1d27;
-    transition: background 0.1s;
-  }
-  .kb-list-row:hover {
-    background: #1a1d27;
-  }
-  .kb-list-row:last-child {
-    border-bottom: none;
-  }
-  .kb-list-priority {
-    width: 4px;
-    height: 28px;
-    border-radius: 2px;
-    flex-shrink: 0;
-  }
-  .kb-list-row-main {
-    flex: 1;
-    min-width: 0;
-  }
-  .kb-list-row-title {
-    font-size: 14px;
-    font-weight: 500;
-    color: #e5e7eb;
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .kb-list-row-labels {
-    display: flex;
-    gap: 4px;
-    margin-top: 4px;
-    flex-wrap: wrap;
-  }
-  .kb-list-row-label {
-    font-size: 10px;
-    font-weight: 600;
-    color: #fff;
-    padding: 1px 7px;
-    border-radius: 4px;
-    white-space: nowrap;
-  }
-  .kb-list-row-meta {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-shrink: 0;
-  }
-  .kb-list-row-assignee {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 12px;
-    color: #6b7280;
-    white-space: nowrap;
-  }
-  .kb-list-row-date {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 12px;
-    color: #818cf8;
-    white-space: nowrap;
-  }
-  .kb-list-row-date.overdue { color: #ef4444; }
-  .kb-list-row-date.due-soon { color: #f59e0b; }
-  .kb-list-row-count {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    font-size: 11px;
-    color: #6b7280;
-  }
-  .kb-list-row-count.done { color: #22c55e; }
-  .kb-list-quick-add {
-    padding: 8px 12px 8px 28px;
-  }
-
   .kb-note-toggle {
     display: flex;
     align-items: center;
@@ -4029,10 +3548,86 @@ const kanbanStyles = `
     background: rgba(99, 102, 241, 0.25) !important;
   }
 
+  /* ── Inline filter group (desktop) ── */
+  .kb-filters-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ── Mobile filter button (hidden on desktop) ── */
+  .kb-mobile-filter-btn {
+    display: none !important;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px !important;
+    border: 1px solid #2a2d3a !important;
+    background: #1a1d27 !important;
+    color: #9ca3af !important;
+    cursor: pointer;
+    position: relative;
+    padding: 0 !important;
+    flex-shrink: 0;
+  }
+  .kb-mobile-filter-btn:hover { border-color: #6366f1 !important; color: #e5e7eb !important; }
+  .kb-mobile-filter-btn.has-active::after {
+    content: '';
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #6366f1;
+  }
+
+  /* ── Mobile filter panel (hidden on desktop) ── */
+  .kb-mobile-filter-panel {
+    display: none;
+    padding: 12px 16px;
+    background: rgba(15, 17, 23, 0.98);
+    border-bottom: 1px solid #1e2130;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .kb-mobile-filter-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .kb-mobile-filter-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #9ca3af;
+    min-width: 60px;
+    white-space: nowrap;
+  }
+  .kb-mobile-filter-row .kb-filter-select {
+    flex: 1;
+  }
+  .kb-mobile-filter-clear {
+    align-self: flex-end;
+    font-size: 11px !important;
+    color: #6366f1 !important;
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer;
+    padding: 4px 0 !important;
+    font-weight: 600;
+  }
+  .kb-mobile-filter-clear:hover { color: #818cf8 !important; }
+
   /* ── Responsive ── */
   @media (max-width: 768px) {
     .kb-topbar { flex-direction: column; align-items: flex-start; }
     .kb-topbar-right { width: 100%; flex-wrap: nowrap; }
+    .kb-filters-inline { display: none !important; }
+    .kb-mobile-filter-btn { display: flex !important; }
+    .kb-mobile-filter-panel { display: flex; }
+    .kb-search-box { flex: 1; min-width: 0; }
+    .kb-search-input { width: 100% !important; }
     .kb-column { width: 280px; min-width: 280px; }
     .kb-add-column { width: 280px; min-width: 280px; }
     .kb-detail-body { flex-direction: column; }
