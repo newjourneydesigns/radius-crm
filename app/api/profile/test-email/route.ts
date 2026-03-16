@@ -428,15 +428,14 @@ export async function POST(request: NextRequest) {
       (assignedRows || []).forEach(a => userCardIds.add(a.card_id));
 
       if (userCardIds.size > 0) {
-        const { data: checklists } = await supabase
+        const { data: checklists, error: clError } = await supabase
           .from('card_checklists')
-          .select('id, text, due_date, completed, card_id')
-          .eq('completed', false)
+          .select('id, title, due_date, is_completed, card_id')
+          .eq('is_completed', false)
           .not('due_date', 'is', null)
           .lte('due_date', today)
           .in('card_id', Array.from(userCardIds));
 
-        // Fetch card info for these checklists
         const clCardIds = Array.from(new Set((checklists || []).map(cl => cl.card_id)));
         let cardInfoMap = new Map<string, { title: string; column_id: string }>();
         if (clCardIds.length > 0) {
@@ -473,7 +472,7 @@ export async function POST(request: NextRequest) {
           const col = cardInfo ? colMap.get(cardInfo.column_id) : undefined;
           return {
             id: cl.id,
-            text: cl.text,
+            text: cl.title,
             due_date: cl.due_date,
             card_title: cardInfo?.title || 'Unknown Card',
             card_id: cl.card_id,

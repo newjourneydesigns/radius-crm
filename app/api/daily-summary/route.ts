@@ -451,8 +451,8 @@ async function buildDigestForUser(
       // Get checklists with their parent card info
       const { data: checklists } = await supabase
         .from('card_checklists')
-        .select('id, text, due_date, completed, card_id')
-        .eq('completed', false)
+        .select('id, title, due_date, is_completed, card_id')
+        .eq('is_completed', false)
         .not('due_date', 'is', null)
         .lte('due_date', today)
         .in('card_id', Array.from(userCardIds));
@@ -494,7 +494,7 @@ async function buildDigestForUser(
         const col = cardInfo ? colMap.get(cardInfo.column_id) : undefined;
         return {
           id: cl.id,
-          text: cl.text,
+          text: cl.title,
           due_date: cl.due_date,
           card_title: cardInfo?.title || 'Unknown Card',
           card_id: cl.card_id,

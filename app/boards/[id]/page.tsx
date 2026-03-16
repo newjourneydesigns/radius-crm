@@ -727,6 +727,10 @@ function KanbanCard({
   const comments = card.comments || [];
   const checklists = card.checklists || [];
   const completedCount = checklists.filter(c => c.is_completed).length;
+  const todayStr = new Date().toISOString().split('T')[0];
+  const incompleteWithDue = checklists.filter(c => !c.is_completed && c.due_date);
+  const checklistOverdue = incompleteWithDue.filter(c => c.due_date! < todayStr).length;
+  const checklistDueToday = incompleteWithDue.filter(c => c.due_date === todayStr).length;
 
   const now = new Date();
   now.setHours(0, 0, 0, 0);
@@ -802,8 +806,10 @@ function KanbanCard({
             <span className="kb-card-count"><MessageSquare size={10} /> {comments.length}</span>
           )}
           {checklists.length > 0 && (
-            <span className={`kb-card-count ${completedCount === checklists.length ? 'done' : ''}`}>
+            <span className={`kb-card-count ${completedCount === checklists.length ? 'done' : ''} ${checklistOverdue > 0 ? 'overdue' : checklistDueToday > 0 ? 'due-today' : ''}`}>
               <CheckSquare size={10} /> {completedCount}/{checklists.length}
+              {checklistOverdue > 0 && <span className="kb-card-cl-badge overdue" title={`${checklistOverdue} overdue`}>{checklistOverdue} overdue</span>}
+              {checklistOverdue === 0 && checklistDueToday > 0 && <span className="kb-card-cl-badge due-today" title={`${checklistDueToday} due today`}>{checklistDueToday} today</span>}
             </span>
           )}
         </span>
@@ -2113,6 +2119,10 @@ function BoardPage() {
                   const comments = card.comments || [];
                   const checklists = card.checklists || [];
                   const completedCount = checklists.filter(c => c.is_completed).length;
+                  const listTodayStr = new Date().toISOString().split('T')[0];
+                  const listIncompleteWithDue = checklists.filter(c => !c.is_completed && c.due_date);
+                  const listClOverdue = listIncompleteWithDue.filter(c => c.due_date! < listTodayStr).length;
+                  const listClDueToday = listIncompleteWithDue.filter(c => c.due_date === listTodayStr).length;
                   const now = new Date(); now.setHours(0,0,0,0);
                   const dueDate = card.due_date ? new Date(card.due_date + 'T00:00:00') : null;
                   const daysUntilDue = dueDate ? Math.ceil((dueDate.getTime() - now.getTime()) / 86400000) : null;
@@ -2166,8 +2176,10 @@ function BoardPage() {
                           <span className="kb-list-row-count"><MessageSquare size={11} /> {comments.length}</span>
                         )}
                         {checklists.length > 0 && (
-                          <span className={`kb-list-row-count ${completedCount === checklists.length ? 'done' : ''}`}>
+                          <span className={`kb-list-row-count ${completedCount === checklists.length ? 'done' : ''} ${listClOverdue > 0 ? 'overdue' : listClDueToday > 0 ? 'due-today' : ''}`}>
                             <CheckSquare size={11} /> {completedCount}/{checklists.length}
+                            {listClOverdue > 0 && <span className="kb-card-cl-badge overdue">{listClOverdue} overdue</span>}
+                            {listClOverdue === 0 && listClDueToday > 0 && <span className="kb-card-cl-badge due-today">{listClDueToday} today</span>}
                           </span>
                         )}
                       </div>
@@ -3093,6 +3105,23 @@ const kanbanStyles = `
     color: #6b7280;
   }
   .kb-card-count.done { color: #22c55e; }
+  .kb-card-count.overdue { color: #ef4444; }
+  .kb-card-count.due-today { color: #f59e0b; }
+  .kb-card-cl-badge {
+    font-size: 9px;
+    font-weight: 600;
+    padding: 1px 4px;
+    border-radius: 3px;
+    margin-left: 2px;
+  }
+  .kb-card-cl-badge.overdue {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+  }
+  .kb-card-cl-badge.due-today {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+  }
   .kb-card-assignee {
     display: flex;
     align-items: center;
@@ -4197,6 +4226,8 @@ const kanbanStyles = `
     color: #6b7280;
   }
   .kb-list-row-count.done { color: #22c55e; }
+  .kb-list-row-count.overdue { color: #ef4444; }
+  .kb-list-row-count.due-today { color: #f59e0b; }
   .kb-list-quick-add {
     padding: 8px 12px 8px 28px;
   }
