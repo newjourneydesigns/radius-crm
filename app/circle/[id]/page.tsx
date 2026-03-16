@@ -1804,7 +1804,7 @@ export default function CircleLeaderProfilePage() {
 
       // Redirect after a short delay
       setTimeout(() => {
-        window.location.href = '/dashboard';
+        window.location.href = '/boards';
       }, 2000);
 
     } catch (error) {
@@ -1884,8 +1884,8 @@ export default function CircleLeaderProfilePage() {
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Leader Not Found</h1>
             <p className="text-gray-600 dark:text-gray-400 mb-4">The requested Circle Leader could not be found.</p>
-            <a href="/dashboard" className="text-blue-600 dark:text-blue-400 hover:underline">
-              Return to Dashboard
+            <a href="/boards" className="text-blue-600 dark:text-blue-400 hover:underline">
+              Return to Boards
             </a>
           </div>
         </div>

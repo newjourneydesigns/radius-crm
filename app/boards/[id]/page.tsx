@@ -18,6 +18,7 @@ import {
 import { supabase } from '../../../lib/supabase';
 import type { CircleLeader } from '../../../lib/supabase';
 import { buildRepeatLabel, type TodoRepeatRule } from '../../../lib/todoRecurrence';
+import AssigneePicker from '../../../components/boards/AssigneePicker';
 
 /* ═══════════════════════════════════════════════════════════
    Priority helpers
@@ -144,6 +145,9 @@ function CardDetailModal({
   onDeleteTemplate,
   onApplyTemplate,
   onDuplicate,
+  onAssignCard,
+  onUnassignCard,
+  fetchSystemUsers,
 }: {
   card: BoardCard;
   board: FullBoard;
@@ -162,13 +166,15 @@ function CardDetailModal({
   onDeleteTemplate: (templateId: string) => Promise<void>;
   onApplyTemplate: (templateId: string) => Promise<void>;
   onDuplicate: () => Promise<void>;
+  onAssignCard: (userId: string) => Promise<void>;
+  onUnassignCard: (userId: string) => Promise<void>;
+  fetchSystemUsers: () => Promise<{ id: string; name: string; email: string }[]>;
 }) {
   const [editTitle, setEditTitle] = useState(card.title);
   const [editDesc, setEditDesc] = useState(card.description || '');
   const [editPriority, setEditPriority] = useState<CardPriority>(card.priority);
   const [editStartDate, setEditStartDate] = useState(card.start_date || '');
   const [editDueDate, setEditDueDate] = useState(card.due_date || '');
-  const [editAssignee, setEditAssignee] = useState(card.assignee || '');
   const [editLabels, setEditLabels] = useState<string[]>((card.labels || []).map(l => l.id));
   const [editRepeatRule, setEditRepeatRule] = useState<TodoRepeatRule>((card.repeat_rule as TodoRepeatRule) || 'none');
   const [editRepeatInterval, setEditRepeatInterval] = useState(card.repeat_interval || 1);
@@ -195,7 +201,6 @@ function CardDetailModal({
       priority: editPriority,
       start_date: editStartDate || null,
       due_date: editDueDate || null,
-      assignee: editAssignee || null,
       label_ids: editLabels,
       repeat_rule: editRepeatRule === 'none' ? null : editRepeatRule,
       repeat_interval: editRepeatRule === 'none' ? 1 : editRepeatInterval,
@@ -234,14 +239,23 @@ function CardDetailModal({
         <div className="kb-detail-body">
           {/* Left: Main content */}
           <div className="kb-detail-main">
-            {/* Title */}
-            <input
-              ref={titleRef}
-              className="kb-detail-title-input"
-              value={editTitle}
-              onChange={e => setEditTitle(e.target.value)}
-              placeholder="Card title..."
-            />
+            {/* Complete toggle + Title */}
+            <div className="kb-detail-title-row">
+              <button
+                className={`kb-complete-toggle ${card.is_complete ? 'checked' : ''}`}
+                onClick={async () => { await onUpdate({ is_complete: !card.is_complete }); }}
+                title={card.is_complete ? 'Mark incomplete' : 'Mark complete'}
+              >
+                {card.is_complete ? <Check size={14} /> : null}
+              </button>
+              <input
+                ref={titleRef}
+                className={`kb-detail-title-input ${card.is_complete ? 'completed' : ''}`}
+                value={editTitle}
+                onChange={e => setEditTitle(e.target.value)}
+                placeholder="Card title..."
+              />
+            </div>
 
             {/* Column badge */}
             {column && (
@@ -530,14 +544,14 @@ function CardDetailModal({
               </div>
             </div>
 
-            {/* Assignee */}
+            {/* Assignees */}
             <div className="kb-form-group">
-              <div className="kb-detail-section-label"><User size={13} /> Assignee</div>
-              <input
-                className="kb-input"
-                value={editAssignee}
-                onChange={e => setEditAssignee(e.target.value)}
-                placeholder="Assign to..."
+              <div className="kb-detail-section-label"><User size={13} /> Assignees</div>
+              <AssigneePicker
+                assignments={card.assignments || []}
+                onAssign={onAssignCard}
+                onUnassign={onUnassignCard}
+                fetchSystemUsers={fetchSystemUsers}
               />
             </div>
 
@@ -701,10 +715,12 @@ function KanbanCard({
   card,
   onClick,
   isDragging,
+  onToggleComplete,
 }: {
   card: BoardCard;
   onClick: () => void;
   isDragging?: boolean;
+  onToggleComplete: () => void;
 }) {
   const pri = PRIORITY_CONFIG[card.priority] || PRIORITY_CONFIG.medium;
   const labels = card.labels || [];
@@ -719,9 +735,14 @@ function KanbanCard({
   const isOverdue = daysUntilDue !== null && daysUntilDue < 0;
   const isDueSoon = daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 2;
 
+  const handleCompleteToggle = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onToggleComplete();
+  };
+
   return (
     <div
-      className={`kb-card ${isDragging ? 'dragging' : ''}`}
+      className={`kb-card ${isDragging ? 'dragging' : ''} ${card.is_complete ? 'kb-card-complete' : ''}`}
       onClick={onClick}
       draggable
     >
@@ -736,8 +757,17 @@ function KanbanCard({
         </div>
       )}
 
-      {/* Title */}
-      <p className="kb-card-title">{card.title}</p>
+      {/* Title with complete checkbox */}
+      <div className="kb-card-title-row">
+        <button
+          className={`kb-card-complete-btn ${card.is_complete ? 'checked' : ''}`}
+          onClick={handleCompleteToggle}
+          title={card.is_complete ? 'Mark incomplete' : 'Mark complete'}
+        >
+          {card.is_complete ? <Check size={10} /> : null}
+        </button>
+        <p className={`kb-card-title ${card.is_complete ? 'completed' : ''}`}>{card.title}</p>
+      </div>
 
       {/* Metadata row */}
       <div className="kb-card-meta">
@@ -779,11 +809,11 @@ function KanbanCard({
         </span>
       </div>
 
-      {/* Assignee */}
-      {card.assignee && (
+      {/* Assignees */}
+      {(card.assignments || []).length > 0 && (
         <div className="kb-card-assignee">
           <User size={10} />
-          {card.assignee}
+          {(card.assignments || []).map(a => a.users?.name || 'Unknown').join(', ')}
         </div>
       )}
     </div>
@@ -1500,6 +1530,7 @@ function BoardPage() {
     fetchChecklistTemplates, saveChecklistTemplate, deleteChecklistTemplate, applyChecklistTemplate,
     checklistTemplates,
     addLabel, updateLabel, deleteLabel,
+    assignCard, unassignCard, fetchSystemUsers,
     loading, setBoard,
     createNextRepeatCard,
   } = useProjectBoard();
@@ -1537,6 +1568,7 @@ function BoardPage() {
 
   const newCardRef = useRef<HTMLInputElement>(null);
   const newColRef = useRef<HTMLInputElement>(null);
+  const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
 
   useEffect(() => {
     if (boardId) {
@@ -1589,7 +1621,53 @@ function BoardPage() {
     setShowNotePanel(false);
   }, [saveNoteNow]);
 
+  // When opening card detail, find the latest version from board state
+  const openCardDetail = useCallback((card: BoardCard) => {
+    setSelectedCard(card);
+  }, []);
 
+  // ── Keyboard shortcuts (desktop only, acts on hovered card) ──
+  useEffect(() => {
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
+    if (isMobile) return;
+
+    const handler = (e: KeyboardEvent) => {
+      // Ignore when typing in inputs, textareas, or contentEditable
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement).isContentEditable) return;
+      // Ignore when a modal is open
+      if (selectedCard) return;
+
+      if (!hoveredCardId || !board) return;
+      const card = board.cards.find(c => c.id === hoveredCardId);
+      if (!card) return;
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        openCardDetail(card);
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        if (confirm(`Delete "${card.title}"?`)) {
+          deleteCard(boardId, card.id);
+        }
+      } else if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault();
+        updateCard(boardId, card.id, { is_complete: !card.is_complete });
+      } else if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        if (!user) return;
+        const alreadyAssigned = (card.assignments || []).some(a => a.user_id === user.id);
+        if (alreadyAssigned) {
+          unassignCard(card.id, user.id);
+        } else {
+          assignCard(card.id, user.id);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [hoveredCardId, board, boardId, selectedCard, user, openCardDetail, deleteCard, updateCard, assignCard, unassignCard]);
 
   useEffect(() => {
     if (addingCardCol && newCardRef.current) newCardRef.current.focus();
@@ -1736,11 +1814,6 @@ function BoardPage() {
     setNewColTitle('');
     setAddingColumn(false);
   };
-
-  // When opening card detail, find the latest version from board state
-  const openCardDetail = useCallback((card: BoardCard) => {
-    setSelectedCard(card);
-  }, []);
 
   // Auto-open card from URL query param (e.g. from calendar click)
   useEffect(() => {
@@ -2047,10 +2120,26 @@ function BoardPage() {
                   const isDueSoon = daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 2;
 
                   return (
-                    <div key={card.id} className="kb-list-row" onClick={() => openCardDetail(card)}>
+                    <div
+                      key={card.id}
+                      className={`kb-list-row ${card.is_complete ? 'kb-list-row-complete' : ''} ${hoveredCardId === card.id ? 'kb-card-hovered' : ''}`}
+                      onClick={() => openCardDetail(card)}
+                      onMouseEnter={() => setHoveredCardId(card.id)}
+                      onMouseLeave={() => setHoveredCardId(prev => prev === card.id ? null : prev)}
+                    >
+                      <button
+                        className={`kb-card-complete-btn ${card.is_complete ? 'checked' : ''}`}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          await updateCard(boardId, card.id, { is_complete: !card.is_complete });
+                        }}
+                        title={card.is_complete ? 'Mark incomplete' : 'Mark complete'}
+                      >
+                        {card.is_complete ? <Check size={10} /> : null}
+                      </button>
                       <span className="kb-list-priority" style={{ background: pri.color }} title={pri.label} />
                       <div className="kb-list-row-main">
-                        <span className="kb-list-row-title">{card.title}</span>
+                        <span className={`kb-list-row-title ${card.is_complete ? 'completed' : ''}`}>{card.title}</span>
                         {labels.length > 0 && (
                           <div className="kb-list-row-labels">
                             {labels.map(l => (
@@ -2199,15 +2288,18 @@ function BoardPage() {
                       onDragStart={() => handleDragStart(card.id)}
                       onDragEnd={handleDragEnd}
                       onDragOver={e => handleCardDragOver(e, card.id, col.id)}
+                      onMouseEnter={() => setHoveredCardId(card.id)}
+                      onMouseLeave={() => setHoveredCardId(prev => prev === card.id ? null : prev)}
                       className={`kb-card-wrapper ${
                         dragOverCardId === card.id && dragCardId !== card.id
                           ? `drop-${dragOverPos}` : ''
-                      }`}
+                      } ${hoveredCardId === card.id ? 'kb-card-hovered' : ''}`}
                     >
                       <KanbanCard
                         card={card}
                         onClick={() => openCardDetail(card)}
                         isDragging={dragCardId === card.id}
+                        onToggleComplete={() => updateCard(boardId, card.id, { is_complete: !card.is_complete })}
                       />
                     </div>
                   ))}
@@ -2352,6 +2444,9 @@ function BoardPage() {
           onSaveTemplate={async (name, items) => { await saveChecklistTemplate(boardId, name, items); }}
           onDeleteTemplate={async (templateId) => { await deleteChecklistTemplate(templateId); }}
           onApplyTemplate={async (templateId) => { await applyChecklistTemplate(boardId, activeCard.id, templateId); }}
+          onAssignCard={async (userId) => { await assignCard(activeCard.id, userId); }}
+          onUnassignCard={async (userId) => { await unassignCard(activeCard.id, userId); }}
+          fetchSystemUsers={fetchSystemUsers}
           onDuplicate={async () => {
             const newCard = await addCard(boardId, {
               column_id: activeCard.column_id,
@@ -2360,7 +2455,6 @@ function BoardPage() {
               priority: activeCard.priority,
               start_date: activeCard.start_date || undefined,
               due_date: activeCard.due_date || undefined,
-              assignee: activeCard.assignee || undefined,
               label_ids: (activeCard.labels || []).map(l => l.id),
             });
             if (newCard && activeCard.checklists?.length) {
@@ -2371,6 +2465,15 @@ function BoardPage() {
           }}
         />
       )}
+
+      {/* ── Keyboard Shortcuts Legend (desktop only) ── */}
+      <div className="kb-shortcut-bar">
+        <span className="kb-shortcut-hint">Hover a card &amp; press:</span>
+        <span className="kb-shortcut-key"><kbd>Enter</kbd> Open</span>
+        <span className="kb-shortcut-key"><kbd>M</kbd> Assign to me</span>
+        <span className="kb-shortcut-key"><kbd>C</kbd> Complete</span>
+        <span className="kb-shortcut-key"><kbd>Del</kbd> Delete</span>
+      </div>
 
       {/* ── List Actions Modal ── */}
       {listActionsColId && board && (() => {
@@ -2838,6 +2941,104 @@ const kanbanStyles = `
     margin: 0 0 8px 0 !important;
     line-height: 1.4 !important;
     word-break: break-word;
+  }
+  .kb-card-title.completed {
+    text-decoration: line-through;
+    color: #6b7280 !important;
+  }
+  .kb-card-title-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .kb-card-title-row .kb-card-title {
+    margin: 0 !important;
+    flex: 1;
+  }
+  .kb-card-complete-btn {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    border-radius: 50%;
+    border: 2px solid #4b5563;
+    background: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: transparent;
+    margin-top: 1px;
+    transition: all 0.15s;
+    padding: 0;
+    flex-shrink: 0;
+  }
+  .kb-card-complete-btn:hover {
+    border-color: #22c55e;
+    background: rgba(34,197,94,0.1);
+  }
+  .kb-card-complete-btn.checked {
+    border-color: #22c55e;
+    background: #22c55e;
+    color: #fff;
+  }
+  .kb-card-complete {
+    opacity: 0.6;
+  }
+
+  /* Detail modal complete toggle */
+  .kb-detail-title-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #2a2d3a;
+  }
+  .kb-detail-title-row .kb-detail-title-input {
+    flex: 1;
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+    border-bottom: none !important;
+  }
+  .kb-complete-toggle {
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    border-radius: 50%;
+    border: 2px solid #4b5563;
+    background: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: transparent;
+    transition: all 0.15s;
+    padding: 0;
+    margin-top: 3px;
+    flex-shrink: 0;
+  }
+  .kb-complete-toggle:hover {
+    border-color: #22c55e;
+    background: rgba(34,197,94,0.1);
+  }
+  .kb-complete-toggle.checked {
+    border-color: #22c55e;
+    background: #22c55e;
+    color: #fff;
+  }
+  .kb-detail-title-input.completed {
+    text-decoration: line-through;
+    color: #6b7280 !important;
+  }
+
+  /* List row complete state */
+  .kb-list-row-complete {
+    opacity: 0.6;
+  }
+  .kb-list-row-title.completed {
+    text-decoration: line-through;
+    color: #6b7280 !important;
   }
   .kb-card-meta {
     display: flex;
@@ -4029,6 +4230,56 @@ const kanbanStyles = `
     background: rgba(99, 102, 241, 0.25) !important;
   }
 
+  /* ── Hovered card highlight ── */
+  .kb-card-hovered .kb-card,
+  .kb-list-row.kb-card-hovered {
+    outline: 2px solid rgba(99, 102, 241, 0.6);
+    outline-offset: -1px;
+  }
+
+  /* ── Keyboard shortcuts legend bar ── */
+  .kb-shortcut-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 6px 16px;
+    background: rgba(15, 17, 23, 0.92);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid #1e2235;
+    z-index: 50;
+    pointer-events: none;
+  }
+  .kb-shortcut-hint {
+    font-size: 11px;
+    color: #64748b;
+    letter-spacing: 0.01em;
+  }
+  .kb-shortcut-key {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: #94a3b8;
+  }
+  .kb-shortcut-key kbd {
+    display: inline-block;
+    padding: 1px 6px;
+    background: #1e2235;
+    border: 1px solid #2a2d3a;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    color: #cbd5e1;
+    min-width: 22px;
+    text-align: center;
+  }
+
   /* ── Responsive ── */
   @media (max-width: 768px) {
     .kb-topbar { flex-direction: column; align-items: flex-start; }
@@ -4039,5 +4290,6 @@ const kanbanStyles = `
     .kb-detail-sidebar { width: 100%; border-top: 1px solid #2a2d3a; }
     .kb-detail-main { border-right: none; }
     .kb-note-panel { width: 100%; }
+    .kb-shortcut-bar { display: none; }
   }
 `;

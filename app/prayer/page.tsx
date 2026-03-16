@@ -946,7 +946,7 @@ function PrayerListContent() {
         {/* ── Footer ────────────────────────────────── */}
         <div className="text-center pt-6 pb-2">
           <p className="text-xs text-[#2d4a6f]">
-            <Link href="/dashboard" className="text-[#8da9c4] hover:text-white no-underline transition-colors">Dashboard</Link>
+            <Link href="/boards" className="text-[#8da9c4] hover:text-white no-underline transition-colors">Boards</Link>
             <span className="mx-2 text-[#1e3a5f]">•</span>
             <Link href="/leaders" className="text-[#8da9c4] hover:text-white no-underline transition-colors">All Leaders</Link>
             <span className="mx-2 text-[#1e3a5f]">•</span>

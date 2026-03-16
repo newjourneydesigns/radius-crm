@@ -136,9 +136,9 @@ export default function AddLeaderPage() {
         ccbProfileLink: ''
       });
 
-      // Redirect to dashboard after a short delay
+      // Redirect to boards after a short delay
       setTimeout(() => {
-        router.push('/dashboard');
+        router.push('/boards');
       }, 2000);
     } catch (err: any) {
       setError(err.message || 'Failed to add leader. Please try again.');

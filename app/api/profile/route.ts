@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
     try {
       const { data: userPrefs } = await supabaseAdmin
         .from('users')
-        .select('daily_email_subscribed, daily_email_time, daily_email_frequency_hours, include_follow_ups, include_overdue_tasks, include_planned_encouragements, include_upcoming_meetings, include_birthdays, weather_city, weather_state, weather_zip, include_weather')
+        .select('daily_email_subscribed, daily_email_time, daily_email_frequency_hours, include_follow_ups, include_overdue_tasks, include_planned_encouragements, include_upcoming_meetings, include_birthdays, include_board_cards_owned, include_board_cards_assigned, include_checklist_items, weather_city, weather_state, weather_zip, include_weather')
         .eq('id', user.id)
         .maybeSingle();
       if (userPrefs) {
@@ -103,6 +103,9 @@ export async function GET(request: NextRequest) {
           include_planned_encouragements: userPrefs.include_planned_encouragements ?? true,
           include_upcoming_meetings: userPrefs.include_upcoming_meetings ?? false,
           include_birthdays: userPrefs.include_birthdays ?? true,
+          include_board_cards_owned: userPrefs.include_board_cards_owned ?? true,
+          include_board_cards_assigned: userPrefs.include_board_cards_assigned ?? true,
+          include_checklist_items: userPrefs.include_checklist_items ?? true,
           preferred_time: userPrefs.daily_email_time || '08:00',
           timezone: 'America/Chicago',
           frequency_hours: userPrefs.daily_email_frequency_hours ?? 24,
@@ -125,6 +128,9 @@ export async function GET(request: NextRequest) {
       include_planned_encouragements: true,
       include_upcoming_meetings: false,
       include_birthdays: true,
+      include_board_cards_owned: true,
+      include_board_cards_assigned: true,
+      include_checklist_items: true,
       preferred_time: '08:00',
       timezone: 'America/Chicago',
       frequency_hours: 24,
@@ -252,6 +258,15 @@ export async function PUT(request: NextRequest) {
         }
         if (typeof preferences.include_birthdays === 'boolean') {
           updatePayload.include_birthdays = preferences.include_birthdays;
+        }
+        if (typeof preferences.include_board_cards_owned === 'boolean') {
+          updatePayload.include_board_cards_owned = preferences.include_board_cards_owned;
+        }
+        if (typeof preferences.include_board_cards_assigned === 'boolean') {
+          updatePayload.include_board_cards_assigned = preferences.include_board_cards_assigned;
+        }
+        if (typeof preferences.include_checklist_items === 'boolean') {
+          updatePayload.include_checklist_items = preferences.include_checklist_items;
         }
         if (typeof preferences.weather_city === 'string') {
           updatePayload.weather_city = preferences.weather_city || null;

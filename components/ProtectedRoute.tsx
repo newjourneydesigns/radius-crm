@@ -52,14 +52,14 @@ export default function ProtectedRoute({ children, requireAuth = true }: Protect
 
     // If authentication is required but user is not authenticated
     if (requireAuth && !isAuthenticated()) {
-      const redirectTo = pathname || '/dashboard';
+      const redirectTo = pathname || '/boards';
       router.replace(`/login?redirectTo=${encodeURIComponent(redirectTo)}`);
       return;
     }
 
-    // If user is authenticated but trying to access login page, redirect to dashboard
+    // If user is authenticated but trying to access login page, redirect to boards
     if (!requireAuth && isAuthenticated()) {
-      router.replace('/dashboard');
+      router.replace('/boards');
       return;
     }
   }, [user, loading, requireAuth, isAuthenticated, router, timeoutReached, pathname]);

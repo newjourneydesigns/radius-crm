@@ -360,6 +360,7 @@ export interface BoardCard {
   assignee?: string;
   created_by?: string;
   is_archived: boolean;
+  is_complete: boolean;
   repeat_rule?: string | null;
   repeat_interval?: number | null;
   repeat_days?: number[] | null;
@@ -371,6 +372,7 @@ export interface BoardCard {
   labels?: BoardLabel[];
   comments?: CardComment[];
   checklists?: CardChecklist[];
+  assignments?: CardAssignment[];
 }
 
 export interface CardLabelAssignment {
@@ -405,6 +407,16 @@ export interface ChecklistTemplate {
   name: string;
   items: string[];
   created_at: string;
+}
+
+export interface CardAssignment {
+  id: string;
+  card_id: string;
+  user_id: string;
+  assigned_at: string;
+  assigned_by?: string;
+  // Joined data
+  users?: { name: string; email: string };
 }
 
 // ---- AI Assistant Types ----

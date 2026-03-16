@@ -506,10 +506,10 @@ export default function ImportPage() {
               </div>
               <div className="flex space-x-3">
                 <Link
-                  href="/dashboard"
+                  href="/boards"
                   className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium rounded-md transition-colors"
                 >
-                  ← Back to Dashboard
+                  ← Back to Boards
                 </Link>
               </div>
             </div>
@@ -1042,10 +1042,10 @@ export default function ImportPage() {
                     Import Another File
                   </button>
                   <Link
-                    href="/dashboard"
+                    href="/boards"
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
                   >
-                    Go to Dashboard
+                    Go to Boards
                   </Link>
                 </div>
               </div>

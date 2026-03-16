@@ -121,7 +121,7 @@ export default function AdminPage() {
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '32px 16px', fontFamily: 'system-ui, sans-serif', color: '#e2e8f0' }}>
       <div style={{ marginBottom: '24px' }}>
-        <a href="/dashboard" style={{ fontSize: '13px', color: '#94a3b8', textDecoration: 'none' }}>← Back to Dashboard</a>
+        <a href="/boards" style={{ fontSize: '13px', color: '#94a3b8', textDecoration: 'none' }}>← Back to Boards</a>
       </div>
 
       <h1 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '4px', color: '#f1f5f9' }}>Bulk Fetch Rosters</h1>

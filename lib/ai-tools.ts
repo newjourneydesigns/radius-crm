@@ -590,7 +590,7 @@ export const AI_TOOLS: ToolDefinition[] = [
         page: {
           type: 'string',
           description: 'The page to navigate to',
-          enum: ['dashboard', 'prayer', 'progress', 'calendar', 'search', 'settings', 'profile', 'help', 'assistant', 'birthday-list', 'bulk-message', 'ccb-explorer', 'add-leader', 'users', 'event-summaries', 'leader-profile', 'leader-roster'],
+          enum: ['boards', 'prayer', 'progress', 'calendar', 'search', 'settings', 'profile', 'help', 'assistant', 'birthday-list', 'bulk-message', 'ccb-explorer', 'add-leader', 'users', 'event-summaries', 'leader-profile', 'leader-roster'],
         },
         leader_name: {
           type: 'string',
@@ -1418,7 +1418,7 @@ export async function executeTool(
     // ---- NAVIGATE TO PAGE ----
     case 'navigate_to_page': {
       const PAGE_ROUTES: Record<string, string> = {
-        'dashboard': '/dashboard',
+        'boards': '/boards',
         'prayer': '/prayer',
         'progress': '/progress',
         'calendar': '/calendar',

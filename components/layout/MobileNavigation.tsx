@@ -17,6 +17,22 @@ const HomeIcon = ({ active }: { active?: boolean }) => (
   </svg>
 );
 
+const BoardTabIcon = ({ active }: { active?: boolean }) => active ? (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+    <rect x="3" y="3" width="7" height="9" rx="1.5" />
+    <rect x="14" y="3" width="7" height="5" rx="1.5" />
+    <rect x="14" y="12" width="7" height="9" rx="1.5" />
+    <rect x="3" y="16" width="7" height="5" rx="1.5" />
+  </svg>
+) : (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="7" height="9" rx="1.5" />
+    <rect x="14" y="3" width="7" height="5" rx="1.5" />
+    <rect x="14" y="12" width="7" height="9" rx="1.5" />
+    <rect x="3" y="16" width="7" height="5" rx="1.5" />
+  </svg>
+);
+
 const ChartIcon = ({ active }: { active?: boolean }) => active ? (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
     <path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.036-.84-1.875-1.875-1.875h-.75zM9.75 8.625c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 01-1.875-1.875V8.625zM3 13.125c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 013 19.875v-6.75z" />
@@ -253,7 +269,7 @@ export default function MobileNavigation() {
 
   /* Tab items — split into left/right groups around the raised center button */
   const leftTabs: TabItem[] = [
-    { id: 'home', name: 'Home', href: '/dashboard', Icon: HomeIcon },
+    { id: 'boards', name: 'Boards', href: '/boards', Icon: BoardTabIcon },
     { id: 'prayer', name: 'Prayer', href: '/prayer', Icon: PrayerIcon },
   ];
   const rightTabs: TabItem[] = [

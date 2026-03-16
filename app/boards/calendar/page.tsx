@@ -93,6 +93,7 @@ interface CalendarCard {
   type: 'card' | 'checklist';
   parentCardTitle?: string;
   cardId: string;
+  isComplete?: boolean;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -299,6 +300,7 @@ function CalendarPage() {
               assignee: card.assignee || null,
               type: 'card',
               cardId: card.id,
+              isComplete: card.is_complete,
             });
           }
         }
@@ -323,6 +325,7 @@ function CalendarPage() {
             type: 'checklist',
             parentCardTitle: card.title,
             cardId: card.id,
+            isComplete: card.is_complete,
           });
         });
       });
@@ -651,7 +654,7 @@ function CalendarPage() {
                 return (
                   <div
                     key={card.id}
-                    className="kbm-event-card"
+                    className={`kbm-event-card ${card.isComplete ? 'kbm-event-complete' : ''}`}
                     onClick={() => router.push(`/boards/${card.boardId}?card=${card.cardId}`)}
                     style={{ '--event-color': card.boardColor } as React.CSSProperties}
                   >
@@ -920,7 +923,7 @@ function CalendarPage() {
                   return (
                     <div
                       key={card.id}
-                      className="kbc-day-card"
+                      className={`kbc-day-card ${card.isComplete ? 'kbc-day-card-complete' : ''}`}
                       style={{ '--event-color': card.boardColor } as React.CSSProperties}
                       onClick={() => router.push(`/boards/${card.boardId}?card=${card.cardId}`)}
                     >
@@ -1075,7 +1078,7 @@ function CalendarPage() {
                     return (
                       <div
                         key={card.id}
-                        className="kbc-day-card"
+                        className={`kbc-day-card ${card.isComplete ? 'kbc-day-card-complete' : ''}`}
                         style={{ '--event-color': card.boardColor } as React.CSSProperties}
                         onClick={() => router.push(`/boards/${card.boardId}?card=${card.cardId}`)}
                       >
@@ -1931,6 +1934,13 @@ const calendarStyles = `
     align-items: center;
     gap: 6px;
   }
+  .kbc-day-card-complete {
+    opacity: 0.5;
+  }
+  .kbc-day-card-complete .kbc-day-card-title {
+    text-decoration: line-through;
+    color: #6b7280;
+  }
   .kbc-day-card-priority {
     display: inline-flex;
     align-items: center;
@@ -2651,6 +2661,13 @@ const mobileCalendarStyles = `
     display: flex;
     align-items: center;
     gap: 6px;
+  }
+  .kbm-event-complete {
+    opacity: 0.5;
+  }
+  .kbm-event-complete .kbm-event-title {
+    text-decoration: line-through;
+    color: #6b7280;
   }
   .kbm-event-priority {
     display: inline-flex;

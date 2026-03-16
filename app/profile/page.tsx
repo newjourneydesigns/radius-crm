@@ -22,6 +22,9 @@ interface EmailPreferences {
   include_planned_encouragements: boolean;
   include_upcoming_meetings: boolean;
   include_birthdays: boolean;
+  include_board_cards_owned: boolean;
+  include_board_cards_assigned: boolean;
+  include_checklist_items: boolean;
   preferred_time: string;
   timezone: string;
   frequency_hours: number;
@@ -42,6 +45,9 @@ export default function ProfilePage() {
     include_planned_encouragements: true,
     include_upcoming_meetings: false,
     include_birthdays: true,
+    include_board_cards_owned: true,
+    include_board_cards_assigned: true,
+    include_checklist_items: true,
     preferred_time: '08:00',
     timezone: 'America/Chicago',
     frequency_hours: 24,
@@ -321,13 +327,13 @@ export default function ProfilePage() {
           {/* Header */}
           <div className="mb-6">
             <Link 
-              href="/dashboard"
+              href="/boards"
               className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 mb-4 transition-colors"
             >
               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              Back to Dashboard
+              Back to Boards
             </Link>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h1>
           </div>
@@ -705,8 +711,10 @@ export default function ProfilePage() {
                 </div>
                 <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
                   {[
+                    { id: 'include_board_cards_owned', label: 'Cards on My Boards', desc: 'Cards due/overdue on boards you own', icon: '📋' },
+                    { id: 'include_board_cards_assigned', label: 'Cards Assigned to Me', desc: 'Cards due/overdue that are assigned to you', icon: '🎯' },
+                    { id: 'include_checklist_items', label: 'Checklist Items Due', desc: 'Checklist items with due dates on your cards', icon: '☑️' },
                     { id: 'include_follow_ups', label: 'Follow-up Leaders', desc: 'Leaders marked for follow-up with upcoming or overdue dates', icon: '👤' },
-                    { id: 'include_overdue_tasks', label: 'Overdue Tasks', desc: 'Todo items that are past their due date', icon: '⚠️' },
                     { id: 'include_planned_encouragements', label: 'Planned Encouragements', desc: 'Encouragement messages scheduled for today', icon: '💬' },
                     { id: 'include_upcoming_meetings', label: "Today's Circles", desc: 'Circles meeting today and tomorrow', icon: '📅' },
                     { id: 'include_birthdays', label: 'Birthdays', desc: 'Circle leaders with a birthday today', icon: '🎂' },

@@ -114,11 +114,10 @@ const CircleDashIcon = () => (
 );
 
 const primaryNavItems = [
-  { name: 'Home',      href: '/dashboard', icon: HomeIcon },
+  { name: 'Boards',    href: '/boards',    icon: BoardIcon },
   { name: 'Dashboard', href: '/circle-dashboard', icon: CircleDashIcon },
   { name: 'Prayer',    href: '/prayer',    icon: PrayerIcon },
   { name: 'Progress',  href: '/progress',  icon: ChartIcon },
-  { name: 'Boards',    href: '/boards',    icon: BoardIcon },
   { name: 'Events',    href: '/calendar',  icon: CalendarIcon },
 ];
 
@@ -185,7 +184,7 @@ export default function AuthenticatedNavigation() {
         <div className="flex items-center justify-between h-14">
 
           {/* ── Left: Brand ── */}
-          <Link href="/dashboard" className="flex items-center space-x-2 shrink-0 group">
+          <Link href="/boards" className="flex items-center space-x-2 shrink-0 group">
             <Image src="/icon-32x32.png" alt="RADIUS" width={28} height={28} className="rounded-lg group-hover:scale-105 transition-transform" />
             <span className="text-base font-bold text-white tracking-tight">RADIUS</span>
           </Link>

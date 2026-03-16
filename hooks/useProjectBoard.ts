@@ -12,6 +12,7 @@ import type {
   CardChecklist,
   CardPriority,
   ChecklistTemplate,
+  CardAssignment,
 } from '../lib/supabase';
 
 // ── Full board shape ──
@@ -119,28 +120,39 @@ export function useProjectBoard() {
       // Fetch child data scoped to this board's cards
       let allComments: any[] = [];
       let allChecklists: any[] = [];
-      let allAssignments: any[] = [];
+      let allLabelAssignments: any[] = [];
+      let allCardAssignments: any[] = [];
 
       if (cardIds.length > 0) {
-        const [commentsRes, checklistsRes, assignmentsRes] = await Promise.all([
+        const [commentsRes, checklistsRes, labelAssignmentsRes, cardAssignmentsRes] = await Promise.all([
           supabase.from('card_comments').select('*').in('card_id', cardIds).order('created_at', { ascending: true }),
           supabase.from('card_checklists').select('*').in('card_id', cardIds).order('position'),
           supabase.from('card_label_assignments').select('*').in('card_id', cardIds),
+          supabase.from('card_assignments').select('*').in('card_id', cardIds),
         ]);
         allComments = commentsRes.data || [];
         allChecklists = checklistsRes.data || [];
-        allAssignments = assignmentsRes.data || [];
+        allLabelAssignments = labelAssignmentsRes.data || [];
+        // Enrich assignments with user data from public.users
+        const rawAssignments = cardAssignmentsRes.data || [];
+        if (rawAssignments.length > 0) {
+          const userIds = [...new Set(rawAssignments.map((a: any) => a.user_id))];
+          const { data: usersData } = await supabase.from('users').select('id, name, email').in('id', userIds);
+          const usersMap = new Map((usersData || []).map((u: any) => [u.id, { name: u.name, email: u.email }]));
+          allCardAssignments = rawAssignments.map((a: any) => ({ ...a, users: usersMap.get(a.user_id) || null }));
+        }
       }
 
-      // Stitch comments, checklists, labels onto cards
+      // Stitch comments, checklists, labels, assignments onto cards
       const cards = (cardsRes.data || []).map(card => ({
         ...card,
         comments: allComments.filter(cm => cm.card_id === card.id),
         checklists: allChecklists.filter(cl => cl.card_id === card.id),
-        labels: allAssignments
+        labels: allLabelAssignments
           .filter(a => a.card_id === card.id)
           .map(a => labels.find(l => l.id === a.label_id))
           .filter(Boolean),
+        assignments: allCardAssignments.filter(a => a.card_id === card.id),
       }));
 
       const fullBoard: FullBoard = { ...boardRes.data, columns, cards, labels };
@@ -162,7 +174,7 @@ export function useProjectBoard() {
       if (!user) throw new Error('Not authenticated');
 
       // Fetch all tables in parallel — one query per table
-      const [boardsRes, colsRes, cardsRes, labelsRes, commentsRes, checklistsRes, assignmentsRes] = await Promise.all([
+      const [boardsRes, colsRes, cardsRes, labelsRes, commentsRes, checklistsRes, labelAssignmentsRes, cardAssignmentsRes] = await Promise.all([
         supabase.from('project_boards').select('*').eq('is_archived', false).order('created_at', { ascending: false }),
         supabase.from('board_columns').select('*').order('position'),
         supabase.from('board_cards').select('*').eq('is_archived', false).order('position'),
@@ -170,6 +182,7 @@ export function useProjectBoard() {
         supabase.from('card_comments').select('*').order('created_at', { ascending: true }),
         supabase.from('card_checklists').select('*').order('position'),
         supabase.from('card_label_assignments').select('*'),
+        supabase.from('card_assignments').select('*'),
       ]);
 
       const allBoards = boardsRes.data || [];
@@ -178,7 +191,16 @@ export function useProjectBoard() {
       const allLabels = labelsRes.data || [];
       const allComments = commentsRes.data || [];
       const allChecklists = checklistsRes.data || [];
-      const allAssignments = assignmentsRes.data || [];
+      const allLabelAssignments = labelAssignmentsRes.data || [];
+      // Enrich assignments with user data from public.users
+      const rawCardAssignments = cardAssignmentsRes.data || [];
+      let allCardAssignments: any[] = rawCardAssignments;
+      if (rawCardAssignments.length > 0) {
+        const userIds = [...new Set(rawCardAssignments.map((a: any) => a.user_id))];
+        const { data: usersData } = await supabase.from('users').select('id, name, email').in('id', userIds);
+        const usersMap = new Map((usersData || []).map((u: any) => [u.id, { name: u.name, email: u.email }]));
+        allCardAssignments = rawCardAssignments.map((a: any) => ({ ...a, users: usersMap.get(a.user_id) || null }));
+      }
 
       // Group child data by board/card for fast lookup
       const colsByBoard = new Map<string, typeof allColumns>();
@@ -209,11 +231,18 @@ export function useProjectBoard() {
         checklistsByCard.set(cl.card_id, arr);
       }
 
-      const assignmentsByCard = new Map<string, typeof allAssignments>();
-      for (const a of allAssignments) {
+      const assignmentsByCard = new Map<string, typeof allLabelAssignments>();
+      for (const a of allLabelAssignments) {
         const arr = assignmentsByCard.get(a.card_id) || [];
         arr.push(a);
         assignmentsByCard.set(a.card_id, arr);
+      }
+
+      const cardAssignmentsByCard = new Map<string, typeof allCardAssignments>();
+      for (const a of allCardAssignments) {
+        const arr = cardAssignmentsByCard.get(a.card_id) || [];
+        arr.push(a);
+        cardAssignmentsByCard.set(a.card_id, arr);
       }
 
       // Assemble full boards
@@ -228,6 +257,7 @@ export function useProjectBoard() {
             labels: (assignmentsByCard.get(card.id) || [])
               .map(a => boardLabels.find(l => l.id === a.label_id))
               .filter(Boolean),
+            assignments: cardAssignmentsByCard.get(card.id) || [],
           }));
 
         return {
@@ -936,6 +966,80 @@ export function useProjectBoard() {
     }
   }, []);
 
+  // ─── Card Assignments (user ↔ card) ───────────────────────
+  const assignCard = useCallback(async (cardId: string, userId: string) => {
+    setError(null);
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const { data: rawData, error: err } = await supabase
+        .from('card_assignments')
+        .insert([{ card_id: cardId, user_id: userId, assigned_by: currentUser?.id }])
+        .select('*')
+        .single();
+      if (err) throw err;
+      // Enrich with user data
+      const { data: userData } = await supabase.from('users').select('name, email').eq('id', userId).single();
+      const data = { ...rawData, users: userData || null };
+
+      setBoard(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          cards: prev.cards.map(c =>
+            c.id === cardId
+              ? { ...c, assignments: [...(c.assignments || []), data] }
+              : c
+          ),
+        };
+      });
+      return data as CardAssignment;
+    } catch (err: any) {
+      setError(err.message);
+      return null;
+    }
+  }, []);
+
+  const unassignCard = useCallback(async (cardId: string, userId: string) => {
+    setError(null);
+    try {
+      const { error: err } = await supabase
+        .from('card_assignments')
+        .delete()
+        .eq('card_id', cardId)
+        .eq('user_id', userId);
+      if (err) throw err;
+
+      setBoard(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          cards: prev.cards.map(c =>
+            c.id === cardId
+              ? { ...c, assignments: (c.assignments || []).filter(a => a.user_id !== userId) }
+              : c
+          ),
+        };
+      });
+      return true;
+    } catch (err: any) {
+      setError(err.message);
+      return false;
+    }
+  }, []);
+
+  const fetchSystemUsers = useCallback(async () => {
+    try {
+      const { data, error: err } = await supabase
+        .from('users')
+        .select('id, name, email')
+        .order('name');
+      if (err) throw err;
+      return (data || []) as { id: string; name: string; email: string }[];
+    } catch {
+      return [];
+    }
+  }, []);
+
   return {
     boards, board, loading, error, checklistTemplates,
     fetchBoards, createBoard, fetchBoard, fetchAllBoardsFull, updateBoard, deleteBoard,
@@ -945,6 +1049,7 @@ export function useProjectBoard() {
     addChecklistItem, toggleChecklistItem, updateChecklistItemDueDate, deleteChecklistItem,
     fetchChecklistTemplates, saveChecklistTemplate, deleteChecklistTemplate, applyChecklistTemplate,
     addLabel, updateLabel, deleteLabel,
+    assignCard, unassignCard, fetchSystemUsers,
     setBoard,
   };
 }

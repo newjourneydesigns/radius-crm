@@ -3,7 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import {
   sendPersonalDigestEmail,
   PersonalDigestData,
-  TodoItem,
+  CardDigestItem,
+  ChecklistDigestItem,
   VisitItem,
   EncouragementItem,
   FollowUpItem,
@@ -131,54 +132,7 @@ export async function POST(request: NextRequest) {
     const weekEnd = getDateOffset(today, 7);
     const tomorrow = getDateOffset(today, 1);
 
-    // ── 1. Todos (manual/untyped only — typed todos appear in their own sections) ──
-    const { data: allTodos } = await supabase
-      .from('todo_items')
-      .select('id, text, due_date, notes, todo_type, linked_leader_id, linked_visit_id')
-      .eq('user_id', user.id)
-      .eq('completed', false)
-      .not('due_date', 'is', null)
-      .lte('due_date', today)
-      .or('todo_type.eq.manual,todo_type.is.null')
-      .order('due_date', { ascending: true });
-
-    const { data: noDateTodosData } = await supabase
-      .from('todo_items')
-      .select('id, text, due_date, notes, todo_type, linked_leader_id, linked_visit_id')
-      .eq('user_id', user.id)
-      .eq('completed', false)
-      .is('due_date', null)
-      .or('todo_type.eq.manual,todo_type.is.null')
-      .order('id', { ascending: true });
-
-    const allTodosForLeaders = [...(allTodos || []), ...(noDateTodosData || [])];    
-    const leaderIdsForTodos = Array.from(new Set(
-      allTodosForLeaders.filter(t => t.linked_leader_id).map(t => t.linked_leader_id)
-    ));
-    let leaderNamesMap: Record<number, string> = {};
-    if (leaderIdsForTodos.length > 0) {
-      const { data: leaderRows } = await supabase
-        .from('circle_leaders')
-        .select('id, name')
-        .in('id', leaderIdsForTodos);
-      (leaderRows || []).forEach(l => { leaderNamesMap[l.id] = l.name; });
-    }
-
-    const mapTodo = (t: any): TodoItem => ({
-      id: t.id,
-      text: t.text,
-      due_date: t.due_date,
-      notes: t.notes,
-      todo_type: t.todo_type,
-      linked_leader_id: t.linked_leader_id,
-      linked_leader_name: t.linked_leader_id ? leaderNamesMap[t.linked_leader_id] ?? null : null,
-      linked_visit_id: t.linked_visit_id,
-    });
-
-    const todosRaw: TodoItem[] = (allTodos || []).map(mapTodo);
-    const todosNoDate: TodoItem[] = (noDateTodosData || []).map(mapTodo);
-
-    // ── 2. Circle visits ──────────────────────────────────────────────────
+    // ── 1. Circle visits ──────────────────────────────────────────────────
     const { data: visitsRaw } = await supabase
       .from('circle_visits')
       .select('id, visit_date, leader_id, previsit_note, circle_leaders!inner(name, campus)')
@@ -325,7 +279,7 @@ export async function POST(request: NextRequest) {
     // ── Fetch section preferences ──────────────────────────────────────
     const { data: userPrefs } = await supabase
       .from('users')
-      .select('include_follow_ups, include_overdue_tasks, include_planned_encouragements, include_upcoming_meetings, include_birthdays')
+      .select('include_follow_ups, include_overdue_tasks, include_planned_encouragements, include_upcoming_meetings, include_birthdays, include_board_cards_owned, include_board_cards_assigned, include_checklist_items')
       .eq('id', user.id)
       .single();
 
@@ -335,17 +289,209 @@ export async function POST(request: NextRequest) {
       include_planned_encouragements: userPrefs?.include_planned_encouragements ?? true,
       include_upcoming_meetings: userPrefs?.include_upcoming_meetings ?? false,
       include_birthdays: userPrefs?.include_birthdays ?? true,
+      include_board_cards_owned: userPrefs?.include_board_cards_owned ?? true,
+      include_board_cards_assigned: userPrefs?.include_board_cards_assigned ?? true,
+      include_checklist_items: userPrefs?.include_checklist_items ?? true,
     };
+
+    // ── 9. Board cards due today or overdue ─────────────────────────────
+    // Use a two-step approach: first get board/column IDs, then query cards by column
+    let allCards: CardDigestItem[] = [];
+    let colMap = new Map<string, { title: string; board_id: string }>();
+    let boardMap = new Map<string, string>();
+    if (sectionPrefs.include_board_cards_owned || sectionPrefs.include_board_cards_assigned) {
+      // Step 1: Get user's boards and their columns
+      const { data: userBoards } = await supabase
+        .from('project_boards')
+        .select('id, title')
+        .eq('user_id', user.id);
+      (userBoards || []).forEach(b => boardMap.set(b.id, b.title));
+      const boardIds = Array.from(boardMap.keys());
+
+      if (boardIds.length > 0) {
+        const { data: cols } = await supabase
+          .from('board_columns')
+          .select('id, title, board_id')
+          .in('board_id', boardIds);
+        (cols || []).forEach(c => colMap.set(c.id, { title: c.title, board_id: c.board_id }));
+      }
+      const colIds = Array.from(colMap.keys());
+
+      // Step 2: Get cards on owned boards
+      let ownedCards: any[] = [];
+      if (sectionPrefs.include_board_cards_owned && colIds.length > 0) {
+        const { data } = await supabase
+          .from('board_cards')
+          .select('id, title, due_date, is_complete, column_id')
+          .in('column_id', colIds)
+          .not('due_date', 'is', null)
+          .lte('due_date', today)
+          .eq('is_complete', false);
+        ownedCards = data || [];
+      }
+
+      // Step 3: Get cards assigned to the user
+      let assignedCards: any[] = [];
+      if (sectionPrefs.include_board_cards_assigned) {
+        const { data: assignmentRows } = await supabase
+          .from('card_assignments')
+          .select('card_id')
+          .eq('user_id', user.id);
+        const assignedCardIds = (assignmentRows || []).map(a => a.card_id);
+        if (assignedCardIds.length > 0) {
+          const { data } = await supabase
+            .from('board_cards')
+            .select('id, title, due_date, is_complete, column_id')
+            .in('id', assignedCardIds)
+            .not('due_date', 'is', null)
+            .lte('due_date', today)
+            .eq('is_complete', false);
+          assignedCards = data || [];
+
+          // For assigned cards, we may need columns/boards not already in our maps
+          const missingColIds = (assignedCards || [])
+            .filter(c => !colMap.has(c.column_id))
+            .map(c => c.column_id);
+          if (missingColIds.length > 0) {
+            const { data: extraCols } = await supabase
+              .from('board_columns')
+              .select('id, title, board_id')
+              .in('id', missingColIds);
+            const extraBoardIds = new Set<string>();
+            (extraCols || []).forEach(c => {
+              colMap.set(c.id, { title: c.title, board_id: c.board_id });
+              if (!boardMap.has(c.board_id)) extraBoardIds.add(c.board_id);
+            });
+            if (extraBoardIds.size > 0) {
+              const { data: extraBoards } = await supabase
+                .from('project_boards')
+                .select('id, title')
+                .in('id', Array.from(extraBoardIds));
+              (extraBoards || []).forEach(b => boardMap.set(b.id, b.title));
+            }
+          }
+        }
+      }
+
+      // Merge and deduplicate by card id
+      const cardDedupe = new Map<string, any>();
+      [...ownedCards, ...assignedCards].forEach(c => { if (!cardDedupe.has(c.id)) cardDedupe.set(c.id, c); });
+
+      // Fetch assignee names for all cards
+      const cardIds = Array.from(cardDedupe.keys());
+      let assigneeMap: Record<string, string[]> = {};
+      if (cardIds.length > 0) {
+        const { data: assignments } = await supabase
+          .from('card_assignments')
+          .select('card_id, users!inner(name)')
+          .in('card_id', cardIds);
+        (assignments || []).forEach((a: any) => {
+          if (!assigneeMap[a.card_id]) assigneeMap[a.card_id] = [];
+          if (a.users?.name) assigneeMap[a.card_id].push(a.users.name);
+        });
+      }
+
+      allCards = Array.from(cardDedupe.values()).map((c: any): CardDigestItem => {
+        const col = colMap.get(c.column_id);
+        return {
+          id: c.id,
+          title: c.title,
+          due_date: c.due_date,
+          board_name: col ? (boardMap.get(col.board_id) || 'Unknown Board') : 'Unknown Board',
+          board_id: col?.board_id || '',
+          column_name: col?.title || '',
+          assignees: assigneeMap[c.id] || [],
+        };
+      });
+    }
+    const cardsDueToday = allCards.filter(c => c.due_date === today);
+    const cardsOverdue = allCards.filter(c => c.due_date !== null && c.due_date! < today);
+
+    // ── 10. Checklist items with due dates ────────────────────────────────
+    let allChecklist: ChecklistDigestItem[] = [];
+    if (sectionPrefs.include_checklist_items) {
+      const userCardIds = new Set<string>(allCards.map(c => c.id));
+
+      // Include all cards from owned boards
+      if (colMap.size > 0) {
+        const { data: allBoardCards } = await supabase
+          .from('board_cards')
+          .select('id')
+          .in('column_id', Array.from(colMap.keys()));
+        (allBoardCards || []).forEach(c => userCardIds.add(c.id));
+      }
+
+      const { data: assignedRows } = await supabase
+        .from('card_assignments')
+        .select('card_id')
+        .eq('user_id', user.id);
+      (assignedRows || []).forEach(a => userCardIds.add(a.card_id));
+
+      if (userCardIds.size > 0) {
+        const { data: checklists } = await supabase
+          .from('card_checklists')
+          .select('id, text, due_date, completed, card_id')
+          .eq('completed', false)
+          .not('due_date', 'is', null)
+          .lte('due_date', today)
+          .in('card_id', Array.from(userCardIds));
+
+        // Fetch card info for these checklists
+        const clCardIds = Array.from(new Set((checklists || []).map(cl => cl.card_id)));
+        let cardInfoMap = new Map<string, { title: string; column_id: string }>();
+        if (clCardIds.length > 0) {
+          const { data: cardInfos } = await supabase
+            .from('board_cards')
+            .select('id, title, column_id')
+            .in('id', clCardIds);
+          (cardInfos || []).forEach(ci => cardInfoMap.set(ci.id, { title: ci.title, column_id: ci.column_id }));
+
+          // Ensure we have column/board info
+          const missingCols = (cardInfos || []).filter(ci => !colMap.has(ci.column_id)).map(ci => ci.column_id);
+          if (missingCols.length > 0) {
+            const { data: extraCols } = await supabase
+              .from('board_columns')
+              .select('id, title, board_id')
+              .in('id', missingCols);
+            const extraBoardIds = new Set<string>();
+            (extraCols || []).forEach(c => {
+              colMap.set(c.id, { title: c.title, board_id: c.board_id });
+              if (!boardMap.has(c.board_id)) extraBoardIds.add(c.board_id);
+            });
+            if (extraBoardIds.size > 0) {
+              const { data: extraBoards } = await supabase
+                .from('project_boards')
+                .select('id, title')
+                .in('id', Array.from(extraBoardIds));
+              (extraBoards || []).forEach(b => boardMap.set(b.id, b.title));
+            }
+          }
+        }
+
+        allChecklist = (checklists || []).map((cl: any): ChecklistDigestItem => {
+          const cardInfo = cardInfoMap.get(cl.card_id);
+          const col = cardInfo ? colMap.get(cardInfo.column_id) : undefined;
+          return {
+            id: cl.id,
+            text: cl.text,
+            due_date: cl.due_date,
+            card_title: cardInfo?.title || 'Unknown Card',
+            card_id: cl.card_id,
+            board_name: col ? (boardMap.get(col.board_id) || 'Unknown Board') : 'Unknown Board',
+            board_id: col?.board_id || '',
+          };
+        });
+      }
+    }
+    const checklistDueToday = allChecklist.filter(c => c.due_date === today);
+    const checklistOverdue = allChecklist.filter(c => c.due_date !== null && c.due_date! < today);
 
     const digestData: PersonalDigestData = {
       user: { id: user.id, name: userName, email: recipientEmail },
       date: today,
       birthdays: sectionPrefs.include_birthdays ? birthdays : [],
-      todos: {
-        dueToday: todosRaw.filter(t => t.due_date === today),
-        overdue: sectionPrefs.include_overdue_tasks ? todosRaw.filter(t => t.due_date !== null && t.due_date < today) : [],
-        noDate: todosNoDate,
-      },
+      cards: { dueToday: cardsDueToday, overdue: cardsOverdue },
+      checklistItems: { dueToday: checklistDueToday, overdue: checklistOverdue },
       circleVisits: {
         today: (visitsRaw || []).filter(v => v.visit_date === today).map(toVisit),
         thisWeek: (visitsRaw || []).filter(v => v.visit_date >= tomorrow && v.visit_date <= weekEnd).map(toVisit),
@@ -380,9 +526,10 @@ export async function POST(request: NextRequest) {
       message: `Live digest sent to ${recipientEmail}`,
       recipient: recipientEmail,
       counts: {
-        todayTodos: digestData.todos.dueToday.length,
-        overdueTodos: digestData.todos.overdue.length,
-        noDateTodos: digestData.todos.noDate.length,
+        cardsDueToday: digestData.cards.dueToday.length,
+        cardsOverdue: digestData.cards.overdue.length,
+        checklistDueToday: digestData.checklistItems.dueToday.length,
+        checklistOverdue: digestData.checklistItems.overdue.length,
         visitsToday: digestData.circleVisits.today.length,
         visitsThisWeek: digestData.circleVisits.thisWeek.length,
         encouragementsToday: digestData.encouragements.dueToday.length,

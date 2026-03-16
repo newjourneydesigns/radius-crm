@@ -2,15 +2,24 @@
 
 import { WeatherData } from './weatherService';
 
-export interface TodoItem {
-  id: number;
+export interface CardDigestItem {
+  id: string;
+  title: string;
+  due_date: string | null;
+  board_name: string;
+  board_id: string;
+  column_name: string;
+  assignees: string[];
+}
+
+export interface ChecklistDigestItem {
+  id: string;
   text: string;
   due_date: string | null;
-  notes: string | null;
-  todo_type: 'manual' | 'encouragement' | 'follow_up' | 'circle_visit' | null;
-  linked_leader_id: number | null;
-  linked_leader_name?: string | null;
-  linked_visit_id: string | null;
+  card_title: string;
+  card_id: string;
+  board_name: string;
+  board_id: string;
 }
 
 export interface VisitItem {
@@ -70,10 +79,13 @@ export interface PersonalDigestData {
   user: { id: string; name: string; email: string };
   date: string;
   birthdays: BirthdayItem[];
-  todos: {
-    dueToday: TodoItem[];
-    overdue: TodoItem[];
-    noDate: TodoItem[];
+  cards: {
+    dueToday: CardDigestItem[];
+    overdue: CardDigestItem[];
+  };
+  checklistItems: {
+    dueToday: ChecklistDigestItem[];
+    overdue: ChecklistDigestItem[];
   };
   circleVisits: {
     today: VisitItem[];
@@ -122,14 +134,6 @@ function methodLabel(method: string): string {
   return m[method] ?? '📝 Note';
 }
 
-function todoTypeLabel(type: string | null): string {
-  const t: Record<string, string> = {
-    manual: '✅ Task', encouragement: '💚 Encouragement',
-    follow_up: '🔔 Follow-Up', circle_visit: '📅 Circle Visit',
-  };
-  return t[type ?? 'manual'] ?? '✅ Task';
-}
-
 function sectionHeader(emoji: string, title: string, count: number, color: string): string {
   return `
   <div style="margin: 28px 0 0 0;">
@@ -164,56 +168,77 @@ function leaderCard(
   </div>`;
 }
 
-function todoRow(item: TodoItem, appUrl: string, today: string): string {
+function cardRow(item: CardDigestItem, appUrl: string, today: string): string {
   const overdue = item.due_date && item.due_date < today ? daysDiff(item.due_date, today) : 0;
-  const link = item.linked_leader_id
-    ? `${appUrl}/circle/${item.linked_leader_id}/`
-    : `${appUrl}/dashboard/`;
+  const link = `${appUrl}/boards/${item.board_id}`;
   return `
-  <div style="background:#0f2a4a; border:1px solid #1e3a5f; border-left:4px solid ${overdue > 0 ? '#ef4444' : '#6366f1'}; border-radius:6px; padding:10px 14px; margin-bottom:8px;">
+  <div style="background:#0f2a4a; border:1px solid #1e3a5f; border-left:4px solid ${overdue > 0 ? '#ef4444' : '#3b82f6'}; border-radius:6px; padding:10px 14px; margin-bottom:8px;">
     <div>
-      <span style="font-size:11px; font-weight:600; color:#8da9c4; text-transform:uppercase; letter-spacing:0.5px; margin-right:6px;">${todoTypeLabel(item.todo_type)}</span>
-      ${overdue > 0 ? `<span style="font-size:11px; color:#dc2626; font-weight:700;">${overdue}d overdue</span>` : item.due_date ? `<span style="font-size:11px; color:#6b8ab0;">Due ${formatShortDate(item.due_date)}</span>` : ''}
+      <span style="font-size:11px; font-weight:600; color:#8da9c4; text-transform:uppercase; letter-spacing:0.5px; margin-right:6px;">📋 ${item.board_name}</span>
+      <span style="font-size:11px; color:#6b8ab0;">• ${item.column_name}</span>
+      ${overdue > 0 ? `<span style="margin-left:8px; font-size:11px; color:#dc2626; font-weight:700;">${overdue}d overdue</span>` : item.due_date ? `<span style="margin-left:8px; font-size:11px; color:#6b8ab0;">Due ${formatShortDate(item.due_date)}</span>` : ''}
+    </div>
+    <a href="${link}" style="font-size:14px; font-weight:600; color:#e2e8f0; margin-top:3px; text-decoration:none; display:block;">${item.title}</a>
+    ${item.assignees.length > 0 ? `<div style="font-size:12px; color:#8da9c4; margin-top:2px;">Assigned: ${item.assignees.join(', ')}</div>` : ''}
+  </div>`;
+}
+
+function checklistRow(item: ChecklistDigestItem, appUrl: string, today: string): string {
+  const overdue = item.due_date && item.due_date < today ? daysDiff(item.due_date, today) : 0;
+  const link = `${appUrl}/boards/${item.board_id}`;
+  return `
+  <div style="background:#0f2a4a; border:1px solid #1e3a5f; border-left:4px solid ${overdue > 0 ? '#ef4444' : '#10b981'}; border-radius:6px; padding:10px 14px; margin-bottom:8px;">
+    <div>
+      <span style="font-size:11px; font-weight:600; color:#8da9c4; text-transform:uppercase; letter-spacing:0.5px; margin-right:6px;">✅ ${item.card_title}</span>
+      <span style="font-size:11px; color:#6b8ab0;">• ${item.board_name}</span>
+      ${overdue > 0 ? `<span style="margin-left:8px; font-size:11px; color:#dc2626; font-weight:700;">${overdue}d overdue</span>` : item.due_date ? `<span style="margin-left:8px; font-size:11px; color:#6b8ab0;">Due ${formatShortDate(item.due_date)}</span>` : ''}
     </div>
     <a href="${link}" style="font-size:14px; font-weight:600; color:#e2e8f0; margin-top:3px; text-decoration:none; display:block;">${item.text}</a>
-    ${item.linked_leader_name ? `<div style="font-size:12px; color:#8da9c4; margin-top:2px;">Leader: ${item.linked_leader_name}</div>` : ''}
-    ${item.notes ? `<div style="font-size:12px; color:#6b8ab0; margin-top:4px;">${item.notes}</div>` : ''}
   </div>`;
 }
 
 export function generatePersonalDigestHTML(data: PersonalDigestData): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://myradiuscrm.com';
-  const { user, date, birthdays, todos, circleVisits, upcomingVisits, recentNotes, upcomingCircles, encouragements, followUps, weather } = data;
+  const { user, date, birthdays, cards, checklistItems, circleVisits, upcomingVisits, recentNotes, upcomingCircles, encouragements, followUps, weather } = data;
 
   const totalItems =
     (birthdays || []).length +
-    todos.dueToday.length + todos.overdue.length + todos.noDate.length +
+    (cards?.dueToday?.length || 0) + (cards?.overdue?.length || 0) +
+    (checklistItems?.dueToday?.length || 0) + (checklistItems?.overdue?.length || 0) +
     circleVisits.today.length + circleVisits.thisWeek.length +
     encouragements.dueToday.length + encouragements.overdue.length +
     followUps.dueToday.length + followUps.overdue.length;
 
-  // TODOS DUE TODAY
-  let todosDueTodayHtml = '';
-  if (todos.dueToday.length > 0) {
-    todosDueTodayHtml = sectionHeader('✅', 'Tasks Due Today', todos.dueToday.length, '#6366f1');
-    todos.dueToday.forEach(t => { todosDueTodayHtml += todoRow(t, appUrl, date); });
-    todosDueTodayHtml += `<a href="${appUrl}/dashboard/" style="font-size:12px; color:#6366f1; text-decoration:none; font-weight:600;">View all tasks →</a></div>`;
+  // CARDS DUE TODAY
+  let cardsDueTodayHtml = '';
+  if (cards?.dueToday?.length > 0) {
+    cardsDueTodayHtml = sectionHeader('📋', 'Cards Due Today', cards.dueToday.length, '#3b82f6');
+    cards.dueToday.forEach(c => { cardsDueTodayHtml += cardRow(c, appUrl, date); });
+    cardsDueTodayHtml += `<a href="${appUrl}/boards/" style="font-size:12px; color:#3b82f6; text-decoration:none; font-weight:600;">View all boards →</a></div>`;
   }
 
-  // OVERDUE TODOS
-  let todosOverdueHtml = '';
-  if (todos.overdue.length > 0) {
-    todosOverdueHtml = sectionHeader('🚨', 'Overdue Tasks', todos.overdue.length, '#ef4444');
-    todos.overdue.forEach(t => { todosOverdueHtml += todoRow(t, appUrl, date); });
-    todosOverdueHtml += `<a href="${appUrl}/dashboard/" style="font-size:12px; color:#ef4444; text-decoration:none; font-weight:600;">View all overdue →</a></div>`;
+  // OVERDUE CARDS
+  let cardsOverdueHtml = '';
+  if (cards?.overdue?.length > 0) {
+    cardsOverdueHtml = sectionHeader('🚨', 'Overdue Cards', cards.overdue.length, '#ef4444');
+    cards.overdue.forEach(c => { cardsOverdueHtml += cardRow(c, appUrl, date); });
+    cardsOverdueHtml += `<a href="${appUrl}/boards/" style="font-size:12px; color:#ef4444; text-decoration:none; font-weight:600;">View all boards →</a></div>`;
   }
 
-  // NO-DATE TODOS
-  let todosNoDueDateHtml = '';
-  if (todos.noDate.length > 0) {
-    todosNoDueDateHtml = sectionHeader('📋', 'Tasks (No Due Date)', todos.noDate.length, '#64748b');
-    todos.noDate.forEach(t => { todosNoDueDateHtml += todoRow(t, appUrl, date); });
-    todosNoDueDateHtml += `<a href="${appUrl}/dashboard/" style="font-size:12px; color:#64748b; text-decoration:none; font-weight:600;">View all tasks →</a></div>`;
+  // CHECKLIST ITEMS DUE TODAY
+  let checklistDueTodayHtml = '';
+  if (checklistItems?.dueToday?.length > 0) {
+    checklistDueTodayHtml = sectionHeader('☑️', 'Checklist Items Due Today', checklistItems.dueToday.length, '#10b981');
+    checklistItems.dueToday.forEach(c => { checklistDueTodayHtml += checklistRow(c, appUrl, date); });
+    checklistDueTodayHtml += `<a href="${appUrl}/boards/" style="font-size:12px; color:#10b981; text-decoration:none; font-weight:600;">View all boards →</a></div>`;
+  }
+
+  // OVERDUE CHECKLIST ITEMS
+  let checklistOverdueHtml = '';
+  if (checklistItems?.overdue?.length > 0) {
+    checklistOverdueHtml = sectionHeader('⚠️', 'Overdue Checklist Items', checklistItems.overdue.length, '#d97706');
+    checklistItems.overdue.forEach(c => { checklistOverdueHtml += checklistRow(c, appUrl, date); });
+    checklistOverdueHtml += `<a href="${appUrl}/boards/" style="font-size:12px; color:#d97706; text-decoration:none; font-weight:600;">View all boards →</a></div>`;
   }
 
   // BIRTHDAYS TODAY
@@ -225,7 +250,7 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
         `<div style="font-size:13px; color:#fde68a; font-weight:600;">🎉 Birthday today! Send them a message.</div>`
       );
     });
-    birthdaysHtml += `<a href="${appUrl}/dashboard/" style="font-size:12px; color:#f59e0b; text-decoration:none; font-weight:600;">Go to dashboard →</a></div>`;
+    birthdaysHtml += `<a href="${appUrl}/boards/" style="font-size:12px; color:#f59e0b; text-decoration:none; font-weight:600;">Go to boards →</a></div>`;
   }
 
   // CIRCLE VISITS TODAY
@@ -378,7 +403,8 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
     recentNotesHtml += '</div>';
   }
 
-  const taskCount = todos.dueToday.length + todos.overdue.length + todos.noDate.length;
+  const cardCount = (cards?.dueToday?.length || 0) + (cards?.overdue?.length || 0);
+  const checklistCount = (checklistItems?.dueToday?.length || 0) + (checklistItems?.overdue?.length || 0);
   const visitCount = circleVisits.today.length + circleVisits.thisWeek.length;
   const encCount = encouragements.dueToday.length + encouragements.overdue.length;
   const fuCount = followUps.dueToday.length + followUps.overdue.length;
@@ -438,13 +464,14 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
   <div style="background:#0b2545; border-radius:10px; padding:16px 20px; margin-bottom:8px; border:1px solid #1e3a5f;">
     <table style="width:100%; border-collapse:collapse;">
       <tr>
-        ${taskCount > 0 ? `<td style="text-align:center; padding:4px 12px;"><div style="font-size:22px; font-weight:800; color:#6366f1;">${taskCount}</div><div style="font-size:11px; color:#6b8ab0; font-weight:600;">Tasks</div></td>` : ''}
+        ${cardCount > 0 ? `<td style="text-align:center; padding:4px 12px;"><div style="font-size:22px; font-weight:800; color:#3b82f6;">${cardCount}</div><div style="font-size:11px; color:#6b8ab0; font-weight:600;">Cards</div></td>` : ''}
+        ${checklistCount > 0 ? `<td style="text-align:center; padding:4px 12px;"><div style="font-size:22px; font-weight:800; color:#10b981;">${checklistCount}</div><div style="font-size:11px; color:#6b8ab0; font-weight:600;">Checklists</div></td>` : ''}
         ${visitCount > 0 ? `<td style="text-align:center; padding:4px 12px;"><div style="font-size:22px; font-weight:800; color:#0891b2;">${visitCount}</div><div style="font-size:11px; color:#6b8ab0; font-weight:600;">Visits</div></td>` : ''}
         ${encCount > 0 ? `<td style="text-align:center; padding:4px 12px;"><div style="font-size:22px; font-weight:800; color:#059669;">${encCount}</div><div style="font-size:11px; color:#6b8ab0; font-weight:600;">Encouragements</div></td>` : ''}
         ${fuCount > 0 ? `<td style="text-align:center; padding:4px 12px;"><div style="font-size:22px; font-weight:800; color:#7c3aed;">${fuCount}</div><div style="font-size:11px; color:#6b8ab0; font-weight:600;">Follow-Ups</div></td>` : ''}
         ${birthdayCount > 0 ? `<td style="text-align:center; padding:4px 12px;"><div style="font-size:22px; font-weight:800; color:#f59e0b;">${birthdayCount}</div><div style="font-size:11px; color:#6b8ab0; font-weight:600;">🎂 Birthdays</div></td>` : ''}
         <td style="text-align:right; padding:4px 0;">
-          <a href="${appUrl}/dashboard/" style="display:inline-block; padding:8px 18px; background:#4f46e5; color:white; text-decoration:none; border-radius:8px; font-size:13px; font-weight:700;">Open Dashboard →</a>
+          <a href="${appUrl}/boards/" style="display:inline-block; padding:8px 18px; background:#4f46e5; color:white; text-decoration:none; border-radius:8px; font-size:13px; font-weight:700;">Open Boards →</a>
         </td>
       </tr>
     </table>
@@ -456,9 +483,10 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
     ${visitsToday}
     ${encToday}
     ${fuToday}
-    ${todosDueTodayHtml}
-    ${todosOverdueHtml}
-    ${todosNoDueDateHtml}
+    ${cardsDueTodayHtml}
+    ${cardsOverdueHtml}
+    ${checklistDueTodayHtml}
+    ${checklistOverdueHtml}
     ${encOverdue}
     ${fuOverdue}
     ${visitsWeek}

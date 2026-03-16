@@ -4,7 +4,7 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const error = requestUrl.searchParams.get('error');
   const error_description = requestUrl.searchParams.get('error_description');
-  const next = requestUrl.searchParams.get('next') || '/dashboard';
+  const next = requestUrl.searchParams.get('next') || '/boards';
 
   console.log('🔍 Auth callback received:', { error });
 

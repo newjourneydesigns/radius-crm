@@ -10,7 +10,7 @@ export default function Page() {
 
   useEffect(() => {
     if (loading) return;
-    router.replace(isAuthenticated() ? '/dashboard' : '/login');
+    router.replace(isAuthenticated() ? '/boards' : '/login');
   }, [router, loading, isAuthenticated]);
 
   return (
