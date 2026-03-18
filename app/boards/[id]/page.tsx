@@ -5,7 +5,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useProjectBoard, FullBoard } from '../../../hooks/useProjectBoard';
 import { useAuth } from '../../../contexts/AuthContext';
 import ProtectedRoute from '../../../components/ProtectedRoute';
-import type { BoardCard, BoardColumn, BoardLabel, CardPriority, ChecklistTemplate } from '../../../lib/supabase';
+import type { BoardCard, BoardColumn, BoardLabel, CardPriority, ChecklistTemplate, ColumnAutomationAction } from '../../../lib/supabase';
 import {
   Plus, ArrowLeft, Search, MoreHorizontal, Trash2, Edit3,
   GripVertical, MessageSquare, CheckSquare, CalendarDays, Tag,
@@ -1282,18 +1282,28 @@ function ListActionsModal({
 }) {
   const [bulkDueDate, setBulkDueDate] = useState('');
   const [bulkAssignee, setBulkAssignee] = useState('');
+  const [bulkPriority, setBulkPriority] = useState('');
   const [bulkLabel, setBulkLabel] = useState('');
   const [bulkMoveCol, setBulkMoveCol] = useState('');
   const [bulkChecklistItem, setBulkChecklistItem] = useState('');
   const [bulkTemplate, setBulkTemplate] = useState('');
   const [applying, setApplying] = useState(false);
   const [result, setResult] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [users, setUsers] = useState<{ id: string; name: string; email: string }[]>([]);
+
+  useEffect(() => {
+    supabase.from('users').select('id, name, email').order('name').then(({ data }) => {
+      if (data) setUsers(data as { id: string; name: string; email: string }[]);
+    });
+  }, []);
 
   const otherColumns = board.columns.filter(c => c.id !== column.id);
 
   const apply = async (label: string, fn: () => Promise<void>) => {
     setApplying(true);
     setResult('');
+    setConfirmDelete(false);
     try {
       await fn();
       setResult(`${label} applied to ${cards.length} card${cards.length !== 1 ? 's' : ''}`);
@@ -1322,7 +1332,7 @@ function ListActionsModal({
             <div className="kb-import-empty">No cards in this list</div>
           ) : (
             <>
-              {/* Set Due Date */}
+              {/* 1. Set Due Date */}
               <div className="kb-list-action-row">
                 <div className="kb-list-action-label"><CalendarDays size={13} /> Set Due Date</div>
                 <div className="kb-list-action-controls">
@@ -1345,17 +1355,31 @@ function ListActionsModal({
                 </div>
               </div>
 
-              {/* Set Assignee */}
+              {/* 2. Set Assignee */}
               <div className="kb-list-action-row">
                 <div className="kb-list-action-label"><User size={13} /> Set Assignee</div>
                 <div className="kb-list-action-controls">
-                  <input
-                    className="kb-input"
-                    value={bulkAssignee}
-                    onChange={e => setBulkAssignee(e.target.value)}
-                    placeholder="Assignee name..."
-                    style={{ flex: 1 }}
-                  />
+                  {users.length > 0 ? (
+                    <select
+                      className="kb-input kb-import-select"
+                      value={bulkAssignee}
+                      onChange={e => setBulkAssignee(e.target.value)}
+                      style={{ flex: 1 }}
+                    >
+                      <option value="">Choose a member...</option>
+                      {users.map(u => (
+                        <option key={u.id} value={u.name}>{u.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      className="kb-input"
+                      value={bulkAssignee}
+                      onChange={e => setBulkAssignee(e.target.value)}
+                      placeholder="Assignee name..."
+                      style={{ flex: 1 }}
+                    />
+                  )}
                   <button
                     className="kb-btn kb-btn-primary kb-btn-sm"
                     disabled={!bulkAssignee.trim() || applying}
@@ -1368,7 +1392,37 @@ function ListActionsModal({
                 </div>
               </div>
 
-              {/* Add Label */}
+              {/* 3. Set Priority */}
+              <div className="kb-list-action-row">
+                <div className="kb-list-action-label"><Flag size={13} /> Set Priority</div>
+                <div className="kb-list-action-controls">
+                  <select
+                    className="kb-input kb-import-select"
+                    value={bulkPriority}
+                    onChange={e => setBulkPriority(e.target.value)}
+                    style={{ flex: 1 }}
+                  >
+                    <option value="">Choose priority...</option>
+                    <option value="none">None</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                  <button
+                    className="kb-btn kb-btn-primary kb-btn-sm"
+                    disabled={!bulkPriority || applying}
+                    onClick={() => apply('Priority', async () => {
+                      const val = bulkPriority === 'none' ? null : bulkPriority;
+                      for (const card of cards) await onUpdateCard(card.id, { priority: val });
+                    })}
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+
+              {/* 4. Add Label */}
               {board.labels.length > 0 && (
                 <div className="kb-list-action-row">
                   <div className="kb-list-action-label"><Tag size={13} /> Add Label</div>
@@ -1397,7 +1451,7 @@ function ListActionsModal({
                 </div>
               )}
 
-              {/* Sort A-Z / Z-A */}
+              {/* 5. Sort A-Z / Z-A */}
               <div className="kb-list-action-row">
                 <div className="kb-list-action-label"><ArrowDownAZ size={13} /> Sort Cards</div>
                 <div className="kb-list-action-controls">
@@ -1418,7 +1472,33 @@ function ListActionsModal({
                 </div>
               </div>
 
-              {/* Add Checklist Item */}
+              {/* 6. Mark All Complete / Incomplete */}
+              <div className="kb-list-action-row">
+                <div className="kb-list-action-label"><Check size={13} /> Mark All</div>
+                <div className="kb-list-action-controls">
+                  <button
+                    className="kb-btn kb-btn-primary kb-btn-sm"
+                    disabled={applying}
+                    onClick={() => apply('Mark complete', async () => {
+                      for (const card of cards) await onUpdateCard(card.id, { is_complete: true });
+                    })}
+                  >
+                    Mark All Complete
+                  </button>
+                  <button
+                    className="kb-btn kb-btn-sm"
+                    disabled={applying}
+                    style={{ background: 'rgba(99,102,241,0.08)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.2)' }}
+                    onClick={() => apply('Mark incomplete', async () => {
+                      for (const card of cards) await onUpdateCard(card.id, { is_complete: false });
+                    })}
+                  >
+                    Mark All Incomplete
+                  </button>
+                </div>
+              </div>
+
+              {/* 7. Add Checklist Item */}
               <div className="kb-list-action-row">
                 <div className="kb-list-action-label"><CheckSquare size={13} /> Add Checklist Item</div>
                 <div className="kb-list-action-controls">
@@ -1441,7 +1521,7 @@ function ListActionsModal({
                 </div>
               </div>
 
-              {/* Apply Checklist Template */}
+              {/* 8. Apply Checklist Template */}
               {checklistTemplates.length > 0 && (
                 <div className="kb-list-action-row">
                   <div className="kb-list-action-label"><CheckSquare size={13} /> Apply Checklist Template</div>
@@ -1465,7 +1545,7 @@ function ListActionsModal({
                 </div>
               )}
 
-              {/* Move All Cards */}
+              {/* 9. Move All Cards */}
               {otherColumns.length > 0 && (
                 <div className="kb-list-action-row">
                   <div className="kb-list-action-label"><FolderKanban size={13} /> Move All Cards</div>
@@ -1489,22 +1569,43 @@ function ListActionsModal({
                 </div>
               )}
 
-              {/* Clear All */}
+              {/* 10. Clear All Cards */}
               <div className="kb-list-action-row kb-list-action-danger">
                 <div className="kb-list-action-label"><Trash2 size={13} /> Clear All Cards</div>
-                <div className="kb-list-action-controls">
-                  <button
-                    className="kb-btn kb-btn-sm kb-btn-danger"
-                    disabled={applying}
-                    onClick={() => {
-                      if (!confirm(`Delete all ${cards.length} cards from "${column.title}"? This cannot be undone.`)) return;
-                      apply('Clear', async () => {
-                        for (const card of cards) await onDeleteCard(card.id);
-                      });
-                    }}
-                  >
-                    Delete {cards.length} Card{cards.length !== 1 ? 's' : ''}
-                  </button>
+                <div className="kb-list-action-controls" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
+                  {!confirmDelete ? (
+                    <button
+                      className="kb-btn kb-btn-sm kb-btn-danger"
+                      disabled={applying}
+                      onClick={() => setConfirmDelete(true)}
+                    >
+                      Delete {cards.length} Card{cards.length !== 1 ? 's' : ''}
+                    </button>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+                      <span style={{ fontSize: 12, color: '#f87171' }}>
+                        Delete all {cards.length} cards from &quot;{column.title}&quot;? This cannot be undone.
+                      </span>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          className="kb-btn kb-btn-sm kb-btn-danger"
+                          disabled={applying}
+                          onClick={() => apply('Clear', async () => {
+                            for (const card of cards) await onDeleteCard(card.id);
+                          })}
+                        >
+                          Yes, Delete All
+                        </button>
+                        <button
+                          className="kb-btn kb-btn-sm"
+                          style={{ background: 'rgba(255,255,255,0.05)', color: '#9ca3af', border: '1px solid #2a2d3a' }}
+                          onClick={() => setConfirmDelete(false)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </>
@@ -1512,6 +1613,255 @@ function ListActionsModal({
 
           {/* Result feedback */}
           {result && <div className="kb-list-action-result">{result}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ColumnAutomationsModal
+   ═══════════════════════════════════════════════════════════ */
+function ColumnAutomationsModal({
+  column,
+  labels,
+  checklistTemplates,
+  onSave,
+  onClose,
+}: {
+  column: BoardColumn;
+  labels: BoardLabel[];
+  checklistTemplates: ChecklistTemplate[];
+  onSave: (automations: ColumnAutomationAction[]) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [actions, setActions] = useState<ColumnAutomationAction[]>(column.automations ?? []);
+  const [newType, setNewType] = useState<ColumnAutomationAction['type']>('set_complete');
+  const [newValue, setNewValue] = useState<string>('true');
+  const [saving, setSaving] = useState(false);
+  const [users, setUsers] = useState<{ id: string; name: string; email: string }[]>([]);
+
+  useEffect(() => {
+    supabase.from('users').select('id, name, email').order('name').then(({ data }) => {
+      if (data) setUsers(data as { id: string; name: string; email: string }[]);
+    });
+  }, []);
+
+  // Reset newValue when type changes
+  useEffect(() => {
+    if (newType === 'set_complete') setNewValue('true');
+    else if (newType === 'set_priority') setNewValue('high');
+    else if (newType === 'set_assignee') setNewValue(users[0]?.id ?? '');
+    else setNewValue('');
+  }, [newType]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const ACTION_LABELS: Record<ColumnAutomationAction['type'], string> = {
+    set_complete: 'Set complete',
+    set_priority: 'Set priority',
+    set_assignee: 'Set assignee',
+    set_labels: 'Set labels',
+    clear_labels: 'Strip labels',
+    add_checklist: 'Add checklist',
+  };
+
+  const formatValue = (action: ColumnAutomationAction): string => {
+    if (action.type === 'set_complete') return action.value ? 'Complete' : 'Incomplete';
+    if (action.type === 'set_priority') return action.value ? action.value.charAt(0).toUpperCase() + action.value.slice(1) : 'No priority';
+    if (action.type === 'set_assignee') {
+      const u = users.find(u => u.id === action.value);
+      return u ? u.name : action.value;
+    }
+    if (action.type === 'set_labels') {
+      if (action.value.length === 0) return 'None';
+      return action.value.map(id => labels.find(l => l.id === id)?.name ?? id).join(', ');
+    }
+    if (action.type === 'clear_labels') return 'Remove all labels';
+    if (action.type === 'add_checklist') {
+      if (action.value.length === 0) return 'None';
+      return action.value.map(id => checklistTemplates.find(t => t.id === id)?.name ?? id).join(', ');
+    }
+    return '';
+  };
+
+  const removeAction = (type: ColumnAutomationAction['type']) => {
+    setActions(prev => prev.filter(a => a.type !== type));
+  };
+
+  const addAction = () => {
+    let action: ColumnAutomationAction;
+    if (newType === 'set_complete') {
+      action = { type: 'set_complete', value: newValue === 'true' };
+    } else if (newType === 'set_priority') {
+      action = { type: 'set_priority', value: (newValue || null) as 'low' | 'medium' | 'high' | 'urgent' | null };
+    } else if (newType === 'set_assignee') {
+      action = { type: 'set_assignee', value: newValue };
+    } else if (newType === 'set_labels') {
+      action = { type: 'set_labels', value: newValue ? newValue.split(',').filter(Boolean) : [] };
+    } else if (newType === 'clear_labels') {
+      action = { type: 'clear_labels', value: true };
+    } else {
+      action = { type: 'add_checklist', value: newValue ? newValue.split(',').filter(Boolean) : [] };
+    }
+    // Replace existing automation of the same type
+    setActions(prev => [...prev.filter(a => a.type !== newType), action]);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    await onSave(actions);
+    setSaving(false);
+    onClose();
+  };
+
+  const selectedNewIds = newValue ? newValue.split(',').filter(Boolean) : [];
+
+  const toggleChipValue = (id: string) => {
+    const ids = newValue ? newValue.split(',').filter(Boolean) : [];
+    const next = ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id];
+    setNewValue(next.join(','));
+  };
+
+  const canAdd =
+    newType !== 'set_assignee' || newValue.trim() !== '';
+
+  return (
+    <div className="kb-modal-overlay" onClick={onClose}>
+      <div className="kb-auto-modal" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="kb-import-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <SlidersHorizontal size={16} style={{ color: '#6366f1' }} />
+            <h3 className="kb-import-title">Automations — {column.title}</h3>
+          </div>
+          <button className="kb-btn-icon-sm" onClick={onClose}><X size={16} /></button>
+        </div>
+
+        <div className="kb-auto-body">
+          <p className="kb-auto-hint">When a card is moved into this list, automatically:</p>
+
+          {/* Existing automations */}
+          {actions.length > 0 && (
+            <div className="kb-auto-list">
+              {actions.map(action => (
+                <div key={action.type} className="kb-auto-row">
+                  <span className="kb-auto-label">{ACTION_LABELS[action.type]}</span>
+                  <span className="kb-auto-arrow">→</span>
+                  <span className="kb-auto-value">{formatValue(action)}</span>
+                  <button
+                    className="kb-btn-icon-sm"
+                    onClick={() => removeAction(action.type)}
+                    title="Remove"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add automation row */}
+          <div className="kb-auto-add-section">
+            <div className="kb-auto-add-label">Add automation</div>
+            <div className="kb-auto-add-row">
+              <select
+                className="kb-input"
+                value={newType}
+                onChange={e => setNewType(e.target.value as ColumnAutomationAction['type'])}
+                style={{ flex: 1 }}
+              >
+                <option value="set_complete">Set complete</option>
+                <option value="set_priority">Set priority</option>
+                <option value="set_assignee">Set assignee</option>
+                <option value="set_labels">Set labels</option>
+                <option value="clear_labels">Strip labels</option>
+                <option value="add_checklist">Add checklist</option>
+              </select>
+              <button
+                className="kb-btn kb-btn-primary kb-btn-sm"
+                onClick={addAction}
+                disabled={!canAdd}
+                title="Add automation"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+
+            {/* Dynamic value input */}
+            <div className="kb-auto-value-input">
+              {newType === 'set_complete' && (
+                <select className="kb-input" value={newValue} onChange={e => setNewValue(e.target.value)}>
+                  <option value="true">Complete</option>
+                  <option value="false">Incomplete</option>
+                </select>
+              )}
+              {newType === 'set_priority' && (
+                <select className="kb-input" value={newValue} onChange={e => setNewValue(e.target.value)}>
+                  <option value="">No priority</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              )}
+              {newType === 'set_assignee' && (
+                users.length > 0 ? (
+                  <select className="kb-input" value={newValue} onChange={e => setNewValue(e.target.value)}>
+                    <option value="">Select user...</option>
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    className="kb-input"
+                    value={newValue}
+                    onChange={e => setNewValue(e.target.value)}
+                    placeholder="User ID..."
+                  />
+                )
+              )}
+              {newType === 'set_labels' && (
+                <div className="kb-auto-chips">
+                  {labels.length === 0 ? (
+                    <span style={{ color: '#6b7280', fontSize: 12 }}>No labels on this board</span>
+                  ) : labels.map(l => (
+                    <button
+                      key={l.id}
+                      className={`kb-auto-chip ${selectedNewIds.includes(l.id) ? 'selected' : ''}`}
+                      onClick={() => toggleChipValue(l.id)}
+                    >
+                      <span className="kb-label-dot" style={{ background: l.color }} />
+                      {l.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {newType === 'add_checklist' && (
+                <div className="kb-auto-chips">
+                  {checklistTemplates.length === 0 ? (
+                    <span style={{ color: '#6b7280', fontSize: 12 }}>No checklist templates saved</span>
+                  ) : checklistTemplates.map(t => (
+                    <button
+                      key={t.id}
+                      className={`kb-auto-chip ${selectedNewIds.includes(t.id) ? 'selected' : ''}`}
+                      onClick={() => toggleChipValue(t.id)}
+                    >
+                      <CheckSquare size={11} />
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="kb-auto-footer">
+          <button className="kb-btn kb-btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="kb-btn kb-btn-primary" onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving...' : 'Save'}
+          </button>
         </div>
       </div>
     </div>
@@ -1560,6 +1910,7 @@ function BoardPage() {
   const [dragOverCardId, setDragOverCardId] = useState<string | null>(null);
   const [dragOverPos, setDragOverPos] = useState<'above' | 'below'>('below');
   const [listActionsColId, setListActionsColId] = useState<string | null>(null);
+  const [automationsColId, setAutomationsColId] = useState<string | null>(null);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
@@ -1781,12 +2132,13 @@ function BoardPage() {
 
     await reorderCardsInColumn(boardId, colId, destCards.map(c => c.id));
 
-    // If cross-column, re-normalize source column
+    // If cross-column, re-normalize source column and run automations
     if (!isSameColumn) {
       const sourceCards = getColumnCards(oldColId).filter(c => c.id !== dragCardId);
       if (sourceCards.length > 0) {
         await reorderCardsInColumn(boardId, oldColId, sourceCards.map(c => c.id));
       }
+      await runColumnAutomations(dragCardId, colId);
       // If card has repeat rule and was dropped in the last column, create next occurrence
       if (draggedCard.repeat_rule && draggedCard.repeat_rule !== 'none' && draggedCard.due_date && board.columns.length > 0) {
         const lastCol = board.columns[board.columns.length - 1];
@@ -1803,6 +2155,33 @@ function BoardPage() {
     setDragCardId(null);
     setDragOverCol(null);
     setDragOverCardId(null);
+  };
+
+  // ── Column automations ──
+  const runColumnAutomations = async (cardId: string, destColId: string) => {
+    if (!board) return;
+    const destCol = board.columns.find(c => c.id === destColId);
+    const automations = destCol?.automations ?? [];
+    if (automations.length === 0) return;
+
+    const cardUpdates: Record<string, unknown> = {};
+    for (const action of automations) {
+      if (action.type === 'set_complete')  cardUpdates.is_complete = action.value;
+      if (action.type === 'set_priority')  cardUpdates.priority    = action.value;
+      if (action.type === 'set_assignee')  cardUpdates.assignee    = action.value;
+      if (action.type === 'set_labels')    cardUpdates.label_ids   = action.value;
+      if (action.type === 'clear_labels')  cardUpdates.label_ids   = [];
+    }
+    if (Object.keys(cardUpdates).length > 0) {
+      await updateCard(boardId, cardId, cardUpdates);
+    }
+
+    const checklistAction = automations.find(a => a.type === 'add_checklist');
+    if (checklistAction?.type === 'add_checklist') {
+      for (const templateId of checklistAction.value) {
+        await applyChecklistTemplate(boardId, cardId, templateId);
+      }
+    }
   };
 
   // ── Quick add card ──
@@ -2277,6 +2656,13 @@ function BoardPage() {
                       <Zap size={14} />
                     </button>
                     <button
+                      className={`kb-btn-icon-sm${(col.automations?.length ?? 0) > 0 ? ' kb-automations-active' : ''}`}
+                      onClick={() => setAutomationsColId(col.id)}
+                      title="Column automations"
+                    >
+                      <SlidersHorizontal size={14} />
+                    </button>
+                    <button
                       className="kb-btn-icon-sm"
                       onClick={() => {
                         if (colCards.length > 0) {
@@ -2444,6 +2830,7 @@ function BoardPage() {
           onDeleteChecklistItem={async (itemId) => { await deleteChecklistItem(boardId, activeCard.id, itemId); }}
           onMoveCard={async (newColumnId) => {
             await moveCard(boardId, activeCard.id, newColumnId, 0);
+            await runColumnAutomations(activeCard.id, newColumnId);
             // If card has repeat rule and is moved to the last column, create next occurrence
             if (activeCard.repeat_rule && activeCard.repeat_rule !== 'none' && activeCard.due_date && board.columns.length > 0) {
               const lastCol = board.columns[board.columns.length - 1];
@@ -2499,7 +2886,7 @@ function BoardPage() {
             board={board}
             onUpdateCard={async (cardId, updates) => { await updateCard(boardId, cardId, updates); }}
             onDeleteCard={async (cardId) => { await deleteCard(boardId, cardId); }}
-            onMoveCard={async (cardId, newColId) => { await moveCard(boardId, cardId, newColId, 0); }}
+            onMoveCard={async (cardId, newColId) => { await moveCard(boardId, cardId, newColId, 0); await runColumnAutomations(cardId, newColId); }}
             onAddChecklistItem={async (cardId, title) => { await addChecklistItem(boardId, cardId, title); }}
             checklistTemplates={checklistTemplates}
             onApplyTemplate={async (cardId, templateId) => { await applyChecklistTemplate(boardId, cardId, templateId); }}
@@ -2515,6 +2902,23 @@ function BoardPage() {
               }
             }}
             onClose={() => setListActionsColId(null)}
+          />
+        );
+      })()}
+
+      {/* ── Column Automations Modal ── */}
+      {automationsColId && board && (() => {
+        const col = board.columns.find(c => c.id === automationsColId);
+        if (!col) return null;
+        return (
+          <ColumnAutomationsModal
+            column={col}
+            labels={board.labels}
+            checklistTemplates={checklistTemplates}
+            onSave={async (automations) => {
+              await updateColumn(boardId, col.id, { automations });
+            }}
+            onClose={() => setAutomationsColId(null)}
           />
         );
       })()}
@@ -4259,6 +4663,129 @@ const kanbanStyles = `
   }
   .kb-note-toggle-active:hover {
     background: rgba(99, 102, 241, 0.25) !important;
+  }
+
+  /* ── Column automations button highlight ── */
+  .kb-automations-active {
+    color: #6366f1 !important;
+  }
+
+  /* ── Automations Modal ── */
+  .kb-auto-modal {
+    background: #1a1d27;
+    border: 1px solid #2a2d3a;
+    border-radius: 14px;
+    width: 480px;
+    max-width: 95vw;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .kb-auto-body {
+    padding: 16px 20px;
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .kb-auto-hint {
+    font-size: 13px;
+    color: #9ca3af;
+    margin: 0;
+  }
+  .kb-auto-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .kb-auto-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #12141e;
+    border: 1px solid #2a2d3a;
+    border-radius: 8px;
+  }
+  .kb-auto-label {
+    font-size: 13px;
+    color: #e5e7eb;
+    font-weight: 500;
+    min-width: 90px;
+  }
+  .kb-auto-arrow {
+    color: #4b5563;
+    font-size: 14px;
+  }
+  .kb-auto-value {
+    flex: 1;
+    font-size: 13px;
+    color: #a5b4fc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .kb-auto-add-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    background: #12141e;
+    border: 1px solid #2a2d3a;
+    border-radius: 8px;
+  }
+  .kb-auto-add-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .kb-auto-add-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .kb-auto-value-input {
+    margin-top: 4px;
+  }
+  .kb-auto-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-top: 2px;
+  }
+  .kb-auto-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid #3b3f54;
+    background: #1e2235;
+    color: #9ca3af;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .kb-auto-chip:hover {
+    border-color: #6366f1;
+    color: #e5e7eb;
+  }
+  .kb-auto-chip.selected {
+    background: rgba(99, 102, 241, 0.15);
+    border-color: #6366f1;
+    color: #a5b4fc;
+  }
+  .kb-auto-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 20px;
+    border-top: 1px solid #2a2d3a;
   }
 
   /* ── Hovered card highlight ── */
