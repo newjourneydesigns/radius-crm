@@ -2959,6 +2959,9 @@ const kanbanStyles = `
     z-index: 100;
     gap: 12px;
     flex-wrap: wrap;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
   .kb-topbar-left {
     display: flex;
@@ -3004,6 +3007,9 @@ const kanbanStyles = `
     padding: 8px 16px;
     border-bottom: 1px solid #1e2130;
     background: rgba(15, 17, 23, 0.6);
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
   .kb-search-bar-icon { color: #4b5563; flex-shrink: 0; }
   .kb-search-bar-input {
@@ -4840,8 +4846,9 @@ const kanbanStyles = `
 
   /* ── Responsive ── */
   @media (max-width: 768px) {
-    .kb-topbar { flex-direction: column; align-items: flex-start; }
-    .kb-topbar-right { width: 100%; flex-wrap: nowrap; }
+    .kb-topbar { flex-direction: column; align-items: flex-start; max-width: 100%; overflow: hidden; }
+    .kb-topbar-right { width: 100%; flex-wrap: wrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .kb-topbar-right::-webkit-scrollbar { display: none; }
     .kb-column { width: 280px; min-width: 280px; }
     .kb-add-column { width: 280px; min-width: 280px; }
     .kb-detail-body { flex-direction: column; }
