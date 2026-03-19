@@ -74,7 +74,7 @@ export default function BoardCardSearch() {
   // Keyboard shortcut — Cmd/Ctrl+F on boards pages
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'f') {
         e.preventDefault();
         isOpen ? close() : open();
       }
@@ -271,7 +271,7 @@ export default function BoardCardSearch() {
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
         Search cards
-        <kbd>⌘F</kbd>
+        <kbd>⌘⇧F</kbd>
       </button>
       {typeof window !== 'undefined' && isOpen && createPortal(modal, document.body)}
       <style>{`
