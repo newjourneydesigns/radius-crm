@@ -410,6 +410,13 @@ body {
   color-scheme: dark !important;
 }
 
+/* Board card search bar — override body gradient */
+.bcb-bar {
+  background: #111113 !important;
+  background-attachment: initial !important;
+  background-image: none !important;
+}
+
 /* Dark Green Theme Component Overrides */
 .bg-gray-50 {
   background-color: rgba(11, 37, 69, 0.95) !important; /* #0b2545 with transparency */

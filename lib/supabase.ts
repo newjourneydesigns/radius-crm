@@ -320,12 +320,13 @@ export interface DevelopmentProspect {
 export type CardPriority = 'low' | 'medium' | 'high' | 'urgent';
 
 export type ColumnAutomationAction =
-  | { type: 'set_complete';  value: boolean }
-  | { type: 'set_priority';  value: 'low' | 'medium' | 'high' | 'urgent' | null }
-  | { type: 'set_assignee';  value: string }
-  | { type: 'set_labels';    value: string[] }
-  | { type: 'clear_labels';  value: true }
-  | { type: 'add_checklist'; value: string[] };
+  | { type: 'set_complete';   value: boolean }
+  | { type: 'set_priority';   value: 'low' | 'medium' | 'high' | 'urgent' | null }
+  | { type: 'set_assignee';   value: string }
+  | { type: 'set_labels';     value: string[] }
+  | { type: 'clear_labels';   value: true }
+  | { type: 'add_checklist';  value: string[] }
+  | { type: 'move_completed'; value: string };
 
 export interface ProjectBoard {
   id: string;
@@ -375,6 +376,7 @@ export interface BoardCard {
   repeat_days?: number[] | null;
   series_id?: string | null;
   is_series_master?: boolean | null;
+  linked_leader_id?: number | null;
   created_at: string;
   updated_at: string;
   // Joined data
