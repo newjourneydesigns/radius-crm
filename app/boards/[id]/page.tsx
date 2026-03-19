@@ -2055,6 +2055,9 @@ function BoardPage() {
   } = useProjectBoard();
 
   const [search, setSearch] = useState('');
+  const [globalResults, setGlobalResults] = useState<{ id: string; title: string; boardId: string; boardTitle: string; columnTitle: string }[]>([]);
+  const [globalResultsIdx, setGlobalResultsIdx] = useState(0);
+  const searchBarRef = useRef<HTMLDivElement>(null);
   const [filterPriority, setFilterPriority] = useState<CardPriority | ''>('');
   const [filterLabel, setFilterLabel] = useState('');
   const [filterDate, setFilterDate] = useState('');
@@ -2178,6 +2181,35 @@ function BoardPage() {
     saveNoteNow();
     setShowNotePanel(false);
   }, [saveNoteNow]);
+
+  // Cross-board card search
+  useEffect(() => {
+    setGlobalResults([]);
+    setGlobalResultsIdx(0);
+    if (search.trim().length < 2) return;
+    const timer = setTimeout(async () => {
+      const q = search.trim().toLowerCase();
+      const [cardsRes, boardsRes, colsRes] = await Promise.all([
+        supabase.from('board_cards').select('id, title, board_id, column_id').eq('is_archived', false).ilike('title', `%${q}%`).limit(20),
+        supabase.from('project_boards').select('id, title'),
+        supabase.from('board_columns').select('id, title'),
+      ]);
+      const boardMap = new Map((boardsRes.data || []).map((b: any) => [b.id, b.title]));
+      const colMap   = new Map((colsRes.data || []).map((c: any) => [c.id, c.title]));
+      const results = (cardsRes.data || [])
+        .filter((c: any) => c.board_id !== boardId)
+        .map((c: any) => ({
+          id: c.id,
+          title: c.title,
+          boardId: c.board_id,
+          boardTitle: boardMap.get(c.board_id) || 'Unknown board',
+          columnTitle: colMap.get(c.column_id) || '',
+        }));
+      setGlobalResults(results);
+      setGlobalResultsIdx(0);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search, boardId]);
 
   // When opening card detail, find the latest version from board state
   const openCardDetail = useCallback((card: BoardCard) => {
@@ -2643,16 +2675,41 @@ function BoardPage() {
       </div>
 
       {/* ── Search bar ── */}
-      <div className="kb-search-bar">
+      <div className="kb-search-bar" ref={searchBarRef} style={{ position: 'relative' }}>
         <Search size={14} className="kb-search-bar-icon" />
         <input
           className="kb-search-bar-input"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Search cards..."
+          placeholder="Search cards across all boards..."
+          onKeyDown={e => {
+            if (!globalResults.length) return;
+            if (e.key === 'ArrowDown') { e.preventDefault(); setGlobalResultsIdx(i => Math.min(i + 1, globalResults.length - 1)); }
+            if (e.key === 'ArrowUp')   { e.preventDefault(); setGlobalResultsIdx(i => Math.max(i - 1, 0)); }
+            if (e.key === 'Enter') {
+              const r = globalResults[globalResultsIdx];
+              if (r) { router.push(`/boards/${r.boardId}?card=${r.id}`); setSearch(''); }
+            }
+          }}
         />
         {search && (
           <button className="kb-btn-icon-sm" onClick={() => setSearch('')} style={{ color: '#6b7280' }}><X size={14} /></button>
+        )}
+        {globalResults.length > 0 && (
+          <div className="kb-search-global-dropdown">
+            <div className="kb-search-global-label">Other boards</div>
+            {globalResults.map((r, idx) => (
+              <div
+                key={r.id}
+                className={`kb-search-global-item ${idx === globalResultsIdx ? 'selected' : ''}`}
+                onMouseEnter={() => setGlobalResultsIdx(idx)}
+                onClick={() => { router.push(`/boards/${r.boardId}?card=${r.id}`); setSearch(''); }}
+              >
+                <span className="kb-search-global-title">{r.title}</span>
+                <span className="kb-search-global-meta">{r.boardTitle}{r.columnTitle ? ` · ${r.columnTitle}` : ''}</span>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
@@ -3264,6 +3321,32 @@ const kanbanStyles = `
     padding: 4px 0 !important;
   }
   .kb-search-bar-input::placeholder { color: #4b5563 !important; }
+  .kb-search-global-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0; right: 0;
+    background: #1a1d27;
+    border: 1px solid #2a2d3a;
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+    z-index: 200;
+    overflow: hidden;
+  }
+  .kb-search-global-label {
+    font-size: 10px; font-weight: 600; color: #4b5563;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    padding: 8px 14px 4px;
+  }
+  .kb-search-global-item {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 8px 14px; cursor: pointer;
+    transition: background 0.1s;
+  }
+  .kb-search-global-item.selected,
+  .kb-search-global-item:hover { background: #22252f; }
+  .kb-search-global-title { font-size: 13px; font-weight: 500; color: #f9fafb; }
+  .kb-search-global-meta { font-size: 11px; color: #6366f1; }
 
   /* ── Filter button + dropdown ── */
   .kb-filter-btn {
