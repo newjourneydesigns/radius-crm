@@ -15,6 +15,7 @@ import AlertModal from '../../components/ui/AlertModal';
 import ProtectedRoute from '../../components/ProtectedRoute';
 
 import CircleVisitsDashboard from '../../components/dashboard/CircleVisitsDashboard';
+import AttendanceAggregateDashboard from '../../components/dashboard/AttendanceAggregateDashboard';
 import { useDashboardFilters } from '../../hooks/useDashboardFilters';
 import { useCircleLeaders, CircleLeaderFilters } from '../../hooks/useCircleLeaders';
 import { CircleLeader, supabase, Note, UserNote, TodoItem } from '../../lib/supabase';
@@ -2116,7 +2117,7 @@ function DashboardContent() {
       ticking = true;
       rafId = requestAnimationFrame(() => {
         ticking = false;
-        const sections = ['todo-list', 'personal-notes', 'public-notes', 'filters', 'status-overview', 'follow-up', 'recent-notes', 'progress'];
+        const sections = ['todo-list', 'personal-notes', 'public-notes', 'filters', 'status-overview', 'attendance-overview', 'follow-up', 'recent-notes', 'progress'];
         
         const scrollY = window.scrollY;
         
@@ -2389,6 +2390,7 @@ function DashboardContent() {
             { id: 'filters', label: 'Filters' },
             ...(hasCampusSelection ? [
               { id: 'status-overview', label: 'Status' },
+              { id: 'attendance-overview', label: 'Attendance' },
               { id: 'recent-notes', label: 'Recent Notes', mobileLabel: 'Recent' },
             ] : []),
           ];
@@ -3478,6 +3480,13 @@ function DashboardContent() {
 
             {/* Progress Section removed as requested */}
             {/* Follow Up Section removed as requested */}
+
+            {/* Attendance Overview */}
+            <div id="attendance-overview" className="mb-6">
+              <AttendanceAggregateDashboard
+                campusFilter={filters.campus.filter(c => c !== 'all' && c !== '__ALL_CAMPUSES__')}
+              />
+            </div>
 
             {/* Recent Notes */}
             <div id="recent-notes" className="mb-6">

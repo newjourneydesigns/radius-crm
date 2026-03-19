@@ -20,7 +20,10 @@ const sections = [
   { id: 'contact',          title: 'Contact Features' },
   { id: 'person-lookup',    title: 'Person Lookup' },
   { id: 'circle-roster',    title: 'Circle Roster' },
+  { id: 'boards',            title: 'Project Boards' },
+  { id: 'attendance',        title: 'Attendance Tracking' },
   { id: 'ccb',              title: 'CCB Explorer' },
+  { id: 'ai-assistant',     title: 'AI Assistant' },
   { id: 'settings',         title: 'Settings' },
   { id: 'pwa',              title: 'Mobile App (PWA)' },
   { id: 'admin',            title: 'Admin Tools' },
@@ -135,6 +138,9 @@ export default function HelpPage() {
                     <li>CCB Explorer for browsing church database profiles</li>
                     <li>Person Lookup — search CCB by name or phone, then text, call, or email</li>
                     <li>Circle Roster — view and cache CCB group members with contact actions</li>
+                    <li>Project Boards — Kanban-style boards with drag-and-drop cards, labels, and notes</li>
+                    <li>Attendance Tracking — auto-synced from CCB with trend analysis</li>
+                    <li>AI Assistant — voice-powered chat with data lookups and write actions</li>
                     <li>PWA — installable on iPhone, Android, and desktop</li>
                   </ul>
                   <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
@@ -525,6 +531,94 @@ export default function HelpPage() {
                   </div>
                 </section>
 
+                {/* ── Project Boards ── */}
+                <section id="boards" className="p-6 sm:p-8">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Project Boards</h2>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">Project Boards is a full Kanban-style project management tool built into RADIUS. Use it to track ministry projects, plan events, or organize any multi-step workflow with drag-and-drop cards across customizable columns.</p>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Accessing Boards</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">Click <strong>Boards</strong> in the main navigation bar. On mobile, it appears in the bottom nav. The boards listing page shows all your boards plus any public boards shared by others.</p>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Creating a Board</h3>
+                  <ol className="list-decimal list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
+                    <li>Click <strong>New Board</strong> on the boards listing page.</li>
+                    <li>Enter a title and optional description.</li>
+                    <li>Your board starts with four default columns: To Do, In Progress, Review, Done.</li>
+                  </ol>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Working with Cards</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
+                    <li>Click <strong>+ Add Card</strong> at the bottom of any column to create a new card</li>
+                    <li>Drag and drop cards between columns to update their status</li>
+                    <li>Click a card to open its detail view with description, priority, dates, and more</li>
+                    <li>Set <strong>Priority</strong> levels: Low (gray), Medium (blue), High (orange), Urgent (red)</li>
+                    <li>Add <strong>Start Date</strong> and <strong>Due Date</strong> for scheduling</li>
+                    <li>Assign a person to the card using the <strong>Assignee</strong> field</li>
+                    <li>Archive completed cards to keep columns clean</li>
+                  </ul>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Labels</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">Color-coded labels help categorize cards (defaults: Bug, Feature, Enhancement, Urgent). Cards can have multiple labels. Manage labels from the board settings.</p>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Comments & Checklists</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
+                    <li>Add <strong>Comments</strong> to any card for threaded discussion</li>
+                    <li>Create <strong>Checklists</strong> on cards to track sub-tasks with completion toggles</li>
+                    <li>Save frequently used checklists as <strong>Checklist Templates</strong> for reuse</li>
+                  </ul>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Board Notes</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">Click the <strong>Notes</strong> icon (sticky note) in the board header to open the slide-in notes panel. This is a rich text editor with bold, italic, underline, headings, lists, and links. Notes auto-save and are great for meeting agendas, board-level context, or running documentation.</p>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Public & Private Boards</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
+                    <li><strong>Private</strong> (default) — only you can see and edit your board</li>
+                    <li><strong>Public</strong> — all authenticated users can view your board (read-only); only you can edit</li>
+                    <li>Public boards show a globe icon on the boards listing page</li>
+                  </ul>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Columns</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">Add new columns via the <strong>+ Add Column</strong> button at the end of the board. Each column has a color accent and can be renamed or removed.</p>
+
+                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
+                    <h4 className="font-semibold text-green-800 dark:text-green-200 mb-1">Pro Tip</h4>
+                    <p className="text-green-700 dark:text-green-300 text-sm">Use Project Boards to plan semester goals, track outreach campaigns, or manage administrative projects. The rich notes panel is perfect for keeping meeting agendas alongside your task board.</p>
+                  </div>
+                </section>
+
+                {/* ── Attendance Tracking ── */}
+                <section id="attendance" className="p-6 sm:p-8">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Attendance Tracking</h2>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">RADIUS automatically syncs attendance data from CCB (Church Community Builder) and displays rich trend analysis on each Circle Leader&apos;s profile page.</p>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Auto-Sync</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">Attendance data syncs automatically every day at 6:00 AM CT. The sync pulls attendance records from the semester start date through today for all leaders with a CCB Group ID. No manual action is needed — data stays current automatically.</p>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Attendance Chart</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
+                    <li>View a rolling 6-month attendance chart on any leader&apos;s profile</li>
+                    <li>Toggle between <strong>Weekly</strong> (line chart) and <strong>Monthly</strong> (bar chart) views</li>
+                    <li>Color-coded data points: green (met), blue (did not meet), gray (no record)</li>
+                    <li>A <strong>dashed trend line</strong> shows the linear regression across all data points</li>
+                    <li>Click any data point to open the Event Explorer for that date</li>
+                  </ul>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Trend Indicator</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">Below the chart, a trend indicator compares the last 3 months vs the prior 3 months: <strong>\u2191 Trending up</strong> (green), <strong>\u2193 Trending down</strong> (red), or <strong>\u2192 Stable</strong> (gray). Summary cards show average attendance, peak attendance, missed meetings, and no-record gaps.</p>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Event Explorer</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">Click any data point on the chart (or use the Event Explorer button) to view detailed event information. The explorer supports two modes:</p>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
+                    <li><strong>Single Date</strong> — pick a specific date with quick-pick buttons for recent meetings</li>
+                    <li><strong>Date Range</strong> — choose a start and end date with preset buttons (Last 4, 8, or 12 weeks) auto-aligned to the circle&apos;s meeting day</li>
+                  </ul>
+
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">Tip</h4>
+                    <p className="text-blue-700 dark:text-blue-300 text-sm">The &quot;Last synced&quot; timestamp below the chart shows when data was last pulled from CCB. If you need fresher data, an admin can trigger a manual sync.</p>
+                  </div>
+                </section>
+
                 {/* ── CCB Explorer ── */}
                 <section id="ccb" className="p-6 sm:p-8">
                   <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">CCB Explorer</h2>
@@ -544,6 +638,36 @@ export default function HelpPage() {
                   <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4">
                     <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-1">Admin Only</h4>
                     <p className="text-yellow-700 dark:text-yellow-300 text-sm">CCB Explorer is restricted to Administrator accounts. Contact your site admin if you need access.</p>
+                  </div>
+                </section>
+
+                {/* ── AI Assistant ── */}
+                <section id="ai-assistant" className="p-6 sm:p-8">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">AI Assistant</h2>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">The RADIUS AI Assistant is a conversational tool that can look up data, answer questions about your leaders, and perform actions on your behalf — all through natural language.</p>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Accessing the Assistant</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">Tap the <strong>AI</strong> button (sparkles icon) in the bottom navigation on mobile, or click <strong>AI Assistant</strong> in the navigation menu. The assistant opens as a full-screen chat on mobile or a panel on desktop.</p>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">What It Can Do</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
+                    <li><strong>Read data</strong> — ask about leader counts, statuses, follow-ups, connections, and more</li>
+                    <li><strong>Log connections</strong> — tell it you called or texted a leader and it logs the connection</li>
+                    <li><strong>Add notes</strong> — dictate a note for a specific leader</li>
+                    <li><strong>Update statuses</strong> — change a leader&apos;s status through conversation</li>
+                    <li><strong>Schedule visits</strong> — create circle visit records</li>
+                    <li><strong>Set follow-ups</strong> — flag leaders for follow-up with a date</li>
+                  </ul>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Voice Input</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">Tap the <strong>microphone</strong> button to speak your message instead of typing. The assistant uses your device&apos;s speech recognition — no extra setup required.</p>
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Write Action Confirmations</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">When the assistant performs a write action (logging a connection, adding a note, etc.), it shows a confirmation card with the details before committing. You can approve or cancel any change.</p>
+
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">Tip</h4>
+                    <p className="text-blue-700 dark:text-blue-300 text-sm">The AI assistant can be enabled or disabled per user in Settings. It uses Gemini AI with Groq as a fallback provider.</p>
                   </div>
                 </section>
 

@@ -223,7 +223,7 @@ const linkifyText = (text: string): (string | JSX.Element)[] => {
 const uniqueByValue = <T extends { value: string }>(items: T[]): T[] => {
   const map = new Map<string, T>();
   for (const item of items || []) {
-    const key = (item?.value || '').trim();
+    const key = (item?.value || '').trim().toLowerCase();
     if (!key) continue;
     if (!map.has(key)) map.set(key, item);
   }
@@ -472,7 +472,7 @@ export default function CircleLeaderProfilePage() {
         }
 
         // Process reference data
-        if (campusesResult.data) setCampuses(campusesResult.data);
+        if (campusesResult.data) setCampuses(uniqueByValue(campusesResult.data));
         if (statusesResult.data) setStatuses(uniqueByValue(statusesResult.data));
         if (circleTypesResult.data) {
           const normalized = circleTypesResult.data.map((t: any) => ({
