@@ -274,47 +274,47 @@ function BoardsListPage() {
                 Calendar
               </button>
             </div>
-            <div className="kb-card-search-wrap" ref={cardSearchRef}>
-              <div className="kb-card-search-bar">
-                <Search size={14} style={{ color: '#4b5563', flexShrink: 0 }} />
-                <input
-                  className="kb-card-search-input"
-                  value={cardSearch}
-                  onChange={e => setCardSearch(e.target.value)}
-                  placeholder="Search cards..."
-                  onKeyDown={e => {
-                    if (!cardSearchResults.length) return;
-                    if (e.key === 'ArrowDown') { e.preventDefault(); setCardSearchIdx(i => Math.min(i + 1, cardSearchResults.length - 1)); }
-                    if (e.key === 'ArrowUp')   { e.preventDefault(); setCardSearchIdx(i => Math.max(i - 1, 0)); }
-                    if (e.key === 'Enter') {
-                      const r = cardSearchResults[cardSearchIdx];
-                      if (r) { router.push(`/boards/${r.boardId}?card=${r.id}`); setCardSearch(''); }
-                    }
-                    if (e.key === 'Escape') setCardSearch('');
-                  }}
-                />
-                {cardSearch && <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', display: 'flex' }} onClick={() => setCardSearch('')}><X size={14} /></button>}
-              </div>
-              {cardSearchResults.length > 0 && (
-                <div className="kb-card-search-dropdown">
-                  {cardSearchResults.map((r, idx) => (
-                    <div
-                      key={r.id}
-                      className={`kb-card-search-item ${idx === cardSearchIdx ? 'selected' : ''}`}
-                      onMouseEnter={() => setCardSearchIdx(idx)}
-                      onClick={() => { router.push(`/boards/${r.boardId}?card=${r.id}`); setCardSearch(''); }}
-                    >
-                      <span className="kb-card-search-title">{r.title}</span>
-                      <span className="kb-card-search-meta">{r.boardTitle}{r.columnTitle ? ` · ${r.columnTitle}` : ''}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
             <button className="kb-btn kb-btn-primary" onClick={() => setShowCreate(true)}>
               <Plus size={16} />
               New Board
             </button>
+          </div>
+
+          {/* Search bar */}
+          <div className="kb-list-search-bar" ref={cardSearchRef}>
+            <Search size={14} style={{ color: '#4b5563', flexShrink: 0 }} />
+            <input
+              className="kb-list-search-input"
+              value={cardSearch}
+              onChange={e => setCardSearch(e.target.value)}
+              placeholder="Search cards across all boards..."
+              onKeyDown={e => {
+                if (e.key === 'Escape') { setCardSearch(''); return; }
+                if (!cardSearchResults.length) return;
+                if (e.key === 'ArrowDown') { e.preventDefault(); setCardSearchIdx(i => Math.min(i + 1, cardSearchResults.length - 1)); }
+                if (e.key === 'ArrowUp')   { e.preventDefault(); setCardSearchIdx(i => Math.max(i - 1, 0)); }
+                if (e.key === 'Enter') {
+                  const r = cardSearchResults[cardSearchIdx];
+                  if (r) { router.push(`/boards/${r.boardId}?card=${r.id}`); setCardSearch(''); }
+                }
+              }}
+            />
+            {cardSearch && <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', display: 'flex' }} onClick={() => setCardSearch('')}><X size={14} /></button>}
+            {cardSearchResults.length > 0 && (
+              <div className="kb-list-search-dropdown">
+                {cardSearchResults.map((r, idx) => (
+                  <div
+                    key={r.id}
+                    className={`kb-list-search-item ${idx === cardSearchIdx ? 'selected' : ''}`}
+                    onMouseEnter={() => setCardSearchIdx(idx)}
+                    onClick={() => { router.push(`/boards/${r.boardId}?card=${r.id}`); setCardSearch(''); }}
+                  >
+                    <span className="kb-list-search-title">{r.title}</span>
+                    <span className="kb-list-search-meta">{r.boardTitle}{r.columnTitle ? ` · ${r.columnTitle}` : ''}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -570,47 +570,41 @@ const boardsListStyles = `
   .kb-toolbar {
     display: flex;
     align-items: center;
-    gap: 12px;
+    justify-content: space-between;
   }
-  .kb-card-search-wrap {
-    flex: 1;
-    position: relative;
-  }
-  .kb-card-search-bar {
+  .kb-list-search-bar {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: #1a1d27;
-    border: 1px solid #2a2d3a;
-    border-radius: 10px;
-    padding: 7px 12px;
-    transition: border-color 0.15s;
+    padding: 8px 4px;
+    border-bottom: 1px solid #1e2130;
+    position: relative;
+    margin-top: 12px;
   }
-  .kb-card-search-bar:focus-within {
-    border-color: #4b5563;
-  }
-  .kb-card-search-input {
+  .kb-list-search-input {
     flex: 1;
     background: transparent;
     border: none;
     outline: none;
-    font-size: 13px;
     color: #e5e7eb;
+    font-size: 13px;
     font-family: inherit;
+    padding: 4px 0;
   }
-  .kb-card-search-input::placeholder { color: #4b5563; }
-  .kb-card-search-dropdown {
+  .kb-list-search-input::placeholder { color: #4b5563; }
+  .kb-list-search-dropdown {
     position: absolute;
-    top: calc(100% + 4px);
+    top: 100%;
     left: 0; right: 0;
     background: #1a1d27;
     border: 1px solid #2a2d3a;
-    border-radius: 10px;
+    border-top: none;
+    border-radius: 0 0 10px 10px;
     box-shadow: 0 12px 32px rgba(0,0,0,0.5);
     z-index: 200;
     overflow: hidden;
   }
-  .kb-card-search-item {
+  .kb-list-search-item {
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -618,10 +612,10 @@ const boardsListStyles = `
     cursor: pointer;
     transition: background 0.1s;
   }
-  .kb-card-search-item.selected,
-  .kb-card-search-item:hover { background: #22252f; }
-  .kb-card-search-title { font-size: 13px; font-weight: 500; color: #f9fafb; }
-  .kb-card-search-meta { font-size: 11px; color: #6366f1; }
+  .kb-list-search-item.selected,
+  .kb-list-search-item:hover { background: #22252f; }
+  .kb-list-search-title { font-size: 13px; font-weight: 500; color: #f9fafb; }
+  .kb-list-search-meta { font-size: 11px; color: #6366f1; }
   .kb-view-switcher {
     display: flex;
     background: #1a1d27;

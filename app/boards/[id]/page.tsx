@@ -2672,46 +2672,46 @@ function BoardPage() {
             )}
           </div>
         </div>
+      </div>
 
-        {/* ── Search ── */}
-        <div className="kb-topbar-search" ref={searchBarRef}>
-          <Search size={14} style={{ color: '#4b5563', flexShrink: 0 }} />
-          <input
-            className="kb-topbar-search-input"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search cards..."
-            onKeyDown={e => {
-              if (e.key === 'Escape') { setSearch(''); return; }
-              if (!globalResults.length) return;
-              if (e.key === 'ArrowDown') { e.preventDefault(); setGlobalResultsIdx(i => Math.min(i + 1, globalResults.length - 1)); }
-              if (e.key === 'ArrowUp')   { e.preventDefault(); setGlobalResultsIdx(i => Math.max(i - 1, 0)); }
-              if (e.key === 'Enter') {
-                const r = globalResults[globalResultsIdx];
-                if (r) { router.push(`/boards/${r.boardId}?card=${r.id}`); setSearch(''); }
-              }
-            }}
-          />
-          {search && (
-            <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', display: 'flex', padding: 0 }} onClick={() => setSearch('')}><X size={14} /></button>
-          )}
-          {globalResults.length > 0 && (
-            <div className="kb-search-global-dropdown">
-              <div className="kb-search-global-label">Other boards</div>
-              {globalResults.map((r, idx) => (
-                <div
-                  key={r.id}
-                  className={`kb-search-global-item ${idx === globalResultsIdx ? 'selected' : ''}`}
-                  onMouseEnter={() => setGlobalResultsIdx(idx)}
-                  onClick={() => { router.push(`/boards/${r.boardId}?card=${r.id}`); setSearch(''); }}
-                >
-                  <span className="kb-search-global-title">{r.title}</span>
-                  <span className="kb-search-global-meta">{r.boardTitle}{r.columnTitle ? ` · ${r.columnTitle}` : ''}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+      {/* ── Search bar ── */}
+      <div className="kb-search-bar" ref={searchBarRef}>
+        <Search size={14} className="kb-search-bar-icon" />
+        <input
+          className="kb-search-bar-input"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search cards across all boards..."
+          onKeyDown={e => {
+            if (e.key === 'Escape') { setSearch(''); return; }
+            if (!globalResults.length) return;
+            if (e.key === 'ArrowDown') { e.preventDefault(); setGlobalResultsIdx(i => Math.min(i + 1, globalResults.length - 1)); }
+            if (e.key === 'ArrowUp')   { e.preventDefault(); setGlobalResultsIdx(i => Math.max(i - 1, 0)); }
+            if (e.key === 'Enter') {
+              const r = globalResults[globalResultsIdx];
+              if (r) { router.push(`/boards/${r.boardId}?card=${r.id}`); setSearch(''); }
+            }
+          }}
+        />
+        {search && (
+          <button className="kb-btn-icon-sm" onClick={() => setSearch('')} style={{ color: '#6b7280' }}><X size={14} /></button>
+        )}
+        {globalResults.length > 0 && (
+          <div className="kb-search-global-dropdown">
+            <div className="kb-search-global-label">Other boards</div>
+            {globalResults.map((r, idx) => (
+              <div
+                key={r.id}
+                className={`kb-search-global-item ${idx === globalResultsIdx ? 'selected' : ''}`}
+                onMouseEnter={() => setGlobalResultsIdx(idx)}
+                onClick={() => { router.push(`/boards/${r.boardId}?card=${r.id}`); setSearch(''); }}
+              >
+                <span className="kb-search-global-title">{r.title}</span>
+                <span className="kb-search-global-meta">{r.boardTitle}{r.columnTitle ? ` · ${r.columnTitle}` : ''}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── Label Manager Modal ── */}
@@ -3300,31 +3300,29 @@ const kanbanStyles = `
   }
 
   /* ── Search bar ── */
-  .kb-topbar-search {
-    flex: 1 1 160px;
-    min-width: 0;
-    position: relative;
+  .kb-search-bar {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: #1a1d27;
-    border: 1px solid #2a2d3a;
-    border-radius: 10px;
-    padding: 7px 12px;
-    transition: border-color 0.15s;
+    padding: 8px 16px;
+    border-bottom: 1px solid #1e2130;
+    background: rgba(15, 17, 23, 0.6);
+    position: relative;
+    width: 100%;
+    box-sizing: border-box;
   }
-  .kb-topbar-search:focus-within { border-color: #4b5563; }
-  .kb-topbar-search-input {
+  .kb-search-bar-icon { color: #4b5563; flex-shrink: 0; }
+  .kb-search-bar-input {
     flex: 1;
-    background: transparent;
-    border: none;
-    outline: none;
-    color: #e5e7eb;
-    font-size: 13px;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    color: #e5e7eb !important;
+    font-size: 13px !important;
+    padding: 4px 0 !important;
     font-family: inherit;
-    min-width: 0;
   }
-  .kb-topbar-search-input::placeholder { color: #4b5563; }
+  .kb-search-bar-input::placeholder { color: #4b5563 !important; }
   .kb-search-global-dropdown {
     position: absolute;
     top: 100%;
@@ -5210,10 +5208,8 @@ const kanbanStyles = `
 
   /* ── Responsive ── */
   @media (max-width: 768px) {
-    .kb-topbar { flex-direction: row; flex-wrap: wrap; align-items: center; max-width: 100%; overflow: hidden; }
-    .kb-topbar-left { flex: 1 1 auto; min-width: 0; }
-    .kb-topbar-search { flex: 1 1 100%; order: 3; }
-    .kb-topbar-right { order: 2; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .kb-topbar { flex-direction: column; align-items: flex-start; max-width: 100%; overflow: hidden; }
+    .kb-topbar-right { width: 100%; flex-wrap: wrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
     .kb-topbar-right::-webkit-scrollbar { display: none; }
     .kb-column { width: 280px; min-width: 280px; }
     .kb-add-column { width: 280px; min-width: 280px; }
