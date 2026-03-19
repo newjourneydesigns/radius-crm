@@ -130,7 +130,15 @@ export function useProjectBoard() {
           supabase.from('card_label_assignments').select('*').in('card_id', cardIds),
           supabase.from('card_assignments').select('*').in('card_id', cardIds),
         ]);
-        allComments = commentsRes.data || [];
+        const rawComments = commentsRes.data || [];
+        if (rawComments.length > 0) {
+          const commentUserIds = [...new Set(rawComments.map((c: any) => c.user_id))];
+          const { data: commentUsersData } = await supabase.from('users').select('id, name').in('id', commentUserIds);
+          const commentUsersMap = new Map((commentUsersData || []).map((u: any) => [u.id, { name: u.name }]));
+          allComments = rawComments.map((c: any) => ({ ...c, users: commentUsersMap.get(c.user_id) || null }));
+        } else {
+          allComments = rawComments;
+        }
         allChecklists = checklistsRes.data || [];
         allLabelAssignments = labelAssignmentsRes.data || [];
         // Enrich assignments with user data from public.users
@@ -189,7 +197,14 @@ export function useProjectBoard() {
       const allColumns = colsRes.data || [];
       const allCards = cardsRes.data || [];
       const allLabels = labelsRes.data || [];
-      const allComments = commentsRes.data || [];
+      const rawAllComments = commentsRes.data || [];
+      let allComments: any[] = rawAllComments;
+      if (rawAllComments.length > 0) {
+        const commentUserIds = [...new Set(rawAllComments.map((c: any) => c.user_id))];
+        const { data: commentUsersData } = await supabase.from('users').select('id, name').in('id', commentUserIds);
+        const commentUsersMap = new Map((commentUsersData || []).map((u: any) => [u.id, { name: u.name }]));
+        allComments = rawAllComments.map((c: any) => ({ ...c, users: commentUsersMap.get(c.user_id) || null }));
+      }
       const allChecklists = checklistsRes.data || [];
       const allLabelAssignments = labelAssignmentsRes.data || [];
       // Enrich assignments with user data from public.users
@@ -620,6 +635,24 @@ export function useProjectBoard() {
     }
   }, []);
 
+  const moveToBoardCard = useCallback(async (cardId: string, targetBoardId: string, targetColumnId: string) => {
+    setError(null);
+    // Remove card from current board state optimistically
+    setBoard(prev => {
+      if (!prev) return prev;
+      return { ...prev, cards: prev.cards.filter(c => c.id !== cardId) };
+    });
+    try {
+      const { error: err } = await supabase
+        .from('board_cards')
+        .update({ board_id: targetBoardId, column_id: targetColumnId, position: 0 })
+        .eq('id', cardId);
+      if (err) throw err;
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }, []);
+
   const reorderCardsInColumn = useCallback(async (boardId: string, columnId: string, cardIds: string[]) => {
     setError(null);
     // Optimistic
@@ -658,12 +691,44 @@ export function useProjectBoard() {
         .single();
       if (err) throw err;
 
+      const { data: userData } = await supabase.from('users').select('name').eq('id', user.id).single();
+      const enrichedComment = { ...data, users: userData ? { name: userData.name } : null };
+
       setBoard(prev => {
         if (!prev) return prev;
         return {
           ...prev,
           cards: prev.cards.map(c =>
-            c.id === cardId ? { ...c, comments: [...(c.comments || []), data] } : c
+            c.id === cardId ? { ...c, comments: [...(c.comments || []), enrichedComment] } : c
+          ),
+        };
+      });
+      return enrichedComment as CardComment;
+    } catch (err: any) {
+      setError(err.message);
+      return null;
+    }
+  }, []);
+
+  const updateComment = useCallback(async (boardId: string, cardId: string, commentId: string, content: string) => {
+    setError(null);
+    try {
+      const { data, error: err } = await supabase
+        .from('card_comments')
+        .update({ content })
+        .eq('id', commentId)
+        .select()
+        .single();
+      if (err) throw err;
+
+      setBoard(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          cards: prev.cards.map(c =>
+            c.id === cardId
+              ? { ...c, comments: (c.comments || []).map(cm => cm.id === commentId ? { ...cm, content } : cm) }
+              : c
           ),
         };
       });
@@ -904,6 +969,9 @@ export function useProjectBoard() {
   // ─── Labels ────────────────────────────────────────────────
   const addLabel = useCallback(async (boardId: string, name: string, color: string) => {
     setError(null);
+    const tempId = `temp-${Date.now()}`;
+    const optimistic: BoardLabel = { id: tempId, board_id: boardId, name, color, created_at: new Date().toISOString() };
+    setBoard(prev => prev ? { ...prev, labels: [...prev.labels, optimistic] } : prev);
     try {
       const { data, error: err } = await supabase
         .from('board_labels')
@@ -911,16 +979,21 @@ export function useProjectBoard() {
         .select()
         .single();
       if (err) throw err;
-      setBoard(prev => prev ? { ...prev, labels: [...prev.labels, data] } : prev);
+      setBoard(prev => prev ? { ...prev, labels: prev.labels.map(l => l.id === tempId ? data : l) } : prev);
       return data as BoardLabel;
     } catch (err: any) {
       setError(err.message);
+      setBoard(prev => prev ? { ...prev, labels: prev.labels.filter(l => l.id !== tempId) } : prev);
       return null;
     }
   }, []);
 
   const updateLabel = useCallback(async (boardId: string, labelId: string, updates: Partial<BoardLabel>) => {
     setError(null);
+    setBoard(prev => prev ? {
+      ...prev,
+      labels: prev.labels.map(l => l.id === labelId ? { ...l, ...updates } : l),
+    } : prev);
     try {
       const { data, error: err } = await supabase
         .from('board_labels')
@@ -929,10 +1002,6 @@ export function useProjectBoard() {
         .select()
         .single();
       if (err) throw err;
-      setBoard(prev => prev ? {
-        ...prev,
-        labels: prev.labels.map(l => l.id === labelId ? { ...l, ...data } : l),
-      } : prev);
       return data;
     } catch (err: any) {
       setError(err.message);
@@ -1044,8 +1113,8 @@ export function useProjectBoard() {
     boards, board, loading, error, checklistTemplates,
     fetchBoards, createBoard, fetchBoard, fetchAllBoardsFull, updateBoard, deleteBoard,
     addColumn, updateColumn, deleteColumn, reorderColumns,
-    addCard, updateCard, deleteCard, moveCard, createNextRepeatCard, reorderCardsInColumn,
-    addComment, deleteComment,
+    addCard, updateCard, deleteCard, moveCard, moveToBoardCard, createNextRepeatCard, reorderCardsInColumn,
+    addComment, updateComment, deleteComment,
     addChecklistItem, toggleChecklistItem, updateChecklistItemDueDate, deleteChecklistItem,
     fetchChecklistTemplates, saveChecklistTemplate, deleteChecklistTemplate, applyChecklistTemplate,
     addLabel, updateLabel, deleteLabel,

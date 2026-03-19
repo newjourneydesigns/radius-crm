@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useProjectBoard, FullBoard } from '../../../hooks/useProjectBoard';
 import ProtectedRoute from '../../../components/ProtectedRoute';
-import type { BoardCard, CardPriority } from '../../../lib/supabase';
+import type { CardPriority } from '../../../lib/supabase';
 import { supabase } from '../../../lib/supabase';
 import {
   ArrowLeft,
@@ -102,7 +102,7 @@ interface CalendarCard {
 function CalendarPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  useAuth();
   const { fetchAllBoardsFull } = useProjectBoard();
 
   const [fullBoards, setFullBoards] = useState<FullBoard[]>([]);
@@ -110,16 +110,8 @@ function CalendarPage() {
 
   // Current month
   const today = useMemo(() => new Date(), []);
-  const [year, setYear] = useState(() => {
-    if (typeof window === 'undefined') return today.getFullYear();
-    const saved = localStorage.getItem('boards-calendar-year');
-    return saved ? parseInt(saved, 10) : today.getFullYear();
-  });
-  const [month, setMonth] = useState(() => {
-    if (typeof window === 'undefined') return today.getMonth();
-    const saved = localStorage.getItem('boards-calendar-month');
-    return saved ? parseInt(saved, 10) : today.getMonth();
-  });
+  const [year, setYear] = useState(() => today.getFullYear());
+  const [month, setMonth] = useState(() => today.getMonth());
 
   // Pre-filter from ?board= query param
   const initialBoardId = searchParams.get('board');
@@ -137,15 +129,7 @@ function CalendarPage() {
     if (typeof window === 'undefined') return 'month';
     return (localStorage.getItem('boards-calendar-view') as 'month' | 'day' | 'agenda') || 'month';
   });
-  const [selectedDate, setSelectedDate] = useState<Date>(() => {
-    if (typeof window === 'undefined') return today;
-    const saved = localStorage.getItem('boards-calendar-selected-date');
-    if (saved) {
-      const d = new Date(saved + 'T00:00:00');
-      if (!isNaN(d.getTime())) return d;
-    }
-    return today;
-  });
+  const [selectedDate, setSelectedDate] = useState<Date>(() => today);
 
   // Persist calendar state to localStorage
   useEffect(() => { localStorage.setItem('boards-calendar-view', view); }, [view]);
@@ -454,6 +438,30 @@ function CalendarPage() {
   const openDayView = (date: Date) => {
     setSelectedDate(date);
     setView('day');
+  };
+
+  const toggleComplete = async (card: CalendarCard) => {
+    if (card.type === 'card') {
+      const newVal = !card.isComplete;
+      await supabase.from('board_cards').update({ is_complete: newVal }).eq('id', card.cardId);
+      setFullBoards(prev => prev.map(b => ({
+        ...b,
+        cards: b.cards.map(c => c.id === card.cardId ? { ...c, is_complete: newVal } : c),
+      })));
+    } else {
+      // checklist item — id is the checklist item's id
+      const newVal = !card.isComplete;
+      await supabase.from('card_checklists').update({ is_completed: newVal }).eq('id', card.id);
+      setFullBoards(prev => prev.map(b => ({
+        ...b,
+        cards: b.cards.map(c => ({
+          ...c,
+          checklists: (c.checklists || []).map(cl =>
+            cl.id === card.id ? { ...cl, is_completed: newVal } : cl
+          ),
+        })),
+      })));
+    }
   };
 
   /* ── Board filter helpers ───────────────────────────────── */
@@ -884,7 +892,7 @@ function CalendarPage() {
           {/* Month/Day nav */}
           <div className="kbc-month-nav">
             <button className="kb-btn-icon" onClick={view === 'day' ? prevDay : prevMonth}><ChevronLeft size={18} /></button>
-            <button className="kbc-today-btn" onClick={goToday}>Today</button>
+            <button className={`kbc-today-btn${isSameDay(selectedDate, today) ? ' active' : ''}`} onClick={goToday}>Today</button>
             <button className="kb-btn-icon" onClick={view === 'day' ? nextDay : nextMonth}><ChevronRight size={18} /></button>
             <span className="kbc-month-label">
               {view === 'day'
@@ -928,6 +936,13 @@ function CalendarPage() {
                       onClick={() => router.push(`/boards/${card.boardId}?card=${card.cardId}`)}
                     >
                       <div className="kbc-day-card-color" style={{ background: card.boardColor }} />
+                      <button
+                        className={`kbc-day-card-check ${card.isComplete ? 'done' : ''}`}
+                        onClick={e => { e.stopPropagation(); toggleComplete(card); }}
+                        title={card.isComplete ? 'Mark incomplete' : 'Mark complete'}
+                      >
+                        <Check size={12} />
+                      </button>
                       <div className="kbc-day-card-body">
                         <div className="kbc-day-card-top">
                           <span className="kbc-day-card-title">
@@ -1083,6 +1098,15 @@ function CalendarPage() {
                         onClick={() => router.push(`/boards/${card.boardId}?card=${card.cardId}`)}
                       >
                         <div className="kbc-day-card-color" style={{ background: card.boardColor }} />
+                        <button
+                          className={`kbc-day-card-check ${card.isComplete ? 'done' : ''}`}
+                          onClick={e => { e.stopPropagation(); toggleComplete(card); }}
+                          title={card.isComplete ? 'Mark incomplete' : 'Mark complete'}
+                        >
+                          <span className="kbc-day-card-check-circle">
+                            {card.isComplete && <Check size={10} />}
+                          </span>
+                        </button>
                         <div className="kbc-day-card-body">
                           <div className="kbc-day-card-top">
                             <span className="kbc-day-card-title">
@@ -1256,7 +1280,7 @@ function CalendarPage() {
           <div className="kbc-legend">
             {fullBoards
               .filter(b => selectedBoardIds.size === 0 || selectedBoardIds.has(b.id))
-              .map((b, i) => {
+              .map((b) => {
                 const originalIdx = fullBoards.indexOf(b);
                 return (
                   <button
@@ -1553,6 +1577,11 @@ const calendarStyles = `
     transition: all 0.15s;
   }
   .kbc-today-btn:hover { border-color: #6366f1 !important; }
+  .kbc-today-btn.active {
+    background: rgba(99, 102, 241, 0.2) !important;
+    border-color: #6366f1 !important;
+    color: #a5b4fc !important;
+  }
   .kbc-month-label {
     font-size: 17px;
     font-weight: 700;
@@ -1909,6 +1938,38 @@ const calendarStyles = `
   .kbc-day-card-color {
     width: 4px;
     flex-shrink: 0;
+  }
+  .kbc-day-card-check {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 36px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+  }
+  .kbc-day-card-check-circle {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid #6b7280;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: transparent;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .kbc-day-card-check:hover .kbc-day-card-check-circle {
+    border-color: #22c55e;
+    background: rgba(34,197,94,0.1);
+  }
+  .kbc-day-card-check.done .kbc-day-card-check-circle {
+    border-color: #22c55e;
+    background: #22c55e;
+    color: #fff;
   }
   .kbc-day-card-body {
     flex: 1;

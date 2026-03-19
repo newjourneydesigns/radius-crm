@@ -5,7 +5,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useProjectBoard, FullBoard } from '../../../hooks/useProjectBoard';
 import { useAuth } from '../../../contexts/AuthContext';
 import ProtectedRoute from '../../../components/ProtectedRoute';
-import type { BoardCard, BoardColumn, BoardLabel, CardPriority, ChecklistTemplate, ColumnAutomationAction } from '../../../lib/supabase';
+import type { BoardCard, BoardColumn, BoardLabel, CardPriority, ChecklistTemplate, ColumnAutomationAction, ProjectBoard } from '../../../lib/supabase';
 import {
   Plus, ArrowLeft, Search, MoreHorizontal, Trash2, Edit3,
   GripVertical, MessageSquare, CheckSquare, CalendarDays, Tag,
@@ -13,7 +13,7 @@ import {
   FolderKanban, Check, Globe, Lock, StickyNote, UserPlus, Download, Copy,
   Zap, ArrowDownAZ, ArrowUpZA, Bold, Italic, Underline, Strikethrough,
   LinkIcon, Heading, ListBullet, ListOrdered, SlidersHorizontal, Repeat2,
-  LayoutDashboard,
+  LayoutDashboard, ChevronsLeft,
 } from '../../../components/icons/BoardIcons';
 import { supabase } from '../../../lib/supabase';
 import type { CircleLeader } from '../../../lib/supabase';
@@ -134,12 +134,14 @@ function CardDetailModal({
   onUpdate,
   onDelete,
   onAddComment,
+  onUpdateComment,
   onDeleteComment,
   onAddChecklistItem,
   onToggleChecklistItem,
   onUpdateChecklistDueDate,
   onDeleteChecklistItem,
   onMoveCard,
+  onMoveToBoardCard,
   checklistTemplates,
   onSaveTemplate,
   onDeleteTemplate,
@@ -155,12 +157,14 @@ function CardDetailModal({
   onUpdate: (updates: any) => Promise<void>;
   onDelete: () => Promise<void>;
   onAddComment: (content: string) => Promise<void>;
+  onUpdateComment: (commentId: string, content: string) => Promise<void>;
   onDeleteComment: (commentId: string) => Promise<void>;
   onAddChecklistItem: (title: string) => Promise<void>;
   onToggleChecklistItem: (itemId: string, val: boolean) => Promise<void>;
   onUpdateChecklistDueDate: (itemId: string, dueDate: string | null) => Promise<void>;
   onDeleteChecklistItem: (itemId: string) => Promise<void>;
   onMoveCard: (newColumnId: string) => Promise<void>;
+  onMoveToBoardCard: (targetBoardId: string, targetColumnId: string) => Promise<void>;
   checklistTemplates: ChecklistTemplate[];
   onSaveTemplate: (name: string, items: string[]) => Promise<void>;
   onDeleteTemplate: (templateId: string) => Promise<void>;
@@ -180,6 +184,8 @@ function CardDetailModal({
   const [editRepeatInterval, setEditRepeatInterval] = useState(card.repeat_interval || 1);
   const [editRepeatDays, setEditRepeatDays] = useState<number[]>(card.repeat_days || []);
   const [commentText, setCommentText] = useState('');
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentText, setEditingCommentText] = useState('');
   const [checklistText, setChecklistText] = useState('');
   const [saving, setSaving] = useState(false);
   const [showLabelPicker, setShowLabelPicker] = useState(false);
@@ -187,11 +193,20 @@ function CardDetailModal({
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [allBoards, setAllBoards] = useState<ProjectBoard[]>([]);
+  const [targetBoardId, setTargetBoardId] = useState('');
+  const [targetBoardColumns, setTargetBoardColumns] = useState<{ id: string; title: string }[]>([]);
+  const [targetColumnId, setTargetColumnId] = useState('');
+  const [movingToBoard, setMovingToBoard] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
   const descRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { titleRef.current?.focus(); }, []);
   useEffect(() => { if (editingDesc && descRef.current) { descRef.current.focus(); descRef.current.setSelectionRange(descRef.current.value.length, descRef.current.value.length); } }, [editingDesc]);
+  useEffect(() => {
+    supabase.from('project_boards').select('id, title').eq('is_archived', false).order('created_at', { ascending: false })
+      .then(({ data }) => { if (data) setAllBoards(data as ProjectBoard[]); });
+  }, []);
 
   const handleSave = async () => {
     setSaving(true);
@@ -224,6 +239,26 @@ function CardDetailModal({
 
   const toggleLabel = (labelId: string) => {
     setEditLabels(prev => prev.includes(labelId) ? prev.filter(id => id !== labelId) : [...prev, labelId]);
+  };
+
+  const handleTargetBoardChange = async (boardId: string) => {
+    setTargetBoardId(boardId);
+    setTargetColumnId('');
+    setTargetBoardColumns([]);
+    if (!boardId) return;
+    const { data } = await supabase.from('board_columns').select('id, title').eq('board_id', boardId).order('position');
+    if (data) {
+      setTargetBoardColumns(data);
+      if (data.length > 0) setTargetColumnId(data[0].id);
+    }
+  };
+
+  const handleMoveToBoard = async () => {
+    if (!targetBoardId || !targetColumnId) return;
+    setMovingToBoard(true);
+    await onMoveToBoardCard(targetBoardId, targetColumnId);
+    setMovingToBoard(false);
+    onClose();
   };
 
   const column = board.columns.find(c => c.id === card.column_id);
@@ -495,15 +530,34 @@ function CardDetailModal({
                       <span className="kb-comment-date">
                         {new Date(comment.created_at).toLocaleDateString()} {new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
-                      <button className="kb-btn-icon-sm" onClick={() => onDeleteComment(comment.id)}>
+                      <button className="kb-btn-icon-sm" onClick={() => { setEditingCommentId(comment.id); setEditingCommentText(comment.content); }} title="Edit">
+                        <Pencil size={11} />
+                      </button>
+                      <button className="kb-btn-icon-sm" onClick={() => onDeleteComment(comment.id)} title="Delete">
                         <Trash2 size={11} />
                       </button>
                     </div>
-                    <p className="kb-comment-text">
-                      {comment.content.split('\n').map((line, i, arr) => (
-                        <span key={i}>{linkifyText(line)}{i < arr.length - 1 && <br />}</span>
-                      ))}
-                    </p>
+                    {editingCommentId === comment.id ? (
+                      <div className="kb-comment-edit">
+                        <textarea
+                          className="kb-textarea"
+                          value={editingCommentText}
+                          onChange={e => setEditingCommentText(e.target.value)}
+                          rows={2}
+                          autoFocus
+                        />
+                        <div className="kb-comment-edit-actions">
+                          <button className="kb-btn kb-btn-primary kb-btn-sm" onClick={async () => { await onUpdateComment(comment.id, editingCommentText.trim()); setEditingCommentId(null); }} disabled={!editingCommentText.trim()}>Save</button>
+                          <button className="kb-btn kb-btn-sm" onClick={() => setEditingCommentId(null)}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="kb-comment-text">
+                        {comment.content.split('\n').map((line, i, arr) => (
+                          <span key={i}>{linkifyText(line)}{i < arr.length - 1 && <br />}</span>
+                        ))}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -669,6 +723,43 @@ function CardDetailModal({
                   <option key={col.id} value={col.id}>{col.title}</option>
                 ))}
               </select>
+            </div>
+
+            {/* Move to Board */}
+            <div className="kb-form-group">
+              <div className="kb-detail-section-label"><FolderKanban size={13} /> Move to Board</div>
+              <select
+                className="kb-input"
+                value={targetBoardId}
+                onChange={e => handleTargetBoardChange(e.target.value)}
+              >
+                <option value="">— select board —</option>
+                {allBoards.filter(b => b.id !== board.id).map(b => (
+                  <option key={b.id} value={b.id}>{b.title}</option>
+                ))}
+              </select>
+              {targetBoardId && (
+                <>
+                  <select
+                    className="kb-input"
+                    value={targetColumnId}
+                    onChange={e => setTargetColumnId(e.target.value)}
+                    style={{ marginTop: 6 }}
+                  >
+                    {targetBoardColumns.map(col => (
+                      <option key={col.id} value={col.id}>{col.title}</option>
+                    ))}
+                  </select>
+                  <button
+                    className="kb-btn kb-btn-primary"
+                    onClick={handleMoveToBoard}
+                    disabled={movingToBoard || !targetColumnId}
+                    style={{ width: '100%', justifyContent: 'center', marginTop: 6 }}
+                  >
+                    {movingToBoard ? 'Moving...' : 'Move Card'}
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Actions */}
@@ -919,7 +1010,7 @@ function LabelManagerModal({
           <div className="kb-lm-create-row">
             <button
               className="kb-lm-color-btn"
-              style={{ background: newColor }}
+              style={{ '--swatch-color': newColor } as React.CSSProperties}
               onClick={() => setShowNewColorPicker(!showNewColorPicker)}
               title="Pick color"
             />
@@ -946,12 +1037,11 @@ function LabelManagerModal({
                 <button
                   key={c.hex}
                   className={`kb-lm-color-swatch ${newColor === c.hex ? 'active' : ''}`}
-                  style={{ background: c.hex }}
+                  style={{ '--swatch-color': c.hex } as React.CSSProperties}
                   onClick={() => { setNewColor(c.hex); setShowNewColorPicker(false); }}
                   title={c.name}
                 >
-                  {newColor === c.hex && <Check size={12} />}
-                  <span className="kb-lm-color-name">{c.name}</span>
+                  {newColor === c.hex && <Check size={10} />}
                 </button>
               ))}
             </div>
@@ -970,7 +1060,7 @@ function LabelManagerModal({
                 <div className="kb-lm-edit-row">
                   <button
                     className="kb-lm-color-btn"
-                    style={{ background: editColor }}
+                    style={{ '--swatch-color': editColor } as React.CSSProperties}
                     onClick={() => setShowEditColorPicker(!showEditColorPicker)}
                     title="Pick color"
                   />
@@ -1015,12 +1105,11 @@ function LabelManagerModal({
                     <button
                       key={c.hex}
                       className={`kb-lm-color-swatch ${editColor === c.hex ? 'active' : ''}`}
-                      style={{ background: c.hex }}
+                      style={{ '--swatch-color': c.hex } as React.CSSProperties}
                       onClick={() => { setEditColor(c.hex); setShowEditColorPicker(false); }}
                       title={c.name}
                     >
-                      {editColor === c.hex && <Check size={12} />}
-                      <span className="kb-lm-color-name">{c.name}</span>
+                      {editColor === c.hex && <Check size={10} />}
                     </button>
                   ))}
                 </div>
@@ -1266,6 +1355,7 @@ function ListActionsModal({
   checklistTemplates,
   onApplyTemplate,
   onSortCards,
+  onMoveToBoardCards,
   onClose,
 }: {
   column: BoardColumn;
@@ -1277,7 +1367,8 @@ function ListActionsModal({
   onAddChecklistItem: (cardId: string, title: string) => Promise<void>;
   checklistTemplates: ChecklistTemplate[];
   onApplyTemplate: (cardId: string, templateId: string) => Promise<void>;
-  onSortCards: (columnId: string, direction: 'asc' | 'desc') => Promise<void>;
+  onSortCards: (columnId: string, direction: 'asc' | 'desc' | 'due_asc' | 'due_desc') => Promise<void>;
+  onMoveToBoardCards: (targetBoardId: string, targetColumnId: string) => Promise<void>;
   onClose: () => void;
 }) {
   const [bulkDueDate, setBulkDueDate] = useState('');
@@ -1291,12 +1382,30 @@ function ListActionsModal({
   const [result, setResult] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [users, setUsers] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [allBoards, setAllBoards] = useState<ProjectBoard[]>([]);
+  const [bulkTargetBoardId, setBulkTargetBoardId] = useState('');
+  const [bulkTargetBoardColumns, setBulkTargetBoardColumns] = useState<{ id: string; title: string }[]>([]);
+  const [bulkTargetColumnId, setBulkTargetColumnId] = useState('');
 
   useEffect(() => {
     supabase.from('users').select('id, name, email').order('name').then(({ data }) => {
       if (data) setUsers(data as { id: string; name: string; email: string }[]);
     });
+    supabase.from('project_boards').select('id, title').eq('is_archived', false).order('created_at', { ascending: false })
+      .then(({ data }) => { if (data) setAllBoards(data as ProjectBoard[]); });
   }, []);
+
+  const handleBulkTargetBoardChange = async (boardId: string) => {
+    setBulkTargetBoardId(boardId);
+    setBulkTargetColumnId('');
+    setBulkTargetBoardColumns([]);
+    if (!boardId) return;
+    const { data } = await supabase.from('board_columns').select('id, title').eq('board_id', boardId).order('position');
+    if (data) {
+      setBulkTargetBoardColumns(data);
+      if (data.length > 0) setBulkTargetColumnId(data[0].id);
+    }
+  };
 
   const otherColumns = board.columns.filter(c => c.id !== column.id);
 
@@ -1469,6 +1578,20 @@ function ListActionsModal({
                   >
                     Z → A
                   </button>
+                  <button
+                    className="kb-btn kb-btn-primary kb-btn-sm"
+                    disabled={applying}
+                    onClick={() => apply('Sort Due ↑', async () => { await onSortCards(column.id, 'due_asc'); })}
+                  >
+                    Due ↑
+                  </button>
+                  <button
+                    className="kb-btn kb-btn-primary kb-btn-sm"
+                    disabled={applying}
+                    onClick={() => apply('Sort Due ↓', async () => { await onSortCards(column.id, 'due_desc'); })}
+                  >
+                    Due ↓
+                  </button>
                 </div>
               </div>
 
@@ -1569,7 +1692,47 @@ function ListActionsModal({
                 </div>
               )}
 
-              {/* 10. Clear All Cards */}
+              {/* 10. Move All Cards to Board */}
+              <div className="kb-list-action-row">
+                <div className="kb-list-action-label"><FolderKanban size={13} /> Move All to Board</div>
+                <div className="kb-list-action-controls" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+                  <select
+                    className="kb-input kb-import-select"
+                    value={bulkTargetBoardId}
+                    onChange={e => handleBulkTargetBoardChange(e.target.value)}
+                  >
+                    <option value="">Choose a board...</option>
+                    {allBoards.filter(b => b.id !== board.id).map(b => (
+                      <option key={b.id} value={b.id}>{b.title}</option>
+                    ))}
+                  </select>
+                  {bulkTargetBoardId && (
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <select
+                        className="kb-input kb-import-select"
+                        value={bulkTargetColumnId}
+                        onChange={e => setBulkTargetColumnId(e.target.value)}
+                        style={{ flex: 1 }}
+                      >
+                        {bulkTargetBoardColumns.map(c => (
+                          <option key={c.id} value={c.id}>{c.title}</option>
+                        ))}
+                      </select>
+                      <button
+                        className="kb-btn kb-btn-primary kb-btn-sm"
+                        disabled={!bulkTargetColumnId || applying}
+                        onClick={() => apply('Move to board', async () => {
+                          await onMoveToBoardCards(bulkTargetBoardId, bulkTargetColumnId);
+                        })}
+                      >
+                        Move
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 11. Clear All Cards */}
               <div className="kb-list-action-row kb-list-action-danger">
                 <div className="kb-list-action-label"><Trash2 size={13} /> Clear All Cards</div>
                 <div className="kb-list-action-controls" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
@@ -1880,8 +2043,8 @@ function BoardPage() {
   const {
     board, fetchBoard, updateBoard, deleteBoard: deleteBoardFn,
     addColumn, updateColumn, deleteColumn, reorderColumns,
-    addCard, updateCard, deleteCard, moveCard, reorderCardsInColumn,
-    addComment, deleteComment,
+    addCard, updateCard, deleteCard, moveCard, moveToBoardCard, reorderCardsInColumn,
+    addComment, updateComment, deleteComment,
     addChecklistItem, toggleChecklistItem, updateChecklistItemDueDate, deleteChecklistItem,
     fetchChecklistTemplates, saveChecklistTemplate, deleteChecklistTemplate, applyChecklistTemplate,
     checklistTemplates,
@@ -1904,6 +2067,7 @@ function BoardPage() {
   const [editingBoardTitle, setEditingBoardTitle] = useState(false);
   const [showLabelManager, setShowLabelManager] = useState(false);
   const [showNotePanel, setShowNotePanel] = useState(false);
+  const [noteFormats, setNoteFormats] = useState({ bold: false, italic: false, underline: false, strikeThrough: false, heading: false, unorderedList: false, orderedList: false });
   const [showImportModal, setShowImportModal] = useState(false);
   const [dragCardId, setDragCardId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
@@ -1919,6 +2083,23 @@ function BoardPage() {
     return (localStorage.getItem('boards-view-mode') as 'board' | 'list') || 'board';
   });
   useEffect(() => { localStorage.setItem('boards-view-mode', boardView); }, [boardView]);
+
+  const [collapsedSet, setCollapsedSet] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const stored = localStorage.getItem(`collapsed-cols-${boardId}`);
+      return stored ? new Set(JSON.parse(stored) as string[]) : new Set();
+    } catch { return new Set(); }
+  });
+  const [dragExpandedList, setDragExpandedList] = useState<string | null>(null);
+  useEffect(() => {
+    if (collapsedSet.size === 0) {
+      localStorage.removeItem(`collapsed-cols-${boardId}`);
+    } else {
+      localStorage.setItem(`collapsed-cols-${boardId}`, JSON.stringify([...collapsedSet]));
+    }
+  }, [collapsedSet, boardId]);
+
   const noteRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const noteSaveTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -1961,6 +2142,26 @@ function BoardPage() {
     if (noteSaveTimer.current) clearTimeout(noteSaveTimer.current);
     noteSaveTimer.current = setTimeout(saveNoteNow, 1500);
   }, [saveNoteNow]);
+
+  const updateNoteFormats = useCallback(() => {
+    if (!noteRef.current || !noteRef.current.contains(document.getSelection()?.anchorNode ?? null)) return;
+    const sel = window.getSelection();
+    const node = sel?.anchorNode?.parentElement;
+    setNoteFormats({
+      bold: document.queryCommandState('bold'),
+      italic: document.queryCommandState('italic'),
+      underline: document.queryCommandState('underline'),
+      strikeThrough: document.queryCommandState('strikeThrough'),
+      heading: !!node?.closest('h3'),
+      unorderedList: document.queryCommandState('insertUnorderedList'),
+      orderedList: document.queryCommandState('insertOrderedList'),
+    });
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener('selectionchange', updateNoteFormats);
+    return () => document.removeEventListener('selectionchange', updateNoteFormats);
+  }, [updateNoteFormats]);
 
   const execNoteCmd = (cmd: string, value?: string) => {
     document.execCommand(cmd, false, value);
@@ -2088,6 +2289,7 @@ function BoardPage() {
   const handleDragOver = (e: React.DragEvent, colId: string) => {
     e.preventDefault();
     setDragOverCol(colId);
+    setDragExpandedList(colId);
   };
 
   const handleCardDragOver = (e: React.DragEvent, cardId: string, colId: string) => {
@@ -2104,6 +2306,7 @@ function BoardPage() {
     e.preventDefault();
     setDragOverCol(null);
     setDragOverCardId(null);
+    setDragExpandedList(null);
     if (!dragCardId || !board) return;
 
     const cardsInCol = getColumnCards(colId);
@@ -2155,6 +2358,15 @@ function BoardPage() {
     setDragCardId(null);
     setDragOverCol(null);
     setDragOverCardId(null);
+    setDragExpandedList(null);
+  };
+
+  const toggleCollapsed = (colId: string) => {
+    setCollapsedSet(prev => {
+      const next = new Set(prev);
+      if (next.has(colId)) next.delete(colId); else next.add(colId);
+      return next;
+    });
   };
 
   // ── Column automations ──
@@ -2595,12 +2807,32 @@ function BoardPage() {
         <div className="kb-columns">
           {columns.map(col => {
             const colCards = getColumnCards(col.id);
+            const isCollapsed = collapsedSet.has(col.id) && dragExpandedList !== col.id;
+
+            if (isCollapsed) {
+              return (
+                <div
+                  key={col.id}
+                  className={`kb-column-collapsed ${dragOverCol === col.id ? 'drag-over' : ''}`}
+                  onClick={() => toggleCollapsed(col.id)}
+                  onDragOver={e => { e.preventDefault(); setDragExpandedList(col.id); setDragOverCol(col.id); }}
+                  onDragLeave={() => { setDragOverCol(null); setDragExpandedList(null); }}
+                  onDrop={e => handleDrop(e, col.id)}
+                  title={`Expand "${col.title}"`}
+                >
+                  <span className="kb-column-dot" style={{ background: col.color }} />
+                  <span className="kb-column-count">{colCards.length}</span>
+                  <span className="kb-column-collapsed-title">{col.title}</span>
+                </div>
+              );
+            }
+
             return (
               <div
                 key={col.id}
                 className={`kb-column ${dragOverCol === col.id ? 'drag-over' : ''}`}
                 onDragOver={e => handleDragOver(e, col.id)}
-                onDragLeave={() => setDragOverCol(null)}
+                onDragLeave={() => { setDragOverCol(null); setDragExpandedList(null); }}
                 onDrop={e => handleDrop(e, col.id)}
               >
                 {/* Column header */}
@@ -2651,6 +2883,9 @@ function BoardPage() {
                     )}
                     <button className="kb-btn-icon-sm" onClick={() => setAddingCardCol(col.id)} title="Add card">
                       <Plus size={14} />
+                    </button>
+                    <button className="kb-btn-icon-sm" onClick={() => toggleCollapsed(col.id)} title="Collapse list">
+                      <ChevronsLeft size={14} />
                     </button>
                     <button className="kb-btn-icon-sm" onClick={() => setListActionsColId(col.id)} title="List actions">
                       <Zap size={14} />
@@ -2783,14 +3018,14 @@ function BoardPage() {
           </button>
         </div>
         <div className="kb-note-toolbar">
-          <button className="kb-note-tool-btn" onMouseDown={e => { e.preventDefault(); execNoteCmd('bold'); }} title="Bold"><Bold size={14} /></button>
-          <button className="kb-note-tool-btn" onMouseDown={e => { e.preventDefault(); execNoteCmd('italic'); }} title="Italic"><Italic size={14} /></button>
-          <button className="kb-note-tool-btn" onMouseDown={e => { e.preventDefault(); execNoteCmd('underline'); }} title="Underline"><Underline size={14} /></button>
-          <button className="kb-note-tool-btn" onMouseDown={e => { e.preventDefault(); execNoteCmd('strikeThrough'); }} title="Strikethrough"><Strikethrough size={14} /></button>
+          <button className={`kb-note-tool-btn${noteFormats.bold ? ' active' : ''}`} onMouseDown={e => { e.preventDefault(); execNoteCmd('bold'); }} title="Bold"><Bold size={14} /></button>
+          <button className={`kb-note-tool-btn${noteFormats.italic ? ' active' : ''}`} onMouseDown={e => { e.preventDefault(); execNoteCmd('italic'); }} title="Italic"><Italic size={14} /></button>
+          <button className={`kb-note-tool-btn${noteFormats.underline ? ' active' : ''}`} onMouseDown={e => { e.preventDefault(); execNoteCmd('underline'); }} title="Underline"><Underline size={14} /></button>
+          <button className={`kb-note-tool-btn${noteFormats.strikeThrough ? ' active' : ''}`} onMouseDown={e => { e.preventDefault(); execNoteCmd('strikeThrough'); }} title="Strikethrough"><Strikethrough size={14} /></button>
           <div className="kb-note-tool-sep" />
-          <button className="kb-note-tool-btn" onMouseDown={e => { e.preventDefault(); execNoteCmd('formatBlock', '<h3>'); }} title="Heading"><Heading size={14} /></button>
-          <button className="kb-note-tool-btn" onMouseDown={e => { e.preventDefault(); execNoteCmd('insertUnorderedList'); }} title="Bullet list"><ListBullet size={14} /></button>
-          <button className="kb-note-tool-btn" onMouseDown={e => { e.preventDefault(); execNoteCmd('insertOrderedList'); }} title="Numbered list"><ListOrdered size={14} /></button>
+          <button className={`kb-note-tool-btn${noteFormats.heading ? ' active' : ''}`} onMouseDown={e => { e.preventDefault(); execNoteCmd('formatBlock', '<h3>'); }} title="Heading"><Heading size={14} /></button>
+          <button className={`kb-note-tool-btn${noteFormats.unorderedList ? ' active' : ''}`} onMouseDown={e => { e.preventDefault(); execNoteCmd('insertUnorderedList'); }} title="Bullet list"><ListBullet size={14} /></button>
+          <button className={`kb-note-tool-btn${noteFormats.orderedList ? ' active' : ''}`} onMouseDown={e => { e.preventDefault(); execNoteCmd('insertOrderedList'); }} title="Numbered list"><ListOrdered size={14} /></button>
           <div className="kb-note-tool-sep" />
           <button className="kb-note-tool-btn" onMouseDown={e => { e.preventDefault(); insertNoteLink(); }} title="Insert link"><LinkIcon size={14} /></button>
         </div>
@@ -2805,7 +3040,7 @@ function BoardPage() {
             onClick={e => {
               const target = e.target as HTMLElement;
               const anchor = target.closest('a');
-              if (anchor && (e.metaKey || e.ctrlKey)) {
+              if (anchor) {
                 e.preventDefault();
                 window.open(anchor.href, '_blank', 'noopener,noreferrer');
               }
@@ -2823,6 +3058,7 @@ function BoardPage() {
           onUpdate={async (updates) => { await updateCard(boardId, activeCard.id, updates); }}
           onDelete={async () => { await deleteCard(boardId, activeCard.id); setSelectedCard(null); }}
           onAddComment={async (content) => { await addComment(boardId, activeCard.id, content); }}
+          onUpdateComment={async (commentId, content) => { await updateComment(boardId, activeCard.id, commentId, content); }}
           onDeleteComment={async (commentId) => { await deleteComment(boardId, activeCard.id, commentId); }}
           onAddChecklistItem={async (title) => { await addChecklistItem(boardId, activeCard.id, title); }}
           onToggleChecklistItem={async (itemId, val) => { await toggleChecklistItem(boardId, activeCard.id, itemId, val); }}
@@ -2831,13 +3067,9 @@ function BoardPage() {
           onMoveCard={async (newColumnId) => {
             await moveCard(boardId, activeCard.id, newColumnId, 0);
             await runColumnAutomations(activeCard.id, newColumnId);
-            // If card has repeat rule and is moved to the last column, create next occurrence
-            if (activeCard.repeat_rule && activeCard.repeat_rule !== 'none' && activeCard.due_date && board.columns.length > 0) {
-              const lastCol = board.columns[board.columns.length - 1];
-              if (newColumnId === lastCol.id) {
-                await createNextRepeatCard(activeCard, board.columns[0].id);
-              }
-            }
+          }}
+          onMoveToBoardCard={async (targetBoardId, targetColumnId) => {
+            await moveToBoardCard(activeCard.id, targetBoardId, targetColumnId);
           }}
           checklistTemplates={checklistTemplates}
           onSaveTemplate={async (name, items) => { await saveChecklistTemplate(boardId, name, items); }}
@@ -2893,12 +3125,22 @@ function BoardPage() {
             onSortCards={async (columnId, direction) => {
               const colCards = board.cards
                 .filter(c => c.column_id === columnId && !c.is_archived)
-                .sort((a, b) => direction === 'asc'
-                  ? a.title.localeCompare(b.title)
-                  : b.title.localeCompare(a.title)
-                );
+                .sort((a, b) => {
+                  if (direction === 'asc') return a.title.localeCompare(b.title);
+                  if (direction === 'desc') return b.title.localeCompare(a.title);
+                  // Sort by due date — cards without a due date go last
+                  const da = a.due_date ? new Date(a.due_date).getTime() : Infinity;
+                  const db = b.due_date ? new Date(b.due_date).getTime() : Infinity;
+                  return direction === 'due_asc' ? da - db : db - da;
+                });
               for (let i = 0; i < colCards.length; i++) {
                 await updateCard(boardId, colCards[i].id, { position: i });
+              }
+            }}
+            onMoveToBoardCards={async (targetBoardId, targetColumnId) => {
+              const colCards = board.cards.filter(c => c.column_id === col.id && !c.is_archived);
+              for (const card of colCards) {
+                await moveToBoardCard(card.id, targetBoardId, targetColumnId);
               }
             }}
             onClose={() => setListActionsColId(null)}
@@ -3223,6 +3465,44 @@ const kanbanStyles = `
     gap: 16px;
     align-items: flex-start;
     min-height: calc(100vh - 140px);
+  }
+
+  /* ── Collapsed column bar ── */
+  .kb-column-collapsed {
+    flex-shrink: 0;
+    width: 44px;
+    min-width: 44px;
+    background: #14161e !important;
+    border: 1px solid #1e2130;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 0 14px;
+    gap: 8px;
+    max-height: calc(100vh - 140px);
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    overflow: hidden;
+  }
+  .kb-column-collapsed:hover {
+    border-color: #6366f1;
+  }
+  .kb-column-collapsed.drag-over {
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 2px rgba(99,102,241,0.2) inset;
+  }
+  .kb-column-collapsed-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #9ca3af;
+    writing-mode: vertical-lr;
+    text-orientation: mixed;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-height: 160px;
+    margin-top: 4px;
   }
 
   /* ── Column ── */
@@ -4158,6 +4438,8 @@ const kanbanStyles = `
     color: #4b5563;
     font-style: italic;
   }
+  .kb-comment-edit { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+  .kb-comment-edit-actions { display: flex; gap: 6px; justify-content: flex-end; }
   .kb-comment-add { display: flex; flex-direction: column; }
 
   /* ── Label Manager ── */
@@ -4199,57 +4481,48 @@ const kanbanStyles = `
   .kb-lm-color-btn {
     width: 32px;
     height: 32px;
-    border-radius: 8px;
-    border: 2px solid rgba(255,255,255,0.15);
+    border-radius: 8px !important;
+    border: 2px solid rgba(255,255,255,0.15) !important;
     cursor: pointer;
     flex-shrink: 0;
     transition: all 0.15s ease;
+    background-color: var(--swatch-color) !important;
   }
   .kb-lm-color-btn:hover {
-    border-color: rgba(255,255,255,0.35);
+    border-color: rgba(255,255,255,0.35) !important;
     transform: scale(1.08);
+    background-color: var(--swatch-color) !important;
   }
   .kb-lm-color-grid {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    display: flex;
+    flex-wrap: wrap;
     gap: 6px;
     margin-top: 10px;
   }
   .kb-lm-color-swatch {
-    width: 100%;
-    height: 32px;
-    border-radius: 6px;
-    border: 2px solid transparent;
+    width: 26px;
+    height: 26px;
+    border-radius: 50% !important;
+    border: 2px solid transparent !important;
     cursor: pointer;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: #fff;
+    color: #fff !important;
     transition: all 0.12s ease;
-    position: relative;
-    font-size: 9px;
-    font-weight: 600;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-    letter-spacing: 0.02em;
-  }
-  .kb-lm-color-name {
-    font-size: 9px;
-    line-height: 1;
-    margin-top: 1px;
-    opacity: 0.85;
+    flex-shrink: 0;
+    background-color: var(--swatch-color) !important;
   }
   .kb-lm-color-swatch:hover {
-    transform: scale(1.08);
-    border-color: rgba(255,255,255,0.4);
-  }
-  .kb-lm-color-swatch:hover .kb-lm-color-name {
-    opacity: 1;
+    transform: scale(1.15);
+    border-color: rgba(255,255,255,0.5) !important;
+    background-color: var(--swatch-color) !important;
   }
   .kb-lm-color-swatch.active {
-    border-color: #fff;
-    transform: scale(1.08);
-    box-shadow: 0 0 0 2px rgba(255,255,255,0.25);
+    border-color: #fff !important;
+    transform: scale(1.15);
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.3);
+    background-color: var(--swatch-color) !important;
   }
   .kb-lm-list {
     padding: 8px 12px 12px;
@@ -4389,6 +4662,10 @@ const kanbanStyles = `
   .kb-note-tool-btn:active {
     background: rgba(99, 102, 241, 0.25) !important;
     color: #c7d2fe !important;
+  }
+  .kb-note-tool-btn.active {
+    background: rgba(99, 102, 241, 0.2) !important;
+    color: #a5b4fc !important;
   }
   .kb-note-tool-sep {
     width: 1px;
