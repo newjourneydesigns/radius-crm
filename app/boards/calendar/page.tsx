@@ -154,6 +154,11 @@ function CalendarPage() {
   // Mobile collapsed calendar state
   const [calendarExpanded, setCalendarExpanded] = useState(false);
 
+  // Cross-board card search
+  const [cardSearch, setCardSearch] = useState('');
+  const [cardSearchResults, setCardSearchResults] = useState<{ id: string; title: string; boardId: string; boardTitle: string; columnTitle: string }[]>([]);
+  const [cardSearchIdx, setCardSearchIdx] = useState(0);
+
   // Quick-add card state
   const [showAddCard, setShowAddCard] = useState(false);
   const [addCardBoardId, setAddCardBoardId] = useState('');
@@ -239,6 +244,34 @@ function CalendarPage() {
 
     return () => { cancelled = true; };
   }, [fetchAllBoardsFull]);
+
+  useEffect(() => {
+    setCardSearchIdx(0);
+    if (!cardSearch.trim()) { setCardSearchResults([]); return; }
+    const t = setTimeout(async () => {
+      const { data: cardRows } = await supabase
+        .from('board_cards')
+        .select('id, title, board_id, column_id')
+        .ilike('title', `%${cardSearch}%`)
+        .eq('is_archived', false)
+        .limit(8);
+      if (!cardRows || cardRows.length === 0) { setCardSearchResults([]); return; }
+      const boardIds = Array.from(new Set(cardRows.map((c: any) => c.board_id as string)));
+      const columnIds = Array.from(new Set(cardRows.map((c: any) => c.column_id as string)));
+      const [{ data: boardRows }, { data: colRows }] = await Promise.all([
+        supabase.from('project_boards').select('id, title').in('id', boardIds),
+        supabase.from('board_columns').select('id, title').in('id', columnIds),
+      ]);
+      const boardMap = new Map((boardRows || []).map((b: any) => [b.id, b.title]));
+      const colMap = new Map((colRows || []).map((c: any) => [c.id, c.title]));
+      setCardSearchResults(cardRows.map((c: any) => ({
+        id: c.id, title: c.title, boardId: c.board_id,
+        boardTitle: boardMap.get(c.board_id) || 'Unknown Board',
+        columnTitle: colMap.get(c.column_id) || 'Unknown Column',
+      })));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [cardSearch]);
 
   /* ── Close board filter on outside click ───────────────── */
   useEffect(() => {
@@ -901,6 +934,46 @@ function CalendarPage() {
               }
             </span>
           </div>
+        </div>
+
+        {/* ── Cross-board card search ── */}
+        <div className="kb-search-bar">
+          <Search size={14} className="kb-search-bar-icon" />
+          <input
+            className="kb-search-bar-input"
+            placeholder="Search cards across all boards..."
+            value={cardSearch}
+            onChange={e => setCardSearch(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'ArrowDown') setCardSearchIdx(i => Math.min(i + 1, cardSearchResults.length - 1));
+              else if (e.key === 'ArrowUp') setCardSearchIdx(i => Math.max(i - 1, 0));
+              else if (e.key === 'Enter' && cardSearchResults[cardSearchIdx]) {
+                const r = cardSearchResults[cardSearchIdx];
+                router.push(`/boards/${r.boardId}?card=${r.id}`);
+                setCardSearch('');
+              } else if (e.key === 'Escape') setCardSearch('');
+            }}
+          />
+          {cardSearch && (
+            <button onClick={() => setCardSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: 0, display: 'flex' }}>
+              <X size={14} />
+            </button>
+          )}
+          {cardSearchResults.length > 0 && cardSearch && (
+            <div className="kb-search-global-dropdown">
+              <div className="kb-search-global-label">Cards</div>
+              {cardSearchResults.map((r, i) => (
+                <div
+                  key={r.id}
+                  className={`kb-search-global-item${i === cardSearchIdx ? ' selected' : ''}`}
+                  onClick={() => { router.push(`/boards/${r.boardId}?card=${r.id}`); setCardSearch(''); }}
+                >
+                  <span className="kb-search-global-title">{r.title}</span>
+                  <span className="kb-search-global-meta">{r.boardTitle} · {r.columnTitle}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Calendar */}
@@ -2403,6 +2476,60 @@ const calendarStyles = `
   }
   .kbc-add-save:hover { background: #2563eb; }
   .kbc-add-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── Cross-board search bar ── */
+  .kb-search-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-bottom: 1px solid #1e2130;
+    background: rgba(15, 17, 23, 0.6);
+    position: relative;
+    /* Break out of kbc-container horizontal padding */
+    margin-left: -16px;
+    margin-right: -16px;
+    width: calc(100% + 32px);
+    box-sizing: border-box;
+  }
+  .kb-search-bar-icon { color: #4b5563; flex-shrink: 0; }
+  .kb-search-bar-input {
+    flex: 1;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    color: #e5e7eb !important;
+    font-size: 13px !important;
+    padding: 4px 0 !important;
+    font-family: inherit;
+  }
+  .kb-search-bar-input::placeholder { color: #4b5563 !important; }
+  .kb-search-global-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0; right: 0;
+    background: #1a1d27;
+    border: 1px solid #2a2d3a;
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+    z-index: 200;
+    overflow: hidden;
+  }
+  .kb-search-global-label {
+    font-size: 10px; font-weight: 600; color: #4b5563;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    padding: 8px 14px 4px;
+  }
+  .kb-search-global-item {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 8px 14px; cursor: pointer;
+    transition: background 0.1s;
+  }
+  .kb-search-global-item.selected,
+  .kb-search-global-item:hover { background: #22252f; }
+  .kb-search-global-title { font-size: 13px; font-weight: 500; color: #f9fafb; }
+  .kb-search-global-meta { font-size: 11px; color: #6366f1; }
 `;
 
 /* ═══════════════════════════════════════════════════════════

@@ -198,6 +198,8 @@ function CardDetailModal({
   const [targetBoardColumns, setTargetBoardColumns] = useState<{ id: string; title: string }[]>([]);
   const [targetColumnId, setTargetColumnId] = useState('');
   const [movingToBoard, setMovingToBoard] = useState(false);
+  const [linkedLeaderId, setLinkedLeaderId] = useState<number | null>(card.linked_leader_id ?? null);
+  const [allLeaders, setAllLeaders] = useState<{ id: number; name: string }[]>([]);
   const titleRef = useRef<HTMLInputElement>(null);
   const descRef = useRef<HTMLTextAreaElement>(null);
 
@@ -206,6 +208,10 @@ function CardDetailModal({
   useEffect(() => {
     supabase.from('project_boards').select('id, title').eq('is_archived', false).order('created_at', { ascending: false })
       .then(({ data }) => { if (data) setAllBoards(data as ProjectBoard[]); });
+  }, []);
+  useEffect(() => {
+    supabase.from('circle_leaders').select('id, name').order('name')
+      .then(({ data }) => { if (data) setAllLeaders(data as { id: number; name: string }[]); });
   }, []);
 
   const handleSave = async () => {
@@ -220,6 +226,7 @@ function CardDetailModal({
       repeat_rule: editRepeatRule === 'none' ? null : editRepeatRule,
       repeat_interval: editRepeatRule === 'none' ? 1 : editRepeatInterval,
       repeat_days: editRepeatRule === 'daily' && editRepeatDays.length > 0 ? editRepeatDays : null,
+      linked_leader_id: linkedLeaderId,
     });
     setSaving(false);
     onClose();
@@ -762,6 +769,40 @@ function CardDetailModal({
               )}
             </div>
 
+            {/* Circle Leader */}
+            <div className="kb-form-group">
+              <div className="kb-detail-section-label"><User size={13} /> Circle Leader</div>
+              {linkedLeaderId ? (() => {
+                const leader = allLeaders.find(l => l.id === linkedLeaderId);
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <a
+                      href={`/circle/${linkedLeaderId}`}
+                      style={{ flex: 1, color: '#818cf8', fontSize: 13, fontWeight: 500, textDecoration: 'none' }}
+                      onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+                      onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
+                    >
+                      {leader?.name ?? `Leader #${linkedLeaderId}`}
+                    </a>
+                    <button
+                      className="kb-btn-icon-sm"
+                      onClick={() => setLinkedLeaderId(null)}
+                      title="Remove link"
+                    ><X size={12} /></button>
+                  </div>
+                );
+              })() : (
+                <select
+                  className="kb-input"
+                  value=""
+                  onChange={e => setLinkedLeaderId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">— link a leader —</option>
+                  {allLeaders.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                </select>
+              )}
+            </div>
+
             {/* Actions */}
             <div style={{ borderTop: '1px solid #2a2d3a', paddingTop: 16, marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <button className="kb-btn kb-btn-primary" onClick={handleSave} disabled={saving || !editTitle.trim()} style={{ width: '100%', justifyContent: 'center' }}>
@@ -911,6 +952,14 @@ function KanbanCard({
         <div className="kb-card-assignee">
           <User size={10} />
           {(card.assignments || []).map(a => a.users?.name || 'Unknown').join(', ')}
+        </div>
+      )}
+
+      {/* Linked Circle Leader */}
+      {card.linked_leader_id && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, fontSize: 10, color: '#818cf8' }}>
+          <LinkIcon size={9} />
+          <span>Circle Leader</span>
         </div>
       )}
     </div>
@@ -1376,6 +1425,7 @@ function ListActionsModal({
   const [bulkPriority, setBulkPriority] = useState('');
   const [bulkLabel, setBulkLabel] = useState('');
   const [bulkMoveCol, setBulkMoveCol] = useState('');
+  const [bulkMoveCompletedCol, setBulkMoveCompletedCol] = useState('');
   const [bulkChecklistItem, setBulkChecklistItem] = useState('');
   const [bulkTemplate, setBulkTemplate] = useState('');
   const [applying, setApplying] = useState(false);
@@ -1409,13 +1459,14 @@ function ListActionsModal({
 
   const otherColumns = board.columns.filter(c => c.id !== column.id);
 
-  const apply = async (label: string, fn: () => Promise<void>) => {
+  const apply = async (label: string, fn: () => Promise<void>, count?: number) => {
     setApplying(true);
     setResult('');
     setConfirmDelete(false);
     try {
       await fn();
-      setResult(`${label} applied to ${cards.length} card${cards.length !== 1 ? 's' : ''}`);
+      const n = count ?? cards.length;
+      setResult(`${label} applied to ${n} card${n !== 1 ? 's' : ''}`);
     } catch {
       setResult('Something went wrong');
     } finally {
@@ -1692,7 +1743,35 @@ function ListActionsModal({
                 </div>
               )}
 
-              {/* 10. Move All Cards to Board */}
+              {/* 10. Move All Completed Cards */}
+              {otherColumns.length > 0 && (() => {
+                const completedCards = cards.filter(c => c.is_complete);
+                return (
+                  <div className="kb-list-action-row">
+                    <div className="kb-list-action-label"><FolderKanban size={13} /> Move All Completed</div>
+                    <div className="kb-list-action-controls">
+                      <select className="kb-input kb-import-select" value={bulkMoveCompletedCol} onChange={e => setBulkMoveCompletedCol(e.target.value)} style={{ flex: 1 }}>
+                        <option value="">Choose a list...</option>
+                        {otherColumns.map(c => (
+                          <option key={c.id} value={c.id}>{c.title}</option>
+                        ))}
+                      </select>
+                      <button
+                        className="kb-btn kb-btn-primary kb-btn-sm"
+                        disabled={!bulkMoveCompletedCol || applying || completedCards.length === 0}
+                        onClick={() => apply('Move completed', async () => {
+                          for (const card of completedCards) await onMoveCard(card.id, bulkMoveCompletedCol);
+                        }, completedCards.length)}
+                        title={completedCards.length === 0 ? 'No completed cards in this list' : undefined}
+                      >
+                        Move {completedCards.length > 0 ? `(${completedCards.length})` : ''}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* 11. Move All Cards to Board */}
               <div className="kb-list-action-row">
                 <div className="kb-list-action-label"><FolderKanban size={13} /> Move All to Board</div>
                 <div className="kb-list-action-controls" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
@@ -1732,7 +1811,7 @@ function ListActionsModal({
                 </div>
               </div>
 
-              {/* 11. Clear All Cards */}
+              {/* 12. Clear All Cards */}
               <div className="kb-list-action-row kb-list-action-danger">
                 <div className="kb-list-action-label"><Trash2 size={13} /> Clear All Cards</div>
                 <div className="kb-list-action-controls" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
@@ -1787,12 +1866,14 @@ function ListActionsModal({
    ═══════════════════════════════════════════════════════════ */
 function ColumnAutomationsModal({
   column,
+  columns,
   labels,
   checklistTemplates,
   onSave,
   onClose,
 }: {
   column: BoardColumn;
+  columns: BoardColumn[];
   labels: BoardLabel[];
   checklistTemplates: ChecklistTemplate[];
   onSave: (automations: ColumnAutomationAction[]) => Promise<void>;
@@ -1825,6 +1906,7 @@ function ColumnAutomationsModal({
     set_labels: 'Set labels',
     clear_labels: 'Strip labels',
     add_checklist: 'Add checklist',
+    move_completed: 'Move completed cards',
   };
 
   const formatValue = (action: ColumnAutomationAction): string => {
@@ -1842,6 +1924,9 @@ function ColumnAutomationsModal({
     if (action.type === 'add_checklist') {
       if (action.value.length === 0) return 'None';
       return action.value.map(id => checklistTemplates.find(t => t.id === id)?.name ?? id).join(', ');
+    }
+    if (action.type === 'move_completed') {
+      return columns.find(c => c.id === action.value)?.title ?? action.value;
     }
     return '';
   };
@@ -1862,6 +1947,8 @@ function ColumnAutomationsModal({
       action = { type: 'set_labels', value: newValue ? newValue.split(',').filter(Boolean) : [] };
     } else if (newType === 'clear_labels') {
       action = { type: 'clear_labels', value: true };
+    } else if (newType === 'move_completed') {
+      action = { type: 'move_completed', value: newValue };
     } else {
       action = { type: 'add_checklist', value: newValue ? newValue.split(',').filter(Boolean) : [] };
     }
@@ -1885,7 +1972,8 @@ function ColumnAutomationsModal({
   };
 
   const canAdd =
-    newType !== 'set_assignee' || newValue.trim() !== '';
+    (newType !== 'set_assignee' || newValue.trim() !== '') &&
+    (newType !== 'move_completed' || newValue.trim() !== '');
 
   return (
     <div className="kb-modal-overlay" onClick={onClose}>
@@ -1938,6 +2026,7 @@ function ColumnAutomationsModal({
                 <option value="set_labels">Set labels</option>
                 <option value="clear_labels">Strip labels</option>
                 <option value="add_checklist">Add checklist</option>
+                <option value="move_completed">Move completed cards</option>
               </select>
               <button
                 className="kb-btn kb-btn-primary kb-btn-sm"
@@ -2015,6 +2104,18 @@ function ColumnAutomationsModal({
                   ))}
                 </div>
               )}
+              {newType === 'move_completed' && (
+                columns.length === 0 ? (
+                  <span style={{ color: '#6b7280', fontSize: 12 }}>No other lists on this board</span>
+                ) : (
+                  <select className="kb-input" value={newValue} onChange={e => setNewValue(e.target.value)}>
+                    <option value="">Choose destination list...</option>
+                    {columns.map(c => (
+                      <option key={c.id} value={c.id}>{c.title}</option>
+                    ))}
+                  </select>
+                )
+              )}
             </div>
           </div>
         </div>
@@ -2054,10 +2155,7 @@ function BoardPage() {
     createNextRepeatCard,
   } = useProjectBoard();
 
-  const [search, setSearch] = useState('');
-  const [globalResults, setGlobalResults] = useState<{ id: string; title: string; boardId: string; boardTitle: string; columnTitle: string }[]>([]);
-  const [globalResultsIdx, setGlobalResultsIdx] = useState(0);
-  const searchBarRef = useRef<HTMLDivElement>(null);
+  const [search] = useState('');
   const [filterPriority, setFilterPriority] = useState<CardPriority | ''>('');
   const [filterLabel, setFilterLabel] = useState('');
   const [filterDate, setFilterDate] = useState('');
@@ -2081,11 +2179,44 @@ function BoardPage() {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+
+  // Cross-board card search
+  const [cardSearch, setCardSearch] = useState('');
+  const [cardSearchResults, setCardSearchResults] = useState<{ id: string; title: string; boardId: string; boardTitle: string; columnTitle: string }[]>([]);
+  const [cardSearchIdx, setCardSearchIdx] = useState(0);
   const [boardView, setBoardView] = useState<'board' | 'list'>(() => {
     if (typeof window === 'undefined') return 'board';
     return (localStorage.getItem('boards-view-mode') as 'board' | 'list') || 'board';
   });
   useEffect(() => { localStorage.setItem('boards-view-mode', boardView); }, [boardView]);
+
+  useEffect(() => {
+    setCardSearchIdx(0);
+    if (!cardSearch.trim()) { setCardSearchResults([]); return; }
+    const t = setTimeout(async () => {
+      const { data: cards } = await supabase
+        .from('board_cards')
+        .select('id, title, board_id, column_id')
+        .ilike('title', `%${cardSearch}%`)
+        .eq('is_archived', false)
+        .limit(8);
+      if (!cards || cards.length === 0) { setCardSearchResults([]); return; }
+      const boardIds = Array.from(new Set(cards.map((c: any) => c.board_id as string)));
+      const columnIds = Array.from(new Set(cards.map((c: any) => c.column_id as string)));
+      const [{ data: boardRows }, { data: colRows }] = await Promise.all([
+        supabase.from('project_boards').select('id, title').in('id', boardIds),
+        supabase.from('board_columns').select('id, title').in('id', columnIds),
+      ]);
+      const boardMap = new Map((boardRows || []).map((b: any) => [b.id, b.title]));
+      const colMap = new Map((colRows || []).map((c: any) => [c.id, c.title]));
+      setCardSearchResults(cards.map((c: any) => ({
+        id: c.id, title: c.title, boardId: c.board_id,
+        boardTitle: boardMap.get(c.board_id) || 'Unknown Board',
+        columnTitle: colMap.get(c.column_id) || 'Unknown Column',
+      })));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [cardSearch]);
 
   const [collapsedSet, setCollapsedSet] = useState<Set<string>>(() => {
     if (typeof window === 'undefined') return new Set();
@@ -2182,34 +2313,6 @@ function BoardPage() {
     setShowNotePanel(false);
   }, [saveNoteNow]);
 
-  // Cross-board card search
-  useEffect(() => {
-    setGlobalResults([]);
-    setGlobalResultsIdx(0);
-    if (search.trim().length < 2) return;
-    const timer = setTimeout(async () => {
-      const q = search.trim().toLowerCase();
-      const [cardsRes, boardsRes, colsRes] = await Promise.all([
-        supabase.from('board_cards').select('id, title, board_id, column_id').eq('is_archived', false).ilike('title', `%${q}%`).limit(20),
-        supabase.from('project_boards').select('id, title'),
-        supabase.from('board_columns').select('id, title'),
-      ]);
-      const boardMap = new Map((boardsRes.data || []).map((b: any) => [b.id, b.title]));
-      const colMap   = new Map((colsRes.data || []).map((c: any) => [c.id, c.title]));
-      const results = (cardsRes.data || [])
-        .filter((c: any) => c.board_id !== boardId)
-        .map((c: any) => ({
-          id: c.id,
-          title: c.title,
-          boardId: c.board_id,
-          boardTitle: boardMap.get(c.board_id) || 'Unknown board',
-          columnTitle: colMap.get(c.column_id) || '',
-        }));
-      setGlobalResults(results);
-      setGlobalResultsIdx(0);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [search, boardId]);
 
   // When opening card detail, find the latest version from board state
   const openCardDetail = useCallback((card: BoardCard) => {
@@ -2242,7 +2345,7 @@ function BoardPage() {
         }
       } else if (e.key === 'c' || e.key === 'C') {
         e.preventDefault();
-        updateCard(boardId, card.id, { is_complete: !card.is_complete });
+        handleToggleComplete(card.id, !card.is_complete);
       } else if (e.key === 'm' || e.key === 'M') {
         e.preventDefault();
         if (!user) return;
@@ -2424,6 +2527,28 @@ function BoardPage() {
     if (checklistAction?.type === 'add_checklist') {
       for (const templateId of checklistAction.value) {
         await applyChecklistTemplate(boardId, cardId, templateId);
+      }
+    }
+
+    const moveCompletedAction = automations.find(a => a.type === 'move_completed');
+    if (moveCompletedAction?.type === 'move_completed') {
+      const card = board.cards.find(c => c.id === cardId);
+      const isComplete = 'is_complete' in cardUpdates ? cardUpdates.is_complete : card?.is_complete;
+      if (isComplete) {
+        await moveCard(boardId, cardId, moveCompletedAction.value, 0);
+      }
+    }
+  };
+
+  // ── Toggle complete (with move_completed automation) ──
+  const handleToggleComplete = async (cardId: string, makeComplete: boolean) => {
+    const card = board?.cards.find(c => c.id === cardId);
+    await updateCard(boardId, cardId, { is_complete: makeComplete });
+    if (makeComplete && board && card) {
+      const col = board.columns.find(c => c.id === card.column_id);
+      const moveAction = col?.automations?.find(a => a.type === 'move_completed');
+      if (moveAction?.type === 'move_completed') {
+        await moveCard(boardId, cardId, moveAction.value, 0);
       }
     }
   };
@@ -2674,40 +2799,45 @@ function BoardPage() {
         </div>
       </div>
 
-      {/* ── Search bar ── */}
-      <div className="kb-search-bar" ref={searchBarRef}>
+      {/* ── Cross-board card search ── */}
+      <div className="kb-search-bar">
         <Search size={14} className="kb-search-bar-icon" />
         <input
           className="kb-search-bar-input"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
           placeholder="Search cards across all boards..."
+          value={cardSearch}
+          onChange={e => setCardSearch(e.target.value)}
           onKeyDown={e => {
-            if (e.key === 'Escape') { setSearch(''); return; }
-            if (!globalResults.length) return;
-            if (e.key === 'ArrowDown') { e.preventDefault(); setGlobalResultsIdx(i => Math.min(i + 1, globalResults.length - 1)); }
-            if (e.key === 'ArrowUp')   { e.preventDefault(); setGlobalResultsIdx(i => Math.max(i - 1, 0)); }
-            if (e.key === 'Enter') {
-              const r = globalResults[globalResultsIdx];
-              if (r) { router.push(`/boards/${r.boardId}?card=${r.id}`); setSearch(''); }
-            }
+            if (e.key === 'ArrowDown') setCardSearchIdx(i => Math.min(i + 1, cardSearchResults.length - 1));
+            else if (e.key === 'ArrowUp') setCardSearchIdx(i => Math.max(i - 1, 0));
+            else if (e.key === 'Enter' && cardSearchResults[cardSearchIdx]) {
+              const r = cardSearchResults[cardSearchIdx];
+              if (r.boardId === boardId) { const c = board?.cards.find(x => x.id === r.id); if (c) setSelectedCard(c); }
+              else router.push(`/boards/${r.boardId}?card=${r.id}`);
+              setCardSearch('');
+            } else if (e.key === 'Escape') setCardSearch('');
           }}
         />
-        {search && (
-          <button className="kb-btn-icon-sm" onClick={() => setSearch('')} style={{ color: '#6b7280' }}><X size={14} /></button>
+        {cardSearch && (
+          <button onClick={() => setCardSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: 0, display: 'flex' }}>
+            <X size={14} />
+          </button>
         )}
-        {globalResults.length > 0 && (
+        {cardSearchResults.length > 0 && cardSearch && (
           <div className="kb-search-global-dropdown">
-            <div className="kb-search-global-label">Other boards</div>
-            {globalResults.map((r, idx) => (
+            <div className="kb-search-global-label">Cards</div>
+            {cardSearchResults.map((r, i) => (
               <div
                 key={r.id}
-                className={`kb-search-global-item ${idx === globalResultsIdx ? 'selected' : ''}`}
-                onMouseEnter={() => setGlobalResultsIdx(idx)}
-                onClick={() => { router.push(`/boards/${r.boardId}?card=${r.id}`); setSearch(''); }}
+                className={`kb-search-global-item${i === cardSearchIdx ? ' selected' : ''}`}
+                onClick={() => {
+                  if (r.boardId === boardId) { const c = board?.cards.find(x => x.id === r.id); if (c) setSelectedCard(c); }
+                  else router.push(`/boards/${r.boardId}?card=${r.id}`);
+                  setCardSearch('');
+                }}
               >
                 <span className="kb-search-global-title">{r.title}</span>
-                <span className="kb-search-global-meta">{r.boardTitle}{r.columnTitle ? ` · ${r.columnTitle}` : ''}</span>
+                <span className="kb-search-global-meta">{r.boardTitle} · {r.columnTitle}</span>
               </div>
             ))}
           </div>
@@ -2790,7 +2920,7 @@ function BoardPage() {
                         className={`kb-card-complete-btn ${card.is_complete ? 'checked' : ''}`}
                         onClick={async (e) => {
                           e.stopPropagation();
-                          await updateCard(boardId, card.id, { is_complete: !card.is_complete });
+                          await handleToggleComplete(card.id, !card.is_complete);
                         }}
                         title={card.is_complete ? 'Mark incomplete' : 'Mark complete'}
                       >
@@ -2990,7 +3120,7 @@ function BoardPage() {
                         card={card}
                         onClick={() => openCardDetail(card)}
                         isDragging={dragCardId === card.id}
-                        onToggleComplete={() => updateCard(boardId, card.id, { is_complete: !card.is_complete })}
+                        onToggleComplete={() => handleToggleComplete(card.id, !card.is_complete)}
                       />
                     </div>
                   ))}
@@ -3113,7 +3243,17 @@ function BoardPage() {
           card={activeCard}
           board={board}
           onClose={() => setSelectedCard(null)}
-          onUpdate={async (updates) => { await updateCard(boardId, activeCard.id, updates); }}
+          onUpdate={async (updates) => {
+            const cardBeforeUpdate = board.cards.find(c => c.id === activeCard.id);
+            await updateCard(boardId, activeCard.id, updates);
+            if (updates.is_complete === true && cardBeforeUpdate) {
+              const col = board.columns.find(c => c.id === cardBeforeUpdate.column_id);
+              const moveAction = col?.automations?.find(a => a.type === 'move_completed');
+              if (moveAction?.type === 'move_completed') {
+                await moveCard(boardId, activeCard.id, moveAction.value, 0);
+              }
+            }
+          }}
           onDelete={async () => { await deleteCard(boardId, activeCard.id); setSelectedCard(null); }}
           onAddComment={async (content) => { await addComment(boardId, activeCard.id, content); }}
           onUpdateComment={async (commentId, content) => { await updateComment(boardId, activeCard.id, commentId, content); }}
@@ -3213,6 +3353,7 @@ function BoardPage() {
         return (
           <ColumnAutomationsModal
             column={col}
+            columns={board.columns.filter(c => c.id !== col.id)}
             labels={board.labels}
             checklistTemplates={checklistTemplates}
             onSave={async (automations) => {

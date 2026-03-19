@@ -71,10 +71,6 @@ function BoardsListPage() {
   const router = useRouter();
   const { boards, fetchBoards, createBoard, deleteBoard, loading } = useProjectBoard();
   const [showCreate, setShowCreate] = useState(false);
-  const [cardSearch, setCardSearch] = useState('');
-  const [cardSearchResults, setCardSearchResults] = useState<{ id: string; title: string; boardId: string; boardTitle: string; columnTitle: string }[]>([]);
-  const [cardSearchIdx, setCardSearchIdx] = useState(0);
-  const cardSearchRef = useRef<HTMLDivElement>(null);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [creating, setCreating] = useState(false);
@@ -90,6 +86,12 @@ function BoardsListPage() {
   const [checklists, setChecklists] = useState<(ChecklistStub & { board_id: string })[]>([]);
   const [statsLoaded, setStatsLoaded] = useState(false);
 
+  // Cross-board card search
+  const [cardSearch, setCardSearch] = useState('');
+  const [cardSearchResults, setCardSearchResults] = useState<{ id: string; title: string; boardId: string; boardTitle: string; columnTitle: string }[]>([]);
+  const [cardSearchIdx, setCardSearchIdx] = useState(0);
+  const cardSearchBarRef = useRef<HTMLDivElement>(null);
+
   // Restore last boards view (board detail or calendar)
   useEffect(() => {
     const lastRoute = localStorage.getItem('boards-last-route');
@@ -103,28 +105,32 @@ function BoardsListPage() {
     fetchBoards();
   }, [fetchBoards]);
 
-  // Cross-board card search
   useEffect(() => {
-    setCardSearchResults([]);
     setCardSearchIdx(0);
-    if (cardSearch.trim().length < 2) return;
-    const timer = setTimeout(async () => {
-      const q = cardSearch.trim().toLowerCase();
-      const [cardsRes, boardsRes, colsRes] = await Promise.all([
-        supabase.from('board_cards').select('id, title, board_id, column_id').eq('is_archived', false).ilike('title', `%${q}%`).limit(20),
-        supabase.from('project_boards').select('id, title'),
-        supabase.from('board_columns').select('id, title'),
+    if (!cardSearch.trim()) { setCardSearchResults([]); return; }
+    const t = setTimeout(async () => {
+      const { data: cardRows } = await supabase
+        .from('board_cards')
+        .select('id, title, board_id, column_id')
+        .ilike('title', `%${cardSearch}%`)
+        .eq('is_archived', false)
+        .limit(8);
+      if (!cardRows || cardRows.length === 0) { setCardSearchResults([]); return; }
+      const boardIds = Array.from(new Set(cardRows.map((c: any) => c.board_id as string)));
+      const columnIds = Array.from(new Set(cardRows.map((c: any) => c.column_id as string)));
+      const [{ data: boardRows }, { data: colRows }] = await Promise.all([
+        supabase.from('project_boards').select('id, title').in('id', boardIds),
+        supabase.from('board_columns').select('id, title').in('id', columnIds),
       ]);
-      const boardMap = new Map((boardsRes.data || []).map((b: any) => [b.id, b.title]));
-      const colMap   = new Map((colsRes.data || []).map((c: any) => [c.id, c.title]));
-      setCardSearchResults((cardsRes.data || []).map((c: any) => ({
+      const boardMap = new Map((boardRows || []).map((b: any) => [b.id, b.title]));
+      const colMap = new Map((colRows || []).map((c: any) => [c.id, c.title]));
+      setCardSearchResults(cardRows.map((c: any) => ({
         id: c.id, title: c.title, boardId: c.board_id,
-        boardTitle: boardMap.get(c.board_id) || '',
-        columnTitle: colMap.get(c.column_id) || '',
+        boardTitle: boardMap.get(c.board_id) || 'Unknown Board',
+        columnTitle: colMap.get(c.column_id) || 'Unknown Column',
       })));
-      setCardSearchIdx(0);
     }, 300);
-    return () => clearTimeout(timer);
+    return () => clearTimeout(t);
   }, [cardSearch]);
 
   // Fetch lightweight stats data in parallel once boards load
@@ -259,8 +265,8 @@ function BoardsListPage() {
   return (
     <div className="kb-root">
       <style>{boardsListStyles}</style>
-      <div className="kb-container">
-        {/* Header */}
+      {/* Header */}
+      <div className="kb-header-wrapper">
         <div className="kb-header">
           <h1 className="kb-page-title">Project Boards</h1>
           <div className="kb-toolbar">
@@ -279,44 +285,50 @@ function BoardsListPage() {
               New Board
             </button>
           </div>
-
-          {/* Search bar */}
-          <div className="kb-list-search-bar" ref={cardSearchRef}>
-            <Search size={14} style={{ color: '#4b5563', flexShrink: 0 }} />
-            <input
-              className="kb-list-search-input"
-              value={cardSearch}
-              onChange={e => setCardSearch(e.target.value)}
-              placeholder="Search cards across all boards..."
-              onKeyDown={e => {
-                if (e.key === 'Escape') { setCardSearch(''); return; }
-                if (!cardSearchResults.length) return;
-                if (e.key === 'ArrowDown') { e.preventDefault(); setCardSearchIdx(i => Math.min(i + 1, cardSearchResults.length - 1)); }
-                if (e.key === 'ArrowUp')   { e.preventDefault(); setCardSearchIdx(i => Math.max(i - 1, 0)); }
-                if (e.key === 'Enter') {
-                  const r = cardSearchResults[cardSearchIdx];
-                  if (r) { router.push(`/boards/${r.boardId}?card=${r.id}`); setCardSearch(''); }
-                }
-              }}
-            />
-            {cardSearch && <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', display: 'flex' }} onClick={() => setCardSearch('')}><X size={14} /></button>}
-            {cardSearchResults.length > 0 && (
-              <div className="kb-list-search-dropdown">
-                {cardSearchResults.map((r, idx) => (
-                  <div
-                    key={r.id}
-                    className={`kb-list-search-item ${idx === cardSearchIdx ? 'selected' : ''}`}
-                    onMouseEnter={() => setCardSearchIdx(idx)}
-                    onClick={() => { router.push(`/boards/${r.boardId}?card=${r.id}`); setCardSearch(''); }}
-                  >
-                    <span className="kb-list-search-title">{r.title}</span>
-                    <span className="kb-list-search-meta">{r.boardTitle}{r.columnTitle ? ` · ${r.columnTitle}` : ''}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
+      </div>
+
+      {/* ── Cross-board card search ── */}
+      <div className="kb-search-bar" ref={cardSearchBarRef}>
+        <Search size={14} className="kb-search-bar-icon" />
+        <input
+          className="kb-search-bar-input"
+          placeholder="Search cards across all boards..."
+          value={cardSearch}
+          onChange={e => setCardSearch(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'ArrowDown') setCardSearchIdx(i => Math.min(i + 1, cardSearchResults.length - 1));
+            else if (e.key === 'ArrowUp') setCardSearchIdx(i => Math.max(i - 1, 0));
+            else if (e.key === 'Enter' && cardSearchResults[cardSearchIdx]) {
+              const r = cardSearchResults[cardSearchIdx];
+              router.push(`/boards/${r.boardId}?card=${r.id}`);
+              setCardSearch('');
+            } else if (e.key === 'Escape') setCardSearch('');
+          }}
+        />
+        {cardSearch && (
+          <button onClick={() => setCardSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: 0, display: 'flex' }}>
+            <X size={14} />
+          </button>
+        )}
+        {cardSearchResults.length > 0 && cardSearch && (
+          <div className="kb-search-global-dropdown">
+            <div className="kb-search-global-label">Cards</div>
+            {cardSearchResults.map((r, i) => (
+              <div
+                key={r.id}
+                className={`kb-search-global-item${i === cardSearchIdx ? ' selected' : ''}`}
+                onClick={() => { router.push(`/boards/${r.boardId}?card=${r.id}`); setCardSearch(''); }}
+              >
+                <span className="kb-search-global-title">{r.title}</span>
+                <span className="kb-search-global-meta">{r.boardTitle} · {r.columnTitle}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="kb-container">
 
         {/* Create modal */}
         {showCreate && (
@@ -553,13 +565,18 @@ const boardsListStyles = `
     color: #e5e7eb !important;
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
   }
+  .kb-header-wrapper {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 16px 0;
+  }
   .kb-container {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 24px 16px 100px;
+    padding: 20px 16px 100px;
   }
   .kb-header {
-    margin-bottom: 28px;
+    margin-bottom: 0;
   }
   .kb-page-title {
     font-size: 26px !important;
@@ -572,50 +589,6 @@ const boardsListStyles = `
     align-items: center;
     justify-content: space-between;
   }
-  .kb-list-search-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 4px;
-    border-bottom: 1px solid #1e2130;
-    position: relative;
-    margin-top: 12px;
-  }
-  .kb-list-search-input {
-    flex: 1;
-    background: transparent;
-    border: none;
-    outline: none;
-    color: #e5e7eb;
-    font-size: 13px;
-    font-family: inherit;
-    padding: 4px 0;
-  }
-  .kb-list-search-input::placeholder { color: #4b5563; }
-  .kb-list-search-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0; right: 0;
-    background: #1a1d27;
-    border: 1px solid #2a2d3a;
-    border-top: none;
-    border-radius: 0 0 10px 10px;
-    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
-    z-index: 200;
-    overflow: hidden;
-  }
-  .kb-list-search-item {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 9px 14px;
-    cursor: pointer;
-    transition: background 0.1s;
-  }
-  .kb-list-search-item.selected,
-  .kb-list-search-item:hover { background: #22252f; }
-  .kb-list-search-title { font-size: 13px; font-weight: 500; color: #f9fafb; }
-  .kb-list-search-meta { font-size: 11px; color: #6366f1; }
   .kb-view-switcher {
     display: flex;
     background: #1a1d27;
@@ -1028,4 +1001,55 @@ const boardsListStyles = `
   @keyframes kb-spin {
     to { transform: rotate(360deg); }
   }
+
+  /* ── Search bar ── */
+  .kb-search-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-bottom: 1px solid #1e2130;
+    background: rgba(15, 17, 23, 0.6);
+    position: relative;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .kb-search-bar-icon { color: #4b5563; flex-shrink: 0; }
+  .kb-search-bar-input {
+    flex: 1;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    color: #e5e7eb !important;
+    font-size: 13px !important;
+    padding: 4px 0 !important;
+    font-family: inherit;
+  }
+  .kb-search-bar-input::placeholder { color: #4b5563 !important; }
+  .kb-search-global-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0; right: 0;
+    background: #1a1d27;
+    border: 1px solid #2a2d3a;
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+    z-index: 200;
+    overflow: hidden;
+  }
+  .kb-search-global-label {
+    font-size: 10px; font-weight: 600; color: #4b5563;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    padding: 8px 14px 4px;
+  }
+  .kb-search-global-item {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 8px 14px; cursor: pointer;
+    transition: background 0.1s;
+  }
+  .kb-search-global-item.selected,
+  .kb-search-global-item:hover { background: #22252f; }
+  .kb-search-global-title { font-size: 13px; font-weight: 500; color: #f9fafb; }
+  .kb-search-global-meta { font-size: 11px; color: #6366f1; }
 `;
