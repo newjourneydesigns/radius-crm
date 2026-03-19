@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { useProjectBoard } from '../../hooks/useProjectBoard';
@@ -19,6 +19,8 @@ import {
   Flag,
   Clock,
   ChevronDown,
+  Search,
+  X,
 } from '../../components/icons/BoardIcons';
 
 // ── Lightweight types for stats queries ──
@@ -69,6 +71,10 @@ function BoardsListPage() {
   const router = useRouter();
   const { boards, fetchBoards, createBoard, deleteBoard, loading } = useProjectBoard();
   const [showCreate, setShowCreate] = useState(false);
+  const [cardSearch, setCardSearch] = useState('');
+  const [cardSearchResults, setCardSearchResults] = useState<{ id: string; title: string; boardId: string; boardTitle: string; columnTitle: string }[]>([]);
+  const [cardSearchIdx, setCardSearchIdx] = useState(0);
+  const cardSearchRef = useRef<HTMLDivElement>(null);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [creating, setCreating] = useState(false);
@@ -96,6 +102,30 @@ function BoardsListPage() {
   useEffect(() => {
     fetchBoards();
   }, [fetchBoards]);
+
+  // Cross-board card search
+  useEffect(() => {
+    setCardSearchResults([]);
+    setCardSearchIdx(0);
+    if (cardSearch.trim().length < 2) return;
+    const timer = setTimeout(async () => {
+      const q = cardSearch.trim().toLowerCase();
+      const [cardsRes, boardsRes, colsRes] = await Promise.all([
+        supabase.from('board_cards').select('id, title, board_id, column_id').eq('is_archived', false).ilike('title', `%${q}%`).limit(20),
+        supabase.from('project_boards').select('id, title'),
+        supabase.from('board_columns').select('id, title'),
+      ]);
+      const boardMap = new Map((boardsRes.data || []).map((b: any) => [b.id, b.title]));
+      const colMap   = new Map((colsRes.data || []).map((c: any) => [c.id, c.title]));
+      setCardSearchResults((cardsRes.data || []).map((c: any) => ({
+        id: c.id, title: c.title, boardId: c.board_id,
+        boardTitle: boardMap.get(c.board_id) || '',
+        columnTitle: colMap.get(c.column_id) || '',
+      })));
+      setCardSearchIdx(0);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [cardSearch]);
 
   // Fetch lightweight stats data in parallel once boards load
   const fetchStats = useCallback(async () => {
@@ -243,6 +273,43 @@ function BoardsListPage() {
                 <Calendar size={15} />
                 Calendar
               </button>
+            </div>
+            <div className="kb-card-search-wrap" ref={cardSearchRef}>
+              <div className="kb-card-search-bar">
+                <Search size={14} style={{ color: '#4b5563', flexShrink: 0 }} />
+                <input
+                  className="kb-card-search-input"
+                  value={cardSearch}
+                  onChange={e => setCardSearch(e.target.value)}
+                  placeholder="Search cards..."
+                  onKeyDown={e => {
+                    if (!cardSearchResults.length) return;
+                    if (e.key === 'ArrowDown') { e.preventDefault(); setCardSearchIdx(i => Math.min(i + 1, cardSearchResults.length - 1)); }
+                    if (e.key === 'ArrowUp')   { e.preventDefault(); setCardSearchIdx(i => Math.max(i - 1, 0)); }
+                    if (e.key === 'Enter') {
+                      const r = cardSearchResults[cardSearchIdx];
+                      if (r) { router.push(`/boards/${r.boardId}?card=${r.id}`); setCardSearch(''); }
+                    }
+                    if (e.key === 'Escape') setCardSearch('');
+                  }}
+                />
+                {cardSearch && <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', display: 'flex' }} onClick={() => setCardSearch('')}><X size={14} /></button>}
+              </div>
+              {cardSearchResults.length > 0 && (
+                <div className="kb-card-search-dropdown">
+                  {cardSearchResults.map((r, idx) => (
+                    <div
+                      key={r.id}
+                      className={`kb-card-search-item ${idx === cardSearchIdx ? 'selected' : ''}`}
+                      onMouseEnter={() => setCardSearchIdx(idx)}
+                      onClick={() => { router.push(`/boards/${r.boardId}?card=${r.id}`); setCardSearch(''); }}
+                    >
+                      <span className="kb-card-search-title">{r.title}</span>
+                      <span className="kb-card-search-meta">{r.boardTitle}{r.columnTitle ? ` · ${r.columnTitle}` : ''}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <button className="kb-btn kb-btn-primary" onClick={() => setShowCreate(true)}>
               <Plus size={16} />
@@ -503,8 +570,58 @@ const boardsListStyles = `
   .kb-toolbar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 12px;
   }
+  .kb-card-search-wrap {
+    flex: 1;
+    position: relative;
+  }
+  .kb-card-search-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #1a1d27;
+    border: 1px solid #2a2d3a;
+    border-radius: 10px;
+    padding: 7px 12px;
+    transition: border-color 0.15s;
+  }
+  .kb-card-search-bar:focus-within {
+    border-color: #4b5563;
+  }
+  .kb-card-search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 13px;
+    color: #e5e7eb;
+    font-family: inherit;
+  }
+  .kb-card-search-input::placeholder { color: #4b5563; }
+  .kb-card-search-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0; right: 0;
+    background: #1a1d27;
+    border: 1px solid #2a2d3a;
+    border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+    z-index: 200;
+    overflow: hidden;
+  }
+  .kb-card-search-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 9px 14px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .kb-card-search-item.selected,
+  .kb-card-search-item:hover { background: #22252f; }
+  .kb-card-search-title { font-size: 13px; font-weight: 500; color: #f9fafb; }
+  .kb-card-search-meta { font-size: 11px; color: #6366f1; }
   .kb-view-switcher {
     display: flex;
     background: #1a1d27;
