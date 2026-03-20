@@ -3,54 +3,50 @@
 import { useEffect, useState } from 'react';
 
 export default function Footer() {
-  const [version, setVersion] = useState(process.env.NEXT_PUBLIC_APP_VERSION || '0.0.0');
-  const [currentYear, setCurrentYear] = useState(2025); // Default to avoid hydration mismatch
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
-    // Get version from environment variable (set by build process)
-    const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || '0.0.0';
-    setVersion(appVersion);
-    
-    // Set current year on client side only
     setCurrentYear(new Date().getFullYear());
   }, []);
 
+  const version = process.env.NEXT_PUBLIC_APP_VERSION || '0.0.0';
+
   return (
-    <footer className="bg-gray-950 border-t border-gray-800/60 mt-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center space-y-4">
-          {/* Mission Statement */}
-          <div className="text-sm font-medium text-gray-300">
-            Shepherd the Flock | Develop Leaders and Teams | Advance the Culture
-          </div>
-
-          {/* Legal Links */}
-          <div className="text-sm text-gray-500 flex flex-col sm:flex-row justify-center gap-2 sm:gap-6 mb-2">
-            <a href="/privacy-policy" className="hover:text-gray-300 transition-colors">Privacy Policy</a>
-            <span className="hidden sm:inline text-gray-700">|</span>
-            <a href="/terms" className="hover:text-gray-300 transition-colors">Terms of Service</a>
-            <span className="hidden sm:inline text-gray-700">|</span>
-            <a href="https://forms.gle/sPGuywb28E2sn8gF7" target="_blank" rel="noopener noreferrer" className="hover:text-red-400 transition-colors">Report A Bug</a>
-          </div>
-
-          {/* Attribution */}
-          <div className="text-sm text-gray-500">
-            Created to bless His church by{' '}
-            <a 
-              href="https://newjourneydesigns.co" 
-              target="_blank" 
+    <footer className="border-t border-gray-800/50 mt-auto">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          {/* Left: Attribution */}
+          <p className="text-xs text-gray-600 order-2 sm:order-1">
+            © {currentYear}{' '}
+            <a
+              href="https://newjourneydesigns.co"
+              target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-400 hover:text-blue-300 transition-colors"
+              className="hover:text-gray-400 transition-colors"
             >
               NewJourneyDesigns.co
-            </a>{' '}
-            © {currentYear}
-          </div>
+            </a>
+            {' '}· v{version}
+          </p>
 
-          {/* Version */}
-          <div className="text-xs text-gray-600">
-            Version {version}
-          </div>
+          {/* Center: Mission (hidden on small screens) */}
+          <p className="hidden md:block text-xs text-gray-700 text-center order-1 sm:order-2">
+            Shepherd the Flock · Develop Leaders · Advance the Culture
+          </p>
+
+          {/* Right: Legal links */}
+          <nav className="flex items-center gap-4 order-3 text-xs text-gray-600">
+            <a href="/privacy-policy" className="hover:text-gray-400 transition-colors">Privacy</a>
+            <a href="/terms" className="hover:text-gray-400 transition-colors">Terms</a>
+            <a
+              href="https://forms.gle/sPGuywb28E2sn8gF7"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-gray-400 transition-colors"
+            >
+              Report a Bug
+            </a>
+          </nav>
         </div>
       </div>
     </footer>
