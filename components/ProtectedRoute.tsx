@@ -114,6 +114,17 @@ export default function ProtectedRoute({ children, requireAuth = true }: Protect
     );
   }
 
+  // If this is a public-only route (e.g. login) but the user is already authenticated,
+  // show a spinner instead of the login UI while the useEffect redirect fires.
+  // This prevents the login screen from briefly flashing before navigating away.
+  if (!requireAuth && isAuthenticated()) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-600/20 border-t-blue-600"></div>
+      </div>
+    );
+  }
+
   // User is authenticated or route doesn't require auth, render children
   return <>{children}</>;
 }

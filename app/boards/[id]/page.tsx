@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { useProjectBoard, FullBoard } from '../../../hooks/useProjectBoard';
 import { useAuth } from '../../../contexts/AuthContext';
 import ProtectedRoute from '../../../components/ProtectedRoute';
@@ -776,14 +777,14 @@ function CardDetailModal({
                 const leader = allLeaders.find(l => l.id === linkedLeaderId);
                 return (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <a
+                    <Link
                       href={`/circle/${linkedLeaderId}`}
                       style={{ flex: 1, color: '#818cf8', fontSize: 13, fontWeight: 500, textDecoration: 'none' }}
                       onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
                       onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
                     >
                       {leader?.name ?? `Leader #${linkedLeaderId}`}
-                    </a>
+                    </Link>
                     <button
                       className="kb-btn-icon-sm"
                       onClick={() => setLinkedLeaderId(null)}

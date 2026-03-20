@@ -19,6 +19,7 @@ import CCBPersonLookup from '../../../components/ui/CCBPersonLookup';
 import type { CCBPerson } from '../../../components/ui/CCBPersonLookup';
 import EventExplorerModal from '../../../components/modals/EventExplorerModal';
 import ProtectedRoute from '../../../components/ProtectedRoute';
+import AddToBoardModal from '../../../components/modals/AddToBoardModal';
 
 import ScorecardSection from '../../../components/circle/ScorecardSection';
 import ACPDTrackingSection from '../../../components/circle/ACPDTrackingSection';
@@ -341,6 +342,8 @@ export default function CircleLeaderProfilePage() {
   const [isUpdatingFollowUp, setIsUpdatingFollowUp] = useState(false);
   const [showFollowUpDateModal, setShowFollowUpDateModal] = useState(false);
   const [followUpDateValue, setFollowUpDateValue] = useState('');
+  const [showAddToBoardModal, setShowAddToBoardModal] = useState(false);
+  const [savedFollowUpDate, setSavedFollowUpDate] = useState('');
   const [showClearFollowUpConfirm, setShowClearFollowUpConfirm] = useState(false);
   const [noteError, setNoteError] = useState('');
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
@@ -1490,7 +1493,8 @@ export default function CircleLeaderProfilePage() {
           .order('created_at', { ascending: false });
         if (notesData) setNotes(notesData);
 
-        setShowAlert({ isOpen: true, type: 'success', title: 'Follow-Up Set', message: `Follow-up scheduled for ${followUpDateValue}. A todo has been added to your list.` });
+        setSavedFollowUpDate(followUpDateValue);
+        setShowAddToBoardModal(true);
       } else {
         console.error('Error setting follow-up:', error);
         setShowAlert({ isOpen: true, type: 'error', title: 'Update Failed', message: 'Failed to set follow-up. Please try again.' });
@@ -3676,6 +3680,17 @@ export default function CircleLeaderProfilePage() {
         type="warning"
         isLoading={isUpdatingFollowUp}
       />
+
+      {/* Add to Board Modal — shown after follow-up is saved */}
+      {leader && (
+        <AddToBoardModal
+          isOpen={showAddToBoardModal}
+          onClose={() => setShowAddToBoardModal(false)}
+          leaderId={leaderId}
+          leaderName={leader.name}
+          followUpDate={savedFollowUpDate}
+        />
+      )}
     </ProtectedRoute>
   );
 }

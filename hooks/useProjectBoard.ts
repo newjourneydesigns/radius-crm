@@ -420,6 +420,7 @@ export function useProjectBoard() {
     due_date?: string;
     assignee?: string;
     label_ids?: string[];
+    linked_leader_id?: number | null;
   }) => {
     setError(null);
     try {
