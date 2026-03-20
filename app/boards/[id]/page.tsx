@@ -2870,7 +2870,7 @@ function BoardPage() {
                 leader.phone && `Phone: ${leader.phone}`,
                 leader.email && `Email: ${leader.email}`,
               ].filter(Boolean).join('\n');
-              await addCard(boardId, { column_id: columnId, title: leader.name, description: desc || undefined });
+              await addCard(boardId, { column_id: columnId, title: leader.name, description: desc || undefined, linked_leader_id: leader.id });
             }
           }}
           onClose={() => setShowImportModal(false)}
