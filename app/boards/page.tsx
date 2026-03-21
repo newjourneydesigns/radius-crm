@@ -644,26 +644,32 @@ const boardsListStyles = `
     white-space: nowrap;
   }
   .kb-btn-primary {
-    background: #6366f1 !important;
+    background: linear-gradient(135deg, #4c6785 0%, #8da9c4 100%) !important;
     color: #fff !important;
+    box-shadow: 0 2px 8px rgba(76, 103, 133, 0.35),
+                0 0 0 0.5px rgba(255, 255, 255, 0.08) inset !important;
   }
   .kb-btn-primary:hover {
-    background: #4f46e5 !important;
+    box-shadow: 0 4px 16px rgba(76, 103, 133, 0.5),
+                0 0 0 1px rgba(141, 169, 196, 0.3) !important;
+    filter: brightness(1.08);
     transform: translateY(-1px);
   }
   .kb-btn-primary:disabled {
-    opacity: 0.5;
+    opacity: 0.45;
     cursor: not-allowed;
     transform: none;
+    box-shadow: none !important;
   }
   .kb-btn-ghost {
     background: transparent !important;
-    color: #9ca3af !important;
-    border: 1px solid #374151 !important;
+    color: rgba(238, 244, 237, 0.7) !important;
+    border: 1px solid rgba(76, 103, 133, 0.4) !important;
   }
   .kb-btn-ghost:hover {
-    background: #1f2937 !important;
-    color: #e5e7eb !important;
+    background: rgba(76, 103, 133, 0.18) !important;
+    color: #eef4ed !important;
+    border-color: rgba(141, 169, 196, 0.45) !important;
   }
   .kb-btn-icon {
     background: none !important;

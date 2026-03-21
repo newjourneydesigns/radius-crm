@@ -3509,8 +3509,8 @@ const kanbanStyles = `
     padding: 0;
     flex-shrink: 0;
   }
-  .kb-filter-btn:hover { border-color: #6366f1; color: #e5e7eb; }
-  .kb-filter-btn-active { border-color: #6366f1 !important; color: #a5b4fc !important; background: rgba(99, 102, 241, 0.1) !important; }
+  .kb-filter-btn:hover { border-color: #4c6785; color: #e5e7eb; }
+  .kb-filter-btn-active { border-color: #8da9c4 !important; color: #c5d8e8 !important; background: rgba(76, 103, 133, 0.18) !important; }
   .kb-filter-badge {
     position: absolute;
     top: -4px;
@@ -3518,7 +3518,7 @@ const kanbanStyles = `
     min-width: 16px;
     height: 16px;
     border-radius: 8px;
-    background: #6366f1;
+    background: linear-gradient(135deg, #4c6785 0%, #8da9c4 100%);
     color: #fff;
     font-size: 10px;
     font-weight: 700;
@@ -3600,17 +3600,21 @@ const kanbanStyles = `
   }
   .kb-btn-sm { padding: 5px 12px; font-size: 12px; }
   .kb-btn-primary {
-    background: #6366f1 !important;
+    background: linear-gradient(135deg, #4c6785 0%, #8da9c4 100%) !important;
     color: #fff !important;
+    box-shadow: 0 2px 8px rgba(76, 103, 133, 0.35) !important;
   }
-  .kb-btn-primary:hover { background: #4f46e5 !important; }
-  .kb-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .kb-btn-primary:hover {
+    filter: brightness(1.08) !important;
+    box-shadow: 0 4px 14px rgba(76, 103, 133, 0.5) !important;
+  }
+  .kb-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none !important; }
   .kb-btn-ghost {
     background: transparent !important;
-    color: #9ca3af !important;
-    border: 1px solid #374151 !important;
+    color: rgba(238, 244, 237, 0.7) !important;
+    border: 1px solid rgba(76, 103, 133, 0.4) !important;
   }
-  .kb-btn-ghost:hover { background: #1f2937 !important; color: #e5e7eb !important; }
+  .kb-btn-ghost:hover { background: rgba(76, 103, 133, 0.18) !important; color: #eef4ed !important; border-color: rgba(141, 169, 196, 0.45) !important; }
   .kb-btn-danger {
     background: rgba(239, 68, 68, 0.1) !important;
     color: #ef4444 !important;
@@ -3814,7 +3818,7 @@ const kanbanStyles = `
     left: 4px;
     right: 4px;
     height: 3px;
-    background: #6366f1;
+    background: linear-gradient(90deg, #4c6785, #8da9c4);
     border-radius: 2px;
     z-index: 10;
   }
@@ -3825,7 +3829,7 @@ const kanbanStyles = `
     left: 4px;
     right: 4px;
     height: 3px;
-    background: #6366f1;
+    background: linear-gradient(90deg, #4c6785, #8da9c4);
     border-radius: 2px;
     z-index: 10;
   }
@@ -4097,7 +4101,7 @@ const kanbanStyles = `
     cursor: pointer;
     transition: all 0.15s ease;
   }
-  .kb-add-column-btn:hover { border-color: #6366f1; color: #a5b4fc; background: rgba(99,102,241,0.05) !important; }
+  .kb-add-column-btn:hover { border-color: #8da9c4; color: #c5d8e8; background: rgba(76, 103, 133, 0.08) !important; }
   .kb-add-column-form {
     background: #14161e !important;
     border: 1px solid #2a2d3a;
@@ -4110,8 +4114,8 @@ const kanbanStyles = `
 
   /* ── Inline edit ── */
   .kb-inline-edit {
-    background: rgba(99,102,241,0.1) !important;
-    border: 1px solid #6366f1 !important;
+    background: rgba(76, 103, 133, 0.15) !important;
+    border: 1px solid rgba(141, 169, 196, 0.5) !important;
     border-radius: 6px;
     padding: 2px 8px;
     font-size: inherit;
@@ -4148,7 +4152,7 @@ const kanbanStyles = `
     background: #1a1d2e;
     color: #e5e7eb;
   }
-  .kb-input:focus, .kb-textarea:focus { border-color: #6366f1 !important; box-shadow: 0 0 0 2px rgba(99,102,241,0.15); }
+  .kb-input:focus, .kb-textarea:focus { border-color: rgba(141, 169, 196, 0.65) !important; box-shadow: 0 0 0 3px rgba(76, 103, 133, 0.18), 0 0 0 1px rgba(141, 169, 196, 0.4) !important; }
   .kb-textarea { resize: vertical; min-height: 60px; }
 
   /* ── Loading ── */
@@ -4353,7 +4357,7 @@ const kanbanStyles = `
   }
   .kb-checklist-fill {
     height: 100%;
-    background: #6366f1;
+    background: linear-gradient(90deg, #4c6785 0%, #8da9c4 100%);
     border-radius: 3px;
     transition: width 0.3s ease;
   }
@@ -4380,8 +4384,8 @@ const kanbanStyles = `
     padding: 0;
   }
   .kb-checkbox.checked {
-    background: #6366f1 !important;
-    border-color: #6366f1;
+    background: linear-gradient(135deg, #4c6785 0%, #8da9c4 100%) !important;
+    border-color: #8da9c4;
     color: #fff;
   }
   .kb-checklist-text { font-size: 13px; color: #d1d5db; flex: 1; }
@@ -4399,7 +4403,7 @@ const kanbanStyles = `
     transition: border-color 0.15s ease, color 0.15s ease;
   }
   .kb-checklist-due-input:hover { border-color: #4b5563; }
-  .kb-checklist-due-input:focus { border-color: #6366f1; color: #d1d5db; outline: none; }
+  .kb-checklist-due-input:focus { border-color: rgba(141, 169, 196, 0.6); color: #d1d5db; outline: none; }
   .kb-checklist-due-input::-webkit-calendar-picker-indicator { filter: invert(0.7); cursor: pointer; }
   .kb-checklist-due-input.overdue { color: #f87171; border-color: rgba(248,113,113,0.4); }
   .kb-checklist-due-input.due-today { color: #fbbf24; border-color: rgba(251,191,36,0.4); }
@@ -4978,7 +4982,7 @@ const kanbanStyles = `
     display: list-item !important;
   }
   .kb-note-editable blockquote {
-    border-left: 3px solid #6366f1;
+    border-left: 3px solid #4c6785;
     padding-left: 12px;
     margin: 8px 0;
     color: #94a3b8;
@@ -4988,8 +4992,8 @@ const kanbanStyles = `
     color: #64748b;
   }
   .kb-btn-icon-active {
-    background: rgba(99, 102, 241, 0.2) !important;
-    color: #818cf8 !important;
+    background: rgba(76, 103, 133, 0.25) !important;
+    color: #8da9c4 !important;
   }
 
   /* ── View toggle ── */
@@ -5014,9 +5018,10 @@ const kanbanStyles = `
   }
   .kb-view-btn:hover { color: #e5e7eb; background: #252836; }
   .kb-view-btn.active {
-    background: #6366f1 !important;
+    background: linear-gradient(135deg, #4c6785 0%, #8da9c4 100%) !important;
     color: #fff !important;
-    border-color: #6366f1 !important;
+    border-color: #8da9c4 !important;
+    box-shadow: 0 2px 8px rgba(76, 103, 133, 0.35) !important;
   }
 
   /* ── List View ── */

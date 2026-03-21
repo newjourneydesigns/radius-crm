@@ -226,8 +226,8 @@ export default function ScorecardSection({ leaderId, isAdmin, onNoteSaved, onAdd
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+    <div className="section-panel bg-white dark:bg-gray-800 rounded-lg shadow">
+      <div className="section-header-row px-6 py-4 flex justify-between items-center">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-indigo-500/15 flex items-center justify-center">
             <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

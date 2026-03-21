@@ -8,6 +8,7 @@ import Footer from "../components/layout/Footer";
 import ScrollToTop from "../components/ui/ScrollToTop";
 import RadiusAssistant from "../components/ai-assistant/RadiusAssistant";
 import { AuthProvider, useAuth } from "../contexts/AuthContext";
+import NavigationProgress from "../components/layout/NavigationProgress";
 
 function LayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -16,6 +17,9 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      {/* Route transition progress bar */}
+      <NavigationProgress />
+
       {!hideChrome && (
         <>
           {/* Mobile Navigation */}

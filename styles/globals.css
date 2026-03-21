@@ -430,12 +430,31 @@ body {
   color: #eef4ed !important;
 }
 
-/* Card and panel backgrounds */
+/* Card and panel backgrounds — glass morphism base with top-highlight accent */
 .bg-white {
-  background-color: rgba(11, 37, 69, 0.85) !important; /* #0b2545 with more transparency */
-  backdrop-filter: blur(10px) !important;
+  background-color: rgba(11, 37, 69, 0.82) !important;
+  backdrop-filter: blur(12px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(160%) !important;
   color: #eef4ed !important;
-  border: 1px solid rgba(76, 103, 133, 0.3) !important; /* #4c6785 border */
+  border: 1px solid rgba(76, 103, 133, 0.25) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.09) !important;
+}
+
+/* Explicit card-glass utility class for clean glass cards */
+.card-glass {
+  background: rgba(11, 37, 69, 0.82) !important;
+  backdrop-filter: blur(12px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(160%) !important;
+  border: 1px solid rgba(76, 103, 133, 0.25) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.09) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2), 0 0 0 0.5px rgba(255, 255, 255, 0.04) !important;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease !important;
+}
+.card-glass:hover {
+  box-shadow: 0 0 0 1px rgba(141, 169, 196, 0.2),
+              0 8px 32px rgba(0, 0, 0, 0.25) !important;
+  border-color: rgba(76, 103, 133, 0.35) !important;
 }
 
 .dark .bg-gray-800 {
@@ -444,17 +463,11 @@ body {
   color: #eef4ed !important;
 }
 
-/* Navigation and buttons - using your color palette */
-button,
-.btn {
-  background-color: rgba(76, 103, 133, 0.8) !important; /* #4c6785 */
-  color: #eef4ed !important;
-  border-color: rgba(141, 169, 196, 0.3) !important; /* #8da9c4 */
-}
-
-button:hover,
-.btn:hover {
-  background-color: rgba(141, 169, 196, 0.9) !important; /* #8da9c4 on hover */
+/* Unstyled button fallback — only catches genuinely naked buttons with no variant class */
+button:not([class*="bg-"]):not([class*="btn-"]):not([class*="kb-btn"]):not(.mobile-tab-item):not(.mobile-tab-raised-btn):not(.mobile-sheet-row):not(.score-btn):not(.fc-button):not([class*="text-"]) {
+  background-color: rgba(76, 103, 133, 0.5);
+  color: #eef4ed;
+  border-color: rgba(141, 169, 196, 0.2);
 }
 
 /* Score selector buttons need custom colors - exempt from global button styles */
@@ -470,18 +483,180 @@ button.score-btn:hover {
   filter: brightness(1.2);
 }
 
-/* Input fields */
+/* ═══════════════════════════════════════════════════════════
+   RADIUS Button Variant System — Brand Slate Palette
+   ═══════════════════════════════════════════════════════════ */
+
+/* Base shared properties for all named button variants */
+.btn-primary,
+.btn-secondary,
+.btn-success,
+.btn-danger,
+.btn-ghost {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+              filter 0.15s ease !important;
+}
+
+/* Primary: brand-mid → brand-light (steel slate going lighter) */
+.btn-primary {
+  background: linear-gradient(135deg, #4c6785 0%, #8da9c4 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(76, 103, 133, 0.35),
+              0 0 0 0.5px rgba(255, 255, 255, 0.08) inset !important;
+}
+.btn-primary:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 16px rgba(76, 103, 133, 0.5),
+              0 0 0 1px rgba(141, 169, 196, 0.3),
+              0 0 0 0.5px rgba(255, 255, 255, 0.08) inset !important;
+  filter: brightness(1.08) !important;
+}
+.btn-primary:active {
+  transform: translateY(0) scale(0.98) !important;
+  box-shadow: 0 1px 4px rgba(76, 103, 133, 0.3) !important;
+}
+.btn-primary:focus-visible {
+  outline: 2px solid rgba(141, 169, 196, 0.6) !important;
+  outline-offset: 2px !important;
+}
+.btn-primary:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Secondary: brand-dark → brand-mid (deep to mid) */
+.btn-secondary {
+  background: linear-gradient(135deg, #0b2545 0%, #4c6785 100%) !important;
+  color: #eef4ed !important;
+  border: 1px solid rgba(141, 169, 196, 0.18) !important;
+  box-shadow: 0 2px 8px rgba(9, 27, 52, 0.45) !important;
+}
+.btn-secondary:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 16px rgba(9, 27, 52, 0.55),
+              0 0 0 1px rgba(76, 103, 133, 0.35) !important;
+  filter: brightness(1.12) !important;
+}
+.btn-secondary:active {
+  transform: translateY(0) scale(0.98) !important;
+}
+.btn-secondary:focus-visible {
+  outline: 2px solid rgba(141, 169, 196, 0.5) !important;
+  outline-offset: 2px !important;
+}
+.btn-secondary:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+/* Success: semantic green — save, confirm actions */
+.btn-success {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.25) !important;
+}
+.btn-success:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.38),
+              0 0 0 1px rgba(22, 163, 74, 0.3) !important;
+  filter: brightness(1.05) !important;
+}
+.btn-success:active {
+  transform: translateY(0) scale(0.98) !important;
+}
+.btn-success:focus-visible {
+  outline: 2px solid rgba(34, 197, 94, 0.5) !important;
+  outline-offset: 2px !important;
+}
+.btn-success:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+/* Danger: semantic red — delete, destructive actions */
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.25) !important;
+}
+.btn-danger:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.38),
+              0 0 0 1px rgba(220, 38, 38, 0.3) !important;
+  filter: brightness(1.05) !important;
+}
+.btn-danger:active {
+  transform: translateY(0) scale(0.98) !important;
+}
+.btn-danger:focus-visible {
+  outline: 2px solid rgba(239, 68, 68, 0.5) !important;
+  outline-offset: 2px !important;
+}
+.btn-danger:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+/* Ghost: transparent with brand border, tints in on hover */
+.btn-ghost {
+  background: transparent !important;
+  color: rgba(238, 244, 237, 0.75) !important;
+  border: 1px solid rgba(76, 103, 133, 0.4) !important;
+  box-shadow: none !important;
+}
+.btn-ghost:hover {
+  background: rgba(76, 103, 133, 0.18) !important;
+  color: #eef4ed !important;
+  border-color: rgba(141, 169, 196, 0.45) !important;
+  box-shadow: 0 0 0 1px rgba(76, 103, 133, 0.2) !important;
+}
+.btn-ghost:active {
+  background: rgba(76, 103, 133, 0.28) !important;
+  transform: scale(0.98) !important;
+}
+.btn-ghost:focus-visible {
+  outline: 2px solid rgba(141, 169, 196, 0.4) !important;
+  outline-offset: 2px !important;
+}
+
+/* Input fields — glass base with focus glow */
 input,
 textarea,
 select {
-  background-color: rgba(11, 37, 69, 0.6) !important; /* #0b2545 */
+  background-color: rgba(11, 37, 69, 0.55) !important;
   color: #eef4ed !important;
-  border-color: rgba(76, 103, 133, 0.5) !important; /* #4c6785 */
+  border-color: rgba(76, 103, 133, 0.4) !important;
+  border-width: 1px !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none !important;
+  border-color: rgba(141, 169, 196, 0.65) !important;
+  box-shadow: 0 0 0 3px rgba(76, 103, 133, 0.18),
+              0 0 0 1px rgba(141, 169, 196, 0.4) !important;
+  background-color: rgba(11, 37, 69, 0.7) !important;
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: rgba(238, 244, 237, 0.7) !important; /* #eef4ed with opacity */
+  color: rgba(238, 244, 237, 0.4) !important;
 }
 
 /* Text colors for better contrast */
@@ -899,13 +1074,7 @@ button {
   border-radius: 8px !important;
 }
 
-button:hover {
-  transform: translateY(-1px) !important;
-  filter: brightness(1.1) !important;
-}
-
 button:active {
-  transform: translateY(0) !important;
   transition-duration: 0.1s !important;
 }
 
@@ -948,6 +1117,164 @@ html {
 * {
   -webkit-font-smoothing: antialiased !important;
   -moz-osx-font-smoothing: grayscale !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Status Badge Utility Classes
+   ═══════════════════════════════════════════════════════════ */
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  line-height: 1;
+  padding: 3px 10px;
+}
+
+.status-badge-blue {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(37, 99, 235, 0.12) 100%) !important;
+  color: #93c5fd !important;
+  border-color: rgba(59, 130, 246, 0.22) !important;
+}
+.status-badge-indigo {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(79, 70, 229, 0.12) 100%) !important;
+  color: #a5b4fc !important;
+  border-color: rgba(99, 102, 241, 0.22) !important;
+}
+.status-badge-green {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.2) 0%, rgba(22, 163, 74, 0.12) 100%) !important;
+  color: #86efac !important;
+  border-color: rgba(34, 197, 94, 0.22) !important;
+}
+.status-badge-yellow {
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.2) 0%, rgba(202, 138, 4, 0.12) 100%) !important;
+  color: #fde047 !important;
+  border-color: rgba(234, 179, 8, 0.22) !important;
+}
+.status-badge-red {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.12) 100%) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(239, 68, 68, 0.22) !important;
+}
+.status-badge-orange {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.22) 0%, rgba(234, 88, 12, 0.14) 100%) !important;
+  color: #fdba74 !important;
+  border-color: rgba(249, 115, 22, 0.25) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Navigation Enhancements
+   ═══════════════════════════════════════════════════════════ */
+
+/* Premium nav — subtle inset highlight + bottom shadow */
+nav.nav-premium {
+  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.04) inset,
+              0 4px 24px rgba(0, 0, 0, 0.28) !important;
+}
+
+/* Active nav pill — brand slate gradient */
+.nav-active-pill {
+  background: linear-gradient(135deg, rgba(76, 103, 133, 0.9) 0%, rgba(141, 169, 196, 0.75) 100%) !important;
+  box-shadow: 0 2px 8px rgba(76, 103, 133, 0.3),
+              0 0 0 0.5px rgba(255, 255, 255, 0.1) inset !important;
+  color: #ffffff !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Modal Glass
+   ═══════════════════════════════════════════════════════════ */
+
+.modal-glass {
+  background: rgba(9, 27, 52, 0.88) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+  border: 1px solid rgba(76, 103, 133, 0.25) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow:
+    0 32px 64px rgba(0, 0, 0, 0.5),
+    0 0 0 0.5px rgba(255, 255, 255, 0.06) inset !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Active Filter Chip — unified style for all filter tags
+   ═══════════════════════════════════════════════════════════ */
+
+.filter-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 3px 8px !important;
+  border-radius: 9999px !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  background: linear-gradient(135deg, rgba(76, 103, 133, 0.28) 0%, rgba(141, 169, 196, 0.18) 100%) !important;
+  color: #c5d8e8 !important;
+  border: 1px solid rgba(141, 169, 196, 0.28) !important;
+  transition: background 0.15s ease, border-color 0.15s ease !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+}
+.filter-chip:hover {
+  background: linear-gradient(135deg, rgba(76, 103, 133, 0.4) 0%, rgba(141, 169, 196, 0.28) 100%) !important;
+  border-color: rgba(141, 169, 196, 0.45) !important;
+  color: #eef4ed !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Custom Branded Scrollbar
+   ═══════════════════════════════════════════════════════════ */
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(76, 103, 133, 0.45);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(141, 169, 196, 0.65);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(76, 103, 133, 0.45) transparent;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Overdue Follow-up Pulse Animation
+   ═══════════════════════════════════════════════════════════ */
+
+@keyframes pulse-overdue {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.55; }
+}
+
+.overdue-pulse {
+  animation: pulse-overdue 2.2s ease-in-out infinite !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Section Panel & Header Row — circle profile page
+   ═══════════════════════════════════════════════════════════ */
+
+/* Adds a stronger brand top-accent to section cards */
+.section-panel {
+  border-top: 1px solid rgba(141, 169, 196, 0.22) !important;
+}
+
+/* Gradient fade behind section header rows */
+.section-header-row {
+  background: linear-gradient(90deg, rgba(76, 103, 133, 0.1) 0%, transparent 65%) !important;
+  border-bottom: 1px solid rgba(141, 169, 196, 0.12) !important;
 }
 
 /* Improved transition for all interactive elements */

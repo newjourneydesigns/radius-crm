@@ -7,11 +7,11 @@ import FollowUpDateModal from './FollowUpDateModal';
 
 // Constants
 const STATUS_COLORS = {
-  'invited': 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
-  'pipeline': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-300',
-  'active': 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300',
-  'paused': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300',
-  'off-boarding': 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300'
+  'invited':      'status-badge status-badge-blue',
+  'pipeline':     'status-badge status-badge-indigo',
+  'active':       'status-badge status-badge-green',
+  'paused':       'status-badge status-badge-yellow',
+  'off-boarding': 'status-badge status-badge-red',
 } as const;
 
 const STATUS_OPTIONS = [
@@ -330,7 +330,7 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
     }
     
     if (followUpStatus.isOverdue) {
-      return 'text-red-600 dark:text-red-400';
+      return 'text-red-400 overdue-pulse';
     } else if (followUpStatus.isApproaching) {
       return 'text-yellow-600 dark:text-yellow-400';
     } else {

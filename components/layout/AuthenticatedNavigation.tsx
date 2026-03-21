@@ -174,12 +174,12 @@ export default function AuthenticatedNavigation() {
   const dropdownLinkClass = (href: string) =>
     `flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
       isActive(href)
-        ? 'text-blue-400 bg-blue-600/10'
-        : 'text-gray-300 hover:text-white hover:bg-gray-700/50'
+        ? 'text-brand-light bg-gradient-to-r from-brand-mid/20 to-brand-light/10 border-l-2 border-brand-light/50'
+        : 'text-gray-300 hover:text-white hover:bg-white/[0.06]'
     }`;
 
   return (
-    <nav className="hidden md:block bg-gray-900/95 backdrop-blur-md border-b border-gray-700/40 shadow-lg shadow-black/20 relative z-[10000]">
+    <nav className="nav-premium hidden md:block bg-gray-900/95 backdrop-blur-md border-b border-gray-700/30 relative z-[10000]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14">
 
@@ -197,7 +197,7 @@ export default function AuthenticatedNavigation() {
                 href={href}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150 ${
                   isActive(href)
-                    ? 'bg-blue-600/90 text-white shadow-sm shadow-blue-900/30'
+                    ? 'nav-active-pill text-white'
                     : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
                 }`}
               >

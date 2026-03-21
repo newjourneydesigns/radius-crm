@@ -136,8 +136,8 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
   return (
     <div className="space-y-4">
       {/* ═══ PRAY SECTION ═══════════════════════════════ */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-        <div className="px-5 py-4 flex items-center justify-between">
+      <div className="section-panel bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+        <div className="section-header-row px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center">
               <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -353,8 +353,8 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
       </div>
 
       {/* ═══ ENCOURAGE SECTION ══════════════════════════ */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-        <div className="px-5 py-4 flex items-center justify-between">
+      <div className="section-panel bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+        <div className="section-header-row px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
               <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -619,8 +619,8 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
       </div>
 
       {/* ═══ COACH SECTION ══════════════════════════════ */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-        <div className="px-5 py-4 flex items-center justify-between">
+      <div className="section-panel bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+        <div className="section-header-row px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-sky-500/15 flex items-center justify-center">
               <svg className="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

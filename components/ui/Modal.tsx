@@ -90,7 +90,7 @@ export default function Modal({
       <div 
         ref={modalRef}
         tabIndex={-1}
-        className={`bg-white dark:bg-gray-900 rounded-xl shadow-2xl ${sizeClasses[size]} max-h-[95vh] overflow-y-auto transform transition-all animate-in zoom-in-95 duration-200 border border-gray-200/20 dark:border-gray-700/50 outline-none`}
+        className={`modal-glass rounded-xl shadow-2xl ${sizeClasses[size]} max-h-[95vh] overflow-y-auto transform transition-all animate-in zoom-in-95 duration-200 outline-none`}
         onClick={(e) => e.stopPropagation()}
         style={{
           position: 'relative',
@@ -99,7 +99,7 @@ export default function Modal({
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200/50 dark:border-gray-700/50 sticky top-0 bg-white dark:bg-gray-900 z-10">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-white/[0.07] sticky top-0 bg-[rgba(9,27,52,0.95)] backdrop-blur-sm z-10 rounded-t-xl">
           <h2 
             id="modal-title"
             className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white tracking-tight pr-2"

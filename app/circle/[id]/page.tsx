@@ -2010,18 +2010,18 @@ export default function CircleLeaderProfilePage() {
             </button>
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400 truncate">{leader.name}</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-brand-light truncate">{leader.name}</h1>
                 {leader.status && (() => {
-                  const statusColors: Record<string, string> = {
-                    'invited': 'bg-blue-900/20 text-blue-300',
-                    'pipeline': 'bg-indigo-900/20 text-indigo-300',
-                    'active': 'bg-green-900/20 text-green-300',
-                    'paused': 'bg-yellow-900/20 text-yellow-300',
-                    'off-boarding': 'bg-red-900/20 text-red-300',
+                  const statusBadgeClass: Record<string, string> = {
+                    'invited': 'status-badge status-badge-blue',
+                    'pipeline': 'status-badge status-badge-indigo',
+                    'active': 'status-badge status-badge-green',
+                    'paused': 'status-badge status-badge-yellow',
+                    'off-boarding': 'status-badge status-badge-red',
                   };
                   const label = leader.status === 'off-boarding' ? 'Off-boarding' : leader.status.charAt(0).toUpperCase() + leader.status.slice(1);
                   return (
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${statusColors[leader.status] || 'bg-gray-700 text-gray-300'}`}>
+                    <span className={`shrink-0 ${statusBadgeClass[leader.status] || 'status-badge status-badge-blue'}`}>
                       {label}
                     </span>
                   );
@@ -3116,7 +3116,7 @@ export default function CircleLeaderProfilePage() {
         {/* Circle Visits Section */}
         {leader && (
           <div id="section-visits" ref={setSectionRef('section-visits')} className="mt-6 scroll-mt-20">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="section-panel bg-white dark:bg-gray-800 rounded-lg shadow p-6">
               <CircleVisitsSection leaderId={leaderId} leaderName={leader.name} />
             </div>
           </div>
@@ -3128,8 +3128,8 @@ export default function CircleLeaderProfilePage() {
         </div>
 
             {/* Notes Section */}
-            <div id="section-notes" ref={setSectionRef('section-notes')} className="bg-white dark:bg-gray-800 rounded-lg shadow mt-6 scroll-mt-20">
-              <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <div id="section-notes" ref={setSectionRef('section-notes')} className="section-panel bg-white dark:bg-gray-800 rounded-lg shadow mt-6 scroll-mt-20">
+              <div className="section-header-row px-4 sm:px-6 py-4">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center">
                     <svg className="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

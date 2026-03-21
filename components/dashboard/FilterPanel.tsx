@@ -848,7 +848,7 @@ export default function FilterPanel({
                   <button
                     key={`campus-${campus}`}
                     onClick={() => removeFilterValue('campus', campus)}
-                    className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/30 transition-colors"
+                    className="filter-chip"
                   >
                     Campus: {campus}
                     <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -862,7 +862,7 @@ export default function FilterPanel({
                   <button
                     key={`acpd-${acpd}`}
                     onClick={() => removeFilterValue('acpd', acpd)}
-                    className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-900/30 transition-colors"
+                    className="filter-chip"
                   >
                     ACPD: {acpd}
                     <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -882,7 +882,7 @@ export default function FilterPanel({
                     <button
                       key={`status-${status}`}
                       onClick={() => removeFilterValue('status', status)}
-                      className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/30 transition-colors"
+                      className="filter-chip"
                     >
                       Status: {displayLabel}
                       <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -897,7 +897,7 @@ export default function FilterPanel({
                   <button
                     key={`day-${day}`}
                     onClick={() => removeFilterValue('meetingDay', day)}
-                    className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100/80 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 hover:bg-blue-200/80 dark:hover:bg-blue-900/30 transition-colors backdrop-blur-sm"
+                    className="filter-chip"
                   >
                     Day: {day}
                     <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -911,7 +911,7 @@ export default function FilterPanel({
                   <button
                     key={`type-${type}`}
                     onClick={() => removeFilterValue('circleType', type)}
-                    className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/30 transition-colors"
+                    className="filter-chip"
                   >
                     Type: {type}
                     <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -925,7 +925,7 @@ export default function FilterPanel({
                   <button
                     key={`freq-${freq}`}
                     onClick={() => removeFilterValue('frequency', freq)}
-                    className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/20 dark:text-fuchsia-300 hover:bg-fuchsia-200 dark:hover:bg-fuchsia-900/30 transition-colors"
+                    className="filter-chip"
                   >
                     Frequency: {freq}
                     <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -938,7 +938,7 @@ export default function FilterPanel({
                 {filters.eventSummary !== 'all' && (
                   <button
                     onClick={() => removeFilterValue('eventSummary', '')}
-                    className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-900/30 transition-colors"
+                    className="filter-chip"
                   >
                     Event Summary: {filters.eventSummary === 'received' ? 'Received' : filters.eventSummary === 'skipped' ? 'Skipped' : 'Not Received'}
                     <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -951,7 +951,7 @@ export default function FilterPanel({
                 {filters.connected !== 'all' && (
                   <button
                     onClick={() => removeFilterValue('connected', '')}
-                    className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-800 dark:bg-teal-900/20 dark:text-teal-300 hover:bg-teal-200 dark:hover:bg-teal-900/30 transition-colors"
+                    className="filter-chip"
                   >
                     Connected: {filters.connected === 'connected' ? 'This Month' : 'Not This Month'}
                     <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -964,7 +964,7 @@ export default function FilterPanel({
                 {filters.timeOfDay !== 'all' && (
                   <button
                     onClick={() => removeFilterValue('timeOfDay', '')}
-                    className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-pink-100 text-pink-800 dark:bg-pink-900/20 dark:text-pink-300 hover:bg-pink-200 dark:hover:bg-pink-900/30 transition-colors"
+                    className="filter-chip"
                   >
                     Time: {filters.timeOfDay === 'am' ? 'AM' : 'PM'}
                     <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
