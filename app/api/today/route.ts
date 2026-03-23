@@ -361,29 +361,58 @@ async function buildTodayData(
   };
 }
 
+// ── Server-side response cache (per user, 60s TTL) ───────────────────────────
+const responseCache = new Map<string, { payload: object; cachedAt: number }>();
+const RESPONSE_CACHE_TTL = 60_000;
+
+/** Decode JWT payload without verifying — used only to fire DB query early. */
+function extractSubFromToken(token: string): string | null {
+  try {
+    return JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString()).sub ?? null;
+  } catch { return null; }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const supabaseUrl    = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseUrl     = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    const anonClient = createClient(supabaseUrl, supabaseAnonKey);
-    const { data: { user: authUser } } = await anonClient.auth.getUser(token);
-    if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const supabase        = getSupabaseServiceClient();
+    const anonClient      = createClient(supabaseUrl, supabaseAnonKey);
+    const today           = getTodayDate();
 
-    const supabase = getSupabaseServiceClient();
-    const today    = getTodayDate();
+    // Optimistically decode user ID from JWT so we can fire the profile query
+    // in parallel with token verification — saves one sequential round trip.
+    const optimisticId = extractSubFromToken(token);
 
-    const { data: userProfile } = await supabase
-      .from('users')
-      .select('id, name, email, weather_city, weather_state, weather_zip, include_weather')
-      .eq('id', authUser.id).single();
-    if (!userProfile) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    const [authResult, profileResult] = await Promise.all([
+      anonClient.auth.getUser(token),
+      optimisticId
+        ? supabase.from('users')
+            .select('id, name, email, weather_city, weather_state, weather_zip, include_weather')
+            .eq('id', optimisticId).single()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+
+    if (!authResult.data.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const userProfile = profileResult.data;
+    if (!userProfile || userProfile.id !== authResult.data.user.id) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Serve from cache if fresh
+    const cached = responseCache.get(userProfile.id);
+    if (cached && Date.now() - cached.cachedAt < RESPONSE_CACHE_TTL) {
+      return NextResponse.json(cached.payload, {
+        headers: { 'X-Cache': 'HIT', 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' },
+      });
+    }
 
     const user = { id: userProfile.id, name: userProfile.name, email: userProfile.email };
 
-    // Run data queries and weather fetch in parallel
     const [data, weather] = await Promise.all([
       buildTodayData(supabase, user, today),
       userProfile.include_weather !== false
@@ -392,7 +421,12 @@ export async function GET(request: NextRequest) {
         : Promise.resolve(null as WeatherData | null),
     ]);
 
-    return NextResponse.json({ ...data, weather });
+    const payload = { ...data, weather };
+    responseCache.set(userProfile.id, { payload, cachedAt: Date.now() });
+
+    return NextResponse.json(payload, {
+      headers: { 'X-Cache': 'MISS', 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' },
+    });
   } catch (err: any) {
     console.error('Today API error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

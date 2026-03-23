@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useTodayData } from '../../hooks/useTodayData';
+import type { TodayData } from '../../hooks/useTodayData';
 import type {
   EncouragementItem,
   FollowUpItem,
@@ -140,16 +141,28 @@ function WeatherRow({ row }: { row: ScoreRowData & { kind: 'weather' } }) {
   );
 }
 
+function scrollToSection(href: string) {
+  const id = href.replace('#', '');
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function ScoreRow({ row }: { row: ScoreRowData }) {
   if (row.kind === 'weather') return <WeatherRow row={row as any} />;
 
   const active = (row as any).count > 0;
-  const inner = (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '9px 14px', height: '100%',
-      borderLeft: `3px solid ${active ? row.color : 'transparent'}`,
-    }} className="today-score-inner">
+  const href = (row as any).href as string | undefined;
+
+  return (
+    <div
+      onClick={href ? () => scrollToSection(href) : undefined}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '9px 14px', height: '100%', cursor: href ? 'pointer' : 'default',
+        borderLeft: `3px solid ${active ? row.color : 'transparent'}`,
+      }}
+      className="today-score-inner"
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
         <span style={{
           width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
@@ -167,15 +180,11 @@ function ScoreRow({ row }: { row: ScoreRowData }) {
       </span>
     </div>
   );
-
-  return (row as any).href
-    ? <a href={(row as any).href} style={{ textDecoration: 'none', display: 'block', height: '100%' }} className="today-score-row">{inner}</a>
-    : <div style={{ height: '100%' }}>{inner}</div>;
 }
 
 function Scoreboard({ rows, weather }: {
   rows: { label: string; count: number; color: string; href: string }[];
-  weather?: import('../api/today/route').TodayData['weather'];
+  weather?: TodayData['weather'];
 }) {
   const allRows: ScoreRowData[] = [...rows];
   if (weather) {
@@ -215,7 +224,7 @@ function Scoreboard({ rows, weather }: {
           const isRightCol = !isWeather && i % 2 === 1;
           const isLastCountRow = !isWeather && i >= (countRows.length % 2 === 0 ? countRows.length - 2 : countRows.length - 1);
           return (
-            <div key={row.label} style={{
+            <div key={row.label} className="today-score-row" style={{
               gridColumn: isWeather ? '1 / -1' : undefined,
               borderTop: isWeather && countRows.length > 0 ? `1px solid ${T.cardBorder}` : undefined,
               borderBottom: (!isWeather && !isLastCountRow) ? `1px solid ${T.cardBorder}` : 'none',
@@ -225,6 +234,7 @@ function Scoreboard({ rows, weather }: {
             </div>
           );
         })}
+      </div>
     </div>
   );
 }
@@ -381,6 +391,7 @@ export default function TodayPage() {
   const totalCards     = data.cards.dueToday.length + data.cards.overdue.length;
   const totalChecklists = data.checklistItems.dueToday.length + data.checklistItems.overdue.length;
   const totalOverdue   = data.cards.overdue.length + data.checklistItems.overdue.length + data.encouragements.overdue.length + data.followUps.overdue.length;
+  const totalCircles   = data.upcomingCircles.today.length + data.upcomingCircles.tomorrow.length;
   const hasAnything    = data.birthdays.length + data.circleVisits.today.length + totalEncs + totalFU + totalCards + totalChecklists > 0;
 
   return (
@@ -424,6 +435,7 @@ export default function TodayPage() {
             { label: 'Cards',           count: totalCards,                     color: T.indigo, href: '#cards-today' },
             { label: 'Checklist Tasks', count: totalChecklists,                color: T.blue,   href: '#checklists-today' },
             { label: 'Overdue Items',   count: totalOverdue,                   color: T.red,    href: '#overdue-cards' },
+            { label: 'Upcoming Circles', count: totalCircles,                  color: T.green,  href: '#upcoming-circles' },
           ]}
         />
 

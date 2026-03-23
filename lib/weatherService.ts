@@ -57,11 +57,16 @@ function weatherCodeToInfo(code: number): { description: string; emoji: string }
   return { description: 'Unknown', emoji: '🌡️' };
 }
 
+// Cache geocode results for the lifetime of the server process
+const geocodeCache = new Map<string, { lat: number; lon: number; name: string } | null>();
+
 /**
  * Geocode a city/state or zip code to lat/lon using Open-Meteo's free geocoding API.
  * Returns null if geocoding fails.
  */
 async function geocodeLocation(location: WeatherLocation): Promise<{ lat: number; lon: number; name: string } | null> {
+  const cacheKey = `${location.city || ''}|${location.state || ''}|${location.zip || ''}`;
+  if (geocodeCache.has(cacheKey)) return geocodeCache.get(cacheKey)!;
   // US state abbreviation → full name map (for display and result filtering)
   const STATE_NAMES: Record<string, string> = {
     AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',
@@ -82,7 +87,7 @@ async function geocodeLocation(location: WeatherLocation): Promise<{ lat: number
     url.searchParams.set('count', '10');
     url.searchParams.set('language', 'en');
     url.searchParams.set('format', 'json');
-    const response = await fetch(url.toString(), { signal: AbortSignal.timeout(5000) });
+    const response = await fetch(url.toString(), { signal: AbortSignal.timeout(2000) });
     if (!response.ok) return [];
     const json = await response.json();
     return json.results || [];
@@ -108,6 +113,7 @@ async function geocodeLocation(location: WeatherLocation): Promise<{ lat: number
 
     if (results.length === 0) {
       console.warn(`No geocoding results for "${location.city || location.zip}"`);
+      geocodeCache.set(cacheKey, null);
       return null;
     }
 
@@ -128,7 +134,9 @@ async function geocodeLocation(location: WeatherLocation): Promise<{ lat: number
     // If stateFull is already a full name, use it; otherwise use admin1
     const displayName = displayState ? `${best.name}, ${displayState}` : best.name;
 
-    return { lat: best.latitude, lon: best.longitude, name: displayName };
+    const result = { lat: best.latitude, lon: best.longitude, name: displayName };
+    geocodeCache.set(cacheKey, result);
+    return result;
   } catch (error: any) {
     console.error('Geocoding failed:', error.message);
     return null;
@@ -167,7 +175,7 @@ export async function fetchWeather(location?: WeatherLocation | null): Promise<W
     url.searchParams.set('forecast_days', '1');
 
     const response = await fetch(url.toString(), {
-      signal: AbortSignal.timeout(5000), // 5 second timeout
+      signal: AbortSignal.timeout(2000), // 5 second timeout
     });
 
     if (!response.ok) {
