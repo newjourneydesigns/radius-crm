@@ -197,19 +197,22 @@ function Scoreboard({ rows, weather }: {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
         {allRows.map((row, i) => {
-          const isRightCol = i % 2 === 1;
-          const lastRowStart = allRows.length % 2 === 0 ? allRows.length - 2 : allRows.length - 1;
-          const isLastRow = i >= lastRowStart;
+          const isWeather = row.kind === 'weather';
+          // Weather spans both columns; treat it as its own row for border logic
+          const countRows = allRows.filter(r => r.kind !== 'weather');
+          const isRightCol = !isWeather && i % 2 === 1;
+          const isLastCountRow = !isWeather && i >= (countRows.length % 2 === 0 ? countRows.length - 2 : countRows.length - 1);
           return (
             <div key={row.label} style={{
-              borderBottom: isLastRow ? 'none' : `1px solid ${T.cardBorder}`,
+              gridColumn: isWeather ? '1 / -1' : undefined,
+              borderTop: isWeather && countRows.length > 0 ? `1px solid ${T.cardBorder}` : undefined,
+              borderBottom: (!isWeather && !isLastCountRow) ? `1px solid ${T.cardBorder}` : 'none',
               borderLeft: isRightCol ? `1px solid ${T.cardBorder}` : 'none',
             }}>
               <ScoreRow row={row} />
             </div>
           );
         })}
-      </div>
     </div>
   );
 }

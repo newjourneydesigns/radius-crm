@@ -4212,6 +4212,11 @@ const kanbanStyles = `
   }
   .kb-input:focus, .kb-textarea:focus { border-color: rgba(141, 169, 196, 0.65) !important; box-shadow: 0 0 0 3px rgba(76, 103, 133, 0.18), 0 0 0 1px rgba(141, 169, 196, 0.4) !important; }
   .kb-textarea { resize: vertical; min-height: 60px; }
+  input[type="date"].kb-input {
+    padding: 11px 12px;
+    min-height: 44px;
+    cursor: pointer;
+  }
 
   /* ── Loading ── */
   .kb-loading {
@@ -5424,5 +5429,9 @@ const kanbanStyles = `
     .kb-detail-main { border-right: none; }
     .kb-note-panel { width: 100%; }
     .kb-shortcut-bar { display: none; }
+    /* Prevent iOS Safari from zooming in when focusing inputs */
+    .kb-input, .kb-textarea, select.kb-input { font-size: 16px !important; }
+    .kb-detail-title-input { font-size: 18px !important; }
+    .kb-modal-overlay { padding: 16px 12px 80px; }
   }
 `;
