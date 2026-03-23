@@ -242,10 +242,11 @@ function Scoreboard({ rows, weather }: {
 // ─── Section ─────────────────────────────────────────────────────────────────
 
 function Section({
-  id, title, icon, count, sectionKey, isOpen, onToggle, accentColor = T.indigo, children,
+  id, title, icon, count, sectionKey, isOpen, onToggle, accentColor = T.indigo, headerExtra, children,
 }: {
   id: string; title: string; icon: string; count: number; sectionKey: string;
-  isOpen: boolean; onToggle: () => void; accentColor?: string; children: React.ReactNode;
+  isOpen: boolean; onToggle: () => void; accentColor?: string;
+  headerExtra?: React.ReactNode; children: React.ReactNode;
 }) {
   if (count === 0) return null;
 
@@ -255,15 +256,15 @@ function Section({
       borderRadius: 14, overflow: 'hidden', marginBottom: 12,
     }}>
       {/* Header */}
-      <button
-        onClick={onToggle}
-        style={{
-          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer',
-          borderBottom: isOpen ? `1px solid ${T.cardBorder}` : 'none',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '12px 16px',
+        borderBottom: isOpen ? `1px solid ${T.cardBorder}` : 'none',
+      }}>
+        <button onClick={onToggle} style={{
+          flex: 1, display: 'flex', alignItems: 'center', gap: 8,
+          background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left',
+        }}>
           <span style={{ fontSize: 15 }}>{icon}</span>
           <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{title}</span>
           <span style={{
@@ -272,11 +273,14 @@ function Section({
           }}>
             {count}
           </span>
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {headerExtra}
+          <button onClick={onToggle} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.textFaint, padding: 0 }}>
+            <ChevronDown open={isOpen} />
+          </button>
         </div>
-        <span style={{ color: T.textFaint }}>
-          <ChevronDown open={isOpen} />
-        </span>
-      </button>
+      </div>
 
       {isOpen && <div>{children}</div>}
     </div>
@@ -355,6 +359,7 @@ function DateBadge({ date, color }: { date: string; color?: string }) {
 export default function TodayPage() {
   const { data, isLoading, error, fetchData, markEncouragementSent, clearFollowUp, markCardComplete, markChecklistDone } = useTodayData();
   const { isOpen, toggle } = useVisibility();
+  const [circleView, setCircleView] = useState<'today' | 'week'>('today');
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -636,51 +641,89 @@ export default function TodayPage() {
         </Section>
 
         {/* ── Upcoming Circles ── */}
-        {(data.upcomingCircles.today.length + data.upcomingCircles.tomorrow.length) > 0 && (
-          <Section
-            id="upcoming-circles"
-            title="Upcoming Circles"
-            icon="🔵"
-            count={data.upcomingCircles.today.length + data.upcomingCircles.tomorrow.length}
-            sectionKey="upcomingCircles"
-            isOpen={isOpen('upcomingCircles')}
-            onToggle={() => toggle('upcomingCircles')}
-            accentColor={T.blue}
-          >
-            {data.upcomingCircles.today.length > 0 && (
-              <>
-                <div style={{ padding: '6px 16px 4px', fontSize: 10, fontWeight: 700, color: T.textFaint, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                  Today
+        {(() => {
+          const todayCount = data.upcomingCircles.today.length + data.upcomingCircles.tomorrow.length;
+          const weekCount  = todayCount + data.upcomingCircles.thisWeek.reduce((s, d) => s + d.leaders.length, 0);
+          const count      = circleView === 'week' ? weekCount : todayCount;
+          const colors     = [T.blue, T.indigo, T.purple, T.cyan, T.green];
+
+          const toggle$ = (
+            <div style={{ display: 'flex', borderRadius: 7, overflow: 'hidden', border: `1px solid ${T.cardBorder}` }}>
+              {(['today', 'week'] as const).map(v => (
+                <button key={v} onClick={() => setCircleView(v)} style={{
+                  padding: '3px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer', border: 'none',
+                  background: circleView === v ? T.blue : 'transparent',
+                  color: circleView === v ? '#fff' : T.textMuted,
+                  transition: 'all 0.15s',
+                }}>
+                  {v === 'today' ? 'Today' : 'Week'}
+                </button>
+              ))}
+            </div>
+          );
+
+          return (
+            <Section
+              id="upcoming-circles"
+              title="Upcoming Circles"
+              icon="🔵"
+              count={count}
+              sectionKey="upcomingCircles"
+              isOpen={isOpen('upcomingCircles')}
+              onToggle={() => toggle('upcomingCircles')}
+              accentColor={T.blue}
+              headerExtra={toggle$}
+            >
+              {/* Today */}
+              {data.upcomingCircles.today.length > 0 && (
+                <>
+                  <div style={{ padding: '6px 16px 4px', fontSize: 10, fontWeight: 700, color: T.textFaint, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Today</div>
+                  {data.upcomingCircles.today.map((c: CircleMeetingItem) => (
+                    <Item key={c.leader_id} accentColor={T.blue}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <LeaderLink id={c.leader_id} name={c.leader_name} />
+                        <Sub>{[c.campus, c.circle_type].filter(Boolean).join(' · ')}</Sub>
+                      </div>
+                      <DateBadge date={formatTime(c.time)} color={T.blue} />
+                    </Item>
+                  ))}
+                </>
+              )}
+              {/* Tomorrow */}
+              {data.upcomingCircles.tomorrow.length > 0 && (
+                <>
+                  <div style={{ padding: '6px 16px 4px', fontSize: 10, fontWeight: 700, color: T.textFaint, letterSpacing: '0.06em', textTransform: 'uppercase', borderTop: data.upcomingCircles.today.length > 0 ? `1px solid ${T.cardBorder}` : 'none' }}>Tomorrow</div>
+                  {data.upcomingCircles.tomorrow.map((c: CircleMeetingItem) => (
+                    <Item key={c.leader_id} accentColor={T.indigo}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <LeaderLink id={c.leader_id} name={c.leader_name} />
+                        <Sub>{[c.campus, c.circle_type].filter(Boolean).join(' · ')}</Sub>
+                      </div>
+                      <DateBadge date={formatTime(c.time)} color={T.indigo} />
+                    </Item>
+                  ))}
+                </>
+              )}
+              {/* Rest of week (only in week view) */}
+              {circleView === 'week' && data.upcomingCircles.thisWeek.map((day, i) => (
+                <div key={day.date}>
+                  <div style={{ padding: '6px 16px 4px', fontSize: 10, fontWeight: 700, color: T.textFaint, letterSpacing: '0.06em', textTransform: 'uppercase', borderTop: `1px solid ${T.cardBorder}` }}>
+                    {day.dayName}
+                  </div>
+                  {day.leaders.map((c: CircleMeetingItem) => (
+                    <Item key={c.leader_id} accentColor={colors[i % colors.length]}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <LeaderLink id={c.leader_id} name={c.leader_name} />
+                        <Sub>{[c.campus, c.circle_type].filter(Boolean).join(' · ')}</Sub>
+                      </div>
+                      <DateBadge date={formatTime(c.time)} color={colors[i % colors.length]} />
+                    </Item>
+                  ))}
                 </div>
-                {data.upcomingCircles.today.map((c: CircleMeetingItem) => (
-                  <Item key={c.leader_id} accentColor={T.blue}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <LeaderLink id={c.leader_id} name={c.leader_name} />
-                      <Sub>{[c.campus, c.circle_type].filter(Boolean).join(' · ')}</Sub>
-                    </div>
-                    <DateBadge date={formatTime(c.time)} color={T.blue} />
-                  </Item>
-                ))}
-              </>
-            )}
-            {data.upcomingCircles.tomorrow.length > 0 && (
-              <>
-                <div style={{ padding: '6px 16px 4px', fontSize: 10, fontWeight: 700, color: T.textFaint, letterSpacing: '0.06em', textTransform: 'uppercase', borderTop: `1px solid ${T.cardBorder}` }}>
-                  Tomorrow
-                </div>
-                {data.upcomingCircles.tomorrow.map((c: CircleMeetingItem) => (
-                  <Item key={c.leader_id} accentColor={T.indigo}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <LeaderLink id={c.leader_id} name={c.leader_name} />
-                      <Sub>{[c.campus, c.circle_type].filter(Boolean).join(' · ')}</Sub>
-                    </div>
-                    <DateBadge date={formatTime(c.time)} color={T.indigo} />
-                  </Item>
-                ))}
-              </>
-            )}
-          </Section>
-        )}
+              ))}
+            </Section>
+          );
+        })()}
 
         {/* ── Upcoming Scheduled Visits ── */}
         <Section id="upcoming-visits" title="Upcoming Scheduled Visits" icon="📆" count={data.upcomingVisits.length}

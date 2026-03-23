@@ -23,7 +23,11 @@ export interface TodayData {
   followUps: { dueToday: FollowUpItem[]; overdue: FollowUpItem[] };
   cards: { dueToday: CardDigestItem[]; overdue: CardDigestItem[] };
   checklistItems: { dueToday: ChecklistDigestItem[]; overdue: ChecklistDigestItem[] };
-  upcomingCircles: { today: CircleMeetingItem[]; tomorrow: CircleMeetingItem[] };
+  upcomingCircles: {
+    today: CircleMeetingItem[];
+    tomorrow: CircleMeetingItem[];
+    thisWeek: { date: string; dayName: string; leaders: CircleMeetingItem[] }[];
+  };
   recentNotes: NoteItem[];
 }
 
@@ -100,8 +104,8 @@ async function buildTodayData(
   const weekEnd     = getDateOffset(today, 7);
   const monthEnd    = getDateOffset(today, 30);
   const afterWeek   = getDateOffset(today, 8);
-  const todayDay    = getDayName(today);
-  const tomorrowDay = getDayName(tomorrow);
+  const weekDates    = Array.from({ length: 7 }, (_, i) => getDateOffset(today, i));
+  const weekDayNames = Array.from(new Set(weekDates.map(getDayName)));
 
   // ── Phase 1: all independent queries fire simultaneously ─────────────────
   const [
@@ -147,7 +151,7 @@ async function buildTodayData(
 
     supabase.from('circle_leaders')
       .select('id, name, circle_type, day, time, frequency, campus, meeting_start_date')
-      .eq('acpd', user.name).in('day', [todayDay, tomorrowDay])
+      .eq('acpd', user.name).in('day', weekDayNames)
       .not('status', 'in', '("Inactive","Removed")')
       .order('time', { ascending: true }),
 
@@ -351,6 +355,11 @@ async function buildTodayData(
     upcomingCircles: {
       today:    (circleLeadersRaw || []).filter((l: any) => doesCircleMeetOnDate(today,    l.day, l.frequency, l.meeting_start_date)).map(toCircle),
       tomorrow: (circleLeadersRaw || []).filter((l: any) => doesCircleMeetOnDate(tomorrow, l.day, l.frequency, l.meeting_start_date)).map(toCircle),
+      thisWeek: weekDates.slice(2).map(date => ({
+        date,
+        dayName: getDayName(date),
+        leaders: (circleLeadersRaw || []).filter((l: any) => doesCircleMeetOnDate(date, l.day, l.frequency, l.meeting_start_date)).map(toCircle),
+      })).filter(d => d.leaders.length > 0),
     },
     recentNotes: (notesRaw || []).map((n: any) => ({
       id: n.id, circle_leader_id: n.circle_leader_id,
