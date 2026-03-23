@@ -624,7 +624,7 @@ export default function RadiusAssistant({ fullPage = false }: RadiusAssistantPro
           onClick={() => setIsOpen(true)}
           style={{
             position: 'fixed',
-            bottom: isMobile ? 'calc(82px + env(safe-area-inset-bottom, 0px) + 8px)' : '80px',
+            bottom: isMobile ? 'calc(90px + env(safe-area-inset-bottom, 0px) + 16px)' : '80px',
             right: '16px',
             zIndex: 9998,
             width: '56px',

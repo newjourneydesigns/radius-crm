@@ -186,6 +186,13 @@ const BirthdayCakeIcon = () => (
   </svg>
 );
 
+const TodayIcon = ({ active }: { active?: boolean }) => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 3" />
+  </svg>
+);
+
 /* ─────────────────────────────────────────────────────────
    Component
    ───────────────────────────────────────────────────────── */
@@ -269,12 +276,12 @@ export default function MobileNavigation() {
 
   /* Tab items — split into left/right groups around the raised center button */
   const leftTabs: TabItem[] = [
+    { id: 'today',  name: 'Today',  href: '/today',  Icon: TodayIcon },
     { id: 'boards', name: 'Boards', href: '/boards', Icon: BoardTabIcon },
-    { id: 'prayer', name: 'Prayer', href: '/prayer', Icon: PrayerIcon },
   ];
   const rightTabs: TabItem[] = [
-    { id: 'calendar', name: 'Events', href: '/calendar', Icon: CalendarIcon },
-    { id: 'more', name: 'More', Icon: EllipsisIcon, action: () => setSheetOpen(v => !v) },
+    { id: 'prayer', name: 'Prayer', href: '/prayer',   Icon: PrayerIcon },
+    { id: 'events', name: 'Events', href: '/calendar', Icon: CalendarIcon },
   ];
 
   /* Drawer menu sections */
@@ -306,31 +313,14 @@ export default function MobileNavigation() {
       <nav className="mobile-tab-bar md:hidden" role="tablist">
         <div className="mobile-tab-bar-inner">
           {/* Left tabs */}
-          {leftTabs.map(({ id, name, href, Icon, action }) => {
+          {leftTabs.map(({ id, name, href, Icon }) => {
             const active = href ? isActive(href) : false;
-            const content = (
-              <>
-                <span className={`mobile-tab-icon ${active ? 'active' : ''}`}>
-                  <Icon active={active} />
-                </span>
-                <span className={`mobile-tab-label ${active ? 'active' : ''}`}>
-                  {name}
-                </span>
-              </>
-            );
-            if (href) {
-              return (
-                <Link key={id} href={href} role="tab" aria-selected={active}
-                  className={`mobile-tab-item ${active ? 'active' : ''}`}>
-                  {content}
-                </Link>
-              );
-            }
             return (
-              <div key={id} role="tab" aria-selected={active} onClick={action} tabIndex={0}
-                className={`mobile-tab-item ${active ? 'active' : ''}`}>
-                {content}
-              </div>
+              <Link key={id} href={href!} role="tab" aria-selected={active}
+                className={`mobile-tab-item${active ? ' active' : ''}`}>
+                <span className={`mobile-tab-icon${active ? ' active' : ''}`}><Icon active={active} /></span>
+                <span className={`mobile-tab-label${active ? ' active' : ''}`}>{name}</span>
+              </Link>
             );
           })}
 
@@ -343,34 +333,27 @@ export default function MobileNavigation() {
           </div>
 
           {/* Right tabs */}
-          {rightTabs.map(({ id, name, href, Icon, action }) => {
-            const active = href ? isActive(href) : (id === 'more' && sheetOpen);
-            const content = (
-              <>
-                <span className={`mobile-tab-icon ${active ? 'active' : ''}`}>
-                  <Icon active={active} />
-                </span>
-                <span className={`mobile-tab-label ${active ? 'active' : ''}`}>
-                  {name}
-                </span>
-              </>
-            );
-            if (href) {
-              return (
-                <Link key={id} href={href} role="tab" aria-selected={active}
-                  className={`mobile-tab-item ${active ? 'active' : ''}`}>
-                  {content}
-                </Link>
-              );
-            }
+          {rightTabs.map(({ id, name, href, Icon }) => {
+            const active = href ? isActive(href) : false;
             return (
-              <div key={id} role="tab" aria-selected={active} onClick={action} tabIndex={0}
-                className={`mobile-tab-item ${active ? 'active' : ''}`}>
-                {content}
-              </div>
+              <Link key={id} href={href!} role="tab" aria-selected={active}
+                className={`mobile-tab-item${active ? ' active' : ''}`}>
+                <span className={`mobile-tab-icon${active ? ' active' : ''}`}><Icon active={active} /></span>
+                <span className={`mobile-tab-label${active ? ' active' : ''}`}>{name}</span>
+              </Link>
             );
           })}
         </div>
+
+        {/* More handle — bottom of nav bar */}
+        <button
+          type="button"
+          className={`mobile-tab-more-trigger${sheetOpen ? ' open' : ''}`}
+          onClick={() => setSheetOpen(v => !v)}
+          aria-label="More"
+        >
+          <div className="mobile-tab-more-handle-bar" />
+        </button>
       </nav>
 
       {/* ════════════════════════════════════════════════════
@@ -390,7 +373,7 @@ export default function MobileNavigation() {
         ref={sheetRef}
         className={`md:hidden fixed left-0 right-0 z-[9999] mobile-sheet ${sheetOpen ? 'open' : ''}`}
         style={{
-          bottom: 'calc(68px + env(safe-area-inset-bottom, 0px))',
+          bottom: 'calc(84px + env(safe-area-inset-bottom, 0px))',
           transform: sheetOpen ? `translateY(${sheetY}px)` : 'translateY(100%)',
           transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)',
         }}
@@ -426,6 +409,12 @@ export default function MobileNavigation() {
               className={`mobile-sheet-row bordered ${isActive('/search') ? 'active' : ''}`}>
               <span className="mobile-sheet-row-icon"><FindCircleIcon /></span>
               <span className="mobile-sheet-row-label">Find Circle</span>
+              <ChevronRightIcon />
+            </Link>
+            <Link href="/calendar"
+              className={`mobile-sheet-row bordered ${isActive('/calendar') ? 'active' : ''}`}>
+              <span className="mobile-sheet-row-icon"><CalendarIcon /></span>
+              <span className="mobile-sheet-row-label">Events</span>
               <ChevronRightIcon />
             </Link>
             <Link href="/progress"

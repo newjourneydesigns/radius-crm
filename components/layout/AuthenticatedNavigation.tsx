@@ -113,7 +113,14 @@ const CircleDashIcon = () => (
   </svg>
 );
 
+const TodayIcon = () => (
+  <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
 const primaryNavItems = [
+  { name: 'Today',     href: '/today',     icon: TodayIcon },
   { name: 'Boards',    href: '/boards',    icon: BoardIcon },
   { name: 'Dashboard', href: '/circle-dashboard', icon: CircleDashIcon },
   { name: 'Prayer',    href: '/prayer',    icon: PrayerIcon },

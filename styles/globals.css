@@ -56,7 +56,7 @@ input[type="date"] {
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   backdrop-filter: saturate(180%) blur(20px);
   border-top: 0.5px solid rgba(255, 255, 255, 0.08);
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
   overflow: visible;
 }
 
@@ -173,6 +173,41 @@ input[type="date"] {
   border-radius: 9999px;
   border: 1.5px solid rgba(59, 130, 246, 0.4);
   pointer-events: none;
+}
+
+/* More handle — sits in the bottom padding zone of the nav */
+.mobile-tab-more-trigger {
+  position: absolute;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  z-index: 11;
+  outline: none;
+}
+
+.mobile-tab-more-handle-bar {
+  width: 36px;
+  height: 4px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.18);
+  transition: background 0.2s ease, width 0.15s ease;
+}
+
+.mobile-tab-more-trigger.open .mobile-tab-more-handle-bar {
+  background: rgba(59, 130, 246, 0.65);
+  width: 42px;
+}
+
+.mobile-tab-more-trigger:active .mobile-tab-more-handle-bar {
+  background: rgba(255, 255, 255, 0.35);
 }
 
 /* ═══════════════════════════════════════════════════════════

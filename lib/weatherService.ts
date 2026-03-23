@@ -62,53 +62,73 @@ function weatherCodeToInfo(code: number): { description: string; emoji: string }
  * Returns null if geocoding fails.
  */
 async function geocodeLocation(location: WeatherLocation): Promise<{ lat: number; lon: number; name: string } | null> {
+  // US state abbreviation → full name map (for display and result filtering)
+  const STATE_NAMES: Record<string, string> = {
+    AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',
+    CO:'Colorado',CT:'Connecticut',DE:'Delaware',FL:'Florida',GA:'Georgia',
+    HI:'Hawaii',ID:'Idaho',IL:'Illinois',IN:'Indiana',IA:'Iowa',
+    KS:'Kansas',KY:'Kentucky',LA:'Louisiana',ME:'Maine',MD:'Maryland',
+    MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',MS:'Mississippi',MO:'Missouri',
+    MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hampshire',NJ:'New Jersey',
+    NM:'New Mexico',NY:'New York',NC:'North Carolina',ND:'North Dakota',OH:'Ohio',
+    OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Island',SC:'South Carolina',
+    SD:'South Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',VT:'Vermont',
+    VA:'Virginia',WA:'Washington',WV:'West Virginia',WI:'Wisconsin',WY:'Wyoming',
+  };
+
+  async function queryGeo(query: string): Promise<GeoResult[]> {
+    const url = new URL('https://geocoding-api.open-meteo.com/v1/search');
+    url.searchParams.set('name', query);
+    url.searchParams.set('count', '10');
+    url.searchParams.set('language', 'en');
+    url.searchParams.set('format', 'json');
+    const response = await fetch(url.toString(), { signal: AbortSignal.timeout(5000) });
+    if (!response.ok) return [];
+    const json = await response.json();
+    return json.results || [];
+  }
+
   try {
-    // Build search query: prefer "city, state" if available, fall back to zip
-    let query = '';
-    if (location.city && location.state) {
-      query = `${location.city}, ${location.state}`;
-    } else if (location.city) {
-      query = location.city;
+    let results: GeoResult[] = [];
+    const stateAbbr = location.state?.trim().toUpperCase() || '';
+    const stateFull = STATE_NAMES[stateAbbr] || location.state || '';
+
+    if (location.city) {
+      // Search by city name only — state abbreviations break Open-Meteo geocoding
+      results = await queryGeo(location.city.trim());
+
+      if (results.length === 0 && location.zip) {
+        results = await queryGeo(location.zip.trim());
+      }
     } else if (location.zip) {
-      query = location.zip;
+      results = await queryGeo(location.zip.trim());
     } else {
       return null;
     }
 
-    const url = new URL('https://geocoding-api.open-meteo.com/v1/search');
-    url.searchParams.set('name', query);
-    url.searchParams.set('count', '5');
-    url.searchParams.set('language', 'en');
-    url.searchParams.set('format', 'json');
-
-    const response = await fetch(url.toString(), {
-      signal: AbortSignal.timeout(5000),
-    });
-
-    if (!response.ok) {
-      console.error(`Geocoding API error: ${response.status}`);
-      return null;
-    }
-
-    const json = await response.json();
-    const results: GeoResult[] = json.results || [];
-
     if (results.length === 0) {
-      console.warn(`No geocoding results for "${query}"`);
+      console.warn(`No geocoding results for "${location.city || location.zip}"`);
       return null;
     }
 
-    // Try to find a US result first
-    const usResult = results.find(r => r.country_code === 'US') || results[0];
-    const displayName = usResult.admin1
-      ? `${usResult.name}, ${usResult.admin1}`
-      : usResult.name;
+    // Prefer US results, then try to match state if provided
+    const usResults = results.filter(r => r.country_code === 'US');
+    const pool = usResults.length > 0 ? usResults : results;
 
-    return {
-      lat: usResult.latitude,
-      lon: usResult.longitude,
-      name: displayName,
-    };
+    let best = pool[0];
+    if (stateFull) {
+      const stateMatch = pool.find(r =>
+        r.admin1?.toLowerCase() === stateFull.toLowerCase()
+      );
+      if (stateMatch) best = stateMatch;
+    }
+
+    // Build display name: "City, StateFull" if state known, else "City, admin1"
+    let displayState = stateFull || best.admin1 || '';
+    // If stateFull is already a full name, use it; otherwise use admin1
+    const displayName = displayState ? `${best.name}, ${displayState}` : best.name;
+
+    return { lat: best.latitude, lon: best.longitude, name: displayName };
   } catch (error: any) {
     console.error('Geocoding failed:', error.message);
     return null;

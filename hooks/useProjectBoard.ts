@@ -884,6 +884,30 @@ export function useProjectBoard() {
     }
   }, []);
 
+  const renameChecklistItem = useCallback(async (boardId: string, cardId: string, itemId: string, title: string) => {
+    setError(null);
+    setBoard(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        cards: prev.cards.map(c =>
+          c.id === cardId
+            ? { ...c, checklists: (c.checklists || []).map(cl => cl.id === itemId ? { ...cl, title } : cl) }
+            : c
+        ),
+      };
+    });
+    try {
+      const { error: err } = await supabase
+        .from('card_checklists')
+        .update({ title })
+        .eq('id', itemId);
+      if (err) throw err;
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }, []);
+
   // ─── Checklist Templates ────────────────────────────────────
   const fetchChecklistTemplates = useCallback(async (boardId: string) => {
     try {
@@ -1116,7 +1140,7 @@ export function useProjectBoard() {
     addColumn, updateColumn, deleteColumn, reorderColumns,
     addCard, updateCard, deleteCard, moveCard, moveToBoardCard, createNextRepeatCard, reorderCardsInColumn,
     addComment, updateComment, deleteComment,
-    addChecklistItem, toggleChecklistItem, updateChecklistItemDueDate, deleteChecklistItem,
+    addChecklistItem, toggleChecklistItem, updateChecklistItemDueDate, deleteChecklistItem, renameChecklistItem,
     fetchChecklistTemplates, saveChecklistTemplate, deleteChecklistTemplate, applyChecklistTemplate,
     addLabel, updateLabel, deleteLabel,
     assignCard, unassignCard, fetchSystemUsers,

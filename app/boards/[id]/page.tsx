@@ -140,6 +140,7 @@ function CardDetailModal({
   onAddChecklistItem,
   onToggleChecklistItem,
   onUpdateChecklistDueDate,
+  onRenameChecklistItem,
   onDeleteChecklistItem,
   onMoveCard,
   onMoveToBoardCard,
@@ -163,6 +164,7 @@ function CardDetailModal({
   onAddChecklistItem: (title: string) => Promise<void>;
   onToggleChecklistItem: (itemId: string, val: boolean) => Promise<void>;
   onUpdateChecklistDueDate: (itemId: string, dueDate: string | null) => Promise<void>;
+  onRenameChecklistItem: (itemId: string, title: string) => Promise<void>;
   onDeleteChecklistItem: (itemId: string) => Promise<void>;
   onMoveCard: (newColumnId: string) => Promise<void>;
   onMoveToBoardCard: (targetBoardId: string, targetColumnId: string) => Promise<void>;
@@ -188,7 +190,8 @@ function CardDetailModal({
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentText, setEditingCommentText] = useState('');
   const [checklistText, setChecklistText] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [editingChecklistId, setEditingChecklistId] = useState<string | null>(null);
+  const [editingChecklistTitle, setEditingChecklistTitle] = useState('');
   const [showLabelPicker, setShowLabelPicker] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
@@ -203,8 +206,10 @@ function CardDetailModal({
   const [allLeaders, setAllLeaders] = useState<{ id: number; name: string }[]>([]);
   const titleRef = useRef<HTMLInputElement>(null);
   const descRef = useRef<HTMLTextAreaElement>(null);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialRef = useRef(true);
+  const pendingChangesRef = useRef(false);
 
-  useEffect(() => { titleRef.current?.focus(); }, []);
   useEffect(() => { if (editingDesc && descRef.current) { descRef.current.focus(); descRef.current.setSelectionRange(descRef.current.value.length, descRef.current.value.length); } }, [editingDesc]);
   useEffect(() => {
     supabase.from('project_boards').select('id, title').eq('is_archived', false).order('created_at', { ascending: false })
@@ -215,21 +220,46 @@ function CardDetailModal({
       .then(({ data }) => { if (data) setAllLeaders(data as { id: number; name: string }[]); });
   }, []);
 
-  const handleSave = async () => {
-    setSaving(true);
-    await onUpdate({
-      title: editTitle,
-      description: editDesc,
-      priority: editPriority,
-      start_date: editStartDate || null,
-      due_date: editDueDate || null,
-      label_ids: editLabels,
-      repeat_rule: editRepeatRule === 'none' ? null : editRepeatRule,
-      repeat_interval: editRepeatRule === 'none' ? 1 : editRepeatInterval,
-      repeat_days: editRepeatRule === 'daily' && editRepeatDays.length > 0 ? editRepeatDays : null,
-      linked_leader_id: linkedLeaderId,
-    });
-    setSaving(false);
+  // Auto-save: debounce 600ms after any field change
+  useEffect(() => {
+    if (isInitialRef.current) { isInitialRef.current = false; return; }
+    if (!editTitle.trim()) return;
+    pendingChangesRef.current = true;
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(async () => {
+      await onUpdate({
+        title: editTitle,
+        description: editDesc,
+        priority: editPriority,
+        start_date: editStartDate || null,
+        due_date: editDueDate || null,
+        label_ids: editLabels,
+        repeat_rule: editRepeatRule === 'none' ? null : editRepeatRule,
+        repeat_interval: editRepeatRule === 'none' ? 1 : editRepeatInterval,
+        repeat_days: editRepeatRule === 'daily' && editRepeatDays.length > 0 ? editRepeatDays : null,
+        linked_leader_id: linkedLeaderId,
+      });
+      pendingChangesRef.current = false;
+    }, 600);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editTitle, editDesc, editPriority, editStartDate, editDueDate, editLabels, editRepeatRule, editRepeatInterval, editRepeatDays, linkedLeaderId]);
+
+  const handleClose = () => {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    if (pendingChangesRef.current && editTitle.trim()) {
+      onUpdate({
+        title: editTitle,
+        description: editDesc,
+        priority: editPriority,
+        start_date: editStartDate || null,
+        due_date: editDueDate || null,
+        label_ids: editLabels,
+        repeat_rule: editRepeatRule === 'none' ? null : editRepeatRule,
+        repeat_interval: editRepeatRule === 'none' ? 1 : editRepeatInterval,
+        repeat_days: editRepeatRule === 'daily' && editRepeatDays.length > 0 ? editRepeatDays : null,
+        linked_leader_id: linkedLeaderId,
+      });
+    }
     onClose();
   };
 
@@ -274,10 +304,10 @@ function CardDetailModal({
   const completedCount = checklists.filter(c => c.is_completed).length;
 
   return (
-    <div className="kb-modal-overlay" onClick={onClose}>
+    <div className="kb-modal-overlay" onClick={handleClose}>
       <div className="kb-detail-modal" onClick={e => e.stopPropagation()}>
         {/* Close */}
-        <button className="kb-detail-close" onClick={onClose}><X size={18} /></button>
+        <button className="kb-detail-close" onClick={handleClose}><X size={18} /></button>
 
         <div className="kb-detail-body">
           {/* Left: Main content */}
@@ -411,9 +441,39 @@ function CardDetailModal({
                     >
                       {item.is_completed && <Check size={11} />}
                     </button>
-                    <span className={`kb-checklist-text ${item.is_completed ? 'completed' : ''}`}>
-                      {item.title}
-                    </span>
+                    {editingChecklistId === item.id ? (
+                      <input
+                        className="kb-input kb-checklist-edit-input"
+                        value={editingChecklistTitle}
+                        autoFocus
+                        onChange={e => setEditingChecklistTitle(e.target.value)}
+                        onBlur={() => {
+                          if (editingChecklistTitle.trim() && editingChecklistTitle.trim() !== item.title) {
+                            onRenameChecklistItem(item.id, editingChecklistTitle.trim());
+                          }
+                          setEditingChecklistId(null);
+                        }}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            if (editingChecklistTitle.trim() && editingChecklistTitle.trim() !== item.title) {
+                              onRenameChecklistItem(item.id, editingChecklistTitle.trim());
+                            }
+                            setEditingChecklistId(null);
+                          }
+                          if (e.key === 'Escape') setEditingChecklistId(null);
+                        }}
+                        style={{ flex: 1 }}
+                      />
+                    ) : (
+                      <span
+                        className={`kb-checklist-text ${item.is_completed ? 'completed' : ''}`}
+                        onClick={() => { setEditingChecklistId(item.id); setEditingChecklistTitle(item.title); }}
+                        title="Click to edit"
+                        style={{ cursor: 'text' }}
+                      >
+                        {item.title}
+                      </span>
+                    )}
                     <div className="kb-checklist-due-wrapper">
                       <input
                         type="date"
@@ -806,9 +866,6 @@ function CardDetailModal({
 
             {/* Actions */}
             <div style={{ borderTop: '1px solid #2a2d3a', paddingTop: 16, marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <button className="kb-btn kb-btn-primary" onClick={handleSave} disabled={saving || !editTitle.trim()} style={{ width: '100%', justifyContent: 'center' }}>
-                {saving ? 'Saving...' : 'Save Changes'}
-              </button>
               <button
                 className="kb-btn kb-btn-ghost"
                 onClick={async () => {
@@ -2147,7 +2204,7 @@ function BoardPage() {
     addColumn, updateColumn, deleteColumn, reorderColumns,
     addCard, updateCard, deleteCard, moveCard, moveToBoardCard, reorderCardsInColumn,
     addComment, updateComment, deleteComment,
-    addChecklistItem, toggleChecklistItem, updateChecklistItemDueDate, deleteChecklistItem,
+    addChecklistItem, toggleChecklistItem, updateChecklistItemDueDate, deleteChecklistItem, renameChecklistItem,
     fetchChecklistTemplates, saveChecklistTemplate, deleteChecklistTemplate, applyChecklistTemplate,
     checklistTemplates,
     addLabel, updateLabel, deleteLabel,
@@ -3262,6 +3319,7 @@ function BoardPage() {
           onAddChecklistItem={async (title) => { await addChecklistItem(boardId, activeCard.id, title); }}
           onToggleChecklistItem={async (itemId, val) => { await toggleChecklistItem(boardId, activeCard.id, itemId, val); }}
           onUpdateChecklistDueDate={async (itemId, dueDate) => { await updateChecklistItemDueDate(boardId, activeCard.id, itemId, dueDate); }}
+          onRenameChecklistItem={async (itemId, title) => { await renameChecklistItem(boardId, activeCard.id, itemId, title); }}
           onDeleteChecklistItem={async (itemId) => { await deleteChecklistItem(boardId, activeCard.id, itemId); }}
           onMoveCard={async (newColumnId) => {
             await moveCard(boardId, activeCard.id, newColumnId, 0);
@@ -4390,6 +4448,7 @@ const kanbanStyles = `
   }
   .kb-checklist-text { font-size: 13px; color: #d1d5db; flex: 1; }
   .kb-checklist-text.completed { text-decoration: line-through; color: #6b7280; }
+  .kb-checklist-edit-input { font-size: 13px; padding: 2px 6px; height: auto; flex: 1; }
   .kb-checklist-due-wrapper { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
   .kb-checklist-due-input {
     font-size: 11px;
