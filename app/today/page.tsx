@@ -111,10 +111,39 @@ function methodLabel(m: string) {
 
 type ScoreRowData =
   | { label: string; count: number; color: string; href: string; kind?: 'count' }
-  | { label: string; sublabel?: string; value: string; color: string; href?: string; kind: 'weather' };
+  | { label: string; sublabel?: string; emoji: string; temp: number; high: number; low: number; color: string; kind: 'weather' };
+
+function WeatherRow({ row }: { row: ScoreRowData & { kind: 'weather' } }) {
+  const w = row as any;
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '10px 16px', borderLeft: `3px solid ${row.color}`,
+      boxSizing: 'border-box', width: '100%',
+    }} className="today-score-inner">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+        <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>{w.emoji}</span>
+        <div style={{ minWidth: 0 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: T.text, display: 'block' }}>{row.label}</span>
+          {w.sublabel && (
+            <span style={{ fontSize: 10, color: T.textFaint, display: 'block', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {w.sublabel}
+            </span>
+          )}
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexShrink: 0, paddingLeft: 12 }}>
+        <span style={{ fontSize: 18, fontWeight: 700, color: row.color, lineHeight: 1 }}>{w.temp}°</span>
+        <span style={{ fontSize: 11, color: T.textMuted, whiteSpace: 'nowrap' }}>H:{w.high}° L:{w.low}°</span>
+      </div>
+    </div>
+  );
+}
 
 function ScoreRow({ row }: { row: ScoreRowData }) {
-  const active = row.kind === 'weather' ? true : (row as any).count > 0;
+  if (row.kind === 'weather') return <WeatherRow row={row as any} />;
+
+  const active = (row as any).count > 0;
   const inner = (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -122,46 +151,26 @@ function ScoreRow({ row }: { row: ScoreRowData }) {
       borderLeft: `3px solid ${active ? row.color : 'transparent'}`,
     }} className="today-score-inner">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-        {row.kind === 'weather'
-          ? <span style={{ fontSize: 13, lineHeight: 1, flexShrink: 0 }}>{(row as any).value.split(' ')[0]}</span>
-          : <span style={{
-              width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-              background: active ? row.color : T.textFaint, opacity: active ? 1 : 0.35,
-            }} />
-        }
-        <div style={{ minWidth: 0 }}>
-          <span style={{ fontSize: 13, fontWeight: active ? 600 : 400, color: active ? T.text : T.textMuted, display: 'block' }}>
-            {row.label}
-          </span>
-          {row.kind === 'weather' && (row as any).sublabel && (
-            <span style={{ fontSize: 10, color: T.textFaint, display: 'block', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {(row as any).sublabel}
-            </span>
-          )}
-        </div>
+        <span style={{
+          width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+          background: active ? row.color : T.textFaint, opacity: active ? 1 : 0.35,
+        }} />
+        <span style={{ fontSize: 13, fontWeight: active ? 600 : 400, color: active ? T.text : T.textMuted }}>
+          {row.label}
+        </span>
       </div>
-      <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
-        {row.kind === 'weather' ? (
-          <>
-            <span style={{ fontSize: 15, fontWeight: 700, color: row.color, display: 'block', lineHeight: 1 }}>
-              {(row as any).value.split(' ').slice(1).join(' ')}
-            </span>
-          </>
-        ) : (
-          <span style={{
-            fontSize: 15, fontWeight: 700, lineHeight: 1,
-            color: active ? row.color : T.textFaint, opacity: active ? 1 : 0.45,
-          }}>
-            {(row as any).count}
-          </span>
-        )}
-      </div>
+      <span style={{
+        fontSize: 15, fontWeight: 700, lineHeight: 1,
+        color: active ? row.color : T.textFaint, opacity: active ? 1 : 0.45,
+      }}>
+        {(row as any).count}
+      </span>
     </div>
   );
 
-  return row.href
-    ? <a href={row.href} style={{ textDecoration: 'none', display: 'block', height: '100%' }} className="today-score-row">{inner}</a>
-    : <div style={{ height: '100%' }} className="today-score-row">{inner}</div>;
+  return (row as any).href
+    ? <a href={(row as any).href} style={{ textDecoration: 'none', display: 'block', height: '100%' }} className="today-score-row">{inner}</a>
+    : <div style={{ height: '100%' }}>{inner}</div>;
 }
 
 function Scoreboard({ rows, weather }: {
@@ -173,8 +182,11 @@ function Scoreboard({ rows, weather }: {
     allRows.push({
       kind: 'weather',
       label: weather.description,
-      sublabel: `${weather.location} · H:${Math.round(weather.highTemp)}° L:${Math.round(weather.lowTemp)}°`,
-      value: `${weather.emoji} ${Math.round(weather.temperature)}°F`,
+      sublabel: weather.location,
+      emoji: weather.emoji,
+      temp: Math.round(weather.temperature),
+      high: Math.round(weather.highTemp),
+      low: Math.round(weather.lowTemp),
       color: '#60a5fa',
     });
   }
