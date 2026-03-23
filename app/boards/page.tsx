@@ -398,7 +398,6 @@ function BoardsListPage() {
                   onClick={() => router.push(`/boards/${board.id}`)}
                 >
                   <div className="kb-board-card-header">
-                    <FolderKanban size={20} style={{ color: '#818cf8' }} />
                     <h3 className="kb-board-card-title">{board.title}</h3>
                     {board.is_public && (
                       <span className="kb-visibility-badge public"><Globe size={10} /> Public</span>
@@ -417,7 +416,6 @@ function BoardsListPage() {
                       <div className="kb-stats-row">
                         {/* Card count + progress */}
                         <span className="kb-stat-pill">
-                          <FolderKanban size={11} />
                           {s.completedCards}/{s.totalCards} done
                         </span>
 

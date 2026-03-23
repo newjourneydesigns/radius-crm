@@ -2685,7 +2685,6 @@ function BoardPage() {
           <button className="kb-btn-icon" onClick={() => { localStorage.removeItem('boards-last-route'); router.push('/boards'); }} title="Back to boards">
             <ArrowLeft size={18} />
           </button>
-          <FolderKanban size={20} style={{ color: '#818cf8' }} />
           <InlineEdit
             value={board.title}
             onSave={title => updateBoard(boardId, { title })}

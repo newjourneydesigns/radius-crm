@@ -14,6 +14,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
   const hideChrome = pathname === '/login' || pathname.startsWith('/auth');
+  const isBoardDetailPage = /^\/boards\/[^/]+/.test(pathname);
 
   return (
     <>
@@ -38,8 +39,10 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
 
       {!hideChrome && (
         <>
-          {/* Footer */}
-          <Footer />
+          {/* Footer — extra bottom padding on board detail pages to clear the fixed shortcut bar */}
+          <div className={isBoardDetailPage ? 'pb-10' : ''}>
+            <Footer />
+          </div>
 
           {/* Scroll to Top Button */}
           <ScrollToTop />
