@@ -198,34 +198,27 @@ export async function POST(request: NextRequest) {
       console.warn('Could not check for existing users:', checkError);
     }
 
-    // Clean up any orphaned profile rows in public.users for this email
-    // (e.g. from a previous failed creation where auth user was rolled back but profile remained)
+    // Check for an existing profile in public.users for this email.
+    // If found, reuse its UUID when creating the auth user so we don't lose
+    // any data that references it (circle leader assignments, etc.).
+    let existingProfileId: string | null = null;
     try {
-      const { data: orphanedProfiles } = await supabaseAdmin
+      const { data: existingProfiles } = await supabaseAdmin
         .from('users')
         .select('id, email')
         .eq('email', normalizedEmail);
-      
-      if (orphanedProfiles && orphanedProfiles.length > 0) {
-        console.log(`Found ${orphanedProfiles.length} orphaned profile(s) for ${normalizedEmail}, cleaning up...`);
-        const { error: deleteError } = await supabaseAdmin
-          .from('users')
-          .delete()
-          .eq('email', normalizedEmail);
-        
-        if (deleteError) {
-          console.warn('Could not clean up orphaned profiles:', deleteError);
-        } else {
-          console.log('Orphaned profiles cleaned up successfully');
-        }
+
+      if (existingProfiles && existingProfiles.length > 0) {
+        existingProfileId = existingProfiles[0].id;
+        console.log(`Found existing profile for ${normalizedEmail} with id ${existingProfileId}, will reuse UUID`);
       }
-    } catch (cleanupError) {
-      console.warn('Could not check for orphaned profiles:', cleanupError);
+    } catch (lookupError) {
+      console.warn('Could not check for existing profiles:', lookupError);
     }
 
-    // Create user with admin client and send invite email
-    // Note: The handle_new_user() trigger on auth.users will auto-create the public.users profile
+    // Create user in auth, reusing the existing UUID if available
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
+      ...(existingProfileId ? { id: existingProfileId } : {}),
       email: normalizedEmail,
       email_confirm: true, // Confirm immediately so magic link works right away
       user_metadata: {
@@ -382,15 +375,13 @@ export async function DELETE(request: NextRequest) {
       });
     }
 
-    // Delete user from auth.users (this should cascade to public.users via ON DELETE CASCADE)
+    // Delete user from auth.users — ignore error if they don't exist there
     const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
-
     if (authError) {
-      console.error('Error deleting user from auth:', authError);
-      return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 });
+      console.warn('Auth user not found or could not be deleted (may be orphaned profile):', authError.message);
     }
 
-    // Also manually delete from public.users table in case cascade doesn't work
+    // Always delete from public.users regardless of auth result
     const { error: profileError } = await supabaseAdmin
       .from('users')
       .delete()
@@ -398,10 +389,10 @@ export async function DELETE(request: NextRequest) {
 
     if (profileError) {
       console.error('Error deleting user profile:', profileError);
-      // Don't fail the request if profile deletion fails - auth user is already deleted
+      return NextResponse.json({ error: 'Failed to delete user profile' }, { status: 500 });
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: 'User deleted successfully'
     });
 
