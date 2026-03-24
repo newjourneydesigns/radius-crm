@@ -10,6 +10,10 @@ export interface CardDigestItem {
   board_id: string;
   column_name: string;
   assignees: string[];
+  priority?: string;
+  labels?: { name: string; color: string }[];
+  checklist_total?: number;
+  checklist_done?: number;
 }
 
 export interface ChecklistDigestItem {

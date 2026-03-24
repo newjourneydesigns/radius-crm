@@ -377,6 +377,7 @@ export interface BoardCard {
   series_id?: string | null;
   is_series_master?: boolean | null;
   linked_leader_id?: number | null;
+  is_focused?: boolean;
   created_at: string;
   updated_at: string;
   // Joined data
@@ -408,6 +409,7 @@ export interface CardChecklist {
   is_completed: boolean;
   position: number;
   due_date?: string;
+  url?: string;
   created_at: string;
 }
 

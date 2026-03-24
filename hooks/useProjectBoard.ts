@@ -908,6 +908,30 @@ export function useProjectBoard() {
     }
   }, []);
 
+  const updateChecklistItemUrl = useCallback(async (boardId: string, cardId: string, itemId: string, url: string | null) => {
+    setError(null);
+    setBoard(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        cards: prev.cards.map(c =>
+          c.id === cardId
+            ? { ...c, checklists: (c.checklists || []).map(cl => cl.id === itemId ? { ...cl, url: url ?? undefined } : cl) }
+            : c
+        ),
+      };
+    });
+    try {
+      const { error: err } = await supabase
+        .from('card_checklists')
+        .update({ url })
+        .eq('id', itemId);
+      if (err) throw err;
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }, []);
+
   // ─── Checklist Templates ────────────────────────────────────
   const fetchChecklistTemplates = useCallback(async (boardId: string) => {
     try {
@@ -1140,7 +1164,7 @@ export function useProjectBoard() {
     addColumn, updateColumn, deleteColumn, reorderColumns,
     addCard, updateCard, deleteCard, moveCard, moveToBoardCard, createNextRepeatCard, reorderCardsInColumn,
     addComment, updateComment, deleteComment,
-    addChecklistItem, toggleChecklistItem, updateChecklistItemDueDate, deleteChecklistItem, renameChecklistItem,
+    addChecklistItem, toggleChecklistItem, updateChecklistItemDueDate, deleteChecklistItem, renameChecklistItem, updateChecklistItemUrl,
     fetchChecklistTemplates, saveChecklistTemplate, deleteChecklistTemplate, applyChecklistTemplate,
     addLabel, updateLabel, deleteLabel,
     assignCard, unassignCard, fetchSystemUsers,

@@ -22,6 +22,7 @@ export interface TodayData {
   encouragements: { dueToday: EncouragementItem[]; overdue: EncouragementItem[] };
   followUps: { dueToday: FollowUpItem[]; overdue: FollowUpItem[] };
   cards: { dueToday: CardDigestItem[]; overdue: CardDigestItem[] };
+  focusCards: CardDigestItem[];
   checklistItems: { dueToday: ChecklistDigestItem[]; overdue: ChecklistDigestItem[] };
   upcomingCircles: {
     today: CircleMeetingItem[];
@@ -171,16 +172,24 @@ async function buildTodayData(
   const boardIds       = Array.from(boardMap.keys());
   const assignedCardIds = (assignmentRows || []).map((a: any) => a.card_id);
 
-  // ── Phase 2: board columns + assigned card rows in parallel ───────────────
-  const [{ data: colsData }, { data: assignedCardsRaw }] = await Promise.all([
+  // ── Phase 2: board columns + assigned card rows + focused cards in parallel ─
+  const [{ data: colsData }, { data: assignedCardsRaw }, { data: focusCardsRaw }] = await Promise.all([
     boardIds.length > 0
       ? supabase.from('board_columns').select('id, title, board_id').in('board_id', boardIds)
       : Promise.resolve({ data: [] as any[], error: null }),
     assignedCardIds.length > 0
       ? supabase.from('board_cards')
-          .select('id, title, due_date, is_complete, column_id')
+          .select('id, title, due_date, is_complete, column_id, priority')
           .in('id', assignedCardIds)
           .not('due_date', 'is', null).lte('due_date', today).eq('is_complete', false)
+      : Promise.resolve({ data: [] as any[], error: null }),
+    boardIds.length > 0
+      ? supabase.from('board_cards')
+          .select('id, title, due_date, board_id, column_id, priority')
+          .in('board_id', boardIds)
+          .eq('is_focused', true)
+          .eq('is_complete', false)
+          .order('due_date', { ascending: true, nullsFirst: false })
       : Promise.resolve({ data: [] as any[], error: null }),
   ]);
 
@@ -195,7 +204,7 @@ async function buildTodayData(
   const [{ data: ownedCardsRaw }, { data: extraColsData }] = await Promise.all([
     colIds.length > 0
       ? supabase.from('board_cards')
-          .select('id, title, due_date, is_complete, column_id')
+          .select('id, title, due_date, is_complete, column_id, priority')
           .in('column_id', colIds)
           .not('due_date', 'is', null).lte('due_date', today).eq('is_complete', false)
       : Promise.resolve({ data: [] as any[], error: null }),
@@ -222,13 +231,26 @@ async function buildTodayData(
   });
   const cardIds = Array.from(cardDedupe.keys());
 
-  // ── Phase 4: assignee names + all board card IDs (for checklists) ─────────
-  const [{ data: assignmentNames }, { data: allBoardCardIds }] = await Promise.all([
+  // ── Phase 4: assignee names + labels + checklist counts + all board card IDs ─
+  const focusCardIds = (focusCardsRaw || []).map((c: any) => c.id);
+  const allEnrichedIds = Array.from(new Set([...cardIds, ...focusCardIds]));
+
+  const [{ data: assignmentNames }, { data: allBoardCardIds }, { data: labelRows }, { data: checklistRows }] = await Promise.all([
     cardIds.length > 0
       ? supabase.from('card_assignments').select('card_id, users!inner(name)').in('card_id', cardIds)
       : Promise.resolve({ data: [] as any[], error: null }),
     colIds.length > 0
       ? supabase.from('board_cards').select('id').in('column_id', colIds)
+      : Promise.resolve({ data: [] as any[], error: null }),
+    allEnrichedIds.length > 0
+      ? supabase.from('card_label_assignments')
+          .select('card_id, board_labels(name, color)')
+          .in('card_id', allEnrichedIds)
+      : Promise.resolve({ data: [] as any[], error: null }),
+    allEnrichedIds.length > 0
+      ? supabase.from('card_checklists')
+          .select('card_id, is_completed')
+          .in('card_id', allEnrichedIds)
       : Promise.resolve({ data: [] as any[], error: null }),
   ]);
 
@@ -238,6 +260,19 @@ async function buildTodayData(
     if (a.users?.name) assigneeMap[a.card_id].push(a.users.name);
   });
 
+  const labelMap: Record<string, { name: string; color: string }[]> = {};
+  (labelRows || []).forEach((r: any) => {
+    if (!labelMap[r.card_id]) labelMap[r.card_id] = [];
+    if (r.board_labels) labelMap[r.card_id].push(r.board_labels);
+  });
+
+  const checklistTotalMap: Record<string, number> = {};
+  const checklistDoneMap: Record<string, number> = {};
+  (checklistRows || []).forEach((r: any) => {
+    checklistTotalMap[r.card_id] = (checklistTotalMap[r.card_id] || 0) + 1;
+    if (r.is_completed) checklistDoneMap[r.card_id] = (checklistDoneMap[r.card_id] || 0) + 1;
+  });
+
   const allCards: CardDigestItem[] = Array.from(cardDedupe.values()).map((c: any) => {
     const col = colMap.get(c.column_id);
     return {
@@ -245,8 +280,24 @@ async function buildTodayData(
       board_name: col ? (boardMap.get(col.board_id) || 'Unknown Board') : 'Unknown Board',
       board_id: col?.board_id || '', column_name: col?.title || '',
       assignees: assigneeMap[c.id] || [],
+      priority: c.priority,
+      labels: labelMap[c.id] || [],
+      checklist_total: checklistTotalMap[c.id] || 0,
+      checklist_done: checklistDoneMap[c.id] || 0,
     };
   });
+
+  const focusCards: CardDigestItem[] = (focusCardsRaw || []).map((c: any) => ({
+    id: c.id, title: c.title, due_date: c.due_date,
+    board_name: boardMap.get(c.board_id) || 'Unknown Board',
+    board_id: c.board_id,
+    column_name: colMap.get(c.column_id)?.title || '',
+    assignees: assigneeMap[c.id] || [],
+    priority: c.priority,
+    labels: labelMap[c.id] || [],
+    checklist_total: checklistTotalMap[c.id] || 0,
+    checklist_done: checklistDoneMap[c.id] || 0,
+  }));
 
   // ── Phase 5: checklist items ──────────────────────────────────────────────
   const userCardIds = new Set<string>(cardDedupe.keys());
@@ -348,6 +399,7 @@ async function buildTodayData(
       dueToday: allCards.filter(c => c.due_date === today),
       overdue:  allCards.filter(c => c.due_date !== null && c.due_date! < today),
     },
+    focusCards,
     checklistItems: {
       dueToday: allChecklist.filter(c => c.due_date === today),
       overdue:  allChecklist.filter(c => c.due_date !== null && c.due_date! < today),

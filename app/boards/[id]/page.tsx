@@ -13,7 +13,7 @@ import {
   X, ChevronDown, ChevronLeft, ChevronRight, Clock, User, Flag, AlertCircle, Pencil,
   FolderKanban, Check, Globe, Lock, StickyNote, UserPlus, Download, Copy,
   Zap, ArrowDownAZ, ArrowUpZA, Bold, Italic, Underline, Strikethrough,
-  LinkIcon, Heading, ListBullet, ListOrdered, SlidersHorizontal, Repeat2,
+  LinkIcon, ExternalLink, Heading, ListBullet, ListOrdered, SlidersHorizontal, Repeat2,
   LayoutDashboard, ChevronsLeft,
 } from '../../../components/icons/BoardIcons';
 import { supabase } from '../../../lib/supabase';
@@ -142,6 +142,7 @@ function CardDetailModal({
   onToggleChecklistItem,
   onUpdateChecklistDueDate,
   onRenameChecklistItem,
+  onUpdateChecklistItemUrl,
   onDeleteChecklistItem,
   onMoveCard,
   onMoveToBoardCard,
@@ -166,6 +167,7 @@ function CardDetailModal({
   onToggleChecklistItem: (itemId: string, val: boolean) => Promise<void>;
   onUpdateChecklistDueDate: (itemId: string, dueDate: string | null) => Promise<void>;
   onRenameChecklistItem: (itemId: string, title: string) => Promise<void>;
+  onUpdateChecklistItemUrl: (itemId: string, url: string | null) => Promise<void>;
   onDeleteChecklistItem: (itemId: string) => Promise<void>;
   onMoveCard: (newColumnId: string) => Promise<void>;
   onMoveToBoardCard: (targetBoardId: string, targetColumnId: string) => Promise<void>;
@@ -193,6 +195,9 @@ function CardDetailModal({
   const [checklistText, setChecklistText] = useState('');
   const [editingChecklistId, setEditingChecklistId] = useState<string | null>(null);
   const [editingChecklistTitle, setEditingChecklistTitle] = useState('');
+  const [editingChecklistLinkId, setEditingChecklistLinkId] = useState<string | null>(null);
+  const [editingChecklistUrl, setEditingChecklistUrl] = useState('');
+  const [showingDateInputId, setShowingDateInputId] = useState<string | null>(null);
   const [showLabelPicker, setShowLabelPicker] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [templateName, setTemplateName] = useState('');
@@ -203,6 +208,7 @@ function CardDetailModal({
   const [targetColumnId, setTargetColumnId] = useState('');
   const [movingToBoard, setMovingToBoard] = useState(false);
   const [linkedLeaderId, setLinkedLeaderId] = useState<number | null>(card.linked_leader_id ?? null);
+  const [isFocused, setIsFocused] = useState(card.is_focused ?? false);
   const [allLeaders, setAllLeaders] = useState<{ id: number; name: string }[]>([]);
   const titleRef = useRef<HTMLInputElement>(null);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -259,6 +265,12 @@ function CardDetailModal({
       });
     }
     onClose();
+  };
+
+  const handleToggleFocus = async () => {
+    const next = !isFocused;
+    setIsFocused(next);
+    await onUpdate({ is_focused: next });
   };
 
   const handleAddComment = async () => {
@@ -409,7 +421,8 @@ function CardDetailModal({
               )}
               <div className="kb-checklist-items">
                 {checklists.map(item => (
-                  <div key={item.id} className="kb-checklist-item">
+                  <React.Fragment key={item.id}>
+                  <div className="kb-checklist-item">
                     <button
                       className={`kb-checkbox ${item.is_completed ? 'checked' : ''}`}
                       onClick={() => onToggleChecklistItem(item.id, !item.is_completed)}
@@ -440,31 +453,128 @@ function CardDetailModal({
                         style={{ flex: 1 }}
                       />
                     ) : (
-                      <span
-                        className={`kb-checklist-text ${item.is_completed ? 'completed' : ''}`}
-                        onClick={() => { setEditingChecklistId(item.id); setEditingChecklistTitle(item.title); }}
-                        title="Click to edit"
-                        style={{ cursor: 'text' }}
-                      >
-                        {item.title}
-                      </span>
+                      item.url ? (
+                        <>
+                          <span
+                            className={`kb-checklist-text kb-checklist-link ${item.is_completed ? 'completed' : ''}`}
+                            onClick={() => { setEditingChecklistLinkId(item.id); setEditingChecklistUrl(item.url || ''); }}
+                            title="Click to edit link"
+                            style={{ cursor: 'pointer' }}
+                          >
+                            {item.title}
+                          </span>
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="kb-checklist-open-btn"
+                            title={`Open: ${item.url}`}
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <ExternalLink size={11} />
+                          </a>
+                        </>
+                      ) : (
+                        <span
+                          className={`kb-checklist-text ${item.is_completed ? 'completed' : ''}`}
+                          onClick={() => { setEditingChecklistId(item.id); setEditingChecklistTitle(item.title); }}
+                          title="Click to edit"
+                          style={{ cursor: 'text' }}
+                        >
+                          {item.title}
+                        </span>
+                      )
                     )}
+                    <button
+                      className={`kb-btn-icon-sm${item.url ? ' kb-checklist-link-active' : ''}`}
+                      onClick={() => {
+                        if (editingChecklistLinkId === item.id) {
+                          setEditingChecklistLinkId(null);
+                        } else {
+                          setEditingChecklistLinkId(item.id);
+                          setEditingChecklistUrl(item.url || '');
+                        }
+                      }}
+                      title={item.url ? 'Edit link' : 'Add link'}
+                    >
+                      <LinkIcon size={11} />
+                    </button>
                     <div className="kb-checklist-due-wrapper">
-                      <input
-                        type="date"
-                        className={`kb-checklist-due-input${item.due_date && !item.is_completed && new Date(item.due_date + 'T00:00:00') < new Date(new Date().toDateString()) ? ' overdue' : ''}${item.due_date && !item.is_completed && new Date(item.due_date + 'T00:00:00').toDateString() === new Date().toDateString() ? ' due-today' : ''}`}
-                        value={item.due_date || ''}
-                        onChange={e => onUpdateChecklistDueDate(item.id, e.target.value || null)}
-                        title={item.due_date ? `Due: ${new Date(item.due_date + 'T00:00:00').toLocaleDateString()}` : 'Set due date'}
-                      />
-                      {item.due_date && !item.is_completed && new Date(item.due_date + 'T00:00:00') < new Date(new Date().toDateString()) && (
-                        <span className="kb-checklist-overdue-badge">Overdue</span>
+                      {showingDateInputId === item.id ? (
+                        <input
+                          type="date"
+                          className="kb-checklist-due-input-edit"
+                          value={item.due_date || ''}
+                          autoFocus
+                          onChange={e => { onUpdateChecklistDueDate(item.id, e.target.value || null); setShowingDateInputId(null); }}
+                          onBlur={() => setShowingDateInputId(null)}
+                          onKeyDown={e => { if (e.key === 'Escape') setShowingDateInputId(null); }}
+                        />
+                      ) : item.due_date ? (() => {
+                        const d = new Date(item.due_date + 'T00:00:00');
+                        const today = new Date(new Date().toDateString());
+                        const isOverdue = !item.is_completed && d < today;
+                        const isDueToday = !item.is_completed && d.toDateString() === today.toDateString();
+                        const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        return (
+                          <button
+                            className={`kb-checklist-date-badge${isOverdue ? ' overdue' : isDueToday ? ' due-today' : ''}`}
+                            onClick={() => setShowingDateInputId(item.id)}
+                            title={`Due ${d.toLocaleDateString()} — click to change`}
+                          >
+                            <CalendarDays size={10} />
+                            {label}
+                          </button>
+                        );
+                      })() : (
+                        <button
+                          className="kb-checklist-date-btn"
+                          onClick={() => setShowingDateInputId(item.id)}
+                          title="Set due date"
+                        >
+                          <CalendarDays size={11} />
+                        </button>
                       )}
                     </div>
                     <button className="kb-btn-icon-sm" onClick={() => onDeleteChecklistItem(item.id)}>
                       <X size={11} />
                     </button>
                   </div>
+                  {editingChecklistLinkId === item.id && (
+                    <div className="kb-checklist-url-row">
+                      <LinkIcon size={11} style={{ color: '#8da9c4', flexShrink: 0 }} />
+                      <input
+                        className="kb-input kb-checklist-url-input"
+                        value={editingChecklistUrl}
+                        autoFocus
+                        placeholder="https://..."
+                        onChange={e => setEditingChecklistUrl(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            const val = editingChecklistUrl.trim() || null;
+                            onUpdateChecklistItemUrl(item.id, val);
+                            setEditingChecklistLinkId(null);
+                          }
+                          if (e.key === 'Escape') setEditingChecklistLinkId(null);
+                        }}
+                      />
+                      <button
+                        className="kb-btn kb-btn-primary kb-btn-sm"
+                        onClick={() => {
+                          const val = editingChecklistUrl.trim() || null;
+                          onUpdateChecklistItemUrl(item.id, val);
+                          setEditingChecklistLinkId(null);
+                        }}
+                      >Save</button>
+                      {item.url && (
+                        <button
+                          className="kb-btn kb-btn-sm"
+                          onClick={() => { onUpdateChecklistItemUrl(item.id, null); setEditingChecklistLinkId(null); }}
+                        >Remove</button>
+                      )}
+                    </div>
+                  )}
+                  </React.Fragment>
                 ))}
               </div>
               <div className="kb-checklist-add">
@@ -839,6 +949,18 @@ function CardDetailModal({
               )}
             </div>
 
+            {/* Focus */}
+            <div className="kb-form-group">
+              <button
+                className={`kb-btn ${isFocused ? 'kb-btn-primary' : 'kb-btn-ghost'}`}
+                onClick={handleToggleFocus}
+                style={{ width: '100%', justifyContent: 'center', gap: 6 }}
+              >
+                <span style={{ fontSize: 13 }}>{isFocused ? '⭐' : '☆'}</span>
+                {isFocused ? 'Focused' : 'Set as Focus'}
+              </button>
+            </div>
+
             {/* Actions */}
             <div style={{ borderTop: '1px solid #2a2d3a', paddingTop: 16, marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <button
@@ -963,6 +1085,11 @@ function KanbanCard({
           }>
             <Repeat2 size={10} />
           </span>
+        )}
+
+        {/* Focus indicator */}
+        {card.is_focused && (
+          <span title="Focus card" style={{ fontSize: 11, lineHeight: 1 }}>⭐</span>
         )}
 
         {/* Right side: comment/checklist counts */}
@@ -2179,7 +2306,7 @@ function BoardPage() {
     addColumn, updateColumn, deleteColumn, reorderColumns,
     addCard, updateCard, deleteCard, moveCard, moveToBoardCard, reorderCardsInColumn,
     addComment, updateComment, deleteComment,
-    addChecklistItem, toggleChecklistItem, updateChecklistItemDueDate, deleteChecklistItem, renameChecklistItem,
+    addChecklistItem, toggleChecklistItem, updateChecklistItemDueDate, deleteChecklistItem, renameChecklistItem, updateChecklistItemUrl,
     fetchChecklistTemplates, saveChecklistTemplate, deleteChecklistTemplate, applyChecklistTemplate,
     checklistTemplates,
     addLabel, updateLabel, deleteLabel,
@@ -2282,6 +2409,14 @@ function BoardPage() {
       localStorage.setItem('boards-last-route', `/boards/${boardId}`);
     }
   }, [boardId, fetchBoard, fetchChecklistTemplates]);
+
+  // Open card from ?card= query param (e.g. deep-linked from Today page)
+  useEffect(() => {
+    const cardParam = searchParams.get('card');
+    if (!cardParam || !board) return;
+    const card = board.cards.find(c => c.id === cardParam);
+    if (card) openCardDetail(card);
+  }, [board?.id, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync note content when board loads
   useEffect(() => {
@@ -3294,6 +3429,7 @@ function BoardPage() {
           onToggleChecklistItem={async (itemId, val) => { await toggleChecklistItem(boardId, activeCard.id, itemId, val); }}
           onUpdateChecklistDueDate={async (itemId, dueDate) => { await updateChecklistItemDueDate(boardId, activeCard.id, itemId, dueDate); }}
           onRenameChecklistItem={async (itemId, title) => { await renameChecklistItem(boardId, activeCard.id, itemId, title); }}
+          onUpdateChecklistItemUrl={async (itemId, url) => { await updateChecklistItemUrl(boardId, activeCard.id, itemId, url); }}
           onDeleteChecklistItem={async (itemId) => { await deleteChecklistItem(boardId, activeCard.id, itemId); }}
           onMoveCard={async (newColumnId) => {
             await moveCard(boardId, activeCard.id, newColumnId, 0);
@@ -4427,32 +4563,41 @@ const kanbanStyles = `
   }
   .kb-checklist-text { font-size: 13px; color: #d1d5db; flex: 1; }
   .kb-checklist-text.completed { text-decoration: line-through; color: #6b7280; }
+  .kb-checklist-link { text-decoration: underline; text-decoration-color: rgba(141,169,196,0.5); text-underline-offset: 2px; }
+  .kb-checklist-link:hover { color: #8da9c4; text-decoration-color: #8da9c4; }
+  .kb-checklist-link.completed { color: #6b7280; text-decoration: line-through; }
+  .kb-checklist-open-btn { display: inline-flex; align-items: center; color: #6b7280; flex-shrink: 0; padding: 0 2px; transition: color 0.15s; }
+  .kb-checklist-open-btn:hover { color: #8da9c4; }
+  .kb-checklist-link-active { color: #8da9c4 !important; }
+  .kb-checklist-url-row { display: flex; align-items: center; gap: 6px; padding: 4px 0 2px 28px; }
+  .kb-checklist-url-input { font-size: 12px; padding: 2px 6px; height: auto; flex: 1; }
   .kb-checklist-edit-input { font-size: 13px; padding: 2px 6px; height: auto; flex: 1; }
-  .kb-checklist-due-wrapper { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
-  .kb-checklist-due-input {
-    font-size: 11px;
-    padding: 2px 4px;
-    border: 1px solid transparent;
-    border-radius: 4px;
-    background: rgba(255,255,255,0.05);
-    color: #9ca3af;
-    cursor: pointer;
-    width: 110px;
-    transition: border-color 0.15s ease, color 0.15s ease;
+  .kb-checklist-due-wrapper { display: flex; align-items: center; flex-shrink: 0; }
+  .kb-checklist-date-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 4px;
+    color: transparent; background: transparent; border: none; cursor: pointer;
+    transition: color 0.15s, background 0.15s;
   }
-  .kb-checklist-due-input:hover { border-color: #4b5563; }
-  .kb-checklist-due-input:focus { border-color: rgba(141, 169, 196, 0.6); color: #d1d5db; outline: none; }
-  .kb-checklist-due-input::-webkit-calendar-picker-indicator { filter: invert(0.7); cursor: pointer; }
-  .kb-checklist-due-input.overdue { color: #f87171; border-color: rgba(248,113,113,0.4); }
-  .kb-checklist-due-input.due-today { color: #fbbf24; border-color: rgba(251,191,36,0.4); }
-  .kb-checklist-overdue-badge {
-    font-size: 9px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #f87171;
-    white-space: nowrap;
+  .kb-checklist-item:hover .kb-checklist-date-btn { color: #6b7280; }
+  .kb-checklist-date-btn:hover { color: #9ca3af !important; background: rgba(255,255,255,0.06); }
+  .kb-checklist-date-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 11px; font-weight: 500;
+    padding: 2px 6px; border-radius: 4px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+    color: #9ca3af; cursor: pointer; white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s;
   }
+  .kb-checklist-date-badge:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.15); }
+  .kb-checklist-date-badge.overdue { color: #f87171; background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.25); }
+  .kb-checklist-date-badge.due-today { color: #fbbf24; background: rgba(251,191,36,0.1); border-color: rgba(251,191,36,0.25); }
+  .kb-checklist-due-input-edit {
+    font-size: 11px; padding: 2px 4px; height: 22px;
+    border: 1px solid rgba(141,169,196,0.5); border-radius: 4px;
+    background: #1e2130; color: #d1d5db; cursor: pointer; width: 110px; outline: none;
+  }
+  .kb-checklist-due-input-edit::-webkit-calendar-picker-indicator { filter: invert(0.7); cursor: pointer; }
   .kb-checklist-add { display: flex; gap: 8px; align-items: center; }
 
   /* ── Checklist Templates ── */

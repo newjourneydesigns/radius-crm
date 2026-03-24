@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useTodayData } from '../../hooks/useTodayData';
-import type { TodayData } from '../../hooks/useTodayData';
 import type {
   EncouragementItem,
   FollowUpItem,
@@ -110,55 +109,20 @@ function methodLabel(m: string) {
 
 // ─── Scoreboard ───────────────────────────────────────────────────────────────
 
-type ScoreRowData =
-  | { label: string; count: number; color: string; href: string; kind?: 'count' }
-  | { label: string; sublabel?: string; emoji: string; temp: number; high: number; low: number; color: string; kind: 'weather' };
-
-function WeatherRow({ row }: { row: ScoreRowData & { kind: 'weather' } }) {
-  const w = row as any;
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '10px 16px', borderLeft: `3px solid ${row.color}`,
-      boxSizing: 'border-box', width: '100%',
-    }} className="today-score-inner">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-        <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>{w.emoji}</span>
-        <div style={{ minWidth: 0 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: T.text, display: 'block' }}>{row.label}</span>
-          {w.sublabel && (
-            <span style={{ fontSize: 10, color: T.textFaint, display: 'block', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {w.sublabel}
-            </span>
-          )}
-        </div>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexShrink: 0, paddingLeft: 12 }}>
-        <span style={{ fontSize: 18, fontWeight: 700, color: row.color, lineHeight: 1 }}>{w.temp}°</span>
-        <span style={{ fontSize: 11, color: T.textMuted, whiteSpace: 'nowrap' }}>H:{w.high}° L:{w.low}°</span>
-      </div>
-    </div>
-  );
-}
-
 function scrollToSection(href: string) {
   const id = href.replace('#', '');
   const el = document.getElementById(id);
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function ScoreRow({ row }: { row: ScoreRowData }) {
-  if (row.kind === 'weather') return <WeatherRow row={row as any} />;
-
-  const active = (row as any).count > 0;
-  const href = (row as any).href as string | undefined;
-
+function ScoreRow({ row }: { row: { label: string; count: number; color: string; href: string } }) {
+  const active = row.count > 0;
   return (
     <div
-      onClick={href ? () => scrollToSection(href) : undefined}
+      onClick={() => scrollToSection(row.href)}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '9px 14px', height: '100%', cursor: href ? 'pointer' : 'default',
+        padding: '9px 14px', height: '100%', cursor: 'pointer',
         borderLeft: `3px solid ${active ? row.color : 'transparent'}`,
       }}
       className="today-score-inner"
@@ -176,30 +140,15 @@ function ScoreRow({ row }: { row: ScoreRowData }) {
         fontSize: 15, fontWeight: 700, lineHeight: 1,
         color: active ? row.color : T.textFaint, opacity: active ? 1 : 0.45,
       }}>
-        {(row as any).count}
+        {row.count}
       </span>
     </div>
   );
 }
 
-function Scoreboard({ rows, weather }: {
+function Scoreboard({ rows }: {
   rows: { label: string; count: number; color: string; href: string }[];
-  weather?: TodayData['weather'];
 }) {
-  const allRows: ScoreRowData[] = [...rows];
-  if (weather) {
-    allRows.push({
-      kind: 'weather',
-      label: weather.description,
-      sublabel: weather.location,
-      emoji: weather.emoji,
-      temp: Math.round(weather.temperature),
-      high: Math.round(weather.highTemp),
-      low: Math.round(weather.lowTemp),
-      color: '#60a5fa',
-    });
-  }
-
   const total = rows.reduce((s, r) => s + r.count, 0);
 
   return (
@@ -217,17 +166,12 @@ function Scoreboard({ rows, weather }: {
         <span style={{ fontSize: 11, color: T.textFaint }}>{total} items</span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-        {allRows.map((row, i) => {
-          const isWeather = row.kind === 'weather';
-          // Weather spans both columns; treat it as its own row for border logic
-          const countRows = allRows.filter(r => r.kind !== 'weather');
-          const isRightCol = !isWeather && i % 2 === 1;
-          const isLastCountRow = !isWeather && i >= (countRows.length % 2 === 0 ? countRows.length - 2 : countRows.length - 1);
+        {rows.map((row, i) => {
+          const isRightCol = i % 2 === 1;
+          const isLastRow = i >= (rows.length % 2 === 0 ? rows.length - 2 : rows.length - 1);
           return (
             <div key={row.label} className="today-score-row" style={{
-              gridColumn: isWeather ? '1 / -1' : undefined,
-              borderTop: isWeather && countRows.length > 0 ? `1px solid ${T.cardBorder}` : undefined,
-              borderBottom: (!isWeather && !isLastCountRow) ? `1px solid ${T.cardBorder}` : 'none',
+              borderBottom: !isLastRow ? `1px solid ${T.cardBorder}` : 'none',
               borderLeft: isRightCol ? `1px solid ${T.cardBorder}` : 'none',
             }}>
               <ScoreRow row={row} />
@@ -342,6 +286,76 @@ function Sub({ children }: { children: React.ReactNode }) {
   return <p style={{ fontSize: 11, color: T.textMuted, marginTop: 1 }}>{children}</p>;
 }
 
+// ─── Card metadata chip (mirrors KanbanCard metadata row) ────────────────────
+
+const PRIORITY_META: Record<string, { label: string; color: string }> = {
+  low:    { label: 'Low',    color: '#22c55e' },
+  medium: { label: 'Medium', color: '#f59e0b' },
+  high:   { label: 'High',   color: '#f97316' },
+  urgent: { label: 'Urgent', color: '#ef4444' },
+};
+
+function CardMeta({ card }: { card: CardDigestItem }) {
+  const pri = card.priority ? PRIORITY_META[card.priority] : null;
+  const hasLabels = (card.labels?.length ?? 0) > 0;
+  const hasChecklist = (card.checklist_total ?? 0) > 0;
+  const hasAssignees = card.assignees.length > 0;
+  const todayStr = new Date().toISOString().split('T')[0];
+  const isOverdue = card.due_date ? card.due_date < todayStr : false;
+
+  if (!pri && !hasLabels && !hasChecklist && !hasAssignees) return null;
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5, marginTop: 5 }}>
+      {/* Labels */}
+      {hasLabels && card.labels!.map((l, i) => (
+        <span key={i} style={{
+          fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 4,
+          background: l.color + '28', color: l.color, border: `1px solid ${l.color}40`,
+          whiteSpace: 'nowrap',
+        }}>{l.name}</span>
+      ))}
+      {/* Priority */}
+      {pri && (
+        <span style={{
+          fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 4,
+          background: pri.color + '18', color: pri.color, border: `1px solid ${pri.color}30`,
+          whiteSpace: 'nowrap',
+        }}>{pri.label}</span>
+      )}
+      {/* Checklist progress */}
+      {hasChecklist && (
+        <span style={{
+          fontSize: 10, fontWeight: 500,
+          color: card.checklist_done === card.checklist_total ? T.green : T.textMuted,
+          display: 'inline-flex', alignItems: 'center', gap: 3,
+        }}>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          {card.checklist_done}/{card.checklist_total}
+        </span>
+      )}
+      {/* Due date (overdue only — due-today cards already shown via DateBadge) */}
+      {isOverdue && card.due_date && (
+        <span style={{
+          fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 4,
+          background: T.red + '18', color: T.red, border: `1px solid ${T.red}30`,
+        }}>Overdue</span>
+      )}
+      {/* Assignees */}
+      {hasAssignees && (
+        <span style={{ fontSize: 10, color: T.textMuted, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0" />
+          </svg>
+          {card.assignees.join(', ')}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function DateBadge({ date, color }: { date: string; color?: string }) {
   return (
     <span style={{
@@ -397,7 +411,8 @@ export default function TodayPage() {
   const totalChecklists = data.checklistItems.dueToday.length + data.checklistItems.overdue.length;
   const totalOverdue   = data.cards.overdue.length + data.checklistItems.overdue.length + data.encouragements.overdue.length + data.followUps.overdue.length;
   const totalCircles   = data.upcomingCircles.today.length + data.upcomingCircles.tomorrow.length;
-  const hasAnything    = data.birthdays.length + data.circleVisits.today.length + totalEncs + totalFU + totalCards + totalChecklists > 0;
+  const totalFocus     = (data.focusCards ?? []).length;
+  const hasAnything    = data.birthdays.length + data.circleVisits.today.length + totalEncs + totalFU + totalCards + totalChecklists + totalFocus > 0;
 
   return (
     <>
@@ -437,8 +452,8 @@ export default function TodayPage() {
 
         {/* ── Scoreboard ── */}
         <Scoreboard
-          weather={data.weather ?? undefined}
           rows={[
+            { label: 'Focus Cards',     count: totalFocus,                     color: '#f59e0b', href: '#focus-cards' },
             { label: 'Birthdays',       count: data.birthdays.length,          color: T.pink,   href: '#birthdays' },
             { label: 'Circle Visits',   count: data.circleVisits.today.length, color: T.cyan,   href: '#visits-today' },
             { label: 'Encouragements',  count: totalEncs,                      color: T.purple, href: '#encs-today' },
@@ -461,6 +476,25 @@ export default function TodayPage() {
             <p style={{ fontSize: 12, color: T.textMuted, marginTop: 4 }}>Nothing urgent for today.</p>
           </div>
         )}
+
+        {/* ── Focus Cards ── */}
+        <Section id="focus-cards" title="Focus Cards" icon="⭐" count={totalFocus}
+          sectionKey="focusCards" isOpen={isOpen('focusCards')} onToggle={() => toggle('focusCards')} accentColor="#f59e0b">
+          {(data.focusCards ?? []).map((c: CardDigestItem) => (
+            <Item key={c.id} accentColor="#f59e0b">
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <Link href={`/boards/${c.board_id}?card=${c.id}`}
+                  style={{ fontSize: 13, fontWeight: 600, color: T.text, textDecoration: 'none', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                  className="today-leader-link">
+                  {c.title}
+                </Link>
+                <Sub>{c.board_name}{c.column_name ? ` · ${c.column_name}` : ''}</Sub>
+                <CardMeta card={c} />
+              </div>
+              {c.due_date && <DateBadge date={formatShort(c.due_date)} color="#f59e0b" />}
+            </Item>
+          ))}
+        </Section>
 
         {/* ── Birthdays ── */}
         <Section id="birthdays" title="Birthdays" icon="🎂" count={data.birthdays.length}
@@ -530,11 +564,12 @@ export default function TodayPage() {
           {data.cards.dueToday.map((c: CardDigestItem) => (
             <Item key={c.id} accentColor={T.indigo}>
               <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                <Link href={`/boards/${c.board_id}`} style={{ fontSize: 13, fontWeight: 600, color: T.text, textDecoration: 'none', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                <Link href={`/boards/${c.board_id}?card=${c.id}`} style={{ fontSize: 13, fontWeight: 600, color: T.text, textDecoration: 'none', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                   className="today-leader-link">
                   {c.title}
                 </Link>
                 <Sub>{c.board_name} · {c.column_name}</Sub>
+                <CardMeta card={c} />
               </div>
               <ActionBtn onClick={() => markCardComplete(c.id)} color={T.green}>Done</ActionBtn>
             </Item>
@@ -547,14 +582,15 @@ export default function TodayPage() {
           {data.cards.overdue.map((c: CardDigestItem) => (
             <Item key={c.id} accentColor={T.red}>
               <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                <Link href={`/boards/${c.board_id}`} style={{ fontSize: 13, fontWeight: 600, color: T.text, textDecoration: 'none', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                <Link href={`/boards/${c.board_id}?card=${c.id}`} style={{ fontSize: 13, fontWeight: 600, color: T.text, textDecoration: 'none', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                   className="today-leader-link">
                   {c.title}
                 </Link>
-                <Sub>{c.board_name}</Sub>
+                <Sub>{c.board_name} · {c.column_name}</Sub>
+                <CardMeta card={c} />
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {c.due_date && <DateBadge date={`Due ${formatShort(c.due_date)}`} color={T.red} />}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                {c.due_date && <DateBadge date={formatShort(c.due_date)} color={T.red} />}
                 <ActionBtn onClick={() => markCardComplete(c.id)} color={T.green}>Done</ActionBtn>
               </div>
             </Item>
@@ -569,7 +605,7 @@ export default function TodayPage() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontSize: 13, fontWeight: 600, color: T.text, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cl.text}</p>
                 <Sub>
-                  <Link href={`/boards/${cl.board_id}`} style={{ color: T.textMuted, textDecoration: 'none' }} className="today-leader-link">
+                  <Link href={`/boards/${cl.board_id}?card=${cl.card_id}`} style={{ color: T.textMuted, textDecoration: 'none' }} className="today-leader-link">
                     {cl.card_title} · {cl.board_name}
                   </Link>
                 </Sub>
@@ -586,7 +622,7 @@ export default function TodayPage() {
             <Item key={cl.id} accentColor={T.red}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontSize: 13, fontWeight: 600, color: T.text, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cl.text}</p>
-                <Sub>{cl.card_title}</Sub>
+                <Sub><Link href={`/boards/${cl.board_id}?card=${cl.card_id}`} style={{ color: 'inherit', textDecoration: 'none' }} className="today-leader-link">{cl.card_title} · {cl.board_name}</Link></Sub>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 {cl.due_date && <DateBadge date={`Due ${formatShort(cl.due_date)}`} color={T.red} />}
