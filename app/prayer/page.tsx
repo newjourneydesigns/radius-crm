@@ -34,6 +34,7 @@ interface GeneralPrayer {
   user_id: string;
   content: string;
   is_answered: boolean;
+  is_shared: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -340,6 +341,7 @@ function PrayerListContent() {
           user_id: authUser.id,
           content: newPrayerText.trim(),
           is_answered: false,
+          is_shared: false,
         }])
         .select(`
           *,
@@ -382,7 +384,7 @@ function PrayerListContent() {
       if (!authUser) return;
       const { data, error: insertErr } = await supabase
         .from('general_prayer_points')
-        .insert([{ user_id: authUser.id, content: newGeneralText.trim(), is_answered: false }])
+        .insert([{ user_id: authUser.id, content: newGeneralText.trim(), is_answered: false, is_shared: false }])
         .select('*')
         .single();
       if (insertErr) throw insertErr;
@@ -445,6 +447,40 @@ function PrayerListContent() {
       setConfirmDeleteGeneral(null);
     } catch (err: any) {
       console.error('Error deleting general prayer:', err);
+    }
+  };
+
+  // ─── Toggle shared (leader prayer) ───
+  const togglePrayerShared = async (prayer: PrayerWithLeader) => {
+    try {
+      const newState = !prayer.is_shared;
+      const { error: updateError } = await supabase
+        .from('acpd_prayer_points')
+        .update({ is_shared: newState, updated_at: new Date().toISOString() })
+        .eq('id', prayer.id);
+      if (updateError) throw updateError;
+      setAllPrayers(prev =>
+        prev.map(p => p.id === prayer.id ? { ...p, is_shared: newState } : p)
+      );
+    } catch (err: any) {
+      console.error('Error toggling prayer shared:', err);
+    }
+  };
+
+  // ─── Toggle shared (general prayer) ───
+  const toggleGeneralShared = async (gp: GeneralPrayer) => {
+    try {
+      const newState = !gp.is_shared;
+      const { error: updateErr } = await supabase
+        .from('general_prayer_points')
+        .update({ is_shared: newState, updated_at: new Date().toISOString() })
+        .eq('id', gp.id);
+      if (updateErr) throw updateErr;
+      setGeneralPrayers(prev =>
+        prev.map(p => p.id === gp.id ? { ...p, is_shared: newState } : p)
+      );
+    } catch (err: any) {
+      console.error('Error toggling general prayer shared:', err);
     }
   };
 
@@ -657,17 +693,21 @@ function PrayerListContent() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {filteredGeneralPrayers.map(gp => (
+                    {filteredGeneralPrayers.map(gp => {
+                      const isOwner = user?.id === gp.user_id;
+                      return (
                       <div
                         key={gp.id}
                         className="bg-[#0f2a4a] border border-[#1e3a5f] border-l-4 border-l-violet-500 rounded-md p-3 sm:p-3.5 group hover:border-[#2e5a8f] transition-all"
                       >
                         <div className="flex items-start gap-3">
+                          {isOwner && (
                           <button
                             onClick={() => toggleGeneralAnswered(gp)}
                             className="mt-0.5 w-5 h-5 rounded border-2 border-[#2e5a8f] hover:border-violet-400 hover:bg-violet-500/10 flex-shrink-0 flex items-center justify-center transition-colors"
                             title="Mark as answered"
                           />
+                          )}
                           <div className="flex-1 min-w-0">
                             {editingGeneralId === gp.id ? (
                               <div className="space-y-2">
@@ -692,9 +732,21 @@ function PrayerListContent() {
                               <>
                                 <p className="text-sm text-[#e2e8f0] font-medium leading-relaxed whitespace-pre-wrap">{gp.content}</p>
                                 <div className="flex items-center justify-between mt-1.5">
-                                  <span className="text-[11px] text-[#4c6785]">{timeAgo(gp.created_at)} · {formatDate(gp.created_at)}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[11px] text-[#4c6785]">{timeAgo(gp.created_at)} · {formatDate(gp.created_at)}</span>
+                                    {gp.is_shared && !isOwner && (
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                        Shared
+                                      </span>
+                                    )}
+                                  </div>
                                   {/* Mobile actions */}
+                                  {isOwner && (
                                   <div className="flex items-center gap-1 sm:hidden">
+                                    <button onClick={() => toggleGeneralShared(gp)} className={`p-1.5 rounded transition-colors ${gp.is_shared ? 'text-blue-400' : 'text-[#4c6785] hover:text-blue-400'}`} title={gp.is_shared ? 'Make private' : 'Share with team'}>
+                                      <svg className="w-3.5 h-3.5" fill={gp.is_shared ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                    </button>
                                     <button onClick={() => startEditingGeneral(gp)} className="p-1.5 rounded text-[#4c6785] hover:text-[#8da9c4] transition-colors" title="Edit">
                                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                                     </button>
@@ -702,12 +754,16 @@ function PrayerListContent() {
                                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={confirmDeleteGeneral === gp.id ? "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" : "M6 18L18 6M6 6l12 12"} /></svg>
                                     </button>
                                   </div>
+                                  )}
                                 </div>
                               </>
                             )}
                           </div>
-                          {editingGeneralId !== gp.id && (
+                          {editingGeneralId !== gp.id && isOwner && (
                             <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                              <button onClick={() => toggleGeneralShared(gp)} className={`p-2 rounded transition-colors ${gp.is_shared ? 'text-blue-400 hover:text-blue-300' : 'text-[#4c6785] hover:text-blue-400 hover:bg-[#1e3a5f]'}`} title={gp.is_shared ? 'Make private' : 'Share with team'}>
+                                <svg className="w-3.5 h-3.5" fill={gp.is_shared ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                              </button>
                               <button onClick={() => startEditingGeneral(gp)} className="p-2 rounded text-[#4c6785] hover:text-[#8da9c4] hover:bg-[#1e3a5f] transition-colors" title="Edit">
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                               </button>
@@ -718,7 +774,8 @@ function PrayerListContent() {
                           )}
                         </div>
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
                 )}
               </div>
@@ -786,17 +843,21 @@ function PrayerListContent() {
                         {/* Prayer items */}
                         {group.prayers.length > 0 && (
                           <div className="space-y-2 mt-3">
-                            {group.prayers.map(prayer => (
+                            {group.prayers.map(prayer => {
+                              const isPrayerOwner = user?.id === prayer.user_id;
+                              return (
                               <div
                                 key={prayer.id}
                                 className="bg-[#091b34] border border-[#1e3a5f] border-l-4 border-l-amber-500 rounded-md p-3 group hover:border-[#2e5a8f] transition-all"
                               >
                                 <div className="flex items-start gap-3">
+                                  {isPrayerOwner && (
                                   <button
                                     onClick={() => handleToggleAnswered(prayer)}
                                     className="mt-0.5 w-5 h-5 rounded border-2 border-[#2e5a8f] hover:border-amber-400 hover:bg-amber-500/10 flex-shrink-0 flex items-center justify-center transition-colors"
                                     title="Mark as answered"
                                   />
+                                  )}
 
                                   <div className="flex-1 min-w-0">
                                     {editingId === prayer.id ? (
@@ -822,18 +883,35 @@ function PrayerListContent() {
                                       <>
                                         <p className="text-sm text-[#e2e8f0] font-medium leading-relaxed whitespace-pre-wrap">{prayer.content}</p>
                                         <div className="flex items-center justify-between mt-1.5">
-                                          <span className="text-[11px] text-[#4c6785]">{timeAgo(prayer.created_at)} · {formatDate(prayer.created_at)}</span>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-[11px] text-[#4c6785]">{timeAgo(prayer.created_at)} · {formatDate(prayer.created_at)}</span>
+                                            {prayer.is_shared && !isPrayerOwner && (
+                                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                                Shared
+                                              </span>
+                                            )}
+                                          </div>
                                           {/* Mobile actions */}
                                           <div className="flex items-center gap-1 sm:hidden">
-                                            <button onClick={() => startEditing(prayer)} className="p-1.5 rounded text-[#4c6785] hover:text-[#8da9c4] transition-colors" title="Edit">
-                                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                            </button>
+                                            {isPrayerOwner && (
+                                              <button onClick={() => togglePrayerShared(prayer)} className={`p-1.5 rounded transition-colors ${prayer.is_shared ? 'text-blue-400' : 'text-[#4c6785] hover:text-blue-400'}`} title={prayer.is_shared ? 'Make private' : 'Share with team'}>
+                                                <svg className="w-3.5 h-3.5" fill={prayer.is_shared ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                              </button>
+                                            )}
+                                            {isPrayerOwner && (
+                                              <button onClick={() => startEditing(prayer)} className="p-1.5 rounded text-[#4c6785] hover:text-[#8da9c4] transition-colors" title="Edit">
+                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                              </button>
+                                            )}
                                             <Link href={`/circle/${prayer.circle_leader_id}`} className="p-1.5 rounded text-[#4c6785] hover:text-[#8da9c4] transition-colors" title={`Go to ${prayer.leader_name}`}>
                                               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                                             </Link>
-                                            <button onClick={() => handleDelete(prayer.id)} className={`p-1 rounded transition-colors ${confirmDelete === prayer.id ? 'text-red-400' : 'text-[#4c6785] hover:text-red-400'}`} title="Delete">
-                                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={confirmDelete === prayer.id ? "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" : "M6 18L18 6M6 6l12 12"} /></svg>
-                                            </button>
+                                            {isPrayerOwner && (
+                                              <button onClick={() => handleDelete(prayer.id)} className={`p-1 rounded transition-colors ${confirmDelete === prayer.id ? 'text-red-400' : 'text-[#4c6785] hover:text-red-400'}`} title="Delete">
+                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={confirmDelete === prayer.id ? "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" : "M6 18L18 6M6 6l12 12"} /></svg>
+                                              </button>
+                                            )}
                                           </div>
                                         </div>
                                       </>
@@ -843,20 +921,30 @@ function PrayerListContent() {
                                   {/* Desktop actions */}
                                   {editingId !== prayer.id && (
                                     <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                      <button onClick={() => startEditing(prayer)} className="p-2 rounded text-[#4c6785] hover:text-[#8da9c4] hover:bg-[#1e3a5f] transition-colors" title="Edit">
-                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                      </button>
+                                      {isPrayerOwner && (
+                                        <button onClick={() => togglePrayerShared(prayer)} className={`p-2 rounded transition-colors ${prayer.is_shared ? 'text-blue-400 hover:text-blue-300' : 'text-[#4c6785] hover:text-blue-400 hover:bg-[#1e3a5f]'}`} title={prayer.is_shared ? 'Make private' : 'Share with team'}>
+                                          <svg className="w-3.5 h-3.5" fill={prayer.is_shared ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                        </button>
+                                      )}
+                                      {isPrayerOwner && (
+                                        <button onClick={() => startEditing(prayer)} className="p-2 rounded text-[#4c6785] hover:text-[#8da9c4] hover:bg-[#1e3a5f] transition-colors" title="Edit">
+                                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                        </button>
+                                      )}
                                       <Link href={`/circle/${prayer.circle_leader_id}`} className="p-2 rounded text-[#4c6785] hover:text-[#8da9c4] hover:bg-[#1e3a5f] transition-colors" title={`Go to ${prayer.leader_name}`}>
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                                       </Link>
-                                      <button onClick={() => handleDelete(prayer.id)} className={`p-2 rounded transition-colors ${confirmDelete === prayer.id ? 'text-red-400' : 'text-[#4c6785] hover:text-red-400 hover:bg-[#1e3a5f]'}`} title="Delete">
-                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={confirmDelete === prayer.id ? "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" : "M6 18L18 6M6 6l12 12"} /></svg>
-                                      </button>
+                                      {isPrayerOwner && (
+                                        <button onClick={() => handleDelete(prayer.id)} className={`p-2 rounded transition-colors ${confirmDelete === prayer.id ? 'text-red-400' : 'text-[#4c6785] hover:text-red-400 hover:bg-[#1e3a5f]'}`} title="Delete">
+                                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={confirmDelete === prayer.id ? "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" : "M6 18L18 6M6 6l12 12"} /></svg>
+                                        </button>
+                                      )}
                                     </div>
                                   )}
                                 </div>
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
 

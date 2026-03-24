@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useACPDTracking } from '../../hooks/useACPDTracking';
+import { useAuth } from '../../contexts/AuthContext';
 import { ScorecardDimension, EncourageMethod } from '../../lib/supabase';
 
 const DIMENSIONS: { key: ScorecardDimension; label: string; color: string; bg: string; border: string; dot: string }[] = [
@@ -27,10 +28,11 @@ const ENCOURAGE_METHODS: { key: EncourageMethod; label: string; icon: string }[]
 ];
 
 export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved }: ACPDTrackingSectionProps) {
+  const { user } = useAuth();
   const {
     prayerPoints, encouragements, coachingNotes,
     isLoading, loadAll,
-    addPrayerPoint, togglePrayerAnswered, updatePrayerPoint, deletePrayerPoint,
+    addPrayerPoint, togglePrayerAnswered, togglePrayerShared, updatePrayerPoint, deletePrayerPoint,
     addEncouragement, markEncouragementSent, deleteEncouragement,
     addCoachingNote, toggleCoachingResolved, deleteCoachingNote,
   } = useACPDTracking();
@@ -198,11 +200,14 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
               <>
                 {activePrayers.length > 0 && (
                   <div className="space-y-2">
-                    {activePrayers.map(prayer => (
+                    {activePrayers.map(prayer => {
+                      const isPrayerOwner = user?.id === prayer.user_id;
+                      return (
                       <div
                         key={prayer.id}
                         className="flex items-start gap-3 p-3 rounded-xl bg-gray-900/30 border border-gray-700/40 hover:border-amber-500/20 transition-all group"
                       >
+                        {isPrayerOwner && (
                         <button
                           onClick={() => handleTogglePrayerAnswered(prayer.id)}
                           className="mt-0.5 w-5 h-5 rounded-md border-2 border-gray-500 hover:border-amber-400 flex-shrink-0 flex items-center justify-center transition-colors"
@@ -210,6 +215,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                         >
                           <span className="sr-only">Mark answered</span>
                         </button>
+                        )}
                         <div className="flex-1 min-w-0">
                           {editingPrayerId === prayer.id ? (
                             <div className="space-y-2">
@@ -256,12 +262,33 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                           ) : (
                             <>
                               <p className="text-sm text-gray-200 leading-relaxed">{prayer.content}</p>
-                              <p className="text-[10px] text-gray-500 mt-1">{formatTimestamp(prayer.created_at)}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-[10px] text-gray-500">{formatTimestamp(prayer.created_at)}</span>
+                                {prayer.is_shared && !isPrayerOwner && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                    Shared
+                                  </span>
+                                )}
+                              </div>
                             </>
                           )}
                         </div>
-                        {editingPrayerId !== prayer.id && (
+                        {editingPrayerId !== prayer.id && isPrayerOwner && (
                           <>
+                            <button
+                              onClick={() => togglePrayerShared(prayer.id)}
+                              className={`flex-shrink-0 p-1 rounded-md transition-all ${
+                                prayer.is_shared
+                                  ? 'text-blue-400 hover:text-blue-300'
+                                  : 'text-gray-600 sm:opacity-0 sm:group-hover:opacity-100 hover:text-blue-400 hover:bg-blue-500/10'
+                              }`}
+                              title={prayer.is_shared ? 'Make private' : 'Share with team'}
+                            >
+                              <svg className="w-3.5 h-3.5" fill={prayer.is_shared ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                            </button>
                             <button
                               onClick={() => { setEditingPrayerId(prayer.id); setEditPrayerText(prayer.content); }}
                               className="flex-shrink-0 p-1 rounded-md text-gray-600 sm:opacity-0 sm:group-hover:opacity-100 hover:text-amber-400 hover:bg-amber-500/10 transition-all"
@@ -293,7 +320,8 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                           </>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 

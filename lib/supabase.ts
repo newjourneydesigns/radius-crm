@@ -277,6 +277,7 @@ export interface PrayerPoint {
   user_id: string;
   content: string;
   is_answered: boolean;
+  is_shared: boolean;
   created_at: string;
   updated_at: string;
 }

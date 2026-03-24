@@ -35,7 +35,7 @@ export const useACPDTracking = () => {
 
       const { data, error: insertError } = await supabase
         .from('acpd_prayer_points')
-        .insert([{ circle_leader_id: leaderId, user_id: user.id, content, is_answered: false }])
+        .insert([{ circle_leader_id: leaderId, user_id: user.id, content, is_answered: false, is_shared: false }])
         .select()
         .single();
 
@@ -48,6 +48,25 @@ export const useACPDTracking = () => {
       return null;
     }
   }, []);
+
+  const togglePrayerShared = useCallback(async (id: number) => {
+    try {
+      const current = prayerPoints.find(p => p.id === id);
+      if (!current) return;
+      const newState = !current.is_shared;
+      const { error: updateError } = await supabase
+        .from('acpd_prayer_points')
+        .update({ is_shared: newState, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (updateError) throw updateError;
+      setPrayerPoints(prev =>
+        prev.map(p => p.id === id ? { ...p, is_shared: newState } : p)
+      );
+    } catch (err: any) {
+      console.error('Error toggling prayer shared:', err);
+      setError(err.message);
+    }
+  }, [prayerPoints]);
 
   const togglePrayerAnswered = useCallback(async (id: number, leaderId?: number) => {
     try {
@@ -376,6 +395,7 @@ export const useACPDTracking = () => {
     loadPrayerPoints,
     addPrayerPoint,
     togglePrayerAnswered,
+    togglePrayerShared,
     updatePrayerPoint,
     deletePrayerPoint,
     loadEncouragements,

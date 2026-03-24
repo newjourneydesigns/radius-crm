@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         content: body.content,
         is_answered: false,
+        is_shared: false,
       };
     } else if (type === 'encourage') {
       if (!body.circle_leader_id || !body.message_type) {
