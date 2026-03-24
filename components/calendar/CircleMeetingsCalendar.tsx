@@ -344,11 +344,23 @@ export default function CircleMeetingsCalendar({
   }, []);
 
   const leadersWithSchedules = useMemo(() => {
-    return leaders.filter(l => (l.day ?? '').trim() !== '' && (l.time ?? '').trim() !== '');
+    return leaders.filter(l => {
+      const day = (l.day ?? '').trim();
+      const time = (l.time ?? '').trim();
+      if (!day || !time) return false;
+      // Also verify the values actually parse
+      return dayToWeekday(day) !== null && parseTimeToHourMinute(time) !== null;
+    });
   }, [leaders]);
 
   const leadersWithoutSchedules = useMemo(() => {
-    return leaders.filter(l => (l.day ?? '').trim() === '' || (l.time ?? '').trim() === '');
+    return leaders.filter(l => {
+      const day = (l.day ?? '').trim();
+      const time = (l.time ?? '').trim();
+      if (!day || !time) return true;
+      // Include leaders whose day/time can't be parsed
+      return dayToWeekday(day) === null || parseTimeToHourMinute(time) === null;
+    });
   }, [leaders]);
 
   const [showMissingSchedules, setShowMissingSchedules] = useState(false);
@@ -646,7 +658,16 @@ export default function CircleMeetingsCalendar({
           <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Circle meetings based on leader schedule (day/time/frequency).</p>
         </div>
         <div className="text-xs text-gray-600 dark:text-gray-400">
-          {isLoadingLeaders ? 'Loading schedules…' : `${leadersWithSchedules.length} scheduled circles`}
+          {isLoadingLeaders ? 'Loading schedules…' : (
+            <>
+              {leadersWithSchedules.length} scheduled
+              {leadersWithoutSchedules.length > 0 && (
+                <span className="text-amber-500 dark:text-amber-400 ml-1">
+                  · {leadersWithoutSchedules.length} missing info
+                </span>
+              )}
+            </>
+          )}
         </div>
       </div>
 
@@ -1273,7 +1294,16 @@ export default function CircleMeetingsCalendar({
                       )}
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      {!leader.day && !leader.time ? 'No day or time set' : !leader.day ? 'No meeting day set' : 'No meeting time set'}
+                      {(() => {
+                        const day = (leader.day ?? '').trim();
+                        const time = (leader.time ?? '').trim();
+                        if (!day && !time) return 'No day or time set';
+                        if (!day) return 'No meeting day set';
+                        if (!time) return 'No meeting time set';
+                        if (dayToWeekday(day) === null) return `Day "${day}" not recognized`;
+                        if (parseTimeToHourMinute(time) === null) return `Time "${time}" not recognized`;
+                        return 'Schedule not parseable';
+                      })()}
                       {leader.campus && <span className="ml-1.5">· {leader.campus}</span>}
                     </div>
                   </div>
