@@ -171,6 +171,26 @@ export async function POST(request: NextRequest) {
       const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
       const existingUser = existingUsers?.users?.find((u: any) => u.email === normalizedEmail);
       if (existingUser) {
+        // If they exist but email is unconfirmed, confirm them so they can sign in
+        if (!existingUser.email_confirmed_at) {
+          console.log('User exists but unconfirmed, confirming now:', normalizedEmail);
+          await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
+            email_confirm: true,
+            user_metadata: { name: name || existingUser.user_metadata?.name }
+          });
+          // Ensure profile is up to date
+          await supabaseAdmin.from('users').upsert({
+            id: existingUser.id,
+            email: normalizedEmail,
+            name: name || existingUser.email,
+            role: role || 'Viewer'
+          }, { onConflict: 'id' });
+          console.log('User confirmed successfully');
+          return NextResponse.json({
+            message: 'User confirmed. They can now sign in with a magic link.',
+            user: { id: existingUser.id, email: existingUser.email, created_at: existingUser.created_at }
+          });
+        }
         console.error('User already exists in auth:', normalizedEmail);
         return NextResponse.json({ error: 'A user with this email already exists' }, { status: 400 });
       }
@@ -207,7 +227,7 @@ export async function POST(request: NextRequest) {
     // Note: The handle_new_user() trigger on auth.users will auto-create the public.users profile
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email: normalizedEmail,
-      email_confirm: false, // User must confirm via magic link
+      email_confirm: true, // Confirm immediately so magic link works right away
       user_metadata: {
         name: name || null
       }
