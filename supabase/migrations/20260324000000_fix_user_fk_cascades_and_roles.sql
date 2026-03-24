@@ -1,6 +1,7 @@
--- Fix 1: Update role CHECK constraint to match actual values in use
-ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('ACPD', 'Viewer', 'admin', 'user'));
+-- Fix 1: Add ACPD and Viewer to the user_role enum
+-- (role column is an enum type, not plain TEXT with CHECK constraint)
+ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'ACPD';
+ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'Viewer';
 
 -- Fix 2: notes.created_by — add SET NULL on delete so notes survive user removal
 ALTER TABLE notes DROP CONSTRAINT IF EXISTS notes_created_by_fkey;
