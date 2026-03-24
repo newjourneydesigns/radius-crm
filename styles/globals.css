@@ -17,6 +17,12 @@ input[type="date"] {
   appearance: none;
 }
 
+/* Prevent iOS Safari from zooming on input focus (requires font-size >= 16px) */
+input, select, textarea {
+  font-size: 16px !important;
+  touch-action: manipulation;
+}
+
 /* Hide scrollbar utility (used for horizontal scroll navs) */
 .scrollbar-hide {
   -ms-overflow-style: none;  /* IE / Edge */
@@ -1015,13 +1021,6 @@ html.modal-open {
     min-width: 44px !important;
     min-height: 44px !important;
     touch-action: manipulation !important;
-  }
-  
-  /* Prevent zoom on inputs in iOS */
-  [aria-modal="true"] input,
-  [aria-modal="true"] select,
-  [aria-modal="true"] textarea {
-    font-size: 16px !important;
   }
   
   /* Sticky header for scrollable modals */

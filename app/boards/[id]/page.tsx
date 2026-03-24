@@ -20,6 +20,7 @@ import { supabase } from '../../../lib/supabase';
 import type { CircleLeader } from '../../../lib/supabase';
 import { buildRepeatLabel, type TodoRepeatRule } from '../../../lib/todoRecurrence';
 import AssigneePicker from '../../../components/boards/AssigneePicker';
+import RichTextEditor from '../../../components/notes/RichTextEditor';
 
 /* ═══════════════════════════════════════════════════════════
    Priority helpers
@@ -193,7 +194,6 @@ function CardDetailModal({
   const [editingChecklistId, setEditingChecklistId] = useState<string | null>(null);
   const [editingChecklistTitle, setEditingChecklistTitle] = useState('');
   const [showLabelPicker, setShowLabelPicker] = useState(false);
-  const [editingDesc, setEditingDesc] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [savingTemplate, setSavingTemplate] = useState(false);
@@ -205,12 +205,10 @@ function CardDetailModal({
   const [linkedLeaderId, setLinkedLeaderId] = useState<number | null>(card.linked_leader_id ?? null);
   const [allLeaders, setAllLeaders] = useState<{ id: number; name: string }[]>([]);
   const titleRef = useRef<HTMLInputElement>(null);
-  const descRef = useRef<HTMLTextAreaElement>(null);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialRef = useRef(true);
   const pendingChangesRef = useRef(false);
 
-  useEffect(() => { if (editingDesc && descRef.current) { descRef.current.focus(); descRef.current.setSelectionRange(descRef.current.value.length, descRef.current.value.length); } }, [editingDesc]);
   useEffect(() => {
     supabase.from('project_boards').select('id, title').eq('is_archived', false).order('created_at', { ascending: false })
       .then(({ data }) => { if (data) setAllBoards(data as ProjectBoard[]); });
@@ -382,38 +380,15 @@ function CardDetailModal({
             <div style={{ marginBottom: 16 }}>
               <div className="kb-detail-section-label">
                 <Edit3 size={13} /> Description
-                {!editingDesc && editDesc && (
-                  <button className="kb-btn-icon-sm" onClick={() => setEditingDesc(true)} title="Edit description">
-                    <Pencil size={11} />
-                  </button>
-                )}
               </div>
-              {editingDesc ? (
-                <textarea
-                  ref={descRef}
-                  className="kb-textarea"
+              <div className="kb-desc-editor">
+                <RichTextEditor
                   value={editDesc}
-                  onChange={e => setEditDesc(e.target.value)}
+                  onChange={setEditDesc}
                   placeholder="Add a more detailed description..."
-                  rows={6}
-                  onBlur={() => setEditingDesc(false)}
-                  onKeyDown={e => { if (e.key === 'Escape') setEditingDesc(false); }}
+                  minHeight="120px"
                 />
-              ) : (
-                <div
-                  className="kb-desc-display"
-                  onDoubleClick={() => setEditingDesc(true)}
-                  title="Double-click to edit"
-                >
-                  {editDesc ? (
-                    editDesc.split('\n').map((line, i) => (
-                      <p key={i} style={{ margin: 0 }}>{linkifyText(line)}</p>
-                    ))
-                  ) : (
-                    <span className="kb-desc-placeholder">Double-click to add a description...</span>
-                  )}
-                </div>
-              )}
+              </div>
             </div>
 
             {/* Checklist */}
@@ -4732,6 +4707,36 @@ const kanbanStyles = `
     color: #4b5563;
     font-style: italic;
   }
+  /* ── Rich Text Editor in Card Description ── */
+  .kb-desc-editor > div {
+    background: #14161e !important;
+    border: 1px solid #1e2130 !important;
+    border-radius: 10px !important;
+  }
+  .kb-desc-editor > div:focus-within {
+    border-color: rgba(141, 169, 196, 0.65) !important;
+    box-shadow: 0 0 0 3px rgba(76, 103, 133, 0.18), 0 0 0 1px rgba(141, 169, 196, 0.4) !important;
+    ring: none !important;
+  }
+  .kb-desc-editor > div > div:first-child {
+    background: #0f1117 !important;
+    border-color: #1e2130 !important;
+  }
+  .kb-desc-editor [contenteditable] {
+    background: #14161e !important;
+    color: #d1d5db !important;
+  }
+  .kb-desc-editor button {
+    color: #9ca3af !important;
+  }
+  .kb-desc-editor button:hover {
+    background: #1e2130 !important;
+    color: #e5e7eb !important;
+  }
+  .kb-desc-editor [contenteditable] a { color: #818cf8 !important; }
+  .kb-desc-editor [contenteditable] h3 { color: #f3f4f6 !important; }
+  .kb-desc-editor [contenteditable] ul,
+  .kb-desc-editor [contenteditable] ol { color: #d1d5db !important; }
   .kb-comment-edit { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
   .kb-comment-edit-actions { display: flex; gap: 6px; justify-content: flex-end; }
   .kb-comment-add { display: flex; flex-direction: column; }
