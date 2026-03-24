@@ -357,7 +357,7 @@ function DateBadge({ date, color }: { date: string; color?: string }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TodayPage() {
-  const { data, isLoading, error, fetchData, markEncouragementSent, clearFollowUp, markCardComplete, markChecklistDone } = useTodayData();
+  const { data, isLoading, isFetching, error, fetchData, markEncouragementSent, clearFollowUp, markCardComplete, markChecklistDone } = useTodayData();
   const { isOpen, toggle } = useVisibility();
   const [circleView, setCircleView] = useState<'today' | 'week'>('today');
 
@@ -406,6 +406,7 @@ export default function TodayPage() {
         .today-leader-link:hover { color: ${T.blue} !important; }
         .today-action-btn:hover { filter: brightness(1.1); }
         .today-score-row:hover .today-score-inner { background: rgba(255,255,255,0.03); }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
 
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '20px 16px 100px', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif' }}>
@@ -418,14 +419,19 @@ export default function TodayPage() {
           </div>
           <button
             onClick={fetchData}
+            disabled={isFetching}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               padding: '7px 14px', borderRadius: 9, fontSize: 12, fontWeight: 600,
               background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.cardBorder}`,
-              color: T.textMuted, cursor: 'pointer', transition: 'all 0.15s',
+              color: isFetching ? T.textFaint : T.textMuted,
+              cursor: isFetching ? 'default' : 'pointer', transition: 'all 0.15s',
             }}
           >
-            <RefreshIcon /> Refresh
+            <span style={{ display: 'inline-flex', animation: isFetching ? 'spin 1s linear infinite' : 'none' }}>
+              <RefreshIcon />
+            </span>
+            {isFetching ? 'Refreshing…' : 'Refresh'}
           </button>
         </div>
 

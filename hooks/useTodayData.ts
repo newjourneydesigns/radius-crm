@@ -12,10 +12,12 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 export function useTodayData() {
   const [data, setData] = useState<TodayData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setError(null);
+    setIsFetching(true);
 
     // Serve cached data immediately so the page renders without a spinner
     let hasCachedData = false;
@@ -56,6 +58,7 @@ export function useTodayData() {
       setError(err.message || 'Unknown error');
     } finally {
       setIsLoading(false);
+      setIsFetching(false);
     }
   }, []);
 
@@ -151,6 +154,7 @@ export function useTodayData() {
   return {
     data,
     isLoading,
+    isFetching,
     error,
     fetchData,
     markEncouragementSent,
