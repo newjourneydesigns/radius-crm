@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import AlertModal from '../../components/ui/AlertModal';
+import { apiFetch } from '../../lib/apiClient';
 
 interface User {
   id: string;
@@ -52,7 +53,7 @@ export default function UsersPage() {
     try {
       setIsLoading(true);
       
-      const response = await fetch('/api/users');
+      const response = await apiFetch('/api/users');
       const data = await response.json();
       
       if (!response.ok) {
@@ -101,11 +102,9 @@ export default function UsersPage() {
     try {
       setIsSubmitting(true);
 
-      const response = await fetch('/api/users', {
+      const response = await apiFetch('/api/users', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: formData.email.trim().toLowerCase(),
           name: formData.name,
@@ -178,11 +177,9 @@ export default function UsersPage() {
     try {
       setIsSubmitting(true);
 
-      const response = await fetch('/api/users', {
+      const response = await apiFetch('/api/users', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: editingUser.id,
           email: formData.email,
@@ -232,7 +229,7 @@ export default function UsersPage() {
   const handleResendAccess = async (email: string) => {
     try {
       setIsSubmitting(true);
-      const response = await fetch('/api/users/resend-access', {
+      const response = await apiFetch('/api/users/resend-access', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -265,7 +262,7 @@ export default function UsersPage() {
     try {
       setIsSubmitting(true);
 
-      const response = await fetch(`/api/users?id=${userId}`, {
+      const response = await apiFetch(`/api/users?id=${userId}`, {
         method: 'DELETE',
       });
 
@@ -399,7 +396,7 @@ export default function UsersPage() {
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="Viewer">Viewer</option>
-                    <option value="ACPD">ACPD (Admin)</option>
+                    <option value="ACPD">ACPD</option>
                   </select>
                 </div>
               </div>
@@ -472,9 +469,8 @@ export default function UsersPage() {
                     onChange={(e) => handleFormChange('role', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option value="user">User</option>
-                    <option value="ACPD">ACPD</option>
                     <option value="Viewer">Viewer</option>
+                    <option value="ACPD">ACPD</option>
                   </select>
                 </div>
               </div>
@@ -555,10 +551,9 @@ export default function UsersPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                           user.role === 'ACPD' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' :
-                          user.role === 'admin' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
                           'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
                         }`}>
-                          {user.role || 'user'}
+                          {user.role || 'Viewer'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">

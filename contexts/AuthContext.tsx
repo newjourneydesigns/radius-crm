@@ -62,16 +62,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('❌ AuthContext: Profile fetch timed out, using fallback');
       }
 
-      // Fallback user from auth metadata
-      const isValleyCreek = authUser.email?.endsWith('@valleycreek.org');
+      // Fallback: always default to Viewer — never infer role from email domain.
+      // The DB is the source of truth for role; a transient timeout should not
+      // silently grant elevated permissions.
       const fallback: User = {
         id: authUser.id,
         email: authUser.email || '',
         name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
-        role: isValleyCreek ? 'ACPD' : 'Viewer',
+        role: 'Viewer',
         ai_assistant_enabled: false,
       };
-      console.log('🔄 AuthContext: Fallback user created:', fallback.name);
+      console.log('🔄 AuthContext: Fallback user created (Viewer):', fallback.name);
       return fallback;
     };
 

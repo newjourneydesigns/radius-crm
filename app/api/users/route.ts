@@ -140,6 +140,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
     }
 
+    // Validate role
+    const validRoles = ['ACPD', 'Viewer'];
+    if (role && !validRoles.includes(role)) {
+      return NextResponse.json({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` }, { status: 400 });
+    }
+
     // Check if we have a valid service role key
     const hasServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY !== 'demo-key';
     console.log('Service role key status:', {
@@ -355,8 +361,8 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     // Verify admin access
-    const { isAdmin, error: adminAuthError } = await verifyAdminAccessDemo(request);
-    
+    const { isAdmin, user: callerUser, error: adminAuthError } = await verifyAdminAccessDemo(request);
+
     if (!isAdmin) {
       return NextResponse.json({ error: adminAuthError || 'Admin access required' }, { status: 403 });
     }
@@ -366,6 +372,11 @@ export async function DELETE(request: NextRequest) {
 
     if (!userId) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    }
+
+    // Prevent self-deletion
+    if (callerUser && callerUser.id === userId) {
+      return NextResponse.json({ error: 'You cannot delete your own account.' }, { status: 400 });
     }
 
     // Check if we have a valid service role key
