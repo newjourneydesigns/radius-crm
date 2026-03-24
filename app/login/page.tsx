@@ -16,11 +16,14 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 function LoginContent() {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [mode, setMode] = useState<'magic' | 'password'>('magic');
   const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [isLoading, setIsLoading] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [mounted, setMounted] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [rememberMe, setRememberMeState] = useState(true);
@@ -64,6 +67,65 @@ function LoginContent() {
   }, [searchParams]);
 
   const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  /* ── Password sign-in ── */
+  const handlePasswordSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateEmail(email)) { setError(ERROR_MESSAGES.invalid_email); return; }
+    if (!password) { setError('Please enter your password.'); return; }
+    setIsLoading(true);
+    setError('');
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (error) {
+        if (error.message.includes('Invalid login credentials')) {
+          setError('Incorrect email or password.');
+        } else {
+          setError(error.message);
+        }
+        setIsLoading(false);
+        return;
+      }
+      if (data.session) {
+        const { data: userProfile, error: profileError } = await supabase
+          .from('users').select('id').eq('id', data.session.user.id).single();
+        if (profileError || !userProfile) {
+          await supabase.auth.signOut();
+          setError(ERROR_MESSAGES.unauthorized_user);
+          setIsLoading(false);
+          return;
+        }
+        router.replace(redirectTo);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Sign-in failed. Please try again.');
+      setIsLoading(false);
+    }
+  };
+
+  /* ── Forgot password ── */
+  const handleForgotPassword = async () => {
+    if (!validateEmail(email)) {
+      setError('Enter your email address above first.');
+      return;
+    }
+    setIsLoading(true);
+    setError('');
+    setSuccessMessage('');
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      email.trim().toLowerCase(),
+      { redirectTo: `${window.location.origin}/auth/reset-password` }
+    );
+    setIsLoading(false);
+    if (error) {
+      setError(error.message);
+    } else {
+      setSuccessMessage('Password reset email sent. Check your inbox.');
+    }
+  };
 
   /* ── Step 1: Send OTP code ── */
   const handleSendCode = async (e: React.FormEvent) => {
@@ -207,6 +269,7 @@ function LoginContent() {
   };
 
   const displayError = error || urlError;
+  const inputClass = "w-full px-4 py-3 bg-gray-900/50 border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-150 disabled:opacity-60";
 
   /* ── Code entry step ── */
   if (step === 'code') {
@@ -333,87 +396,86 @@ function LoginContent() {
               {displayError}
             </div>
           )}
-
-          <form onSubmit={handleSendCode} className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 rounded-xl text-white placeholder-gray-500
-                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                  transition-all duration-150"
-                disabled={isLoading}
-              />
+          {successMessage && (
+            <div className="rounded-xl bg-green-500/10 border border-green-500/30 p-3.5 text-sm text-green-300 leading-relaxed animate-in fade-in">
+              {successMessage}
             </div>
+          )}
 
-            {/* Remember me */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2.5 cursor-pointer select-none group">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={e => handleRememberMeChange(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-600 bg-gray-900/50 text-blue-500
-                    accent-blue-500 cursor-pointer"
-                />
-                <span className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">
-                  Keep me signed in
-                </span>
-              </label>
-              <span className="text-[11px] text-gray-600">
-                {rememberMe ? 'Stays signed in' : 'Signs out on close'}
-              </span>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading || !email || cooldown > 0}
-              className="w-full relative py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-sm
-                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900
-                flex items-center justify-center gap-3 transition-all duration-150
-                disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.98]"
-            >
-              {isLoading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Sending code...</span>
-                </>
-              ) : cooldown > 0 ? (
-                <span>Resend in {cooldown}s</span>
-              ) : (
-                <>
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          {mode === 'magic' ? (
+            <form onSubmit={handleSendCode} className="space-y-4">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">Email address</label>
+                <input id="email" name="email" type="email" autoComplete="email" required
+                  value={email} onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com" className={inputClass} disabled={isLoading} />
+              </div>
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none group">
+                  <input type="checkbox" checked={rememberMe} onChange={e => handleRememberMeChange(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-600 bg-gray-900/50 text-blue-500 accent-blue-500 cursor-pointer" />
+                  <span className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">Keep me signed in</span>
+                </label>
+                <span className="text-[11px] text-gray-600">{rememberMe ? 'Stays signed in' : 'Signs out on close'}</span>
+              </div>
+              <button type="submit" disabled={isLoading || !email || cooldown > 0}
+                className="w-full relative py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-sm
+                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900
+                  flex items-center justify-center gap-3 transition-all duration-150
+                  disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.98]">
+                {isLoading ? (
+                  <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Sending code...</span></>
+                ) : cooldown > 0 ? <span>Resend in {cooldown}s</span> : (
+                  <><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  Send sign-in code
-                </>
-              )}
-            </button>
-          </form>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-700"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-3 bg-gray-800/60 text-gray-500">
-                Passwordless sign in
-              </span>
-            </div>
-          </div>
-
-          <p className="text-center text-xs text-gray-400 leading-relaxed">
-            We'll send a 6-digit code to your email.<br />No password required.
-          </p>
+                  </svg>Send sign-in code</>
+                )}
+              </button>
+              <button type="button" onClick={() => { setMode('password'); setError(''); setSuccessMessage(''); }}
+                className="w-full text-sm text-gray-400 hover:text-gray-200 transition-colors py-1">
+                Sign in with password instead
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handlePasswordSignIn} className="space-y-4">
+              <div>
+                <label htmlFor="email-pw" className="block text-sm font-medium text-gray-300 mb-2">Email address</label>
+                <input id="email-pw" name="email" type="email" autoComplete="email" required
+                  value={email} onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com" className={inputClass} disabled={isLoading} />
+              </div>
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">Password</label>
+                <input id="password" name="password" type="password" autoComplete="current-password" required
+                  value={password} onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••" className={inputClass} disabled={isLoading} />
+              </div>
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none group">
+                  <input type="checkbox" checked={rememberMe} onChange={e => handleRememberMeChange(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-600 bg-gray-900/50 text-blue-500 accent-blue-500 cursor-pointer" />
+                  <span className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">Keep me signed in</span>
+                </label>
+                <button type="button" onClick={handleForgotPassword} disabled={isLoading}
+                  className="text-[11px] text-blue-400/80 hover:text-blue-400 hover:underline transition-colors disabled:opacity-50">
+                  Forgot password?
+                </button>
+              </div>
+              <button type="submit" disabled={isLoading || !email || !password}
+                className="w-full relative py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-sm
+                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900
+                  flex items-center justify-center gap-3 transition-all duration-150
+                  disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.98]">
+                {isLoading
+                  ? <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Signing in...</span></>
+                  : 'Sign in'}
+              </button>
+              <button type="button" onClick={() => { setMode('magic'); setError(''); setSuccessMessage(''); setPassword(''); }}
+                className="w-full text-sm text-gray-400 hover:text-gray-200 transition-colors py-1">
+                Send a magic link instead
+              </button>
+            </form>
+          )}
         </div>
 
         {/* Footer */}

@@ -66,6 +66,10 @@ export default function ProfilePage() {
   // Form state
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  // Password change state
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
   // UI state
   const [activeTab, setActiveTab] = useState<'profile' | 'email'>('profile');
   const [showAlert, setShowAlert] = useState<{
@@ -318,6 +322,28 @@ export default function ProfilePage() {
     const n = name || profile?.name || '';
     if (!n) return '?';
     return n.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 8) {
+      setShowAlert({ isOpen: true, type: 'error', title: 'Too Short', message: 'Password must be at least 8 characters.' });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setShowAlert({ isOpen: true, type: 'error', title: 'Mismatch', message: 'Passwords do not match.' });
+      return;
+    }
+    setIsSavingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setIsSavingPassword(false);
+    if (error) {
+      setShowAlert({ isOpen: true, type: 'error', title: 'Error', message: error.message });
+    } else {
+      setNewPassword('');
+      setConfirmPassword('');
+      setShowAlert({ isOpen: true, type: 'success', title: 'Password Updated', message: 'Your password has been changed.' });
+    }
   };
 
   return (
@@ -759,6 +785,32 @@ export default function ProfilePage() {
               </div>
             </div>
           )}
+
+        {/* Change Password */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mt-6">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-1">Change Password</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            Leave blank if you prefer to sign in with a magic link code.
+          </p>
+          <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">New password</label>
+              <input type="password" autoComplete="new-password" value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)} placeholder="At least 8 characters"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Confirm new password</label>
+              <input type="password" autoComplete="new-password" value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repeat your password"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm" />
+            </div>
+            <button type="submit" disabled={isSavingPassword || !newPassword || !confirmPassword}
+              className="px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+              {isSavingPassword ? 'Saving…' : 'Update password'}
+            </button>
+          </form>
+        </div>
 
         </div>
 
