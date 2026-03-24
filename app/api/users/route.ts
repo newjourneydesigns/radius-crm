@@ -191,8 +191,8 @@ export async function POST(request: NextRequest) {
             user: { id: existingUser.id, email: existingUser.email, created_at: existingUser.created_at }
           });
         }
-        console.error('User already exists in auth:', normalizedEmail);
-        return NextResponse.json({ error: 'A user with this email already exists' }, { status: 400 });
+        console.error('User already exists and is confirmed:', normalizedEmail);
+        return NextResponse.json({ error: 'This user already has access. Use "Resend Access" to send them a new sign-in link.' }, { status: 400 });
       }
     } catch (checkError) {
       console.warn('Could not check for existing users:', checkError);

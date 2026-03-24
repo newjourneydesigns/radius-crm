@@ -229,6 +229,34 @@ export default function UsersPage() {
     }
   };
 
+  const handleResendAccess = async (email: string) => {
+    try {
+      setIsSubmitting(true);
+      const response = await fetch('/api/users/resend-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to send access link');
+      setShowAlert({
+        isOpen: true,
+        type: 'success',
+        title: 'Access Link Sent',
+        message: data.message,
+      });
+    } catch (error: any) {
+      setShowAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Error',
+        message: error.message || 'Failed to send access link.',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleDeleteUser = async (userId: string, email: string) => {
     if (!confirm(`Are you sure you want to delete user "${email}"? This action cannot be undone.`)) {
       return;
@@ -543,8 +571,16 @@ export default function UsersPage() {
                         <button
                           onClick={() => openEditForm(user)}
                           className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 transition-colors"
+                          disabled={isSubmitting}
                         >
                           Edit
+                        </button>
+                        <button
+                          onClick={() => handleResendAccess(user.email)}
+                          className="text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 transition-colors"
+                          disabled={isSubmitting}
+                        >
+                          Resend Access
                         </button>
                         <button
                           onClick={() => handleDeleteUser(user.id, user.email)}
