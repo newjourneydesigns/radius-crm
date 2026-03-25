@@ -10,6 +10,7 @@ import type {
   BoardLabel,
   CardComment,
   CardChecklist,
+  CardChecklistGroup,
   CardPriority,
   ChecklistTemplate,
   CardAssignment,
@@ -123,10 +124,13 @@ export function useProjectBoard() {
       let allLabelAssignments: any[] = [];
       let allCardAssignments: any[] = [];
 
+      let allChecklistGroups: any[] = [];
+
       if (cardIds.length > 0) {
-        const [commentsRes, checklistsRes, labelAssignmentsRes, cardAssignmentsRes] = await Promise.all([
+        const [commentsRes, checklistsRes, checklistGroupsRes, labelAssignmentsRes, cardAssignmentsRes] = await Promise.all([
           supabase.from('card_comments').select('*').in('card_id', cardIds).order('created_at', { ascending: true }),
           supabase.from('card_checklists').select('*').in('card_id', cardIds).order('position'),
+          supabase.from('card_checklist_groups').select('*').in('card_id', cardIds).order('position'),
           supabase.from('card_label_assignments').select('*').in('card_id', cardIds),
           supabase.from('card_assignments').select('*').in('card_id', cardIds),
         ]);
@@ -140,6 +144,7 @@ export function useProjectBoard() {
           allComments = rawComments;
         }
         allChecklists = checklistsRes.data || [];
+        allChecklistGroups = checklistGroupsRes.data || [];
         allLabelAssignments = labelAssignmentsRes.data || [];
         // Enrich assignments with user data from public.users
         const rawAssignments = cardAssignmentsRes.data || [];
@@ -156,6 +161,7 @@ export function useProjectBoard() {
         ...card,
         comments: allComments.filter(cm => cm.card_id === card.id),
         checklists: allChecklists.filter(cl => cl.card_id === card.id),
+        checklist_groups: allChecklistGroups.filter(g => g.card_id === card.id),
         labels: allLabelAssignments
           .filter(a => a.card_id === card.id)
           .map(a => labels.find(l => l.id === a.label_id))
@@ -768,7 +774,7 @@ export function useProjectBoard() {
   }, []);
 
   // ─── Checklists ────────────────────────────────────────────
-  const addChecklistItem = useCallback(async (boardId: string, cardId: string, title: string) => {
+  const addChecklistItem = useCallback(async (boardId: string, cardId: string, title: string, groupId?: string) => {
     setError(null);
     try {
       // Determine next position
@@ -777,7 +783,7 @@ export function useProjectBoard() {
 
       const { data, error: err } = await supabase
         .from('card_checklists')
-        .insert([{ card_id: cardId, title, position: maxPos + 1 }])
+        .insert([{ card_id: cardId, title, position: maxPos + 1, group_id: groupId || null }])
         .select()
         .single();
       if (err) throw err;
@@ -929,6 +935,82 @@ export function useProjectBoard() {
       if (err) throw err;
     } catch (err: any) {
       setError(err.message);
+    }
+  }, []);
+
+  // ─── Checklist Groups ──────────────────────────────────────
+  const addChecklistGroup = useCallback(async (boardId: string, cardId: string, title: string) => {
+    setError(null);
+    try {
+      const existing = board?.cards.find(c => c.id === cardId)?.checklist_groups || [];
+      const maxPos = existing.reduce((m: number, g: any) => Math.max(m, g.position), -1);
+      const { data, error: err } = await supabase
+        .from('card_checklist_groups')
+        .insert([{ card_id: cardId, title, position: maxPos + 1 }])
+        .select()
+        .single();
+      if (err) throw err;
+      setBoard(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          cards: prev.cards.map(c =>
+            c.id === cardId ? { ...c, checklist_groups: [...(c.checklist_groups || []), data] } : c
+          ),
+        };
+      });
+      return data as CardChecklistGroup;
+    } catch (err: any) {
+      setError(err.message);
+      return null;
+    }
+  }, [board?.cards]);
+
+  const renameChecklistGroup = useCallback(async (boardId: string, cardId: string, groupId: string, title: string) => {
+    setError(null);
+    setBoard(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        cards: prev.cards.map(c =>
+          c.id === cardId
+            ? { ...c, checklist_groups: (c.checklist_groups || []).map(g => g.id === groupId ? { ...g, title } : g) }
+            : c
+        ),
+      };
+    });
+    try {
+      const { error: err } = await supabase.from('card_checklist_groups').update({ title }).eq('id', groupId);
+      if (err) throw err;
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }, []);
+
+  const deleteChecklistGroup = useCallback(async (boardId: string, cardId: string, groupId: string) => {
+    setError(null);
+    try {
+      const { error: err } = await supabase.from('card_checklist_groups').delete().eq('id', groupId);
+      if (err) throw err;
+      setBoard(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          cards: prev.cards.map(c =>
+            c.id === cardId
+              ? {
+                  ...c,
+                  checklist_groups: (c.checklist_groups || []).filter(g => g.id !== groupId),
+                  checklists: (c.checklists || []).filter(cl => cl.group_id !== groupId),
+                }
+              : c
+          ),
+        };
+      });
+      return true;
+    } catch (err: any) {
+      setError(err.message);
+      return false;
     }
   }, []);
 
@@ -1165,6 +1247,7 @@ export function useProjectBoard() {
     addCard, updateCard, deleteCard, moveCard, moveToBoardCard, createNextRepeatCard, reorderCardsInColumn,
     addComment, updateComment, deleteComment,
     addChecklistItem, toggleChecklistItem, updateChecklistItemDueDate, deleteChecklistItem, renameChecklistItem, updateChecklistItemUrl,
+    addChecklistGroup, renameChecklistGroup, deleteChecklistGroup,
     fetchChecklistTemplates, saveChecklistTemplate, deleteChecklistTemplate, applyChecklistTemplate,
     addLabel, updateLabel, deleteLabel,
     assignCard, unassignCard, fetchSystemUsers,

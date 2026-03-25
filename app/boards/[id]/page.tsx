@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useProjectBoard, FullBoard } from '../../../hooks/useProjectBoard';
 import { useAuth } from '../../../contexts/AuthContext';
 import ProtectedRoute from '../../../components/ProtectedRoute';
-import type { BoardCard, BoardColumn, BoardLabel, CardPriority, ChecklistTemplate, ColumnAutomationAction, ProjectBoard } from '../../../lib/supabase';
+import type { BoardCard, BoardColumn, BoardLabel, CardChecklistGroup, CardPriority, ChecklistTemplate, ColumnAutomationAction, ProjectBoard } from '../../../lib/supabase';
 import {
   Plus, ArrowLeft, Search, MoreHorizontal, Trash2, Edit3,
   GripVertical, MessageSquare, CheckSquare, CalendarDays, Tag,
@@ -144,6 +144,9 @@ function CardDetailModal({
   onRenameChecklistItem,
   onUpdateChecklistItemUrl,
   onDeleteChecklistItem,
+  onAddChecklistGroup,
+  onRenameChecklistGroup,
+  onDeleteChecklistGroup,
   onMoveCard,
   onMoveToBoardCard,
   checklistTemplates,
@@ -163,12 +166,15 @@ function CardDetailModal({
   onAddComment: (content: string) => Promise<void>;
   onUpdateComment: (commentId: string, content: string) => Promise<void>;
   onDeleteComment: (commentId: string) => Promise<void>;
-  onAddChecklistItem: (title: string) => Promise<void>;
+  onAddChecklistItem: (title: string, groupId?: string) => Promise<void>;
   onToggleChecklistItem: (itemId: string, val: boolean) => Promise<void>;
   onUpdateChecklistDueDate: (itemId: string, dueDate: string | null) => Promise<void>;
   onRenameChecklistItem: (itemId: string, title: string) => Promise<void>;
   onUpdateChecklistItemUrl: (itemId: string, url: string | null) => Promise<void>;
   onDeleteChecklistItem: (itemId: string) => Promise<void>;
+  onAddChecklistGroup: (title: string) => Promise<CardChecklistGroup | null>;
+  onRenameChecklistGroup: (groupId: string, title: string) => Promise<void>;
+  onDeleteChecklistGroup: (groupId: string) => Promise<void>;
   onMoveCard: (newColumnId: string) => Promise<void>;
   onMoveToBoardCard: (targetBoardId: string, targetColumnId: string) => Promise<void>;
   checklistTemplates: ChecklistTemplate[];
@@ -198,6 +204,9 @@ function CardDetailModal({
   const [editingChecklistLinkId, setEditingChecklistLinkId] = useState<string | null>(null);
   const [editingChecklistUrl, setEditingChecklistUrl] = useState('');
   const [showingDateInputId, setShowingDateInputId] = useState<string | null>(null);
+  const [activeAddSection, setActiveAddSection] = useState<string | null>(null);
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editingGroupTitle, setEditingGroupTitle] = useState('');
   const [showLabelPicker, setShowLabelPicker] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [templateName, setTemplateName] = useState('');
@@ -281,7 +290,8 @@ function CardDetailModal({
 
   const handleAddChecklist = async () => {
     if (!checklistText.trim()) return;
-    await onAddChecklistItem(checklistText.trim());
+    const groupId = activeAddSection && activeAddSection !== '__ungrouped__' ? activeAddSection : undefined;
+    await onAddChecklistItem(checklistText.trim(), groupId);
     setChecklistText('');
   };
 
@@ -311,7 +321,166 @@ function CardDetailModal({
 
   const column = board.columns.find(c => c.id === card.column_id);
   const checklists = card.checklists || [];
+  const checklistGroups = card.checklist_groups || [];
+  const ungroupedItems = checklists.filter(cl => !cl.group_id);
   const completedCount = checklists.filter(c => c.is_completed).length;
+
+  const renderChecklistItem = (item: NonNullable<typeof checklists>[number]) => (
+    <React.Fragment key={item.id}>
+      <div className="kb-checklist-item">
+        <button
+          className={`kb-checkbox ${item.is_completed ? 'checked' : ''}`}
+          onClick={() => onToggleChecklistItem(item.id, !item.is_completed)}
+        >
+          {item.is_completed && <Check size={11} />}
+        </button>
+        {editingChecklistId === item.id ? (
+          <input
+            className="kb-input kb-checklist-edit-input"
+            value={editingChecklistTitle}
+            autoFocus
+            onChange={e => setEditingChecklistTitle(e.target.value)}
+            onBlur={() => {
+              if (editingChecklistTitle.trim() && editingChecklistTitle.trim() !== item.title) {
+                onRenameChecklistItem(item.id, editingChecklistTitle.trim());
+              }
+              setEditingChecklistId(null);
+            }}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                if (editingChecklistTitle.trim() && editingChecklistTitle.trim() !== item.title) {
+                  onRenameChecklistItem(item.id, editingChecklistTitle.trim());
+                }
+                setEditingChecklistId(null);
+              }
+              if (e.key === 'Escape') setEditingChecklistId(null);
+            }}
+            style={{ flex: 1 }}
+          />
+        ) : (
+          item.url ? (
+            <>
+              <span
+                className={`kb-checklist-text kb-checklist-link ${item.is_completed ? 'completed' : ''}`}
+                onClick={() => { setEditingChecklistLinkId(item.id); setEditingChecklistUrl(item.url || ''); }}
+                title="Click to edit link"
+                style={{ cursor: 'pointer' }}
+              >
+                {item.title}
+              </span>
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="kb-checklist-open-btn"
+                title={`Open: ${item.url}`}
+                onClick={e => e.stopPropagation()}
+              >
+                <ExternalLink size={11} />
+              </a>
+            </>
+          ) : (
+            <span
+              className={`kb-checklist-text ${item.is_completed ? 'completed' : ''}`}
+              onClick={() => { setEditingChecklistId(item.id); setEditingChecklistTitle(item.title); }}
+              title="Click to edit"
+              style={{ cursor: 'text' }}
+            >
+              {item.title}
+            </span>
+          )
+        )}
+        <button
+          className={`kb-btn-icon-sm${item.url ? ' kb-checklist-link-active' : ''}`}
+          onClick={() => {
+            if (editingChecklistLinkId === item.id) {
+              setEditingChecklistLinkId(null);
+            } else {
+              setEditingChecklistLinkId(item.id);
+              setEditingChecklistUrl(item.url || '');
+            }
+          }}
+          title={item.url ? 'Edit link' : 'Add link'}
+        >
+          <LinkIcon size={11} />
+        </button>
+        <div className="kb-checklist-due-wrapper">
+          {showingDateInputId === item.id ? (
+            <input
+              type="date"
+              className="kb-checklist-due-input-edit"
+              value={item.due_date || ''}
+              autoFocus
+              onChange={e => { onUpdateChecklistDueDate(item.id, e.target.value || null); setShowingDateInputId(null); }}
+              onBlur={() => setShowingDateInputId(null)}
+              onKeyDown={e => { if (e.key === 'Escape') setShowingDateInputId(null); }}
+            />
+          ) : item.due_date ? (() => {
+            const d = new Date(item.due_date + 'T00:00:00');
+            const today = new Date(new Date().toDateString());
+            const isOverdue = !item.is_completed && d < today;
+            const isDueToday = !item.is_completed && d.toDateString() === today.toDateString();
+            const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            return (
+              <button
+                className={`kb-checklist-date-badge${isOverdue ? ' overdue' : isDueToday ? ' due-today' : ''}`}
+                onClick={() => setShowingDateInputId(item.id)}
+                title={`Due ${d.toLocaleDateString()} — click to change`}
+              >
+                <CalendarDays size={10} />
+                {label}
+              </button>
+            );
+          })() : (
+            <button
+              className="kb-checklist-date-btn"
+              onClick={() => setShowingDateInputId(item.id)}
+              title="Set due date"
+            >
+              <CalendarDays size={11} />
+            </button>
+          )}
+        </div>
+        <button className="kb-btn-icon-sm" onClick={() => onDeleteChecklistItem(item.id)}>
+          <X size={11} />
+        </button>
+      </div>
+      {editingChecklistLinkId === item.id && (
+        <div className="kb-checklist-url-row">
+          <LinkIcon size={11} style={{ color: '#8da9c4', flexShrink: 0 }} />
+          <input
+            className="kb-input kb-checklist-url-input"
+            value={editingChecklistUrl}
+            autoFocus
+            placeholder="https://..."
+            onChange={e => setEditingChecklistUrl(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                const val = editingChecklistUrl.trim() || null;
+                onUpdateChecklistItemUrl(item.id, val);
+                setEditingChecklistLinkId(null);
+              }
+              if (e.key === 'Escape') setEditingChecklistLinkId(null);
+            }}
+          />
+          <button
+            className="kb-btn kb-btn-primary kb-btn-sm"
+            onClick={() => {
+              const val = editingChecklistUrl.trim() || null;
+              onUpdateChecklistItemUrl(item.id, val);
+              setEditingChecklistLinkId(null);
+            }}
+          >Save</button>
+          {item.url && (
+            <button
+              className="kb-btn kb-btn-sm"
+              onClick={() => { onUpdateChecklistItemUrl(item.id, null); setEditingChecklistLinkId(null); }}
+            >Remove</button>
+          )}
+        </div>
+      )}
+    </React.Fragment>
+  );
 
   return (
     <div className="kb-modal-overlay" onClick={handleClose}>
@@ -403,193 +572,186 @@ function CardDetailModal({
               </div>
             </div>
 
-            {/* Checklist */}
+            {/* Checklists */}
             <div style={{ marginBottom: 16 }}>
               <div className="kb-detail-section-label">
                 <CheckSquare size={13} />
-                Checklist {checklists.length > 0 && `(${completedCount}/${checklists.length})`}
+                Checklists {checklists.length > 0 && `(${completedCount}/${checklists.length})`}
+                <button
+                  className="kb-btn-icon-sm"
+                  title="Add checklist"
+                  onClick={async () => {
+                    const newGroup = await onAddChecklistGroup('New Checklist');
+                    if (newGroup) { setEditingGroupId(newGroup.id); setEditingGroupTitle(newGroup.title); }
+                  }}
+                >
+                  <Plus size={12} />
+                </button>
               </div>
+
+              {/* Overall progress bar */}
               {checklists.length > 0 && (
                 <div className="kb-checklist-progress">
                   <div className="kb-checklist-bar">
-                    <div
-                      className="kb-checklist-fill"
-                      style={{ width: `${checklists.length > 0 ? (completedCount / checklists.length) * 100 : 0}%` }}
-                    />
+                    <div className="kb-checklist-fill" style={{ width: `${(completedCount / checklists.length) * 100}%` }} />
                   </div>
                 </div>
               )}
-              <div className="kb-checklist-items">
-                {checklists.map(item => (
-                  <React.Fragment key={item.id}>
-                  <div className="kb-checklist-item">
-                    <button
-                      className={`kb-checkbox ${item.is_completed ? 'checked' : ''}`}
-                      onClick={() => onToggleChecklistItem(item.id, !item.is_completed)}
-                    >
-                      {item.is_completed && <Check size={11} />}
-                    </button>
-                    {editingChecklistId === item.id ? (
-                      <input
-                        className="kb-input kb-checklist-edit-input"
-                        value={editingChecklistTitle}
-                        autoFocus
-                        onChange={e => setEditingChecklistTitle(e.target.value)}
-                        onBlur={() => {
-                          if (editingChecklistTitle.trim() && editingChecklistTitle.trim() !== item.title) {
-                            onRenameChecklistItem(item.id, editingChecklistTitle.trim());
-                          }
-                          setEditingChecklistId(null);
-                        }}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') {
-                            if (editingChecklistTitle.trim() && editingChecklistTitle.trim() !== item.title) {
-                              onRenameChecklistItem(item.id, editingChecklistTitle.trim());
+
+              {/* Ungrouped items */}
+              {ungroupedItems.length > 0 && (
+                <div className="kb-checklist-items">
+                  {ungroupedItems.map(item => renderChecklistItem(item))}
+                </div>
+              )}
+
+              {/* Ungrouped add row — always visible when no groups exist, button otherwise */}
+              {checklistGroups.length === 0 ? (
+                activeAddSection === '__ungrouped__' ? (
+                  <div className="kb-checklist-add">
+                    <input
+                      className="kb-input"
+                      value={checklistText}
+                      autoFocus
+                      onChange={e => setChecklistText(e.target.value)}
+                      placeholder="Add checklist item..."
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleAddChecklist();
+                        if (e.key === 'Escape') { setActiveAddSection(null); setChecklistText(''); }
+                      }}
+                      style={{ flex: 1 }}
+                    />
+                    <button className="kb-btn kb-btn-primary kb-btn-sm" onClick={handleAddChecklist} disabled={!checklistText.trim()}>Add</button>
+                    <button className="kb-btn kb-btn-sm" onClick={() => { setActiveAddSection(null); setChecklistText(''); }}>Cancel</button>
+                  </div>
+                ) : (
+                  <div className="kb-checklist-add">
+                    <input
+                      className="kb-input"
+                      value={checklistText}
+                      onChange={e => setChecklistText(e.target.value)}
+                      placeholder="Add checklist item..."
+                      onKeyDown={e => e.key === 'Enter' && handleAddChecklist()}
+                      style={{ flex: 1 }}
+                    />
+                    <button className="kb-btn kb-btn-primary kb-btn-sm" onClick={handleAddChecklist} disabled={!checklistText.trim()}>Add</button>
+                  </div>
+                )
+              ) : ungroupedItems.length > 0 && (
+                activeAddSection === '__ungrouped__' ? (
+                  <div className="kb-checklist-add" style={{ marginBottom: 8 }}>
+                    <input
+                      className="kb-input"
+                      value={checklistText}
+                      autoFocus
+                      onChange={e => setChecklistText(e.target.value)}
+                      placeholder="Add item..."
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleAddChecklist();
+                        if (e.key === 'Escape') { setActiveAddSection(null); setChecklistText(''); }
+                      }}
+                      style={{ flex: 1 }}
+                    />
+                    <button className="kb-btn kb-btn-primary kb-btn-sm" onClick={handleAddChecklist} disabled={!checklistText.trim()}>Add</button>
+                    <button className="kb-btn kb-btn-sm" onClick={() => { setActiveAddSection(null); setChecklistText(''); }}>Cancel</button>
+                  </div>
+                ) : (
+                  <button
+                    className="kb-btn kb-btn-ghost kb-btn-sm kb-checklist-add-btn"
+                    onClick={() => { setActiveAddSection('__ungrouped__'); setChecklistText(''); }}
+                  >
+                    <Plus size={12} /> Add item
+                  </button>
+                )
+              )}
+
+              {/* Named checklist groups */}
+              {checklistGroups.map(group => {
+                const groupItems = checklists.filter(cl => cl.group_id === group.id);
+                const groupDone = groupItems.filter(cl => cl.is_completed).length;
+                return (
+                  <div key={group.id} className="kb-checklist-group">
+                    <div className="kb-checklist-group-header">
+                      {editingGroupId === group.id ? (
+                        <input
+                          className="kb-input kb-checklist-group-title-input"
+                          value={editingGroupTitle}
+                          autoFocus
+                          onChange={e => setEditingGroupTitle(e.target.value)}
+                          onBlur={() => {
+                            if (editingGroupTitle.trim() && editingGroupTitle.trim() !== group.title) {
+                              onRenameChecklistGroup(group.id, editingGroupTitle.trim());
                             }
-                            setEditingChecklistId(null);
-                          }
-                          if (e.key === 'Escape') setEditingChecklistId(null);
-                        }}
-                        style={{ flex: 1 }}
-                      />
-                    ) : (
-                      item.url ? (
-                        <>
-                          <span
-                            className={`kb-checklist-text kb-checklist-link ${item.is_completed ? 'completed' : ''}`}
-                            onClick={() => { setEditingChecklistLinkId(item.id); setEditingChecklistUrl(item.url || ''); }}
-                            title="Click to edit link"
-                            style={{ cursor: 'pointer' }}
-                          >
-                            {item.title}
-                          </span>
-                          <a
-                            href={item.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="kb-checklist-open-btn"
-                            title={`Open: ${item.url}`}
-                            onClick={e => e.stopPropagation()}
-                          >
-                            <ExternalLink size={11} />
-                          </a>
-                        </>
+                            setEditingGroupId(null);
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              if (editingGroupTitle.trim()) onRenameChecklistGroup(group.id, editingGroupTitle.trim());
+                              setEditingGroupId(null);
+                            }
+                            if (e.key === 'Escape') setEditingGroupId(null);
+                          }}
+                        />
                       ) : (
                         <span
-                          className={`kb-checklist-text ${item.is_completed ? 'completed' : ''}`}
-                          onClick={() => { setEditingChecklistId(item.id); setEditingChecklistTitle(item.title); }}
-                          title="Click to edit"
-                          style={{ cursor: 'text' }}
+                          className="kb-checklist-group-title"
+                          onClick={() => { setEditingGroupId(group.id); setEditingGroupTitle(group.title); }}
+                          title="Click to rename"
                         >
-                          {item.title}
+                          {group.title}
                         </span>
-                      )
-                    )}
-                    <button
-                      className={`kb-btn-icon-sm${item.url ? ' kb-checklist-link-active' : ''}`}
-                      onClick={() => {
-                        if (editingChecklistLinkId === item.id) {
-                          setEditingChecklistLinkId(null);
-                        } else {
-                          setEditingChecklistLinkId(item.id);
-                          setEditingChecklistUrl(item.url || '');
-                        }
-                      }}
-                      title={item.url ? 'Edit link' : 'Add link'}
-                    >
-                      <LinkIcon size={11} />
-                    </button>
-                    <div className="kb-checklist-due-wrapper">
-                      {showingDateInputId === item.id ? (
-                        <input
-                          type="date"
-                          className="kb-checklist-due-input-edit"
-                          value={item.due_date || ''}
-                          autoFocus
-                          onChange={e => { onUpdateChecklistDueDate(item.id, e.target.value || null); setShowingDateInputId(null); }}
-                          onBlur={() => setShowingDateInputId(null)}
-                          onKeyDown={e => { if (e.key === 'Escape') setShowingDateInputId(null); }}
-                        />
-                      ) : item.due_date ? (() => {
-                        const d = new Date(item.due_date + 'T00:00:00');
-                        const today = new Date(new Date().toDateString());
-                        const isOverdue = !item.is_completed && d < today;
-                        const isDueToday = !item.is_completed && d.toDateString() === today.toDateString();
-                        const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                        return (
-                          <button
-                            className={`kb-checklist-date-badge${isOverdue ? ' overdue' : isDueToday ? ' due-today' : ''}`}
-                            onClick={() => setShowingDateInputId(item.id)}
-                            title={`Due ${d.toLocaleDateString()} — click to change`}
-                          >
-                            <CalendarDays size={10} />
-                            {label}
-                          </button>
-                        );
-                      })() : (
-                        <button
-                          className="kb-checklist-date-btn"
-                          onClick={() => setShowingDateInputId(item.id)}
-                          title="Set due date"
-                        >
-                          <CalendarDays size={11} />
-                        </button>
                       )}
-                    </div>
-                    <button className="kb-btn-icon-sm" onClick={() => onDeleteChecklistItem(item.id)}>
-                      <X size={11} />
-                    </button>
-                  </div>
-                  {editingChecklistLinkId === item.id && (
-                    <div className="kb-checklist-url-row">
-                      <LinkIcon size={11} style={{ color: '#8da9c4', flexShrink: 0 }} />
-                      <input
-                        className="kb-input kb-checklist-url-input"
-                        value={editingChecklistUrl}
-                        autoFocus
-                        placeholder="https://..."
-                        onChange={e => setEditingChecklistUrl(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') {
-                            const val = editingChecklistUrl.trim() || null;
-                            onUpdateChecklistItemUrl(item.id, val);
-                            setEditingChecklistLinkId(null);
-                          }
-                          if (e.key === 'Escape') setEditingChecklistLinkId(null);
-                        }}
-                      />
+                      {groupItems.length > 0 && (
+                        <span className="kb-checklist-group-count">{groupDone}/{groupItems.length}</span>
+                      )}
                       <button
-                        className="kb-btn kb-btn-primary kb-btn-sm"
-                        onClick={() => {
-                          const val = editingChecklistUrl.trim() || null;
-                          onUpdateChecklistItemUrl(item.id, val);
-                          setEditingChecklistLinkId(null);
-                        }}
-                      >Save</button>
-                      {item.url && (
-                        <button
-                          className="kb-btn kb-btn-sm"
-                          onClick={() => { onUpdateChecklistItemUrl(item.id, null); setEditingChecklistLinkId(null); }}
-                        >Remove</button>
-                      )}
+                        className="kb-btn-icon-sm"
+                        onClick={() => { if (confirm(`Delete "${group.title}" and all its items?`)) onDeleteChecklistGroup(group.id); }}
+                        title="Delete checklist"
+                      >
+                        <Trash2 size={11} />
+                      </button>
                     </div>
-                  )}
-                  </React.Fragment>
-                ))}
-              </div>
-              <div className="kb-checklist-add">
-                <input
-                  className="kb-input"
-                  value={checklistText}
-                  onChange={e => setChecklistText(e.target.value)}
-                  placeholder="Add checklist item..."
-                  onKeyDown={e => e.key === 'Enter' && handleAddChecklist()}
-                  style={{ flex: 1 }}
-                />
-                <button className="kb-btn kb-btn-primary kb-btn-sm" onClick={handleAddChecklist} disabled={!checklistText.trim()}>
-                  Add
-                </button>
-              </div>
+                    {groupItems.length > 0 && (
+                      <>
+                        <div className="kb-checklist-progress" style={{ marginTop: 4, marginBottom: 6 }}>
+                          <div className="kb-checklist-bar">
+                            <div className="kb-checklist-fill" style={{ width: `${(groupDone / groupItems.length) * 100}%` }} />
+                          </div>
+                        </div>
+                        <div className="kb-checklist-items">
+                          {groupItems.map(item => renderChecklistItem(item))}
+                        </div>
+                      </>
+                    )}
+                    {activeAddSection === group.id ? (
+                      <div className="kb-checklist-add" style={{ marginTop: 4 }}>
+                        <input
+                          className="kb-input"
+                          value={checklistText}
+                          autoFocus
+                          onChange={e => setChecklistText(e.target.value)}
+                          placeholder="Add item..."
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') handleAddChecklist();
+                            if (e.key === 'Escape') { setActiveAddSection(null); setChecklistText(''); }
+                          }}
+                          style={{ flex: 1 }}
+                        />
+                        <button className="kb-btn kb-btn-primary kb-btn-sm" onClick={handleAddChecklist} disabled={!checklistText.trim()}>Add</button>
+                        <button className="kb-btn kb-btn-sm" onClick={() => { setActiveAddSection(null); setChecklistText(''); }}>Cancel</button>
+                      </div>
+                    ) : (
+                      <button
+                        className="kb-btn kb-btn-ghost kb-btn-sm kb-checklist-add-btn"
+                        onClick={() => { setActiveAddSection(group.id); setChecklistText(''); }}
+                      >
+                        <Plus size={12} /> Add item
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
 
               {/* Template actions */}
               <div className="kb-template-actions">
@@ -2309,6 +2471,7 @@ function BoardPage() {
     addCard, updateCard, deleteCard, moveCard, moveToBoardCard, reorderCardsInColumn,
     addComment, updateComment, deleteComment,
     addChecklistItem, toggleChecklistItem, updateChecklistItemDueDate, deleteChecklistItem, renameChecklistItem, updateChecklistItemUrl,
+    addChecklistGroup, renameChecklistGroup, deleteChecklistGroup,
     fetchChecklistTemplates, saveChecklistTemplate, deleteChecklistTemplate, applyChecklistTemplate,
     checklistTemplates,
     addLabel, updateLabel, deleteLabel,
@@ -2402,6 +2565,7 @@ function BoardPage() {
 
   const newCardRef = useRef<HTMLInputElement>(null);
   const newColRef = useRef<HTMLInputElement>(null);
+  const addingCardRef = useRef(false);
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -2725,8 +2889,10 @@ function BoardPage() {
 
   // ── Quick add card ──
   const handleQuickAddCard = async (colId: string) => {
-    if (!newCardTitle.trim()) return;
+    if (!newCardTitle.trim() || addingCardRef.current) return;
+    addingCardRef.current = true;
     await addCard(boardId, { column_id: colId, title: newCardTitle });
+    addingCardRef.current = false;
     setNewCardTitle('');
     setAddingCardCol(null);
   };
@@ -3427,12 +3593,15 @@ function BoardPage() {
           onAddComment={async (content) => { await addComment(boardId, activeCard.id, content); }}
           onUpdateComment={async (commentId, content) => { await updateComment(boardId, activeCard.id, commentId, content); }}
           onDeleteComment={async (commentId) => { await deleteComment(boardId, activeCard.id, commentId); }}
-          onAddChecklistItem={async (title) => { await addChecklistItem(boardId, activeCard.id, title); }}
+          onAddChecklistItem={async (title, groupId) => { await addChecklistItem(boardId, activeCard.id, title, groupId); }}
           onToggleChecklistItem={async (itemId, val) => { await toggleChecklistItem(boardId, activeCard.id, itemId, val); }}
           onUpdateChecklistDueDate={async (itemId, dueDate) => { await updateChecklistItemDueDate(boardId, activeCard.id, itemId, dueDate); }}
           onRenameChecklistItem={async (itemId, title) => { await renameChecklistItem(boardId, activeCard.id, itemId, title); }}
           onUpdateChecklistItemUrl={async (itemId, url) => { await updateChecklistItemUrl(boardId, activeCard.id, itemId, url); }}
           onDeleteChecklistItem={async (itemId) => { await deleteChecklistItem(boardId, activeCard.id, itemId); }}
+          onAddChecklistGroup={async (title) => await addChecklistGroup(boardId, activeCard.id, title)}
+          onRenameChecklistGroup={async (groupId, title) => { await renameChecklistGroup(boardId, activeCard.id, groupId, title); }}
+          onDeleteChecklistGroup={async (groupId) => { await deleteChecklistGroup(boardId, activeCard.id, groupId); }}
           onMoveCard={async (newColumnId) => {
             await moveCard(boardId, activeCard.id, newColumnId, 0);
             await runColumnAutomations(activeCard.id, newColumnId);
@@ -4601,6 +4770,46 @@ const kanbanStyles = `
   }
   .kb-checklist-due-input-edit::-webkit-calendar-picker-indicator { filter: invert(0.7); cursor: pointer; }
   .kb-checklist-add { display: flex; gap: 8px; align-items: center; }
+  .kb-checklist-add-btn {
+    font-size: 12px !important; gap: 4px; padding: 4px 8px !important; margin-top: 4px;
+  }
+
+  /* ── Checklist Groups ── */
+  .kb-checklist-group {
+    margin-top: 14px;
+    border-top: 1px solid #252836;
+    padding-top: 10px;
+  }
+  .kb-checklist-group-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .kb-checklist-group-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: text;
+    flex: 1;
+  }
+  .kb-checklist-group-title:hover { color: #d1d5db; }
+  .kb-checklist-group-title-input {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    padding: 2px 6px !important;
+    height: auto !important;
+    flex: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .kb-checklist-group-count {
+    font-size: 11px;
+    color: #6b7280;
+    flex-shrink: 0;
+  }
 
   /* ── Checklist Templates ── */
   .kb-template-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }

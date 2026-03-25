@@ -385,6 +385,7 @@ export interface BoardCard {
   labels?: BoardLabel[];
   comments?: CardComment[];
   checklists?: CardChecklist[];
+  checklist_groups?: CardChecklistGroup[];
   assignments?: CardAssignment[];
 }
 
@@ -406,11 +407,20 @@ export interface CardComment {
 export interface CardChecklist {
   id: string;
   card_id: string;
+  group_id?: string;
   title: string;
   is_completed: boolean;
   position: number;
   due_date?: string;
   url?: string;
+  created_at: string;
+}
+
+export interface CardChecklistGroup {
+  id: string;
+  card_id: string;
+  title: string;
+  position: number;
   created_at: string;
 }
 
