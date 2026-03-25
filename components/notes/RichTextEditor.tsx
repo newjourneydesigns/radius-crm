@@ -352,6 +352,13 @@ export default function RichTextEditor({
           onInput={handleInput}
           onCompositionStart={() => { isComposing.current = true; }}
           onCompositionEnd={() => { isComposing.current = false; handleInput(); }}
+          onClick={(e) => {
+            const target = (e.target as HTMLElement).closest('a');
+            if (target?.href) {
+              e.preventDefault();
+              window.open(target.href, '_blank', 'noopener,noreferrer');
+            }
+          }}
           className={`px-3 py-2 text-sm text-gray-900 dark:text-white outline-none break-words overflow-auto
             ${disabled ? 'opacity-60 cursor-not-allowed' : ''}
             [&_a]:text-blue-600 [&_a]:dark:text-blue-400 [&_a]:underline
