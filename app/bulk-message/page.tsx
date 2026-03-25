@@ -5,6 +5,8 @@ import Link from 'next/link';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase, CircleLeader } from '../../lib/supabase';
+import CCBPersonLookup from '../../components/ui/CCBPersonLookup';
+import type { CCBPerson } from '../../components/ui/CCBPersonLookup';
 
 // ─── Types ────────────────────────────────────────────────────
 enum SendStatus { IDLE = 'IDLE', SENDING = 'SENDING', COMPLETED = 'COMPLETED' }
@@ -21,6 +23,7 @@ interface Recipient {
   day?: string;
   acpd?: string;
   isAdditionalLeader?: boolean;
+  isFromCCB?: boolean;
   circleLeaderName?: string;
   additionalLeaderName?: string;
   additionalLeaderPhone?: string;
@@ -39,8 +42,16 @@ interface MessageTemplate {
   content: string;
 }
 
+// ─── Types ────────────────────────────────────────────────────
+interface SavedRecipientList {
+  id: string;
+  name: string;
+  people: Pick<Recipient, 'id' | 'name' | 'firstName' | 'phone'>[];
+}
+
 // ─── Helpers ──────────────────────────────────────────────────
 const TEMPLATES_STORAGE_KEY = 'radius_bulk_msg_templates_v1';
+const LISTS_STORAGE_KEY = 'radius_bulk_msg_lists_v1';
 
 const loadTemplates = (): MessageTemplate[] => {
   if (typeof window === 'undefined') return [];
@@ -52,6 +63,31 @@ const loadTemplates = (): MessageTemplate[] => {
 
 const saveTemplates = (templates: MessageTemplate[]) => {
   localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(templates));
+};
+
+const loadSavedLists = (): SavedRecipientList[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(LISTS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+};
+
+const saveSavedLists = (lists: SavedRecipientList[]) => {
+  localStorage.setItem(LISTS_STORAGE_KEY, JSON.stringify(lists));
+};
+
+const ccbPersonToRecipient = (person: CCBPerson): Recipient | null => {
+  const phone = normalizePhone(person.mobilePhone || person.phone);
+  if (phone.length < 7) return null;
+  const ccbId = parseInt(person.id, 10);
+  return {
+    id: isNaN(ccbId) ? -(person.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0)) : ccbId,
+    name: person.fullName,
+    firstName: person.firstName,
+    phone,
+    isFromCCB: true,
+  };
 };
 
 const resolveMessage = (template: string, recipient: Recipient): string => {
@@ -147,8 +183,19 @@ function BulkMessageContent() {
   const [logs, setLogs] = useState<SendLog[]>([]);
   const [copyFeedback, setCopyFeedback] = useState(false);
 
+  // CCB manual recipient state
+  const [ccbRecipients, setCcbRecipients] = useState<Recipient[]>([]);
+  const [savedLists, setSavedLists] = useState<SavedRecipientList[]>(() => loadSavedLists());
+  const [selectedListId, setSelectedListId] = useState('');
+  const [listNameInput, setListNameInput] = useState('');
+  const [showSaveList, setShowSaveList] = useState(false);
+  const [ccbLookupKey, setCcbLookupKey] = useState(0);
+
   // Persist templates
   useEffect(() => { saveTemplates(templates); }, [templates]);
+
+  // Persist saved lists
+  useEffect(() => { saveSavedLists(savedLists); }, [savedLists]);
 
   // ─── Load circle leaders ───────────────────────────────────
   const loadLeaders = useCallback(async () => {
@@ -241,6 +288,14 @@ function BulkMessageContent() {
       }
     }
 
+    // Merge CCB-added recipients (deduped by phone)
+    for (const r of ccbRecipients) {
+      if (!seenPhones.has(r.phone)) {
+        seenPhones.add(r.phone);
+        result.push(r);
+      }
+    }
+
     // Apply search filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -253,7 +308,7 @@ function BulkMessageContent() {
     }
 
     return result;
-  }, [leaders, filterCampus, filterStatus, filterCircleType, filterDay, filterAcpd, searchQuery, includeAdditionalLeaders]);
+  }, [leaders, filterCampus, filterStatus, filterCircleType, filterDay, filterAcpd, searchQuery, includeAdditionalLeaders, ccbRecipients]);
 
   // ─── Current / next recipient ──────────────────────────────
   const currentRecipient = recipients[currentIndex] || null;
@@ -380,6 +435,47 @@ function BulkMessageContent() {
     setSendStatus(SendStatus.IDLE);
     setCurrentIndex(0);
     setLogs([]);
+  };
+
+  // ─── CCB recipient helpers ─────────────────────────────────
+  const handleAddCCBPerson = useCallback((person: CCBPerson) => {
+    const r = ccbPersonToRecipient(person);
+    if (!r) return;
+    setCcbRecipients(prev => {
+      if (prev.some(p => p.phone === r.phone)) return prev;
+      return [...prev, r];
+    });
+    setCcbLookupKey(k => k + 1);
+  }, []);
+
+  const handleRemoveCCBRecipient = (phone: string) => {
+    setCcbRecipients(prev => prev.filter(r => r.phone !== phone));
+  };
+
+  const handleSaveList = () => {
+    if (!listNameInput.trim() || ccbRecipients.length === 0) return;
+    const newList: SavedRecipientList = {
+      id: `l-${Date.now()}`,
+      name: listNameInput.trim(),
+      people: ccbRecipients.map(r => ({ id: r.id, name: r.name, firstName: r.firstName, phone: r.phone })),
+    };
+    setSavedLists(prev => [...prev, newList]);
+    setSelectedListId(newList.id);
+    setListNameInput('');
+    setShowSaveList(false);
+  };
+
+  const handleLoadList = (listId: string) => {
+    const list = savedLists.find(l => l.id === listId);
+    if (!list) { setSelectedListId(''); return; }
+    setCcbRecipients(list.people.map(p => ({ ...p, isFromCCB: true })));
+    setSelectedListId(listId);
+  };
+
+  const handleDeleteList = () => {
+    if (!selectedListId) return;
+    setSavedLists(prev => prev.filter(l => l.id !== selectedListId));
+    setSelectedListId('');
   };
 
   // ─── Filter toggle helpers ─────────────────────────────────
@@ -611,6 +707,113 @@ function BulkMessageContent() {
               </div>
             </section>
 
+            {/* ── Add from CCB ── */}
+            <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-lg">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-bold text-teal-400 uppercase tracking-wider flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3M13.5 4.5a6 6 0 11-12 0 6 6 0 0112 0zM1.5 19.5a6 6 0 0112 0" />
+                  </svg>
+                  Add from CCB
+                </h2>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={selectedListId}
+                    onChange={(e) => handleLoadList(e.target.value)}
+                    className="bg-gray-800 text-[11px] font-medium rounded-lg px-3 py-1.5 border border-gray-700 outline-none text-gray-300 focus:ring-1 focus:ring-teal-500"
+                  >
+                    <option value="">Saved Lists</option>
+                    {savedLists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                  </select>
+                  {selectedListId && (
+                    <button
+                      onClick={handleDeleteList}
+                      className="px-2.5 py-1 text-[10px] font-bold text-rose-400 uppercase hover:bg-rose-500/10 border border-gray-700 rounded-lg transition-colors"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Search */}
+              <CCBPersonLookup
+                key={ccbLookupKey}
+                onSelect={handleAddCCBPerson}
+                placeholder="Search CCB by name or phone..."
+                label="Search & Add Person"
+                size="sm"
+              />
+
+              {/* Added people chips */}
+              {ccbRecipients.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {ccbRecipients.map(r => (
+                    <div
+                      key={r.phone}
+                      className="flex items-center gap-1.5 bg-gray-800 border border-gray-700 px-2.5 py-1 rounded-lg text-xs"
+                    >
+                      <span className="text-white font-medium">{r.name}</span>
+                      <span className="text-gray-500 font-mono text-[10px]">{r.phone}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCCBRecipient(r.phone)}
+                        className="text-gray-500 hover:text-rose-400 transition-colors ml-0.5 leading-none font-bold"
+                        aria-label={`Remove ${r.name}`}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setCcbRecipients([])}
+                    className="text-[10px] font-bold text-gray-500 hover:text-rose-400 uppercase transition-colors self-center ml-1"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              )}
+
+              {/* Save list controls */}
+              <div className="flex items-center gap-2 mt-3">
+                {showSaveList ? (
+                  <>
+                    <input
+                      type="text"
+                      value={listNameInput}
+                      onChange={(e) => setListNameInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSaveList()}
+                      placeholder="List name..."
+                      className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:ring-1 focus:ring-teal-500 placeholder:text-gray-600"
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleSaveList}
+                      disabled={!listNameInput.trim()}
+                      className="px-3 py-1.5 text-[10px] font-bold text-teal-400 uppercase bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/20 rounded-lg transition-all disabled:opacity-30"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => { setShowSaveList(false); setListNameInput(''); }}
+                      className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase hover:bg-gray-800 border border-gray-700 rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setShowSaveList(true)}
+                    disabled={ccbRecipients.length === 0}
+                    className="px-3 py-1.5 text-[10px] font-bold text-teal-400 uppercase bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/20 rounded-lg transition-all disabled:opacity-30"
+                  >
+                    Save as List
+                  </button>
+                )}
+              </div>
+            </section>
+
             {/* ── Recipient Preview Table ── */}
             <section className="bg-gray-900 border border-gray-800 rounded-2xl shadow-lg overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
@@ -642,6 +845,7 @@ function BulkMessageContent() {
                         <th className="text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider px-4 py-2">Phone</th>
                         <th className="text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider px-4 py-2 hidden sm:table-cell">Day</th>
                         <th className="text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider px-4 py-2 hidden md:table-cell">Campus</th>
+                        <th className="px-2 py-2"></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-800/50">
@@ -659,6 +863,9 @@ function BulkMessageContent() {
                               {r.isAdditionalLeader && (
                                 <span className="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded font-bold uppercase">Additional</span>
                               )}
+                              {r.isFromCCB && (
+                                <span className="text-[9px] bg-teal-500/20 text-teal-400 px-1.5 py-0.5 rounded font-bold uppercase">CCB</span>
+                              )}
                             </div>
                             {r.isAdditionalLeader && r.circleLeaderName && (
                               <p className="text-[10px] text-gray-500 mt-0.5">{r.circleLeaderName}&apos;s Circle</p>
@@ -667,6 +874,18 @@ function BulkMessageContent() {
                           <td className="px-4 py-2 text-gray-400 font-mono text-xs">{r.phone}</td>
                           <td className="px-4 py-2 text-gray-500 text-xs hidden sm:table-cell">{r.day || '—'}</td>
                           <td className="px-4 py-2 text-gray-500 text-xs hidden md:table-cell">{r.campus || '—'}</td>
+                          <td className="px-2 py-2">
+                            {r.isFromCCB && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveCCBRecipient(r.phone)}
+                                className="text-gray-600 hover:text-rose-400 transition-colors font-bold text-base leading-none"
+                                aria-label={`Remove ${r.name}`}
+                              >
+                                ×
+                              </button>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>

@@ -383,33 +383,118 @@ function DateBadge({ date, color }: { date: string; color?: string }) {
   );
 }
 
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+
+const SK = '#252836'; // shimmer element color
+
+function SkEl({ w, h, r = 5, style }: { w: number | string; h: number; r?: number; style?: React.CSSProperties }) {
+  return <div className="sk" style={{ width: w, height: h, borderRadius: r, flexShrink: 0, ...style }} />;
+}
+
+function TodaySkeleton() {
+  const sectionRows = [3, 2, 4, 2];
+  return (
+    <div style={{
+      maxWidth: 720, margin: '0 auto',
+      padding: '20px 16px 100px',
+      minHeight: 'calc(100vh - 60px)',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
+    }}>
+      <style>{`
+        @keyframes sk-pulse { 0%,100% { opacity:.45 } 50% { opacity:.8 } }
+        .sk { background:${SK}; animation: sk-pulse 1.6s ease-in-out infinite; }
+      `}</style>
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <SkEl w={72} h={28} r={8} />
+          <SkEl w={160} h={13} />
+        </div>
+        <SkEl w={80} h={34} r={9} />
+      </div>
+
+      {/* Scoreboard */}
+      <div style={{
+        background: T.cardBg, border: `1px solid ${T.cardBorder}`,
+        borderRadius: 14, overflow: 'hidden', marginBottom: 24,
+      }}>
+        <div style={{ padding: '10px 14px 8px', borderBottom: `1px solid ${T.cardBorder}` }}>
+          <SkEl w={120} h={11} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+          {Array.from({ length: 8 }).map((_, i) => {
+            const isRight   = i % 2 === 1;
+            const isLastRow = i >= 6;
+            return (
+              <div key={i} style={{
+                padding: '11px 14px',
+                borderBottom: !isLastRow ? `1px solid ${T.cardBorder}` : 'none',
+                borderLeft: isRight ? `1px solid ${T.cardBorder}` : 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <SkEl w={7} h={7} r={99} />
+                  <SkEl w={70 + (i * 13) % 35} h={12} />
+                </div>
+                <SkEl w={14} h={18} r={4} />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Section cards */}
+      {sectionRows.map((rows, si) => (
+        <div key={si} style={{
+          background: T.cardBg, border: `1px solid ${T.cardBorder}`,
+          borderRadius: 14, overflow: 'hidden', marginBottom: 12,
+        }}>
+          {/* Section header */}
+          <div style={{
+            padding: '12px 16px',
+            borderBottom: `1px solid ${T.cardBorder}`,
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <SkEl w={16} h={16} r={4} />
+            <SkEl w={120 + (si * 23) % 60} h={13} />
+            <SkEl w={24} h={18} r={5} style={{ marginLeft: 2 }} />
+          </div>
+          {/* Rows */}
+          {Array.from({ length: rows }).map((_, ri) => (
+            <div key={ri} style={{
+              padding: '11px 16px 11px 19px',
+              borderBottom: ri < rows - 1 ? `1px solid ${T.cardBorder}` : 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7, flex: 1, minWidth: 0 }}>
+                <SkEl w={`${50 + (ri * 19 + si * 11) % 35}%`} h={13} />
+                <SkEl w={`${28 + (ri * 13 + si * 7) % 22}%`} h={11} />
+              </div>
+              <SkEl w={54} h={28} r={7} />
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TodayPage() {
-  const { data, isLoading, isFetching, error, fetchData, markEncouragementSent, clearFollowUp, markCardComplete, markChecklistDone } = useTodayData();
+  const { data, isLoading, isFetching, isCardsLoading, error, fetchData, markEncouragementSent, clearFollowUp, markCardComplete, markChecklistDone } = useTodayData();
   const { isOpen, toggle } = useVisibility();
   const [circleView, setCircleView] = useState<'today' | 'week'>('today');
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   // ── Loading ──
-  if (isLoading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-          <div className="animate-spin" style={{
-            width: 28, height: 28, borderRadius: '50%',
-            border: `2px solid ${T.cardBorder}`, borderTopColor: T.blue,
-          }} />
-          <p style={{ fontSize: 13, color: T.textMuted }}>Loading your day…</p>
-        </div>
-      </div>
-    );
-  }
+  if (isLoading) return <TodaySkeleton />;
 
   if (error || !data) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 60px)' }}>
         <div style={{ textAlign: 'center' }}>
           <p style={{ fontSize: 13, color: T.textMuted, marginBottom: 8 }}>{error || 'No data available.'}</p>
           <button onClick={fetchData} style={{ fontSize: 12, color: T.blue, background: 'none', border: 'none', cursor: 'pointer' }}>
@@ -427,7 +512,7 @@ export default function TodayPage() {
   const totalOverdue   = data.cards.overdue.length + data.checklistItems.overdue.length + data.encouragements.overdue.length + data.followUps.overdue.length;
   const totalCircles   = data.upcomingCircles.today.length + data.upcomingCircles.tomorrow.length;
   const totalFocus     = (data.focusCards ?? []).length;
-  const hasAnything    = data.birthdays.length + data.circleVisits.today.length + totalEncs + totalFU + totalCards + totalChecklists + totalFocus > 0;
+  const hasAnything    = data.birthdays.length + data.circleVisits.today.length + totalEncs + totalFU + totalCards + totalChecklists + totalFocus > 0 || isCardsLoading;
 
   return (
     <>

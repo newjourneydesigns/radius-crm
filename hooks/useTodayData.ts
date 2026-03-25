@@ -3,61 +3,116 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import type { TodayData } from '../app/api/today/route';
+import type { TodayCoreData } from '../app/api/today/core/route';
+import type { TodayCardsData } from '../app/api/today/cards/route';
 
 export type { TodayData };
 
-const CACHE_KEY = 'today_data_cache_v1';
+const CORE_CACHE_KEY  = 'today_core_cache_v1';
+const CARDS_CACHE_KEY = 'today_cards_cache_v1';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+const EMPTY_CARDS: TodayCardsData = {
+  cards: { dueToday: [], overdue: [] },
+  focusCards: [],
+  checklistItems: { dueToday: [], overdue: [] },
+};
 
 export function useTodayData() {
   const [data, setData] = useState<TodayData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
+  const [isCardsLoading, setIsCardsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setError(null);
     setIsFetching(true);
 
-    // Serve cached data immediately so the page renders without a spinner
-    let hasCachedData = false;
+    // Load cached data immediately so the page renders without a spinner
+    let hasCachedCore  = false;
+    let hasCachedCards = false;
+    let cachedCore: TodayCoreData | null  = null;
+    let cachedCards: TodayCardsData | null = null;
     try {
-      const raw = localStorage.getItem(CACHE_KEY);
-      if (raw) {
-        const { data: cachedData, timestamp } = JSON.parse(raw);
-        if (Date.now() - timestamp < CACHE_TTL) {
-          setData(cachedData);
-          hasCachedData = true;
-        }
+      const rawCore  = localStorage.getItem(CORE_CACHE_KEY);
+      const rawCards = localStorage.getItem(CARDS_CACHE_KEY);
+      if (rawCore) {
+        const { data: d, timestamp } = JSON.parse(rawCore);
+        if (Date.now() - timestamp < CACHE_TTL) { hasCachedCore = true; cachedCore = d; }
+      }
+      if (rawCards) {
+        const { data: d, timestamp } = JSON.parse(rawCards);
+        if (Date.now() - timestamp < CACHE_TTL) { hasCachedCards = true; cachedCards = d; }
+      }
+      if (hasCachedCore) {
+        setData({ ...cachedCore!, ...(hasCachedCards ? cachedCards! : EMPTY_CARDS) });
       }
     } catch {}
 
-    // Only block with a spinner on the first load
-    if (!hasCachedData) setIsLoading(true);
+    // Only block with a full-page spinner on the very first load (no cache at all)
+    if (!hasCachedCore) setIsLoading(true);
+    // Show card-section loading when cards aren't cached
+    if (!hasCachedCards) setIsCardsLoading(true);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         setError('Not authenticated');
+        setIsLoading(false);
+        setIsCardsLoading(false);
+        setIsFetching(false);
         return;
       }
-      const res = await fetch('/api/today', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      if (!res.ok) {
-        const body = await res.json();
-        setError(body.error || 'Failed to load today data');
-        return;
-      }
-      const json = await res.json();
-      setData(json);
-      try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify({ data: json, timestamp: Date.now() }));
-      } catch {}
+
+      const headers = { Authorization: `Bearer ${session.access_token}` };
+
+      // Closure vars so both callbacks can read the latest value from the other
+      let freshCore: TodayCoreData | null  = null;
+      let freshCards: TodayCardsData | null = null;
+
+      const applyData = () => {
+        if (freshCore) setData({ ...freshCore, ...(freshCards || EMPTY_CARDS) });
+      };
+
+      // Both fetches start simultaneously
+      const corePromise = (async () => {
+        try {
+          const res = await fetch('/api/today/core', { headers });
+          if (!res.ok) {
+            const body = await res.json();
+            setError(body.error || 'Failed to load today data');
+            return;
+          }
+          freshCore = await res.json();
+          setIsLoading(false);
+          applyData();
+          try { localStorage.setItem(CORE_CACHE_KEY, JSON.stringify({ data: freshCore, timestamp: Date.now() })); } catch {}
+        } catch (err: any) {
+          setIsLoading(false);
+          setError(err.message || 'Unknown error');
+        }
+      })();
+
+      const cardsPromise = (async () => {
+        try {
+          const res = await fetch('/api/today/cards', { headers });
+          if (!res.ok) { setIsCardsLoading(false); return; }
+          freshCards = await res.json();
+          setIsCardsLoading(false);
+          applyData();
+          try { localStorage.setItem(CARDS_CACHE_KEY, JSON.stringify({ data: freshCards, timestamp: Date.now() })); } catch {}
+        } catch {
+          setIsCardsLoading(false);
+        }
+      })();
+
+      await Promise.allSettled([corePromise, cardsPromise]);
     } catch (err: any) {
       setError(err.message || 'Unknown error');
-    } finally {
       setIsLoading(false);
+      setIsCardsLoading(false);
+    } finally {
       setIsFetching(false);
     }
   }, []);
@@ -155,6 +210,7 @@ export function useTodayData() {
     data,
     isLoading,
     isFetching,
+    isCardsLoading,
     error,
     fetchData,
     markEncouragementSent,
