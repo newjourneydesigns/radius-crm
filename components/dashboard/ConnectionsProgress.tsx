@@ -95,7 +95,7 @@ export default function ConnectionsProgress({ filteredLeaderIds, totalFilteredLe
   const getStatusMessage = () => {
     const { percentage, total } = connectionsData;
     if (total === 0) return 'No leaders in current filter';
-    if (percentage === 100) return 'All connected this month! 🎉';
+    if (percentage === 100) return 'All connected this month';
     if (percentage >= 75) return 'Great connections!';
     if (percentage >= 50) return 'Good progress';
     if (percentage >= 25) return 'Building connections';

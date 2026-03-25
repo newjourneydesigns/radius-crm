@@ -1,26 +1,61 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import CCBPersonLookup from '../../components/ui/CCBPersonLookup';
 import type { CCBPerson } from '../../components/ui/CCBPersonLookup';
 
 export default function PersonLookupPage() {
   const [selectedPerson, setSelectedPerson] = useState<CCBPerson | null>(null);
   const [lookupKey, setLookupKey] = useState(0);
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
 
   const handleSelect = useCallback((person: CCBPerson) => {
     setSelectedPerson(person);
+    setCopyStatus('idle');
   }, []);
 
   const handleClear = () => {
     setSelectedPerson(null);
     setLookupKey((k) => k + 1);
+    setCopyStatus('idle');
   };
 
   // Format phone for tel: link (strip non-digits)
   const phoneDigits = (phone: string) => phone.replace(/\D/g, '');
 
   const contactPhone = selectedPerson?.mobilePhone || selectedPerson?.phone || '';
+
+  useEffect(() => {
+    if (copyStatus === 'idle') {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setCopyStatus('idle');
+    }, 2000);
+
+    return () => window.clearTimeout(timeout);
+  }, [copyStatus]);
+
+  const handleCopyInfo = useCallback(async () => {
+    if (!selectedPerson) {
+      return;
+    }
+
+    const infoToCopy = [
+      `Name: ${selectedPerson.fullName}`,
+      `Phone: ${contactPhone || 'N/A'}`,
+      `Email: ${selectedPerson.email || 'N/A'}`,
+    ].join('\n');
+
+    try {
+      await navigator.clipboard.writeText(infoToCopy);
+      setCopyStatus('copied');
+    } catch (error) {
+      console.error('Failed to copy person info:', error);
+      setCopyStatus('error');
+    }
+  }, [selectedPerson, contactPhone]);
 
   return (
     <div style={{ minHeight: '100vh', background: '#111827' }}>
@@ -147,11 +182,51 @@ export default function PersonLookupPage() {
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: contactPhone ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
                 gap: '1px',
                 background: '#374151',
               }}
             >
+              <button
+                type="button"
+                onClick={handleCopyInfo}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '16px 8px',
+                  background: '#1f2937',
+                  color: copyStatus === 'error' ? '#fca5a5' : '#fbbf24',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  transition: 'background 0.15s',
+                  cursor: 'pointer',
+                  border: 'none',
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = '#374151')
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = '#1f2937')
+                }
+              >
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                </svg>
+                {copyStatus === 'copied' ? 'Copied' : copyStatus === 'error' ? 'Copy Failed' : 'Copy Info'}
+              </button>
+
               {/* Text */}
               {contactPhone && (
                 <a

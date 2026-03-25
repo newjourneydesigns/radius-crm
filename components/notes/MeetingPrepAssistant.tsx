@@ -87,33 +87,33 @@ ${notesContext || 'No notes recorded yet.'}
 
 Generate a MEETING PREP BRIEFING for the ACPD. Structure it as follows:
 
-📊 LEADER SNAPSHOT
+LEADER SNAPSHOT
 A 2-3 sentence overview of where this leader and their circle stand right now.
 
-🔵 REACH (Inviting & Outreach)
+REACH (Inviting & Outreach)
 - Current status based on scorecard rating and any notes mentioning outreach, invitations, new people
 - Suggested coaching question to ask
 - One practical idea to help them grow in this area
 
-🟢 CONNECT (Community & Relationships)
+CONNECT (Community & Relationships)
 - Current status based on scorecard rating and any notes mentioning fellowship, relationships, group dynamics
 - Suggested coaching question to ask
 - One practical idea to help them grow in this area
 
-🟡 DISCIPLE (Spiritual Growth)
+DISCIPLE (Spiritual Growth)
 - Current status based on scorecard rating and any notes mentioning Bible study, prayer, spiritual practices
 - Suggested coaching question to ask
 - One practical idea to help them grow in this area
 
-🔴 DEVELOP (Leadership Development & Multiplication)
+DEVELOP (Leadership Development & Multiplication)
 - Current status based on scorecard rating and any notes mentioning apprentices, new leaders, multiplication plans
 - Suggested coaching question to ask
 - One practical idea to help them grow in this area
 
-💬 CONVERSATION STARTERS
+CONVERSATION STARTERS
 3-4 specific, personalized talking points pulled from their recent notes and data. Reference specific things they've mentioned or patterns you notice.
 
-⚡ WATCH FOR
+WATCH FOR
 Any concerns, red flags, or patterns worth monitoring (attendance drops, long gaps between notes, stalled scorecard areas, status concerns). If everything looks healthy, say so and highlight what's working.
 
 Be warm, practical, and specific. Use the leader's name. Reference actual data points and note content. This is for a pastoral coaching conversation, not a corporate review.`;
@@ -141,7 +141,7 @@ Be warm, practical, and specific. Use the leader's name. Reference actual data p
 
   const handleInsertAsNote = () => {
     if (prepContent) {
-      onInsertNote(`📋 Meeting Prep — ${new Date().toLocaleDateString()}\n\n${prepContent}`);
+      onInsertNote(`Meeting Prep — ${new Date().toLocaleDateString()}\n\n${prepContent}`);
       setPrepContent(null);
     }
   };

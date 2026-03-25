@@ -26,22 +26,22 @@ Do NOT summarize away important details. The user needs to see everything they m
 
 ${depthInstruction}
 
-Format your response EXACTLY like this (use these exact emoji headers):
+Format your response EXACTLY like this:
 
-📋 Meeting Summary
+Meeting Summary
 [your summary here — scale depth to match the input length]
 
-📌 Key Points
+Key Points
 • [key point 1]
 • [key point 2]
 (include this section only if the input has enough substance to warrant it — skip for very short inputs)
 
-✅ Next Steps
+Next Steps
 • [action item 1]
 • [action item 2]
 • [action item 3]
 
-❓ Open Items
+Open Items
 • [unresolved question or thing needing follow-up]
 (include this section only if there are genuinely unresolved items — skip if everything is clear)
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
+import { SearchX } from 'lucide-react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, PrayerPoint, CircleLeader } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -1024,7 +1025,9 @@ function PrayerListContent() {
           {/* ── Empty search state ───────────────────── */}
           {!error && groupedPrayers.length === 0 && (
             <div className="text-center py-12">
-              <div className="text-4xl mb-3">🔍</div>
+              <div className="mb-3 flex justify-center">
+                <SearchX className="h-10 w-10 text-[#4c6785]" />
+              </div>
               <h3 className="text-base text-[#8da9c4] font-semibold mb-1">No matching circles</h3>
               <p className="text-sm text-[#4c6785]">Try adjusting your search or filters.</p>
             </div>

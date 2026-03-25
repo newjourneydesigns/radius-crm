@@ -14,7 +14,7 @@ import {
   FolderKanban, Check, Globe, Lock, StickyNote, UserPlus, Download, Copy,
   Zap, ArrowDownAZ, ArrowUpZA, Bold, Italic, Underline, Strikethrough,
   LinkIcon, ExternalLink, Heading, ListBullet, ListOrdered, SlidersHorizontal, Repeat2,
-  LayoutDashboard, ChevronsLeft,
+  LayoutDashboard, ChevronsLeft, Circle, Star,
 } from '../../../components/icons/BoardIcons';
 import { supabase } from '../../../lib/supabase';
 import type { CircleLeader } from '../../../lib/supabase';
@@ -956,7 +956,7 @@ function CardDetailModal({
                 onClick={handleToggleFocus}
                 style={{ width: '100%', justifyContent: 'center', gap: 6 }}
               >
-                <span style={{ fontSize: 13 }}>{isFocused ? '⭐' : '☆'}</span>
+                {isFocused ? <Star size={14} /> : <Circle size={14} />}
                 {isFocused ? 'Focused' : 'Set as Focus'}
               </button>
             </div>
@@ -1089,7 +1089,9 @@ function KanbanCard({
 
         {/* Focus indicator */}
         {card.is_focused && (
-          <span title="Focus card" style={{ fontSize: 11, lineHeight: 1 }}>⭐</span>
+          <span title="Focus card" style={{ display: 'inline-flex', alignItems: 'center', color: '#f59e0b' }}>
+            <Star size={11} />
+          </span>
         )}
 
         {/* Right side: comment/checklist counts */}

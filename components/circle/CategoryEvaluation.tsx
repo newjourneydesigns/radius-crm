@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Zap } from 'lucide-react';
 import { ScorecardDimension } from '../../lib/supabase';
 import {
   EvaluationQuestion,
@@ -184,7 +185,10 @@ export default function CategoryEvaluation({
           )}
           {isOverridden && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-amber-400/80">⚡ Score manually set</span>
+              <span className="inline-flex items-center gap-1 text-xs text-amber-400/80">
+                <Zap className="h-3.5 w-3.5" />
+                Score manually set
+              </span>
               <button
                 onClick={() => onOverrideChange(null)}
                 className="score-btn text-[10px] text-gray-500 hover:text-red-400 underline transition-colors"

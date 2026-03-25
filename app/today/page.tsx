@@ -2,6 +2,21 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
+import {
+  AlertTriangle,
+  BellRing,
+  Cake,
+  CalendarDays,
+  CalendarRange,
+  Check,
+  CheckSquare,
+  ClipboardList,
+  NotebookPen,
+  PartyPopper,
+  Pin,
+  Star,
+  Users,
+} from 'lucide-react';
 import { useTodayData } from '../../hooks/useTodayData';
 import type {
   EncouragementItem,
@@ -188,7 +203,7 @@ function Scoreboard({ rows }: {
 function Section({
   id, title, icon, count, sectionKey, isOpen, onToggle, accentColor = T.indigo, headerExtra, children,
 }: {
-  id: string; title: string; icon: string; count: number; sectionKey: string;
+  id: string; title: string; icon: React.ReactNode; count: number; sectionKey: string;
   isOpen: boolean; onToggle: () => void; accentColor?: string;
   headerExtra?: React.ReactNode; children: React.ReactNode;
 }) {
@@ -209,7 +224,7 @@ function Section({
           flex: 1, display: 'flex', alignItems: 'center', gap: 8,
           background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left',
         }}>
-          <span style={{ fontSize: 15 }}>{icon}</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', color: accentColor }}>{icon}</span>
           <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{title}</span>
           <span style={{
             fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
@@ -471,14 +486,14 @@ export default function TodayPage() {
             background: `${T.green}0f`, border: `1px solid ${T.green}25`,
             borderRadius: 14, padding: '32px 24px', textAlign: 'center', marginBottom: 16,
           }}>
-            <p style={{ fontSize: 28, marginBottom: 8 }}>✅</p>
+            <p style={{ fontSize: 28, marginBottom: 8, display: 'flex', justifyContent: 'center' }}><Check className="h-7 w-7" /></p>
             <p style={{ fontSize: 15, fontWeight: 600, color: T.green, margin: 0 }}>You&apos;re all caught up!</p>
             <p style={{ fontSize: 12, color: T.textMuted, marginTop: 4 }}>Nothing urgent for today.</p>
           </div>
         )}
 
         {/* ── Focus Cards ── */}
-        <Section id="focus-cards" title="Focus Cards" icon="⭐" count={totalFocus}
+        <Section id="focus-cards" title="Focus Cards" icon={<Star className="h-4 w-4" />} count={totalFocus}
           sectionKey="focusCards" isOpen={isOpen('focusCards')} onToggle={() => toggle('focusCards')} accentColor="#f59e0b">
           {(data.focusCards ?? []).map((c: CardDigestItem) => (
             <Item key={c.id} accentColor="#f59e0b">
@@ -497,7 +512,7 @@ export default function TodayPage() {
         </Section>
 
         {/* ── Birthdays ── */}
-        <Section id="birthdays" title="Birthdays" icon="🎂" count={data.birthdays.length}
+        <Section id="birthdays" title="Birthdays" icon={<Cake className="h-4 w-4" />} count={data.birthdays.length}
           sectionKey="birthdays" isOpen={isOpen('birthdays')} onToggle={() => toggle('birthdays')} accentColor={T.pink}>
           {data.birthdays.map((b: BirthdayItem) => (
             <Item key={b.id} accentColor={T.pink}>
@@ -515,7 +530,7 @@ export default function TodayPage() {
         </Section>
 
         {/* ── Circle Visits Today ── */}
-        <Section id="visits-today" title="Circle Visits Today" icon="📅" count={data.circleVisits.today.length}
+        <Section id="visits-today" title="Circle Visits Today" icon={<CalendarDays className="h-4 w-4" />} count={data.circleVisits.today.length}
           sectionKey="circleVisitsToday" isOpen={isOpen('circleVisitsToday')} onToggle={() => toggle('circleVisitsToday')} accentColor={T.cyan}>
           {data.circleVisits.today.map((v: VisitItem) => (
             <Item key={v.id} accentColor={T.cyan}>
@@ -528,7 +543,7 @@ export default function TodayPage() {
         </Section>
 
         {/* ── Encouragements Due Today ── */}
-        <Section id="encs-today" title="Encouragements Due Today" icon="💌" count={data.encouragements.dueToday.length}
+        <Section id="encs-today" title="Encouragements Due Today" icon={<PartyPopper className="h-4 w-4" />} count={data.encouragements.dueToday.length}
           sectionKey="encouragementsToday" isOpen={isOpen('encouragementsToday')} onToggle={() => toggle('encouragementsToday')} accentColor={T.purple}>
           {data.encouragements.dueToday.map((e: EncouragementItem) => (
             <Item key={e.id} accentColor={T.purple}>
@@ -542,7 +557,7 @@ export default function TodayPage() {
         </Section>
 
         {/* ── Follow-Ups Due Today ── */}
-        <Section id="follow-ups" title="Follow-Ups Due Today" icon="🔄" count={data.followUps.dueToday.length}
+        <Section id="follow-ups" title="Follow-Ups Due Today" icon={<BellRing className="h-4 w-4" />} count={data.followUps.dueToday.length}
           sectionKey="followUps" isOpen={isOpen('followUps')} onToggle={() => toggle('followUps')} accentColor={T.amber}>
           {data.followUps.dueToday.map((f: FollowUpItem) => (
             <Item key={f.id} accentColor={T.amber}>
@@ -559,7 +574,7 @@ export default function TodayPage() {
         </Section>
 
         {/* ── Cards Due Today ── */}
-        <Section id="cards-today" title="Cards Due Today" icon="📋" count={data.cards.dueToday.length}
+        <Section id="cards-today" title="Cards Due Today" icon={<ClipboardList className="h-4 w-4" />} count={data.cards.dueToday.length}
           sectionKey="cardsToday" isOpen={isOpen('cardsToday')} onToggle={() => toggle('cardsToday')} accentColor={T.indigo}>
           {data.cards.dueToday.map((c: CardDigestItem) => (
             <Item key={c.id} accentColor={T.indigo}>
@@ -577,7 +592,7 @@ export default function TodayPage() {
         </Section>
 
         {/* ── Overdue Cards ── */}
-        <Section id="overdue-cards" title="Overdue Cards" icon="⚠️" count={data.cards.overdue.length}
+        <Section id="overdue-cards" title="Overdue Cards" icon={<AlertTriangle className="h-4 w-4" />} count={data.cards.overdue.length}
           sectionKey="overdueCards" isOpen={isOpen('overdueCards')} onToggle={() => toggle('overdueCards')} accentColor={T.red}>
           {data.cards.overdue.map((c: CardDigestItem) => (
             <Item key={c.id} accentColor={T.red}>
@@ -598,7 +613,7 @@ export default function TodayPage() {
         </Section>
 
         {/* ── Checklist Items Due Today ── */}
-        <Section id="checklists-today" title="Checklist Items Due Today" icon="✅" count={data.checklistItems.dueToday.length}
+        <Section id="checklists-today" title="Checklist Items Due Today" icon={<CheckSquare className="h-4 w-4" />} count={data.checklistItems.dueToday.length}
           sectionKey="checklistsToday" isOpen={isOpen('checklistsToday')} onToggle={() => toggle('checklistsToday')} accentColor={T.blue}>
           {data.checklistItems.dueToday.map((cl: ChecklistDigestItem) => (
             <Item key={cl.id} accentColor={T.blue}>
@@ -616,7 +631,7 @@ export default function TodayPage() {
         </Section>
 
         {/* ── Overdue Checklist Items ── */}
-        <Section id="overdue-checklists" title="Overdue Checklist Items" icon="🚨" count={data.checklistItems.overdue.length}
+        <Section id="overdue-checklists" title="Overdue Checklist Items" icon={<AlertTriangle className="h-4 w-4" />} count={data.checklistItems.overdue.length}
           sectionKey="overdueChecklists" isOpen={isOpen('overdueChecklists')} onToggle={() => toggle('overdueChecklists')} accentColor={T.red}>
           {data.checklistItems.overdue.map((cl: ChecklistDigestItem) => (
             <Item key={cl.id} accentColor={T.red}>
@@ -650,7 +665,7 @@ export default function TodayPage() {
         </Section>
 
         {/* ── Overdue Follow-Ups ── */}
-        <Section id="overdue-followups" title="Overdue Follow-Ups" icon="📌" count={data.followUps.overdue.length}
+        <Section id="overdue-followups" title="Overdue Follow-Ups" icon={<Pin className="h-4 w-4" />} count={data.followUps.overdue.length}
           sectionKey="overdueFollowUps" isOpen={isOpen('overdueFollowUps')} onToggle={() => toggle('overdueFollowUps')} accentColor={T.amber}>
           {data.followUps.overdue.map((f: FollowUpItem) => (
             <Item key={f.id} accentColor={T.amber}>
@@ -669,7 +684,7 @@ export default function TodayPage() {
         </Section>
 
         {/* ── Circle Visits This Week ── */}
-        <Section id="visits-week" title="Circle Visits This Week" icon="🗓️" count={data.circleVisits.thisWeek.length}
+        <Section id="visits-week" title="Circle Visits This Week" icon={<CalendarRange className="h-4 w-4" />} count={data.circleVisits.thisWeek.length}
           sectionKey="circleVisitsWeek" isOpen={isOpen('circleVisitsWeek')} onToggle={() => toggle('circleVisitsWeek')} accentColor={T.cyan}>
           {data.circleVisits.thisWeek.map((v: VisitItem) => (
             <Item key={v.id} accentColor={T.cyan}>
@@ -708,7 +723,7 @@ export default function TodayPage() {
             <Section
               id="upcoming-circles"
               title="Upcoming Circles"
-              icon="🔵"
+              icon={<Users className="h-4 w-4" />}
               count={count}
               sectionKey="upcomingCircles"
               isOpen={isOpen('upcomingCircles')}
@@ -768,7 +783,7 @@ export default function TodayPage() {
         })()}
 
         {/* ── Upcoming Scheduled Visits ── */}
-        <Section id="upcoming-visits" title="Upcoming Scheduled Visits" icon="📆" count={data.upcomingVisits.length}
+        <Section id="upcoming-visits" title="Upcoming Scheduled Visits" icon={<CalendarRange className="h-4 w-4" />} count={data.upcomingVisits.length}
           sectionKey="upcomingVisits" isOpen={isOpen('upcomingVisits')} onToggle={() => toggle('upcomingVisits')} accentColor={T.indigo}>
           {data.upcomingVisits.map((v: VisitItem) => (
             <Item key={v.id} accentColor={T.indigo}>
@@ -782,7 +797,7 @@ export default function TodayPage() {
         </Section>
 
         {/* ── Recent Notes ── */}
-        <Section id="recent-notes" title="Recent Notes" icon="📝" count={data.recentNotes.length}
+        <Section id="recent-notes" title="Recent Notes" icon={<NotebookPen className="h-4 w-4" />} count={data.recentNotes.length}
           sectionKey="recentNotes" isOpen={isOpen('recentNotes')} onToggle={() => toggle('recentNotes')} accentColor={T.textMuted}>
           {data.recentNotes.map((n: NoteItem) => (
             <Item key={n.id}>

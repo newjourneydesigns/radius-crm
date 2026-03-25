@@ -6,6 +6,7 @@ import { ensureDefaultFrequencies, formatFrequencyLabel } from '../../../lib/fre
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { Cake, Lightbulb } from 'lucide-react';
 import { supabase, type CircleLeader, type Note, type NoteTemplate, type EventSummaryState, type ScorecardRating, type ScorecardDimension } from '../../../lib/supabase';
 import { useNoteTemplates } from '../../../hooks/useNoteTemplates';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -2659,7 +2660,7 @@ export default function CircleLeaderProfilePage() {
                     </dd>
                   </div>
                   <div className="sm:col-span-1">
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">🎂 Birthday</dt>
+                    <dt className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400"><Cake className="h-4 w-4" />Birthday</dt>
                     <dd className="mt-1">
                       {isEditing ? (
                         <input
@@ -2779,7 +2780,7 @@ export default function CircleLeaderProfilePage() {
                     </dd>
                   </div>
                   <div className="sm:col-span-1">
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">🎂 Birthday</dt>
+                    <dt className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400"><Cake className="h-4 w-4" />Birthday</dt>
                     <dd className="mt-1">
                       {isEditing ? (
                         <input
@@ -3204,7 +3205,10 @@ export default function CircleLeaderProfilePage() {
                       <div>{newNote.trim().length} characters</div>
                     )}
                     <div className="text-xs">
-                      💡 Tip: Type markdown-style links like [Display Text](URL) to create clickable links
+                      <span className="inline-flex items-center gap-1.5">
+                        <Lightbulb className="h-3.5 w-3.5" />
+                        Tip: Type markdown-style links like [Display Text](URL) to create clickable links
+                      </span>
                     </div>
                   </div>
                   <button

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { AlertTriangle, TrendingDown, UserRound } from 'lucide-react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -1185,9 +1186,9 @@ function NeedsAttentionSection({
   if (!alerts.length) return null;
 
   const reasonConfig = {
-    no_report: { label: 'Not Reporting', color: 'bg-red-500/15 text-red-400 border-red-500/25', icon: '⚠' },
-    declining: { label: 'Declining', color: 'bg-amber-500/15 text-amber-400 border-amber-500/25', icon: '📉' },
-    low_attendance: { label: 'Low Attendance', color: 'bg-orange-500/15 text-orange-400 border-orange-500/25', icon: '👤' },
+    no_report: { label: 'Not Reporting', color: 'bg-red-500/15 text-red-400 border-red-500/25', icon: AlertTriangle },
+    declining: { label: 'Declining', color: 'bg-amber-500/15 text-amber-400 border-amber-500/25', icon: TrendingDown },
+    low_attendance: { label: 'Low Attendance', color: 'bg-orange-500/15 text-orange-400 border-orange-500/25', icon: UserRound },
   };
 
   const shown = expanded ? alerts : alerts.slice(0, 5);
@@ -1250,13 +1251,14 @@ function NeedsAttentionSection({
       <div className="divide-y divide-gray-800/30">
         {shown.map((alert) => {
           const cfg = reasonConfig[alert.reason];
+          const Icon = cfg.icon;
           return (
             <Link
               key={`${alert.id}-${alert.reason}`}
               href={`/circle/${alert.id}`}
               className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-800/20 transition-colors"
             >
-              <span className="text-base shrink-0">{cfg.icon}</span>
+              <span className="shrink-0"><Icon className="h-4 w-4" /></span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-gray-200 truncate">{alert.name}</p>
                 {alert.campus && <p className="text-xs text-gray-500">{alert.campus}</p>}

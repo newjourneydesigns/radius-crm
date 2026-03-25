@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Cake, CalendarDays, CheckSquare, ClipboardList, CloudSun, MessageSquare, Target, UserRoundCheck } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import ProtectedRoute from '../../components/ProtectedRoute';
@@ -612,7 +613,7 @@ export default function ProfilePage() {
               <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-opacity duration-200 ${!preferences.email_enabled ? 'opacity-50 pointer-events-none' : ''}`}>
                 <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700/50 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <span className="text-lg">🌤️</span>
+                    <CloudSun className="h-[1.125rem] w-[1.125rem] text-gray-400 dark:text-gray-500" />
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Weather Forecast</h3>
                   </div>
                   <ToggleSwitch
@@ -737,17 +738,17 @@ export default function ProfilePage() {
                 </div>
                 <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
                   {[
-                    { id: 'include_board_cards_owned', label: 'Cards on My Boards', desc: 'Cards due/overdue on boards you own', icon: '📋' },
-                    { id: 'include_board_cards_assigned', label: 'Cards Assigned to Me', desc: 'Cards due/overdue that are assigned to you', icon: '🎯' },
-                    { id: 'include_checklist_items', label: 'Checklist Items Due', desc: 'Checklist items with due dates on your cards', icon: '☑️' },
-                    { id: 'include_follow_ups', label: 'Follow-up Leaders', desc: 'Leaders marked for follow-up with upcoming or overdue dates', icon: '👤' },
-                    { id: 'include_planned_encouragements', label: 'Planned Encouragements', desc: 'Encouragement messages scheduled for today', icon: '💬' },
-                    { id: 'include_upcoming_meetings', label: "Today's Circles", desc: 'Circles meeting today and tomorrow', icon: '📅' },
-                    { id: 'include_birthdays', label: 'Birthdays', desc: 'Circle leaders with a birthday today', icon: '🎂' },
+                    { id: 'include_board_cards_owned', label: 'Cards on My Boards', desc: 'Cards due/overdue on boards you own', icon: ClipboardList },
+                    { id: 'include_board_cards_assigned', label: 'Cards Assigned to Me', desc: 'Cards due/overdue that are assigned to you', icon: Target },
+                    { id: 'include_checklist_items', label: 'Checklist Items Due', desc: 'Checklist items with due dates on your cards', icon: CheckSquare },
+                    { id: 'include_follow_ups', label: 'Follow-up Leaders', desc: 'Leaders marked for follow-up with upcoming or overdue dates', icon: UserRoundCheck },
+                    { id: 'include_planned_encouragements', label: 'Planned Encouragements', desc: 'Encouragement messages scheduled for today', icon: MessageSquare },
+                    { id: 'include_upcoming_meetings', label: "Today's Circles", desc: 'Circles meeting today and tomorrow', icon: CalendarDays },
+                    { id: 'include_birthdays', label: 'Birthdays', desc: 'Circle leaders with a birthday today', icon: Cake },
                   ].map(item => (
                     <div key={item.id} className="flex items-center justify-between px-5 py-4">
                       <div className="flex items-center gap-3 min-w-0">
-                        <span className="text-lg flex-shrink-0">{item.icon}</span>
+                        <item.icon className="h-5 w-5 flex-shrink-0 text-gray-400 dark:text-gray-500" />
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-gray-900 dark:text-white">{item.label}</p>
                           <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{item.desc}</p>

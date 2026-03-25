@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { BellOff, Building2, CalendarDays, ClipboardList, FileText, Mail, Settings, Shapes, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import NoteTemplatesManager from '../../components/settings/NoteTemplatesManager';
 import ScorecardQuestionsManager from '../../components/settings/ScorecardQuestionsManager';
@@ -487,14 +488,14 @@ export default function SettingsPage() {
   };
 
   const tabs = [
-    { id: 'directors', label: 'Directors', icon: '👥' },
-    { id: 'circles', label: 'Circle Types', icon: '🔵' },
-    { id: 'statuses', label: 'Statuses', icon: '📊' },
-    { id: 'frequencies', label: 'Frequencies', icon: '📅' },
-    { id: 'campuses', label: 'Campuses', icon: '🏢' },
-    { id: 'templates', label: 'Note Templates', icon: '📝' },
-    { id: 'scorecard', label: 'Scorecard Questions', icon: '📋' },
-    { id: 'app', label: 'App Management', icon: '⚙️' }
+    { id: 'directors', label: 'Directors', icon: Users },
+    { id: 'circles', label: 'Circle Types', icon: Shapes },
+    { id: 'statuses', label: 'Statuses', icon: ClipboardList },
+    { id: 'frequencies', label: 'Frequencies', icon: CalendarDays },
+    { id: 'campuses', label: 'Campuses', icon: Building2 },
+    { id: 'templates', label: 'Note Templates', icon: FileText },
+    { id: 'scorecard', label: 'Scorecard Questions', icon: ClipboardList },
+    { id: 'app', label: 'App Management', icon: Settings }
   ];
 
   if (isLoading) {
@@ -524,6 +525,9 @@ export default function SettingsPage() {
         <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
           <nav className="flex space-x-8 overflow-x-auto">
             {tabs.map((tab) => (
+              (() => {
+                const Icon = tab.icon;
+                return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
@@ -533,9 +537,11 @@ export default function SettingsPage() {
                     : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
                 }`}
               >
-                <span>{tab.icon}</span>
+                <Icon className="h-4 w-4" />
                 <span>{tab.label}</span>
               </button>
+                );
+              })()
             ))}
           </nav>
         </div>
@@ -1129,7 +1135,10 @@ export default function SettingsPage() {
 
               {/* Daily Digest Notifications */}
               <div className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-8">
-                <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">📧 Daily Digest Email</h3>
+                <h3 className="inline-flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-white mb-1">
+                  <Mail className="h-4 w-4" />
+                  Daily Digest Email
+                </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                   Receive a personalized morning email with your upcoming tasks, circle visits,
                   encouragements, and follow-ups due today — including anything overdue.
@@ -1138,7 +1147,10 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-5 py-4">
                   <div>
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {digestSubscribed ? '✅ Subscribed to daily digest' : '🔕 Not subscribed'}
+                      <span className="inline-flex items-center gap-1.5">
+                        {digestSubscribed ? <Mail className="h-4 w-4 text-green-500" /> : <BellOff className="h-4 w-4 text-gray-400" />}
+                        {digestSubscribed ? 'Subscribed to daily digest' : 'Not subscribed'}
+                      </span>
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                       {digestSubscribed

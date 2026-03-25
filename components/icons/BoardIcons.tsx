@@ -164,6 +164,18 @@ export const Check = ({ size, className, style }: IconProps) => (
   </svg>
 );
 
+export const Circle = ({ size, className, style }: IconProps) => (
+  <svg width={s(size)} height={s(size)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style}>
+    <circle cx="12" cy="12" r="9" />
+  </svg>
+);
+
+export const Star = ({ size, className, style }: IconProps) => (
+  <svg width={s(size)} height={s(size)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style}>
+    <polygon points="12 3 14.9 8.86 21.36 9.8 16.68 14.36 17.78 20.8 12 17.76 6.22 20.8 7.32 14.36 2.64 9.8 9.1 8.86 12 3" />
+  </svg>
+);
+
 export const LayoutDashboard = ({ size, className, style }: IconProps) => (
   <svg width={s(size)} height={s(size)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style}>
     <rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" />

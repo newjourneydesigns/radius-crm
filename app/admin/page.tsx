@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { Cake, CheckCircle2, CircleSlash2, SkipForward, XCircle } from 'lucide-react';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -215,10 +216,10 @@ export default function AdminPage() {
               </div>
             ) : (
               <div style={{ fontSize: '14px', color: '#cbd5e1', display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
-                <span>✅ <strong style={{ color: '#4ade80' }}>{response.succeeded}</strong> fetched</span>
-                <span>⏭️ <strong>{response.alreadyCached}</strong> already cached</span>
-                {response.empty! > 0 && <span>🔲 <strong style={{ color: '#fbbf24' }}>{response.empty}</strong> empty</span>}
-                {response.failed! > 0 && <span>❌ <strong style={{ color: '#fca5a5' }}>{response.failed}</strong> failed</span>}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><CheckCircle2 size={14} color="#4ade80" /><strong style={{ color: '#4ade80' }}>{response.succeeded}</strong> fetched</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><SkipForward size={14} /><strong>{response.alreadyCached}</strong> already cached</span>
+                {response.empty! > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><CircleSlash2 size={14} color="#fbbf24" /><strong style={{ color: '#fbbf24' }}>{response.empty}</strong> empty</span>}
+                {response.failed! > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><XCircle size={14} color="#fca5a5" /><strong style={{ color: '#fca5a5' }}>{response.failed}</strong> failed</span>}
               </div>
             )}
           </div>
@@ -256,10 +257,10 @@ export default function AdminPage() {
                           {(row as FetchResult).memberCount ?? '—'}
                         </td>
                         <td style={{ padding: '9px 16px' }}>
-                          {(row as FetchResult).status === 'success' && <span style={{ color: '#4ade80', fontWeight: 600 }}>✅ OK</span>}
+                          {(row as FetchResult).status === 'success' && <span style={{ color: '#4ade80', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}><CheckCircle2 size={14} />OK</span>}
                           {(row as FetchResult).status === 'empty' && <span style={{ color: '#fbbf24' }}>Empty</span>}
                           {(row as FetchResult).status === 'error' && (
-                            <span style={{ color: '#fca5a5' }} title={(row as FetchResult).error}>❌ {(row as FetchResult).error?.slice(0, 60)}</span>
+                            <span style={{ color: '#fca5a5', display: 'inline-flex', alignItems: 'center', gap: '6px' }} title={(row as FetchResult).error}><XCircle size={14} />{(row as FetchResult).error?.slice(0, 60)}</span>
                           )}
                         </td>
                       </>
@@ -278,7 +279,7 @@ export default function AdminPage() {
 
       {/* ── Birthday Backfill Section ── */}
       <div style={{ borderTop: '1px solid rgba(148, 163, 184, 0.12)', marginTop: '40px', paddingTop: '32px' }}>
-        <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '4px', color: '#f1f5f9' }}>🎂 Backfill Leader Birthdays</h2>
+        <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '4px', color: '#f1f5f9', display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Cake size={20} />Backfill Leader Birthdays</h2>
         <p style={{ fontSize: '14px', color: '#94a3b8', marginBottom: '20px' }}>
           Matches circle leader names to roster members and copies their birthday from the cached roster data.
         </p>
@@ -323,13 +324,13 @@ export default function AdminPage() {
                 <div style={{ fontSize: '14px', color: '#cbd5e1', display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
                   {bdayResponse.dryRun && <span style={{ color: '#93c5fd', fontWeight: 700 }}>Dry run</span>}
                   <span><strong>{bdayResponse.totalMissing}</strong> leaders missing birthday</span>
-                  <span>🎂 <strong style={{ color: '#4ade80' }}>{bdayResponse.matched}</strong> matched</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Cake size={14} /><strong style={{ color: '#4ade80' }}>{bdayResponse.matched}</strong> matched</span>
                   <span style={{ color: '#94a3b8' }}>{bdayResponse.unmatched} unmatched</span>
                   {!bdayResponse.dryRun && bdayResponse.updated !== undefined && (
-                    <span>✅ <strong style={{ color: '#4ade80' }}>{bdayResponse.updated}</strong> updated</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><CheckCircle2 size={14} color="#4ade80" /><strong style={{ color: '#4ade80' }}>{bdayResponse.updated}</strong> updated</span>
                   )}
                   {!bdayResponse.dryRun && (bdayResponse.failed || 0) > 0 && (
-                    <span>❌ <strong style={{ color: '#fca5a5' }}>{bdayResponse.failed}</strong> failed</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><XCircle size={14} color="#fca5a5" /><strong style={{ color: '#fca5a5' }}>{bdayResponse.failed}</strong> failed</span>
                   )}
                 </div>
               )}
@@ -355,7 +356,7 @@ export default function AdminPage() {
                         {row.birthday || '—'}
                       </td>
                       <td style={{ padding: '9px 16px' }}>
-                        {row.matchType === 'own-roster' && <span style={{ color: '#4ade80', fontWeight: 600 }}>✅ Own roster</span>}
+                        {row.matchType === 'own-roster' && <span style={{ color: '#4ade80', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}><CheckCircle2 size={14} />Own roster</span>}
                         {row.matchType === 'cross-roster' && <span style={{ color: '#93c5fd' }}>↗ Cross-roster</span>}
                         {row.matchType === 'no-match' && <span style={{ color: '#475569' }}>—</span>}
                       </td>

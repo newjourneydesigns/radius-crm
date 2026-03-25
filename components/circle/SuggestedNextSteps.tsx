@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { ArrowRight, ArrowUp, Check, HelpCircle, Plus } from 'lucide-react';
 import { AnswerValue, EvaluationQuestion } from '../../lib/evaluationQuestions';
 import { getNextStepsForCategory, NextStepItem } from '../../lib/nextStepsSuggestions';
 import { ScorecardDimension } from '../../lib/supabase';
@@ -41,7 +42,7 @@ export default function SuggestedNextSteps({
     if (!onAddToCoaching || addedKeys.has(step.questionKey)) return;
     setAddingKey(step.questionKey);
     try {
-      const prefix = step.answerType === 'no' ? '📋 Growth Area' : step.answerType === 'unsure' ? '🤔 Needs Clarity' : '🚀 Next Level';
+      const prefix = step.answerType === 'no' ? 'Growth Area' : step.answerType === 'unsure' ? 'Needs Clarity' : 'Next Level';
       const content = `${prefix}: ${step.nextStep}`;
       await onAddToCoaching(leaderId, category, content);
       setAddedKeys(prev => new Set(prev).add(step.questionKey));
@@ -68,17 +69,11 @@ export default function SuggestedNextSteps({
           style={{ backgroundColor: isGrowth ? 'rgba(239,68,68,0.15)' : isUnsure ? 'rgba(245,158,11,0.15)' : `${color}20` }}
         >
           {isGrowth ? (
-            <svg className="w-3 h-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-            </svg>
+            <ArrowRight className="w-3 h-3 text-red-400" />
           ) : isUnsure ? (
-            <svg className="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01" />
-            </svg>
+            <HelpCircle className="w-3 h-3 text-amber-400" />
           ) : (
-            <svg className="w-3 h-3" style={{ color }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-            </svg>
+            <ArrowUp className="w-3 h-3" style={{ color }} />
           )}
         </div>
         <div className="flex-1 min-w-0">
@@ -102,18 +97,14 @@ export default function SuggestedNextSteps({
             >
               {isAdded ? (
                 <>
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                  </svg>
+                  <Check className="w-3 h-3" />
                   Added to Coaching
                 </>
               ) : isAdding ? (
                 'Adding...'
               ) : (
                 <>
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                  </svg>
+                  <Plus className="w-3 h-3" />
                   Add to Coaching
                 </>
               )}

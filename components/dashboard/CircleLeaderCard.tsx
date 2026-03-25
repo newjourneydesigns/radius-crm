@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import { AlertTriangle, Circle } from 'lucide-react';
 import { CircleLeader } from '../../lib/supabase';
 import FollowUpDateModal from './FollowUpDateModal';
 
@@ -590,7 +591,7 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
                   ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300' 
                   : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
               }`}>
-                {leader.follow_up_required ? '⚠' : '○'}
+                {leader.follow_up_required ? <AlertTriangle className="h-3.5 w-3.5" /> : <Circle className="h-3.5 w-3.5" />}
               </span>
             </div>
 
@@ -879,7 +880,7 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
                       ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300' 
                       : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
                   }`}>
-                    {leader.follow_up_required ? '⚠' : '○'}
+                    {leader.follow_up_required ? <AlertTriangle className="h-3.5 w-3.5" /> : <Circle className="h-3.5 w-3.5" />}
                   </span>
                 </div>
               </div>

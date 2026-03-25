@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Zap } from 'lucide-react';
 import { useScorecard } from '../../hooks/useScorecard';
 import { useEvaluation } from '../../hooks/useEvaluation';
 import { useDevelopmentProspects } from '../../hooks/useDevelopmentProspects';
@@ -345,7 +346,10 @@ export default function ScorecardSection({ leaderId, isAdmin, onNoteSaved, onAdd
                           </span>
                         )}
                         {evalData.manual_override_score !== null && (
-                          <span className="text-[10px] text-amber-400/60" title="Manual override">⚡ Override</span>
+                          <span className="inline-flex items-center gap-1 text-[10px] text-amber-400/60" title="Manual override">
+                            <Zap className="h-3 w-3" />
+                            Override
+                          </span>
                         )}
                         {isFromEval && !evalData.manual_override_score && (
                           <span className="text-[10px] text-gray-600">via evaluation</span>

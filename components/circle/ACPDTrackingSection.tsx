@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Handshake, Mail, MessageSquare, NotebookPen, Phone, SquarePen } from 'lucide-react';
 import { useACPDTracking } from '../../hooks/useACPDTracking';
 import { useAuth } from '../../contexts/AuthContext';
 import { ScorecardDimension, EncourageMethod } from '../../lib/supabase';
@@ -18,13 +19,13 @@ interface ACPDTrackingSectionProps {
   onNoteSaved?: () => Promise<void>;
 }
 
-const ENCOURAGE_METHODS: { key: EncourageMethod; label: string; icon: string }[] = [
-  { key: 'text', label: 'Text', icon: '💬' },
-  { key: 'email', label: 'Email', icon: '📧' },
-  { key: 'call', label: 'Call', icon: '📞' },
-  { key: 'in_person', label: 'In Person', icon: '🤝' },
-  { key: 'card', label: 'Card', icon: '✉️' },
-  { key: 'other', label: 'Other', icon: '📝' },
+const ENCOURAGE_METHODS: { key: EncourageMethod; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { key: 'text', label: 'Text', icon: MessageSquare },
+  { key: 'email', label: 'Email', icon: Mail },
+  { key: 'call', label: 'Call', icon: Phone },
+  { key: 'in_person', label: 'In Person', icon: Handshake },
+  { key: 'card', label: 'Card', icon: SquarePen },
+  { key: 'other', label: 'Other', icon: NotebookPen },
 ];
 
 export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved }: ACPDTrackingSectionProps) {
@@ -526,17 +527,25 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                   <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1 block">How</label>
                   <div className="flex flex-wrap gap-1.5">
                     {ENCOURAGE_METHODS.map(m => (
-                      <button
-                        key={m.key}
-                        onClick={() => setNewEncourageMethod(m.key)}
-                        className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg border-2 transition-all ${
-                          newEncourageMethod === m.key
-                            ? 'bg-emerald-500 text-white border-emerald-400 shadow-lg shadow-emerald-500/30 scale-105'
-                            : 'border-gray-800 text-gray-600 hover:text-gray-300 hover:border-gray-600 hover:bg-gray-800/50 opacity-60'
-                        }`}
-                      >
-                        <span className="mr-1">{m.icon}</span>{m.label}
-                      </button>
+                      (() => {
+                        const Icon = m.icon;
+                        return (
+                          <button
+                            key={m.key}
+                            onClick={() => setNewEncourageMethod(m.key)}
+                            className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg border-2 transition-all ${
+                              newEncourageMethod === m.key
+                                ? 'bg-emerald-500 text-white border-emerald-400 shadow-lg shadow-emerald-500/30 scale-105'
+                                : 'border-gray-800 text-gray-600 hover:text-gray-300 hover:border-gray-600 hover:bg-gray-800/50 opacity-60'
+                            }`}
+                          >
+                            <span className="inline-flex items-center gap-1.5">
+                              <Icon className="h-3.5 w-3.5" />
+                              {m.label}
+                            </span>
+                          </button>
+                        );
+                      })()
                     ))}
                   </div>
                 </div>
@@ -609,7 +618,12 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                           }`}>
                             {enc.message_type === 'sent' ? 'Sent' : 'Planned'}
                           </span>
-                          {method && <span className="text-[10px] text-gray-500">{method.icon} {method.label}</span>}
+                          {method && (
+                            <span className="inline-flex items-center gap-1 text-[10px] text-gray-500">
+                              <method.icon className="h-3 w-3" />
+                              {method.label}
+                            </span>
+                          )}
                           <span className="text-[10px] text-gray-500">{formatDate(enc.message_date)}</span>
                         </div>
                         {enc.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{enc.note}</p>}

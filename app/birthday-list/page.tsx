@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { Cake, PartyPopper } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -278,7 +279,8 @@ export default function BirthdayListPage() {
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            🎂 Birthday List
+            <Cake className="h-7 w-7 text-pink-500" />
+            Birthday List
           </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             View and manage birthdays for all Circle leaders
@@ -293,7 +295,9 @@ export default function BirthdayListPage() {
           </div>
           <div className={`rounded-xl border p-4 ${todayCount > 0 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'}`}>
             <div className={`text-2xl font-bold ${todayCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white'}`}>{todayCount}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">Today 🎉</div>
+            <div className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+              Today <PartyPopper className="h-3.5 w-3.5" />
+            </div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
             <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{thisWeekCount}</div>
@@ -356,7 +360,9 @@ export default function BirthdayListPage() {
           </div>
         ) : filteredLeaders.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
-            <div className="text-4xl mb-3">🎂</div>
+            <div className="mb-3 flex justify-center">
+              <Cake className="h-10 w-10 text-pink-500" />
+            </div>
             <p className="text-gray-500 dark:text-gray-400">No leaders found matching your filters.</p>
           </div>
         ) : (
@@ -423,7 +429,7 @@ export default function BirthdayListPage() {
                             >
                               {leader.name}
                             </Link>
-                            {isToday && <span className="text-xs">🎉</span>}
+                            {isToday && <PartyPopper className="h-3.5 w-3.5 text-amber-500" />}
                             {leader.role === 'Additional Leader' && (
                               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
                                 Additional
@@ -549,7 +555,7 @@ export default function BirthdayListPage() {
                           >
                             {leader.name}
                           </Link>
-                          {isToday && <span className="text-xs">🎉</span>}
+                          {isToday && <PartyPopper className="h-3.5 w-3.5 text-amber-500" />}
                           {leader.role === 'Additional Leader' && (
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
                               Additional
@@ -623,7 +629,7 @@ export default function BirthdayListPage() {
                             : 'text-gray-400 dark:text-gray-500 italic'
                         }`}
                       >
-                        🎂 {leader.birthday ? formatBirthday(leader.birthday) : 'Add birthday'}
+                        <Cake className="h-3.5 w-3.5" /> {leader.birthday ? formatBirthday(leader.birthday) : 'Add birthday'}
                         <svg className="w-3 h-3 ml-1 opacity-40" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
                         </svg>

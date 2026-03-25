@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
+import { ArrowRight, Eye, PartyPopper } from 'lucide-react';
 import { useCircleVisits } from '../../hooks/useCircleVisits';
 import { CircleVisit } from '../../lib/supabase';
 
@@ -655,21 +656,30 @@ const CircleVisitsSection: React.FC<CircleVisitsSectionProps> = ({ leaderId, lea
                     
                     {visit.celebrations && (
                       <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded p-2">
-                        <p className="text-xs font-semibold text-yellow-800 dark:text-yellow-300 mb-1">🎉 Celebrations</p>
+                        <p className="inline-flex items-center gap-1 text-xs font-semibold text-yellow-800 dark:text-yellow-300 mb-1">
+                          <PartyPopper className="h-3.5 w-3.5" />
+                          Celebrations
+                        </p>
                         <p className="text-sm text-gray-700 dark:text-gray-300">{visit.celebrations}</p>
                       </div>
                     )}
                     
                     {visit.observations && (
                       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2">
-                        <p className="text-xs font-semibold text-blue-800 dark:text-blue-300 mb-1">👁️ Observations</p>
+                        <p className="inline-flex items-center gap-1 text-xs font-semibold text-blue-800 dark:text-blue-300 mb-1">
+                          <Eye className="h-3.5 w-3.5" />
+                          Observations
+                        </p>
                         <p className="text-sm text-gray-700 dark:text-gray-300">{visit.observations}</p>
                       </div>
                     )}
                     
                     {visit.next_step && (
                       <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-2">
-                        <p className="text-xs font-semibold text-green-800 dark:text-green-300 mb-1">➡️ Next Step</p>
+                        <p className="inline-flex items-center gap-1 text-xs font-semibold text-green-800 dark:text-green-300 mb-1">
+                          <ArrowRight className="h-3.5 w-3.5" />
+                          Next Step
+                        </p>
                         <p className="text-sm text-gray-700 dark:text-gray-300">{visit.next_step}</p>
                       </div>
                     )}

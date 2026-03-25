@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import Modal from '../ui/Modal';
 
 // ── Day-of-week helpers ────────────────────────────────────────
@@ -256,7 +257,7 @@ export default function EventExplorerModal({
 
       lines.push(`Event ID: ${event.eventId}`);
 
-      if (event.didNotMeet) lines.push('⚠️ Meeting did not occur');
+      if (event.didNotMeet) lines.push('Meeting did not occur');
       if (event.headCount !== null) lines.push(`Head Count: ${event.headCount}`);
       if (event.attendees.length > 0) lines.push(`Attendees Recorded: ${event.attendees.length}`);
       if (event.topic) lines.push(`\nTopic:\n${event.topic}`);
@@ -610,8 +611,9 @@ export default function EventExplorerModal({
                   {/* Did Not Meet Warning */}
                   {event.didNotMeet && (
                     <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800/30 rounded-lg px-3 py-2">
-                      <p className="text-sm text-yellow-800 dark:text-yellow-300 font-medium">
-                        ⚠️ Meeting did not occur
+                      <p className="inline-flex items-center gap-1.5 text-sm text-yellow-800 dark:text-yellow-300 font-medium">
+                        <AlertTriangle className="h-4 w-4" />
+                        Meeting did not occur
                       </p>
                     </div>
                   )}
