@@ -939,6 +939,47 @@ export function useProjectBoard() {
   }, []);
 
   // ─── Checklist Groups ──────────────────────────────────────
+  const promoteUngroupedToGroup = useCallback(async (boardId: string, cardId: string, title: string) => {
+    setError(null);
+    try {
+      const existing = board?.cards.find(c => c.id === cardId)?.checklist_groups || [];
+      const maxPos = existing.reduce((m: number, g: any) => Math.max(m, g.position), -1);
+      const { data: group, error: groupErr } = await supabase
+        .from('card_checklist_groups')
+        .insert([{ card_id: cardId, title, position: maxPos + 1 }])
+        .select()
+        .single();
+      if (groupErr) throw groupErr;
+      // Reassign all ungrouped items for this card to the new group
+      await supabase
+        .from('card_checklists')
+        .update({ group_id: group.id })
+        .eq('card_id', cardId)
+        .is('group_id', null);
+      setBoard(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          cards: prev.cards.map(c =>
+            c.id === cardId
+              ? {
+                  ...c,
+                  checklist_groups: [...(c.checklist_groups || []), group],
+                  checklists: (c.checklists || []).map(cl =>
+                    cl.group_id ? cl : { ...cl, group_id: group.id }
+                  ),
+                }
+              : c
+          ),
+        };
+      });
+      return group as CardChecklistGroup;
+    } catch (err: any) {
+      setError(err.message);
+      return null;
+    }
+  }, [board?.cards]);
+
   const addChecklistGroup = useCallback(async (boardId: string, cardId: string, title: string) => {
     setError(null);
     try {
@@ -1247,7 +1288,7 @@ export function useProjectBoard() {
     addCard, updateCard, deleteCard, moveCard, moveToBoardCard, createNextRepeatCard, reorderCardsInColumn,
     addComment, updateComment, deleteComment,
     addChecklistItem, toggleChecklistItem, updateChecklistItemDueDate, deleteChecklistItem, renameChecklistItem, updateChecklistItemUrl,
-    addChecklistGroup, renameChecklistGroup, deleteChecklistGroup,
+    promoteUngroupedToGroup, addChecklistGroup, renameChecklistGroup, deleteChecklistGroup,
     fetchChecklistTemplates, saveChecklistTemplate, deleteChecklistTemplate, applyChecklistTemplate,
     addLabel, updateLabel, deleteLabel,
     assignCard, unassignCard, fetchSystemUsers,

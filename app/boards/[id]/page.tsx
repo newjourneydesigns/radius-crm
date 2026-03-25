@@ -144,6 +144,7 @@ function CardDetailModal({
   onRenameChecklistItem,
   onUpdateChecklistItemUrl,
   onDeleteChecklistItem,
+  onPromoteUngrouped,
   onAddChecklistGroup,
   onRenameChecklistGroup,
   onDeleteChecklistGroup,
@@ -172,6 +173,7 @@ function CardDetailModal({
   onRenameChecklistItem: (itemId: string, title: string) => Promise<void>;
   onUpdateChecklistItemUrl: (itemId: string, url: string | null) => Promise<void>;
   onDeleteChecklistItem: (itemId: string) => Promise<void>;
+  onPromoteUngrouped: (title: string) => Promise<CardChecklistGroup | null>;
   onAddChecklistGroup: (title: string) => Promise<CardChecklistGroup | null>;
   onRenameChecklistGroup: (groupId: string, title: string) => Promise<void>;
   onDeleteChecklistGroup: (groupId: string) => Promise<void>;
@@ -207,6 +209,8 @@ function CardDetailModal({
   const [activeAddSection, setActiveAddSection] = useState<string | null>(null);
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingGroupTitle, setEditingGroupTitle] = useState('');
+  const [editingUngroupedTitle, setEditingUngroupedTitle] = useState(false);
+  const [ungroupedTitleDraft, setUngroupedTitleDraft] = useState('Checklist');
   const [showLabelPicker, setShowLabelPicker] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [templateName, setTemplateName] = useState('');
@@ -598,11 +602,44 @@ function CardDetailModal({
                 </div>
               )}
 
-              {/* Ungrouped items */}
+              {/* Ungrouped items — with editable title header */}
               {ungroupedItems.length > 0 && (
-                <div className="kb-checklist-items">
-                  {ungroupedItems.map(item => renderChecklistItem(item))}
-                </div>
+                <>
+                  <div className="kb-checklist-group-header" style={{ marginBottom: 6 }}>
+                    {editingUngroupedTitle ? (
+                      <input
+                        className="kb-input kb-checklist-group-title-input"
+                        value={ungroupedTitleDraft}
+                        autoFocus
+                        onChange={e => setUngroupedTitleDraft(e.target.value)}
+                        onBlur={() => {
+                          if (ungroupedTitleDraft.trim()) {
+                            onPromoteUngrouped(ungroupedTitleDraft.trim());
+                          }
+                          setEditingUngroupedTitle(false);
+                        }}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            if (ungroupedTitleDraft.trim()) onPromoteUngrouped(ungroupedTitleDraft.trim());
+                            setEditingUngroupedTitle(false);
+                          }
+                          if (e.key === 'Escape') setEditingUngroupedTitle(false);
+                        }}
+                      />
+                    ) : (
+                      <span
+                        className="kb-checklist-group-title"
+                        onClick={() => { setEditingUngroupedTitle(true); setUngroupedTitleDraft('Checklist'); }}
+                        title="Click to rename"
+                      >
+                        Checklist
+                      </span>
+                    )}
+                  </div>
+                  <div className="kb-checklist-items">
+                    {ungroupedItems.map(item => renderChecklistItem(item))}
+                  </div>
+                </>
               )}
 
               {/* Ungrouped add row — always visible when no groups exist, button otherwise */}
@@ -2471,7 +2508,7 @@ function BoardPage() {
     addCard, updateCard, deleteCard, moveCard, moveToBoardCard, reorderCardsInColumn,
     addComment, updateComment, deleteComment,
     addChecklistItem, toggleChecklistItem, updateChecklistItemDueDate, deleteChecklistItem, renameChecklistItem, updateChecklistItemUrl,
-    addChecklistGroup, renameChecklistGroup, deleteChecklistGroup,
+    promoteUngroupedToGroup, addChecklistGroup, renameChecklistGroup, deleteChecklistGroup,
     fetchChecklistTemplates, saveChecklistTemplate, deleteChecklistTemplate, applyChecklistTemplate,
     checklistTemplates,
     addLabel, updateLabel, deleteLabel,
@@ -3599,6 +3636,7 @@ function BoardPage() {
           onRenameChecklistItem={async (itemId, title) => { await renameChecklistItem(boardId, activeCard.id, itemId, title); }}
           onUpdateChecklistItemUrl={async (itemId, url) => { await updateChecklistItemUrl(boardId, activeCard.id, itemId, url); }}
           onDeleteChecklistItem={async (itemId) => { await deleteChecklistItem(boardId, activeCard.id, itemId); }}
+          onPromoteUngrouped={async (title) => await promoteUngroupedToGroup(boardId, activeCard.id, title)}
           onAddChecklistGroup={async (title) => await addChecklistGroup(boardId, activeCard.id, title)}
           onRenameChecklistGroup={async (groupId, title) => { await renameChecklistGroup(boardId, activeCard.id, groupId, title); }}
           onDeleteChecklistGroup={async (groupId) => { await deleteChecklistGroup(boardId, activeCard.id, groupId); }}
