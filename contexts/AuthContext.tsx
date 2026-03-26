@@ -14,6 +14,7 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  isDemo: boolean;
   signInWithMagicLink: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   clearAuthData: () => Promise<void>;
@@ -21,6 +22,16 @@ interface AuthContextType {
   isAdmin: () => boolean;
   refreshUser: () => Promise<void>;
 }
+
+const DEMO_USER: User = {
+  id: 'demo-user',
+  email: 'demo@example.com',
+  name: 'Demo User',
+  role: 'ACPD',
+  ai_assistant_enabled: false,
+};
+
+const IS_DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -33,10 +44,16 @@ export const useAuth = () => {
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(IS_DEMO_MODE ? DEMO_USER : null);
+  const [loading, setLoading] = useState(!IS_DEMO_MODE);
 
   useEffect(() => {
+    // In demo mode, skip all Supabase auth and use the mock user
+    if (IS_DEMO_MODE) {
+      console.log('🎭 AuthContext: Demo mode active — using mock user');
+      return;
+    }
+
     // Helper: fetch user profile from DB with timeout, falling back to auth metadata
     const resolveUser = async (authUser: { id: string; email?: string; user_metadata?: any }) => {
       const profilePromise = supabase
@@ -178,6 +195,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signInWithMagicLink = async (email: string) => {
+    if (IS_DEMO_MODE) {
+      console.log('🎭 Demo mode: magic link sign-in is a no-op');
+      return;
+    }
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
       options: {
@@ -193,6 +214,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    if (IS_DEMO_MODE) {
+      console.log('🎭 Demo mode: sign-out is a no-op');
+      return;
+    }
     const { error } = await supabase.auth.signOut();
     if (error) {
       throw error;
@@ -201,6 +226,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const clearAuthData = async () => {
+    if (IS_DEMO_MODE) {
+      console.log('🎭 Demo mode: clearAuthData is a no-op');
+      return;
+    }
     console.log('🧹 AuthContext: Clearing all auth data...');
     try {
       // Force sign out from Supabase with global scope
@@ -248,6 +277,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshUser = async () => {
+    if (IS_DEMO_MODE) return;
     if (!user) return;
     try {
       const { data: profile } = await supabase
@@ -266,6 +296,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = {
     user,
     loading,
+    isDemo: IS_DEMO_MODE,
     signInWithMagicLink,
     signOut,
     clearAuthData,
