@@ -3237,7 +3237,7 @@ function BoardPage() {
                 leader.campus && `Campus: ${leader.campus}`,
                 leader.circle_type && `Circle Type: ${leader.circle_type}`,
                 leader.day && `Day: ${leader.day}`,
-                leader.time && `Time: ${leader.time}`,
+                leader.time && `Time: ${formatTime12(leader.time)}`,
                 leader.phone && `Phone: ${leader.phone}`,
                 leader.email && `Email: ${leader.email}`,
               ].filter(Boolean).join('\n');

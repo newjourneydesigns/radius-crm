@@ -40,6 +40,16 @@ interface MassUpdateLeader {
   status: string | null;
   frequency: string | null;
   circle_type: string | null;
+  day: string | null;
+  time: string | null;
+  meeting_start_date: string | null;
+}
+
+interface RowEditValues {
+  frequency: string;
+  day: string;
+  time: string;
+  meeting_start_date: string;
 }
 
 interface ReferenceData {
@@ -65,7 +75,7 @@ export default function ImportCirclesPage() {
   const router = useRouter();
 
   // Mass Update state
-  const [massUpdateField, setMassUpdateField] = useState<'campus' | 'acpd' | 'frequency' | 'circle_type'>('campus');
+  const [massUpdateField, setMassUpdateField] = useState<'campus' | 'acpd' | 'frequency' | 'circle_type' | 'day' | 'time' | 'meeting_start_date'>('campus');
   const [massUpdateValue, setMassUpdateValue] = useState('');
   const [massUpdateFilterField, setMassUpdateFilterField] = useState<'all' | 'campus' | 'acpd'>('all');
   const [massUpdateFilterValue, setMassUpdateFilterValue] = useState('');
@@ -76,8 +86,54 @@ export default function ImportCirclesPage() {
   const [massUpdateResult, setMassUpdateResult] = useState<{ updated: number; error?: string } | null>(null);
   const [referenceData, setReferenceData] = useState<ReferenceData>({ directors: [], campuses: [], circleTypes: [], frequencies: [] });
 
+  // Inline row edit state
+  const [editingLeaderId, setEditingLeaderId] = useState<number | null>(null);
+  const [editingValues, setEditingValues] = useState<RowEditValues>({ frequency: '', day: '', time: '', meeting_start_date: '' });
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  const startEditRow = (leader: MassUpdateLeader) => {
+    setEditingLeaderId(leader.id);
+    setEditingValues({
+      frequency: leader.frequency || '',
+      day: leader.day || '',
+      time: leader.time || '',
+      meeting_start_date: leader.meeting_start_date || '',
+    });
+  };
+
+  const cancelEditRow = () => {
+    setEditingLeaderId(null);
+  };
+
+  const saveEditRow = async () => {
+    if (editingLeaderId === null) return;
+    setIsSavingEdit(true);
+    try {
+      const res = await fetch(`/api/circle-leaders/${editingLeaderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingValues),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Save failed');
+
+      setMassUpdateLeaders(prev =>
+        prev.map(l =>
+          l.id === editingLeaderId
+            ? { ...l, ...editingValues, meeting_start_date: editingValues.meeting_start_date || null }
+            : l
+        )
+      );
+      setEditingLeaderId(null);
+    } catch (err: any) {
+      alert(err.message || 'Failed to save');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   // Sort state for mass update table
-  type SortField = 'name' | 'campus' | 'acpd' | 'status' | 'frequency' | 'circle_type';
+  type SortField = 'name' | 'campus' | 'acpd' | 'status' | 'frequency' | 'circle_type' | 'day' | 'time';
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
@@ -156,6 +212,9 @@ export default function ImportCirclesPage() {
         status: l.status || null,
         frequency: l.frequency || null,
         circle_type: l.circle_type || null,
+        day: l.day || null,
+        time: l.time || null,
+        meeting_start_date: l.meeting_start_date || null,
       }));
 
       if (massUpdateFilterField === 'campus' && massUpdateFilterValue) {
@@ -457,7 +516,7 @@ export default function ImportCirclesPage() {
                       <select
                         value={massUpdateField}
                         onChange={(e) => {
-                          setMassUpdateField(e.target.value as 'campus' | 'acpd' | 'frequency' | 'circle_type');
+                          setMassUpdateField(e.target.value as 'campus' | 'acpd' | 'frequency' | 'circle_type' | 'day' | 'time' | 'meeting_start_date');
                           setMassUpdateValue('');
                         }}
                         className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
@@ -466,34 +525,57 @@ export default function ImportCirclesPage() {
                         <option value="acpd">ACPD / Director</option>
                         <option value="frequency">Frequency</option>
                         <option value="circle_type">Circle Type</option>
+                        <option value="day">Meeting Day</option>
+                        <option value="time">Meeting Time</option>
+                        <option value="meeting_start_date">Bi-weekly Start Date</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">
                         New Value
                       </label>
-                      <select
-                        value={massUpdateValue}
-                        onChange={(e) => setMassUpdateValue(e.target.value)}
-                        className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                      >
-                        <option value="">-- Select New Value --</option>
-                        {massUpdateField === 'campus'
-                          ? referenceData.campuses.map((c) => (
-                              <option key={c.id} value={c.value}>{c.value}</option>
-                            ))
-                          : massUpdateField === 'acpd'
-                          ? referenceData.directors.map((d) => (
-                              <option key={d.id} value={d.name}>{d.name}</option>
-                            ))
-                          : massUpdateField === 'frequency'
-                          ? referenceData.frequencies.map((f) => (
-                              <option key={f.id} value={f.value}>{f.value}</option>
-                            ))
-                          : referenceData.circleTypes.map((ct) => (
-                              <option key={ct.id} value={ct.value}>{ct.value}</option>
-                            ))}
-                      </select>
+                      {massUpdateField === 'time' ? (
+                        <input
+                          type="time"
+                          value={massUpdateValue}
+                          onChange={(e) => setMassUpdateValue(e.target.value)}
+                          className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2"
+                        />
+                      ) : massUpdateField === 'meeting_start_date' ? (
+                        <input
+                          type="date"
+                          value={massUpdateValue}
+                          onChange={(e) => setMassUpdateValue(e.target.value)}
+                          className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2"
+                        />
+                      ) : (
+                        <select
+                          value={massUpdateValue}
+                          onChange={(e) => setMassUpdateValue(e.target.value)}
+                          className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                        >
+                          <option value="">-- Select New Value --</option>
+                          {massUpdateField === 'campus'
+                            ? referenceData.campuses.map((c) => (
+                                <option key={c.id} value={c.value}>{c.value}</option>
+                              ))
+                            : massUpdateField === 'acpd'
+                            ? referenceData.directors.map((d) => (
+                                <option key={d.id} value={d.name}>{d.name}</option>
+                              ))
+                            : massUpdateField === 'frequency'
+                            ? referenceData.frequencies.map((f) => (
+                                <option key={f.id} value={f.value}>{f.value}</option>
+                              ))
+                            : massUpdateField === 'day'
+                            ? ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((d) => (
+                                <option key={d} value={d}>{d}</option>
+                              ))
+                            : referenceData.circleTypes.map((ct) => (
+                                <option key={ct.id} value={ct.value}>{ct.value}</option>
+                              ))}
+                        </select>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -569,30 +651,48 @@ export default function ImportCirclesPage() {
                               <span className="inline-flex items-center">Type<SortIcon field="circle_type" /></span>
                             </th>
                             <th
+                              onClick={() => handleSort('day')}
+                              className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:text-white select-none"
+                            >
+                              <span className="inline-flex items-center">Day<SortIcon field="day" /></span>
+                            </th>
+                            <th
+                              onClick={() => handleSort('time')}
+                              className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:text-white select-none"
+                            >
+                              <span className="inline-flex items-center">Time<SortIcon field="time" /></span>
+                            </th>
+                            <th
                               onClick={() => handleSort('status')}
                               className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:text-white select-none"
                             >
                               <span className="inline-flex items-center">Status<SortIcon field="status" /></span>
                             </th>
+                            <th className="px-4 py-3 w-10" />
                           </tr>
                         </thead>
                         <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                          {sortedMassUpdateLeaders.map((leader) => (
+                          {sortedMassUpdateLeaders.map((leader) => {
+                            const isEditing = editingLeaderId === leader.id;
+                            return (
                             <tr
                               key={leader.id}
-                              onClick={(e) => toggleMassUpdateSelect(leader.id, e)}
-                              className={`cursor-pointer transition-colors select-none ${
-                                massUpdateSelected.has(leader.id)
-                                  ? 'bg-blue-50 dark:bg-blue-900/30'
-                                  : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                              onClick={(e) => { if (!isEditing) toggleMassUpdateSelect(leader.id, e); }}
+                              className={`transition-colors select-none ${
+                                isEditing
+                                  ? 'bg-yellow-50 dark:bg-yellow-900/20'
+                                  : massUpdateSelected.has(leader.id)
+                                  ? 'bg-blue-50 dark:bg-blue-900/30 cursor-pointer'
+                                  : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer'
                               }`}
                             >
                               <td className="px-4 py-3">
                                 <input
                                   type="checkbox"
                                   checked={massUpdateSelected.has(leader.id)}
+                                  disabled={isEditing}
                                   onChange={() => {}}
-                                  onClick={(e) => { e.stopPropagation(); toggleMassUpdateSelect(leader.id, e.nativeEvent as unknown as React.MouseEvent); }}
+                                  onClick={(e) => { e.stopPropagation(); if (!isEditing) toggleMassUpdateSelect(leader.id, e.nativeEvent as unknown as React.MouseEvent); }}
                                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                 />
                               </td>
@@ -606,10 +706,48 @@ export default function ImportCirclesPage() {
                                 {leader.acpd || '—'}
                               </td>
                               <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                                {leader.frequency || '—'}
+                                {isEditing ? (
+                                  <select
+                                    value={editingValues.frequency}
+                                    onChange={(e) => setEditingValues(v => ({ ...v, frequency: e.target.value }))}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-full text-xs rounded border border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-700 dark:text-white px-1 py-1"
+                                  >
+                                    <option value="">— none —</option>
+                                    {referenceData.frequencies.map((f) => (
+                                      <option key={f.id} value={f.value}>{f.value}</option>
+                                    ))}
+                                  </select>
+                                ) : (leader.frequency || '—')}
                               </td>
                               <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                                 {leader.circle_type || '—'}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                                {isEditing ? (
+                                  <select
+                                    value={editingValues.day}
+                                    onChange={(e) => setEditingValues(v => ({ ...v, day: e.target.value }))}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-full text-xs rounded border border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-700 dark:text-white px-1 py-1"
+                                  >
+                                    <option value="">— none —</option>
+                                    {['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map((d) => (
+                                      <option key={d} value={d}>{d}</option>
+                                    ))}
+                                  </select>
+                                ) : (leader.day || '—')}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                                {isEditing ? (
+                                  <input
+                                    type="time"
+                                    value={editingValues.time}
+                                    onChange={(e) => setEditingValues(v => ({ ...v, time: e.target.value }))}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-full text-xs rounded border border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-700 dark:text-white px-1 py-1"
+                                  />
+                                ) : (leader.time || '—')}
                               </td>
                               <td className="px-4 py-3 text-sm">
                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -622,8 +760,53 @@ export default function ImportCirclesPage() {
                                   {leader.status || '—'}
                                 </span>
                               </td>
+                              <td className="px-4 py-3 text-sm" onClick={(e) => e.stopPropagation()}>
+                                {isEditing ? (
+                                  <div className="flex items-center gap-1">
+                                    <div className="flex flex-col gap-1 mr-1">
+                                      <span className="text-xs text-gray-400 dark:text-gray-500">Start date</span>
+                                      <input
+                                        type="date"
+                                        value={editingValues.meeting_start_date}
+                                        onChange={(e) => setEditingValues(v => ({ ...v, meeting_start_date: e.target.value }))}
+                                        className="text-xs rounded border border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-700 dark:text-white px-1 py-1"
+                                      />
+                                    </div>
+                                    <button
+                                      onClick={saveEditRow}
+                                      disabled={isSavingEdit}
+                                      title="Save"
+                                      className="p-1 rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 disabled:opacity-50"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                      </svg>
+                                    </button>
+                                    <button
+                                      onClick={cancelEditRow}
+                                      title="Cancel"
+                                      className="p-1 rounded text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => startEditRow(leader)}
+                                    title="Edit meeting info"
+                                    className="p-1 rounded text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                    </svg>
+                                  </button>
+                                )}
+                              </td>
                             </tr>
-                          ))}
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -633,7 +816,7 @@ export default function ImportCirclesPage() {
                       <div className="text-sm text-gray-500 dark:text-gray-400">
                         {massUpdateSelected.size > 0 && massUpdateValue ? (
                           <span>
-                            Will set <strong>{massUpdateField === 'campus' ? 'Campus' : massUpdateField === 'acpd' ? 'ACPD' : massUpdateField === 'frequency' ? 'Frequency' : 'Circle Type'}</strong> to{' '}
+                            Will set <strong>{massUpdateField === 'campus' ? 'Campus' : massUpdateField === 'acpd' ? 'ACPD' : massUpdateField === 'frequency' ? 'Frequency' : massUpdateField === 'day' ? 'Meeting Day' : massUpdateField === 'time' ? 'Meeting Time' : massUpdateField === 'meeting_start_date' ? 'Bi-weekly Start Date' : 'Circle Type'}</strong> to{' '}
                             <strong>&ldquo;{massUpdateValue}&rdquo;</strong> for{' '}
                             <strong>{massUpdateSelected.size}</strong> leader{massUpdateSelected.size !== 1 ? 's' : ''}
                           </span>

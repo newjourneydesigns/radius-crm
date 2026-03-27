@@ -32,20 +32,17 @@ import type {
 // ─── Theme ───────────────────────────────────────────────────────────────────
 
 const T = {
-  pageBg:     '#0f1117',
-  cardBg:     '#1a1d27',
-  cardBorder: '#2a2d3a',
-  text:       '#e5e7eb',
-  textMuted:  '#9ca3af',
-  textFaint:  '#4b5563',
-  red:        '#ef4444',
-  amber:      '#f59e0b',
-  green:      '#22c55e',
-  blue:       '#3b82f6',
-  indigo:     '#6366f1',
-  purple:     '#a855f7',
-  cyan:       '#06b6d4',
-  pink:       '#ec4899',
+  pageBg:     '#0d0f14',
+  cardBg:     '#13151c',
+  cardBorder: '#1e2029',
+  text:       '#e2e4ec',
+  textMuted:  '#8b8fa8',
+  textFaint:  '#3d4155',
+  red:        '#ef4444',  // overdue — missed deadline
+  amber:      '#f59e0b',  // actionable today — due today / needs action
+  green:      '#22c55e',  // success / done states
+  neutral:    '#5b6070',  // informational — circles, visits
+  violet:     '#8b5cf6',  // birthdays
 };
 
 // ─── localStorage visibility ──────────────────────────────────────────────────
@@ -201,7 +198,7 @@ function Scoreboard({ rows }: {
 // ─── Section ─────────────────────────────────────────────────────────────────
 
 function Section({
-  id, title, icon, count, sectionKey, isOpen, onToggle, accentColor = T.indigo, headerExtra, children,
+  id, title, icon, count, sectionKey, isOpen, onToggle, accentColor = T.neutral, headerExtra, children,
 }: {
   id: string; title: string; icon: React.ReactNode; count: number; sectionKey: string;
   isOpen: boolean; onToggle: () => void; accentColor?: string;
@@ -322,19 +319,24 @@ function CardMeta({ card }: { card: CardDigestItem }) {
 
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5, marginTop: 5 }}>
-      {/* Labels */}
+      {/* Labels — colored dot for identity, neutral chip to reduce noise */}
       {hasLabels && card.labels!.map((l, i) => (
         <span key={i} style={{
-          fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 4,
-          background: l.color + '28', color: l.color, border: `1px solid ${l.color}40`,
-          whiteSpace: 'nowrap',
-        }}>{l.name}</span>
+          fontSize: 10, fontWeight: 500, padding: '1px 6px', borderRadius: 4,
+          background: 'rgba(255,255,255,0.05)', color: T.textMuted, border: `1px solid rgba(255,255,255,0.08)`,
+          whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 4,
+        }}>
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: l.color, flexShrink: 0 }} />
+          {l.name}
+        </span>
       ))}
-      {/* Priority */}
+      {/* Priority — only highlight urgent/high; mute low/medium */}
       {pri && (
         <span style={{
-          fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 4,
-          background: pri.color + '18', color: pri.color, border: `1px solid ${pri.color}30`,
+          fontSize: 10, fontWeight: 500, padding: '1px 6px', borderRadius: 4,
+          background: (card.priority === 'urgent' || card.priority === 'high') ? pri.color + '15' : 'rgba(255,255,255,0.05)',
+          color: (card.priority === 'urgent' || card.priority === 'high') ? pri.color : T.textFaint,
+          border: `1px solid ${(card.priority === 'urgent' || card.priority === 'high') ? pri.color + '28' : 'rgba(255,255,255,0.08)'}`,
           whiteSpace: 'nowrap',
         }}>{pri.label}</span>
       )}
@@ -396,7 +398,7 @@ function TodaySkeleton() {
   return (
     <div style={{
       maxWidth: 720, margin: '0 auto',
-      padding: '20px 16px 100px',
+      padding: '20px 16px 100px', position: 'relative', zIndex: 1,
       minHeight: 'calc(100vh - 60px)',
       fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
     }}>
@@ -497,7 +499,7 @@ export default function TodayPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 60px)' }}>
         <div style={{ textAlign: 'center' }}>
           <p style={{ fontSize: 13, color: T.textMuted, marginBottom: 8 }}>{error || 'No data available.'}</p>
-          <button onClick={fetchData} style={{ fontSize: 12, color: T.blue, background: 'none', border: 'none', cursor: 'pointer' }}>
+          <button onClick={fetchData} style={{ fontSize: 12, color: T.textMuted, background: 'none', border: 'none', cursor: 'pointer' }}>
             Try again
           </button>
         </div>
@@ -517,14 +519,18 @@ export default function TodayPage() {
   return (
     <>
       <style>{`
+        .today-page-bg { position: fixed; inset: 0; background: ${T.pageBg}; z-index: 0; pointer-events: none; }
+        .today-page-content { position: relative; z-index: 1; }
         .today-item:last-child { border-bottom: none !important; }
-        .today-leader-link:hover { color: ${T.blue} !important; }
+        .today-leader-link:hover { color: ${T.textMuted} !important; }
         .today-action-btn:hover { filter: brightness(1.1); }
-        .today-score-row:hover .today-score-inner { background: rgba(255,255,255,0.03); }
+        .today-score-row:hover .today-score-inner { background: rgba(255,255,255,0.02); }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
 
-      <div style={{ maxWidth: 720, margin: '0 auto', padding: '20px 16px 100px', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif' }}>
+      <div className="today-page-bg" />
+
+      <div className="today-page-content" style={{ maxWidth: 720, margin: '0 auto', padding: '20px 16px 100px', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif' }}>
 
         {/* ── Header ── */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
@@ -553,15 +559,14 @@ export default function TodayPage() {
         {/* ── Scoreboard ── */}
         <Scoreboard
           rows={[
-            { label: 'Focus Cards',     count: totalFocus,                     color: '#f59e0b', href: '#focus-cards' },
-            { label: 'Birthdays',       count: data.birthdays.length,          color: T.pink,   href: '#birthdays' },
-            { label: 'Circle Visits',   count: data.circleVisits.today.length, color: T.cyan,   href: '#visits-today' },
-            { label: 'Encouragements',  count: totalEncs,                      color: T.purple, href: '#encs-today' },
-            { label: 'Follow-Ups',      count: totalFU,                        color: T.amber,  href: '#follow-ups' },
-            { label: 'Cards',           count: totalCards,                     color: T.indigo, href: '#cards-today' },
-            { label: 'Checklist Tasks', count: totalChecklists,                color: T.blue,   href: '#checklists-today' },
-            { label: 'Overdue Items',   count: totalOverdue,                   color: T.red,    href: '#overdue-cards' },
-            { label: 'Upcoming Circles', count: totalCircles,                  color: T.green,  href: '#upcoming-circles' },
+            { label: 'Focus Cards',     count: totalFocus,                     color: T.amber,   href: '#focus-cards' },
+            { label: 'Birthdays',       count: data.birthdays.length,          color: T.violet,  href: '#birthdays' },
+            { label: 'Overdue Items',   count: totalOverdue,                   color: T.red,     href: '#overdue-cards' },
+            { label: 'Follow-Ups',      count: totalFU,                        color: T.amber,   href: '#follow-ups' },
+            { label: 'Cards Due',       count: totalCards,                     color: T.amber,   href: '#cards-today' },
+            { label: 'Encouragements',  count: totalEncs,                      color: T.amber,   href: '#encs-today' },
+            { label: 'Checklist Tasks', count: totalChecklists,                color: T.amber,   href: '#checklists-today' },
+            { label: 'Circle Visits',   count: data.circleVisits.today.length, color: T.neutral, href: '#visits-today' },
           ]}
         />
 
@@ -598,17 +603,38 @@ export default function TodayPage() {
 
         {/* ── Birthdays ── */}
         <Section id="birthdays" title="Birthdays" icon={<Cake className="h-4 w-4" />} count={data.birthdays.length}
-          sectionKey="birthdays" isOpen={isOpen('birthdays')} onToggle={() => toggle('birthdays')} accentColor={T.pink}>
+          sectionKey="birthdays" isOpen={isOpen('birthdays')} onToggle={() => toggle('birthdays')} accentColor={T.violet}>
           {data.birthdays.map((b: BirthdayItem) => (
-            <Item key={b.id} accentColor={T.pink}>
+            <Item key={b.id} accentColor={T.violet}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <LeaderLink id={b.id} name={b.name} />
                 {b.campus && <Sub>{b.campus}</Sub>}
               </div>
               {b.phone && (
-                <a href={`tel:${b.phone}`} style={{ fontSize: 11, fontWeight: 600, color: T.blue, textDecoration: 'none', whiteSpace: 'nowrap' }}>
-                  {formatPhone(b.phone)}
-                </a>
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  <a href={`tel:${b.phone}`} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    padding: '5px 10px', borderRadius: 7, fontSize: 11, fontWeight: 600,
+                    background: `${T.violet}15`, color: T.violet,
+                    border: `1px solid ${T.violet}30`, textDecoration: 'none', whiteSpace: 'nowrap',
+                  }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.63A2 2 0 012 .18h3a2 2 0 012 1.72c.13 1.05.39 2.08.76 3.07a2 2 0 01-.45 2.11L6.09 8.3a16 16 0 006.61 6.61l1.22-1.22a2 2 0 012.11-.45c.99.37 2.02.63 3.07.76A2 2 0 0122 16.92z" />
+                    </svg>
+                    Call
+                  </a>
+                  <a href={`sms:${b.phone}`} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    padding: '5px 10px', borderRadius: 7, fontSize: 11, fontWeight: 600,
+                    background: `${T.violet}15`, color: T.violet,
+                    border: `1px solid ${T.violet}30`, textDecoration: 'none', whiteSpace: 'nowrap',
+                  }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                    </svg>
+                    Text
+                  </a>
+                </div>
               )}
             </Item>
           ))}
@@ -616,9 +642,9 @@ export default function TodayPage() {
 
         {/* ── Circle Visits Today ── */}
         <Section id="visits-today" title="Circle Visits Today" icon={<CalendarDays className="h-4 w-4" />} count={data.circleVisits.today.length}
-          sectionKey="circleVisitsToday" isOpen={isOpen('circleVisitsToday')} onToggle={() => toggle('circleVisitsToday')} accentColor={T.cyan}>
+          sectionKey="circleVisitsToday" isOpen={isOpen('circleVisitsToday')} onToggle={() => toggle('circleVisitsToday')} accentColor={T.neutral}>
           {data.circleVisits.today.map((v: VisitItem) => (
-            <Item key={v.id} accentColor={T.cyan}>
+            <Item key={v.id} accentColor={T.neutral}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <LeaderLink id={v.leader_id} name={v.leader_name} />
                 <Sub>{[v.leader_campus, v.previsit_note].filter(Boolean).join(' · ')}</Sub>
@@ -629,9 +655,9 @@ export default function TodayPage() {
 
         {/* ── Encouragements Due Today ── */}
         <Section id="encs-today" title="Encouragements Due Today" icon={<PartyPopper className="h-4 w-4" />} count={data.encouragements.dueToday.length}
-          sectionKey="encouragementsToday" isOpen={isOpen('encouragementsToday')} onToggle={() => toggle('encouragementsToday')} accentColor={T.purple}>
+          sectionKey="encouragementsToday" isOpen={isOpen('encouragementsToday')} onToggle={() => toggle('encouragementsToday')} accentColor={T.amber}>
           {data.encouragements.dueToday.map((e: EncouragementItem) => (
-            <Item key={e.id} accentColor={T.purple}>
+            <Item key={e.id} accentColor={T.amber}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <LeaderLink id={e.circle_leader_id} name={e.leader_name} />
                 <Sub>{[e.leader_campus, methodLabel(e.encourage_method), e.note].filter(Boolean).join(' · ')}</Sub>
@@ -660,9 +686,9 @@ export default function TodayPage() {
 
         {/* ── Cards Due Today ── */}
         <Section id="cards-today" title="Cards Due Today" icon={<ClipboardList className="h-4 w-4" />} count={data.cards.dueToday.length}
-          sectionKey="cardsToday" isOpen={isOpen('cardsToday')} onToggle={() => toggle('cardsToday')} accentColor={T.indigo}>
+          sectionKey="cardsToday" isOpen={isOpen('cardsToday')} onToggle={() => toggle('cardsToday')} accentColor={T.amber}>
           {data.cards.dueToday.map((c: CardDigestItem) => (
-            <Item key={c.id} accentColor={T.indigo}>
+            <Item key={c.id} accentColor={T.amber}>
               <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
                 <Link href={`/boards/${c.board_id}?card=${c.id}`} style={{ fontSize: 13, fontWeight: 600, color: T.text, textDecoration: 'none', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                   className="today-leader-link">
@@ -699,9 +725,9 @@ export default function TodayPage() {
 
         {/* ── Checklist Items Due Today ── */}
         <Section id="checklists-today" title="Checklist Items Due Today" icon={<CheckSquare className="h-4 w-4" />} count={data.checklistItems.dueToday.length}
-          sectionKey="checklistsToday" isOpen={isOpen('checklistsToday')} onToggle={() => toggle('checklistsToday')} accentColor={T.blue}>
+          sectionKey="checklistsToday" isOpen={isOpen('checklistsToday')} onToggle={() => toggle('checklistsToday')} accentColor={T.amber}>
           {data.checklistItems.dueToday.map((cl: ChecklistDigestItem) => (
-            <Item key={cl.id} accentColor={T.blue}>
+            <Item key={cl.id} accentColor={T.amber}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontSize: 13, fontWeight: 600, color: T.text, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cl.text}</p>
                 <Sub>
@@ -734,15 +760,15 @@ export default function TodayPage() {
 
         {/* ── Overdue Encouragements ── */}
         <Section id="overdue-encs" title="Overdue Encouragements" icon="⏰" count={data.encouragements.overdue.length}
-          sectionKey="overdueEncouragements" isOpen={isOpen('overdueEncouragements')} onToggle={() => toggle('overdueEncouragements')} accentColor={T.amber}>
+          sectionKey="overdueEncouragements" isOpen={isOpen('overdueEncouragements')} onToggle={() => toggle('overdueEncouragements')} accentColor={T.red}>
           {data.encouragements.overdue.map((e: EncouragementItem) => (
-            <Item key={e.id} accentColor={T.amber}>
+            <Item key={e.id} accentColor={T.red}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <LeaderLink id={e.circle_leader_id} name={e.leader_name} />
                 <Sub>{methodLabel(e.encourage_method)}</Sub>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {e.message_date && <DateBadge date={`Due ${formatShort(e.message_date)}`} color={T.amber} />}
+                {e.message_date && <DateBadge date={`Due ${formatShort(e.message_date)}`} color={T.red} />}
                 <ActionBtn onClick={() => markEncouragementSent(e.id)} color={T.green}>Sent</ActionBtn>
               </div>
             </Item>
@@ -751,16 +777,16 @@ export default function TodayPage() {
 
         {/* ── Overdue Follow-Ups ── */}
         <Section id="overdue-followups" title="Overdue Follow-Ups" icon={<Pin className="h-4 w-4" />} count={data.followUps.overdue.length}
-          sectionKey="overdueFollowUps" isOpen={isOpen('overdueFollowUps')} onToggle={() => toggle('overdueFollowUps')} accentColor={T.amber}>
+          sectionKey="overdueFollowUps" isOpen={isOpen('overdueFollowUps')} onToggle={() => toggle('overdueFollowUps')} accentColor={T.red}>
           {data.followUps.overdue.map((f: FollowUpItem) => (
-            <Item key={f.id} accentColor={T.amber}>
+            <Item key={f.id} accentColor={T.red}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <LeaderLink id={f.id} name={f.name} />
                 <Sub>{f.campus || 'No campus'}</Sub>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 {f.follow_up_date
-                  ? <DateBadge date={`Due ${formatShort(f.follow_up_date)}`} color={T.amber} />
+                  ? <DateBadge date={`Due ${formatShort(f.follow_up_date)}`} color={T.red} />
                   : <DateBadge date="No due date" color={T.textFaint} />}
                 <ActionBtn onClick={() => clearFollowUp(f.id)} color={T.green}>Clear</ActionBtn>
               </div>
@@ -770,14 +796,14 @@ export default function TodayPage() {
 
         {/* ── Circle Visits This Week ── */}
         <Section id="visits-week" title="Circle Visits This Week" icon={<CalendarRange className="h-4 w-4" />} count={data.circleVisits.thisWeek.length}
-          sectionKey="circleVisitsWeek" isOpen={isOpen('circleVisitsWeek')} onToggle={() => toggle('circleVisitsWeek')} accentColor={T.cyan}>
+          sectionKey="circleVisitsWeek" isOpen={isOpen('circleVisitsWeek')} onToggle={() => toggle('circleVisitsWeek')} accentColor={T.neutral}>
           {data.circleVisits.thisWeek.map((v: VisitItem) => (
-            <Item key={v.id} accentColor={T.cyan}>
+            <Item key={v.id} accentColor={T.neutral}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <LeaderLink id={v.leader_id} name={v.leader_name} />
                 {v.leader_campus && <Sub>{v.leader_campus}</Sub>}
               </div>
-              <DateBadge date={formatShort(v.visit_date)} color={T.cyan} />
+              <DateBadge date={formatShort(v.visit_date)} color={T.neutral} />
             </Item>
           ))}
         </Section>
@@ -787,14 +813,13 @@ export default function TodayPage() {
           const todayCount = data.upcomingCircles.today.length + data.upcomingCircles.tomorrow.length;
           const weekCount  = todayCount + data.upcomingCircles.thisWeek.reduce((s, d) => s + d.leaders.length, 0);
           const count      = circleView === 'week' ? weekCount : todayCount;
-          const colors     = [T.blue, T.indigo, T.purple, T.cyan, T.green];
 
           const toggle$ = (
             <div style={{ display: 'flex', borderRadius: 7, overflow: 'hidden', border: `1px solid ${T.cardBorder}` }}>
               {(['today', 'week'] as const).map(v => (
                 <button key={v} onClick={() => setCircleView(v)} style={{
                   padding: '3px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer', border: 'none',
-                  background: circleView === v ? T.blue : 'transparent',
+                  background: circleView === v ? T.neutral : 'transparent',
                   color: circleView === v ? '#fff' : T.textMuted,
                   transition: 'all 0.15s',
                 }}>
@@ -813,7 +838,7 @@ export default function TodayPage() {
               sectionKey="upcomingCircles"
               isOpen={isOpen('upcomingCircles')}
               onToggle={() => toggle('upcomingCircles')}
-              accentColor={T.blue}
+              accentColor={T.neutral}
               headerExtra={toggle$}
             >
               {/* Today */}
@@ -821,12 +846,12 @@ export default function TodayPage() {
                 <>
                   <div style={{ padding: '6px 16px 4px', fontSize: 10, fontWeight: 700, color: T.textFaint, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Today</div>
                   {data.upcomingCircles.today.map((c: CircleMeetingItem) => (
-                    <Item key={c.leader_id} accentColor={T.blue}>
+                    <Item key={c.leader_id} accentColor={T.neutral}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <LeaderLink id={c.leader_id} name={c.leader_name} />
                         <Sub>{[c.campus, c.circle_type].filter(Boolean).join(' · ')}</Sub>
                       </div>
-                      <DateBadge date={formatTime(c.time)} color={T.blue} />
+                      <DateBadge date={formatTime(c.time)} color={T.neutral} />
                     </Item>
                   ))}
                 </>
@@ -836,29 +861,29 @@ export default function TodayPage() {
                 <>
                   <div style={{ padding: '6px 16px 4px', fontSize: 10, fontWeight: 700, color: T.textFaint, letterSpacing: '0.06em', textTransform: 'uppercase', borderTop: data.upcomingCircles.today.length > 0 ? `1px solid ${T.cardBorder}` : 'none' }}>Tomorrow</div>
                   {data.upcomingCircles.tomorrow.map((c: CircleMeetingItem) => (
-                    <Item key={c.leader_id} accentColor={T.indigo}>
+                    <Item key={c.leader_id} accentColor={T.neutral}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <LeaderLink id={c.leader_id} name={c.leader_name} />
                         <Sub>{[c.campus, c.circle_type].filter(Boolean).join(' · ')}</Sub>
                       </div>
-                      <DateBadge date={formatTime(c.time)} color={T.indigo} />
+                      <DateBadge date={formatTime(c.time)} color={T.neutral} />
                     </Item>
                   ))}
                 </>
               )}
               {/* Rest of week (only in week view) */}
-              {circleView === 'week' && data.upcomingCircles.thisWeek.map((day, i) => (
+              {circleView === 'week' && data.upcomingCircles.thisWeek.map((day) => (
                 <div key={day.date}>
                   <div style={{ padding: '6px 16px 4px', fontSize: 10, fontWeight: 700, color: T.textFaint, letterSpacing: '0.06em', textTransform: 'uppercase', borderTop: `1px solid ${T.cardBorder}` }}>
                     {day.dayName}
                   </div>
                   {day.leaders.map((c: CircleMeetingItem) => (
-                    <Item key={c.leader_id} accentColor={colors[i % colors.length]}>
+                    <Item key={c.leader_id} accentColor={T.neutral}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <LeaderLink id={c.leader_id} name={c.leader_name} />
                         <Sub>{[c.campus, c.circle_type].filter(Boolean).join(' · ')}</Sub>
                       </div>
-                      <DateBadge date={formatTime(c.time)} color={colors[i % colors.length]} />
+                      <DateBadge date={formatTime(c.time)} color={T.neutral} />
                     </Item>
                   ))}
                 </div>
@@ -869,14 +894,14 @@ export default function TodayPage() {
 
         {/* ── Upcoming Scheduled Visits ── */}
         <Section id="upcoming-visits" title="Upcoming Scheduled Visits" icon={<CalendarRange className="h-4 w-4" />} count={data.upcomingVisits.length}
-          sectionKey="upcomingVisits" isOpen={isOpen('upcomingVisits')} onToggle={() => toggle('upcomingVisits')} accentColor={T.indigo}>
+          sectionKey="upcomingVisits" isOpen={isOpen('upcomingVisits')} onToggle={() => toggle('upcomingVisits')} accentColor={T.neutral}>
           {data.upcomingVisits.map((v: VisitItem) => (
-            <Item key={v.id} accentColor={T.indigo}>
+            <Item key={v.id} accentColor={T.neutral}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <LeaderLink id={v.leader_id} name={v.leader_name} />
                 {v.leader_campus && <Sub>{v.leader_campus}</Sub>}
               </div>
-              <DateBadge date={formatShort(v.visit_date)} color={T.indigo} />
+              <DateBadge date={formatShort(v.visit_date)} color={T.neutral} />
             </Item>
           ))}
         </Section>
