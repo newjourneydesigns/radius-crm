@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { fetchWeather, WeatherData } from '../../../lib/weatherService';
 import type {
   CardDigestItem,
   ChecklistDigestItem,
@@ -15,7 +14,6 @@ import type {
 export interface TodayData {
   today: string;
   user: { id: string; name: string; email: string };
-  weather: WeatherData | null;
   birthdays: BirthdayItem[];
   circleVisits: { today: VisitItem[]; thisWeek: VisitItem[] };
   upcomingVisits: VisitItem[];
@@ -100,7 +98,7 @@ async function buildTodayData(
   supabase: ReturnType<typeof getSupabaseServiceClient>,
   user: { id: string; name: string; email: string },
   today: string
-): Promise<Omit<TodayData, 'weather'>> {
+): Promise<TodayData> {
   const tomorrow    = getDateOffset(today, 1);
   const weekEnd     = getDateOffset(today, 7);
   const monthEnd    = getDateOffset(today, 30);
@@ -452,7 +450,7 @@ export async function GET(request: NextRequest) {
       anonClient.auth.getUser(token),
       optimisticId
         ? supabase.from('users')
-            .select('id, name, email, weather_city, weather_state, weather_zip, include_weather')
+            .select('id, name, email')
             .eq('id', optimisticId).single()
         : Promise.resolve({ data: null, error: null }),
     ]);
@@ -474,15 +472,7 @@ export async function GET(request: NextRequest) {
 
     const user = { id: userProfile.id, name: userProfile.name, email: userProfile.email };
 
-    const [data, weather] = await Promise.all([
-      buildTodayData(supabase, user, today),
-      userProfile.include_weather !== false
-        ? fetchWeather({ city: userProfile.weather_city, state: userProfile.weather_state, zip: userProfile.weather_zip })
-            .catch((): WeatherData | null => null)
-        : Promise.resolve(null as WeatherData | null),
-    ]);
-
-    const payload = { ...data, weather };
+    const payload = await buildTodayData(supabase, user, today);
     responseCache.set(userProfile.id, { payload, cachedAt: Date.now() });
 
     return NextResponse.json(payload, {

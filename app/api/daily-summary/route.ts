@@ -12,7 +12,6 @@ import {
   CircleMeetingItem,
   BirthdayItem,
 } from '../../../lib/emailService';
-import { fetchWeather, WeatherData, WeatherLocation } from '../../../lib/weatherService';
 
 function getSupabaseServiceClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -669,9 +668,7 @@ export async function POST(request: NextRequest) {
 
     // Test mode: send demo digest to a specified address
     if (force && testEmail) {
-      const weather = await fetchWeather();
       const demoData = buildDemoDigest({ id: 'test', name: 'Test User', email: testEmail }, today);
-      demoData.weather = weather;
       const result = await sendPersonalDigestEmail(demoData);
       return NextResponse.json({
         success: result.success,
@@ -683,10 +680,9 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseServiceClient();
     const currentCSTHour = getCurrentCSTHour();
 
-    // Fetch all subscribed users with their frequency setting and weather location
     const { data: users, error: usersError } = await supabase
       .from('users')
-      .select('id, name, email, daily_email_frequency_hours, last_digest_sent_at, weather_city, weather_state, weather_zip, include_weather')
+      .select('id, name, email, daily_email_frequency_hours, last_digest_sent_at')
       .eq('daily_email_subscribed', true)
       .not('email', 'is', null);
 
@@ -708,9 +704,6 @@ export async function POST(request: NextRequest) {
     let sent = 0;
     let skipped = 0;
     const errors: string[] = [];
-
-    // Cache weather results by location key to avoid duplicate API calls
-    const weatherCache = new Map<string, WeatherData | null>();
 
     for (const user of users) {
       const frequencyHours = user.daily_email_frequency_hours || 24;
@@ -734,22 +727,6 @@ export async function POST(request: NextRequest) {
       try {
         const digestData = await buildDigestForUser(supabase, user, today);
 
-        // Fetch weather for this user's location if weather is enabled
-        const includeWeather = user.include_weather !== false;
-        if (includeWeather) {
-          const userLocation: WeatherLocation = {
-            city: user.weather_city || null,
-            state: user.weather_state || null,
-            zip: user.weather_zip || null,
-          };
-          const locationKey = `${userLocation.city || ''}|${userLocation.state || ''}|${userLocation.zip || ''}`;
-          if (!weatherCache.has(locationKey)) {
-            weatherCache.set(locationKey, await fetchWeather(userLocation));
-          }
-          digestData.weather = weatherCache.get(locationKey) ?? null;
-        } else {
-          digestData.weather = null;
-        }
         const hasContent =
           (digestData.cards?.dueToday?.length || 0) > 0 ||
           (digestData.cards?.overdue?.length || 0) > 0 ||

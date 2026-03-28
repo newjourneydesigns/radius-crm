@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { fetchWeather, WeatherData } from '../../../../lib/weatherService';
 import type {
   VisitItem,
   EncouragementItem,
@@ -13,7 +12,6 @@ import type {
 export interface TodayCoreData {
   today: string;
   user: { id: string; name: string; email: string };
-  weather: WeatherData | null;
   birthdays: BirthdayItem[];
   circleVisits: { today: VisitItem[]; thisWeek: VisitItem[] };
   upcomingVisits: VisitItem[];
@@ -118,7 +116,7 @@ export async function GET(request: NextRequest) {
       anonClient.auth.getUser(token),
       optimisticId
         ? supabase.from('users')
-            .select('id, name, email, weather_city, weather_state, weather_zip, include_weather')
+            .select('id, name, email')
             .eq('id', optimisticId).single()
         : Promise.resolve({ data: null, error: null }),
     ]);
@@ -152,7 +150,6 @@ export async function GET(request: NextRequest) {
       { data: birthdayLeaders },
       { data: circleLeadersRaw },
       { data: notesRaw },
-      weatherResult,
     ] = await Promise.all([
       supabase.from('circle_visits')
         .select('id, visit_date, leader_id, previsit_note, circle_leaders!inner(name, campus)')
@@ -194,11 +191,6 @@ export async function GET(request: NextRequest) {
         .select('id, circle_leader_id, content, created_at, circle_leaders!inner(name, campus)')
         .eq('created_by', user.id)
         .order('created_at', { ascending: false }).limit(5),
-
-      userProfile.include_weather !== false
-        ? fetchWeather({ city: userProfile.weather_city, state: userProfile.weather_state, zip: userProfile.weather_zip })
-            .catch((): WeatherData | null => null)
-        : Promise.resolve(null as WeatherData | null),
     ]);
 
     const toVisit = (v: any): VisitItem => ({
@@ -237,7 +229,6 @@ export async function GET(request: NextRequest) {
     const payload: TodayCoreData = {
       today,
       user,
-      weather: weatherResult as WeatherData | null,
       birthdays,
       circleVisits: {
         today: (visitsRaw || []).filter((v: any) => v.visit_date === today).map(toVisit),

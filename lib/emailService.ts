@@ -1,7 +1,5 @@
 // Uses Resend API directly via fetch - no SDK dependency needed
 
-import { WeatherData } from './weatherService';
-
 export interface CardDigestItem {
   id: string;
   title: string;
@@ -109,7 +107,6 @@ export interface PersonalDigestData {
     dueToday: FollowUpItem[];
     overdue: FollowUpItem[];
   };
-  weather?: WeatherData | null;
 }
 
 function formatDate(dateStr: string): string {
@@ -203,7 +200,7 @@ function checklistRow(item: ChecklistDigestItem, appUrl: string, today: string):
 
 export function generatePersonalDigestHTML(data: PersonalDigestData): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://myradiuscrm.com';
-  const { user, date, birthdays, cards, checklistItems, circleVisits, upcomingVisits, recentNotes, upcomingCircles, encouragements, followUps, weather } = data;
+  const { user, date, birthdays, cards, checklistItems, circleVisits, upcomingVisits, recentNotes, upcomingCircles, encouragements, followUps } = data;
 
   const totalItems =
     (birthdays || []).length +
@@ -414,32 +411,6 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
   const fuCount = followUps.dueToday.length + followUps.overdue.length;
   const birthdayCount = (birthdays || []).length;
 
-  // WEATHER BANNER
-  let weatherHtml = '';
-  if (weather) {
-    weatherHtml = `
-  <div style="background:#0b2545; border:1px solid #1e3a5f; border-radius:10px; padding:16px 20px; margin-bottom:8px;">
-    <table style="width:100%; border-collapse:collapse;">
-      <tr>
-        <td style="vertical-align:middle; width:60px;">
-          <div style="font-size:36px; text-align:center;">${weather.emoji}</div>
-        </td>
-        <td style="vertical-align:middle; padding-left:12px;">
-          <div style="font-size:28px; font-weight:800; color:#ffffff; line-height:1;">${weather.temperature}°F</div>
-          <div style="font-size:13px; color:#8da9c4; margin-top:2px;">${weather.description} in ${weather.location}</div>
-        </td>
-        <td style="vertical-align:middle; text-align:right;">
-          <div style="font-size:12px; color:#6b8ab0; line-height:1.8;">
-            Feels like <span style="color:#e2e8f0; font-weight:600;">${weather.feelsLike}°F</span><br>
-            H: <span style="color:#ef4444; font-weight:600;">${weather.highTemp}°</span> &nbsp; L: <span style="color:#60a5fa; font-weight:600;">${weather.lowTemp}°</span><br>
-            ${weather.precipChance > 0 ? `🌧 <span style="color:#60a5fa; font-weight:600;">${weather.precipChance}%</span> rain &nbsp;` : ''}💨 <span style="color:#e2e8f0;">${weather.windSpeed} mph</span>
-          </div>
-        </td>
-      </tr>
-    </table>
-  </div>`;
-  }
-
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
@@ -462,8 +433,6 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
     <p style="margin:0; font-size:14px; color:#8da9c4;">${formatDate(date)}</p>
     <p style="margin:8px 0 0 0; font-size:13px; color:#6b8ab0;">Hi ${user.name || 'there'} 👋 Here's what needs your attention.</p>
   </div>
-
-  ${weatherHtml}
 
   <div style="background:#0b2545; border-radius:10px; padding:16px 20px; margin-bottom:8px; border:1px solid #1e3a5f;">
     <table style="width:100%; border-collapse:collapse;">

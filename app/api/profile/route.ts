@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
     try {
       const { data: userPrefs } = await supabaseAdmin
         .from('users')
-        .select('daily_email_subscribed, daily_email_time, daily_email_frequency_hours, include_follow_ups, include_overdue_tasks, include_planned_encouragements, include_upcoming_meetings, include_birthdays, include_board_cards_owned, include_board_cards_assigned, include_checklist_items, weather_city, weather_state, weather_zip, include_weather')
+        .select('daily_email_subscribed, daily_email_time, daily_email_frequency_hours, include_follow_ups, include_overdue_tasks, include_planned_encouragements, include_upcoming_meetings, include_birthdays, include_board_cards_owned, include_board_cards_assigned, include_checklist_items')
         .eq('id', user.id)
         .maybeSingle();
       if (userPrefs) {
@@ -109,10 +109,6 @@ export async function GET(request: NextRequest) {
           preferred_time: userPrefs.daily_email_time || '08:00',
           timezone: 'America/Chicago',
           frequency_hours: userPrefs.daily_email_frequency_hours ?? 24,
-          weather_city: userPrefs.weather_city || '',
-          weather_state: userPrefs.weather_state || '',
-          weather_zip: userPrefs.weather_zip || '',
-          include_weather: userPrefs.include_weather ?? true,
         };
       }
     } catch (error: any) {
@@ -134,10 +130,6 @@ export async function GET(request: NextRequest) {
       preferred_time: '08:00',
       timezone: 'America/Chicago',
       frequency_hours: 24,
-      weather_city: '',
-      weather_state: '',
-      weather_zip: '',
-      include_weather: true,
     };
 
     return NextResponse.json({
@@ -267,18 +259,6 @@ export async function PUT(request: NextRequest) {
         }
         if (typeof preferences.include_checklist_items === 'boolean') {
           updatePayload.include_checklist_items = preferences.include_checklist_items;
-        }
-        if (typeof preferences.weather_city === 'string') {
-          updatePayload.weather_city = preferences.weather_city || null;
-        }
-        if (typeof preferences.weather_state === 'string') {
-          updatePayload.weather_state = preferences.weather_state || null;
-        }
-        if (typeof preferences.weather_zip === 'string') {
-          updatePayload.weather_zip = preferences.weather_zip || null;
-        }
-        if (typeof preferences.include_weather === 'boolean') {
-          updatePayload.include_weather = preferences.include_weather;
         }
         if (typeof preferences.ai_assistant_enabled === 'boolean') {
           updatePayload.ai_assistant_enabled = preferences.ai_assistant_enabled;
