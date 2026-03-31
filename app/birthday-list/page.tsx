@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { Cake, PartyPopper } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -13,6 +13,7 @@ interface LeaderBirthday {
   campus?: string;
   birthday?: string;
   ccb_profile_link?: string;
+  ccb_group_id?: string;
   status?: string;
   role: 'Circle Leader' | 'Additional Leader';
   circleLeaderId: number; // parent circle leader id (same as id for circle leaders)
@@ -98,6 +99,16 @@ export default function BirthdayListPage() {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editBirthdayValue, setEditBirthdayValue] = useState('');
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [fetchingCCBKey, setFetchingCCBKey] = useState<string | null>(null);
+  const [bulkState, setBulkState] = useState<{
+    running: boolean;
+    current: number;
+    total: number;
+    fetched: number;
+    failed: number;
+    done: boolean;
+  } | null>(null);
+  const bulkCancelRef = useRef(false);
   const [showOnlyMissing, setShowOnlyMissing] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
@@ -111,7 +122,7 @@ export default function BirthdayListPage() {
       try {
         const { data, error } = await supabase
           .from('circle_leaders')
-          .select('id, name, campus, birthday, ccb_profile_link, status, additional_leader_name, additional_leader_birthday')
+          .select('id, name, campus, birthday, ccb_profile_link, ccb_group_id, status, additional_leader_name, additional_leader_birthday')
           .not('status', 'in', '("archive","Inactive","Removed")')
           .order('name');
         if (error) throw error;
@@ -126,6 +137,7 @@ export default function BirthdayListPage() {
             campus: l.campus,
             birthday: l.birthday,
             ccb_profile_link: l.ccb_profile_link,
+            ccb_group_id: l.ccb_group_id,
             status: l.status,
             role: 'Circle Leader',
             circleLeaderId: l.id,
@@ -138,6 +150,7 @@ export default function BirthdayListPage() {
               campus: l.campus,
               birthday: l.additional_leader_birthday,
               ccb_profile_link: undefined,
+              ccb_group_id: undefined,
               status: l.status,
               role: 'Additional Leader',
               circleLeaderId: l.id,
@@ -248,6 +261,77 @@ export default function BirthdayListPage() {
     }
   };
 
+  const fetchBirthdayFromCCB = async (leader: LeaderBirthday) => {
+    setFetchingCCBKey(leader.uniqueKey);
+    try {
+      const res = await fetch('/api/ccb/individual-birthday', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ circle_leader_id: leader.circleLeaderId, role: leader.role }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to fetch from CCB');
+      setLeaders(prev =>
+        prev.map(l => l.uniqueKey === leader.uniqueKey ? { ...l, birthday: json.birthday } : l)
+      );
+    } catch (err: any) {
+      alert(err.message || 'Failed to fetch birthday from CCB');
+    } finally {
+      setFetchingCCBKey(null);
+    }
+  };
+
+  const startBulkFetch = async () => {
+    const missing = leaders.filter(l => !l.birthday || !l.birthday.trim());
+    if (missing.length === 0) return;
+
+    bulkCancelRef.current = false;
+    setBulkState({ running: true, current: 0, total: missing.length, fetched: 0, failed: 0, done: false });
+
+    let fetched = 0;
+    let failed = 0;
+
+    for (let i = 0; i < missing.length; i++) {
+      if (bulkCancelRef.current) break;
+
+      const leader = missing[i];
+      setBulkState(prev => prev ? { ...prev, current: i + 1 } : null);
+
+      try {
+        const res = await fetch('/api/ccb/individual-birthday', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ circle_leader_id: leader.circleLeaderId, role: leader.role }),
+        });
+        const json = await res.json();
+        if (res.ok && json.birthday) {
+          fetched++;
+          setLeaders(prev =>
+            prev.map(l => l.uniqueKey === leader.uniqueKey ? { ...l, birthday: json.birthday } : l)
+          );
+        } else {
+          failed++;
+        }
+      } catch {
+        failed++;
+      }
+
+      setBulkState(prev => prev ? { ...prev, fetched, failed } : null);
+
+      // Small delay between requests to stay under CCB's 60 calls/min rate limit
+      if (i < missing.length - 1 && !bulkCancelRef.current) {
+        await new Promise(r => setTimeout(r, 600));
+      }
+    }
+
+    setBulkState(prev => prev ? { ...prev, running: false, done: true } : null);
+  };
+
+  const cancelBulkFetch = () => {
+    bulkCancelRef.current = true;
+    setBulkState(prev => prev ? { ...prev, running: false, done: true } : null);
+  };
+
   const todayCount = useMemo(() => leaders.filter(l => isBirthdayToday(l.birthday)).length, [leaders]);
   const thisWeekCount = useMemo(() => leaders.filter(l => isBirthdayThisWeek(l.birthday) && !isBirthdayToday(l.birthday)).length, [leaders]);
   const missingCount = useMemo(() => leaders.filter(l => !l.birthday || !l.birthday.trim()).length, [leaders]);
@@ -344,7 +428,73 @@ export default function BirthdayListPage() {
               className="w-full pl-9 pr-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
+
+          {/* Bulk fetch */}
+          <div className="sm:ml-auto">
+            {!bulkState || bulkState.done ? (
+              <button
+                onClick={startBulkFetch}
+                disabled={missingCount === 0 || isLoading}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                Bulk Fetch from CCB
+                {missingCount > 0 && <span className="px-1.5 py-0.5 text-xs bg-emerald-100 dark:bg-emerald-800/50 rounded-full">{missingCount}</span>}
+              </button>
+            ) : (
+              <button
+                onClick={cancelBulkFetch}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+              >
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Cancel
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Bulk fetch progress banner */}
+        {bulkState && (
+          <div className={`mb-4 rounded-xl border px-4 py-3 ${
+            bulkState.done
+              ? 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700'
+              : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700'
+          }`}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {bulkState.done
+                  ? `Done — ${bulkState.fetched} fetched, ${bulkState.failed} not found`
+                  : `Fetching ${bulkState.current} of ${bulkState.total}…`}
+              </span>
+              <button
+                onClick={() => setBulkState(null)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                title="Dismiss"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+              <div
+                className={`h-1.5 rounded-full transition-all duration-300 ${bulkState.done ? 'bg-gray-400 dark:bg-gray-500' : 'bg-emerald-500'}`}
+                style={{ width: `${bulkState.total > 0 ? (bulkState.current / bulkState.total) * 100 : 0}%` }}
+              />
+            </div>
+            {bulkState.done && (
+              <div className="mt-2 flex gap-3 text-xs text-gray-500 dark:text-gray-400">
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium">{bulkState.fetched} saved</span>
+                {bulkState.failed > 0 && <span className="text-red-500 dark:text-red-400">{bulkState.failed} not found in CCB</span>}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Table */}
         {isLoading ? (
@@ -410,6 +560,7 @@ export default function BirthdayListPage() {
                     const isThisWeek = isBirthdayThisWeek(leader.birthday);
                     const isEditingThis = editingKey === leader.uniqueKey;
                     const isSavingThis = savingKey === leader.uniqueKey;
+                    const isFetchingCCB = fetchingCCBKey === leader.uniqueKey;
 
                     return (
                       <tr
@@ -484,24 +635,43 @@ export default function BirthdayListPage() {
                               </button>
                             </div>
                           ) : (
-                            <button
-                              onClick={() => startEditing(leader)}
-                              className={`group flex items-center gap-1.5 text-sm rounded-md px-2 py-0.5 -ml-2 transition-colors ${
-                                leader.birthday
-                                  ? isToday
-                                    ? 'text-amber-700 dark:text-amber-300 font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/30'
-                                    : isThisWeek
-                                      ? 'text-blue-600 dark:text-blue-400 font-medium hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'
-                                  : 'text-gray-400 dark:text-gray-500 italic hover:bg-gray-100 dark:hover:bg-gray-700/50'
-                              }`}
-                              title="Click to edit birthday"
-                            >
-                              {leader.birthday ? formatBirthday(leader.birthday) : 'Add birthday'}
-                              <svg className="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-                              </svg>
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => startEditing(leader)}
+                                className={`group flex items-center gap-1.5 text-sm rounded-md px-2 py-0.5 -ml-2 transition-colors ${
+                                  leader.birthday
+                                    ? isToday
+                                      ? 'text-amber-700 dark:text-amber-300 font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/30'
+                                      : isThisWeek
+                                        ? 'text-blue-600 dark:text-blue-400 font-medium hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                                    : 'text-gray-400 dark:text-gray-500 italic hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                                }`}
+                                title="Click to edit birthday"
+                              >
+                                {leader.birthday ? formatBirthday(leader.birthday) : 'Add birthday'}
+                                <svg className="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => fetchBirthdayFromCCB(leader)}
+                                disabled={isFetchingCCB}
+                                className="p-1 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded transition-colors disabled:opacity-50"
+                                title="Fetch birthday from CCB"
+                              >
+                                {isFetchingCCB ? (
+                                  <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                                  </svg>
+                                )}
+                              </button>
+                            </div>
                           )}
                         </td>
 
@@ -538,6 +708,7 @@ export default function BirthdayListPage() {
                 const isThisWeek = isBirthdayThisWeek(leader.birthday);
                 const isEditingThis = editingKey === leader.uniqueKey;
                 const isSavingThis = savingKey === leader.uniqueKey;
+                const isFetchingCCB = fetchingCCBKey === leader.uniqueKey;
 
                 return (
                   <div
@@ -572,6 +743,23 @@ export default function BirthdayListPage() {
                         )}
                       </div>
                       <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => fetchBirthdayFromCCB(leader)}
+                          disabled={isFetchingCCB}
+                          className="p-1.5 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 rounded-md disabled:opacity-50"
+                          title="Fetch birthday from CCB"
+                        >
+                          {isFetchingCCB ? (
+                            <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                          ) : (
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                            </svg>
+                          )}
+                        </button>
                         {leader.ccb_profile_link && (
                           <a
                             href={leader.ccb_profile_link}

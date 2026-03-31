@@ -2596,6 +2596,7 @@ export default function CircleLeaderProfilePage() {
                       )}
                     </dd>
                   </div>
+                  {/(bi-?week|every other)/i.test((isEditing ? editedLeader.frequency : leader.frequency) || '') && (
                   <div>
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Bi-weekly Start Date</dt>
                     <dd className="mt-1">
@@ -2611,6 +2612,7 @@ export default function CircleLeaderProfilePage() {
                       )}
                     </dd>
                   </div>
+                  )}
                   <div className="sm:col-span-2">
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">CCB Profile Link</dt>
                     <dd className="mt-1">
