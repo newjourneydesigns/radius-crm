@@ -10,7 +10,7 @@ export default function Page() {
 
   useEffect(() => {
     if (loading) return;
-    router.replace(isAuthenticated() ? '/today' : '/login');
+    router.replace(isAuthenticated() ? '/calendar' : '/login');
   }, [router, loading, isAuthenticated]);
 
   return (
