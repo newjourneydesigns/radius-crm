@@ -389,8 +389,8 @@ export default function ImportCirclesPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-5xl mx-auto">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-4 px-4 sm:px-6">
+        <div className="w-full">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -608,7 +608,7 @@ export default function ImportCirclesPage() {
                       </div>
                     </div>
 
-                    <div className="overflow-x-auto max-h-96 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <div className="overflow-x-auto overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg" style={{ maxHeight: 'calc(100vh - 420px)', minHeight: '300px' }}>
                       <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                         <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
                           <tr>

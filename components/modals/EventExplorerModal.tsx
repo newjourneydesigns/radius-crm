@@ -227,9 +227,12 @@ export default function EventExplorerModal({
   // Keep the ref pointing to the latest handleFetchData
   handleFetchRef.current = handleFetchData;
 
-  // Auto-fetch last 12 weeks when modal opens with a group name
+  // Auto-fetch last 12 weeks when modal opens with a group name.
+  // Guard: only fire after state has settled to the new leader's values
+  // (groupName === initialGroupName), so we never fetch with stale state
+  // from the previous leader.
   useEffect(() => {
-    if (isOpen && !autoFetchedRef.current && initialGroupName) {
+    if (isOpen && !autoFetchedRef.current && initialGroupName && groupName === initialGroupName) {
       autoFetchedRef.current = true;
       handleFetchRef.current();
     }
