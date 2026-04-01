@@ -76,6 +76,7 @@ interface EventExplorerModalProps {
   initialGroupName?: string;
   ccbProfileLink?: string | null;
   meetingDay?: string | null;
+  rosterCount?: number | null;
 }
 
 export default function EventExplorerModal({
@@ -85,6 +86,7 @@ export default function EventExplorerModal({
   initialGroupName = '',
   ccbProfileLink = null,
   meetingDay = null,
+  rosterCount = null,
 }: EventExplorerModalProps) {
   const [date, setDate] = useState(initialDate);
   const [endDate, setEndDate] = useState('');
@@ -639,6 +641,16 @@ export default function EventExplorerModal({
                           />
                         </svg>
                         {event.headCount} {event.headCount === 1 ? 'person' : 'people'}
+                      </span>
+                    )}
+                    {rosterCount != null && rosterCount > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">
+                        {rosterCount} on roster
+                        {event.headCount !== null && (
+                          <span className="ml-1 font-semibold">
+                            · {Math.round((event.headCount / rosterCount) * 100)}%
+                          </span>
+                        )}
                       </span>
                     )}
                     {event.attendees.length > 0 && (

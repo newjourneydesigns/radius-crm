@@ -132,6 +132,15 @@ export default function ImportCirclesPage() {
     }
   };
 
+  const formatTime = (t: string | null) => {
+    if (!t) return '—';
+    const [h, m] = t.split(':').map(Number);
+    if (isNaN(h) || isNaN(m)) return t;
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const hour = h % 12 || 12;
+    return `${hour}:${String(m).padStart(2, '0')} ${ampm}`;
+  };
+
   // Sort state for mass update table
   type SortField = 'name' | 'campus' | 'acpd' | 'status' | 'frequency' | 'circle_type' | 'day' | 'time';
   const [sortField, setSortField] = useState<SortField>('name');
@@ -747,7 +756,7 @@ export default function ImportCirclesPage() {
                                     onClick={(e) => e.stopPropagation()}
                                     className="w-full text-xs rounded border border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-700 dark:text-white px-1 py-1"
                                   />
-                                ) : (leader.time || '—')}
+                                ) : formatTime(leader.time)}
                               </td>
                               <td className="px-4 py-3 text-sm">
                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -817,7 +826,7 @@ export default function ImportCirclesPage() {
                         {massUpdateSelected.size > 0 && massUpdateValue ? (
                           <span>
                             Will set <strong>{massUpdateField === 'campus' ? 'Campus' : massUpdateField === 'acpd' ? 'ACPD' : massUpdateField === 'frequency' ? 'Frequency' : massUpdateField === 'day' ? 'Meeting Day' : massUpdateField === 'time' ? 'Meeting Time' : massUpdateField === 'meeting_start_date' ? 'Bi-weekly Start Date' : 'Circle Type'}</strong> to{' '}
-                            <strong>&ldquo;{massUpdateValue}&rdquo;</strong> for{' '}
+                            <strong>&ldquo;{massUpdateField === 'time' ? formatTime(massUpdateValue) : massUpdateValue}&rdquo;</strong> for{' '}
                             <strong>{massUpdateSelected.size}</strong> leader{massUpdateSelected.size !== 1 ? 's' : ''}
                           </span>
                         ) : (

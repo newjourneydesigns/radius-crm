@@ -49,6 +49,7 @@ interface AttendanceTrendsProps {
   leaderName: string;
   meetingDay?: string | null;
   refreshKey?: number;
+  rosterCount?: number | null;
 }
 
 type ViewMode = 'weekly' | 'monthly';
@@ -63,7 +64,7 @@ const STATUS_COLORS: Record<string, { bg: string; border: string }> = {
 
 // ── Component ──────────────────────────────────────────────────
 
-export default function AttendanceTrends({ leaderId, leaderName, meetingDay, refreshKey = 0 }: AttendanceTrendsProps) {
+export default function AttendanceTrends({ leaderId, leaderName, meetingDay, refreshKey = 0, rosterCount }: AttendanceTrendsProps) {
   const { loadAttendance, invalidateCache, isLoading, error } = useCircleAttendance();
   const [summary, setSummary] = useState<AttendanceSummary | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('weekly');
@@ -223,6 +224,8 @@ export default function AttendanceTrends({ leaderId, leaderName, meetingDay, ref
                 ];
                 if (occ.headcount != null)
                   lines.push(`Total: ${occ.headcount}`);
+                if (occ.headcount != null && rosterCount != null && rosterCount > 0)
+                  lines.push(`Roster: ${Math.round((occ.headcount / rosterCount) * 100)}%`);
                 lines.push('Click to view event summary');
                 return lines;
               }
@@ -248,7 +251,7 @@ export default function AttendanceTrends({ leaderId, leaderName, meetingDay, ref
         },
       },
     }),
-    [viewMode, summary, handleChartClick]
+    [viewMode, summary, rosterCount, handleChartClick]
   );
 
   // ── Loading skeleton ─────────────────────────────────────────
@@ -366,7 +369,7 @@ export default function AttendanceTrends({ leaderId, leaderName, meetingDay, ref
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-4 gap-2 sm:gap-3 mb-5">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3 mb-5">
         <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2 sm:p-3 text-center">
           <div className="text-xl sm:text-2xl font-bold text-green-700 dark:text-green-300">
             {overallStats.avgAttendance}
@@ -381,6 +384,25 @@ export default function AttendanceTrends({ leaderId, leaderName, meetingDay, ref
           </div>
           <div className="text-[10px] sm:text-xs text-blue-600 dark:text-blue-400">Peak</div>
         </div>
+        {rosterCount != null && rosterCount > 0 ? (
+          <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-2 sm:p-3 text-center">
+            <div className="text-xl sm:text-2xl font-bold text-purple-700 dark:text-purple-300">
+              {Math.round((overallStats.avgAttendance / rosterCount) * 100)}%
+            </div>
+            <div className="text-[10px] sm:text-xs text-purple-600 dark:text-purple-400">
+              Avg Roster Att.
+            </div>
+          </div>
+        ) : (
+          <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-2 sm:p-3 text-center">
+            <div className="text-xl sm:text-2xl font-bold text-purple-400 dark:text-purple-500">
+              —
+            </div>
+            <div className="text-[10px] sm:text-xs text-purple-500 dark:text-purple-400">
+              Avg Roster Att.
+            </div>
+          </div>
+        )}
         <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-2 sm:p-3 text-center">
           <div className="text-xl sm:text-2xl font-bold text-orange-700 dark:text-orange-300">
             {overallStats.didNotMeetCount}
@@ -435,6 +457,72 @@ export default function AttendanceTrends({ leaderId, leaderName, meetingDay, ref
               </p>
             )}
           </div>
+
+          {/* Event Summary Table */}
+          <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">
+                  <th className="text-left px-3 py-2 font-medium">Date</th>
+                  <th className="text-left px-3 py-2 font-medium">Status</th>
+                  <th className="text-center px-3 py-2 font-medium">Attendance</th>
+                  {rosterCount != null && rosterCount > 0 && (
+                    <>
+                      <th className="text-center px-3 py-2 font-medium">Roster</th>
+                      <th className="text-center px-3 py-2 font-medium">% of Roster</th>
+                    </>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                {[...summary.weeklyData].reverse().map((occ) => {
+                  const dt = new Date(occ.meeting_date + 'T12:00:00');
+                  const label = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+                  const statusDot: Record<string, string> = {
+                    met: 'bg-green-500',
+                    did_not_meet: 'bg-blue-500',
+                    no_record: 'bg-gray-400',
+                  };
+                  const rosterPct = rosterCount && rosterCount > 0 && occ.headcount != null
+                    ? Math.round((occ.headcount / rosterCount) * 100)
+                    : null;
+                  return (
+                    <tr
+                      key={occ.id}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer transition-colors"
+                      onClick={() => {
+                        setExplorerDate(occ.meeting_date);
+                        setExplorerOpen(true);
+                      }}
+                    >
+                      <td className="px-3 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap">{label}</td>
+                      <td className="px-3 py-2">
+                        <span className="inline-flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+                          <span className={`w-1.5 h-1.5 rounded-full ${statusDot[occ.status] ?? 'bg-gray-400'}`} />
+                          {occ.status.replace(/_/g, ' ')}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-center text-gray-700 dark:text-gray-300">
+                        {occ.headcount != null ? occ.headcount : '—'}
+                      </td>
+                      {rosterCount != null && rosterCount > 0 && (
+                        <>
+                          <td className="px-3 py-2 text-center text-gray-500 dark:text-gray-400">{rosterCount}</td>
+                          <td className="px-3 py-2 text-center">
+                            {rosterPct != null ? (
+                              <span className={`font-medium ${rosterPct >= 70 ? 'text-green-600 dark:text-green-400' : rosterPct >= 50 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-500 dark:text-red-400'}`}>
+                                {rosterPct}%
+                              </span>
+                            ) : '—'}
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
 
@@ -452,6 +540,7 @@ export default function AttendanceTrends({ leaderId, leaderName, meetingDay, ref
         initialDate={explorerDate}
         initialGroupName={leaderName}
         meetingDay={meetingDay}
+        rosterCount={rosterCount}
       />
     </div>
   );

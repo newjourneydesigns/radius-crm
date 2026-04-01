@@ -53,6 +53,18 @@ function formatBirthday(raw: string | undefined | null): string {
   return date.toLocaleDateString('en-US', opts);
 }
 
+function calculateAge(raw: string | undefined | null): number | null {
+  const parsed = parseBirthday(raw);
+  if (!parsed || !parsed.year || parsed.year <= 1900) return null;
+  const now = new Date();
+  let age = now.getFullYear() - parsed.year;
+  const hadBirthdayThisYear =
+    now.getMonth() + 1 > parsed.month ||
+    (now.getMonth() + 1 === parsed.month && now.getDate() >= parsed.day);
+  if (!hadBirthdayThisYear) age--;
+  return age;
+}
+
 function isBirthdayToday(raw: string | undefined | null): boolean {
   const parsed = parseBirthday(raw);
   if (!parsed) return false;
@@ -550,6 +562,9 @@ export default function BirthdayListPage() {
                       </span>
                     </th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Age
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Links
                     </th>
                   </tr>
@@ -561,6 +576,7 @@ export default function BirthdayListPage() {
                     const isEditingThis = editingKey === leader.uniqueKey;
                     const isSavingThis = savingKey === leader.uniqueKey;
                     const isFetchingCCB = fetchingCCBKey === leader.uniqueKey;
+                    const age = calculateAge(leader.birthday);
 
                     return (
                       <tr
@@ -675,6 +691,13 @@ export default function BirthdayListPage() {
                           )}
                         </td>
 
+                        {/* Age */}
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-gray-600 dark:text-gray-300">
+                            {age !== null ? age : '—'}
+                          </span>
+                        </td>
+
                         {/* Links */}
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
@@ -709,6 +732,7 @@ export default function BirthdayListPage() {
                 const isEditingThis = editingKey === leader.uniqueKey;
                 const isSavingThis = savingKey === leader.uniqueKey;
                 const isFetchingCCB = fetchingCCBKey === leader.uniqueKey;
+                const age = calculateAge(leader.birthday);
 
                 return (
                   <div
@@ -818,6 +842,7 @@ export default function BirthdayListPage() {
                         }`}
                       >
                         <Cake className="h-3.5 w-3.5" /> {leader.birthday ? formatBirthday(leader.birthday) : 'Add birthday'}
+                        {age !== null && <span className="ml-1 text-xs text-gray-400 dark:text-gray-500 font-normal not-italic">age {age}</span>}
                         <svg className="w-3 h-3 ml-1 opacity-40" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
                         </svg>
