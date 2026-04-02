@@ -2524,6 +2524,8 @@ function BoardPage() {
   const [selectedCard, setSelectedCard] = useState<BoardCard | null>(null);
   const [addingCardCol, setAddingCardCol] = useState<string | null>(null);
   const [newCardTitle, setNewCardTitle] = useState('');
+  const [quickAddLabels, setQuickAddLabels] = useState<string[]>([]);
+  const [hashQuery, setHashQuery] = useState<string | null>(null);
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColTitle, setNewColTitle] = useState('');
   const [showBoardMenu, setShowBoardMenu] = useState(false);
@@ -2925,12 +2927,34 @@ function BoardPage() {
   };
 
   // ── Quick add card ──
+  const handleNewCardTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setNewCardTitle(val);
+    const hashMatch = val.match(/#(\w*)$/);
+    if (hashMatch) {
+      setHashQuery(hashMatch[1]);
+    } else {
+      setHashQuery(null);
+    }
+  };
+
+  const handleHashLabelSelect = (labelId: string) => {
+    setNewCardTitle(prev => prev.replace(/#\w*$/, '').trimEnd());
+    setQuickAddLabels(prev =>
+      prev.includes(labelId) ? prev.filter(id => id !== labelId) : [...prev, labelId]
+    );
+    setHashQuery(null);
+    newCardRef.current?.focus();
+  };
+
   const handleQuickAddCard = async (colId: string) => {
     if (!newCardTitle.trim() || addingCardRef.current) return;
     addingCardRef.current = true;
-    await addCard(boardId, { column_id: colId, title: newCardTitle });
+    await addCard(boardId, { column_id: colId, title: newCardTitle, label_ids: quickAddLabels.length > 0 ? quickAddLabels : undefined });
     addingCardRef.current = false;
     setNewCardTitle('');
+    setQuickAddLabels([]);
+    setHashQuery(null);
     setAddingCardCol(null);
   };
 
@@ -3504,18 +3528,91 @@ function BoardPage() {
                         ref={newCardRef}
                         className="kb-input"
                         value={newCardTitle}
-                        onChange={e => setNewCardTitle(e.target.value)}
-                        placeholder="Card title..."
+                        onChange={handleNewCardTitleChange}
+                        placeholder="Card title… (# for labels)"
                         onKeyDown={e => {
-                          if (e.key === 'Enter') handleQuickAddCard(col.id);
-                          if (e.key === 'Escape') { setAddingCardCol(null); setNewCardTitle(''); }
+                          if (e.key === 'Enter' && hashQuery === null) handleQuickAddCard(col.id);
+                          if (e.key === 'Escape') {
+                            if (hashQuery !== null) {
+                              setNewCardTitle(prev => prev.replace(/#\w*$/, '').trimEnd());
+                              setHashQuery(null);
+                            } else {
+                              setAddingCardCol(null);
+                              setNewCardTitle('');
+                              setQuickAddLabels([]);
+                            }
+                          }
                         }}
                       />
+                      {hashQuery !== null && (
+                        <div className="kb-hash-dropdown">
+                          {(() => {
+                            const filtered = board.labels.filter(l =>
+                              l.name.toLowerCase().includes(hashQuery.toLowerCase())
+                            );
+                            const usedColors = new Set(board.labels.map(l => l.color));
+                            const autoColor = LABEL_COLORS.find(c => !usedColors.has(c.hex))?.hex ?? LABEL_COLORS[0].hex;
+                            const showCreate = hashQuery.trim().length > 0 && !board.labels.some(l => l.name.toLowerCase() === hashQuery.toLowerCase());
+                            return (
+                              <>
+                                {filtered.map(l => (
+                                  <button
+                                    key={l.id}
+                                    className={`kb-label-picker-item ${quickAddLabels.includes(l.id) ? 'selected' : ''}`}
+                                    onMouseDown={e => { e.preventDefault(); handleHashLabelSelect(l.id); }}
+                                  >
+                                    <span className="kb-label-dot" style={{ background: l.color }} />
+                                    {l.name}
+                                  </button>
+                                ))}
+                                {showCreate && (
+                                  <button
+                                    className="kb-label-picker-item kb-hash-create"
+                                    onMouseDown={async e => {
+                                      e.preventDefault();
+                                      const name = hashQuery.trim();
+                                      const newLabel = await addLabel(boardId, name, autoColor);
+                                      if (newLabel) {
+                                        setNewCardTitle(prev => prev.replace(/#\w*$/, '').trimEnd());
+                                        setQuickAddLabels(prev => [...prev, newLabel.id]);
+                                        setHashQuery(null);
+                                        newCardRef.current?.focus();
+                                      }
+                                    }}
+                                  >
+                                    <span className="kb-label-dot" style={{ background: autoColor }} />
+                                    Create "{hashQuery}"
+                                  </button>
+                                )}
+                                {filtered.length === 0 && !showCreate && (
+                                  <p className="kb-hash-empty">No labels yet — open Label Manager to add some</p>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
+                      )}
+                      {quickAddLabels.length > 0 && (
+                        <div className="kb-label-chips" style={{ margin: '0 0 4px' }}>
+                          {quickAddLabels.map(id => {
+                            const l = board.labels.find(bl => bl.id === id);
+                            if (!l) return null;
+                            return (
+                              <span key={id} className="kb-label-chip" style={{ background: l.color + '22', color: l.color, borderColor: l.color + '44' }}>
+                                {l.name}
+                                <button onMouseDown={e => { e.preventDefault(); setQuickAddLabels(prev => prev.filter(lid => lid !== id)); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit', lineHeight: 1 }}>
+                                  <X size={10} />
+                                </button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
                       <div className="kb-quick-add-actions">
                         <button className="kb-btn kb-btn-primary kb-btn-sm" onClick={() => handleQuickAddCard(col.id)}>
                           Add Card
                         </button>
-                        <button className="kb-btn-icon-sm" onClick={() => { setAddingCardCol(null); setNewCardTitle(''); }}>
+                        <button className="kb-btn-icon-sm" onClick={() => { setAddingCardCol(null); setNewCardTitle(''); setQuickAddLabels([]); setHashQuery(null); }}>
                           <X size={14} />
                         </button>
                       </div>
@@ -4665,6 +4762,25 @@ const kanbanStyles = `
     padding: 3px 10px;
     border-radius: 8px;
     border: 1px solid;
+  }
+  .kb-hash-dropdown {
+    background: #14161e;
+    border: 1px solid #2a2d3a;
+    border-radius: 10px;
+    padding: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .kb-hash-empty {
+    font-size: 12px;
+    color: #6b7280;
+    padding: 6px 10px;
+    margin: 0;
+  }
+  .kb-hash-create {
+    border-top: 1px solid #2a2d3a !important;
+    margin-top: 4px !important;
+    padding-top: 8px !important;
+    color: #a5b4fc !important;
   }
   .kb-label-picker {
     display: flex;
