@@ -184,7 +184,7 @@ function buildIcs(
       'BEGIN:VEVENT',
       foldLine(`UID:checklist-${cl.id}@radius-crm`),
       `DTSTAMP:${stamp}`,
-      foldLine(`SUMMARY:[Checklist] ${icsEscape(cl.title)}`),
+      foldLine(`SUMMARY:\u2705 ${icsEscape(stripEmoji(cl.title))}`),
       foldLine(`DTSTART;VALUE=DATE:${icsDate(cl.due_date)}`),
       foldLine(`DTEND;VALUE=DATE:${icsDate(nextDay(cl.due_date))}`),
       foldLine(`DESCRIPTION:${description}`),
