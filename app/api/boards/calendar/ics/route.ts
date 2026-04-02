@@ -211,8 +211,7 @@ export async function GET(request: NextRequest) {
       return new NextResponse(empty, {
         headers: {
           'Content-Type': 'text/calendar; charset=utf-8',
-          'Content-Disposition': 'attachment; filename="radius-boards.ics"',
-          'Cache-Control': 'no-cache, no-store',
+          'Cache-Control': 'public, max-age=900',
         },
       });
     }
@@ -277,8 +276,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse(icsContent, {
       headers: {
         'Content-Type': 'text/calendar; charset=utf-8',
-        'Content-Disposition': 'attachment; filename="radius-boards.ics"',
-        'Cache-Control': 'no-cache, no-store',
+        'Cache-Control': 'public, max-age=900',
       },
     });
   } catch (err) {
