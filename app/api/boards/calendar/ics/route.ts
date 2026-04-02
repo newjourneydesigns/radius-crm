@@ -69,6 +69,14 @@ interface ChecklistRow {
   board_id: string;
 }
 
+// Current timestamp in iCal format: YYYYMMDDTHHMMSSZ
+function dtstamp(): string {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}` +
+    `T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}Z`;
+}
+
 function buildIcs(
   cards: CardRow[],
   checklists: ChecklistRow[],
@@ -76,6 +84,7 @@ function buildIcs(
   columnMap: Map<string, string>,
   appUrl: string
 ): string {
+  const stamp = dtstamp();
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -107,6 +116,7 @@ function buildIcs(
     lines.push(
       'BEGIN:VEVENT',
       foldLine(`UID:card-${card.id}@radius-crm`),
+      `DTSTAMP:${stamp}`,
       foldLine(`SUMMARY:${icsEscape(card.title)}${priority}`),
       foldLine(`DTSTART;VALUE=DATE:${icsDate(startDate)}`),
       foldLine(`DTEND;VALUE=DATE:${icsDate(endDate)}`),
@@ -124,6 +134,7 @@ function buildIcs(
     lines.push(
       'BEGIN:VEVENT',
       foldLine(`UID:checklist-${cl.id}@radius-crm`),
+      `DTSTAMP:${stamp}`,
       foldLine(`SUMMARY:☑ ${icsEscape(cl.title)}`),
       foldLine(`DTSTART;VALUE=DATE:${icsDate(cl.due_date)}`),
       foldLine(`DTEND;VALUE=DATE:${icsDate(nextDay(cl.due_date))}`),
