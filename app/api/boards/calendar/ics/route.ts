@@ -10,6 +10,35 @@ function getSupabaseServiceClient() {
 
 /* ── iCal helpers ─────────────────────────────────────────────────────────── */
 
+// Strip HTML tags and decode entities to plain text
+function stripHtml(html: string): string {
+  if (!html) return '';
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+// Remove emoji and non-BMP characters that cause double-encoding issues.
+// Uses surrogate pair matching instead of /u flag for broader TS target compat.
+function stripEmoji(str: string): string {
+  return (str || '')
+    .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '') // supplementary chars (emoji, etc.)
+    .replace(/[\u2600-\u27BF\uFE00-\uFEFF]/g, '')   // misc symbols & variation selectors
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 // Escape special characters per RFC 5545
 function icsEscape(str: string): string {
   return (str || '')
@@ -118,16 +147,18 @@ function buildIcs(
   for (const card of cards) {
     const startDate = card.start_date || card.due_date!;
     const endDate   = nextDay(card.due_date || card.start_date!);
-    const boardName = boardMap.get(card.board_id) || 'Board';
+    const boardName = stripEmoji(boardMap.get(card.board_id) || 'Board');
     const colName   = columnMap.get(card.column_id) || '';
-    const priority  = card.priority ? ` · ${card.priority.charAt(0).toUpperCase() + card.priority.slice(1)}` : '';
+    const priority  = card.priority ? ` - ${card.priority.charAt(0).toUpperCase() + card.priority.slice(1)}` : '';
     const status    = card.is_complete ? 'COMPLETED' : 'CONFIRMED';
+    const summary   = stripEmoji(card.title).slice(0, 100);
 
+    const plainDesc = card.description ? stripHtml(card.description) : null;
     const description = [
       boardName,
       colName ? `Column: ${colName}` : null,
       card.priority ? `Priority: ${card.priority}` : null,
-      card.description || null,
+      plainDesc || null,
     ].filter(Boolean).join('\\n');
 
     const eventUrl = `${appUrl}/boards/${card.board_id}?card=${card.id}`;
@@ -136,7 +167,7 @@ function buildIcs(
       'BEGIN:VEVENT',
       foldLine(`UID:card-${card.id}@radius-crm`),
       `DTSTAMP:${stamp}`,
-      foldLine(`SUMMARY:${icsEscape(card.title)}${priority}`),
+      foldLine(`SUMMARY:${icsEscape(summary)}${priority}`),
       foldLine(`DTSTART;VALUE=DATE:${icsDate(startDate)}`),
       foldLine(`DTEND;VALUE=DATE:${icsDate(endDate)}`),
       foldLine(`DESCRIPTION:${description}`),
@@ -147,8 +178,7 @@ function buildIcs(
   }
 
   for (const cl of checklists) {
-    const boardName = boardMap.get(cl.board_id) || 'Board';
-    const description = `${icsEscape(cl.card_title)} - ${boardName}`;
+    const description = `${icsEscape(stripEmoji(cl.card_title))} - ${stripEmoji(boardMap.get(cl.board_id) || 'Board')}`;
 
     lines.push(
       'BEGIN:VEVENT',
