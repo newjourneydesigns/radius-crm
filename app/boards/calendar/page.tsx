@@ -911,7 +911,7 @@ function CalendarPage() {
         {/* Subscribe to Calendar modal (mobile) */}
         {showSubscribeModal && (() => {
           const feedUrl = feedToken
-            ? `${typeof window !== 'undefined' ? window.location.origin : ''}/api/boards/calendar/ics?token=${feedToken}`
+            ? `${typeof window !== 'undefined' ? window.location.origin : ''}/api/boards/calendar/ics/?token=${feedToken}`
             : null;
           const allSelected = feedBoardIds.size === 0 || feedBoardIds.size === fullBoards.length;
           return (
@@ -959,7 +959,7 @@ function CalendarPage() {
                       </div>
                       <div className="kbc-sub-app-btns">
                         <a className="kbc-sub-app-btn" href={`https://outlook.office.com/calendar/0/addfromweb?url=${encodeURIComponent(feedUrl || '')}`} target="_blank" rel="noopener noreferrer">Open in Outlook 365</a>
-                        <a className="kbc-sub-app-btn" href={`webcal://${typeof window !== 'undefined' ? window.location.host : ''}/api/boards/calendar/ics?token=${feedToken}`}>Apple Calendar</a>
+                        <a className="kbc-sub-app-btn" href={`webcal://${typeof window !== 'undefined' ? window.location.host : ''}/api/boards/calendar/ics/?token=${feedToken}`}>Apple Calendar</a>
                       </div>
                     </>
                   ) : (
@@ -1546,7 +1546,7 @@ function CalendarPage() {
       {/* Subscribe to Calendar modal */}
       {showSubscribeModal && (() => {
         const feedUrl = feedToken
-          ? `${typeof window !== 'undefined' ? window.location.origin : ''}/api/boards/calendar/ics?token=${feedToken}`
+          ? `${typeof window !== 'undefined' ? window.location.origin : ''}/api/boards/calendar/ics/?token=${feedToken}`
           : null;
         const allSelected = feedBoardIds.size === 0 || feedBoardIds.size === fullBoards.length;
 
@@ -1635,7 +1635,7 @@ function CalendarPage() {
                       </a>
                       <a
                         className="kbc-sub-app-btn"
-                        href={`webcal://${typeof window !== 'undefined' ? window.location.host : ''}/api/boards/calendar/ics?token=${feedToken}`}
+                        href={`webcal://${typeof window !== 'undefined' ? window.location.host : ''}/api/boards/calendar/ics/?token=${feedToken}`}
                       >
                         Apple Calendar
                       </a>
