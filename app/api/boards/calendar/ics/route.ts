@@ -93,7 +93,26 @@ function buildIcs(
     'METHOD:PUBLISH',
     'X-WR-CALNAME:Radius Boards',
     'X-WR-CALDESC:Board card due dates from Radius CRM',
-    'X-WR-TIMEZONE:America/Chicago',
+    'REFRESH-INTERVAL;VALUE=DURATION:PT1H',
+    'X-PUBLISHED-TTL:PT1H',
+    // VTIMEZONE block for America/Chicago — required by Outlook when events reference this zone
+    'BEGIN:VTIMEZONE',
+    'TZID:America/Chicago',
+    'BEGIN:STANDARD',
+    'TZOFFSETFROM:-0500',
+    'TZOFFSETTO:-0600',
+    'TZNAME:CST',
+    'DTSTART:19701101T020000',
+    'RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11',
+    'END:STANDARD',
+    'BEGIN:DAYLIGHT',
+    'TZOFFSETFROM:-0600',
+    'TZOFFSETTO:-0500',
+    'TZNAME:CDT',
+    'DTSTART:19700308T020000',
+    'RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3',
+    'END:DAYLIGHT',
+    'END:VTIMEZONE',
   ];
 
   for (const card of cards) {
@@ -129,13 +148,13 @@ function buildIcs(
 
   for (const cl of checklists) {
     const boardName = boardMap.get(cl.board_id) || 'Board';
-    const description = `${icsEscape(cl.card_title)} · ${boardName}`;
+    const description = `${icsEscape(cl.card_title)} - ${boardName}`;
 
     lines.push(
       'BEGIN:VEVENT',
       foldLine(`UID:checklist-${cl.id}@radius-crm`),
       `DTSTAMP:${stamp}`,
-      foldLine(`SUMMARY:☑ ${icsEscape(cl.title)}`),
+      foldLine(`SUMMARY:[Checklist] ${icsEscape(cl.title)}`),
       foldLine(`DTSTART;VALUE=DATE:${icsDate(cl.due_date)}`),
       foldLine(`DTEND;VALUE=DATE:${icsDate(nextDay(cl.due_date))}`),
       foldLine(`DESCRIPTION:${description}`),
