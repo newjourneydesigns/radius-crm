@@ -25,6 +25,8 @@ import {
   LayoutDashboard,
   ListBullet,
   Plus,
+  LinkIcon,
+  Copy,
 } from '../../../components/icons/BoardIcons';
 
 /* ═══════════════════════════════════════════════════════════
@@ -102,7 +104,7 @@ interface CalendarCard {
 function CalendarPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  useAuth();
+  const { user } = useAuth();
   const { fetchAllBoardsFull } = useProjectBoard();
 
   const [fullBoards, setFullBoards] = useState<FullBoard[]>([]);
@@ -167,6 +169,15 @@ function CalendarPage() {
   const [addCardSaving, setAddCardSaving] = useState(false);
   const addCardInputRef = useRef<HTMLInputElement>(null);
 
+  // Subscribe to calendar state
+  const [showSubscribeModal, setShowSubscribeModal] = useState(false);
+  const [feedToken, setFeedToken] = useState<string | null>(null);
+  const [feedBoardIds, setFeedBoardIds] = useState<Set<string>>(new Set());
+  const [feedLoading, setFeedLoading] = useState(false);
+  const [feedSaving, setFeedSaving] = useState(false);
+  const [feedCopied, setFeedCopied] = useState(false);
+  const [feedRegenerating, setFeedRegenerating] = useState(false);
+
   // When board selection changes, default column to first column
   const addCardBoard = fullBoards.find(b => b.id === addCardBoardId);
   const addCardColumns = addCardBoard
@@ -178,6 +189,87 @@ function CalendarPage() {
       setAddCardColumnId(addCardColumns[0].id);
     }
   }, [addCardBoardId, addCardColumns, addCardColumnId]);
+
+  /* ── Calendar feed helpers ──────────────────────────────── */
+  const openSubscribeModal = async () => {
+    setShowSubscribeModal(true);
+    if (feedToken) return; // already loaded
+    setFeedLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/boards/calendar/feed', {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      const json = await res.json();
+      if (json.feed) {
+        setFeedToken(json.feed.token);
+        setFeedBoardIds(new Set(json.feed.included_board_ids || []));
+      }
+    } finally {
+      setFeedLoading(false);
+    }
+  };
+
+  const saveFeed = async (boardIds: Set<string>) => {
+    setFeedSaving(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/boards/calendar/feed', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ included_board_ids: Array.from(boardIds) }),
+      });
+      const json = await res.json();
+      if (json.feed) {
+        setFeedToken(json.feed.token);
+        setFeedBoardIds(new Set(json.feed.included_board_ids || []));
+      }
+    } finally {
+      setFeedSaving(false);
+    }
+  };
+
+  const regenerateFeed = async () => {
+    if (!confirm('This will invalidate your current feed URL. Outlook and other apps will need to be updated with the new URL. Continue?')) return;
+    setFeedRegenerating(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/boards/calendar/feed', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      const json = await res.json();
+      if (json.feed) {
+        setFeedToken(json.feed.token);
+        setFeedCopied(false);
+      }
+    } finally {
+      setFeedRegenerating(false);
+    }
+  };
+
+  const toggleFeedBoard = (id: string) => {
+    const next = new Set(feedBoardIds);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setFeedBoardIds(next);
+    saveFeed(next);
+  };
+
+  const toggleAllFeedBoards = () => {
+    const next = feedBoardIds.size === fullBoards.length ? new Set<string>() : new Set(fullBoards.map(b => b.id));
+    setFeedBoardIds(next);
+    saveFeed(next);
+  };
+
+  const copyFeedUrl = (url: string) => {
+    navigator.clipboard.writeText(url).then(() => {
+      setFeedCopied(true);
+      setTimeout(() => setFeedCopied(false), 2000);
+    });
+  };
 
   // Open quick-add modal
   const openAddCard = () => {
@@ -568,9 +660,14 @@ function CalendarPage() {
               <ArrowLeft size={20} />
             </button>
             <span className="kbm-header-title">Calendar</span>
-            <button className="kbc-add-btn-header" onClick={openAddCard} title="Add card">
-              <Plus size={20} />
-            </button>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button className="kbc-add-btn-header" onClick={openSubscribeModal} title="Subscribe to calendar">
+                <LinkIcon size={18} />
+              </button>
+              <button className="kbc-add-btn-header" onClick={openAddCard} title="Add card">
+                <Plus size={20} />
+              </button>
+            </div>
           </div>
 
           {/* Mini calendar card */}
@@ -811,6 +908,75 @@ function CalendarPage() {
           </div>
         )}
 
+        {/* Subscribe to Calendar modal (mobile) */}
+        {showSubscribeModal && (() => {
+          const feedUrl = feedToken
+            ? `${typeof window !== 'undefined' ? window.location.origin : ''}/api/boards/calendar/ics?token=${feedToken}`
+            : null;
+          const allSelected = feedBoardIds.size === 0 || feedBoardIds.size === fullBoards.length;
+          return (
+            <div className="kbc-add-overlay" onClick={() => setShowSubscribeModal(false)}>
+              <div className="kbc-sub-modal" onClick={e => e.stopPropagation()}>
+                <div className="kbc-add-header">
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <CalendarDays size={16} style={{ color: '#6366f1' }} />
+                    Subscribe to Calendar
+                  </span>
+                  <button className="kbc-add-close" onClick={() => setShowSubscribeModal(false)}>
+                    <X size={16} />
+                  </button>
+                </div>
+                <div className="kbc-sub-body">
+                  <p className="kbc-sub-desc">Add your board due dates to Outlook, Apple Calendar, or Google Calendar.</p>
+                  <div className="kbc-sub-section-label">Choose Boards</div>
+                  <div className="kbc-sub-boards">
+                    <button className={`kbc-sub-board-row kbc-sub-all-toggle ${allSelected ? 'selected' : ''}`} onClick={toggleAllFeedBoards} disabled={feedSaving}>
+                      <span className="kbc-sub-check">{allSelected && <Check size={11} />}</span>
+                      <span className="kbc-sub-board-name">All Boards</span>
+                      <span className="kbc-sub-board-count">{fullBoards.length} boards</span>
+                    </button>
+                    {fullBoards.map((b, i) => {
+                      const checked = feedBoardIds.size === 0 ? false : feedBoardIds.has(b.id);
+                      return (
+                        <button key={b.id} className={`kbc-sub-board-row ${checked ? 'selected' : ''}`} onClick={() => toggleFeedBoard(b.id)} disabled={feedSaving}>
+                          <span className="kbc-sub-check">{checked && <Check size={11} />}</span>
+                          <span className="kbc-sub-board-dot" style={{ background: getBoardColor(i) }} />
+                          <span className="kbc-sub-board-name">{b.title}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="kbc-sub-section-label" style={{ marginTop: 16 }}>Your Feed URL</div>
+                  {feedLoading ? (
+                    <div className="kbc-sub-loading">Generating feed…</div>
+                  ) : feedToken ? (
+                    <>
+                      <div className="kbc-sub-url-row">
+                        <input className="kbc-sub-url-input" readOnly value={feedUrl || ''} onFocus={e => e.target.select()} />
+                        <button className={`kbc-sub-copy-btn ${feedCopied ? 'copied' : ''}`} onClick={() => feedUrl && copyFeedUrl(feedUrl)}>
+                          <Copy size={13} />{feedCopied ? 'Copied!' : 'Copy'}
+                        </button>
+                      </div>
+                      <div className="kbc-sub-app-btns">
+                        <a className="kbc-sub-app-btn" href={`https://outlook.office.com/calendar/0/addfromweb?url=${encodeURIComponent(feedUrl || '')}`} target="_blank" rel="noopener noreferrer">Open in Outlook 365</a>
+                        <a className="kbc-sub-app-btn" href={`webcal://${typeof window !== 'undefined' ? window.location.host : ''}/api/boards/calendar/ics?token=${feedToken}`}>Apple Calendar</a>
+                      </div>
+                    </>
+                  ) : (
+                    <button className="kbc-add-btn" style={{ width: '100%', justifyContent: 'center' }} onClick={() => saveFeed(feedBoardIds)} disabled={feedSaving}>{feedSaving ? 'Generating…' : 'Generate Feed URL'}</button>
+                  )}
+                </div>
+                {feedToken && (
+                  <div className="kbc-sub-footer">
+                    <span className="kbc-sub-footer-hint">Keep this URL private.</span>
+                    <button className="kbc-sub-regen-btn" onClick={regenerateFeed} disabled={feedRegenerating}>{feedRegenerating ? 'Regenerating…' : 'Regenerate Link'}</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
       </div>
     );
   }
@@ -920,6 +1086,12 @@ function CalendarPage() {
           <button className="kbc-add-btn" onClick={openAddCard}>
             <Plus size={15} />
             Add Card
+          </button>
+
+          {/* Subscribe to Calendar */}
+          <button className="kbc-subscribe-btn" onClick={openSubscribeModal} title="Subscribe to calendar">
+            <LinkIcon size={14} />
+            Subscribe
           </button>
 
           {/* Month/Day nav */}
@@ -1370,6 +1542,133 @@ function CalendarPage() {
           </div>
         )}
       </div>
+
+      {/* Subscribe to Calendar modal */}
+      {showSubscribeModal && (() => {
+        const feedUrl = feedToken
+          ? `${typeof window !== 'undefined' ? window.location.origin : ''}/api/boards/calendar/ics?token=${feedToken}`
+          : null;
+        const allSelected = feedBoardIds.size === 0 || feedBoardIds.size === fullBoards.length;
+
+        return (
+          <div className="kbc-add-overlay" onClick={() => setShowSubscribeModal(false)}>
+            <div className="kbc-sub-modal" onClick={e => e.stopPropagation()}>
+              <div className="kbc-add-header">
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <CalendarDays size={16} style={{ color: '#6366f1' }} />
+                  Subscribe to Calendar
+                </span>
+                <button className="kbc-add-close" onClick={() => setShowSubscribeModal(false)}>
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="kbc-sub-body">
+                <p className="kbc-sub-desc">
+                  Add your board due dates to Outlook, Apple Calendar, or Google Calendar. The feed updates automatically.
+                </p>
+
+                {/* Board selection */}
+                <div className="kbc-sub-section-label">Choose Boards</div>
+                <div className="kbc-sub-boards">
+                  <button
+                    className={`kbc-sub-board-row kbc-sub-all-toggle ${allSelected ? 'selected' : ''}`}
+                    onClick={toggleAllFeedBoards}
+                    disabled={feedSaving}
+                  >
+                    <span className="kbc-sub-check">
+                      {allSelected && <Check size={11} />}
+                    </span>
+                    <span className="kbc-sub-board-name">All Boards</span>
+                    <span className="kbc-sub-board-count">{fullBoards.length} boards</span>
+                  </button>
+                  {fullBoards.map((b, i) => {
+                    const checked = feedBoardIds.size === 0 ? false : feedBoardIds.has(b.id);
+                    return (
+                      <button
+                        key={b.id}
+                        className={`kbc-sub-board-row ${checked ? 'selected' : ''}`}
+                        onClick={() => toggleFeedBoard(b.id)}
+                        disabled={feedSaving}
+                      >
+                        <span className="kbc-sub-check">
+                          {checked && <Check size={11} />}
+                        </span>
+                        <span className="kbc-sub-board-dot" style={{ background: getBoardColor(i) }} />
+                        <span className="kbc-sub-board-name">{b.title}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Feed URL */}
+                <div className="kbc-sub-section-label" style={{ marginTop: 16 }}>Your Feed URL</div>
+                {feedLoading ? (
+                  <div className="kbc-sub-loading">Generating feed…</div>
+                ) : feedToken ? (
+                  <>
+                    <div className="kbc-sub-url-row">
+                      <input
+                        className="kbc-sub-url-input"
+                        readOnly
+                        value={feedUrl || ''}
+                        onFocus={e => e.target.select()}
+                      />
+                      <button
+                        className={`kbc-sub-copy-btn ${feedCopied ? 'copied' : ''}`}
+                        onClick={() => feedUrl && copyFeedUrl(feedUrl)}
+                      >
+                        <Copy size={13} />
+                        {feedCopied ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+
+                    {/* Open in calendar app buttons */}
+                    <div className="kbc-sub-app-btns">
+                      <a
+                        className="kbc-sub-app-btn"
+                        href={`https://outlook.office.com/calendar/0/addfromweb?url=${encodeURIComponent(feedUrl || '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Open in Outlook 365
+                      </a>
+                      <a
+                        className="kbc-sub-app-btn"
+                        href={`webcal://${typeof window !== 'undefined' ? window.location.host : ''}/api/boards/calendar/ics?token=${feedToken}`}
+                      >
+                        Apple Calendar
+                      </a>
+                    </div>
+                  </>
+                ) : (
+                  <button
+                    className="kbc-add-btn"
+                    style={{ width: '100%', justifyContent: 'center' }}
+                    onClick={() => saveFeed(feedBoardIds)}
+                    disabled={feedSaving}
+                  >
+                    {feedSaving ? 'Generating…' : 'Generate Feed URL'}
+                  </button>
+                )}
+              </div>
+
+              {feedToken && (
+                <div className="kbc-sub-footer">
+                  <span className="kbc-sub-footer-hint">Keep this URL private — anyone with it can view your board due dates.</span>
+                  <button
+                    className="kbc-sub-regen-btn"
+                    onClick={regenerateFeed}
+                    disabled={feedRegenerating}
+                  >
+                    {feedRegenerating ? 'Regenerating…' : 'Regenerate Link'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Quick-add card modal */}
       {showAddCard && (
@@ -2530,6 +2829,225 @@ const calendarStyles = `
   .kb-search-global-item:hover { background: #22252f; }
   .kb-search-global-title { font-size: 13px; font-weight: 500; color: #f9fafb; }
   .kb-search-global-meta { font-size: 11px; color: #6366f1; }
+
+  /* ── Subscribe to Calendar button ── */
+  .kbc-subscribe-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid #3b4556;
+    border-radius: 9px;
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #94a3b8;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .kbc-subscribe-btn:hover {
+    border-color: #6366f1;
+    color: #a5b4fc;
+    background: rgba(99,102,241,0.08);
+  }
+
+  /* ── Subscribe modal ── */
+  .kbc-sub-modal {
+    background: #1a1d2e;
+    border: 1px solid #2a2d3a;
+    border-radius: 14px;
+    width: 440px;
+    max-width: 94vw;
+    max-height: 88vh;
+    overflow-y: auto;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+  }
+  .kbc-sub-body {
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .kbc-sub-desc {
+    font-size: 13px;
+    color: #94a3b8;
+    margin: 0 0 10px;
+    line-height: 1.5;
+  }
+  .kbc-sub-section-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6b7280;
+    margin-bottom: 6px;
+  }
+  .kbc-sub-boards {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    background: #0f1117;
+    border: 1px solid #2a2d3a;
+    border-radius: 10px;
+    padding: 4px;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .kbc-sub-board-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 7px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    text-align: left;
+    color: #cbd5e1;
+    font-size: 13px;
+    transition: background 0.1s;
+    width: 100%;
+  }
+  .kbc-sub-board-row:hover { background: #1a1d27; }
+  .kbc-sub-board-row.selected { background: rgba(99,102,241,0.1); color: #e2e8f0; }
+  .kbc-sub-board-row:disabled { opacity: 0.6; cursor: not-allowed; }
+  .kbc-sub-all-toggle {
+    border-bottom: 1px solid #2a2d3a;
+    margin-bottom: 2px;
+    font-weight: 600;
+    color: #94a3b8;
+  }
+  .kbc-sub-check {
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid #3b4556;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: #818cf8;
+  }
+  .kbc-sub-board-row.selected .kbc-sub-check {
+    border-color: #6366f1;
+    background: rgba(99,102,241,0.2);
+  }
+  .kbc-sub-board-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .kbc-sub-board-name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .kbc-sub-board-count {
+    font-size: 11px;
+    color: #6b7280;
+    flex-shrink: 0;
+  }
+  .kbc-sub-loading {
+    font-size: 13px;
+    color: #6b7280;
+    padding: 10px 0;
+    text-align: center;
+  }
+  .kbc-sub-url-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .kbc-sub-url-input {
+    flex: 1;
+    background: #0f1117;
+    border: 1px solid #2a2d3a;
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: #94a3b8;
+    font-size: 12px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    outline: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .kbc-sub-url-input:focus { border-color: #3b82f6; }
+  .kbc-sub-copy-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 14px;
+    background: #2563eb;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+  .kbc-sub-copy-btn:hover { background: #1d4ed8; }
+  .kbc-sub-copy-btn.copied { background: #16a34a; }
+  .kbc-sub-app-btns {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .kbc-sub-app-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 14px;
+    background: #1a1d2e;
+    border: 1px solid #3b4556;
+    border-radius: 8px;
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .kbc-sub-app-btn:hover {
+    border-color: #6366f1;
+    color: #a5b4fc;
+    background: rgba(99,102,241,0.08);
+  }
+  .kbc-sub-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 18px;
+    border-top: 1px solid #1e2330;
+    flex-wrap: wrap;
+  }
+  .kbc-sub-footer-hint {
+    font-size: 11px;
+    color: #4b5563;
+    flex: 1;
+  }
+  .kbc-sub-regen-btn {
+    background: none;
+    border: 1px solid #374151;
+    border-radius: 7px;
+    padding: 5px 12px;
+    font-size: 12px;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .kbc-sub-regen-btn:hover { border-color: #ef4444; color: #f87171; background: rgba(239,68,68,0.08); }
+  .kbc-sub-regen-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 `;
 
 /* ═══════════════════════════════════════════════════════════
