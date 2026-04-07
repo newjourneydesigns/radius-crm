@@ -85,6 +85,19 @@ const PRIORITY_CONFIG: Record<CardPriority, { label: string; color: string; bg: 
   urgent: { label: 'Urgent', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
 };
 
+/* ── Time formatting helper ── */
+const formatTime12 = (t?: string) => {
+  if (!t) return '';
+  const m = t.match(/^(\d{1,2}):?(\d{2})?$/);
+  if (!m) return t;
+  let h = parseInt(m[1], 10);
+  const min = m[2] || '00';
+  if (h === 0) return `12:${min} AM`;
+  if (h === 12) return `12:${min} PM`;
+  if (h > 12) return `${h - 12}:${min} PM`;
+  return `${h}:${min} AM`;
+};
+
 /* ═══════════════════════════════════════════════════════════
    Inline Editable Title (double-click to edit)
    ═══════════════════════════════════════════════════════════ */
@@ -1463,7 +1476,10 @@ function LabelManagerModal({
           {board.labels.length === 0 && (
             <div className="kb-lm-empty">No labels yet. Create one above!</div>
           )}
-          {board.labels.map(label => (
+          {(() => {
+            const sorted = [...board.labels].sort((a, b) => a.name.localeCompare(b.name));
+            const shortcutMap = new Map(sorted.map((l, i) => [l.id, i < 10 ? (i === 9 ? '0' : String(i + 1)) : null]));
+            return sorted.map(label => (
             <div key={label.id} className="kb-lm-item">
               {editingId === label.id ? (
                 /* Editing mode */
@@ -1495,10 +1511,17 @@ function LabelManagerModal({
               ) : (
                 /* Display mode */
                 <div className="kb-lm-display-row">
-                  <span className="kb-lm-label-preview" style={{ background: label.color + '22', color: label.color, borderColor: label.color + '44' }}>
-                    <span className="kb-label-dot" style={{ background: label.color }} />
-                    {label.name}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {shortcutMap.get(label.id) && (
+                      <kbd style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: 4, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#94a3b8', fontSize: 11, fontFamily: 'monospace', flexShrink: 0 }}>
+                        {shortcutMap.get(label.id)}
+                      </kbd>
+                    )}
+                    <span className="kb-lm-label-preview" style={{ background: label.color + '22', color: label.color, borderColor: label.color + '44' }}>
+                      <span className="kb-label-dot" style={{ background: label.color }} />
+                      {label.name}
+                    </span>
+                  </div>
                   <div className="kb-lm-item-actions">
                     <button className="kb-btn-icon-sm" onClick={() => startEdit(label)} title="Edit label">
                       <Pencil size={13} />
@@ -1525,7 +1548,8 @@ function LabelManagerModal({
                 </div>
               )}
             </div>
-          ))}
+          ));
+          })()}
         </div>
       </div>
     </div>
@@ -1556,18 +1580,6 @@ function ImportLeadersModal({
   const [filterStatus, setFilterStatus] = useState('');
   const [filterCircleType, setFilterCircleType] = useState('');
   const [filterAcpd, setFilterAcpd] = useState('');
-
-  const formatTime12 = (t?: string) => {
-    if (!t) return '';
-    const m = t.match(/^(\d{1,2}):?(\d{2})?$/);
-    if (!m) return t;
-    let h = parseInt(m[1], 10);
-    const min = m[2] || '00';
-    if (h === 0) return `12:${min} AM`;
-    if (h === 12) return `12:${min} PM`;
-    if (h > 12) return `${h - 12}:${min} PM`;
-    return `${h}:${min} AM`;
-  };
 
   // Unique filter options extracted from loaded data
   const [campuses, setCampuses] = useState<string[]>([]);
@@ -2604,6 +2616,22 @@ function BoardPage() {
 
   const newCardRef = useRef<HTMLInputElement>(null);
   const newColRef = useRef<HTMLInputElement>(null);
+  const boardMenuRef = useRef<HTMLDivElement>(null);
+  const filterDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (showBoardMenu && boardMenuRef.current && !boardMenuRef.current.contains(e.target as Node)) {
+        setShowBoardMenu(false);
+      }
+      if (showFilterDropdown && filterDropdownRef.current && !filterDropdownRef.current.contains(e.target as Node)) {
+        setShowFilterDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showBoardMenu, showFilterDropdown]);
   const addingCardRef = useRef(false);
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
 
@@ -2727,6 +2755,18 @@ function BoardPage() {
           unassignCard(card.id, user.id);
         } else {
           assignCard(card.id, user.id);
+        }
+      } else if (/^[0-9]$/.test(e.key)) {
+        e.preventDefault();
+        const sortedLabels = [...(board.labels || [])].sort((a, b) => a.name.localeCompare(b.name));
+        const idx = e.key === '0' ? 9 : parseInt(e.key, 10) - 1;
+        if (idx < sortedLabels.length) {
+          const targetLabel = sortedLabels[idx];
+          const currentIds = (card.labels || []).map(l => l.id);
+          const newIds = currentIds.includes(targetLabel.id)
+            ? currentIds.filter(id => id !== targetLabel.id)
+            : [...currentIds, targetLabel.id];
+          updateCard(boardId, card.id, { label_ids: newIds });
         }
       }
     };
@@ -3036,7 +3076,7 @@ function BoardPage() {
 
         <div className="kb-topbar-right">
           {/* Filter dropdown */}
-          <div style={{ position: 'relative' }}>
+          <div ref={filterDropdownRef} style={{ position: 'relative' }}>
             <button
               className={`kb-filter-btn ${(filterPriority || filterLabel || filterDate) ? 'kb-filter-btn-active' : ''}`}
               onClick={() => setShowFilterDropdown(!showFilterDropdown)}
@@ -3148,7 +3188,7 @@ function BoardPage() {
           </button>
 
           {/* Board menu */}
-          <div style={{ position: 'relative' }}>
+          <div ref={boardMenuRef} style={{ position: 'relative' }}>
             <button className="kb-btn-icon" onClick={() => setShowBoardMenu(!showBoardMenu)}>
               <MoreHorizontal size={18} />
             </button>
