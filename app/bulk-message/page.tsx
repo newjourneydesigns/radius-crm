@@ -168,6 +168,7 @@ function BulkMessageContent() {
   const [filterAcpd, setFilterAcpd] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [includeAdditionalLeaders, setIncludeAdditionalLeaders] = useState(false);
+  const [selectNone, setSelectNone] = useState(false);
 
   // Message state
   const [message, setMessage] = useState('');
@@ -244,7 +245,8 @@ function BulkMessageContent() {
 
   // ─── Build recipient list ──────────────────────────────────
   const recipients = useMemo(() => {
-    let filtered = leaders.filter(l => {
+    // When selectNone is active, skip all circle leaders
+    let filtered = selectNone ? [] : leaders.filter(l => {
       if (filterCampus.length > 0 && (!l.campus || !filterCampus.includes(l.campus))) return false;
       if (filterStatus.length > 0 && (!l.status || !filterStatus.includes(l.status))) return false;
       if (filterCircleType.length > 0 && (!l.circle_type || !filterCircleType.includes(l.circle_type))) return false;
@@ -308,7 +310,7 @@ function BulkMessageContent() {
     }
 
     return result;
-  }, [leaders, filterCampus, filterStatus, filterCircleType, filterDay, filterAcpd, searchQuery, includeAdditionalLeaders, ccbRecipients]);
+  }, [leaders, filterCampus, filterStatus, filterCircleType, filterDay, filterAcpd, searchQuery, includeAdditionalLeaders, ccbRecipients, selectNone]);
 
   // ─── Current / next recipient ──────────────────────────────
   const currentRecipient = recipients[currentIndex] || null;
@@ -480,6 +482,7 @@ function BulkMessageContent() {
 
   // ─── Filter toggle helpers ─────────────────────────────────
   const toggleFilter = (arr: string[], setArr: (v: string[]) => void, value: string) => {
+    setSelectNone(false);
     setArr(arr.includes(value) ? arr.filter(v => v !== value) : [...arr, value]);
   };
 
@@ -551,20 +554,38 @@ function BulkMessageContent() {
                   </svg>
                   Filter Recipients
                 </h2>
-                {(filterCampus.length > 0 || filterStatus.length > 1 || filterCircleType.length > 0 || filterDay.length > 0 || filterAcpd.length > 0) && (
-                  <button
-                    onClick={() => {
-                      setFilterCampus([]);
-                      setFilterStatus(['active']);
-                      setFilterCircleType([]);
-                      setFilterDay([]);
-                      setFilterAcpd([]);
-                    }}
-                    className="text-[10px] font-bold text-blue-400 hover:text-blue-300 uppercase underline"
-                  >
-                    Reset Filters
-                  </button>
-                )}
+                <div className="flex items-center gap-3">
+                  {!selectNone && (
+                    <button
+                      onClick={() => {
+                        setSelectNone(true);
+                        setFilterCampus([]);
+                        setFilterStatus([]);
+                        setFilterCircleType([]);
+                        setFilterDay([]);
+                        setFilterAcpd([]);
+                      }}
+                      className="text-[10px] font-bold text-gray-400 hover:text-rose-400 uppercase underline transition-colors"
+                    >
+                      Select None
+                    </button>
+                  )}
+                  {(selectNone || filterCampus.length > 0 || filterStatus.length > 1 || filterCircleType.length > 0 || filterDay.length > 0 || filterAcpd.length > 0) && (
+                    <button
+                      onClick={() => {
+                        setSelectNone(false);
+                        setFilterCampus([]);
+                        setFilterStatus(['active']);
+                        setFilterCircleType([]);
+                        setFilterDay([]);
+                        setFilterAcpd([]);
+                      }}
+                      className="text-[10px] font-bold text-blue-400 hover:text-blue-300 uppercase underline"
+                    >
+                      Reset Filters
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-5">

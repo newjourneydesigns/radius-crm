@@ -102,6 +102,8 @@ export interface CircleLeader {
   additional_leader_phone?: string;
   additional_leader_email?: string;
   additional_leader_birthday?: string;
+  check_in_cadence?: 'weekly' | 'bi-weekly' | 'monthly' | 'quarterly' | 'none';
+  last_check_in_date?: string;
   uuid?: string;
   created_at?: string;
   updated_at?: string;

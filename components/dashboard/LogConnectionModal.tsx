@@ -177,7 +177,8 @@ export default function LogConnectionModal({
       await supabase
         .from('circle_leaders')
         .update({
-          last_connection: formData.date
+          last_connection: formData.date,
+          last_check_in_date: formData.date
         })
         .eq('id', circleLeaderId);
 

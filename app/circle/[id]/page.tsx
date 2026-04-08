@@ -25,6 +25,7 @@ import AddToBoardModal from '../../../components/modals/AddToBoardModal';
 import ScorecardSection from '../../../components/circle/ScorecardSection';
 import ACPDTrackingSection from '../../../components/circle/ACPDTrackingSection';
 import CircleVisitsSection from '../../../components/circle/CircleVisitsSection';
+import CheckInCadence from '../../../components/circle/CheckInCadence';
 import AttendanceTrends from '../../../components/circle/AttendanceTrends';
 import DictateAndSummarize from '../../../components/notes/DictateAndSummarize';
 import MeetingPrepAssistant from '../../../components/notes/MeetingPrepAssistant';
@@ -1680,7 +1681,8 @@ export default function CircleLeaderProfilePage() {
       additional_leader_name: leader.additional_leader_name,
       additional_leader_phone: leader.additional_leader_phone,
       additional_leader_email: leader.additional_leader_email,
-      additional_leader_birthday: leader.additional_leader_birthday || ''
+      additional_leader_birthday: leader.additional_leader_birthday || '',
+      check_in_cadence: leader.check_in_cadence || 'none',
     };
     
     setEditedLeader(editData);
@@ -1715,7 +1717,8 @@ export default function CircleLeaderProfilePage() {
           additional_leader_name: editedLeader.additional_leader_name || null,
           additional_leader_phone: editedLeader.additional_leader_phone || null,
           additional_leader_email: editedLeader.additional_leader_email || null,
-          additional_leader_birthday: editedLeader.additional_leader_birthday || null
+          additional_leader_birthday: editedLeader.additional_leader_birthday || null,
+          check_in_cadence: editedLeader.check_in_cadence || 'none',
         })
         .eq('id', leaderId)
         .select()
@@ -2068,6 +2071,15 @@ export default function CircleLeaderProfilePage() {
               )}
             </button>
           </div>
+        </div>
+
+        {/* Check-in Cadence */}
+        <div className="mb-6">
+          <CheckInCadence
+            leader={leader}
+            onUpdate={(updates) => setLeader(prev => prev ? { ...prev, ...updates } : null)}
+            isAdmin={isAdmin}
+          />
         </div>
 
         {/* Mobile Quick Actions - Show on mobile only, right after the name */}
