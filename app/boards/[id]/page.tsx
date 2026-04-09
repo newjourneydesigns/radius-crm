@@ -1888,7 +1888,23 @@ function ListActionsModal({
                 </div>
               </div>
 
-              {/* 2. Set Assignee */}
+              {/* 2. Strip Due Date */}
+              <div className="kb-list-action-row">
+                <div className="kb-list-action-label"><CalendarDays size={13} /> Strip Due Date</div>
+                <div className="kb-list-action-controls">
+                  <button
+                    className="kb-btn kb-btn-primary kb-btn-sm"
+                    disabled={applying}
+                    onClick={() => apply('Strip due date', async () => {
+                      for (const card of cards) await onUpdateCard(card.id, { due_date: null });
+                    })}
+                  >
+                    Remove from All
+                  </button>
+                </div>
+              </div>
+
+              {/* 3. Set Assignee */}
               <div className="kb-list-action-row">
                 <div className="kb-list-action-label"><User size={13} /> Set Assignee</div>
                 <div className="kb-list-action-controls">
