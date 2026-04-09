@@ -2269,6 +2269,7 @@ function ColumnAutomationsModal({
     if (newType === 'set_complete') setNewValue('true');
     else if (newType === 'set_priority') setNewValue('high');
     else if (newType === 'set_assignee') setNewValue(users[0]?.id ?? '');
+    else if (newType === 'set_due_date') setNewValue('');
     else setNewValue('');
   }, [newType]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -2280,6 +2281,8 @@ function ColumnAutomationsModal({
     clear_labels: 'Strip labels',
     add_checklist: 'Add checklist',
     move_completed: 'Move completed cards',
+    set_due_date: 'Set due date',
+    strip_due_date: 'Strip due date',
   };
 
   const formatValue = (action: ColumnAutomationAction): string => {
@@ -2301,6 +2304,8 @@ function ColumnAutomationsModal({
     if (action.type === 'move_completed') {
       return columns.find(c => c.id === action.value)?.title ?? action.value;
     }
+    if (action.type === 'set_due_date') return action.value;
+    if (action.type === 'strip_due_date') return 'Remove due date';
     return '';
   };
 
@@ -2322,6 +2327,10 @@ function ColumnAutomationsModal({
       action = { type: 'clear_labels', value: true };
     } else if (newType === 'move_completed') {
       action = { type: 'move_completed', value: newValue };
+    } else if (newType === 'set_due_date') {
+      action = { type: 'set_due_date', value: newValue };
+    } else if (newType === 'strip_due_date') {
+      action = { type: 'strip_due_date', value: true };
     } else {
       action = { type: 'add_checklist', value: newValue ? newValue.split(',').filter(Boolean) : [] };
     }
@@ -2346,7 +2355,8 @@ function ColumnAutomationsModal({
 
   const canAdd =
     (newType !== 'set_assignee' || newValue.trim() !== '') &&
-    (newType !== 'move_completed' || newValue.trim() !== '');
+    (newType !== 'move_completed' || newValue.trim() !== '') &&
+    (newType !== 'set_due_date' || newValue.trim() !== '');
 
   return (
     <div className="kb-modal-overlay" onClick={onClose}>
@@ -2400,6 +2410,8 @@ function ColumnAutomationsModal({
                 <option value="clear_labels">Strip labels</option>
                 <option value="add_checklist">Add checklist</option>
                 <option value="move_completed">Move completed cards</option>
+                <option value="set_due_date">Set due date</option>
+                <option value="strip_due_date">Strip due date</option>
               </select>
               <button
                 className="kb-btn kb-btn-primary kb-btn-sm"
@@ -2488,6 +2500,17 @@ function ColumnAutomationsModal({
                     ))}
                   </select>
                 )
+              )}
+              {newType === 'set_due_date' && (
+                <input
+                  type="date"
+                  className="kb-input"
+                  value={newValue}
+                  onChange={e => setNewValue(e.target.value)}
+                />
+              )}
+              {newType === 'strip_due_date' && (
+                <span style={{ color: '#6b7280', fontSize: 12 }}>Removes the due date from the card</span>
               )}
             </div>
           </div>
@@ -2931,6 +2954,8 @@ function BoardPage() {
       if (action.type === 'set_assignee')  cardUpdates.assignee    = action.value;
       if (action.type === 'set_labels')    cardUpdates.label_ids   = action.value;
       if (action.type === 'clear_labels')  cardUpdates.label_ids   = [];
+      if (action.type === 'set_due_date')  cardUpdates.due_date    = action.value;
+      if (action.type === 'strip_due_date') cardUpdates.due_date   = null;
     }
     if (Object.keys(cardUpdates).length > 0) {
       await updateCard(boardId, cardId, cardUpdates);

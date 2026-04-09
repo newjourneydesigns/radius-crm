@@ -329,7 +329,9 @@ export type ColumnAutomationAction =
   | { type: 'set_labels';     value: string[] }
   | { type: 'clear_labels';   value: true }
   | { type: 'add_checklist';  value: string[] }
-  | { type: 'move_completed'; value: string };
+  | { type: 'move_completed'; value: string }
+  | { type: 'set_due_date';   value: string }
+  | { type: 'strip_due_date'; value: true };
 
 export interface ProjectBoard {
   id: string;
