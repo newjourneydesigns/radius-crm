@@ -46,6 +46,15 @@ export type AttendanceSummary = {
   attendees?: Array<{ id?: string; name?: string; status?: string }>;
 };
 
+export type QueueIndividual = {
+  id: string;
+  name: string;
+  managerId: string;
+  managerName: string;
+  status: string;
+  statusId: string;
+};
+
 export interface CCBConfig {
   subdomain: string;
   username: string;
@@ -1698,6 +1707,28 @@ export class CCBClient {
     }
 
     return enriched;
+  }
+
+  /** Fetch all individuals in a process queue step by its step ID */
+  async getQueueIndividuals(stepId: string | number): Promise<QueueIndividual[]> {
+    const xml = await this.getXml({ srv: 'queue_individuals', id: String(stepId) });
+    const root = xml?.ccb_api?.response?.individuals;
+    let raw: any[] = [];
+
+    if (Array.isArray(root?.individual)) {
+      raw = root.individual;
+    } else if (root?.individual) {
+      raw = [root.individual];
+    }
+
+    return raw.map((ind: any) => ({
+      id: String(ind?.['@_id'] ?? ''),
+      name: String(ind?.name ?? '').trim(),
+      managerId: String(ind?.manager?.['@_id'] ?? ''),
+      managerName: String(ind?.manager?.['#text'] ?? ind?.manager ?? '').trim(),
+      status: String(ind?.status?.['#text'] ?? ind?.status ?? '').trim(),
+      statusId: String(ind?.status?.['@_id'] ?? ''),
+    }));
   }
 }
 

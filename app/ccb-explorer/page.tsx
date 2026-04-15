@@ -53,6 +53,9 @@ export default function CCBExplorerPage() {
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const [leaders, setLeaders] = useState<Array<{id: number, name: string, campus?: string}>>([]);
+  const [showLeaderDropdown, setShowLeaderDropdown] = useState(false);
+  const comboboxRef = useRef<HTMLDivElement>(null);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -61,6 +64,29 @@ export default function CCBExplorerPage() {
         abortControllerRef.current.abort();
       }
     };
+  }, []);
+
+  // Fetch active leaders for combobox dropdown
+  useEffect(() => {
+    supabase
+      .from('circle_leaders')
+      .select('id, name, campus')
+      .in('status', ['active', 'on-boarding', 'paused'])
+      .order('name')
+      .then(({ data }) => {
+        if (data) setLeaders(data);
+      });
+  }, []);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (comboboxRef.current && !comboboxRef.current.contains(e.target as Node)) {
+        setShowLeaderDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleFetchData = async () => {
@@ -109,37 +135,55 @@ export default function CCBExplorerPage() {
     const allEvents: EventData[] = [];
     const errors: string[] = [];
 
+    const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
     try {
       for (let i = 0; i < dates.length; i++) {
         if (abortController.signal.aborted) return;
 
         setProgress(`Fetching day ${i + 1} of ${dates.length}...`);
 
-        try {
-          const response = await fetch('/api/ccb/event-attendance', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ date: dates[i], groupName }),
-            signal: abortController.signal,
-          });
+        // Small gap between requests to avoid burst-triggering the rate limiter
+        if (i > 0) await delay(150);
 
-          const result = await response.json().catch(() => ({} as any));
+        let retries = 0;
+        const maxRetries = 2;
 
-          if (!response.ok) {
-            const parts = [result?.error || 'Failed to fetch data'];
-            if (result?.hint) parts.push(result.hint);
-            errors.push(`${dates[i]}: ${parts.join(' ')}`);
-            continue;
+        while (retries <= maxRetries) {
+          if (abortController.signal.aborted) return;
+
+          try {
+            const response = await fetch('/api/ccb/event-attendance', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ date: dates[i], groupName }),
+              signal: abortController.signal,
+            });
+
+            const result = await response.json().catch(() => ({} as any));
+
+            if (response.status === 429 && retries < maxRetries) {
+              retries++;
+              setProgress(`Rate limited — waiting before retry (${dates[i]})...`);
+              await delay(2000 * retries);
+              continue;
+            }
+
+            if (!response.ok) {
+              const parts = [result?.error || 'Failed to fetch data'];
+              if (result?.hint) parts.push(result.hint);
+              errors.push(`${dates[i]}: ${parts.join(' ')}`);
+            } else if (result.data?.length) {
+              allEvents.push(...result.data);
+              // Update results incrementally
+              setEvents([...allEvents]);
+            }
+            break;
+          } catch (dayErr: any) {
+            if (dayErr.name === 'AbortError') return;
+            errors.push(`${dates[i]}: ${dayErr.message}`);
+            break;
           }
-
-          if (result.data?.length) {
-            allEvents.push(...result.data);
-            // Update results incrementally
-            setEvents([...allEvents]);
-          }
-        } catch (dayErr: any) {
-          if (dayErr.name === 'AbortError') return;
-          errors.push(`${dates[i]}: ${dayErr.message}`);
         }
       }
 
@@ -381,19 +425,72 @@ export default function CCBExplorerPage() {
                   disabled={loading}
                 />
               </div>
-              <div>
+              <div ref={comboboxRef} className="relative">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Group Name
+                  Circle Leader / Group Name
                 </label>
-                <input
-                  type="text"
-                  value={groupName}
-                  onChange={(e) => setGroupName(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="e.g., LVT | S1"
-                  className="w-full px-4 py-3 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-200"
-                  disabled={loading}
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={groupName}
+                    onChange={(e) => {
+                      setGroupName(e.target.value);
+                      setShowLeaderDropdown(true);
+                    }}
+                    onFocus={() => setShowLeaderDropdown(true)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Type to search or select a leader..."
+                    className="w-full px-4 py-3 pr-10 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-200"
+                    disabled={loading}
+                  />
+                  {groupName && !loading && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => { setGroupName(''); setShowLeaderDropdown(true); }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                      aria-label="Clear"
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                {showLeaderDropdown && !loading && (
+                  <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+                    {(() => {
+                      const q = groupName.trim().toLowerCase();
+                      const filtered = q
+                        ? leaders.filter(l => l.name.toLowerCase().includes(q))
+                        : leaders;
+                      if (filtered.length === 0) {
+                        return (
+                          <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                            No matching leaders — your typed name will be used as the search term.
+                          </div>
+                        );
+                      }
+                      return filtered.map(leader => (
+                        <button
+                          key={leader.id}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setGroupName(leader.name);
+                            setShowLeaderDropdown(false);
+                          }}
+                          className="w-full text-left px-4 py-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm text-gray-900 dark:text-white flex items-center justify-between first:rounded-t-xl last:rounded-b-xl"
+                        >
+                          <span className="font-medium">{leader.name}</span>
+                          {leader.campus && (
+                            <span className="text-xs text-gray-400 dark:text-gray-500 ml-2 shrink-0">{leader.campus}</span>
+                          )}
+                        </button>
+                      ));
+                    })()}
+                  </div>
+                )}
               </div>
             </div>
 

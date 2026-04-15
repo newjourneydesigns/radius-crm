@@ -331,6 +331,15 @@ export default function CircleMeetingsCalendar({
   const [initialView] = useState(DEFAULT_CALENDAR_VIEW);
   const [currentViewType, setCurrentViewType] = useState(DEFAULT_CALENDAR_VIEW);
 
+  // Snapshot state — stores archived weekly event summary data for past-week views
+  const [snapshotMap, setSnapshotMap] = useState<Map<number, EventSummaryState> | null>(null);
+  const [isLoadingSnapshot, setIsLoadingSnapshot] = useState(false);
+  const [snapshotSavingLeaderIds, setSnapshotSavingLeaderIds] = useState<Set<number>>(new Set());
+
+  // Attendance data — headcount + roster size per leader for the visible week
+  type AttendanceEntry = { headcount: number | null; rosterCount: number | null };
+  const [attendanceData, setAttendanceData] = useState<Map<number, AttendanceEntry> | null>(null);
+
   // Default meeting length; can be made configurable later.
   const durationMinutes = 60;
 
@@ -365,6 +374,21 @@ export default function CircleMeetingsCalendar({
 
   const [showMissingSchedules, setShowMissingSchedules] = useState(false);
 
+  // ISO date string (YYYY-MM-DD) of the Sunday that starts the currently-visible week.
+  const visibleWeekSundayISO = useMemo(() => {
+    if (!visibleRange) return null;
+    return DateTime.fromJSDate(visibleRange.start).toISODate();
+  }, [visibleRange]);
+
+  // True when the calendar is showing a week that is before the current one.
+  const isViewingSnapshot = useMemo(() => {
+    if (!visibleWeekSundayISO) return false;
+    const now = DateTime.local();
+    const daysBack = now.weekday === 7 ? 0 : now.weekday;
+    const currentWeekSundayISO = now.minus({ days: daysBack }).toISODate()!;
+    return visibleWeekSundayISO < currentWeekSundayISO;
+  }, [visibleWeekSundayISO]);
+
   const onDatesSet = useCallback((arg: DatesSetArg) => {
     setVisibleRange({ start: arg.start, end: arg.end });
     setCurrentViewType(arg.view.type);
@@ -395,6 +419,67 @@ export default function CircleMeetingsCalendar({
     );
     setEvents(next);
   }, [leadersWithSchedules, visibleRange, leaders]);
+
+  // Fetch archived snapshot whenever the user navigates to a past week.
+  useEffect(() => {
+    if (!visibleWeekSundayISO || !isViewingSnapshot) {
+      setSnapshotMap(null);
+      return;
+    }
+    let cancelled = false;
+    setIsLoadingSnapshot(true);
+    fetch(`/api/event-summary-snapshots?week_start_date=${encodeURIComponent(visibleWeekSundayISO)}`)
+      .then(r => r.json())
+      .then(({ snapshots }: { snapshots: Array<{ circle_leader_id: number; event_summary_state: EventSummaryState }> }) => {
+        if (cancelled) return;
+        const map = new Map<number, EventSummaryState>();
+        for (const s of snapshots ?? []) map.set(s.circle_leader_id, s.event_summary_state);
+        setSnapshotMap(map);
+      })
+      .catch(err => { if (!cancelled) console.error('Failed to load snapshot:', err); })
+      .finally(() => { if (!cancelled) setIsLoadingSnapshot(false); });
+    return () => { cancelled = true; };
+  }, [visibleWeekSundayISO, isViewingSnapshot]);
+
+  // Fetch attendance (headcounts + roster sizes) for the visible week — runs for any week.
+  useEffect(() => {
+    if (!visibleWeekSundayISO || leaders.length === 0) {
+      setAttendanceData(null);
+      return;
+    }
+    let cancelled = false;
+    const weekEnd = DateTime.fromISO(visibleWeekSundayISO).plus({ days: 6 }).toISODate()!;
+    const leaderIds = leaders.map(l => l.id);
+
+    Promise.all([
+      supabase
+        .from('circle_meeting_occurrences')
+        .select('leader_id, headcount')
+        .eq('status', 'met')
+        .gte('meeting_date', visibleWeekSundayISO)
+        .lte('meeting_date', weekEnd),
+      supabase
+        .from('circle_roster_cache')
+        .select('circle_leader_id')
+        .in('circle_leader_id', leaderIds),
+    ]).then(([occRes, rosterRes]) => {
+      if (cancelled) return;
+      const rosterCounts = new Map<number, number>();
+      for (const row of (rosterRes.data ?? [])) {
+        rosterCounts.set(row.circle_leader_id, (rosterCounts.get(row.circle_leader_id) ?? 0) + 1);
+      }
+      const map = new Map<number, AttendanceEntry>();
+      for (const leader of leaders) {
+        map.set(leader.id, { headcount: null, rosterCount: rosterCounts.get(leader.id) ?? null });
+      }
+      for (const occ of (occRes.data ?? [])) {
+        const existing = map.get(occ.leader_id);
+        if (existing) map.set(occ.leader_id, { ...existing, headcount: occ.headcount });
+      }
+      setAttendanceData(map);
+    }).catch(err => { if (!cancelled) console.error('Failed to load attendance data:', err); });
+    return () => { cancelled = true; };
+  }, [visibleWeekSundayISO, leaders]);
 
   const openEventExplorerForLeader = useCallback((leaderId: number, isoDate?: string | null) => {
     const leader = leaders.find(l => l.id === leaderId);
@@ -453,6 +538,72 @@ export default function CircleMeetingsCalendar({
     }
     return lastSaturday.toISOString().split('T')[0];
   }, []);
+
+  /** Returns the effective event summary state for a leader — uses snapshot data when viewing a past week. */
+  const getEffectiveLeaderState = useCallback((leaderId: number): EventSummaryState => {
+    if (isViewingSnapshot && snapshotMap) {
+      return snapshotMap.get(leaderId) ?? 'not_received';
+    }
+    const leader = leaders.find(l => l.id === leaderId);
+    return leader ? getEventSummaryState(leader) : 'not_received';
+  }, [isViewingSnapshot, snapshotMap, leaders]);
+
+  /** Aggregate attendance stats for the visible week — only counts leaders with 'received' state. */
+  const weeklyAttendanceStats = useMemo(() => {
+    if (!attendanceData) return null;
+    let totalAttended = 0;
+    let rosterPctSum = 0;
+    let rosterPctCount = 0;
+    let receivedWithData = 0;
+    for (const leader of leaders) {
+      const state = getEffectiveLeaderState(leader.id);
+      if (state !== 'received') continue;
+      const att = attendanceData.get(leader.id);
+      if (!att?.headcount) continue;
+      receivedWithData++;
+      totalAttended += att.headcount;
+      if (att.rosterCount && att.rosterCount > 0) {
+        rosterPctSum += Math.round((att.headcount / att.rosterCount) * 100);
+        rosterPctCount++;
+      }
+    }
+    if (receivedWithData === 0) return null;
+    return {
+      totalAttended,
+      avgRosterPct: rosterPctCount > 0 ? Math.round(rosterPctSum / rosterPctCount) : null,
+      receivedWithData,
+    };
+  }, [attendanceData, leaders, getEffectiveLeaderState]);
+
+  /** Updates a single leader's state in the archived snapshot for the currently-viewed past week. */
+  const updateSnapshotEntry = useCallback(async (leaderId: number, state: EventSummaryState) => {
+    if (!visibleWeekSundayISO) return;
+    setSnapshotSavingLeaderIds(prev => { const next = new Set(prev); next.add(leaderId); return next; });
+    try {
+      const res = await fetch('/api/event-summary-snapshots', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ week_start_date: visibleWeekSundayISO, circle_leader_id: leaderId, event_summary_state: state }),
+      });
+      if (!res.ok) throw new Error('Failed to update snapshot');
+      setSnapshotMap(prev => { if (!prev) return prev; const next = new Map(prev); next.set(leaderId, state); return next; });
+    } catch (err: any) {
+      console.error('Error updating snapshot entry:', err);
+      setActionError(err.message || 'Failed to update snapshot entry');
+      setTimeout(() => setActionError(null), 5000);
+    } finally {
+      setSnapshotSavingLeaderIds(prev => { const next = new Set(prev); next.delete(leaderId); return next; });
+    }
+  }, [visibleWeekSundayISO]);
+
+  /** Routes a state-button click to either the live update or the snapshot update depending on the current view mode. */
+  const handleEventSummaryButtonClick = useCallback(async (leaderId: number, state: EventSummaryState) => {
+    if (isViewingSnapshot) {
+      await updateSnapshotEntry(leaderId, state);
+    } else {
+      await setLeaderEventSummaryState(leaderId, state);
+    }
+  }, [isViewingSnapshot, updateSnapshotEntry, setLeaderEventSummaryState]);
 
   const handleOpenReminderModal = useCallback(async (leader: CircleLeader) => {
     setSelectedLeader(leader);
@@ -528,11 +679,11 @@ export default function CircleMeetingsCalendar({
 
   const handleBulkResetEventSummaries = useCallback(async () => {
     if (!leaders || leaders.length === 0) return;
-    
+
     const confirmed = window.confirm(
-      `Reset event summary status to "No" for all ${leaders.length} visible circle${leaders.length !== 1 ? 's' : ''}?\n\nThis will update all circles currently shown in the calendar.`
+      `Reset event summary status to "No" for all ${leaders.length} visible circle${leaders.length !== 1 ? 's' : ''}?\n\nThis will save an archived snapshot of this week's results before resetting everyone to Not Received.`
     );
-    
+
     if (!confirmed) return;
 
     setIsResetting(true);
@@ -540,9 +691,34 @@ export default function CircleMeetingsCalendar({
     setActionSuccess(null);
 
     try {
+      // 1. Compute the current week's Sunday → Saturday date range.
+      const now = DateTime.local();
+      const daysBack = now.weekday === 7 ? 0 : now.weekday;
+      const weekSunday = now.minus({ days: daysBack }).toISODate()!;
+      const weekSaturday = now.minus({ days: daysBack }).plus({ days: 6 }).toISODate()!;
+
+      // 2. Archive the current states as a snapshot before resetting.
+      const snapshotPayload = leaders.map(l => ({
+        circle_leader_id: l.id,
+        event_summary_state: (l.event_summary_state ?? 'not_received') as EventSummaryState,
+      }));
+
+      const snapshotRes = await fetch('/api/event-summary-snapshots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          week_start_date: weekSunday,
+          week_end_date: weekSaturday,
+          snapshots: snapshotPayload,
+          captured_by: user?.id,
+        }),
+      });
+      if (!snapshotRes.ok) {
+        console.warn('Snapshot save failed (non-fatal):', await snapshotRes.text());
+      }
+
+      // 3. Reset all visible leaders to 'not_received'.
       const leaderIds = leaders.map(l => l.id);
-      
-      // Update all visible leaders to 'not_received'
       const { error } = await supabase
         .from('circle_leaders')
         .update({ event_summary_state: 'not_received' })
@@ -550,14 +726,14 @@ export default function CircleMeetingsCalendar({
 
       if (error) throw error;
 
-      // Refresh the data by calling the parent's method
+      // 4. Refresh local state via the parent's setter.
       if (onSetEventSummaryState) {
         for (const id of leaderIds) {
           await onSetEventSummaryState(id, 'not_received');
         }
       }
 
-      setActionSuccess(`Successfully reset ${leaderIds.length} circle${leaderIds.length !== 1 ? 's' : ''} to "No"`);
+      setActionSuccess(`Week archived & ${leaderIds.length} circle${leaderIds.length !== 1 ? 's' : ''} reset to "No"`);
       setTimeout(() => setActionSuccess(null), 5000);
     } catch (error: any) {
       console.error('Error resetting event summaries:', error);
@@ -566,14 +742,14 @@ export default function CircleMeetingsCalendar({
     } finally {
       setIsResetting(false);
     }
-  }, [leaders, onSetEventSummaryState]);
+  }, [leaders, onSetEventSummaryState, user]);
 
   const renderEventSummaryButtons = useCallback((
     leaderId: number,
     state: EventSummaryState,
     opts?: { compact?: boolean }
   ) => {
-    const isSaving = savingLeaderIds.has(leaderId);
+    const isSaving = savingLeaderIds.has(leaderId) || snapshotSavingLeaderIds.has(leaderId);
 
     const base =
       'h-9 sm:h-8 px-1.5 sm:px-3 rounded-lg sm:rounded-md text-[13px] sm:text-xs font-semibold leading-tight transition-all disabled:opacity-60 disabled:cursor-not-allowed touch-manipulation select-none flex items-center justify-center min-w-0 whitespace-nowrap flex-1 active:scale-95 sm:active:scale-100';
@@ -606,7 +782,7 @@ export default function CircleMeetingsCalendar({
       // Prevent FullCalendar's eventClick navigation.
       e.preventDefault();
       e.stopPropagation();
-      void setLeaderEventSummaryState(leaderId, next);
+      void handleEventSummaryButtonClick(leaderId, next);
     };
 
     return (
@@ -629,7 +805,7 @@ export default function CircleMeetingsCalendar({
         </button>
       </div>
     );
-  }, [savingLeaderIds, setLeaderEventSummaryState]);
+  }, [savingLeaderIds, snapshotSavingLeaderIds, handleEventSummaryButtonClick]);
 
   const selectedDateLabel = useMemo(() => {
     if (!selectedISODate) return '';
@@ -700,6 +876,68 @@ export default function CircleMeetingsCalendar({
         </div>
       )}
 
+      {/* Past-week snapshot banner */}
+      {isViewingSnapshot && (
+        <div className={`mb-3 p-3 rounded-md flex items-start gap-2.5 text-sm ${
+          isLoadingSnapshot
+            ? 'bg-gray-50 dark:bg-gray-900/20 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+            : snapshotMap !== null && snapshotMap.size > 0
+              ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 text-amber-900 dark:text-amber-200'
+              : 'bg-gray-50 dark:bg-gray-900/30 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+        }`}>
+          {isLoadingSnapshot ? (
+            <>
+              <svg className="animate-spin h-4 w-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              Loading archived results…
+            </>
+          ) : snapshotMap !== null && snapshotMap.size > 0 ? (
+            <>
+              <svg className="h-4 w-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+              </svg>
+              <div className="flex-1 min-w-0">
+                <div>
+                  <strong>Viewing archived week</strong>{' '}
+                  {visibleWeekSundayISO ? `(${DateTime.fromISO(visibleWeekSundayISO).toFormat('MMM d')} – ${DateTime.fromISO(visibleWeekSundayISO).plus({ days: 6 }).toFormat('MMM d, yyyy')})` : ''}.
+                  {' '}Status buttons update the archive record.
+                </div>
+                {weeklyAttendanceStats && (
+                  <div className="mt-1 text-xs opacity-80 flex flex-wrap gap-x-3 gap-y-0.5">
+                    <span>{weeklyAttendanceStats.receivedWithData} circle{weeklyAttendanceStats.receivedWithData !== 1 ? 's' : ''} reported · <strong>{weeklyAttendanceStats.totalAttended}</strong> total attended</span>
+                    {weeklyAttendanceStats.avgRosterPct !== null && (
+                      <span>avg <strong>{weeklyAttendanceStats.avgRosterPct}%</strong> of roster</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <svg className="h-4 w-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>
+                No snapshot saved for this week. Use <strong>Reset All Event Summaries</strong> at the end of any week to archive its results.
+              </span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Current-week attendance summary (shown when data is available) */}
+      {!isViewingSnapshot && weeklyAttendanceStats && (
+        <div className="mb-3 px-3 py-2 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-900 dark:text-green-200 text-xs flex flex-wrap gap-x-3 gap-y-0.5 items-center">
+          <span className="font-semibold">{weeklyAttendanceStats.receivedWithData} circle{weeklyAttendanceStats.receivedWithData !== 1 ? 's' : ''} reported</span>
+          <span>· <strong>{weeklyAttendanceStats.totalAttended}</strong> total attended</span>
+          {weeklyAttendanceStats.avgRosterPct !== null && (
+            <span>· avg <strong>{weeklyAttendanceStats.avgRosterPct}%</strong> of roster</span>
+          )}
+        </div>
+      )}    
+
       <div className="calendar-shell">
         <FullCalendar
           plugins={[listPlugin, interactionPlugin]}
@@ -734,7 +972,7 @@ export default function CircleMeetingsCalendar({
               eventSummaryState?: EventSummaryState;
             };
             const leaderId = ext.leaderId;
-            const state = ext.eventSummaryState ?? 'not_received';
+            const state = leaderId ? getEffectiveLeaderState(leaderId) : (ext.eventSummaryState ?? 'not_received');
 
             const ccbHref = (() => {
               const raw = ext.ccbProfileLink;
@@ -800,6 +1038,19 @@ export default function CircleMeetingsCalendar({
                           <span className="ml-1 text-gray-500">· {arg.event.extendedProps.frequency}</span>
                         )}
                       </div>
+                      {/* Attendance indicator — only shown when event summary was Received */}
+                      {state === 'received' && leaderId && (() => {
+                        const att = attendanceData?.get(leaderId);
+                        if (!att?.headcount) return null;
+                        const pct = att.rosterCount && att.rosterCount > 0
+                          ? Math.round((att.headcount / att.rosterCount) * 100)
+                          : null;
+                        return (
+                          <div className="text-[11px] text-green-400/80 mt-0.5 leading-snug">
+                            {att.headcount} attended{pct !== null ? ` · ${pct}% of roster` : ''}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Chevron */}
@@ -832,8 +1083,11 @@ export default function CircleMeetingsCalendar({
                                 : DateTime.local().toISODate();
                               openEventExplorerForLeader(leaderId, eventDate);
                             }}
-                            className="h-8 px-3 rounded-md text-xs font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors inline-flex items-center"
+                            className="h-9 px-3 rounded-lg text-xs font-semibold bg-white/8 border border-white/10 text-white hover:bg-white/15 active:scale-[0.97] transition-all inline-flex items-center gap-1.5"
                           >
+                            <svg className="w-4 h-4 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
                             Summary
                           </button>
 
@@ -846,12 +1100,12 @@ export default function CircleMeetingsCalendar({
                               const leader = leaders.find(l => l.id === leaderId);
                               if (leader) handleOpenReminderModal(leader);
                             }}
-                            className="h-8 w-8 rounded-md border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors inline-flex items-center justify-center"
-                            title="Send reminder"
+                            className="h-9 px-3 rounded-lg text-xs font-semibold bg-white/8 border border-white/10 text-white hover:bg-white/15 active:scale-[0.97] transition-all inline-flex items-center gap-1.5"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                             </svg>
+                            Reminder
                           </button>
 
                           {/* Profile */}
@@ -862,8 +1116,11 @@ export default function CircleMeetingsCalendar({
                               e.stopPropagation();
                               router.push(`/circle/${leaderId}`);
                             }}
-                            className="h-8 px-3 rounded-md text-xs font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors inline-flex items-center"
+                            className="h-9 px-3 rounded-lg text-xs font-semibold bg-white/8 border border-white/10 text-white hover:bg-white/15 active:scale-[0.97] transition-all inline-flex items-center gap-1.5"
                           >
+                            <svg className="w-4 h-4 text-green-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
                             Profile
                           </button>
 
@@ -874,12 +1131,18 @@ export default function CircleMeetingsCalendar({
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className="h-8 px-3 rounded-md text-xs font-medium border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors inline-flex items-center"
+                              className="h-9 px-3 rounded-lg text-xs font-semibold bg-white/8 border border-white/10 text-white hover:bg-white/15 active:scale-[0.97] transition-all inline-flex items-center gap-1.5"
                             >
+                              <svg className="w-4 h-4 text-purple-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              </svg>
                               CCB
                             </a>
                           ) : (
-                            <button type="button" disabled className="h-8 px-3 rounded-md text-xs font-medium border border-gray-200 dark:border-gray-700 text-gray-400 cursor-not-allowed opacity-50 inline-flex items-center">
+                            <button type="button" disabled className="h-9 px-3 rounded-lg text-xs font-semibold bg-gray-800/50 text-gray-600 cursor-not-allowed opacity-50 inline-flex items-center gap-1.5">
+                              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              </svg>
                               CCB
                             </button>
                           )}
@@ -912,8 +1175,8 @@ export default function CircleMeetingsCalendar({
                                 <button
                                   key={kind}
                                   type="button"
-                                  disabled={savingLeaderIds.has(leaderId)}
-                                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); void setLeaderEventSummaryState(leaderId, kind); }}
+                                  disabled={savingLeaderIds.has(leaderId) || snapshotSavingLeaderIds.has(leaderId)}
+                                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); void handleEventSummaryButtonClick(leaderId, kind); }}
                                   className={`h-10 rounded-lg text-[13px] font-bold transition-all active:scale-95 ${
                                     active
                                       ? 'es-active border-2 text-white shadow-lg'
@@ -1031,7 +1294,8 @@ export default function CircleMeetingsCalendar({
             {selectedDayEvents.map(ev => {
               const leaderId = ev.extendedProps?.leaderId;
               const ccb = ev.extendedProps?.ccbProfileLink ?? null;
-              const eventSummaryState = (ev.extendedProps?.eventSummaryState ?? 'not_received') as EventSummaryState;
+              const rawEventSummaryState = (ev.extendedProps?.eventSummaryState ?? 'not_received') as EventSummaryState;
+              const eventSummaryState = leaderId ? getEffectiveLeaderState(leaderId) : rawEventSummaryState;
               const timeLabel = DateTime.fromISO(ev.start).toLocaleString(DateTime.TIME_SIMPLE);
               const ccbHref = ccb && /^https?:\/\//i.test(ccb) ? ccb : null;
               const isoDate = DateTime.fromISO(ev.start).toISODate() ?? '';

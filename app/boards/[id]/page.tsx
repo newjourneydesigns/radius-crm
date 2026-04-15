@@ -19,6 +19,7 @@ import {
 import { supabase } from '../../../lib/supabase';
 import type { CircleLeader } from '../../../lib/supabase';
 import { buildRepeatLabel, type TodoRepeatRule } from '../../../lib/todoRecurrence';
+import { DateTime } from 'luxon';
 import AssigneePicker from '../../../components/boards/AssigneePicker';
 import RichTextEditor from '../../../components/notes/RichTextEditor';
 
@@ -512,7 +513,14 @@ function CardDetailModal({
             <div className="kb-detail-title-row">
               <button
                 className={`kb-complete-toggle ${card.is_complete ? 'checked' : ''}`}
-                onClick={async () => { await onUpdate({ is_complete: !card.is_complete }); }}
+                onClick={async () => {
+                  const newValue = !card.is_complete;
+                  await onUpdate({ is_complete: newValue });
+                  if (newValue) {
+                    const formatted = DateTime.now().toFormat("LLL d, yyyy 'at' h:mm a");
+                    await onAddComment(`✅ Completed on ${formatted}`);
+                  }
+                }}
                 title={card.is_complete ? 'Mark incomplete' : 'Mark complete'}
               >
                 {card.is_complete ? <Check size={14} /> : null}
@@ -977,21 +985,49 @@ function CardDetailModal({
             {/* Dates */}
             <div className="kb-form-group">
               <div className="kb-detail-section-label"><CalendarDays size={13} /> Start Date</div>
-              <input
-                className="kb-input"
-                type="date"
-                value={editStartDate}
-                onChange={e => setEditStartDate(e.target.value)}
-              />
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input
+                  className="kb-input"
+                  type="date"
+                  value={editStartDate}
+                  onChange={e => setEditStartDate(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                {editStartDate && (
+                  <button
+                    type="button"
+                    className="kb-btn kb-btn-ghost kb-btn-sm"
+                    onClick={() => setEditStartDate('')}
+                    title="Clear start date"
+                    style={{ flexShrink: 0 }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
             <div className="kb-form-group">
               <div className="kb-detail-section-label"><Clock size={13} /> Due Date</div>
-              <input
-                className="kb-input"
-                type="date"
-                value={editDueDate}
-                onChange={e => setEditDueDate(e.target.value)}
-              />
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input
+                  className="kb-input"
+                  type="date"
+                  value={editDueDate}
+                  onChange={e => setEditDueDate(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                {editDueDate && (
+                  <button
+                    type="button"
+                    className="kb-btn kb-btn-ghost kb-btn-sm"
+                    onClick={() => setEditDueDate('')}
+                    title="Clear due date"
+                    style={{ flexShrink: 0 }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Repeat */}
