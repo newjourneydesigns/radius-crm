@@ -135,55 +135,37 @@ export default function CCBExplorerPage() {
     const allEvents: EventData[] = [];
     const errors: string[] = [];
 
-    const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-
     try {
       for (let i = 0; i < dates.length; i++) {
         if (abortController.signal.aborted) return;
 
         setProgress(`Fetching day ${i + 1} of ${dates.length}...`);
 
-        // Small gap between requests to avoid burst-triggering the rate limiter
-        if (i > 0) await delay(150);
+        try {
+          const response = await fetch('/api/ccb/event-attendance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ date: dates[i], groupName }),
+            signal: abortController.signal,
+          });
 
-        let retries = 0;
-        const maxRetries = 2;
+          const result = await response.json().catch(() => ({} as any));
 
-        while (retries <= maxRetries) {
-          if (abortController.signal.aborted) return;
-
-          try {
-            const response = await fetch('/api/ccb/event-attendance', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ date: dates[i], groupName }),
-              signal: abortController.signal,
-            });
-
-            const result = await response.json().catch(() => ({} as any));
-
-            if (response.status === 429 && retries < maxRetries) {
-              retries++;
-              setProgress(`Rate limited — waiting before retry (${dates[i]})...`);
-              await delay(2000 * retries);
-              continue;
-            }
-
-            if (!response.ok) {
-              const parts = [result?.error || 'Failed to fetch data'];
-              if (result?.hint) parts.push(result.hint);
-              errors.push(`${dates[i]}: ${parts.join(' ')}`);
-            } else if (result.data?.length) {
-              allEvents.push(...result.data);
-              // Update results incrementally
-              setEvents([...allEvents]);
-            }
-            break;
-          } catch (dayErr: any) {
-            if (dayErr.name === 'AbortError') return;
-            errors.push(`${dates[i]}: ${dayErr.message}`);
-            break;
+          if (!response.ok) {
+            const parts = [result?.error || 'Failed to fetch data'];
+            if (result?.hint) parts.push(result.hint);
+            errors.push(`${dates[i]}: ${parts.join(' ')}`);
+            continue;
           }
+
+          if (result.data?.length) {
+            allEvents.push(...result.data);
+            // Update results incrementally
+            setEvents([...allEvents]);
+          }
+        } catch (dayErr: any) {
+          if (dayErr.name === 'AbortError') return;
+          errors.push(`${dates[i]}: ${dayErr.message}`);
         }
       }
 

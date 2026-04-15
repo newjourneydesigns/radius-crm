@@ -176,18 +176,18 @@ export const useCircleLeaders = () => {
         // Event Summary filter
         if (f.eventSummary === 'received') {
           q = q.eq('event_summary_received', true);
+        } else if (f.eventSummary === 'did_not_meet') {
+          // Use new enum column; fall back to legacy skipped flag
+          q = q.or('event_summary_state.eq.did_not_meet,and(event_summary_state.is.null,event_summary_skipped.eq.true,event_summary_received.eq.false)');
         } else if (f.eventSummary === 'skipped') {
           if (includeSkipped) {
-            q = q.eq('event_summary_skipped', true);
+            q = q.eq('event_summary_state', 'skipped');
           } else {
             // DB not migrated yet; return no rows
             q = q.eq('id', -1);
           }
         } else if (f.eventSummary === 'not_received') {
-          q = q.neq('event_summary_received', true);
-          if (includeSkipped) {
-            q = q.neq('event_summary_skipped', true);
-          }
+          q = q.or('event_summary_state.eq.not_received,and(event_summary_state.is.null,event_summary_received.neq.true,event_summary_skipped.neq.true)');
         }
 
         return q;

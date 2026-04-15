@@ -278,9 +278,10 @@ export default function CalendarFilterPanel({
                 className="mb-3 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="all">All</option>
-                <option value="received">Received</option>
-                <option value="not_received">Not Received</option>
-                <option value="skipped">Skipped</option>
+                <option value="not_received">No</option>
+                <option value="received">Yes</option>
+                <option value="did_not_meet">Didn&apos;t Meet</option>
+                <option value="skipped">Skip</option>
               </select>
 
               <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Connected</label>
