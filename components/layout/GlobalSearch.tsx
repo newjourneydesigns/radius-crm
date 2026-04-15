@@ -6,9 +6,22 @@ import { supabase, CircleLeader } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
 import Fuse from 'fuse.js';
 
+interface BoardResult {
+  id: string;
+  title: string;
+  description?: string;
+}
+
+interface CardResult {
+  id: string;
+  title: string;
+  board_id: string;
+  board_title: string;
+}
+
 interface SearchResult {
-  type: 'leader';
-  item: CircleLeader;
+  type: 'leader' | 'board' | 'card';
+  item: CircleLeader | BoardResult | CardResult;
   score?: number;
   matches?: any[];
 }
@@ -21,7 +34,9 @@ export default function GlobalSearch() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [searchData, setSearchData] = useState<{
     leaders: CircleLeader[];
-  }>({ leaders: [] });
+    boards: BoardResult[];
+    cards: CardResult[];
+  }>({ leaders: [], boards: [], cards: [] });
 
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -56,16 +71,35 @@ export default function GlobalSearch() {
   // Load search data
   const loadSearchData = useCallback(async () => {
     try {
-      const { data: leaders, error: leadersError } = await supabase
-        .from('circle_leaders')
-        .select('id, name, email, phone, campus, acpd, status');
+      const [
+        { data: leaders, error: leadersError },
+        { data: boardRows },
+        { data: cardRows },
+      ] = await Promise.all([
+        supabase.from('circle_leaders').select('id, name, email, phone, campus, acpd, status'),
+        supabase.from('project_boards').select('id, title, description').eq('is_archived', false),
+        supabase.from('board_cards').select('id, title, board_id').eq('is_archived', false),
+      ]);
 
       if (leadersError) {
         console.error('Error loading leaders for search:', leadersError);
-        return;
       }
 
-      setSearchData({ leaders: leaders || [] });
+      const boards: BoardResult[] = (boardRows || []).map((b: any) => ({
+        id: b.id,
+        title: b.title,
+        description: b.description,
+      }));
+
+      const boardMap = new Map(boards.map(b => [b.id, b.title]));
+      const cards: CardResult[] = (cardRows || []).map((c: any) => ({
+        id: c.id,
+        title: c.title,
+        board_id: c.board_id,
+        board_title: boardMap.get(c.board_id) || '',
+      }));
+
+      setSearchData({ leaders: leaders || [], boards, cards });
     } catch (error) {
       console.error('Error loading search data:', error);
     }
@@ -96,16 +130,38 @@ export default function GlobalSearch() {
         keys: ['name', 'email', 'campus', 'acpd']
       });
 
-      const leaderResults = leadersFuse.search(query).slice(0, 8);
+      const boardsFuse = new Fuse(searchData.boards, {
+        ...fuseOptions,
+        keys: ['title', 'description'],
+      });
 
-      setResults(
-        leaderResults.map(result => ({
+      const cardsFuse = new Fuse(searchData.cards, {
+        ...fuseOptions,
+        keys: ['title', 'board_title'],
+      });
+
+      const combined: SearchResult[] = [
+        ...leadersFuse.search(query).slice(0, 5).map(r => ({
           type: 'leader' as const,
-          item: result.item,
-          score: result.score,
-          matches: result.matches ? [...result.matches] : undefined
-        }))
-      );
+          item: r.item,
+          score: r.score,
+          matches: r.matches ? [...r.matches] : undefined,
+        })),
+        ...boardsFuse.search(query).slice(0, 3).map(r => ({
+          type: 'board' as const,
+          item: r.item as BoardResult,
+          score: r.score,
+          matches: r.matches ? [...r.matches] : undefined,
+        })),
+        ...cardsFuse.search(query).slice(0, 5).map(r => ({
+          type: 'card' as const,
+          item: r.item as CardResult,
+          score: r.score,
+          matches: r.matches ? [...r.matches] : undefined,
+        })),
+      ];
+
+      setResults(combined);
     } catch (error) {
       console.error('Search error:', error);
       setResults([]);
@@ -180,8 +236,14 @@ export default function GlobalSearch() {
 
   // Handle result click
   const handleResultClick = (result: SearchResult) => {
-    const leader = result.item as CircleLeader;
-    router.push(`/circle/${leader.id}`);
+    if (result.type === 'leader') {
+      router.push(`/circle/${(result.item as CircleLeader).id}`);
+    } else if (result.type === 'board') {
+      router.push(`/boards/${(result.item as BoardResult).id}`);
+    } else if (result.type === 'card') {
+      const card = result.item as CardResult;
+      router.push(`/boards/${card.board_id}?card=${card.id}`);
+    }
     setIsOpen(false);
     setQuery('');
   };
@@ -298,7 +360,7 @@ export default function GlobalSearch() {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search circle leaders..."
+                placeholder="Search leaders, boards, cards..."
                 autoFocus
                 style={{
                   flex: 1,
@@ -343,135 +405,188 @@ export default function GlobalSearch() {
             <div ref={resultsRef} style={{ maxHeight: '380px', overflowY: 'auto' }}>
               {results.length > 0 ? (
                 <div style={{ padding: '8px' }}>
-                  {/* Results header */}
-                  <div style={{
-                    padding: '4px 12px 8px',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                    color: 'rgba(141, 169, 196, 0.45)',
-                  }}>
-                    Circle Leaders · {results.length} result{results.length !== 1 ? 's' : ''}
-                  </div>
+                  {(() => {
+                    const leaderItems = results.filter(r => r.type === 'leader');
+                    const boardItems = results.filter(r => r.type === 'board');
+                    const cardItems = results.filter(r => r.type === 'card');
 
-                  {results.map((result, index) => {
-                    const leader = result.item as CircleLeader;
-                    const isSelected = index === selectedIndex;
-                    return (
-                      <button
-                        key={`${result.type}-${leader.id}-${index}`}
-                        data-search-item
-                        onClick={() => handleResultClick(result)}
-                        onMouseEnter={() => setSelectedIndex(index)}
-                        style={{
-                          width: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '14px',
-                          padding: '12px 14px',
-                          borderRadius: '10px',
-                          textAlign: 'left',
-                          cursor: 'pointer',
-                          transition: 'all 0.12s ease',
-                          background: isSelected
-                            ? 'rgba(141, 169, 196, 0.12) !important'
-                            : 'transparent !important',
-                          border: isSelected
-                            ? '1px solid rgba(141, 169, 196, 0.15) !important'
-                            : '1px solid transparent !important',
-                        }}
-                      >
-                        {/* Avatar Circle */}
-                        <div style={{
-                          flexShrink: 0,
-                          width: '38px',
-                          height: '38px',
-                          borderRadius: '10px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          background: isSelected
-                            ? 'linear-gradient(135deg, rgba(141, 169, 196, 0.3), rgba(76, 103, 133, 0.4))'
-                            : 'rgba(76, 103, 133, 0.2)',
-                          border: `1px solid ${isSelected ? 'rgba(141, 169, 196, 0.25)' : 'rgba(76, 103, 133, 0.15)'}`,
-                          transition: 'all 0.15s ease',
-                        }}>
-                          <svg style={{ width: 18, height: 18, color: isSelected ? 'rgba(141, 169, 196, 0.9)' : 'rgba(141, 169, 196, 0.5)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                          </svg>
-                        </div>
+                    // Flat ordered list for keyboard index tracking
+                    const flatResults = [...leaderItems, ...boardItems, ...cardItems];
 
-                        {/* Content */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{
-                            fontSize: '14px',
-                            fontWeight: 500,
-                            color: isSelected ? '#eef4ed' : 'rgba(238, 244, 237, 0.85)',
-                            lineHeight: '1.3',
-                            transition: 'color 0.12s ease',
-                          }}>
-                            {leader.name}
-                          </div>
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            marginTop: '3px',
-                            fontSize: '12px',
-                            color: 'rgba(141, 169, 196, 0.6)',
-                            lineHeight: '1.3',
-                          }}>
-                            <span>Circle Leader</span>
-                            {leader.campus && (
-                              <>
-                                <span style={{
-                                  width: '3px',
-                                  height: '3px',
-                                  borderRadius: '50%',
-                                  background: 'rgba(141, 169, 196, 0.35)',
-                                  flexShrink: 0,
-                                }} />
-                                <span>{leader.campus}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
+                    const sectionHeaderStyle = {
+                      padding: '4px 12px 8px',
+                      fontSize: '11px',
+                      fontWeight: 600 as const,
+                      textTransform: 'uppercase' as const,
+                      letterSpacing: '0.06em',
+                      color: 'rgba(141, 169, 196, 0.45)',
+                    };
 
-                        {/* Status dot + Chevron */}
-                        <div style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px',
-                          flexShrink: 0,
-                        }}>
-                          {leader.status && (
-                            <div style={{
-                              width: '7px',
-                              height: '7px',
-                              borderRadius: '50%',
-                              background: getStatusColor(leader.status),
-                              boxShadow: `0 0 6px ${getStatusColor(leader.status)}`,
-                            }} />
-                          )}
-                          <svg
-                            style={{
-                              width: 16,
-                              height: 16,
-                              color: isSelected ? 'rgba(141, 169, 196, 0.6)' : 'rgba(141, 169, 196, 0.2)',
-                              transition: 'all 0.12s ease',
-                              transform: isSelected ? 'translateX(2px)' : 'none',
-                            }}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                    const renderItem = (result: SearchResult, flatIndex: number) => {
+                      const isSelected = flatIndex === selectedIndex;
+                      const btnStyle = {
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '14px',
+                        padding: '12px 14px',
+                        borderRadius: '10px',
+                        textAlign: 'left' as const,
+                        cursor: 'pointer',
+                        transition: 'all 0.12s ease',
+                        background: isSelected ? 'rgba(141, 169, 196, 0.12) !important' : 'transparent !important',
+                        border: isSelected ? '1px solid rgba(141, 169, 196, 0.15) !important' : '1px solid transparent !important',
+                      };
+                      const iconWrapStyle = {
+                        flexShrink: 0,
+                        width: '38px',
+                        height: '38px',
+                        borderRadius: '10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: isSelected
+                          ? 'linear-gradient(135deg, rgba(141, 169, 196, 0.3), rgba(76, 103, 133, 0.4))'
+                          : 'rgba(76, 103, 133, 0.2)',
+                        border: `1px solid ${isSelected ? 'rgba(141, 169, 196, 0.25)' : 'rgba(76, 103, 133, 0.15)'}`,
+                        transition: 'all 0.15s ease',
+                      };
+                      const iconColor = isSelected ? 'rgba(141, 169, 196, 0.9)' : 'rgba(141, 169, 196, 0.5)';
+                      const chevronStyle = {
+                        width: 16,
+                        height: 16,
+                        color: isSelected ? 'rgba(141, 169, 196, 0.6)' : 'rgba(141, 169, 196, 0.2)',
+                        transition: 'all 0.12s ease',
+                        transform: isSelected ? 'translateX(2px)' : 'none',
+                      };
+
+                      if (result.type === 'leader') {
+                        const leader = result.item as CircleLeader;
+                        return (
+                          <button
+                            key={`leader-${leader.id}`}
+                            data-search-item
+                            onClick={() => handleResultClick(result)}
+                            onMouseEnter={() => setSelectedIndex(flatIndex)}
+                            style={btnStyle}
                           >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                          </svg>
-                        </div>
-                      </button>
+                            <div style={iconWrapStyle}>
+                              <svg style={{ width: 18, height: 18, color: iconColor }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                              </svg>
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '14px', fontWeight: 500, color: isSelected ? '#eef4ed' : 'rgba(238, 244, 237, 0.85)', lineHeight: '1.3', transition: 'color 0.12s ease' }}>
+                                {leader.name}
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px', fontSize: '12px', color: 'rgba(141, 169, 196, 0.6)', lineHeight: '1.3' }}>
+                                <span>Circle Leader</span>
+                                {leader.campus && (
+                                  <>
+                                    <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'rgba(141, 169, 196, 0.35)', flexShrink: 0 }} />
+                                    <span>{leader.campus}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                              {leader.status && (
+                                <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: getStatusColor(leader.status), boxShadow: `0 0 6px ${getStatusColor(leader.status)}` }} />
+                              )}
+                              <svg style={chevronStyle} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                              </svg>
+                            </div>
+                          </button>
+                        );
+                      }
+
+                      if (result.type === 'board') {
+                        const board = result.item as BoardResult;
+                        return (
+                          <button
+                            key={`board-${board.id}`}
+                            data-search-item
+                            onClick={() => handleResultClick(result)}
+                            onMouseEnter={() => setSelectedIndex(flatIndex)}
+                            style={btnStyle}
+                          >
+                            <div style={iconWrapStyle}>
+                              <svg style={{ width: 18, height: 18, color: iconColor }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+                              </svg>
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '14px', fontWeight: 500, color: isSelected ? '#eef4ed' : 'rgba(238, 244, 237, 0.85)', lineHeight: '1.3', transition: 'color 0.12s ease' }}>
+                                {board.title}
+                              </div>
+                              <div style={{ fontSize: '12px', color: 'rgba(141, 169, 196, 0.6)', marginTop: '3px', lineHeight: '1.3' }}>
+                                Board
+                              </div>
+                            </div>
+                            <svg style={chevronStyle} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                          </button>
+                        );
+                      }
+
+                      if (result.type === 'card') {
+                        const card = result.item as CardResult;
+                        return (
+                          <button
+                            key={`card-${card.id}`}
+                            data-search-item
+                            onClick={() => handleResultClick(result)}
+                            onMouseEnter={() => setSelectedIndex(flatIndex)}
+                            style={btnStyle}
+                          >
+                            <div style={iconWrapStyle}>
+                              <svg style={{ width: 18, height: 18, color: iconColor }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                              </svg>
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '14px', fontWeight: 500, color: isSelected ? '#eef4ed' : 'rgba(238, 244, 237, 0.85)', lineHeight: '1.3', transition: 'color 0.12s ease', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {card.title}
+                              </div>
+                              <div style={{ fontSize: '12px', color: 'rgba(141, 169, 196, 0.6)', marginTop: '3px', lineHeight: '1.3' }}>
+                                {card.board_title || 'Board Card'}
+                              </div>
+                            </div>
+                            <svg style={chevronStyle} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                          </button>
+                        );
+                      }
+
+                      return null;
+                    };
+
+                    return (
+                      <>
+                        {leaderItems.length > 0 && (
+                          <>
+                            <div style={sectionHeaderStyle}>Circle Leaders · {leaderItems.length}</div>
+                            {leaderItems.map((r, i) => renderItem(r, i))}
+                          </>
+                        )}
+                        {boardItems.length > 0 && (
+                          <>
+                            <div style={{ ...sectionHeaderStyle, paddingTop: leaderItems.length > 0 ? '12px' : '4px' }}>Boards · {boardItems.length}</div>
+                            {boardItems.map((r, i) => renderItem(r, leaderItems.length + i))}
+                          </>
+                        )}
+                        {cardItems.length > 0 && (
+                          <>
+                            <div style={{ ...sectionHeaderStyle, paddingTop: (leaderItems.length + boardItems.length) > 0 ? '12px' : '4px' }}>Cards · {cardItems.length}</div>
+                            {cardItems.map((r, i) => renderItem(r, leaderItems.length + boardItems.length + i))}
+                          </>
+                        )}
+                      </>
                     );
-                  })}
+                  })()}
                 </div>
               ) : query.length >= 2 && !isLoading ? (
                 <div style={{
@@ -497,7 +612,7 @@ export default function GlobalSearch() {
                     No results found
                   </p>
                   <p style={{ fontSize: '12px', color: 'rgba(141, 169, 196, 0.4)' }}>
-                    No leaders matching &ldquo;{query}&rdquo;
+                    Nothing matching &ldquo;{query}&rdquo;
                   </p>
                 </div>
               ) : (
@@ -521,10 +636,10 @@ export default function GlobalSearch() {
                     </svg>
                   </div>
                   <p style={{ fontSize: '14px', fontWeight: 500, color: 'rgba(238, 244, 237, 0.6)', marginBottom: '4px' }}>
-                    Search circle leaders
+                    Search leaders, boards & cards
                   </p>
                   <p style={{ fontSize: '12px', color: 'rgba(141, 169, 196, 0.4)' }}>
-                    Type a first or last name to find leaders
+                    Type to find circle leaders, boards, or cards
                   </p>
                 </div>
               )}
