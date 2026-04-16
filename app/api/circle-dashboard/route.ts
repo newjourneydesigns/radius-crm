@@ -363,12 +363,12 @@ export async function GET(request: Request) {
 // ── Helpers ─────────────────────────────────────────────────────
 
 function getWeekKey(dateStr: string): string {
-  const d = new Date(dateStr + 'T00:00:00');
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday start
-  const monday = new Date(d);
-  monday.setDate(diff);
-  return monday.toISOString().split('T')[0];
+  // Calendar page groups weeks Sunday->Saturday; mirror that here so totals match.
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  const day = d.getUTCDay();
+  const sunday = new Date(d);
+  sunday.setUTCDate(d.getUTCDate() - day);
+  return sunday.toISOString().split('T')[0];
 }
 
 function formatWeekLabel(weekKey: string): string {
