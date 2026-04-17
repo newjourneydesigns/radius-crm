@@ -9,7 +9,7 @@ You're a senior full-stack developer and design partner working alongside Trip. 
 Before doing any significant work, check if a skill exists for it. Skills are located in `/mnt/skills/` and contain distilled best practices for specific task types.
 
 **Hard rules:**
-- **Before any frontend coding** — read `/mnt/skills/public/frontend-design/SKILL.md` and follow it completely. No exceptions.
+- **Before any frontend coding** — read `.claude/skills/frontend-design/SKILL.md` and follow it completely. No exceptions.
 - **Before creating a Word doc** — read `/mnt/skills/public/docx/SKILL.md`
 - **Before creating a PDF** — read `/mnt/skills/public/pdf/SKILL.md`
 - **Before creating a presentation** — read `/mnt/skills/public/pptx/SKILL.md`

@@ -246,8 +246,8 @@ const SECTION_TABS = [
   { id: 'section-profile',   label: 'Profile' },
   { id: 'section-pec',       label: 'Care', adminOnly: true },
   { id: 'section-visits',    label: 'Circle Visits', mobileLabel: 'Visits', adminOnly: true },
-  { id: 'section-scorecard', label: 'Scorecard' },
   { id: 'section-notes',     label: 'Notes' },
+  { id: 'section-scorecard', label: 'Scorecard' },
 ] as const;
 
 export default function CircleLeaderProfilePage() {
@@ -1913,8 +1913,8 @@ export default function CircleLeaderProfilePage() {
           {(() => {
             const filteredTabs = SECTION_TABS.filter((tab) => !('adminOnly' in tab && tab.adminOnly) || isAdmin());
             const useOverflow = filteredTabs.length > 4;
-            const visibleTabs = useOverflow ? filteredTabs.slice(0, 3) : filteredTabs;
-            const overflowTabs = useOverflow ? filteredTabs.slice(3) : [];
+            const visibleTabs = useOverflow ? filteredTabs.slice(0, 4) : filteredTabs;
+            const overflowTabs = useOverflow ? filteredTabs.slice(4) : [];
             const activeInOverflow = overflowTabs.some((t) => t.id === activeSection);
 
             const tabClass = (isActive: boolean) =>
@@ -2073,31 +2073,21 @@ export default function CircleLeaderProfilePage() {
           </div>
         </div>
 
-        {/* Check-in Cadence */}
-        <div className="mb-6">
-          <CheckInCadence
-            leader={leader}
-            onUpdate={(updates) => setLeader(prev => prev ? { ...prev, ...updates } : null)}
-            isAdmin={isAdmin}
-          />
-        </div>
-
         {/* Mobile Quick Actions - Show on mobile only, right after the name */}
         <div className="lg:hidden mb-6 space-y-4">
           {/* Event Summary - Mobile */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-900 dark:text-white">Event Summary</span>
-                {(() => {
-                  const state = getEventSummaryState(leader);
-                  const colors = getEventSummaryColors(state);
-
-                  return (
-                    <span className={`text-xs font-medium ${colors.text}`}>{isUpdatingEventSummary ? 'Updating...' : colors.label}</span>
-                  );
-                })()}
-              </div>
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Event Summary</span>
+              {(() => {
+                const state = getEventSummaryState(leader);
+                const colors = getEventSummaryColors(state);
+                return (
+                  <span className={`text-xs font-medium ${colors.text}`}>{isUpdatingEventSummary ? 'Updating...' : colors.label}</span>
+                );
+              })()}
+            </div>
+            <div className="p-4">
 
               {(() => {
                 const eventSummaryState = getEventSummaryState(leader);
@@ -2206,12 +2196,16 @@ export default function CircleLeaderProfilePage() {
           </div>
 
           {/* Follow Up - Mobile */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-3">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Follow-Up</span>
+            </div>
+            <div className="p-4 space-y-3">
             {/* Follow Up Toggle */}
             <button
               onClick={handleFollowUpClick}
               disabled={isUpdatingFollowUp}
-              className="flex items-center justify-between w-full text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded p-2 transition-colors disabled:opacity-50"
+              className="flex items-center justify-between w-full text-left hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg p-2 transition-colors disabled:opacity-50"
             >
               <div className="flex items-center">
                 <svg className={`w-4 h-4 mr-2 ${leader.follow_up_required ? 'text-orange-600' : 'text-gray-600'}`} fill="currentColor" viewBox="0 0 20 20">
@@ -2258,74 +2252,80 @@ export default function CircleLeaderProfilePage() {
                 </div>
               </div>
             )}
+            </div>
           </div>
 
           {/* Quick Actions - Mobile */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-2">
-            <div className="mb-3">
-              <h3 className="text-sm font-medium text-gray-900 dark:text-white">Quick Actions</h3>
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Quick Actions</span>
             </div>
+            <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
             
             <button 
               onClick={handleSendSMS}
               disabled={!leader?.phone}
-              className="w-full flex items-center justify-between px-3 py-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-between px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              <div className="flex items-center">
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex items-center gap-2.5">
+                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                 </svg>
                 Send SMS
               </div>
-              {!leader?.phone && <span className="text-xs opacity-60">No phone</span>}
+              {!leader?.phone && <span className="text-xs text-slate-400">No phone</span>}
             </button>
             
             <button 
               onClick={handleCallLeader}
               disabled={!leader?.phone}
-              className="w-full flex items-center justify-between px-3 py-2 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-between px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              <div className="flex items-center">
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex items-center gap-2.5">
+                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                 </svg>
                 Call
               </div>
-              {!leader?.phone && <span className="text-xs opacity-60">No phone</span>}
+              {!leader?.phone && <span className="text-xs text-slate-400">No phone</span>}
             </button>
             
             <button 
               onClick={handleSendEmail}
               disabled={!leader?.email}
-              className="w-full flex items-center justify-between px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-between px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              <div className="flex items-center">
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex items-center gap-2.5">
+                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
                 Send Email
               </div>
-              {!leader?.email && <span className="text-xs opacity-60">No email</span>}
+              {!leader?.email && <span className="text-xs text-slate-400">No email</span>}
             </button>
             
             <button 
               onClick={() => setShowLogConnectionModal(true)}
-              className="w-full flex items-center px-3 py-2 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded text-sm"
+              className="w-full flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm transition-colors"
             >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Log Connection
+              <div className="flex items-center gap-2.5">
+                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Log Connection
+              </div>
             </button>
             
             <button 
               onClick={() => setShowConnectPersonModal(true)}
-              className="w-full flex items-center px-3 py-2 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/30 rounded text-sm"
+              className="w-full flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm transition-colors"
             >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-              </svg>
-              Connect New Person
+              <div className="flex items-center gap-2.5">
+                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                </svg>
+                Connect New Person
+              </div>
             </button>
             
             {/* CCB Profile Link */}
@@ -2334,10 +2334,10 @@ export default function CircleLeaderProfilePage() {
                 href={leader.ccb_profile_link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full flex items-center justify-between px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm transition-colors"
               >
-                <div className="flex items-center">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="flex items-center gap-2.5">
+                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
                   CCB Profile
@@ -2349,24 +2349,25 @@ export default function CircleLeaderProfilePage() {
             {leader?.ccb_group_id && (
               <Link
                 href={`/circle/${leaderId}/roster`}
-                className="w-full flex items-center justify-between px-3 py-2 bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/30 rounded text-sm"
+                className="w-full flex items-center justify-between px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm transition-colors"
               >
-                <div className="flex items-center">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="flex items-center gap-2.5">
+                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                   View Roster
                 </div>
                 <div className="flex items-center gap-2">
                   {rosterCount !== null && rosterCount > 0 && (
-                    <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold bg-cyan-600 text-white rounded-full">{rosterCount}</span>
+                    <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold bg-slate-600 text-white rounded-full">{rosterCount}</span>
                   )}
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                   </svg>
                 </div>
               </Link>
             )}
+            </div>
           </div>
         </div>
 
@@ -2374,9 +2375,9 @@ export default function CircleLeaderProfilePage() {
           {/* Main Profile Info */}
           <div className="lg:col-span-2 space-y-6">
             {/* Circle Information */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="text-lg font-medium text-gray-900 dark:text-white">Circle Information</h2>
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass">
+              <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+                <h2 className="text-base font-semibold text-slate-900 dark:text-white">Circle Information</h2>
               </div>
               <div className="p-6">
                 {leaderError && (
@@ -2724,7 +2725,7 @@ export default function CircleLeaderProfilePage() {
                       <button
                         onClick={() => setShowDeleteConfirm(true)}
                         disabled={isSavingLeader}
-                        className="px-4 py-2 border border-red-300 dark:border-red-600 rounded-md shadow-sm text-sm font-medium text-red-700 dark:text-red-400 bg-white dark:bg-gray-700 hover:bg-red-50 dark:hover:bg-red-900/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 transition-colors"
+                        className="bg-btn-danger text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
                       >
                         <svg className="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1-1H8a1 1 0 00-1 1v3M4 7h16" />
@@ -2738,10 +2739,10 @@ export default function CircleLeaderProfilePage() {
             </div>
 
             {/* Additional Leader Information */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                <h2 className="text-lg font-medium text-gray-900 dark:text-white">Additional Leader</h2>
-                <span className="text-sm text-gray-500 dark:text-gray-400">Optional Co-Leader/Spouse</span>
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                <span className="text-base font-semibold text-slate-900 dark:text-white">Additional Leader</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">Optional Co-Leader/Spouse</span>
               </div>
               <div className="p-6">
                 <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2820,19 +2821,18 @@ export default function CircleLeaderProfilePage() {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Event Summary - Desktop Only */}
-            <div className="hidden lg:block bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">Event Summary</span>
-                  {(() => {
-                    const state = getEventSummaryState(leader);
-                    const colors = getEventSummaryColors(state);
-
-                    return (
-                      <span className={`text-xs font-medium ${colors.text}`}>{isUpdatingEventSummary ? 'Updating...' : colors.label}</span>
-                    );
-                  })()}
-                </div>
+            <div className="hidden lg:block bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Event Summary</span>
+                {(() => {
+                  const state = getEventSummaryState(leader);
+                  const colors = getEventSummaryColors(state);
+                  return (
+                    <span className={`text-xs font-medium ${colors.text}`}>{isUpdatingEventSummary ? 'Updating...' : colors.label}</span>
+                  );
+                })()}
+              </div>
+              <div className="p-4">
 
                 {(() => {
                   const eventSummaryState = getEventSummaryState(leader);
@@ -2928,15 +2928,19 @@ export default function CircleLeaderProfilePage() {
             </div>
 
             {/* Follow Up - Desktop Only */}
-            <div className="hidden lg:block bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-3">
+            <div className="hidden lg:block bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Follow-Up</span>
+              </div>
+              <div className="p-4 space-y-3">
               {/* Follow Up Toggle */}
               <button
                 onClick={handleFollowUpClick}
                 disabled={isUpdatingFollowUp}
-                className="flex items-center justify-between w-full text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded p-2 transition-colors disabled:opacity-50"
+                className="flex items-center justify-between w-full text-left hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg p-2 transition-colors disabled:opacity-50"
               >
                 <div className="flex items-center">
-                  <svg className={`w-4 h-4 mr-2 ${leader.follow_up_required ? 'text-orange-600' : 'text-gray-600'}`} fill="currentColor" viewBox="0 0 20 20">
+                  <svg className={`w-4 h-4 mr-2 ${leader.follow_up_required ? 'text-orange-500' : 'text-slate-500'}`} fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d={leader.follow_up_required ? 
                       "M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" :
                       "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
@@ -2980,70 +2984,79 @@ export default function CircleLeaderProfilePage() {
                   </div>
                 </div>
               )}
+              </div>
             </div>
 
             {/* Quick Actions - Desktop Only */}
-            <div className="hidden lg:block bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-2">
-              <button 
-                onClick={handleSendSMS}
-                disabled={!leader?.phone}
-                className="w-full flex items-center justify-between px-3 py-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <div className="flex items-center">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                  Send SMS
-                </div>
-                {!leader?.phone && <span className="text-xs opacity-60">No phone</span>}
-              </button>
-              
-              <button 
-                onClick={handleCallLeader}
-                disabled={!leader?.phone}
-                className="w-full flex items-center justify-between px-3 py-2 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <div className="flex items-center">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                  </svg>
-                  Call
-                </div>
-                {!leader?.phone && <span className="text-xs opacity-60">No phone</span>}
-              </button>
-              
-              <button 
-                onClick={handleSendEmail}
-                disabled={!leader?.email}
-                className="w-full flex items-center justify-between px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            <div className="hidden lg:block bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Quick Actions</span>
+              </div>
+              <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                <button 
+                  onClick={handleSendSMS}
+                  disabled={!leader?.phone}
+                  className="w-full flex items-center justify-between px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  <div className="flex items-center">
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="flex items-center gap-2.5">
+                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    Send SMS
+                  </div>
+                  {!leader?.phone && <span className="text-xs text-slate-400">No phone</span>}
+                </button>
+                
+                <button 
+                  onClick={handleCallLeader}
+                  disabled={!leader?.phone}
+                  className="w-full flex items-center justify-between px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                    Call
+                  </div>
+                  {!leader?.phone && <span className="text-xs text-slate-400">No phone</span>}
+                </button>
+                
+                <button 
+                  onClick={handleSendEmail}
+                  disabled={!leader?.email}
+                  className="w-full flex items-center justify-between px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                     Send Email
                   </div>
-                  {!leader?.email && <span className="text-xs opacity-60">No email</span>}
+                  {!leader?.email && <span className="text-xs text-slate-400">No email</span>}
                 </button>
                 
                 <button 
                   onClick={() => setShowLogConnectionModal(true)}
-                  className="w-full flex items-center px-3 py-2 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded text-sm"
+                  className="w-full flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm transition-colors"
                 >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Log Connection
+                  <div className="flex items-center gap-2.5">
+                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Log Connection
+                  </div>
                 </button>
                 
                 <button 
                   onClick={() => setShowConnectPersonModal(true)}
-                  className="w-full flex items-center px-3 py-2 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/30 rounded text-sm"
+                  className="w-full flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm transition-colors"
                 >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                  </svg>
-                  Connect New Person
+                  <div className="flex items-center gap-2.5">
+                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                    Connect New Person
+                  </div>
                 </button>
                 
                 {/* CCB Profile Link */}
@@ -3052,10 +3065,10 @@ export default function CircleLeaderProfilePage() {
                     href={leader.ccb_profile_link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full flex items-center justify-between px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm transition-colors"
                   >
-                    <div className="flex items-center">
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex items-center gap-2.5">
+                      <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                       </svg>
                       CCB Profile
@@ -3067,19 +3080,19 @@ export default function CircleLeaderProfilePage() {
                 {leader?.ccb_group_id && (
                   <Link
                     href={`/circle/${leaderId}/roster`}
-                    className="w-full flex items-center justify-between px-3 py-2 bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/30 rounded text-sm"
+                    className="w-full flex items-center justify-between px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm transition-colors"
                   >
-                    <div className="flex items-center">
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex items-center gap-2.5">
+                      <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
                       View Roster
                     </div>
                     <div className="flex items-center gap-2">
                       {rosterCount !== null && rosterCount > 0 && (
-                        <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold bg-cyan-600 text-white rounded-full">{rosterCount}</span>
+                        <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold bg-slate-600 text-white rounded-full">{rosterCount}</span>
                       )}
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                       </svg>
                     </div>
@@ -3088,18 +3101,19 @@ export default function CircleLeaderProfilePage() {
               </div>
             </div>
           </div>
+        </div>
 
         {/* Attendance Trends Section */}
         {leader && (
           <div id="section-attendance" ref={setSectionRef('section-attendance')} className="mt-6 scroll-mt-20">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass p-4 sm:p-6">
               <AttendanceTrends leaderId={leaderId} leaderName={leader.name} meetingDay={leader.day} refreshKey={attendanceRefreshKey} rosterCount={rosterCount} />
               {/* Event Summary action buttons */}
-              <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
                 <button
                   type="button"
                   onClick={() => setShowEventExplorerModal(true)}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 border border-blue-200 dark:border-blue-800 rounded-lg text-sm font-medium transition-colors"
+                  className="flex items-center gap-2 px-4 py-2.5 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
@@ -3109,7 +3123,7 @@ export default function CircleLeaderProfilePage() {
                 <button
                   type="button"
                   onClick={() => setShowEventSummaryReminderModal(true)}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800 rounded-lg text-sm font-medium transition-colors"
+                  className="flex items-center gap-2 px-4 py-2.5 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -3131,7 +3145,7 @@ export default function CircleLeaderProfilePage() {
         {/* Circle Visits Section */}
         {leader && (
           <div id="section-visits" ref={setSectionRef('section-visits')} className="mt-6 scroll-mt-20">
-            <div className="section-panel bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="section-panel bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass p-6">
               <CircleVisitsSection leaderId={leaderId} leaderName={leader.name} />
             </div>
           </div>
@@ -3143,7 +3157,7 @@ export default function CircleLeaderProfilePage() {
         </div>
 
             {/* Notes Section */}
-            <div id="section-notes" ref={setSectionRef('section-notes')} className="section-panel bg-white dark:bg-gray-800 rounded-lg shadow mt-6 scroll-mt-20">
+            <div id="section-notes" ref={setSectionRef('section-notes')} className="section-panel bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass mt-6 scroll-mt-20">
               <div className="section-header-row px-4 sm:px-6 py-4">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center">

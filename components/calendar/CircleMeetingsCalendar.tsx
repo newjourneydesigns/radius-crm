@@ -548,30 +548,41 @@ export default function CircleMeetingsCalendar({
     return leader ? getEventSummaryState(leader) : 'not_received';
   }, [isViewingSnapshot, snapshotMap, leaders]);
 
-  /** Aggregate attendance stats for the visible week — only counts leaders with 'received' state. */
+  /** Aggregate attendance stats for the visible week — counts received leaders, plus unreported circles that have CCB data. */
   const weeklyAttendanceStats = useMemo(() => {
     if (!attendanceData) return null;
     let totalAttended = 0;
     let rosterPctSum = 0;
     let rosterPctCount = 0;
     let receivedWithData = 0;
+    let unreportedWithData = 0;
+    let totalUnreportedAttended = 0;
+    const unreportedLeaders: Array<{ id: number; name: string; headcount: number; rosterCount: number | null }> = [];
     for (const leader of leaders) {
       const state = getEffectiveLeaderState(leader.id);
-      if (state !== 'received') continue;
       const att = attendanceData.get(leader.id);
-      if (!att?.headcount) continue;
-      receivedWithData++;
-      totalAttended += att.headcount;
-      if (att.rosterCount && att.rosterCount > 0) {
-        rosterPctSum += Math.round((att.headcount / att.rosterCount) * 100);
-        rosterPctCount++;
+      if (state === 'received') {
+        if (!att?.headcount) continue;
+        receivedWithData++;
+        totalAttended += att.headcount;
+        if (att.rosterCount && att.rosterCount > 0) {
+          rosterPctSum += Math.round((att.headcount / att.rosterCount) * 100);
+          rosterPctCount++;
+        }
+      } else if (att?.headcount) {
+        unreportedWithData++;
+        totalUnreportedAttended += att.headcount;
+        unreportedLeaders.push({ id: leader.id, name: leader.name, headcount: att.headcount, rosterCount: att.rosterCount ?? null });
       }
     }
-    if (receivedWithData === 0) return null;
+    if (receivedWithData === 0 && unreportedWithData === 0) return null;
     return {
       totalAttended,
       avgRosterPct: rosterPctCount > 0 ? Math.round(rosterPctSum / rosterPctCount) : null,
       receivedWithData,
+      unreportedWithData,
+      totalUnreportedAttended,
+      unreportedLeaders,
     };
   }, [attendanceData, leaders, getEffectiveLeaderState]);
 
@@ -929,11 +940,26 @@ export default function CircleMeetingsCalendar({
 
       {/* Current-week attendance summary (shown when data is available) */}
       {!isViewingSnapshot && weeklyAttendanceStats && (
-        <div className="mb-3 px-3 py-2 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-900 dark:text-green-200 text-xs flex flex-wrap gap-x-3 gap-y-0.5 items-center">
-          <span className="font-semibold">{weeklyAttendanceStats.receivedWithData} circle{weeklyAttendanceStats.receivedWithData !== 1 ? 's' : ''} reported</span>
-          <span>· <strong>{weeklyAttendanceStats.totalAttended}</strong> total attended</span>
-          {weeklyAttendanceStats.avgRosterPct !== null && (
-            <span>· avg <strong>{weeklyAttendanceStats.avgRosterPct}%</strong> of roster</span>
+        <div className="mb-3 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-900 dark:text-green-200 text-xs overflow-hidden">
+          <div className="px-3 py-2 flex flex-wrap gap-x-3 gap-y-0.5 items-center">
+            <span className="font-semibold">{weeklyAttendanceStats.receivedWithData} circle{weeklyAttendanceStats.receivedWithData !== 1 ? 's' : ''} reported</span>
+            <span>· <strong>{weeklyAttendanceStats.totalAttended}</strong> total attended</span>
+            {weeklyAttendanceStats.avgRosterPct !== null && (
+              <span>· avg <strong>{weeklyAttendanceStats.avgRosterPct}%</strong> of roster</span>
+            )}
+            {weeklyAttendanceStats.unreportedWithData > 0 && (
+              <span className="opacity-60">· +{weeklyAttendanceStats.totalUnreportedAttended} from {weeklyAttendanceStats.unreportedWithData} unreported</span>
+            )}
+          </div>
+          {weeklyAttendanceStats.unreportedLeaders.length > 0 && (
+            <div className="border-t border-green-200 dark:border-green-800 px-3 py-1.5 flex flex-wrap gap-x-4 gap-y-0.5 opacity-70">
+              <span className="font-medium text-green-700 dark:text-green-400 mr-1">Not reported:</span>
+              {weeklyAttendanceStats.unreportedLeaders.map(l => (
+                <span key={l.id}>
+                  {l.name} — {l.headcount} attended{l.rosterCount && l.rosterCount > 0 ? ` · ${Math.round((l.headcount / l.rosterCount) * 100)}% of roster` : ''}
+                </span>
+              ))}
+            </div>
           )}
         </div>
       )}    
