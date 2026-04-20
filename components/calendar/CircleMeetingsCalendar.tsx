@@ -986,11 +986,12 @@ export default function CircleMeetingsCalendar({
 
                 {/* Scoreboard */}
                 {(() => {
-                  const counts = { received: 0, did_not_meet: 0, skipped: 0 };
+                  const counts = { received: 0, did_not_meet: 0, skipped: 0, not_received: 0 };
                   for (const state of Array.from(snapshotMap.values())) {
                     if (state === 'received') counts.received++;
                     else if (state === 'did_not_meet') counts.did_not_meet++;
                     else if (state === 'skipped') counts.skipped++;
+                    else counts.not_received++;
                   }
                   return (
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -1006,6 +1007,12 @@ export default function CircleMeetingsCalendar({
                         <span className="text-lg font-bold text-amber-400 leading-none">{counts.skipped}</span>
                         <span className="text-xs font-medium text-amber-300/80">Skipped</span>
                       </div>
+                      {counts.not_received > 0 && (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30">
+                          <span className="text-lg font-bold text-red-400 leading-none">{counts.not_received}</span>
+                          <span className="text-xs font-medium text-red-300/80">Not Reported</span>
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
