@@ -336,6 +336,8 @@ export default function CircleMeetingsCalendar({
   const [ccbReportMap, setCcbReportMap] = useState<Map<number, boolean> | null>(null);
   const [isLoadingSnapshot, setIsLoadingSnapshot] = useState(false);
   const [isPullingCCB, setIsPullingCCB] = useState(false);
+  const [isAutoUpdating, setIsAutoUpdating] = useState(false);
+  const [autoUpdateConflicts, setAutoUpdateConflicts] = useState<Array<{ leader_id: number; leader_name: string; current_state: EventSummaryState; ccb_state: EventSummaryState }> | null>(null);
   const [snapshotSavingLeaderIds, setSnapshotSavingLeaderIds] = useState<Set<number>>(new Set());
 
   // Attendance data — headcount + roster size per leader for the visible week
@@ -661,6 +663,60 @@ export default function CircleMeetingsCalendar({
       setIsPullingCCB(false);
     }
   }, [visibleWeekSundayISO, leaders, ccbReportMap, snapshotMap]);
+
+  /** Auto-applies CCB states to leaders still marked not_received. Flags conflicts without overwriting. */
+  const handleAutoUpdate = useCallback(async () => {
+    if (!visibleWeekSundayISO || leaders.length === 0) return;
+    const weekEnd = DateTime.fromISO(visibleWeekSundayISO).plus({ days: 6 }).toISODate()!;
+    setIsAutoUpdating(true);
+    setActionError(null);
+    setAutoUpdateConflicts(null);
+    try {
+      const res = await fetch('/api/ccb/auto-update-summaries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          week_start_date: visibleWeekSundayISO,
+          week_end_date: weekEnd,
+          leader_ids: leaders.map(l => l.id),
+          is_current_week: !isViewingSnapshot,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Auto-update failed');
+
+      if (json.conflicts?.length > 0) setAutoUpdateConflicts(json.conflicts);
+
+      // Refresh snapshot map for past weeks
+      if (isViewingSnapshot && json.updated > 0) {
+        const refreshRes = await fetch(`/api/event-summary-snapshots?week_start_date=${encodeURIComponent(visibleWeekSundayISO)}`);
+        const { snapshots } = await refreshRes.json();
+        const stateMap = new Map<number, EventSummaryState>();
+        const reportMap = new Map<number, boolean>();
+        for (const s of snapshots ?? []) {
+          stateMap.set(s.circle_leader_id, s.event_summary_state);
+          reportMap.set(s.circle_leader_id, s.ccb_report_available ?? false);
+        }
+        setSnapshotMap(stateMap);
+        setCcbReportMap(reportMap);
+      }
+
+      const conflictCount = json.conflicts?.length ?? 0;
+      const msg = json.updated > 0
+        ? `${json.updated} leader${json.updated !== 1 ? 's' : ''} updated from CCB.${conflictCount > 0 ? ` ${conflictCount} conflict${conflictCount !== 1 ? 's' : ''} need review.` : ''}`
+        : conflictCount > 0
+          ? `No updates applied — ${conflictCount} conflict${conflictCount !== 1 ? 's' : ''} need review.`
+          : 'No changes needed — all leaders already have a status.';
+      setActionSuccess(msg);
+      setTimeout(() => setActionSuccess(null), 8000);
+    } catch (err: any) {
+      console.error('Error auto-updating from CCB:', err);
+      setActionError(err.message || 'Failed to auto-update from CCB');
+      setTimeout(() => setActionError(null), 5000);
+    } finally {
+      setIsAutoUpdating(false);
+    }
+  }, [visibleWeekSundayISO, leaders, isViewingSnapshot]);
 
   /** Routes a state-button click to either the live update or the snapshot update depending on the current view mode. */
   const handleEventSummaryButtonClick = useCallback(async (leaderId: number, state: EventSummaryState) => {
@@ -1027,32 +1083,62 @@ export default function CircleMeetingsCalendar({
                   </div>
                 )}
 
-                {/* Pull from CCB */}
-                <div className="mt-2">
+                {/* Action buttons row */}
+                <div className="mt-2 flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={handlePullFromCCB}
-                    disabled={isPullingCCB}
+                    disabled={isPullingCCB || isAutoUpdating}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 hover:bg-slate-600 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors"
                   >
                     {isPullingCCB ? (
-                      <>
-                        <svg className="animate-spin w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        Pulling from CCB…
-                      </>
+                      <><svg className="animate-spin w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>Pulling…</>
                     ) : (
-                      <>
-                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                        </svg>
-                        Pull from CCB
-                      </>
+                      <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>Pull from CCB</>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAutoUpdate}
+                    disabled={isPullingCCB || isAutoUpdating}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/80 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors"
+                  >
+                    {isAutoUpdating ? (
+                      <><svg className="animate-spin w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>Updating…</>
+                    ) : (
+                      <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>Auto-update from CCB</>
                     )}
                   </button>
                 </div>
+
+                {/* Conflict list */}
+                {autoUpdateConflicts && autoUpdateConflicts.length > 0 && (
+                  <div className="mt-3 rounded-lg border border-orange-500/30 bg-orange-500/10 p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-orange-300 flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                        {autoUpdateConflicts.length} conflict{autoUpdateConflicts.length !== 1 ? 's' : ''} — not overwritten
+                      </span>
+                      <button type="button" onClick={() => setAutoUpdateConflicts(null)} className="text-orange-400 hover:text-orange-200 transition-colors">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    </div>
+                    <div className="space-y-1">
+                      {autoUpdateConflicts.map(c => {
+                        const stateLabel: Record<EventSummaryState, string> = { not_received: 'Not Reported', received: 'Received', did_not_meet: "Didn't Meet", skipped: 'Skipped' };
+                        return (
+                          <div key={c.leader_id} className="text-xs text-orange-200/90 flex flex-wrap items-center gap-1">
+                            <span className="font-medium">{c.leader_name}</span>
+                            <span className="text-orange-400/60">—</span>
+                            <span>marked <strong>{stateLabel[c.current_state]}</strong></span>
+                            <span className="text-orange-400/60">·</span>
+                            <span>CCB says <strong>{stateLabel[c.ccb_state]}</strong></span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           ) : (
@@ -1105,6 +1191,18 @@ export default function CircleMeetingsCalendar({
             {weeklyAttendanceStats.unreportedWithData > 0 && (
               <span className="opacity-60">· +{weeklyAttendanceStats.totalUnreportedAttended} from {weeklyAttendanceStats.unreportedWithData} unreported</span>
             )}
+            <button
+              type="button"
+              onClick={handleAutoUpdate}
+              disabled={isAutoUpdating}
+              className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-green-700/40 hover:bg-green-700/60 disabled:opacity-60 disabled:cursor-not-allowed text-green-100 transition-colors border border-green-600/30"
+            >
+              {isAutoUpdating ? (
+                <><svg className="animate-spin w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>Updating…</>
+              ) : (
+                <><svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>Auto-update from CCB</>
+              )}
+            </button>
           </div>
           {weeklyAttendanceStats.unreportedLeaders.length > 0 && (
             <div className="border-t border-green-200 dark:border-green-800 px-3 py-1.5 flex flex-wrap gap-x-4 gap-y-0.5 opacity-70">
@@ -1114,6 +1212,34 @@ export default function CircleMeetingsCalendar({
                   {l.name} — {l.headcount} attended{l.rosterCount && l.rosterCount > 0 ? ` · ${Math.round((l.headcount / l.rosterCount) * 100)}% of roster` : ''}
                 </span>
               ))}
+            </div>
+          )}
+          {/* Conflict list for current week */}
+          {autoUpdateConflicts && autoUpdateConflicts.length > 0 && !isViewingSnapshot && (
+            <div className="border-t border-green-200 dark:border-green-800 px-3 py-2">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-semibold text-orange-600 dark:text-orange-300 flex items-center gap-1">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                  {autoUpdateConflicts.length} conflict{autoUpdateConflicts.length !== 1 ? 's' : ''} — not overwritten
+                </span>
+                <button type="button" onClick={() => setAutoUpdateConflicts(null)} className="text-orange-400 hover:text-orange-600 dark:hover:text-orange-200 transition-colors">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <div className="space-y-0.5">
+                {autoUpdateConflicts.map(c => {
+                  const stateLabel: Record<EventSummaryState, string> = { not_received: 'Not Reported', received: 'Received', did_not_meet: "Didn't Meet", skipped: 'Skipped' };
+                  return (
+                    <div key={c.leader_id} className="flex flex-wrap items-center gap-1 text-orange-700 dark:text-orange-200">
+                      <span className="font-medium">{c.leader_name}</span>
+                      <span className="opacity-50">—</span>
+                      <span>marked <strong>{stateLabel[c.current_state]}</strong></span>
+                      <span className="opacity-50">·</span>
+                      <span>CCB says <strong>{stateLabel[c.ccb_state]}</strong></span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

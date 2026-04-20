@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       week_end_date,
       circle_leader_id: l.id,
       event_summary_state: existingStateMap.get(l.id) ?? 'not_received' as EventSummaryState,
-      ccb_report_available: reportMap.get(l.id) ?? false,
+      ccb_report_available: reportMap.get(l.id)?.hasReport ?? false,
       captured_at: new Date().toISOString(),
     }));
 

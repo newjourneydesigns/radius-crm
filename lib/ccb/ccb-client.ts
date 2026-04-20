@@ -763,14 +763,14 @@ export class CCBClient {
 
   /**
    * Fetch all attendance profiles for a date range and match them to provided leader names.
-   * Returns a map of leaderId → true/false indicating whether CCB has a report for that leader.
+   * Returns a map of leaderId → { hasReport, didNotMeet } from CCB.
    * Single API call regardless of how many leaders are checked.
    */
   async checkReportsForLeaders(
     leaders: Array<{ id: number; name: string }>,
     startDate: string,
     endDate: string
-  ): Promise<Map<number, boolean>> {
+  ): Promise<Map<number, { hasReport: boolean; didNotMeet: boolean }>> {
     for (const [label, val] of [['start', startDate], ['end', endDate]] as const) {
       if (!DateTime.fromFormat(val, 'yyyy-LL-dd').isValid) {
         throw new Error(`Invalid ${label} date. Use YYYY-MM-DD format`);
@@ -788,17 +788,22 @@ export class CCBClient {
       ? eventsRoot.event
       : eventsRoot?.event ? [eventsRoot.event] : [];
 
-    // Build a set of lowercase words/tokens from all CCB event titles and group names
-    // so we can efficiently match leader names.
-    const eventTitles: string[] = rawEvents.map((e: any) =>
-      `${String(e?.name || e?.event_name || '')} ${String(e?.group?.name || '')}`.toLowerCase()
-    );
+    // Build lookup: lowercased title+group → didNotMeet boolean
+    const eventData: Array<{ title: string; didNotMeet: boolean }> = rawEvents.map((e: any) => {
+      const title = `${String(e?.name || e?.event_name || '')} ${String(e?.group?.name || '')}`.toLowerCase();
+      const dnmRaw = String(e?.did_not_meet ?? '').trim().toLowerCase();
+      const didNotMeet = dnmRaw === 'true' || dnmRaw === '1';
+      return { title, didNotMeet };
+    });
 
-    const result = new Map<number, boolean>();
+    const result = new Map<number, { hasReport: boolean; didNotMeet: boolean }>();
     for (const leader of leaders) {
       const nameLower = leader.name.trim().toLowerCase();
-      const hasReport = eventTitles.some(t => t.includes(nameLower));
-      result.set(leader.id, hasReport);
+      const match = eventData.find(e => e.title.includes(nameLower));
+      result.set(leader.id, {
+        hasReport: !!match,
+        didNotMeet: match?.didNotMeet ?? false,
+      });
     }
     return result;
   }
