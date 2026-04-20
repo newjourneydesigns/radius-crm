@@ -333,7 +333,9 @@ export default function CircleMeetingsCalendar({
 
   // Snapshot state — stores archived weekly event summary data for past-week views
   const [snapshotMap, setSnapshotMap] = useState<Map<number, EventSummaryState> | null>(null);
+  const [ccbReportMap, setCcbReportMap] = useState<Map<number, boolean> | null>(null);
   const [isLoadingSnapshot, setIsLoadingSnapshot] = useState(false);
+  const [isPullingCCB, setIsPullingCCB] = useState(false);
   const [snapshotSavingLeaderIds, setSnapshotSavingLeaderIds] = useState<Set<number>>(new Set());
 
   // Attendance data — headcount + roster size per leader for the visible week
@@ -424,17 +426,23 @@ export default function CircleMeetingsCalendar({
   useEffect(() => {
     if (!visibleWeekSundayISO || !isViewingSnapshot) {
       setSnapshotMap(null);
+      setCcbReportMap(null);
       return;
     }
     let cancelled = false;
     setIsLoadingSnapshot(true);
     fetch(`/api/event-summary-snapshots?week_start_date=${encodeURIComponent(visibleWeekSundayISO)}`)
       .then(r => r.json())
-      .then(({ snapshots }: { snapshots: Array<{ circle_leader_id: number; event_summary_state: EventSummaryState }> }) => {
+      .then(({ snapshots }: { snapshots: Array<{ circle_leader_id: number; event_summary_state: EventSummaryState; ccb_report_available?: boolean }> }) => {
         if (cancelled) return;
-        const map = new Map<number, EventSummaryState>();
-        for (const s of snapshots ?? []) map.set(s.circle_leader_id, s.event_summary_state);
-        setSnapshotMap(map);
+        const stateMap = new Map<number, EventSummaryState>();
+        const reportMap = new Map<number, boolean>();
+        for (const s of snapshots ?? []) {
+          stateMap.set(s.circle_leader_id, s.event_summary_state);
+          reportMap.set(s.circle_leader_id, s.ccb_report_available ?? false);
+        }
+        setSnapshotMap(stateMap);
+        setCcbReportMap(reportMap);
       })
       .catch(err => { if (!cancelled) console.error('Failed to load snapshot:', err); })
       .finally(() => { if (!cancelled) setIsLoadingSnapshot(false); });
@@ -606,6 +614,53 @@ export default function CircleMeetingsCalendar({
       setSnapshotSavingLeaderIds(prev => { const next = new Set(prev); next.delete(leaderId); return next; });
     }
   }, [visibleWeekSundayISO]);
+
+  /** Pulls CCB attendance data for the visible past week and marks which leaders have a report. */
+  const handlePullFromCCB = useCallback(async () => {
+    if (!visibleWeekSundayISO || leaders.length === 0) return;
+    const weekEnd = DateTime.fromISO(visibleWeekSundayISO).plus({ days: 6 }).toISODate()!;
+    setIsPullingCCB(true);
+    setActionError(null);
+    try {
+      const res = await fetch('/api/ccb/pull-week-summaries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          week_start_date: visibleWeekSundayISO,
+          week_end_date: weekEnd,
+          leader_ids: leaders.map(l => l.id),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Pull failed');
+
+      // Update local ccbReportMap from results
+      const newReportMap = new Map<number, boolean>(ccbReportMap ?? []);
+      for (const r of json.results ?? []) {
+        newReportMap.set(r.circle_leader_id, r.ccb_report_available);
+      }
+      setCcbReportMap(newReportMap);
+
+      // If snapshotMap was empty, seed it with not_received so the page shows
+      if (!snapshotMap || snapshotMap.size === 0) {
+        const seedMap = new Map<number, EventSummaryState>();
+        for (const l of leaders) seedMap.set(l.id, 'not_received');
+        setSnapshotMap(seedMap);
+      }
+
+      const withReport = json.with_report ?? 0;
+      setActionSuccess(
+        `CCB data pulled — ${withReport} of ${json.pulled} leader${json.pulled !== 1 ? 's' : ''} have a report this week.`
+      );
+      setTimeout(() => setActionSuccess(null), 6000);
+    } catch (err: any) {
+      console.error('Error pulling from CCB:', err);
+      setActionError(err.message || 'Failed to pull from CCB');
+      setTimeout(() => setActionError(null), 5000);
+    } finally {
+      setIsPullingCCB(false);
+    }
+  }, [visibleWeekSundayISO, leaders, ccbReportMap, snapshotMap]);
 
   /** Routes a state-button click to either the live update or the snapshot update depending on the current view mode. */
   const handleEventSummaryButtonClick = useCallback(async (leaderId: number, state: EventSummaryState) => {
@@ -910,10 +965,23 @@ export default function CircleMeetingsCalendar({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
               </svg>
               <div className="flex-1 min-w-0">
-                <div>
-                  <strong>Viewing archived week</strong>{' '}
-                  {visibleWeekSundayISO ? `(${DateTime.fromISO(visibleWeekSundayISO).toFormat('MMM d')} – ${DateTime.fromISO(visibleWeekSundayISO).plus({ days: 6 }).toFormat('MMM d, yyyy')})` : ''}.
-                  {' '}Status buttons update the archive record.
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span>
+                    <strong>Archived week</strong>{' '}
+                    {visibleWeekSundayISO ? `(${DateTime.fromISO(visibleWeekSundayISO).toFormat('MMM d')} – ${DateTime.fromISO(visibleWeekSundayISO).plus({ days: 6 }).toFormat('MMM d, yyyy')})` : ''}.
+                    {' '}Status buttons update the archive.
+                  </span>
+                  {(() => {
+                    const reportCount = ccbReportMap ? Array.from(ccbReportMap.values()).filter(Boolean).length : 0;
+                    return reportCount > 0 ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-400/30">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        {reportCount} in CCB
+                      </span>
+                    ) : null;
+                  })()}
                 </div>
                 {weeklyAttendanceStats && (
                   <div className="mt-1 text-xs opacity-80 flex flex-wrap gap-x-3 gap-y-0.5">
@@ -923,17 +991,67 @@ export default function CircleMeetingsCalendar({
                     )}
                   </div>
                 )}
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={handlePullFromCCB}
+                    disabled={isPullingCCB}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 hover:bg-slate-600 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors"
+                  >
+                    {isPullingCCB ? (
+                      <>
+                        <svg className="animate-spin w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Pulling from CCB…
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Pull from CCB
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </>
           ) : (
-            <>
-              <svg className="h-4 w-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>
-                No snapshot saved for this week. Use <strong>Reset All Event Summaries</strong> at the end of any week to archive its results.
-              </span>
-            </>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <div className="flex items-center gap-2">
+                  <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>No snapshot for this week. Pull from CCB to check who submitted a report.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handlePullFromCCB}
+                  disabled={isPullingCCB}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 hover:bg-slate-600 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors shrink-0"
+                >
+                  {isPullingCCB ? (
+                    <>
+                      <svg className="animate-spin w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Pulling from CCB…
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Pull from CCB
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -1077,6 +1195,17 @@ export default function CircleMeetingsCalendar({
                           </div>
                         );
                       })()}
+                      {/* CCB report available indicator */}
+                      {isViewingSnapshot && leaderId && state === 'not_received' && ccbReportMap?.get(leaderId) && (
+                        <div className="inline-flex items-center gap-1 mt-0.5">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/25 leading-none">
+                            <svg className="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Report in CCB
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Chevron */}

@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const db = getDB();
     const { data, error } = await db
       .from('event_summary_snapshots')
-      .select('circle_leader_id, event_summary_state, captured_at')
+      .select('circle_leader_id, event_summary_state, captured_at, ccb_report_available')
       .eq('week_start_date', weekStartDate);
 
     if (error) throw error;

@@ -762,6 +762,48 @@ export class CCBClient {
   }
 
   /**
+   * Fetch all attendance profiles for a date range and match them to provided leader names.
+   * Returns a map of leaderId → true/false indicating whether CCB has a report for that leader.
+   * Single API call regardless of how many leaders are checked.
+   */
+  async checkReportsForLeaders(
+    leaders: Array<{ id: number; name: string }>,
+    startDate: string,
+    endDate: string
+  ): Promise<Map<number, boolean>> {
+    for (const [label, val] of [['start', startDate], ['end', endDate]] as const) {
+      if (!DateTime.fromFormat(val, 'yyyy-LL-dd').isValid) {
+        throw new Error(`Invalid ${label} date. Use YYYY-MM-DD format`);
+      }
+    }
+
+    const xml = await this.getXml({
+      srv: 'attendance_profiles',
+      start_date: startDate,
+      end_date: endDate,
+    });
+
+    const eventsRoot = xml?.ccb_api?.response?.events ?? null;
+    const rawEvents: any[] = Array.isArray(eventsRoot?.event)
+      ? eventsRoot.event
+      : eventsRoot?.event ? [eventsRoot.event] : [];
+
+    // Build a set of lowercase words/tokens from all CCB event titles and group names
+    // so we can efficiently match leader names.
+    const eventTitles: string[] = rawEvents.map((e: any) =>
+      `${String(e?.name || e?.event_name || '')} ${String(e?.group?.name || '')}`.toLowerCase()
+    );
+
+    const result = new Map<number, boolean>();
+    for (const leader of leaders) {
+      const nameLower = leader.name.trim().toLowerCase();
+      const hasReport = eventTitles.some(t => t.includes(nameLower));
+      result.set(leader.id, hasReport);
+    }
+    return result;
+  }
+
+  /**
    * LEGACY: Search for groups by partial name and get their events in date range
    * NOTE: This is slower - use searchEventsByDateAndName for better performance
    */
