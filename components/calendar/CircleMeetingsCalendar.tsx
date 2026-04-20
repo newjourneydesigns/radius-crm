@@ -334,6 +334,10 @@ export default function CircleMeetingsCalendar({
   const [snapshotMap, setSnapshotMap] = useState<Map<number, EventSummaryState> | null>(null);
   const [ccbReportMap, setCcbReportMap] = useState<Map<number, boolean> | null>(null);
   const [isLoadingSnapshot, setIsLoadingSnapshot] = useState(false);
+  // Leaders with 2+ did_not_meet in the 4-week window ending on the visible week
+  const [dnmLeaderIds, setDnmLeaderIds] = useState<Set<number>>(new Set());
+  const [showDnmList, setShowDnmList] = useState(false);
+  const [showNotReportedList, setShowNotReportedList] = useState(false);
   const [isPullingCCB, setIsPullingCCB] = useState(false);
   const [isAutoUpdating, setIsAutoUpdating] = useState(false);
   const [autoUpdateConflicts, setAutoUpdateConflicts] = useState<Array<{ leader_id: number; leader_name: string; current_state: EventSummaryState; ccb_state: EventSummaryState }> | null>(null);
@@ -424,26 +428,46 @@ export default function CircleMeetingsCalendar({
   }, [leadersWithSchedules, visibleRange, leaders]);
 
   // Fetch archived snapshot whenever the user navigates to a past week.
+  // Also fetches the 4-week window to detect leaders with 2+ did_not_meet weeks.
   useEffect(() => {
     if (!visibleWeekSundayISO || !isViewingSnapshot) {
       setSnapshotMap(null);
       setCcbReportMap(null);
+      setDnmLeaderIds(new Set());
+      setShowDnmList(false);
+      setShowNotReportedList(false);
       return;
     }
     let cancelled = false;
     setIsLoadingSnapshot(true);
-    fetch(`/api/event-summary-snapshots?week_start_date=${encodeURIComponent(visibleWeekSundayISO)}`)
+
+    const windowStart = DateTime.fromISO(visibleWeekSundayISO).minus({ weeks: 3 }).toISODate()!;
+    const url = `/api/event-summary-snapshots?week_start_date=${encodeURIComponent(visibleWeekSundayISO)}&from_date=${encodeURIComponent(windowStart)}`;
+
+    fetch(url)
       .then(r => r.json())
-      .then(({ snapshots }: { snapshots: Array<{ circle_leader_id: number; event_summary_state: EventSummaryState; ccb_report_available?: boolean }> }) => {
+      .then(({ snapshots }: { snapshots: Array<{ circle_leader_id: number; event_summary_state: EventSummaryState; ccb_report_available?: boolean; week_start_date: string }> }) => {
         if (cancelled) return;
+
         const stateMap = new Map<number, EventSummaryState>();
         const reportMap = new Map<number, boolean>();
+        const dnmCounts = new Map<number, number>();
+
         for (const s of snapshots ?? []) {
-          stateMap.set(s.circle_leader_id, s.event_summary_state);
-          reportMap.set(s.circle_leader_id, s.ccb_report_available ?? false);
+          if (s.week_start_date === visibleWeekSundayISO) {
+            stateMap.set(s.circle_leader_id, s.event_summary_state);
+            reportMap.set(s.circle_leader_id, s.ccb_report_available ?? false);
+          }
+          if (s.event_summary_state === 'did_not_meet') {
+            dnmCounts.set(s.circle_leader_id, (dnmCounts.get(s.circle_leader_id) ?? 0) + 1);
+          }
         }
+
         setSnapshotMap(stateMap);
         setCcbReportMap(reportMap);
+        setDnmLeaderIds(new Set(
+          Array.from(dnmCounts.entries()).filter(([, count]) => count >= 2).map(([id]) => id)
+        ));
       })
       .catch(err => { if (!cancelled) console.error('Failed to load snapshot:', err); })
       .finally(() => { if (!cancelled) setIsLoadingSnapshot(false); });
@@ -961,7 +985,7 @@ export default function CircleMeetingsCalendar({
                   {(() => {
                     const reportCount = ccbReportMap ? Array.from(ccbReportMap.values()).filter(Boolean).length : 0;
                     return reportCount > 0 ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-400/30">
+                      <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30">
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
@@ -969,6 +993,21 @@ export default function CircleMeetingsCalendar({
                       </span>
                     ) : null;
                   })()}
+                  {dnmLeaderIds.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowDnmList(v => !v)}
+                      className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-300 border border-orange-500/30 hover:bg-orange-500/25 transition-colors leading-none"
+                    >
+                      <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      {dnmLeaderIds.size} didn&apos;t meet 2+ weeks
+                      <svg className={`w-3 h-3 shrink-0 transition-transform duration-150 ${showDnmList ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
 
                 {/* Scoreboard */}
@@ -995,10 +1034,17 @@ export default function CircleMeetingsCalendar({
                         <span className="text-xs font-medium text-amber-300/80">Skipped</span>
                       </div>
                       {counts.not_received > 0 && (
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30">
+                        <button
+                          type="button"
+                          onClick={() => setShowNotReportedList(v => !v)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 hover:bg-red-500/25 transition-colors"
+                        >
                           <span className="text-lg font-bold text-red-400 leading-none">{counts.not_received}</span>
                           <span className="text-xs font-medium text-red-300/80">Not Reported</span>
-                        </div>
+                          <svg className={`w-3 h-3 shrink-0 text-red-400 transition-transform duration-150 ${showNotReportedList ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
                       )}
                     </div>
                   );
@@ -1011,6 +1057,52 @@ export default function CircleMeetingsCalendar({
                     {weeklyAttendanceStats.avgRosterPct !== null && (
                       <span>avg <strong>{weeklyAttendanceStats.avgRosterPct}%</strong> of roster</span>
                     )}
+                  </div>
+                )}
+
+                {/* Didn't meet 2+ weeks — expandable name list */}
+                {showDnmList && dnmLeaderIds.size > 0 && (
+                  <div className="mt-2 rounded-lg border border-orange-500/25 bg-orange-500/8 p-2.5">
+                    <p className="text-xs font-semibold text-orange-300 mb-1.5">Didn&apos;t meet in 2+ of the last 4 weeks</p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                      {leaders
+                        .filter(l => dnmLeaderIds.has(l.id))
+                        .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                        .map(l => (
+                          <button
+                            key={l.id}
+                            type="button"
+                            onClick={() => router.push(`/circle/${l.id}`)}
+                            className="text-xs text-orange-200 hover:text-white hover:underline transition-colors text-left"
+                          >
+                            {l.name}
+                          </button>
+                        ))
+                      }
+                    </div>
+                  </div>
+                )}
+
+                {/* Not Reported — expandable name list */}
+                {showNotReportedList && snapshotMap && (
+                  <div className="mt-2 rounded-lg border border-red-500/25 bg-red-500/8 p-2.5">
+                    <p className="text-xs font-semibold text-red-300 mb-1.5">Did not submit an event summary</p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                      {leaders
+                        .filter(l => snapshotMap.get(l.id) === 'not_received')
+                        .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                        .map(l => (
+                          <button
+                            key={l.id}
+                            type="button"
+                            onClick={() => router.push(`/circle/${l.id}`)}
+                            className="text-xs text-red-200 hover:text-white hover:underline transition-colors text-left"
+                          >
+                            {l.name}
+                          </button>
+                        ))
+                      }
+                    </div>
                   </div>
                 )}
 
@@ -1297,6 +1389,17 @@ export default function CircleMeetingsCalendar({
                               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                             Report in CCB
+                          </span>
+                        </div>
+                      )}
+                      {/* Didn't meet 2+ weeks indicator */}
+                      {leaderId && dnmLeaderIds.has(leaderId) && (
+                        <div className="inline-flex items-center gap-1 mt-0.5">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-300 border border-orange-500/25 leading-none">
+                            <svg className="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            2+ weeks didn&apos;t meet
                           </span>
                         </div>
                       )}

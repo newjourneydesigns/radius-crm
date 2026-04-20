@@ -10,23 +10,35 @@ function getDB() {
   return createClient(supabaseUrl, serviceKey || anonKey!);
 }
 
-// GET /api/event-summary-snapshots?week_start_date=YYYY-MM-DD
-// Returns all leader snapshots for a given week
+// GET /api/event-summary-snapshots?week_start_date=YYYY-MM-DD[&from_date=YYYY-MM-DD]
+// Returns snapshots for a single week, or a range when from_date is supplied.
+// Range response includes week_start_date on each row.
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const weekStartDate = searchParams.get('week_start_date');
+  const fromDate = searchParams.get('from_date');
 
   if (!weekStartDate || !/^\d{4}-\d{2}-\d{2}$/.test(weekStartDate)) {
     return NextResponse.json({ error: 'week_start_date is required (YYYY-MM-DD)' }, { status: 400 });
   }
 
+  if (fromDate && !/^\d{4}-\d{2}-\d{2}$/.test(fromDate)) {
+    return NextResponse.json({ error: 'from_date must be in YYYY-MM-DD format' }, { status: 400 });
+  }
+
   try {
     const db = getDB();
-    const { data, error } = await db
+    let query = db
       .from('event_summary_snapshots')
-      .select('circle_leader_id, event_summary_state, captured_at, ccb_report_available')
-      .eq('week_start_date', weekStartDate);
+      .select('circle_leader_id, event_summary_state, captured_at, ccb_report_available, week_start_date');
 
+    if (fromDate) {
+      query = query.gte('week_start_date', fromDate).lte('week_start_date', weekStartDate);
+    } else {
+      query = query.eq('week_start_date', weekStartDate);
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
 
     return NextResponse.json({ snapshots: data ?? [] });

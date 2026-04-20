@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import type {
+import {
   VisitItem,
   EncouragementItem,
   FollowUpItem,
   NoteItem,
-  CircleMeetingItem,
   BirthdayItem,
 } from '../../../../lib/emailService';
 
@@ -17,11 +16,6 @@ export interface TodayCoreData {
   upcomingVisits: VisitItem[];
   encouragements: { dueToday: EncouragementItem[]; overdue: EncouragementItem[] };
   followUps: { dueToday: FollowUpItem[]; overdue: FollowUpItem[] };
-  upcomingCircles: {
-    today: CircleMeetingItem[];
-    tomorrow: CircleMeetingItem[];
-    thisWeek: { date: string; dayName: string; leaders: CircleMeetingItem[] }[];
-  };
   recentNotes: NoteItem[];
 }
 
@@ -45,48 +39,6 @@ function getDateOffset(base: string, days: number): string {
   const d = new Date(base + 'T00:00:00');
   d.setDate(d.getDate() + days);
   return d.toISOString().split('T')[0];
-}
-
-function getDayName(dateStr: string): string {
-  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  return days[new Date(dateStr + 'T00:00:00').getDay()];
-}
-
-function getWeekOfMonth(dateStr: string): number {
-  return Math.ceil(new Date(dateStr + 'T00:00:00').getDate() / 7);
-}
-
-function doesCircleMeetOnDate(dateStr: string, leaderDay: string, frequency: string | null, meetingStartDate: string | null): boolean {
-  if (getDayName(dateStr).toLowerCase() !== leaderDay.trim().toLowerCase()) return false;
-  const freq = (frequency ?? '').trim().toLowerCase();
-  const has1st = /\b(1st|first)\b/.test(freq);
-  const has2nd = /\b(2nd|second)\b/.test(freq);
-  const has3rd = /\b(3rd|third)\b/.test(freq);
-  const has4th = /\b(4th|fourth)\b/.test(freq);
-  const has5th = /\b(5th|fifth)\b/.test(freq);
-  const hasOrdinal = has1st || has2nd || has3rd || has4th || has5th;
-  const mentionsWeekly = freq.includes('weekly') || freq.includes('every week');
-  const isBiWeekly = freq.includes('bi-week') || freq.includes('biweekly') || freq.includes('every other') || freq.includes('2-week') || freq.includes('2 week');
-  if (hasOrdinal && !mentionsWeekly && !isBiWeekly) {
-    const weekNum = getWeekOfMonth(dateStr);
-    const allowed: number[] = [];
-    if (has1st) allowed.push(1);
-    if (has2nd) allowed.push(2);
-    if (has3rd) allowed.push(3);
-    if (has4th) allowed.push(4);
-    if (has5th) allowed.push(5);
-    return allowed.includes(weekNum);
-  }
-  if (isBiWeekly) {
-    if (!meetingStartDate) return true;
-    const target = new Date(dateStr + 'T00:00:00').getTime();
-    const anchor = new Date(meetingStartDate + 'T00:00:00').getTime();
-    const diffWeeks = Math.round((target - anchor) / (7 * 86400000));
-    return diffWeeks % 2 === 0;
-  }
-  if (freq.includes('quarter')) return false;
-  if (freq.includes('month')) return getWeekOfMonth(dateStr) === 1;
-  return true;
 }
 
 function extractSubFromToken(token: string): string | null {
@@ -140,7 +92,6 @@ export async function GET(request: NextRequest) {
     const monthEnd   = getDateOffset(today, 30);
     const afterWeek  = getDateOffset(today, 8);
     const weekDates  = Array.from({ length: 7 }, (_, i) => getDateOffset(today, i));
-    const weekDayNames = Array.from(new Set(weekDates.map(getDayName)));
 
     const [
       { data: visitsRaw },
@@ -148,7 +99,6 @@ export async function GET(request: NextRequest) {
       { data: encsRaw },
       { data: followUpsRaw },
       { data: birthdayLeaders },
-      { data: circleLeadersRaw },
       { data: notesRaw },
     ] = await Promise.all([
       supabase.from('circle_visits')
@@ -181,12 +131,6 @@ export async function GET(request: NextRequest) {
         .not('birthday', 'is', null).neq('birthday', '')
         .not('status', 'in', '("Inactive","Removed")'),
 
-      supabase.from('circle_leaders')
-        .select('id, name, circle_type, day, time, frequency, campus, meeting_start_date')
-        .eq('acpd', user.name).in('day', weekDayNames)
-        .not('status', 'in', '("Inactive","Removed")')
-        .order('time', { ascending: true }),
-
       supabase.from('notes')
         .select('id, circle_leader_id, content, created_at, circle_leaders!inner(name, campus)')
         .eq('created_by', user.id)
@@ -206,10 +150,6 @@ export async function GET(request: NextRequest) {
     });
     const toFU = (f: any): FollowUpItem => ({
       id: f.id, name: f.name, campus: f.campus, follow_up_date: f.follow_up_date,
-    });
-    const toCircle = (l: any): CircleMeetingItem => ({
-      leader_id: l.id, leader_name: l.name, circle_type: l.circle_type ?? undefined,
-      day: l.day, time: l.time ?? 'TBD', frequency: l.frequency ?? 'Weekly', campus: l.campus ?? undefined,
     });
 
     const todayDate  = new Date(today + 'T00:00:00');
@@ -242,15 +182,6 @@ export async function GET(request: NextRequest) {
       followUps: {
         dueToday: (followUpsRaw || []).filter((f: any) => f.follow_up_date === today).map(toFU),
         overdue:  (followUpsRaw || []).filter((f: any) => !f.follow_up_date || f.follow_up_date < today).map(toFU),
-      },
-      upcomingCircles: {
-        today:    (circleLeadersRaw || []).filter((l: any) => doesCircleMeetOnDate(today,    l.day, l.frequency, l.meeting_start_date)).map(toCircle),
-        tomorrow: (circleLeadersRaw || []).filter((l: any) => doesCircleMeetOnDate(tomorrow, l.day, l.frequency, l.meeting_start_date)).map(toCircle),
-        thisWeek: weekDates.slice(2).map(date => ({
-          date,
-          dayName: getDayName(date),
-          leaders: (circleLeadersRaw || []).filter((l: any) => doesCircleMeetOnDate(date, l.day, l.frequency, l.meeting_start_date)).map(toCircle),
-        })).filter(d => d.leaders.length > 0),
       },
       recentNotes: (notesRaw || []).map((n: any) => ({
         id: n.id, circle_leader_id: n.circle_leader_id,

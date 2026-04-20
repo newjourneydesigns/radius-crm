@@ -15,7 +15,6 @@ import {
   PartyPopper,
   Pin,
   Star,
-  Users,
 } from 'lucide-react';
 import { useTodayData } from '../../hooks/useTodayData';
 import type {
@@ -24,7 +23,6 @@ import type {
   CardDigestItem,
   ChecklistDigestItem,
   VisitItem,
-  CircleMeetingItem,
   BirthdayItem,
   NoteItem,
 } from '../../lib/emailService';
@@ -487,7 +485,6 @@ function TodaySkeleton() {
 export default function TodayPage() {
   const { data, isLoading, isFetching, isCardsLoading, error, fetchData, markEncouragementSent, clearFollowUp, markCardComplete, markChecklistDone } = useTodayData();
   const { isOpen, toggle } = useVisibility();
-  const [circleView, setCircleView] = useState<'today' | 'week'>('today');
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -512,7 +509,6 @@ export default function TodayPage() {
   const totalCards     = data.cards.dueToday.length + data.cards.overdue.length;
   const totalChecklists = data.checklistItems.dueToday.length + data.checklistItems.overdue.length;
   const totalOverdue   = data.cards.overdue.length + data.checklistItems.overdue.length + data.encouragements.overdue.length + data.followUps.overdue.length;
-  const totalCircles   = data.upcomingCircles.today.length + data.upcomingCircles.tomorrow.length;
   const totalFocus     = (data.focusCards ?? []).length;
   const hasAnything    = data.birthdays.length + data.circleVisits.today.length + totalEncs + totalFU + totalCards + totalChecklists + totalFocus > 0 || isCardsLoading;
 
@@ -808,89 +804,7 @@ export default function TodayPage() {
           ))}
         </Section>
 
-        {/* ── Upcoming Circles ── */}
-        {(() => {
-          const todayCount = data.upcomingCircles.today.length + data.upcomingCircles.tomorrow.length;
-          const weekCount  = todayCount + data.upcomingCircles.thisWeek.reduce((s, d) => s + d.leaders.length, 0);
-          const count      = circleView === 'week' ? weekCount : todayCount;
-
-          const toggle$ = (
-            <div style={{ display: 'flex', borderRadius: 7, overflow: 'hidden', border: `1px solid ${T.cardBorder}` }}>
-              {(['today', 'week'] as const).map(v => (
-                <button key={v} onClick={() => setCircleView(v)} style={{
-                  padding: '3px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer', border: 'none',
-                  background: circleView === v ? T.neutral : 'transparent',
-                  color: circleView === v ? '#fff' : T.textMuted,
-                  transition: 'all 0.15s',
-                }}>
-                  {v === 'today' ? 'Today' : 'Week'}
-                </button>
-              ))}
-            </div>
-          );
-
-          return (
-            <Section
-              id="upcoming-circles"
-              title="Upcoming Circles"
-              icon={<Users className="h-4 w-4" />}
-              count={count}
-              sectionKey="upcomingCircles"
-              isOpen={isOpen('upcomingCircles')}
-              onToggle={() => toggle('upcomingCircles')}
-              accentColor={T.neutral}
-              headerExtra={toggle$}
-            >
-              {/* Today */}
-              {data.upcomingCircles.today.length > 0 && (
-                <>
-                  <div style={{ padding: '6px 16px 4px', fontSize: 10, fontWeight: 700, color: T.textFaint, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Today</div>
-                  {data.upcomingCircles.today.map((c: CircleMeetingItem) => (
-                    <Item key={c.leader_id} accentColor={T.neutral}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <LeaderLink id={c.leader_id} name={c.leader_name} />
-                        <Sub>{[c.campus, c.circle_type].filter(Boolean).join(' · ')}</Sub>
-                      </div>
-                      <DateBadge date={formatTime(c.time)} color={T.neutral} />
-                    </Item>
-                  ))}
-                </>
-              )}
-              {/* Tomorrow */}
-              {data.upcomingCircles.tomorrow.length > 0 && (
-                <>
-                  <div style={{ padding: '6px 16px 4px', fontSize: 10, fontWeight: 700, color: T.textFaint, letterSpacing: '0.06em', textTransform: 'uppercase', borderTop: data.upcomingCircles.today.length > 0 ? `1px solid ${T.cardBorder}` : 'none' }}>Tomorrow</div>
-                  {data.upcomingCircles.tomorrow.map((c: CircleMeetingItem) => (
-                    <Item key={c.leader_id} accentColor={T.neutral}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <LeaderLink id={c.leader_id} name={c.leader_name} />
-                        <Sub>{[c.campus, c.circle_type].filter(Boolean).join(' · ')}</Sub>
-                      </div>
-                      <DateBadge date={formatTime(c.time)} color={T.neutral} />
-                    </Item>
-                  ))}
-                </>
-              )}
-              {/* Rest of week (only in week view) */}
-              {circleView === 'week' && data.upcomingCircles.thisWeek.map((day) => (
-                <div key={day.date}>
-                  <div style={{ padding: '6px 16px 4px', fontSize: 10, fontWeight: 700, color: T.textFaint, letterSpacing: '0.06em', textTransform: 'uppercase', borderTop: `1px solid ${T.cardBorder}` }}>
-                    {day.dayName}
-                  </div>
-                  {day.leaders.map((c: CircleMeetingItem) => (
-                    <Item key={c.leader_id} accentColor={T.neutral}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <LeaderLink id={c.leader_id} name={c.leader_name} />
-                        <Sub>{[c.campus, c.circle_type].filter(Boolean).join(' · ')}</Sub>
-                      </div>
-                      <DateBadge date={formatTime(c.time)} color={T.neutral} />
-                    </Item>
-                  ))}
-                </div>
-              ))}
-            </Section>
-          );
-        })()}
+}
 
         {/* ── Upcoming Scheduled Visits ── */}
         <Section id="upcoming-visits" title="Upcoming Scheduled Visits" icon={<CalendarRange className="h-4 w-4" />} count={data.upcomingVisits.length}
