@@ -770,7 +770,7 @@ export class CCBClient {
     leaders: Array<{ id: number; name: string }>,
     startDate: string,
     endDate: string
-  ): Promise<Map<number, { hasReport: boolean; didNotMeet: boolean }>> {
+  ): Promise<Map<number, { hasReport: boolean; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number }>> {
     for (const [label, val] of [['start', startDate], ['end', endDate]] as const) {
       if (!DateTime.fromFormat(val, 'yyyy-LL-dd').isValid) {
         throw new Error(`Invalid ${label} date. Use YYYY-MM-DD format`);
@@ -788,21 +788,41 @@ export class CCBClient {
       ? eventsRoot.event
       : eventsRoot?.event ? [eventsRoot.event] : [];
 
-    // Build lookup: lowercased title+group → didNotMeet boolean
-    const eventData: Array<{ title: string; didNotMeet: boolean }> = rawEvents.map((e: any) => {
+    // Build lookup: lowercased title+group → report data
+    const eventData: Array<{ title: string; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number }> = rawEvents.map((e: any) => {
       const title = `${String(e?.name || e?.event_name || '')} ${String(e?.group?.name || '')}`.toLowerCase();
       const dnmRaw = String(e?.did_not_meet ?? '').trim().toLowerCase();
       const didNotMeet = dnmRaw === 'true' || dnmRaw === '1';
-      return { title, didNotMeet };
+      const headCountNum = Number(e?.head_count);
+      // Fall back to counting attendees if head_count is 0 or missing
+      const attRoot = e?.attendees ?? e?.attendee ?? null;
+      const attList: any[] = Array.isArray(attRoot?.attendee) ? attRoot.attendee
+        : attRoot?.attendee ? [attRoot.attendee]
+        : Array.isArray(attRoot) ? attRoot
+        : [];
+      const headcount = (Number.isFinite(headCountNum) && headCountNum > 0)
+        ? headCountNum
+        : (attList.length > 0 ? attList.length : null);
+      const occRaw = String(e?.['@_occurrence'] ?? e?.occurrence ?? '').trim();
+      const occurrenceDate = occRaw ? (DateTime.fromISO(occRaw).toISODate() ?? null) : null;
+      const notes = String(e?.notes ?? '').trim();
+      const hasNotes = notes.length > 0;
+      const guestCountNum = Number(e?.guest_count ?? e?.guest_cnt ?? 0);
+      const guestCount = Number.isFinite(guestCountNum) && guestCountNum > 0 ? guestCountNum : 0;
+      return { title, didNotMeet, headcount, occurrenceDate, hasNotes, guestCount };
     });
 
-    const result = new Map<number, { hasReport: boolean; didNotMeet: boolean }>();
+    const result = new Map<number, { hasReport: boolean; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number }>();
     for (const leader of leaders) {
       const nameLower = leader.name.trim().toLowerCase();
       const match = eventData.find(e => e.title.includes(nameLower));
       result.set(leader.id, {
         hasReport: !!match,
         didNotMeet: match?.didNotMeet ?? false,
+        headcount: match?.headcount ?? null,
+        occurrenceDate: match?.occurrenceDate ?? null,
+        hasNotes: match?.hasNotes ?? false,
+        guestCount: match?.guestCount ?? 0,
       });
     }
     return result;

@@ -93,6 +93,31 @@ export async function POST(request: NextRequest) {
 
     if (upsertError) throw upsertError;
 
+    // Upsert occurrence data from CCB — attendance_profiles is the authoritative source
+    // for headcount, has_notes, and guest_count, so always overwrite.
+    const occurrenceRows = leaders
+      .map(l => {
+        const ccbData = reportMap.get(l.id);
+        if (!ccbData?.hasReport || !ccbData.occurrenceDate || !ccbData.headcount) return null;
+        return {
+          leader_id: l.id,
+          meeting_date: ccbData.occurrenceDate,
+          status: (ccbData.didNotMeet ? 'did_not_meet' : 'met') as 'met' | 'did_not_meet',
+          headcount: ccbData.headcount,
+          has_notes: ccbData.hasNotes,
+          guest_count: ccbData.guestCount,
+          source: 'ccb' as const,
+          synced_at: new Date().toISOString(),
+        };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
+
+    if (occurrenceRows.length > 0) {
+      await supabase
+        .from('circle_meeting_occurrences')
+        .upsert(occurrenceRows, { onConflict: 'leader_id,meeting_date' });
+    }
+
     const reportCount = rows.filter(r => r.ccb_report_available).length;
 
     return NextResponse.json({

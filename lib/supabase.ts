@@ -90,6 +90,7 @@ export interface CircleLeader {
   meeting_start_date?: string;
   circle_type?: 'Men\'s' | 'Women\'s' | 'Young Adult | Coed' | 'Young Adult | Men\'s' | 'Young Adult | Women\'s' | 'Young Adult | Couple\'s';
   event_summary_state?: EventSummaryState;
+  event_summary_state_week?: string; // YYYY-MM-DD of the Sunday that starts the week this state was set
   event_summary_received?: boolean; // Legacy - kept for backwards compatibility
   event_summary_skipped?: boolean; // Legacy - kept for backwards compatibility
   follow_up_required?: boolean;

@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
       const ccbData = ccbMap.get(leader.id);
       if (!ccbData?.hasReport) {
         skipped++;
-        continue; // No CCB report — leave as-is
+        continue; // No CCB report — leave as-is (may be caught by attendance fallback below)
       }
 
       const ccbState: EventSummaryState = ccbData.didNotMeet ? 'did_not_meet' : 'received';
@@ -129,6 +129,29 @@ export async function POST(request: NextRequest) {
       // If currentState === ccbState: already correct, nothing to do
     }
 
+    // Fallback: mark received for leaders still not_received who have attendance data
+    // in circle_meeting_occurrences for this week — covers cases where CCB report
+    // hasn't been submitted yet but the meeting clearly happened.
+    const stillNotReceived = leaders.filter(l =>
+      !toUpdate.find(u => u.id === l.id) &&
+      (currentStateMap.get(l.id) ?? 'not_received') === 'not_received'
+    );
+
+    if (stillNotReceived.length > 0) {
+      const { data: occurrences } = await supabase
+        .from('circle_meeting_occurrences')
+        .select('leader_id')
+        .in('leader_id', stillNotReceived.map(l => l.id))
+        .eq('status', 'met')
+        .not('headcount', 'is', null)
+        .gte('meeting_date', week_start_date)
+        .lte('meeting_date', week_end_date);
+
+      for (const occ of occurrences ?? []) {
+        toUpdate.push({ id: occ.leader_id, state: 'received' });
+      }
+    }
+
     // Apply updates
     if (toUpdate.length > 0) {
       if (is_current_week) {
@@ -139,13 +162,13 @@ export async function POST(request: NextRequest) {
         if (received.length > 0) {
           await supabase
             .from('circle_leaders')
-            .update({ event_summary_state: 'received' })
+            .update({ event_summary_state: 'received', event_summary_state_week: week_start_date })
             .in('id', received);
         }
         if (didNotMeet.length > 0) {
           await supabase
             .from('circle_leaders')
-            .update({ event_summary_state: 'did_not_meet' })
+            .update({ event_summary_state: 'did_not_meet', event_summary_state_week: week_start_date })
             .in('id', didNotMeet);
         }
       } else {
@@ -165,10 +188,36 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Save occurrence data from CCB — attendance_profiles is the authoritative source
+    // for headcount, has_notes, and guest_count, so always overwrite.
+    const occurrenceRows = leaders
+      .map(l => {
+        const ccbData = ccbMap.get(l.id);
+        if (!ccbData?.hasReport || !ccbData.occurrenceDate || !ccbData.headcount) return null;
+        return {
+          leader_id: l.id,
+          meeting_date: ccbData.occurrenceDate,
+          status: (ccbData.didNotMeet ? 'did_not_meet' : 'met') as 'met' | 'did_not_meet',
+          headcount: ccbData.headcount,
+          has_notes: ccbData.hasNotes,
+          guest_count: ccbData.guestCount,
+          source: 'ccb' as const,
+          synced_at: new Date().toISOString(),
+        };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
+
+    if (occurrenceRows.length > 0) {
+      await supabase
+        .from('circle_meeting_occurrences')
+        .upsert(occurrenceRows, { onConflict: 'leader_id,meeting_date' });
+    }
+
     return NextResponse.json({
       updated: toUpdate.length,
       skipped,
       conflicts,
+      updated_leaders: toUpdate.map(u => ({ id: u.id, state: u.state })),
     });
   } catch (err: any) {
     console.error('[auto-update-summaries POST]', err);

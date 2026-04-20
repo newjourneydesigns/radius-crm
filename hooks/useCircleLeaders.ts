@@ -1,5 +1,13 @@
 import { useState, useCallback, useRef } from 'react';
+import { DateTime } from 'luxon';
 import { supabase, CircleLeader, type EventSummaryState } from '../lib/supabase';
+
+/** Returns the ISO date (YYYY-MM-DD) of the Sunday that starts the current week. */
+function getCurrentWeekSundayISO(): string {
+  const now = DateTime.local();
+  const daysBack = now.weekday === 7 ? 0 : now.weekday;
+  return now.minus({ days: daysBack }).toISODate()!;
+}
 
 export interface CircleLeaderFilters {
   campus?: string[];
@@ -102,7 +110,7 @@ export const useCircleLeaders = () => {
     try {
       const baseSelect = (includeSkipped: boolean) => (
         'id, name, email, phone, campus, acpd, status, day, time, frequency, meeting_start_date, circle_type, ' +
-        'event_summary_state, event_summary_received' +
+        'event_summary_state, event_summary_state_week, event_summary_received' +
         (includeSkipped ? ', event_summary_skipped' : '') +
         ', follow_up_required, follow_up_date, ccb_profile_link'
       );
@@ -334,10 +342,11 @@ export const useCircleLeaders = () => {
 
   const setEventSummaryState = async (leaderId: number, state: EventSummaryState) => {
     try {
+      const weekISO = getCurrentWeekSundayISO();
       // Prefer new enum column when present.
       let { error } = await supabase
         .from('circle_leaders')
-        .update({ event_summary_state: state })
+        .update({ event_summary_state: state, event_summary_state_week: weekISO })
         .eq('id', leaderId);
 
       // Backward-compat: if event_summary_state doesn't exist yet, fall back to legacy booleans.
@@ -380,6 +389,7 @@ export const useCircleLeaders = () => {
             ? {
               ...leader,
               event_summary_state: state,
+              event_summary_state_week: weekISO,
               // Keep legacy flags locally in sync for components still using them.
               event_summary_received: state === 'received',
               event_summary_skipped: state === 'did_not_meet' || state === 'skipped',

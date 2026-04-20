@@ -345,7 +345,7 @@ export default function CircleMeetingsCalendar({
   const [snapshotSavingLeaderIds, setSnapshotSavingLeaderIds] = useState<Set<number>>(new Set());
 
   // Attendance data — headcount + roster size per leader for the visible week
-  type AttendanceEntry = { headcount: number | null; rosterCount: number | null };
+  type AttendanceEntry = { headcount: number | null; rosterCount: number | null; hasNotes: boolean | null; guestCount: number | null };
   const [attendanceData, setAttendanceData] = useState<Map<number, AttendanceEntry> | null>(null);
 
   // Default meeting length; can be made configurable later.
@@ -494,7 +494,7 @@ export default function CircleMeetingsCalendar({
     Promise.all([
       supabase
         .from('circle_meeting_occurrences')
-        .select('leader_id, headcount')
+        .select('leader_id, headcount, has_notes, guest_count')
         .eq('status', 'met')
         .gte('meeting_date', visibleWeekSundayISO)
         .lte('meeting_date', weekEnd),
@@ -510,11 +510,11 @@ export default function CircleMeetingsCalendar({
       }
       const map = new Map<number, AttendanceEntry>();
       for (const leader of leaders) {
-        map.set(leader.id, { headcount: null, rosterCount: rosterCounts.get(leader.id) ?? null });
+        map.set(leader.id, { headcount: null, rosterCount: rosterCounts.get(leader.id) ?? null, hasNotes: null, guestCount: null });
       }
       for (const occ of (occRes.data ?? [])) {
         const existing = map.get(occ.leader_id);
-        if (existing) map.set(occ.leader_id, { ...existing, headcount: occ.headcount });
+        if (existing) map.set(occ.leader_id, { ...existing, headcount: occ.headcount, hasNotes: occ.has_notes ?? null, guestCount: occ.guest_count ?? null });
       }
       setAttendanceData(map);
     }).catch(err => { if (!cancelled) console.error('Failed to load attendance data:', err); });
@@ -579,14 +579,21 @@ export default function CircleMeetingsCalendar({
     return lastSaturday.toISOString().split('T')[0];
   }, []);
 
-  /** Returns the effective event summary state for a leader — uses snapshot data when viewing a past week. */
+  /** Returns the effective event summary state for a leader — uses snapshot data when viewing a past week.
+   *  For the current week, treats the state as not_received if it was set in a prior week. */
   const getEffectiveLeaderState = useCallback((leaderId: number): EventSummaryState => {
     if (isViewingSnapshot && snapshotMap) {
       return snapshotMap.get(leaderId) ?? 'not_received';
     }
     const leader = leaders.find(l => l.id === leaderId);
-    return leader ? getEventSummaryState(leader) : 'not_received';
-  }, [isViewingSnapshot, snapshotMap, leaders]);
+    if (!leader) return 'not_received';
+    // If the state has no week stamp, or was set in a different week, treat it as not_received.
+    if (!leader.event_summary_state_week ||
+        (visibleWeekSundayISO && leader.event_summary_state_week !== visibleWeekSundayISO)) {
+      return 'not_received';
+    }
+    return getEventSummaryState(leader);
+  }, [isViewingSnapshot, snapshotMap, leaders, visibleWeekSundayISO]);
 
   // Leader IDs who had a scheduled occurrence in the visible week.
   // Used to exclude unscheduled leaders from the "Not Reported" count.
@@ -602,6 +609,7 @@ export default function CircleMeetingsCalendar({
     let rosterPctSum = 0;
     let rosterPctCount = 0;
     let receivedWithData = 0;
+    let totalReceived = 0;
     let unreportedWithData = 0;
     let totalUnreportedAttended = 0;
     const unreportedLeaders: Array<{ id: number; name: string; headcount: number; rosterCount: number | null }> = [];
@@ -609,6 +617,7 @@ export default function CircleMeetingsCalendar({
       const state = getEffectiveLeaderState(leader.id);
       const att = attendanceData.get(leader.id);
       if (state === 'received') {
+        totalReceived++;
         if (!att?.headcount) continue;
         receivedWithData++;
         totalAttended += att.headcount;
@@ -627,6 +636,7 @@ export default function CircleMeetingsCalendar({
       totalAttended,
       avgRosterPct: rosterPctCount > 0 ? Math.round(rosterPctSum / rosterPctCount) : null,
       receivedWithData,
+      totalReceived,
       unreportedWithData,
       totalUnreportedAttended,
       unreportedLeaders,
@@ -738,6 +748,13 @@ export default function CircleMeetingsCalendar({
         setCcbReportMap(reportMap);
       }
 
+      // For current week: update local state immediately instead of relying on realtime
+      if (!isViewingSnapshot && json.updated_leaders?.length > 0) {
+        for (const { id, state } of json.updated_leaders) {
+          await setLeaderEventSummaryState(id, state);
+        }
+      }
+
       const conflictCount = json.conflicts?.length ?? 0;
       const msg = json.updated > 0
         ? `${json.updated} leader${json.updated !== 1 ? 's' : ''} updated from CCB.${conflictCount > 0 ? ` ${conflictCount} conflict${conflictCount !== 1 ? 's' : ''} need review.` : ''}`
@@ -753,7 +770,7 @@ export default function CircleMeetingsCalendar({
     } finally {
       setIsAutoUpdating(false);
     }
-  }, [visibleWeekSundayISO, leaders, isViewingSnapshot]);
+  }, [visibleWeekSundayISO, leaders, isViewingSnapshot, setLeaderEventSummaryState]);
 
   /** Routes a state-button click to either the live update or the snapshot update depending on the current view mode. */
   const handleEventSummaryButtonClick = useCallback(async (leaderId: number, state: EventSummaryState) => {
@@ -1108,7 +1125,12 @@ export default function CircleMeetingsCalendar({
                   <div className="flex items-center gap-5">
                     <div>
                       <p className="text-xs text-slate-500">Circles</p>
-                      <p className="text-sm font-semibold text-slate-200 leading-tight">{weeklyAttendanceStats.receivedWithData}</p>
+                      <p className="text-sm font-semibold text-slate-200 leading-tight">
+                        {weeklyAttendanceStats.receivedWithData}
+                        {weeklyAttendanceStats.receivedWithData < weeklyAttendanceStats.totalReceived && (
+                          <span className="text-slate-500 font-normal"> of {weeklyAttendanceStats.totalReceived}</span>
+                        )}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">Attended</p>
@@ -1490,6 +1512,39 @@ export default function CircleMeetingsCalendar({
                           </div>
                         );
                       })()}
+                      {/* Missing Attendance badge — CCB report exists but no headcount */}
+                      {leaderId && ccbReportMap?.get(leaderId) && !attendanceData?.get(leaderId)?.headcount && state !== 'not_received' && (
+                        <div className="inline-flex items-center gap-1 mt-0.5">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-slate-500/20 text-slate-400 border border-slate-500/25 leading-none">
+                            <svg className="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            Missing Attendance
+                          </span>
+                        </div>
+                      )}
+                      {/* Missing Notes badge — CCB report exists but no notes submitted */}
+                      {leaderId && ccbReportMap?.get(leaderId) && attendanceData?.get(leaderId)?.hasNotes === false && state !== 'not_received' && (
+                        <div className="inline-flex items-center gap-1 mt-0.5">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-slate-500/20 text-slate-400 border border-slate-500/25 leading-none">
+                            <svg className="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Missing Notes
+                          </span>
+                        </div>
+                      )}
+                      {/* Guest Listed badge — guest count > 0, needs ACPD follow-up */}
+                      {leaderId && ccbReportMap?.get(leaderId) && (attendanceData?.get(leaderId)?.guestCount ?? 0) > 0 && (
+                        <div className="inline-flex items-center gap-1 mt-0.5">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-slate-500/20 text-slate-400 border border-slate-500/25 leading-none">
+                            <svg className="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                            </svg>
+                            Guest Listed
+                          </span>
+                        </div>
+                      )}
                       {/* CCB report available indicator */}
                       {isViewingSnapshot && leaderId && state === 'not_received' && ccbReportMap?.get(leaderId) && (
                         <div className="inline-flex items-center gap-1 mt-0.5">
