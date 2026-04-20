@@ -805,8 +805,7 @@ export class CCBClient {
         : (attList.length > 0 ? attList.length : null);
       const occRaw = String(e?.['@_occurrence'] ?? e?.occurrence ?? '').trim();
       const occurrenceDate = occRaw ? (DateTime.fromISO(occRaw).toISODate() ?? null) : null;
-      const notes = String(e?.notes ?? '').trim();
-      const hasNotes = notes.length > 0;
+      const hasNotes = [e?.topic, e?.notes, e?.prayer_requests, e?.info].some(f => String(f ?? '').trim().length > 0);
       const guestCountNum = Number(e?.guest_count ?? e?.guest_cnt ?? 0);
       const guestCount = Number.isFinite(guestCountNum) && guestCountNum > 0 ? guestCountNum : 0;
       return { title, didNotMeet, headcount, occurrenceDate, hasNotes, guestCount };

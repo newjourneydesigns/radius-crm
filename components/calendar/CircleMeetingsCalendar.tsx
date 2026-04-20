@@ -1523,28 +1523,6 @@ export default function CircleMeetingsCalendar({
                           </span>
                         </div>
                       )}
-                      {/* Missing Notes badge — CCB report exists but no notes submitted */}
-                      {leaderId && ccbReportMap?.get(leaderId) && attendanceData?.get(leaderId)?.hasNotes === false && state !== 'not_received' && (
-                        <div className="inline-flex items-center gap-1 mt-0.5">
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-slate-500/20 text-slate-400 border border-slate-500/25 leading-none">
-                            <svg className="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            Missing Notes
-                          </span>
-                        </div>
-                      )}
-                      {/* Guest Listed badge — guest count > 0, needs ACPD follow-up */}
-                      {leaderId && ccbReportMap?.get(leaderId) && (attendanceData?.get(leaderId)?.guestCount ?? 0) > 0 && (
-                        <div className="inline-flex items-center gap-1 mt-0.5">
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-slate-500/20 text-slate-400 border border-slate-500/25 leading-none">
-                            <svg className="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                            </svg>
-                            Guest Listed
-                          </span>
-                        </div>
-                      )}
                       {/* CCB report available indicator */}
                       {isViewingSnapshot && leaderId && state === 'not_received' && ccbReportMap?.get(leaderId) && (
                         <div className="inline-flex items-center gap-1 mt-0.5">
