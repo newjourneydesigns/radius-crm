@@ -1088,6 +1088,10 @@ export default function CircleMeetingsCalendar({
                   else if (state === 'skipped') counts.skipped++;
                   else if (scheduledLeaderIds.has(leaderId)) counts.not_received++;
                 }
+                // Also count scheduled+filtered leaders with no snapshot row — they're implicitly not_received
+                for (const leaderId of filteredLeaderIds) {
+                  if (scheduledLeaderIds.has(leaderId) && !snapshotMap.has(leaderId)) counts.not_received++;
+                }
                 return (
                   <div className="grid grid-cols-4 divide-x divide-slate-700/60 border-t border-slate-700/60 bg-slate-900/30">
                     <div className="px-4 py-3 text-center">
@@ -1201,7 +1205,7 @@ export default function CircleMeetingsCalendar({
                       <p className="text-xs font-semibold text-red-300 mb-1.5">Did not submit an event summary</p>
                       <div className="flex flex-wrap gap-x-4 gap-y-1">
                         {leaders
-                          .filter(l => snapshotMap.get(l.id) === 'not_received' && scheduledLeaderIds.has(l.id))
+                          .filter(l => (snapshotMap.get(l.id) === 'not_received' || !snapshotMap.has(l.id)) && scheduledLeaderIds.has(l.id) && filteredLeaderIds.has(l.id))
                           .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
                           .map(l => (
                             <button
