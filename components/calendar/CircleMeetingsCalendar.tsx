@@ -965,11 +965,11 @@ export default function CircleMeetingsCalendar({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
               </svg>
               <div className="flex-1 min-w-0">
+                {/* Header row */}
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <span>
+                  <span className="text-sm">
                     <strong>Archived week</strong>{' '}
-                    {visibleWeekSundayISO ? `(${DateTime.fromISO(visibleWeekSundayISO).toFormat('MMM d')} – ${DateTime.fromISO(visibleWeekSundayISO).plus({ days: 6 }).toFormat('MMM d, yyyy')})` : ''}.
-                    {' '}Status buttons update the archive.
+                    {visibleWeekSundayISO ? `(${DateTime.fromISO(visibleWeekSundayISO).toFormat('MMM d')} – ${DateTime.fromISO(visibleWeekSundayISO).plus({ days: 6 }).toFormat('MMM d, yyyy')})` : ''}
                   </span>
                   {(() => {
                     const reportCount = ccbReportMap ? Array.from(ccbReportMap.values()).filter(Boolean).length : 0;
@@ -983,14 +983,44 @@ export default function CircleMeetingsCalendar({
                     ) : null;
                   })()}
                 </div>
+
+                {/* Scoreboard */}
+                {(() => {
+                  const counts = { received: 0, did_not_meet: 0, skipped: 0 };
+                  for (const state of Array.from(snapshotMap.values())) {
+                    if (state === 'received') counts.received++;
+                    else if (state === 'did_not_meet') counts.did_not_meet++;
+                    else if (state === 'skipped') counts.skipped++;
+                  }
+                  return (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/15 border border-green-500/25">
+                        <span className="text-lg font-bold text-green-400 leading-none">{counts.received}</span>
+                        <span className="text-xs font-medium text-green-300/80">Received</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/15 border border-blue-500/25">
+                        <span className="text-lg font-bold text-blue-400 leading-none">{counts.did_not_meet}</span>
+                        <span className="text-xs font-medium text-blue-300/80">Didn't Meet</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/25">
+                        <span className="text-lg font-bold text-amber-400 leading-none">{counts.skipped}</span>
+                        <span className="text-xs font-medium text-amber-300/80">Skipped</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Attendance stats */}
                 {weeklyAttendanceStats && (
-                  <div className="mt-1 text-xs opacity-80 flex flex-wrap gap-x-3 gap-y-0.5">
+                  <div className="mt-2 text-xs opacity-70 flex flex-wrap gap-x-3 gap-y-0.5">
                     <span>{weeklyAttendanceStats.receivedWithData} circle{weeklyAttendanceStats.receivedWithData !== 1 ? 's' : ''} reported · <strong>{weeklyAttendanceStats.totalAttended}</strong> total attended</span>
                     {weeklyAttendanceStats.avgRosterPct !== null && (
                       <span>avg <strong>{weeklyAttendanceStats.avgRosterPct}%</strong> of roster</span>
                     )}
                   </div>
                 )}
+
+                {/* Pull from CCB */}
                 <div className="mt-2">
                   <button
                     type="button"
