@@ -42,33 +42,6 @@ async function callGemini(apiKey: string, systemPrompt: string, text: string): P
   return { summary: summary.trim(), status: 200 };
 }
 
-async function callGroq(apiKey: string, systemPrompt: string, text: string): Promise<{ summary?: string; error?: string; status: number; rateLimited?: boolean }> {
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: text },
-      ],
-      temperature: 0.4,
-      max_tokens: 3000,
-      top_p: 0.85,
-    }),
-  });
-
-  if (!response.ok) {
-    if (response.status === 429) return { status: 429, rateLimited: true };
-    const err = await response.json().catch(() => ({}));
-    return { error: err?.error?.message || `Groq error: ${response.status}`, status: response.status };
-  }
-
-  const data = await response.json();
-  const summary = data?.choices?.[0]?.message?.content;
-  if (!summary) return { error: 'Groq returned an empty response.', status: 502 };
-  return { summary: summary.trim(), status: 200 };
-}
 
 const SYSTEM_PROMPT = `You are analyzing Circle Event Summary reports for pastoral insight.
 
@@ -193,9 +166,8 @@ export async function GET(request: NextRequest) {
 // POST /api/weekly-ai-summary — generate (does not save)
 export async function POST(request: NextRequest) {
   const geminiKey = process.env.GEMINI_API_KEY;
-  const groqKey = process.env.GROQ_API_KEY;
 
-  if (!geminiKey && !groqKey) {
+  if (!geminiKey) {
     return NextResponse.json({ error: 'AI summarization is not configured.' }, { status: 500 });
   }
 
@@ -345,21 +317,8 @@ export async function POST(request: NextRequest) {
     if (geminiKey) {
       const result = await callGemini(geminiKey, SYSTEM_PROMPT, prompt);
       if (result.summary) return NextResponse.json({ summary: result.summary });
-      if (result.rateLimited && groqKey) {
-        console.log('Gemini rate-limited, falling back to Groq');
-      } else if (!groqKey) {
-        return NextResponse.json(
-          { error: result.rateLimited ? 'AI rate limit reached. Please try again.' : result.error || 'AI error' },
-          { status: result.status }
-        );
-      }
-    }
-
-    if (groqKey) {
-      const result = await callGroq(groqKey, SYSTEM_PROMPT, prompt);
-      if (result.summary) return NextResponse.json({ summary: result.summary });
       return NextResponse.json(
-        { error: result.rateLimited ? 'Both AI providers are rate-limited.' : result.error || 'AI error' },
+        { error: result.error || 'AI error' },
         { status: result.status }
       );
     }

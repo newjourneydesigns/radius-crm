@@ -53,25 +53,14 @@ Rules:
 - If the input is very short or unclear, do your best and note what seems unclear`;
 }
 
-// --- Provider implementations ---
-
-async function callGemini(apiKey: string, systemPrompt: string, text: string, maxTokens: number = 2048): Promise<{ summary?: string; error?: string; status: number; rateLimited?: boolean }> {
+async function callGemini(apiKey: string, systemPrompt: string, text: string, maxTokens: number = 2048): Promise<{ summary?: string; error?: string; status: number }> {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                text: `${systemPrompt}\n\n---\n\n${text}`,
-              },
-            ],
-          },
-        ],
+        contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\n---\n\n${text}` }] }],
         generationConfig: {
           temperature: 0.3,
           maxOutputTokens: maxTokens,
@@ -88,66 +77,23 @@ async function callGemini(apiKey: string, systemPrompt: string, text: string, ma
   );
 
   if (!response.ok) {
-    if (response.status === 429) {
-      return { status: 429, rateLimited: true };
-    }
     const errorData = await response.json().catch(() => ({}));
     return { error: errorData?.error?.message || `Gemini error: ${response.status}`, status: response.status };
   }
 
   const data = await response.json();
   const summary = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!summary) {
-    return { error: 'Gemini returned an empty response.', status: 502 };
-  }
+  if (!summary) return { error: 'Gemini returned an empty response.', status: 502 };
   return { summary: summary.trim(), status: 200 };
 }
-
-async function callGroq(apiKey: string, systemPrompt: string, text: string, maxTokens: number = 2048): Promise<{ summary?: string; error?: string; status: number; rateLimited?: boolean }> {
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: text },
-      ],
-      temperature: 0.3,
-      max_tokens: maxTokens,
-      top_p: 0.8,
-    }),
-  });
-
-  if (!response.ok) {
-    if (response.status === 429) {
-      return { status: 429, rateLimited: true };
-    }
-    const errorData = await response.json().catch(() => ({}));
-    return { error: errorData?.error?.message || `Groq error: ${response.status}`, status: response.status };
-  }
-
-  const data = await response.json();
-  const summary = data?.choices?.[0]?.message?.content;
-  if (!summary) {
-    return { error: 'Groq returned an empty response.', status: 502 };
-  }
-  return { summary: summary.trim(), status: 200 };
-}
-
-// --- Route handler ---
 
 export async function POST(request: NextRequest) {
   try {
     const geminiKey = process.env.GEMINI_API_KEY;
-    const groqKey = process.env.GROQ_API_KEY;
 
-    if (!geminiKey && !groqKey) {
+    if (!geminiKey) {
       return NextResponse.json(
-        { error: 'AI summarization is not configured. Please add GEMINI_API_KEY or GROQ_API_KEY to your environment variables.' },
+        { error: 'AI summarization is not configured. Please add GEMINI_API_KEY.' },
         { status: 500 }
       );
     }
@@ -156,15 +102,11 @@ export async function POST(request: NextRequest) {
     const { text, mode } = body;
 
     if (!text || typeof text !== 'string' || text.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'No text provided to summarize.' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'No text provided to summarize.' }, { status: 400 });
     }
 
     const trimmedText = text.trim();
 
-    // For meeting-prep mode, pass the prompt directly (it already contains instructions)
     let systemPrompt: string;
     if (mode === 'meeting-prep') {
       systemPrompt = 'You are an expert coaching assistant for church ministry leadership. Follow the user\'s instructions exactly and produce a thorough, well-structured briefing.';
@@ -174,53 +116,13 @@ export async function POST(request: NextRequest) {
     }
 
     const maxTokens = mode === 'meeting-prep' ? 4096 : 2048;
+    const result = await callGemini(geminiKey, systemPrompt, trimmedText, maxTokens);
 
-    // Try Gemini first, fall back to Groq on rate limit or error
-    if (geminiKey) {
-      const geminiResult = await callGemini(geminiKey, systemPrompt, trimmedText, maxTokens);
-      
-      if (geminiResult.summary) {
-        return NextResponse.json({ summary: geminiResult.summary });
-      }
-
-      // If rate-limited and we have Groq, fall back silently
-      if (geminiResult.rateLimited && groqKey) {
-        console.log('Gemini rate-limited, falling back to Groq');
-      } else if (!groqKey) {
-        // No fallback available
-        const errorMsg = geminiResult.rateLimited
-          ? 'AI rate limit reached. Please wait a moment and try again.'
-          : geminiResult.error || 'AI service error';
-        return NextResponse.json({ error: errorMsg }, { status: geminiResult.status });
-      } else {
-        // Non-rate-limit error but we have Groq — try it
-        console.warn('Gemini error, falling back to Groq:', geminiResult.error);
-      }
-    }
-
-    // Groq: primary (if no Gemini key) or fallback
-    if (groqKey) {
-      const groqResult = await callGroq(groqKey, systemPrompt, trimmedText, maxTokens);
-
-      if (groqResult.summary) {
-        return NextResponse.json({ summary: groqResult.summary });
-      }
-
-      const errorMsg = groqResult.rateLimited
-        ? 'Both AI providers are rate-limited. Please wait a moment and try again.'
-        : groqResult.error || 'AI service error';
-      return NextResponse.json({ error: errorMsg }, { status: groqResult.status });
-    }
-
-    // Should never reach here, but just in case
-    return NextResponse.json({ error: 'No AI provider available.' }, { status: 500 });
-
+    if (result.summary) return NextResponse.json({ summary: result.summary });
+    return NextResponse.json({ error: result.error || 'AI service error' }, { status: result.status });
   } catch (error: unknown) {
     console.error('AI summarize error:', error);
     const message = error instanceof Error ? error.message : 'Internal server error';
-    return NextResponse.json(
-      { error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

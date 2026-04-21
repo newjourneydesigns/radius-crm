@@ -9,8 +9,7 @@ async function callGemini(
   apiKey: string,
   systemPrompt: string,
   messages: ChatMessage[]
-): Promise<{ reply?: string; error?: string; status: number; rateLimited?: boolean }> {
-  // Gemini uses a single contents array with alternating user/model roles
+): Promise<{ reply?: string; error?: string; status: number }> {
   const contents = messages.map((m) => ({
     role: m.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: m.content }],
@@ -40,7 +39,6 @@ async function callGemini(
   );
 
   if (!response.ok) {
-    if (response.status === 429) return { status: 429, rateLimited: true };
     const errorData = await response.json().catch(() => ({}));
     return {
       error: errorData?.error?.message || `Gemini error: ${response.status}`,
@@ -54,52 +52,13 @@ async function callGemini(
   return { reply: reply.trim(), status: 200 };
 }
 
-async function callGroq(
-  apiKey: string,
-  systemPrompt: string,
-  messages: ChatMessage[]
-): Promise<{ reply?: string; error?: string; status: number; rateLimited?: boolean }> {
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...messages.map((m) => ({ role: m.role, content: m.content })),
-      ],
-      temperature: 0.5,
-      max_tokens: 2048,
-      top_p: 0.9,
-    }),
-  });
-
-  if (!response.ok) {
-    if (response.status === 429) return { status: 429, rateLimited: true };
-    const errorData = await response.json().catch(() => ({}));
-    return {
-      error: errorData?.error?.message || `Groq error: ${response.status}`,
-      status: response.status,
-    };
-  }
-
-  const data = await response.json();
-  const reply = data?.choices?.[0]?.message?.content;
-  if (!reply) return { error: 'Groq returned an empty response.', status: 502 };
-  return { reply: reply.trim(), status: 200 };
-}
-
 export async function POST(request: NextRequest) {
   try {
     const geminiKey = process.env.GEMINI_API_KEY;
-    const groqKey = process.env.GROQ_API_KEY;
 
-    if (!geminiKey && !groqKey) {
+    if (!geminiKey) {
       return NextResponse.json(
-        { error: 'AI is not configured. Please add GEMINI_API_KEY or GROQ_API_KEY.' },
+        { error: 'AI is not configured. Please add GEMINI_API_KEY.' },
         { status: 500 }
       );
     }
@@ -130,34 +89,10 @@ Your role in this conversation:
 - Keep responses concise and leadership-focused — no fluff
 - Speak in the same direct, pastoral-strategic tone as the analysis itself`;
 
-    // Try Gemini first, fall back to Groq
-    if (geminiKey) {
-      const result = await callGemini(geminiKey, systemPrompt, messages);
-      if (result.reply) return NextResponse.json({ reply: result.reply });
+    const result = await callGemini(geminiKey, systemPrompt, messages);
 
-      if (result.rateLimited && groqKey) {
-        console.log('Gemini rate-limited, falling back to Groq');
-      } else if (!groqKey) {
-        const errorMsg = result.rateLimited
-          ? 'AI rate limit reached. Please wait a moment and try again.'
-          : result.error || 'AI service error';
-        return NextResponse.json({ error: errorMsg }, { status: result.status });
-      } else {
-        console.warn('Gemini error, falling back to Groq:', result.error);
-      }
-    }
-
-    if (groqKey) {
-      const result = await callGroq(groqKey, systemPrompt, messages);
-      if (result.reply) return NextResponse.json({ reply: result.reply });
-
-      const errorMsg = result.rateLimited
-        ? 'Both AI providers are rate-limited. Please wait a moment and try again.'
-        : result.error || 'AI service error';
-      return NextResponse.json({ error: errorMsg }, { status: result.status });
-    }
-
-    return NextResponse.json({ error: 'No AI provider available.' }, { status: 500 });
+    if (result.reply) return NextResponse.json({ reply: result.reply });
+    return NextResponse.json({ error: result.error || 'AI service error' }, { status: result.status });
   } catch (error: unknown) {
     console.error('CCB chat error:', error);
     const message = error instanceof Error ? error.message : 'Internal server error';

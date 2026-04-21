@@ -5,7 +5,7 @@
 //
 // Handles multi-turn conversation with Gemini function calling.
 // Persists conversation history in Supabase (ai_conversations).
-// Falls back to Groq if Gemini is rate-limited or errors.
+// Falls back to OpenAI (GPT-4o-mini) if Gemini is unavailable.
 // =============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -151,72 +151,13 @@ async function callGeminiWithTools(
   return { reply: reply.trim(), status: 200 };
 }
 
-// ---- Groq function calling (OpenAI compatible) ----
+// ---- OpenAI-compatible message format (used by OpenAI handler) ----
 
 interface GroqMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
   content: string | null;
   tool_calls?: { id: string; type: 'function'; function: { name: string; arguments: string } }[];
   tool_call_id?: string;
-}
-
-async function callGroqWithTools(
-  apiKey: string,
-  systemPrompt: string,
-  messages: GroqMessage[],
-  tools: ReturnType<typeof getGroqToolDeclarations>
-): Promise<{
-  reply?: string;
-  toolCalls?: { id: string; name: string; args: Record<string, unknown> }[];
-  error?: string;
-  status: number;
-  rateLimited?: boolean;
-}> {
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages: [{ role: 'system', content: systemPrompt }, ...messages],
-      tools: tools.length > 0 ? tools : undefined,
-      tool_choice: tools.length > 0 ? 'auto' : undefined,
-      temperature: 0.4,
-      max_tokens: 2048,
-      top_p: 0.9,
-    }),
-  });
-
-  if (!response.ok) {
-    if (response.status === 429) return { status: 429, rateLimited: true };
-    const errorData = await response.json().catch(() => ({}));
-    return {
-      error: errorData?.error?.message || `Groq error: ${response.status}`,
-      status: response.status,
-    };
-  }
-
-  const data = await response.json();
-  const choice = data?.choices?.[0];
-  if (!choice) return { error: 'Groq returned empty response.', status: 502 };
-
-  const msg = choice.message;
-
-  // Check for tool calls
-  if (msg.tool_calls && msg.tool_calls.length > 0) {
-    const toolCalls = msg.tool_calls.map((tc: { id: string; function: { name: string; arguments: string } }) => ({
-      id: tc.id,
-      name: tc.function.name,
-      args: JSON.parse(tc.function.arguments || '{}'),
-    }));
-    return { toolCalls, status: 200 };
-  }
-
-  const reply = msg.content;
-  if (!reply) return { error: 'Groq returned empty text.', status: 502 };
-  return { reply: reply.trim(), status: 200 };
 }
 
 // ---- OpenAI function calling (GPT-4o-mini) ----
@@ -352,11 +293,10 @@ export async function POST(request: NextRequest) {
   try {
     const geminiKey = process.env.GEMINI_API_KEY;
     const openaiKey = process.env.OPENAI_API_KEY;
-    const groqKey = process.env.GROQ_API_KEY;
 
-    if (!geminiKey && !openaiKey && !groqKey) {
+    if (!geminiKey && !openaiKey) {
       return NextResponse.json(
-        { error: 'AI is not configured. Please add GEMINI_API_KEY, OPENAI_API_KEY, or GROQ_API_KEY.' },
+        { error: 'AI is not configured. Please add GEMINI_API_KEY or OPENAI_API_KEY.' },
         { status: 500 }
       );
     }
@@ -419,7 +359,7 @@ export async function POST(request: NextRequest) {
     let actionLabel: string | undefined;
     let navigateTo: string | undefined;
     let pendingToolCall: { name: string; args: Record<string, unknown>; description: string } | undefined;
-    const hasAnyFallback = !!(openaiKey || groqKey);
+    const hasAnyFallback = !!(openaiKey);
 
     // ---- Try Gemini first ----
     if (geminiKey) {
@@ -465,39 +405,11 @@ export async function POST(request: NextRequest) {
         finalReply = openaiResult.reply;
         actionLabel = openaiResult.actionLabel;
         navigateTo = openaiResult.navigateTo;
-      } else if (openaiResult.rateLimited && groqKey) {
-        console.log('OpenAI rate-limited, falling back to Groq…');
-      } else if (!groqKey) {
+      } else {
         const errorMsg = openaiResult.rateLimited
           ? 'AI rate limit reached — please wait a moment and try again.'
           : openaiResult.error || 'AI service error.';
         return NextResponse.json({ error: errorMsg }, { status: openaiResult.status || 500 });
-      } else {
-        console.warn('OpenAI error, falling back to Groq:', openaiResult.error);
-      }
-    }
-
-    // ---- Groq fallback (Llama 3.3 70B) ----
-    if (!finalReply && !pendingToolCall && groqKey) {
-      const groqResult = await handleGroqConversation(
-        groqKey,
-        systemPrompt,
-        history,
-        userId,
-        userRole
-      );
-
-      if (groqResult.pendingToolCall) {
-        pendingToolCall = groqResult.pendingToolCall;
-      } else if (groqResult.reply) {
-        finalReply = groqResult.reply;
-        actionLabel = groqResult.actionLabel;
-        navigateTo = groqResult.navigateTo;
-      } else {
-        const errorMsg = groqResult.rateLimited
-          ? 'All AI providers are rate-limited — please wait a moment and try again.'
-          : groqResult.error || 'AI service error.';
-        return NextResponse.json({ error: errorMsg }, { status: groqResult.status || 500 });
       }
     }
 
@@ -619,93 +531,6 @@ async function handleGeminiConversation(
 
     // Shouldn't get here
     return { error: 'Unexpected response from Gemini', status: 500 };
-  }
-
-  return { error: 'Too many tool calls — stopping.', status: 500 };
-}
-
-// ---- Groq conversation handler with tool execution loop ----
-
-async function handleGroqConversation(
-  apiKey: string,
-  systemPrompt: string,
-  history: ConversationMessage[],
-  userId: string,
-  userRole: string
-): Promise<{
-  reply?: string;
-  actionLabel?: string;
-  navigateTo?: string;
-  pendingToolCall?: { name: string; args: Record<string, unknown>; description: string };
-  error?: string;
-  status?: number;
-  rateLimited?: boolean;
-}> {
-  const tools = getGroqToolDeclarations();
-  let messages = toGroqMessages(history);
-  let actionLabel: string | undefined;
-  let navigateTo: string | undefined;
-
-  // Tool execution loop (max 5 rounds)
-  for (let round = 0; round < 5; round++) {
-    const result = await callGroqWithTools(apiKey, systemPrompt, messages, tools);
-
-    if (result.rateLimited) return { rateLimited: true, status: 429 };
-    if (result.error) return { error: result.error, status: result.status };
-
-    // If we get a text reply, we're done
-    if (result.reply) {
-      return { reply: result.reply, actionLabel, navigateTo };
-    }
-
-    // If we get tool calls, execute them
-    if (result.toolCalls) {
-      // Intercept write tools — require client-side confirmation
-      const writeTC = result.toolCalls.find(tc => WRITE_TOOLS.includes(tc.name));
-      if (writeTC) {
-        return {
-          pendingToolCall: {
-            name: writeTC.name,
-            args: writeTC.args,
-            description: describeToolCall(writeTC.name, writeTC.args),
-          },
-        };
-      }
-
-      // Add assistant message with tool calls
-      messages.push({
-        role: 'assistant',
-        content: null,
-        tool_calls: result.toolCalls.map((tc) => ({
-          id: tc.id,
-          type: 'function' as const,
-          function: { name: tc.name, arguments: JSON.stringify(tc.args) },
-        })),
-      });
-
-      // Execute each tool and add results
-      for (const tc of result.toolCalls) {
-        const toolResult = await executeTool(
-          { name: tc.name, args: tc.args } as ToolCall,
-          userId,
-          userRole
-        );
-        if (toolResult.actionLabel) actionLabel = toolResult.actionLabel;
-        const res = toolResult.result as Record<string, unknown>;
-        if (res?.navigateTo) navigateTo = res.navigateTo as string;
-
-        messages.push({
-          role: 'tool',
-          content: JSON.stringify(toolResult.result),
-          tool_call_id: tc.id,
-        });
-      }
-
-      // Continue loop — Groq will process the tool results
-      continue;
-    }
-
-    return { error: 'Unexpected response from Groq', status: 500 };
   }
 
   return { error: 'Too many tool calls — stopping.', status: 500 };

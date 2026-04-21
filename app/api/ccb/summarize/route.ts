@@ -81,7 +81,7 @@ function buildPrompt(
       ? startDate
       : `${startDate} to ${endDate}`;
 
-  const systemPrompt = `Act as a high-level ministry strategist and spiritual formation consultant.
+  return `Act as a high-level ministry strategist and spiritual formation consultant.
 
 I will paste multiple Circle Event reports below. Your job is to produce a full leadership-level report with insight, not just summaries.
 
@@ -165,28 +165,19 @@ Group Filter: ${groupName || 'All Groups'}
 Here are the Circle Event reports:
 
 ${formattedReports}`;
-
-  return systemPrompt;
 }
-
-// --- Provider implementations (same pattern as /api/ai-summarize) ---
 
 async function callGemini(
   apiKey: string,
   prompt: string
-): Promise<{ summary?: string; error?: string; status: number; rateLimited?: boolean }> {
+): Promise<{ summary?: string; error?: string; status: number }> {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: prompt }],
-          },
-        ],
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.4,
           maxOutputTokens: 8192,
@@ -203,7 +194,6 @@ async function callGemini(
   );
 
   if (!response.ok) {
-    if (response.status === 429) return { status: 429, rateLimited: true };
     const errorData = await response.json().catch(() => ({}));
     return {
       error: errorData?.error?.message || `Gemini error: ${response.status}`,
@@ -217,60 +207,13 @@ async function callGemini(
   return { summary: summary.trim(), status: 200 };
 }
 
-async function callGroq(
-  apiKey: string,
-  prompt: string
-): Promise<{ summary?: string; error?: string; status: number; rateLimited?: boolean }> {
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are an expert ministry strategist and spiritual formation consultant. Follow the user\'s instructions exactly and produce thorough, structured leadership reports.',
-        },
-        { role: 'user', content: prompt },
-      ],
-      temperature: 0.4,
-      max_tokens: 8000,
-      top_p: 0.9,
-    }),
-  });
-
-  if (!response.ok) {
-    if (response.status === 429) return { status: 429, rateLimited: true };
-    const errorData = await response.json().catch(() => ({}));
-    return {
-      error: errorData?.error?.message || `Groq error: ${response.status}`,
-      status: response.status,
-    };
-  }
-
-  const data = await response.json();
-  const summary = data?.choices?.[0]?.message?.content;
-  if (!summary) return { error: 'Groq returned an empty response.', status: 502 };
-  return { summary: summary.trim(), status: 200 };
-}
-
-// --- Route handler ---
-
 export async function POST(request: NextRequest) {
   try {
     const geminiKey = process.env.GEMINI_API_KEY;
-    const groqKey = process.env.GROQ_API_KEY;
 
-    if (!geminiKey && !groqKey) {
+    if (!geminiKey) {
       return NextResponse.json(
-        {
-          error:
-            'AI summarization is not configured. Please add GEMINI_API_KEY or GROQ_API_KEY to your environment variables.',
-        },
+        { error: 'AI summarization is not configured. Please add GEMINI_API_KEY.' },
         { status: 500 }
       );
     }
@@ -288,41 +231,10 @@ export async function POST(request: NextRequest) {
     }
 
     const prompt = buildPrompt(events, startDate, endDate, groupName);
+    const result = await callGemini(geminiKey, prompt);
 
-    // Try Gemini first, fall back to Groq
-    if (geminiKey) {
-      const geminiResult = await callGemini(geminiKey, prompt);
-
-      if (geminiResult.summary) {
-        return NextResponse.json({ summary: geminiResult.summary });
-      }
-
-      if (geminiResult.rateLimited && groqKey) {
-        console.log('Gemini rate-limited, falling back to Groq');
-      } else if (!groqKey) {
-        const errorMsg = geminiResult.rateLimited
-          ? 'AI rate limit reached. Please wait a moment and try again.'
-          : geminiResult.error || 'AI service error';
-        return NextResponse.json({ error: errorMsg }, { status: geminiResult.status });
-      } else {
-        console.warn('Gemini error, falling back to Groq:', geminiResult.error);
-      }
-    }
-
-    if (groqKey) {
-      const groqResult = await callGroq(groqKey, prompt);
-
-      if (groqResult.summary) {
-        return NextResponse.json({ summary: groqResult.summary });
-      }
-
-      const errorMsg = groqResult.rateLimited
-        ? 'Both AI providers are rate-limited. Please wait a moment and try again.'
-        : groqResult.error || 'AI service error';
-      return NextResponse.json({ error: errorMsg }, { status: groqResult.status });
-    }
-
-    return NextResponse.json({ error: 'No AI provider available.' }, { status: 500 });
+    if (result.summary) return NextResponse.json({ summary: result.summary });
+    return NextResponse.json({ error: result.error || 'AI service error' }, { status: result.status });
   } catch (error: unknown) {
     console.error('CCB summarize error:', error);
     const message = error instanceof Error ? error.message : 'Internal server error';
