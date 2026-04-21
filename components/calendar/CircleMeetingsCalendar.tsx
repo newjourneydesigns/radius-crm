@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import type { DatesSetArg, EventClickArg, EventContentArg } from '@fullcalendar/core';
 import listPlugin from '@fullcalendar/list';
@@ -19,6 +19,75 @@ import { useAuth } from '../../contexts/AuthContext';
 const FullCalendar = dynamic(() => import('@fullcalendar/react'), { ssr: false });
 
 const DEFAULT_CALENDAR_VIEW = 'listWeek';
+
+function renderAISummary(text: string) {
+  const lines = text.split('\n');
+  const elements: ReactNode[] = [];
+  let key = 0;
+
+  const renderInline = (str: string): ReactNode => {
+    const parts = str.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, i) =>
+      part.startsWith('**') && part.endsWith('**')
+        ? <strong key={i} className="text-white font-semibold">{part.slice(2, -2)}</strong>
+        : part
+    );
+  };
+
+  let i = 0;
+  while (i < lines.length) {
+    const raw = lines[i];
+    const line = raw.trim();
+
+    if (!line) { i++; continue; }
+
+    // Section header: **N. Title** or N. Title at start of line
+    const cleanHeader = line.replace(/^\*\*/, '').replace(/\*\*$/, '');
+    if ((line.startsWith('**') && line.endsWith('**') && /\d+\./.test(line)) || /^\d+\.\s+\*\*/.test(line)) {
+      const label = cleanHeader.replace(/^\d+\.\s+/, '').replace(/\*\*/g, '');
+      const num = cleanHeader.match(/^(\d+)/)?.[1];
+      elements.push(
+        <div key={key++} className={`flex items-baseline gap-2 mt-5 mb-2 pb-1.5 border-b border-purple-500/20 ${i === 0 || elements.length === 0 ? 'mt-2' : ''}`}>
+          {num && <span className="text-xs font-bold text-purple-400/60 tabular-nums w-4 shrink-0">{num}</span>}
+          <h3 className="text-sm font-semibold text-purple-200 uppercase tracking-wide">{label}</h3>
+        </div>
+      );
+      i++; continue;
+    }
+
+    // Bullet: starts with * or - or •
+    if (/^[\*\-•]\s+/.test(line)) {
+      const content = line.replace(/^[\*\-•]\s+/, '');
+      elements.push(
+        <div key={key++} className="flex gap-2 py-0.5">
+          <span className="text-purple-400/50 mt-0.5 shrink-0 text-xs">▸</span>
+          <p className="text-sm text-slate-200 leading-relaxed">{renderInline(content)}</p>
+        </div>
+      );
+      i++; continue;
+    }
+
+    // Pull quote: line starts with " or is a quoted statement with an em dash attribution
+    if (line.startsWith('"') && line.includes('–')) {
+      const [quote, ...rest] = line.split('–');
+      elements.push(
+        <div key={key++} className="border-l-2 border-purple-500/40 pl-3 py-1 my-1">
+          <p className="text-sm text-slate-300 italic leading-relaxed">{quote.trim()}</p>
+          {rest.length > 0 && <p className="text-xs text-slate-500 mt-0.5">— {rest.join('–').trim()}</p>}
+        </div>
+      );
+      i++; continue;
+    }
+
+    // Regular paragraph
+    elements.push(
+      <p key={key++} className="text-sm text-slate-200 leading-relaxed py-0.5">{renderInline(line)}</p>
+    );
+    i++;
+  }
+
+  return <div className="space-y-0.5">{elements}</div>;
+}
 
 type CalendarEvent = {
   id: string;
@@ -1635,7 +1704,7 @@ export default function CircleMeetingsCalendar({
               {/* Summary text — generated (unsaved) */}
               {generatedSummary && !isGeneratingSummary && (
                 <div className="px-4 py-4">
-                  <pre className="whitespace-pre-wrap text-sm text-slate-200 font-sans leading-relaxed">{generatedSummary}</pre>
+                  {renderAISummary(generatedSummary)}
                 </div>
               )}
 
@@ -1643,7 +1712,7 @@ export default function CircleMeetingsCalendar({
               {savedSummary && !generatedSummary && !isGeneratingSummary && (
                 <>
                   <div className="px-4 py-4">
-                    <pre className="whitespace-pre-wrap text-sm text-slate-200 font-sans leading-relaxed">{savedSummary.summary_text}</pre>
+                    {renderAISummary(savedSummary.summary_text)}
                   </div>
                   <div className="px-4 py-2 border-t border-purple-500/15 flex items-center gap-2 text-xs text-purple-500/70">
                     <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
