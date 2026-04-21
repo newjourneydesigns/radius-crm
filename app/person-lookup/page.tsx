@@ -52,10 +52,22 @@ export default function PersonLookupPage() {
       setSelectedBoard('');
       setSelectedColumn('');
       setColumns([]);
+
+      // Pre-populate description with contact info
+      if (selectedPerson) {
+        const contactPhone = selectedPerson.mobilePhone || selectedPerson.phone || '';
+        const contactInfo = [
+          contactPhone && `Phone: ${contactPhone}`,
+          selectedPerson.email && `Email: ${selectedPerson.email}`,
+        ]
+          .filter(Boolean)
+          .join('\n');
+        setCardDescription(contactInfo);
+      }
     } catch (err) {
       console.error('Failed to fetch boards:', err);
     }
-  }, []);
+  }, [selectedPerson]);
 
   // Fetch columns when board is selected
   const handleBoardChange = useCallback(async (boardId: string) => {
