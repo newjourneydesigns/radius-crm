@@ -2,13 +2,28 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import CCBPersonLookup from '../../components/ui/CCBPersonLookup';
+import Modal from '../../components/ui/Modal';
+import { useProjectBoard } from '../../hooks/useProjectBoard';
+import { supabase } from '../../lib/supabase';
 import type { CCBPerson } from '../../components/ui/CCBPersonLookup';
+import type { ProjectBoard, BoardColumn } from '../../lib/supabase';
 
 export default function PersonLookupPage() {
   const [selectedPerson, setSelectedPerson] = useState<CCBPerson | null>(null);
   const [lookupKey, setLookupKey] = useState(0);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
   const [copiedField, setCopiedField] = useState<'phone' | 'email' | null>(null);
+
+  // Card creation modal state
+  const [showCardModal, setShowCardModal] = useState(false);
+  const [boards, setBoards] = useState<ProjectBoard[]>([]);
+  const [columns, setColumns] = useState<BoardColumn[]>([]);
+  const [selectedBoard, setSelectedBoard] = useState<string>('');
+  const [selectedColumn, setSelectedColumn] = useState<string>('');
+  const [cardDescription, setCardDescription] = useState('');
+  const [cardDueDate, setCardDueDate] = useState('');
+  const [creatingCard, setCreatingCard] = useState(false);
+  const { addCard } = useProjectBoard();
 
   const handleSelect = useCallback((person: CCBPerson) => {
     setSelectedPerson(person);
@@ -20,7 +35,70 @@ export default function PersonLookupPage() {
     setLookupKey((k) => k + 1);
     setCopyStatus('idle');
     setCopiedField(null);
+    setShowCardModal(false);
   };
+
+  // Fetch boards when modal opens
+  const handleOpenCardModal = useCallback(async () => {
+    setShowCardModal(true);
+    try {
+      const { data, error } = await supabase
+        .from('project_boards')
+        .select('*')
+        .eq('is_archived', false)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setBoards(data || []);
+      setSelectedBoard('');
+      setSelectedColumn('');
+      setColumns([]);
+    } catch (err) {
+      console.error('Failed to fetch boards:', err);
+    }
+  }, []);
+
+  // Fetch columns when board is selected
+  const handleBoardChange = useCallback(async (boardId: string) => {
+    setSelectedBoard(boardId);
+    setSelectedColumn('');
+    if (!boardId) {
+      setColumns([]);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('board_columns')
+        .select('*')
+        .eq('board_id', boardId)
+        .order('position');
+      if (error) throw error;
+      setColumns(data || []);
+    } catch (err) {
+      console.error('Failed to fetch columns:', err);
+    }
+  }, []);
+
+  // Create card
+  const handleCreateCard = useCallback(async () => {
+    if (!selectedPerson || !selectedBoard || !selectedColumn) return;
+
+    setCreatingCard(true);
+    try {
+      await addCard(selectedBoard, {
+        column_id: selectedColumn,
+        title: selectedPerson.fullName,
+        description: cardDescription || undefined,
+        due_date: cardDueDate || undefined,
+      });
+      setShowCardModal(false);
+      setCardDescription('');
+      setCardDueDate('');
+    } catch (err) {
+      console.error('Failed to create card:', err);
+    } finally {
+      setCreatingCard(false);
+    }
+  }, [selectedPerson, selectedBoard, selectedColumn, cardDescription, cardDueDate, addCard]);
 
   const handleCopyField = useCallback(async (value: string, field: 'phone' | 'email') => {
     try {
@@ -450,32 +528,56 @@ export default function PersonLookupPage() {
 
             {/* Clear selection */}
             <div style={{ padding: '12px 20px', borderTop: '1px solid #374151' }}>
-              <button
-                onClick={handleClear}
-                type="button"
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  color: '#9ca3af',
-                  background: 'transparent',
-                  border: '1px solid #4b5563',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = '#fff';
-                  e.currentTarget.style.borderColor = '#6b7280';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = '#9ca3af';
-                  e.currentTarget.style.borderColor = '#4b5563';
-                }}
-              >
-                Clear &amp; Search Again
-              </button>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <button
+                  onClick={() => handleOpenCardModal()}
+                  type="button"
+                  style={{
+                    padding: '8px',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    color: '#fff',
+                    background: 'linear-gradient(135deg, #4c6785, #8da9c4)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget.style.opacity) = '0.9';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget.style.opacity) = '1';
+                  }}
+                >
+                  Add to Board
+                </button>
+                <button
+                  onClick={handleClear}
+                  type="button"
+                  style={{
+                    padding: '8px',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    color: '#9ca3af',
+                    background: 'transparent',
+                    border: '1px solid #4b5563',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = '#fff';
+                    e.currentTarget.style.borderColor = '#6b7280';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = '#9ca3af';
+                    e.currentTarget.style.borderColor = '#4b5563';
+                  }}
+                >
+                  Clear &amp; Search Again
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -508,6 +610,173 @@ export default function PersonLookupPage() {
             </p>
           </div>
         )}
+
+        {/* Create Card Modal */}
+        <Modal
+          isOpen={showCardModal}
+          onClose={() => setShowCardModal(false)}
+          title={`Add ${selectedPerson?.fullName} to Board`}
+          size="md"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Board Selection */}
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#d1d5db', marginBottom: '6px' }}>
+                Select Board *
+              </label>
+              <select
+                value={selectedBoard}
+                onChange={(e) => handleBoardChange(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  fontSize: '13px',
+                  background: '#374151',
+                  border: '1px solid #4b5563',
+                  borderRadius: '6px',
+                  color: '#e5e7eb',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="">Choose a board...</option>
+                {boards.map(board => (
+                  <option key={board.id} value={board.id}>{board.title}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* List/Column Selection */}
+            {selectedBoard && (
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#d1d5db', marginBottom: '6px' }}>
+                  Select List *
+                </label>
+                <select
+                  value={selectedColumn}
+                  onChange={(e) => setSelectedColumn(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    fontSize: '13px',
+                    background: '#374151',
+                    border: '1px solid #4b5563',
+                    borderRadius: '6px',
+                    color: '#e5e7eb',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="">Choose a list...</option>
+                  {columns.map(column => (
+                    <option key={column.id} value={column.id}>{column.title}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Description */}
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#d1d5db', marginBottom: '6px' }}>
+                Description (optional)
+              </label>
+              <textarea
+                value={cardDescription}
+                onChange={(e) => setCardDescription(e.target.value)}
+                placeholder="Add notes about this task..."
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  fontSize: '13px',
+                  background: '#374151',
+                  border: '1px solid #4b5563',
+                  borderRadius: '6px',
+                  color: '#e5e7eb',
+                  minHeight: '80px',
+                  fontFamily: 'inherit',
+                  resize: 'vertical',
+                }}
+              />
+            </div>
+
+            {/* Due Date */}
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#d1d5db', marginBottom: '6px' }}>
+                Due Date (optional)
+              </label>
+              <input
+                type="date"
+                value={cardDueDate}
+                onChange={(e) => setCardDueDate(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  fontSize: '13px',
+                  background: '#374151',
+                  border: '1px solid #4b5563',
+                  borderRadius: '6px',
+                  color: '#e5e7eb',
+                  cursor: 'pointer',
+                }}
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+              <button
+                onClick={handleCreateCard}
+                disabled={!selectedBoard || !selectedColumn || creatingCard}
+                type="button"
+                style={{
+                  flex: 1,
+                  padding: '10px 16px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  color: '#fff',
+                  background: !selectedBoard || !selectedColumn ? '#6b7280' : 'linear-gradient(135deg, #4c6785, #8da9c4)',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: !selectedBoard || !selectedColumn ? 'not-allowed' : 'pointer',
+                  opacity: creatingCard ? 0.7 : 1,
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={(e) => {
+                  if (!selectedBoard || !selectedColumn || creatingCard) return;
+                  (e.currentTarget.style.opacity) = '0.9';
+                }}
+                onMouseLeave={(e) => {
+                  if (!selectedBoard || !selectedColumn || creatingCard) return;
+                  (e.currentTarget.style.opacity) = '1';
+                }}
+              >
+                {creatingCard ? 'Creating...' : 'Create Card'}
+              </button>
+              <button
+                onClick={() => setShowCardModal(false)}
+                type="button"
+                style={{
+                  padding: '10px 16px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: '#9ca3af',
+                  background: 'transparent',
+                  border: '1px solid #4b5563',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#fff';
+                  e.currentTarget.style.borderColor = '#6b7280';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = '#9ca3af';
+                  e.currentTarget.style.borderColor = '#4b5563';
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </Modal>
       </div>
     </div>
   );
