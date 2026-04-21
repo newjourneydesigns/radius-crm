@@ -1105,7 +1105,7 @@ export default function CircleMeetingsCalendar({
         // Calculate status counts for the current week
         const currentWeekCounts = { received: 0, did_not_meet: 0, skipped: 0, not_received: 0 };
         for (const leader of leaders) {
-          if (!filteredLeaderIds.has(leader.id) || !scheduledLeaderIds.has(leader.id)) continue;
+          if (!scheduledLeaderIds.has(leader.id)) continue;
           const state = getEffectiveLeaderState(leader.id);
           if (state === 'received') currentWeekCounts.received++;
           else if (state === 'did_not_meet') currentWeekCounts.did_not_meet++;
@@ -1113,7 +1113,8 @@ export default function CircleMeetingsCalendar({
           else currentWeekCounts.not_received++;
         }
         // Only show the dashboard if there are scheduled leaders
-        if (scheduledLeaderIds.size === 0) return null;
+        const hasScheduledLeaders = leadersWithSchedules.length > 0;
+        if (!hasScheduledLeaders) return null;
         return (
           <div className="mb-4 rounded-xl overflow-hidden border bg-slate-800/60 border-slate-700 text-sm">
             {/* Header */}
