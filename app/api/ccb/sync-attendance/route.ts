@@ -135,6 +135,7 @@ function buildOccurrenceRows(
         didNotMeet: att.didNotMeet,
         topic: att.topic,
         notes: att.notes,
+        prayerRequests: att.prayerRequests,
         attendeeCount: att.attendees?.length,
       },
       attendees,

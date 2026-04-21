@@ -762,6 +762,60 @@ export class CCBClient {
   }
 
   /**
+   * Fetch ALL attendance profiles for a date range — no group name filter.
+   * Returns every event with notes, prayerRequests, and attendee info.
+   * Used by the weekly AI summary to get all CCB Event Summary Reports for a week.
+   */
+  async getAllEventsForWeek(startDate: string, endDate: string): Promise<Array<{
+    eventId: string;
+    title: string;
+    occurDate: string;
+    notes: string | null;
+    prayerRequests: string | null;
+    topic: string | null;
+    headCount: number | null;
+    didNotMeet: boolean;
+    attendees: Array<{ id?: string; name?: string; status?: string }>;
+  }>> {
+    const xml = await this.getXml({
+      srv: 'attendance_profiles',
+      start_date: startDate,
+      end_date: endDate,
+    });
+
+    const eventsRoot = xml?.ccb_api?.response?.events ?? null;
+    const rawEvents: any[] = Array.isArray(eventsRoot?.event)
+      ? eventsRoot.event
+      : eventsRoot?.event ? [eventsRoot.event] : [];
+
+    const results = [];
+    for (const event of rawEvents) {
+      const attendance = this.normalizeAttendance(
+        { ccb_api: { response: { attendance: event } } },
+        true
+      );
+      if (!attendance) continue;
+      const eventId = String(event?.['@_id'] || event?.id || '').trim();
+      const title = String(event?.name || event?.event_name || '').trim();
+      const occurrence = String(event?.['@_occurrence'] || event?.occurrence || '').trim();
+      if (!eventId || !occurrence) continue;
+
+      results.push({
+        eventId,
+        title,
+        occurDate: occurrence,
+        notes: attendance.notes ?? null,
+        prayerRequests: attendance.prayerRequests ?? null,
+        topic: attendance.topic ?? null,
+        headCount: attendance.headCount ?? null,
+        didNotMeet: attendance.didNotMeet ?? false,
+        attendees: attendance.attendees ?? [],
+      });
+    }
+    return results;
+  }
+
+  /**
    * Fetch all attendance profiles for a date range and match them to provided leader names.
    * Returns a map of leaderId → { hasReport, didNotMeet } from CCB.
    * Single API call regardless of how many leaders are checked.

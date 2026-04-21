@@ -302,6 +302,7 @@ type CircleMeetingsCalendarProps = {
   isLoading?: boolean;
   loadError?: string | null;
   onSetEventSummaryState?: (leaderId: number, state: EventSummaryState) => Promise<void> | void;
+  activeFilterLabel?: string;
 };
 
 export default function CircleMeetingsCalendar({
@@ -309,6 +310,7 @@ export default function CircleMeetingsCalendar({
   isLoading: isLoadingLeaders = false,
   loadError = null,
   onSetEventSummaryState,
+  activeFilterLabel = 'All Circles',
 }: CircleMeetingsCalendarProps) {
   const router = useRouter();
   const { user } = useAuth();
@@ -347,6 +349,16 @@ export default function CircleMeetingsCalendar({
   // Attendance data — headcount + roster size per leader for the visible week
   type AttendanceEntry = { headcount: number | null; rosterCount: number | null; hasNotes: boolean | null; guestCount: number | null };
   const [attendanceData, setAttendanceData] = useState<Map<number, AttendanceEntry> | null>(null);
+
+  // AI weekly summary state
+  type SavedSummary = { id: string; summary_text: string; filter_label: string; generated_at: string };
+  const [savedSummary, setSavedSummary] = useState<SavedSummary | null>(null);
+  const [generatedSummary, setGeneratedSummary] = useState<string | null>(null);
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [isSavingSummary, setIsSavingSummary] = useState(false);
+  const [showAiSummary, setShowAiSummary] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [summaryCopied, setSummaryCopied] = useState(false);
 
   // Default meeting length; can be made configurable later.
   const durationMinutes = 60;
@@ -520,6 +532,110 @@ export default function CircleMeetingsCalendar({
     }).catch(err => { if (!cancelled) console.error('Failed to load attendance data:', err); });
     return () => { cancelled = true; };
   }, [visibleWeekSundayISO, leaders]);
+
+  // Fetch saved AI summary when the visible week changes
+  useEffect(() => {
+    if (!visibleWeekSundayISO) {
+      setSavedSummary(null);
+      setGeneratedSummary(null);
+      setShowAiSummary(false);
+      return;
+    }
+    let cancelled = false;
+    setSavedSummary(null);
+    setGeneratedSummary(null);
+    setShowAiSummary(false);
+
+    fetch(`/api/weekly-ai-summary?week=${encodeURIComponent(visibleWeekSundayISO)}`)
+      .then(r => r.json())
+      .then(({ summary }) => {
+        if (!cancelled && summary) {
+          setSavedSummary(summary);
+          setShowAiSummary(false); // collapsed by default
+        }
+      })
+      .catch(err => { if (!cancelled) console.error('Failed to load saved AI summary:', err); });
+
+    return () => { cancelled = true; };
+  }, [visibleWeekSundayISO]);
+
+  const handleGenerateSummary = useCallback(async () => {
+    if (!visibleWeekSundayISO || leaders.length === 0) return;
+    setIsGeneratingSummary(true);
+    setSummaryError(null);
+    setGeneratedSummary(null);
+    setShowAiSummary(true);
+
+    const weekStart = DateTime.fromISO(visibleWeekSundayISO);
+    const weekEnd = weekStart.plus({ days: 6 });
+    const weekLabel = `${weekStart.toFormat('MMM d')}–${weekEnd.toFormat('MMM d, yyyy')}`;
+
+    // Compute scheduled IDs inline (same logic as scheduledLeaderIds useMemo, but defined later)
+    const scheduled = new Set(events.map(e => e.extendedProps?.leaderId).filter((id): id is number => id != null));
+
+    const leaderPayload = leaders.map(l => {
+      const state = snapshotMap
+        ? (snapshotMap.get(l.id) ?? (scheduled.has(l.id) ? 'not_received' : undefined))
+        : l.event_summary_state;
+      return {
+        id: l.id,
+        name: l.name,
+        circle_type: l.circle_type,
+        campus: l.campus,
+        acpd: l.acpd,
+        status: l.status,
+        eventState: state ?? 'not_received',
+        followUpRequired: l.follow_up_required ?? false,
+        followUpNote: l.follow_up_note,
+      };
+    });
+
+    try {
+      const res = await fetch('/api/weekly-ai-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weekStartDate: visibleWeekSundayISO, weekLabel, leaders: leaderPayload, filterLabel: activeFilterLabel }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setSummaryError(data.error || 'Failed to generate summary.');
+      } else {
+        setGeneratedSummary(data.summary);
+      }
+    } catch {
+      setSummaryError('Failed to generate summary. Please try again.');
+    } finally {
+      setIsGeneratingSummary(false);
+    }
+  }, [visibleWeekSundayISO, leaders, snapshotMap, events, activeFilterLabel]);
+
+  const handleSaveSummary = useCallback(async () => {
+    if (!generatedSummary || !visibleWeekSundayISO || !user?.id) return;
+    setIsSavingSummary(true);
+    try {
+      const res = await fetch('/api/weekly-ai-summary', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          weekStartDate: visibleWeekSundayISO,
+          summaryText: generatedSummary,
+          filterLabel: activeFilterLabel,
+          generatedBy: user.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setSummaryError(data.error || 'Failed to save summary.');
+      } else {
+        setSavedSummary(data.summary);
+        setGeneratedSummary(null);
+      }
+    } catch {
+      setSummaryError('Failed to save summary. Please try again.');
+    } finally {
+      setIsSavingSummary(false);
+    }
+  }, [generatedSummary, visibleWeekSundayISO, activeFilterLabel, user]);
 
   const openEventExplorerForLeader = useCallback((leaderId: number, isoDate?: string | null) => {
     const leader = leaders.find(l => l.id === leaderId);
@@ -984,6 +1100,113 @@ export default function CircleMeetingsCalendar({
         </div>
       )}
 
+      {/* Current week dashboard */}
+      {!isViewingSnapshot && visibleWeekSundayISO && (() => {
+        // Calculate status counts for the current week
+        const currentWeekCounts = { received: 0, did_not_meet: 0, skipped: 0, not_received: 0 };
+        for (const leader of leaders) {
+          if (!filteredLeaderIds.has(leader.id) || !scheduledLeaderIds.has(leader.id)) continue;
+          const state = getEffectiveLeaderState(leader.id);
+          if (state === 'received') currentWeekCounts.received++;
+          else if (state === 'did_not_meet') currentWeekCounts.did_not_meet++;
+          else if (state === 'skipped') currentWeekCounts.skipped++;
+          else currentWeekCounts.not_received++;
+        }
+        // Only show the dashboard if there are scheduled leaders
+        if (scheduledLeaderIds.size === 0) return null;
+        return (
+          <div className="mb-4 rounded-xl overflow-hidden border bg-slate-800/60 border-slate-700 text-sm">
+            {/* Header */}
+            <div className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2.5">
+                <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Current Week</span>
+                  <span className="text-sm font-medium text-white">
+                    {`${DateTime.fromISO(visibleWeekSundayISO).toFormat('MMM d')} – ${DateTime.fromISO(visibleWeekSundayISO).plus({ days: 6 }).toFormat('MMM d, yyyy')}`}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Status band */}
+            <div className="grid grid-cols-4 divide-x divide-slate-700/60 border-t border-slate-700/60 bg-slate-900/30">
+              <div className="px-4 py-3 text-center">
+                <p className="text-2xl font-bold text-green-400 leading-none">{currentWeekCounts.received}</p>
+                <p className="text-xs text-green-300/60 mt-1">Received</p>
+              </div>
+              <div className="px-4 py-3 text-center">
+                <p className="text-2xl font-bold text-blue-400 leading-none">{currentWeekCounts.did_not_meet}</p>
+                <p className="text-xs text-blue-300/60 mt-1">Didn&apos;t Meet</p>
+              </div>
+              <div className="px-4 py-3 text-center">
+                <p className="text-2xl font-bold text-amber-400 leading-none">{currentWeekCounts.skipped}</p>
+                <p className="text-xs text-amber-300/60 mt-1">Skipped</p>
+              </div>
+              <div className="px-4 py-3 text-center">
+                <p className="text-2xl font-bold text-red-400 leading-none">{currentWeekCounts.not_received}</p>
+                <p className="text-xs text-red-300/60 mt-1">Not Reported</p>
+              </div>
+            </div>
+
+            {/* Footer: attendance stats + action buttons */}
+            <div className="px-4 py-2.5 border-t border-slate-700/60 flex items-center justify-between gap-4 flex-wrap">
+              {weeklyAttendanceStats ? (
+                <div className="flex items-center gap-5">
+                  <div>
+                    <p className="text-xs text-slate-500">Circles</p>
+                    <p className="text-sm font-semibold text-slate-200 leading-tight">
+                      {weeklyAttendanceStats.receivedWithData}
+                      {weeklyAttendanceStats.receivedWithData < weeklyAttendanceStats.totalReceived && (
+                        <span className="text-slate-500 font-normal"> of {weeklyAttendanceStats.totalReceived}</span>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Attended</p>
+                    <p className="text-sm font-semibold text-slate-200 leading-tight">{weeklyAttendanceStats.totalAttended}</p>
+                  </div>
+                  {weeklyAttendanceStats.avgRosterPct !== null && (
+                    <div>
+                      <p className="text-xs text-slate-500">Avg Roster</p>
+                      <p className="text-sm font-semibold text-slate-200 leading-tight">{weeklyAttendanceStats.avgRosterPct}%</p>
+                    </div>
+                  )}
+                </div>
+              ) : <div />}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handlePullFromCCB}
+                  disabled={isPullingCCB || isAutoUpdating}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 hover:bg-slate-600 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors"
+                >
+                  {isPullingCCB ? (
+                    <><svg className="animate-spin w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>Pulling…</>
+                  ) : (
+                    <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>Pull from CCB</>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAutoUpdate}
+                  disabled={isPullingCCB || isAutoUpdating}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/80 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors"
+                >
+                  {isAutoUpdating ? (
+                    <><svg className="animate-spin w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>Updating…</>
+                  ) : (
+                    <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>Auto-update from CCB</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Past-week snapshot banner */}
       {isViewingSnapshot && (
         <div className={`mb-4 rounded-xl overflow-hidden border text-sm ${
@@ -1401,7 +1624,189 @@ export default function CircleMeetingsCalendar({
             </div>
           )}
         </div>
-      )}    
+      )}
+
+      {/* AI Weekly Summary Panel */}
+      {isListView && visibleWeekSundayISO && (
+        <div className="mb-4">
+          {/* Header bar — always visible */}
+          <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl border border-purple-500/25 bg-purple-500/8">
+            <div className="flex items-center gap-2 min-w-0">
+              {/* Sparkle icon */}
+              <svg className="w-4 h-4 shrink-0 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+              </svg>
+              <span className="text-xs font-semibold text-purple-300">AI Weekly Summary</span>
+              {savedSummary && !generatedSummary && (
+                <span className="text-xs text-purple-400/60 truncate hidden sm:block">
+                  · {savedSummary.filter_label}
+                </span>
+              )}
+              {generatedSummary && (
+                <span className="text-xs font-medium px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 leading-none">
+                  unsaved
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Save / Discard for freshly generated */}
+              {generatedSummary && !isSavingSummary && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleSaveSummary}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-purple-600/70 hover:bg-purple-600 text-white transition-colors border border-purple-500/40"
+                  >
+                    <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V7l-4-4z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 3v4H7V3" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-5h6v5" />
+                    </svg>
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setGeneratedSummary(null); setShowAiSummary(!!savedSummary); }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-purple-400 hover:text-purple-200 hover:bg-purple-500/15 transition-colors"
+                  >
+                    Discard
+                  </button>
+                </>
+              )}
+              {isSavingSummary && (
+                <svg className="animate-spin w-4 h-4 text-purple-400 shrink-0" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              )}
+
+              {/* Generate / Regenerate button */}
+              {!generatedSummary && (
+                <button
+                  type="button"
+                  onClick={handleGenerateSummary}
+                  disabled={isGeneratingSummary || leaders.length === 0}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-purple-600/70 hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors border border-purple-500/40"
+                >
+                  {isGeneratingSummary ? (
+                    <>
+                      <svg className="animate-spin w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Generating…
+                    </>
+                  ) : savedSummary ? (
+                    <>
+                      <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Regenerate
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                      </svg>
+                      Generate Summary
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* Copy button */}
+              {(generatedSummary || savedSummary) && !isGeneratingSummary && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = generatedSummary ?? savedSummary?.summary_text ?? '';
+                    navigator.clipboard.writeText(text).then(() => {
+                      setSummaryCopied(true);
+                      setTimeout(() => setSummaryCopied(false), 2000);
+                    });
+                  }}
+                  className="p-1 rounded-md text-purple-400 hover:text-purple-200 hover:bg-purple-500/15 transition-colors"
+                  title="Copy summary"
+                >
+                  {summaryCopied ? (
+                    <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  )}
+                </button>
+              )}
+
+              {/* Expand / collapse toggle */}
+              {(savedSummary || generatedSummary || isGeneratingSummary) && (
+                <button
+                  type="button"
+                  onClick={() => setShowAiSummary(v => !v)}
+                  className="p-1 rounded-md text-purple-400 hover:text-purple-200 hover:bg-purple-500/15 transition-colors"
+                  title={showAiSummary ? 'Collapse' : 'Expand'}
+                >
+                  <svg className={`w-4 h-4 transition-transform duration-200 ${showAiSummary ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Expandable content */}
+          {showAiSummary && (
+            <div className="mt-1 rounded-xl border border-purple-500/20 bg-slate-900/60 overflow-hidden">
+              {/* Error state */}
+              {summaryError && (
+                <div className="px-4 py-3 text-sm text-red-300 flex items-start gap-2">
+                  <svg className="w-4 h-4 shrink-0 mt-0.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  {summaryError}
+                </div>
+              )}
+
+              {/* Generating skeleton */}
+              {isGeneratingSummary && !summaryError && (
+                <div className="px-4 py-4 space-y-2.5">
+                  <div className="animate-pulse space-y-2">
+                    <div className="h-3.5 bg-purple-500/20 rounded w-3/4" />
+                    <div className="h-3.5 bg-purple-500/15 rounded w-full" />
+                    <div className="h-3.5 bg-purple-500/15 rounded w-5/6" />
+                    <div className="h-3.5 bg-purple-500/10 rounded w-2/3" />
+                  </div>
+                </div>
+              )}
+
+              {/* Summary text — generated (unsaved) */}
+              {generatedSummary && !isGeneratingSummary && (
+                <div className="px-4 py-4">
+                  <pre className="whitespace-pre-wrap text-sm text-slate-200 font-sans leading-relaxed">{generatedSummary}</pre>
+                </div>
+              )}
+
+              {/* Summary text — saved */}
+              {savedSummary && !generatedSummary && !isGeneratingSummary && (
+                <>
+                  <div className="px-4 py-4">
+                    <pre className="whitespace-pre-wrap text-sm text-slate-200 font-sans leading-relaxed">{savedSummary.summary_text}</pre>
+                  </div>
+                  <div className="px-4 py-2 border-t border-purple-500/15 flex items-center gap-2 text-xs text-purple-500/70">
+                    <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Generated for: {savedSummary.filter_label} · {DateTime.fromISO(savedSummary.generated_at).toFormat('MMM d, yyyy')}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="calendar-shell">
         <FullCalendar

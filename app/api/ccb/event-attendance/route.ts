@@ -351,6 +351,7 @@ async function recordAttendance(
             didNotMeet: event.didNotMeet,
             topic: event.topic,
             notes: event.notes,
+            prayerRequests: event.prayerRequests,
             attendeeCount: event.attendees.length,
           },
           synced_at: new Date().toISOString(),

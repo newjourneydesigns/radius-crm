@@ -249,6 +249,18 @@ function CalendarPageContent() {
     return filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }, [circleLeaders, connectedLeaderIds, filters]);
 
+  // Human-readable label describing the current active filters — passed to AI summary
+  const activeFilterLabel = useMemo(() => {
+    const parts: string[] = [];
+    if (filters.campus.length === 1) parts.push(filters.campus[0]);
+    else if (filters.campus.length > 1) parts.push(`${filters.campus.length} campuses`);
+    if (filters.acpd.length === 1) parts.push(filters.acpd[0]);
+    else if (filters.acpd.length > 1) parts.push(`${filters.acpd.length} ACPDs`);
+    if (filters.circleType.length === 1) parts.push(filters.circleType[0]);
+    else if (filters.circleType.length > 1) parts.push(`${filters.circleType.length} types`);
+    return parts.length > 0 ? parts.join(' · ') : 'All Circles';
+  }, [filters.campus, filters.acpd, filters.circleType]);
+
   // Fallback: if reference-data fails/returns empty, derive filter options from loaded leaders
   const derivedCampuses = useMemo(() => {
     const values = new Set<string>();
@@ -315,6 +327,7 @@ function CalendarPageContent() {
         isLoading={isLoading || referenceDataLoading}
         loadError={error}
         onSetEventSummaryState={setEventSummaryState}
+        activeFilterLabel={activeFilterLabel}
       />
     </>
   );
