@@ -546,7 +546,7 @@ export default function CircleMeetingsCalendar({
     setGeneratedSummary(null);
     setShowAiSummary(false);
 
-    fetch(`/api/weekly-ai-summary?week=${encodeURIComponent(visibleWeekSundayISO)}`)
+    fetch(`/api/weekly-ai-summary?week=${encodeURIComponent(visibleWeekSundayISO)}&userId=${encodeURIComponent(user?.id ?? '')}`)
       .then(r => r.json())
       .then(({ summary }) => {
         if (!cancelled && summary) {

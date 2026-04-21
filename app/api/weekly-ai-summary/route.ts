@@ -161,11 +161,15 @@ Important instructions:
 
 // --- Route handlers ---
 
-// GET /api/weekly-ai-summary?week=YYYY-MM-DD
+// GET /api/weekly-ai-summary?week=YYYY-MM-DD&userId=UUID
 export async function GET(request: NextRequest) {
   const week = request.nextUrl.searchParams.get('week');
+  const userId = request.nextUrl.searchParams.get('userId');
   if (!week) {
     return NextResponse.json({ error: 'week parameter required' }, { status: 400 });
+  }
+  if (!userId) {
+    return NextResponse.json({ error: 'userId parameter required' }, { status: 400 });
   }
 
   try {
@@ -174,6 +178,7 @@ export async function GET(request: NextRequest) {
       .from('weekly_ai_summaries')
       .select('*')
       .eq('week_start_date', week)
+      .eq('generated_by', userId)
       .maybeSingle();
 
     if (error) throw error;
@@ -375,11 +380,11 @@ export async function PUT(request: NextRequest) {
       weekStartDate: string;
       summaryText: string;
       filterLabel: string;
-      generatedBy?: string;
+      generatedBy: string;
     };
 
-    if (!weekStartDate || !summaryText) {
-      return NextResponse.json({ error: 'weekStartDate and summaryText are required.' }, { status: 400 });
+    if (!weekStartDate || !summaryText || !generatedBy) {
+      return NextResponse.json({ error: 'weekStartDate, summaryText, and generatedBy are required.' }, { status: 400 });
     }
 
     const db = getServiceClient();
@@ -390,10 +395,10 @@ export async function PUT(request: NextRequest) {
           week_start_date: weekStartDate,
           summary_text: summaryText,
           filter_label: filterLabel || 'All Circles',
-          generated_by: generatedBy ?? null,
+          generated_by: generatedBy,
           generated_at: new Date().toISOString(),
         },
-        { onConflict: 'week_start_date' }
+        { onConflict: 'week_start_date,generated_by' }
       )
       .select()
       .single();
