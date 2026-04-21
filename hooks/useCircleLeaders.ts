@@ -398,9 +398,10 @@ export const useCircleLeaders = () => {
         )
       );
 
-      // When marked as "Yes" (received), sync last 3 weeks of attendance + roster from CCB
+      // When marked as "Yes" (received), sync last 3 weeks of attendance + roster from CCB.
+      // Awaited so callers can refetch attendance data after the DB write completes.
       if (state === 'received') {
-        fetch('/api/ccb/sync-leader-attendance', {
+        await fetch('/api/ccb/sync-leader-attendance', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ leaderId }),

@@ -12,6 +12,7 @@ import type { CircleLeader, EventSummaryState } from '../../lib/supabase';
 import { getEventSummaryState, getEventSummaryColors } from '../../lib/event-summary-utils';
 import EventExplorerModal from '../modals/EventExplorerModal';
 import EventSummaryReminderModal from '../modals/EventSummaryReminderModal';
+import WeeklySummaryChatModal from '../modals/WeeklySummaryChatModal';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -359,6 +360,7 @@ export default function CircleMeetingsCalendar({
   const [showAiSummary, setShowAiSummary] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [summaryCopied, setSummaryCopied] = useState(false);
+  const [showSummaryChatModal, setShowSummaryChatModal] = useState(false);
 
   // Default meeting length; can be made configurable later.
   const durationMinutes = 60;
@@ -493,16 +495,15 @@ export default function CircleMeetingsCalendar({
     return () => { cancelled = true; };
   }, [visibleWeekSundayISO, isViewingSnapshot]);
 
-  // Fetch attendance (headcounts + roster sizes) for the visible week — runs for any week.
-  useEffect(() => {
+  // Fetch attendance (headcounts + roster sizes) for the visible week.
+  // Extracted as a callback so it can be called manually after CCB syncs write new data.
+  const fetchAttendanceData = useCallback(() => {
     if (!visibleWeekSundayISO || leaders.length === 0) {
       setAttendanceData(null);
       return;
     }
-    let cancelled = false;
     const weekEnd = DateTime.fromISO(visibleWeekSundayISO).plus({ days: 6 }).toISODate()!;
     const leaderIds = leaders.map(l => l.id);
-
     Promise.all([
       supabase
         .from('circle_meeting_occurrences')
@@ -515,7 +516,6 @@ export default function CircleMeetingsCalendar({
         .select('circle_leader_id')
         .in('circle_leader_id', leaderIds),
     ]).then(([occRes, rosterRes]) => {
-      if (cancelled) return;
       const rosterCounts = new Map<number, number>();
       for (const row of (rosterRes.data ?? [])) {
         rosterCounts.set(row.circle_leader_id, (rosterCounts.get(row.circle_leader_id) ?? 0) + 1);
@@ -529,9 +529,12 @@ export default function CircleMeetingsCalendar({
         if (existing) map.set(occ.leader_id, { ...existing, headcount: occ.headcount, hasNotes: occ.has_notes ?? null, guestCount: occ.guest_count ?? null });
       }
       setAttendanceData(map);
-    }).catch(err => { if (!cancelled) console.error('Failed to load attendance data:', err); });
-    return () => { cancelled = true; };
+    }).catch(err => console.error('Failed to load attendance data:', err));
   }, [visibleWeekSundayISO, leaders]);
+
+  useEffect(() => {
+    fetchAttendanceData();
+  }, [fetchAttendanceData]);
 
   // Fetch saved AI summary when the visible week changes
   useEffect(() => {
@@ -818,6 +821,7 @@ export default function CircleMeetingsCalendar({
         `CCB data pulled — ${withReport} of ${json.pulled} leader${json.pulled !== 1 ? 's' : ''} have a report this week.`
       );
       setTimeout(() => setActionSuccess(null), 6000);
+      fetchAttendanceData();
     } catch (err: any) {
       console.error('Error pulling from CCB:', err);
       setActionError(err.message || 'Failed to pull from CCB');
@@ -825,7 +829,7 @@ export default function CircleMeetingsCalendar({
     } finally {
       setIsPullingCCB(false);
     }
-  }, [visibleWeekSundayISO, leaders, ccbReportMap, snapshotMap]);
+  }, [visibleWeekSundayISO, leaders, ccbReportMap, snapshotMap, fetchAttendanceData]);
 
   /** Auto-applies CCB states to leaders still marked not_received. Flags conflicts without overwriting. */
   const handleAutoUpdate = useCallback(async () => {
@@ -864,11 +868,15 @@ export default function CircleMeetingsCalendar({
         setCcbReportMap(reportMap);
       }
 
-      // For current week: update local state immediately instead of relying on realtime
+      // The API already wrote occurrence data — refetch attendance immediately so counts appear
+      if (json.updated > 0) fetchAttendanceData();
+
+      // For current week: update local state immediately instead of relying on realtime.
+      // Run in parallel so per-leader CCB syncs don't serialize.
       if (!isViewingSnapshot && json.updated_leaders?.length > 0) {
-        for (const { id, state } of json.updated_leaders) {
-          await setLeaderEventSummaryState(id, state);
-        }
+        await Promise.all(json.updated_leaders.map(({ id, state }: { id: number; state: EventSummaryState }) =>
+          setLeaderEventSummaryState(id, state)
+        ));
       }
 
       const conflictCount = json.conflicts?.length ?? 0;
@@ -886,7 +894,7 @@ export default function CircleMeetingsCalendar({
     } finally {
       setIsAutoUpdating(false);
     }
-  }, [visibleWeekSundayISO, leaders, isViewingSnapshot, setLeaderEventSummaryState]);
+  }, [visibleWeekSundayISO, leaders, isViewingSnapshot, setLeaderEventSummaryState, fetchAttendanceData]);
 
   /** Routes a state-button click to either the live update or the snapshot update depending on the current view mode. */
   const handleEventSummaryButtonClick = useCallback(async (leaderId: number, state: EventSummaryState) => {
@@ -895,7 +903,9 @@ export default function CircleMeetingsCalendar({
     } else {
       await setLeaderEventSummaryState(leaderId, state);
     }
-  }, [isViewingSnapshot, updateSnapshotEntry, setLeaderEventSummaryState]);
+    // CCB sync (for 'received') is now awaited in the hook, so data is in DB here — refetch attendance
+    fetchAttendanceData();
+  }, [isViewingSnapshot, updateSnapshotEntry, setLeaderEventSummaryState, fetchAttendanceData]);
 
   const handleOpenReminderModal = useCallback(async (leader: CircleLeader) => {
     setSelectedLeader(leader);
@@ -1563,6 +1573,21 @@ export default function CircleMeetingsCalendar({
                       Generate Summary
                     </>
                   )}
+                </button>
+              )}
+
+              {/* Chat button — opens follow-up dialog */}
+              {(savedSummary || generatedSummary) && !isGeneratingSummary && (
+                <button
+                  type="button"
+                  onClick={() => setShowSummaryChatModal(true)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-purple-300 hover:text-purple-100 hover:bg-purple-500/15 transition-colors border border-purple-500/25 hover:border-purple-500/40"
+                  title="Ask follow-up questions about this summary"
+                >
+                  <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  Chat
                 </button>
               )}
 
@@ -2284,6 +2309,22 @@ export default function CircleMeetingsCalendar({
           onSend={handleSendEventSummaryReminder}
         />
       )}
+
+      {/* Weekly Summary Chat Modal */}
+      <WeeklySummaryChatModal
+        isOpen={showSummaryChatModal}
+        onClose={() => setShowSummaryChatModal(false)}
+        summary={generatedSummary ?? savedSummary?.summary_text ?? null}
+        weekLabel={visibleWeekSundayISO
+          ? (() => {
+              const ws = DateTime.fromISO(visibleWeekSundayISO);
+              const we = ws.plus({ days: 6 });
+              return `${ws.toFormat('MMM d')}–${we.toFormat('MMM d, yyyy')}`;
+            })()
+          : ''}
+        filterLabel={activeFilterLabel}
+        leaderCount={leaders.length}
+      />
 
       {/* Missing Schedule Info */}
       {!isLoadingLeaders && leadersWithoutSchedules.length > 0 && (
