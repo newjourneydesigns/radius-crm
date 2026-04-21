@@ -121,16 +121,6 @@ export interface CircleLeader {
   };
 }
 
-export interface WeeklyAiSummary {
-  id: string;
-  week_start_date: string; // YYYY-MM-DD (Sunday)
-  summary_text: string;
-  filter_label: string;
-  generated_by?: string;
-  generated_at: string;
-  created_at: string;
-}
-
 export interface Note {
   id: number;
   circle_leader_id: number;
