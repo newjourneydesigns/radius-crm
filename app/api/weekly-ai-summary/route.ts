@@ -13,7 +13,7 @@ function getServiceClient() {
 
 async function callGemini(apiKey: string, systemPrompt: string, text: string): Promise<{ summary?: string; error?: string; status: number; rateLimited?: boolean }> {
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
