@@ -122,7 +122,6 @@ const TodayIcon = () => (
 const primaryNavItems = [
   { name: 'Today',     href: '/today',     icon: TodayIcon },
   { name: 'Boards',    href: '/boards',    icon: BoardIcon },
-  { name: 'Dashboard', href: '/circle-dashboard', icon: CircleDashIcon },
   { name: 'Prayer',    href: '/prayer',    icon: PrayerIcon },
   { name: 'Progress',  href: '/progress',  icon: ChartIcon },
   { name: 'Events',    href: '/calendar',  icon: CalendarIcon },
