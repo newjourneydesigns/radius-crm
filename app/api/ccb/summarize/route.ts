@@ -50,12 +50,7 @@ function formatEventReport(event: EventData, index: number): string {
   }
 
   if (event.attendees.length > 0) {
-    const names = event.attendees.map((a) => {
-      let n = a.name || 'Unknown';
-      if (a.status && a.status !== 'Present') n += ` (${a.status})`;
-      return n;
-    });
-    lines.push(`Attendees Recorded (${event.attendees.length}): ${names.join(', ')}`);
+    lines.push(`Attendees Recorded: ${event.attendees.length}`);
   }
 
   if (event.topic) {
