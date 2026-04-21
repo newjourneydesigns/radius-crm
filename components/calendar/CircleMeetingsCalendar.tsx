@@ -1133,32 +1133,32 @@ export default function CircleMeetingsCalendar({
             </div>
 
             {/* Status band */}
-            <div className="grid grid-cols-4 divide-x divide-slate-700/60 border-t border-slate-700/60 bg-slate-900/30">
-              <div className="px-4 py-3 text-center">
-                <p className="text-2xl font-bold text-green-400 leading-none">{currentWeekCounts.received}</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-700/60 border-t border-slate-700/60 bg-slate-900/30">
+              <div className="px-3 sm:px-4 py-2.5 sm:py-3 text-center">
+                <p className="text-xl sm:text-2xl font-bold text-green-400 leading-none">{currentWeekCounts.received}</p>
                 <p className="text-xs text-green-300/60 mt-1">Received</p>
               </div>
-              <div className="px-4 py-3 text-center">
-                <p className="text-2xl font-bold text-blue-400 leading-none">{currentWeekCounts.did_not_meet}</p>
+              <div className="px-3 sm:px-4 py-2.5 sm:py-3 text-center">
+                <p className="text-xl sm:text-2xl font-bold text-blue-400 leading-none">{currentWeekCounts.did_not_meet}</p>
                 <p className="text-xs text-blue-300/60 mt-1">Didn&apos;t Meet</p>
               </div>
-              <div className="px-4 py-3 text-center">
-                <p className="text-2xl font-bold text-amber-400 leading-none">{currentWeekCounts.skipped}</p>
+              <div className="px-3 sm:px-4 py-2.5 sm:py-3 text-center">
+                <p className="text-xl sm:text-2xl font-bold text-amber-400 leading-none">{currentWeekCounts.skipped}</p>
                 <p className="text-xs text-amber-300/60 mt-1">Skipped</p>
               </div>
-              <div className="px-4 py-3 text-center">
-                <p className="text-2xl font-bold text-red-400 leading-none">{currentWeekCounts.not_received}</p>
+              <div className="px-3 sm:px-4 py-2.5 sm:py-3 text-center">
+                <p className="text-xl sm:text-2xl font-bold text-red-400 leading-none">{currentWeekCounts.not_received}</p>
                 <p className="text-xs text-red-300/60 mt-1">Not Reported</p>
               </div>
             </div>
 
             {/* Footer: attendance stats + action buttons */}
-            <div className="px-4 py-2.5 border-t border-slate-700/60 flex items-center justify-between gap-4 flex-wrap">
+            <div className="px-3 sm:px-4 py-2.5 border-t border-slate-700/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-wrap">
               {weeklyAttendanceStats ? (
-                <div className="flex items-center gap-5">
+                <div className="flex items-center gap-3 sm:gap-5 text-xs sm:text-sm">
                   <div>
                     <p className="text-xs text-slate-500">Circles</p>
-                    <p className="text-sm font-semibold text-slate-200 leading-tight">
+                    <p className="font-semibold text-slate-200 leading-tight">
                       {weeklyAttendanceStats.receivedWithData}
                       {weeklyAttendanceStats.receivedWithData < weeklyAttendanceStats.totalReceived && (
                         <span className="text-slate-500 font-normal"> of {weeklyAttendanceStats.totalReceived}</span>
@@ -1167,39 +1167,39 @@ export default function CircleMeetingsCalendar({
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">Attended</p>
-                    <p className="text-sm font-semibold text-slate-200 leading-tight">{weeklyAttendanceStats.totalAttended}</p>
+                    <p className="font-semibold text-slate-200 leading-tight">{weeklyAttendanceStats.totalAttended}</p>
                   </div>
                   {weeklyAttendanceStats.avgRosterPct !== null && (
                     <div>
                       <p className="text-xs text-slate-500">Avg Roster</p>
-                      <p className="text-sm font-semibold text-slate-200 leading-tight">{weeklyAttendanceStats.avgRosterPct}%</p>
+                      <p className="font-semibold text-slate-200 leading-tight">{weeklyAttendanceStats.avgRosterPct}%</p>
                     </div>
                   )}
                 </div>
               ) : <div />}
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={handlePullFromCCB}
                   disabled={isPullingCCB || isAutoUpdating}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 hover:bg-slate-600 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors"
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center sm:justify-start gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 hover:bg-slate-600 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors"
                 >
                   {isPullingCCB ? (
                     <><svg className="animate-spin w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>Pulling…</>
                   ) : (
-                    <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>Pull from CCB</>
+                    <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg><span className="hidden sm:inline">Pull from CCB</span><span className="sm:hidden">Pull</span></>
                   )}
                 </button>
                 <button
                   type="button"
                   onClick={handleAutoUpdate}
                   disabled={isPullingCCB || isAutoUpdating}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/80 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors"
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center sm:justify-start gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/80 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors"
                 >
                   {isAutoUpdating ? (
                     <><svg className="animate-spin w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>Updating…</>
                   ) : (
-                    <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>Auto-update from CCB</>
+                    <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg><span className="hidden sm:inline">Auto-update from CCB</span><span className="sm:hidden">Auto</span></>
                   )}
                 </button>
               </div>
