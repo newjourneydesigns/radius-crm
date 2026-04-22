@@ -85,10 +85,15 @@ export async function POST(request: NextRequest) {
     if (is_current_week) {
       const { data: rows } = await supabase
         .from('circle_leaders')
-        .select('id, event_summary_state')
+        .select('id, event_summary_state, event_summary_state_week')
         .in('id', leader_ids);
       for (const row of rows ?? []) {
-        currentStateMap.set(row.id, (row.event_summary_state ?? 'not_received') as EventSummaryState);
+        // Treat state as not_received if it was set in a different week — the UI does the same.
+        const stateIsCurrentWeek = row.event_summary_state_week === week_start_date;
+        const effectiveState = stateIsCurrentWeek
+          ? (row.event_summary_state ?? 'not_received') as EventSummaryState
+          : 'not_received';
+        currentStateMap.set(row.id, effectiveState);
       }
     } else {
       const { data: rows } = await supabase

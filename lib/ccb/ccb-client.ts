@@ -694,7 +694,7 @@ export class CCBClient {
       const xml = await this.getXml({
         srv: 'attendance_profiles',
         start_date: startDate,
-        end_date: endDate
+        end_date: endDate,
       });
 
       // Parse attendance data
