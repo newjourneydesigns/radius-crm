@@ -67,7 +67,8 @@ export async function GET(request: NextRequest) {
         name: profile.name,
         role: profile.role,
         created_at: profile.created_at,
-        last_sign_in_at: null // Can't get this without service role key
+        last_sign_in_at: null,
+        email_confirmed_at: null,
       }));
       
       return NextResponse.json({ users });
@@ -99,6 +100,7 @@ export async function GET(request: NextRequest) {
         email: authUser.email,
         created_at: authUser.created_at,
         last_sign_in_at: authUser.last_sign_in_at,
+        email_confirmed_at: authUser.email_confirmed_at || null,
         name: profile?.name || null,
         role: profile?.role || 'user'
       };

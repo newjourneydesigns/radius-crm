@@ -11,6 +11,7 @@ interface User {
   role?: string;
   created_at: string;
   last_sign_in_at: string;
+  email_confirmed_at?: string | null;
 }
 
 interface UserFormData {
@@ -252,6 +253,21 @@ export default function UsersPage() {
         title: 'Error',
         message: error.message || 'Failed to send access link.',
       });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleVerifyEmail = async (user: User) => {
+    try {
+      setIsSubmitting(true);
+      const response = await apiFetch(`/api/users/${user.id}/verify-email`, { method: 'POST' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to verify email');
+      setShowAlert({ isOpen: true, type: 'success', title: 'Email Verified', message: `Email verified for ${user.email}.` });
+      loadUsers();
+    } catch (error: any) {
+      setShowAlert({ isOpen: true, type: 'error', title: 'Error', message: error.message || 'Failed to verify email.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -597,6 +613,12 @@ export default function UsersPage() {
                           className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 transition-colors">
                           Edit
                         </button>
+                        {!user.email_confirmed_at && (
+                          <button onClick={() => handleVerifyEmail(user)} disabled={isSubmitting}
+                            className="text-amber-600 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-300 transition-colors">
+                            Verify Email
+                          </button>
+                        )}
                         <button onClick={() => { setPasswordUser(user); setNewPassword(''); setShowPassword(false); }} disabled={isSubmitting}
                           className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 transition-colors">
                           Set Password
