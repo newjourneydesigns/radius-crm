@@ -20,6 +20,20 @@ const FullCalendar = dynamic(() => import('@fullcalendar/react'), { ssr: false }
 
 const DEFAULT_CALENDAR_VIEW = 'listWeek';
 
+function getWoWTrend(current: number | null | undefined, previous: number | null | undefined): 'up' | 'down' | 'flat' | null {
+  if (current == null || previous == null) return null;
+  if (current > previous) return 'up';
+  if (current < previous) return 'down';
+  return 'flat';
+}
+
+function WoWArrow({ trend }: { trend: 'up' | 'down' | 'flat' | null }) {
+  if (!trend) return null;
+  if (trend === 'up') return <span className="text-green-400 font-bold" title="Up from last week">↑</span>;
+  if (trend === 'down') return <span className="text-red-400 font-bold" title="Down from last week">↓</span>;
+  return <span className="text-slate-500 font-bold" title="Same as last week">→</span>;
+}
+
 function renderAISummary(text: string) {
   const lines = text.split('\n');
   const elements: ReactNode[] = [];
@@ -421,6 +435,8 @@ export default function CircleMeetingsCalendar({
   // Attendance data — headcount + roster size per leader for the visible week
   type AttendanceEntry = { headcount: number | null; rosterCount: number | null; hasNotes: boolean | null; guestCount: number | null };
   const [attendanceData, setAttendanceData] = useState<Map<number, AttendanceEntry> | null>(null);
+  // Prior week headcounts (leader_id → headcount) for WoW trend
+  const [prevAttendanceData, setPrevAttendanceData] = useState<Map<number, number> | null>(null);
 
   // AI weekly summary state
   type SavedSummary = { id: string; summary_text: string; filter_label: string; generated_at: string };
@@ -566,14 +582,16 @@ export default function CircleMeetingsCalendar({
     return () => { cancelled = true; };
   }, [visibleWeekSundayISO, isViewingSnapshot]);
 
-  // Fetch attendance (headcounts + roster sizes) for the visible week.
+  // Fetch attendance (headcounts + roster sizes) for the visible week, plus prior week headcounts for WoW trend.
   // Extracted as a callback so it can be called manually after CCB syncs write new data.
   const fetchAttendanceData = useCallback(() => {
     if (!visibleWeekSundayISO || leaders.length === 0) {
       setAttendanceData(null);
+      setPrevAttendanceData(null);
       return;
     }
     const weekEnd = DateTime.fromISO(visibleWeekSundayISO).plus({ days: 6 }).toISODate()!;
+    const lookbackStart = DateTime.fromISO(visibleWeekSundayISO).minus({ days: 56 }).toISODate()!;
     const leaderIds = leaders.map(l => l.id);
     Promise.all([
       supabase
@@ -586,7 +604,15 @@ export default function CircleMeetingsCalendar({
         .from('circle_roster_cache')
         .select('circle_leader_id')
         .in('circle_leader_id', leaderIds),
-    ]).then(([occRes, rosterRes]) => {
+      supabase
+        .from('circle_meeting_occurrences')
+        .select('leader_id, headcount, meeting_date')
+        .eq('status', 'met')
+        .gte('meeting_date', lookbackStart)
+        .lt('meeting_date', visibleWeekSundayISO)
+        .in('leader_id', leaderIds)
+        .order('meeting_date', { ascending: false }),
+    ]).then(([occRes, rosterRes, prevOccRes]) => {
       const rosterCounts = new Map<number, number>();
       for (const row of (rosterRes.data ?? [])) {
         rosterCounts.set(row.circle_leader_id, (rosterCounts.get(row.circle_leader_id) ?? 0) + 1);
@@ -600,6 +626,14 @@ export default function CircleMeetingsCalendar({
         if (existing) map.set(occ.leader_id, { ...existing, headcount: occ.headcount, hasNotes: occ.has_notes ?? null, guestCount: occ.guest_count ?? null });
       }
       setAttendanceData(map);
+      // Results are ordered newest-first — take the first headcount seen per leader (most recent prior)
+      const prevMap = new Map<number, number>();
+      for (const occ of (prevOccRes.data ?? [])) {
+        if (occ.headcount != null && !prevMap.has(occ.leader_id)) {
+          prevMap.set(occ.leader_id, occ.headcount);
+        }
+      }
+      setPrevAttendanceData(prevMap);
     }).catch(err => console.error('Failed to load attendance data:', err));
   }, [visibleWeekSundayISO, leaders]);
 
@@ -802,6 +836,9 @@ export default function CircleMeetingsCalendar({
     let totalReceived = 0;
     let unreportedWithData = 0;
     let totalUnreportedAttended = 0;
+    let prevTotalForComparison = 0;
+    let currTotalForComparison = 0;
+    let comparedCount = 0;
     const unreportedLeaders: Array<{ id: number; name: string; headcount: number; rosterCount: number | null }> = [];
     for (const leader of leaders) {
       const state = getEffectiveLeaderState(leader.id);
@@ -815,6 +852,12 @@ export default function CircleMeetingsCalendar({
           rosterPctSum += Math.round((att.headcount / att.rosterCount) * 100);
           rosterPctCount++;
         }
+        const prev = prevAttendanceData?.get(leader.id);
+        if (prev != null) {
+          currTotalForComparison += att.headcount;
+          prevTotalForComparison += prev;
+          comparedCount++;
+        }
       } else if (att?.headcount) {
         unreportedWithData++;
         totalUnreportedAttended += att.headcount;
@@ -822,6 +865,9 @@ export default function CircleMeetingsCalendar({
       }
     }
     if (receivedWithData === 0 && unreportedWithData === 0) return null;
+    const attendanceTrend = comparedCount > 0
+      ? getWoWTrend(currTotalForComparison, prevTotalForComparison)
+      : null;
     return {
       totalAttended,
       avgRosterPct: rosterPctCount > 0 ? Math.round(rosterPctSum / rosterPctCount) : null,
@@ -830,8 +876,9 @@ export default function CircleMeetingsCalendar({
       unreportedWithData,
       totalUnreportedAttended,
       unreportedLeaders,
+      attendanceTrend,
     };
-  }, [attendanceData, leaders, getEffectiveLeaderState]);
+  }, [attendanceData, prevAttendanceData, leaders, getEffectiveLeaderState]);
 
   /** Updates a single leader's state in the archived snapshot for the currently-viewed past week. */
   const updateSnapshotEntry = useCallback(async (leaderId: number, state: EventSummaryState) => {
@@ -1251,7 +1298,10 @@ export default function CircleMeetingsCalendar({
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">Attended</p>
-                    <p className="font-semibold text-slate-200 leading-tight">{weeklyAttendanceStats.totalAttended}</p>
+                    <p className="font-semibold text-slate-200 leading-tight flex items-center gap-1">
+                      {weeklyAttendanceStats.totalAttended}
+                      <WoWArrow trend={weeklyAttendanceStats.attendanceTrend} />
+                    </p>
                   </div>
                   {weeklyAttendanceStats.avgRosterPct !== null && (
                     <div>
@@ -1909,9 +1959,11 @@ export default function CircleMeetingsCalendar({
                         const pct = att.rosterCount && att.rosterCount > 0
                           ? Math.round((att.headcount / att.rosterCount) * 100)
                           : null;
+                        const trend = getWoWTrend(att.headcount, prevAttendanceData?.get(leaderId));
                         return (
-                          <div className="text-[11px] text-green-400/80 mt-0.5 leading-snug">
-                            {att.headcount} attended{pct !== null ? ` · ${pct}% of roster` : ''}
+                          <div className="flex items-center gap-1 text-[11px] text-green-400/80 mt-0.5 leading-snug">
+                            <span>{att.headcount} attended{pct !== null ? ` · ${pct}% of roster` : ''}</span>
+                            <WoWArrow trend={trend} />
                           </div>
                         );
                       })()}

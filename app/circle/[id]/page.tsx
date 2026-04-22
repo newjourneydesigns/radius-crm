@@ -29,6 +29,7 @@ import CheckInCadence from '../../../components/circle/CheckInCadence';
 import AttendanceTrends from '../../../components/circle/AttendanceTrends';
 import DictateAndSummarize from '../../../components/notes/DictateAndSummarize';
 import MeetingPrepAssistant from '../../../components/notes/MeetingPrepAssistant';
+import RichTextEditor from '../../../components/notes/RichTextEditor';
 import CircleLeaderProfileSkeleton from '../../../components/circle/CircleLeaderProfileSkeleton';
 import { useScorecard } from '../../../hooks/useScorecard';
 import { useRealtimeSubscription, RealtimeSubscriptionConfig } from '../../../hooks/useRealtimeSubscription';
@@ -172,50 +173,52 @@ const formatDateTime = (dateString: string): string => {
   });
 };
 
-// Helper function to convert markdown links to JSX elements (like in dashboard)
+// Strip HTML tags to get plain text (used for length checks and DictateAndSummarize)
+const stripHtml = (html: string): string =>
+  html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
+
+// Detect if content contains HTML markup (handles both <p>-wrapped and inline HTML)
+const isHtmlContent = (content: string): boolean =>
+  Boolean(content) && /<[a-z][\s\S]*?>/i.test(content);
+
+// Detect bare URLs and markdown-style links [text](url), converting both to clickable links
 const linkifyText = (text: string): (string | JSX.Element)[] => {
   if (!text) return [text];
-  
-  // Pattern to match markdown-style links: [text](url)
-  const markdownLinkPattern = /\[([^\]]+)\]\(([^)]+)\)/g;
-  
+
+  // Combined pattern: markdown links first, then bare URLs
+  const pattern = /\[([^\]]+)\]\((https?:\/\/[^)]+|mailto:[^)]+)\)|https?:\/\/[^\s<>"']+[^\s<>"'.,;:!?)'"]/g;
+
   const elements: (string | JSX.Element)[] = [];
   let lastIndex = 0;
   let match;
-  let linkIndex = 0;
+  let i = 0;
 
-  while ((match = markdownLinkPattern.exec(text)) !== null) {
-    // Add text before the link
+  while ((match = pattern.exec(text)) !== null) {
     if (match.index > lastIndex) {
       elements.push(text.slice(lastIndex, match.index));
     }
-    
-    // Add the link element
-    const linkText = match[1];
-    const linkUrl = match[2];
-    
-    // Basic URL validation
-    if (linkUrl.startsWith('http://') || linkUrl.startsWith('https://') || linkUrl.startsWith('mailto:')) {
+
+    if (match[1] !== undefined) {
+      // Markdown-style link [display](url)
       elements.push(
-        <a
-          key={`markdown-${linkIndex++}`}
-          href={linkUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
-        >
-          {linkText}
+        <a key={i++} href={match[2]} target="_blank" rel="noopener noreferrer"
+          className="text-blue-400 hover:text-blue-300 underline font-medium">
+          {match[1]}
         </a>
       );
     } else {
-      // If URL is invalid, just show the original text
-      elements.push(match[0]);
+      // Bare URL
+      elements.push(
+        <a key={i++} href={match[0]} target="_blank" rel="noopener noreferrer"
+          className="text-blue-400 hover:text-blue-300 underline break-all">
+          {match[0]}
+        </a>
+      );
     }
-    
+
     lastIndex = match.index + match[0].length;
   }
 
-  // Add remaining text
   if (lastIndex < text.length) {
     elements.push(text.slice(lastIndex));
   }
@@ -727,7 +730,7 @@ export default function CircleLeaderProfilePage() {
   };
 
   const handleAddNote = async () => {
-    if (!newNote.trim() || !user?.id) return;
+    if (!stripHtml(newNote).trim() || !user?.id) return;
 
     setIsSavingNote(true);
     setNoteError('');
@@ -810,7 +813,7 @@ export default function CircleLeaderProfilePage() {
   };
 
   const handleSaveEditedNote = async () => {
-    if (!editingNoteContent.trim() || !editingNoteId) return;
+    if (!stripHtml(editingNoteContent).trim() || !editingNoteId) return;
 
     setIsUpdatingNote(true);
     try {
@@ -3204,18 +3207,22 @@ export default function CircleLeaderProfilePage() {
                   />
                 )}
                 <DictateAndSummarize
-                  text={newNote}
-                  onTextChange={setNewNote}
+                  text={stripHtml(newNote)}
+                  onTextChange={(plain) => {
+                    const html = plain
+                      ? '<p>' + plain.replace(/\n\n+/g, '</p><p>').replace(/\n/g, '<br>') + '</p>'
+                      : '';
+                    setNewNote(html);
+                  }}
                   disabled={isSavingNote}
                 />
-                <textarea
-                  id="newNote"
+                <RichTextEditor
                   value={newNote}
-                  onChange={(e) => setNewNote(e.target.value)}
-                  onKeyDown={handleNoteKeyDown}
-                  rows={4}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y min-h-[100px] text-base"
+                  onChange={setNewNote}
+                  onSubmit={handleAddNote}
                   placeholder="Enter your note here... (Cmd/Ctrl + Enter to save)"
+                  disabled={isSavingNote}
+                  minHeight="100px"
                 />
                 
                 {noteError && (
@@ -3229,19 +3236,13 @@ export default function CircleLeaderProfilePage() {
                 
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                   <div className="text-sm text-gray-500 dark:text-gray-400 space-y-1">
-                    {newNote.trim().length > 0 && (
-                      <div>{newNote.trim().length} characters</div>
+                    {stripHtml(newNote).length > 0 && (
+                      <div>{stripHtml(newNote).length} characters</div>
                     )}
-                    <div className="text-xs">
-                      <span className="inline-flex items-center gap-1.5">
-                        <Lightbulb className="h-3.5 w-3.5" />
-                        Tip: Type markdown-style links like [Display Text](URL) to create clickable links
-                      </span>
-                    </div>
                   </div>
                   <button
                     onClick={handleAddNote}
-                    disabled={!newNote.trim() || isSavingNote}
+                    disabled={!stripHtml(newNote).trim() || isSavingNote}
                     className="w-full sm:w-auto px-6 py-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {isSavingNote ? (
@@ -3275,7 +3276,7 @@ export default function CircleLeaderProfilePage() {
                       {noteSearchQuery
                         ? `${notes.filter(n => {
                             const q = noteSearchQuery.toLowerCase();
-                            return n.content?.toLowerCase().includes(q) || n.users?.name?.toLowerCase().includes(q) || n.created_by?.toLowerCase().includes(q);
+                            return stripHtml(n.content || '').toLowerCase().includes(q) || n.users?.name?.toLowerCase().includes(q) || n.created_by?.toLowerCase().includes(q);
                           }).length} of ${notes.length} notes`
                         : `${notes.length} ${notes.length === 1 ? 'note' : 'notes'}`}
                     </p>
@@ -3306,7 +3307,7 @@ export default function CircleLeaderProfilePage() {
                   {(noteSearchQuery
                     ? notes.filter(n => {
                         const q = noteSearchQuery.toLowerCase();
-                        return n.content?.toLowerCase().includes(q) || n.users?.name?.toLowerCase().includes(q) || n.created_by?.toLowerCase().includes(q);
+                        return stripHtml(n.content || '').toLowerCase().includes(q) || n.users?.name?.toLowerCase().includes(q) || n.created_by?.toLowerCase().includes(q);
                       })
                     : notes
                   ).map((note, index) => (
@@ -3315,19 +3316,20 @@ export default function CircleLeaderProfilePage() {
                         <div className="flex-1 min-w-0">
                           {editingNoteId === note.id ? (
                             <div className="space-y-4">
-                              <textarea
+                              <RichTextEditor
                                 value={editingNoteContent}
-                                onChange={(e) => setEditingNoteContent(e.target.value)}
-                                onKeyDown={handleEditNoteKeyDown}
-                                rows={4}
-                                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y min-h-[80px] text-base"
+                                onChange={setEditingNoteContent}
+                                onSubmit={handleSaveEditedNote}
+                                onEscape={handleCancelEdit}
                                 placeholder="Edit your note... (Cmd/Ctrl + Enter to save, Esc to cancel)"
+                                disabled={isUpdatingNote}
+                                minHeight="80px"
                               />
                               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                                 <div className="flex items-center space-x-3">
                                   <button
                                     onClick={handleSaveEditedNote}
-                                    disabled={!editingNoteContent.trim() || isUpdatingNote}
+                                    disabled={!stripHtml(editingNoteContent).trim() || isUpdatingNote}
                                     className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                   >
                                     {isUpdatingNote ? 'Saving...' : 'Save'}
@@ -3341,7 +3343,7 @@ export default function CircleLeaderProfilePage() {
                                   </button>
                                 </div>
                                 <div className="text-sm text-gray-500 dark:text-gray-400">
-                                  {editingNoteContent.trim().length} characters
+                                  {stripHtml(editingNoteContent).length} characters
                                 </div>
                               </div>
                             </div>
@@ -3434,15 +3436,29 @@ export default function CircleLeaderProfilePage() {
                                     )}
                                   </div>
                                 )}
-                                <div className="text-gray-900 dark:text-white whitespace-pre-wrap text-base leading-relaxed">
-                                  {linkifyText(note.content)}
-                                </div>
+                                {isHtmlContent(note.content) ? (
+                                  <div
+                                    className="rte-display text-gray-900 dark:text-white text-base leading-relaxed"
+                                    dangerouslySetInnerHTML={{ __html: note.content }}
+                                  />
+                                ) : (
+                                  <div className="text-gray-900 dark:text-white whitespace-pre-wrap text-base leading-relaxed">
+                                    {linkifyText(note.content)}
+                                  </div>
+                                )}
                               </div>
                               {/* Desktop layout: Content → Meta → (Badge + Buttons on right) */}
                               <div className="hidden sm:block">
-                                <div className="text-gray-900 dark:text-white whitespace-pre-wrap text-base leading-relaxed mb-4">
-                                  {linkifyText(note.content)}
-                                </div>
+                                {isHtmlContent(note.content) ? (
+                                  <div
+                                    className="rte-display text-gray-900 dark:text-white text-base leading-relaxed mb-4"
+                                    dangerouslySetInnerHTML={{ __html: note.content }}
+                                  />
+                                ) : (
+                                  <div className="text-gray-900 dark:text-white whitespace-pre-wrap text-base leading-relaxed mb-4">
+                                    {linkifyText(note.content)}
+                                  </div>
+                                )}
                                 <div className="flex flex-row items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                                   <div className="flex items-center">
                                     <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -3544,7 +3560,7 @@ export default function CircleLeaderProfilePage() {
                   ))}
                   {noteSearchQuery && notes.filter(n => {
                     const q = noteSearchQuery.toLowerCase();
-                    return n.content?.toLowerCase().includes(q) || n.users?.name?.toLowerCase().includes(q) || n.created_by?.toLowerCase().includes(q);
+                    return stripHtml(n.content || '').toLowerCase().includes(q) || n.users?.name?.toLowerCase().includes(q) || n.created_by?.toLowerCase().includes(q);
                   }).length === 0 && (
                     <div className="text-center py-8">
                       <svg className="mx-auto h-10 w-10 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
