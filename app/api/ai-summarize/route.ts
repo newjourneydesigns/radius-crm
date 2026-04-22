@@ -53,6 +53,36 @@ Rules:
 - If the input is very short or unclear, do your best and note what seems unclear`;
 }
 
+async function callGroq(apiKey: string, systemPrompt: string, text: string, maxTokens: number = 2048): Promise<{ summary?: string; error?: string; status: number }> {
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: text },
+      ],
+      temperature: 0.3,
+      max_tokens: maxTokens,
+      top_p: 0.8,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    return { error: errorData?.error?.message || `Groq error: ${response.status}`, status: response.status };
+  }
+
+  const data = await response.json();
+  const summary = data?.choices?.[0]?.message?.content;
+  if (!summary) return { error: 'Groq returned an empty response.', status: 502 };
+  return { summary: summary.trim(), status: 200 };
+}
+
 async function callGemini(apiKey: string, systemPrompt: string, text: string, maxTokens: number = 2048): Promise<{ summary?: string; error?: string; status: number }> {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -115,11 +145,22 @@ export async function POST(request: NextRequest) {
       systemPrompt = getSystemPrompt(wordCount);
     }
 
+    const groqKey = process.env.GROQ_API_KEY;
     const maxTokens = mode === 'meeting-prep' ? 4096 : 2048;
-    const result = await callGemini(geminiKey, systemPrompt, trimmedText, maxTokens);
 
-    if (result.summary) return NextResponse.json({ summary: result.summary });
-    return NextResponse.json({ error: result.error || 'AI service error' }, { status: result.status });
+    if (geminiKey) {
+      const result = await callGemini(geminiKey, systemPrompt, trimmedText, maxTokens);
+      if (result.summary) return NextResponse.json({ summary: result.summary });
+      console.warn('Gemini failed, trying Groq fallback:', result.error);
+    }
+
+    if (groqKey) {
+      const result = await callGroq(groqKey, systemPrompt, trimmedText, maxTokens);
+      if (result.summary) return NextResponse.json({ summary: result.summary });
+      return NextResponse.json({ error: result.error || 'AI service error' }, { status: result.status });
+    }
+
+    return NextResponse.json({ error: 'No AI provider available.' }, { status: 500 });
   } catch (error: unknown) {
     console.error('AI summarize error:', error);
     const message = error instanceof Error ? error.message : 'Internal server error';

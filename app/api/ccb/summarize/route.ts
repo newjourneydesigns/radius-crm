@@ -167,6 +167,33 @@ Here are the Circle Event reports:
 ${formattedReports}`;
 }
 
+async function callGroq(apiKey: string, prompt: string): Promise<{ summary?: string; error?: string; status: number }> {
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.4,
+      max_tokens: 8192,
+      top_p: 0.9,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    return { error: errorData?.error?.message || `Groq error: ${response.status}`, status: response.status };
+  }
+
+  const data = await response.json();
+  const summary = data?.choices?.[0]?.message?.content;
+  if (!summary) return { error: 'Groq returned an empty response.', status: 502 };
+  return { summary: summary.trim(), status: 200 };
+}
+
 async function callGemini(
   apiKey: string,
   prompt: string
@@ -230,11 +257,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No events provided to summarize.' }, { status: 400 });
     }
 
-    const prompt = buildPrompt(events, startDate, endDate, groupName);
-    const result = await callGemini(geminiKey, prompt);
+    const groqKey = process.env.GROQ_API_KEY;
 
-    if (result.summary) return NextResponse.json({ summary: result.summary });
-    return NextResponse.json({ error: result.error || 'AI service error' }, { status: result.status });
+    const prompt = buildPrompt(events, startDate, endDate, groupName);
+
+    if (geminiKey) {
+      const result = await callGemini(geminiKey, prompt);
+      if (result.summary) return NextResponse.json({ summary: result.summary });
+      console.warn('Gemini failed, trying Groq fallback:', result.error);
+    }
+
+    if (groqKey) {
+      const result = await callGroq(groqKey, prompt);
+      if (result.summary) return NextResponse.json({ summary: result.summary });
+      return NextResponse.json({ error: result.error || 'AI service error' }, { status: result.status });
+    }
+
+    return NextResponse.json({ error: 'No AI provider available.' }, { status: 500 });
   } catch (error: unknown) {
     console.error('CCB summarize error:', error);
     const message = error instanceof Error ? error.message : 'Internal server error';

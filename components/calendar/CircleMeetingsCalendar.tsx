@@ -41,9 +41,11 @@ function renderAISummary(text: string) {
 
     if (!line) { i++; continue; }
 
-    // Section header: **N. Title** or N. Title at start of line
+    // Section header: **N. Title**, N. **Title**, or plain N. Title (handles both Gemini and Groq output)
     const cleanHeader = line.replace(/^\*\*/, '').replace(/\*\*$/, '');
-    if ((line.startsWith('**') && line.endsWith('**') && /\d+\./.test(line)) || /^\d+\.\s+\*\*/.test(line)) {
+    const isStyledHeader = (line.startsWith('**') && line.endsWith('**') && /\d+\./.test(line)) || /^\d+\.\s+\*\*/.test(line);
+    const isPlainHeader = /^\d+\.\s+[A-Za-z]/.test(line) && !line.slice(line.indexOf('.') + 1).trim().startsWith('**') && line.length < 80 && !/:\s/.test(line.slice(line.indexOf('.') + 1));
+    if (isStyledHeader || isPlainHeader) {
       const label = cleanHeader.replace(/^\d+\.\s+/, '').replace(/\*\*/g, '');
       const num = cleanHeader.match(/^(\d+)/)?.[1];
       elements.push(

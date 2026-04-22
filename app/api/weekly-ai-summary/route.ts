@@ -11,6 +11,36 @@ function getServiceClient() {
 
 // --- AI provider calls (mirrors /api/ai-summarize pattern) ---
 
+async function callGroq(apiKey: string, systemPrompt: string, text: string): Promise<{ summary?: string; error?: string; status: number }> {
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: text },
+      ],
+      temperature: 0.4,
+      max_tokens: 8192,
+      top_p: 0.85,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    return { error: err?.error?.message || `Groq error: ${response.status}`, status: response.status };
+  }
+
+  const data = await response.json();
+  const summary = data?.choices?.[0]?.message?.content;
+  if (!summary) return { error: 'Groq returned an empty response.', status: 502 };
+  return { summary: summary.trim(), status: 200 };
+}
+
 async function callGemini(apiKey: string, systemPrompt: string, text: string): Promise<{ summary?: string; error?: string; status: number; rateLimited?: boolean }> {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -82,6 +112,7 @@ As you analyze, look for:
 4. Highlight statements
    - short, meaningful lines from the notes that capture what God seems to be doing
    - statements that reveal transformation, hunger, freedom, peace, joy, conviction, or breakthrough
+   - always note which leader's event summary the quote or paraphrase came from
 
 5. Change requests
    - any mention of a leader wanting to change their meeting time, day, or location
@@ -109,7 +140,7 @@ List specific follow-up needs with:
 - suggested pastoral response
 
 5. Highlight Statements
-Pull out 3 to 8 short statements or paraphrased lines that best capture the spiritual tone of the reports.
+Pull out 3 to 8 short statements or paraphrased lines that best capture the spiritual tone of the reports. For each statement, attribute it to the leader's event summary it came from — format as: "Quote or paraphrase." — [Leader Name]
 
 6. Change Requests
 List any logistical or administrative requests mentioned in the notes, including:
@@ -121,7 +152,7 @@ List any logistical or administrative requests mentioned in the notes, including
 If none are found, omit this section.
 
 7. Cautions or Tensions
-Identify any places where confusion, imbalance, resistance, or misunderstanding may need wise pastoral attention.
+Identify any places where confusion, imbalance, resistance, or misunderstanding may need wise pastoral attention. When a caution is tied to a specific circle or leader, name them — format as: [Leader Name]: observation. When it's a broader pattern across multiple circles, note it as a general observation without attributing it to one person.
 
 Important instructions:
 - Prioritize spiritual insight over administrative reporting.
@@ -314,13 +345,19 @@ export async function POST(request: NextRequest) {
 
     const prompt = lines.join('\n');
 
+    const groqKey = process.env.GROQ_API_KEY;
+
     if (geminiKey) {
       const result = await callGemini(geminiKey, SYSTEM_PROMPT, prompt);
       if (result.summary) return NextResponse.json({ summary: result.summary });
-      return NextResponse.json(
-        { error: result.error || 'AI error' },
-        { status: result.status }
-      );
+      // Fall through to Groq on any Gemini failure
+      console.warn('Gemini failed, trying Groq fallback:', result.error);
+    }
+
+    if (groqKey) {
+      const result = await callGroq(groqKey, SYSTEM_PROMPT, prompt);
+      if (result.summary) return NextResponse.json({ summary: result.summary });
+      return NextResponse.json({ error: result.error || 'AI error' }, { status: result.status });
     }
 
     return NextResponse.json({ error: 'No AI provider available.' }, { status: 500 });
