@@ -6,13 +6,11 @@ import AuthenticatedNavigation from "../components/layout/AuthenticatedNavigatio
 import PublicNavigation from "../components/layout/PublicNavigation";
 import Footer from "../components/layout/Footer";
 import ScrollToTop from "../components/ui/ScrollToTop";
-import RadiusAssistant from "../components/ai-assistant/RadiusAssistant";
-import { AuthProvider, useAuth } from "../contexts/AuthContext";
+import { AuthProvider } from "../contexts/AuthContext";
 import NavigationProgress from "../components/layout/NavigationProgress";
 
 function LayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user } = useAuth();
   const hideChrome = pathname === '/login' || pathname.startsWith('/auth');
   const isBoardDetailPage = /^\/boards\/[^/]+/.test(pathname);
 
@@ -46,9 +44,6 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
 
           {/* Scroll to Top Button */}
           <ScrollToTop />
-
-          {/* Radius AI Assistant — only if enabled for this user */}
-          {user?.ai_assistant_enabled && <RadiusAssistant />}
         </>
       )}
     </>

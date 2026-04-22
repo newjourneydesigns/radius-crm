@@ -180,12 +180,12 @@ export default function AuthenticatedNavigation() {
   const dropdownLinkClass = (href: string) =>
     `flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
       isActive(href)
-        ? 'text-brand-light bg-gradient-to-r from-brand-mid/20 to-brand-light/10 border-l-2 border-brand-light/50'
+        ? 'text-slate-300 bg-white/[0.06] border-l-2 border-slate-400/50'
         : 'text-gray-300 hover:text-white hover:bg-white/[0.06]'
     }`;
 
   return (
-    <nav className="nav-premium hidden md:block bg-gray-900/95 backdrop-blur-md border-b border-gray-700/30 relative z-[10000]">
+    <nav className="nav-premium hidden md:block bg-[#1a1c22]/97 backdrop-blur-md border-b border-white/[0.06] relative z-[10000]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14">
 
@@ -223,7 +223,7 @@ export default function AuthenticatedNavigation() {
                 onClick={() => { setToolsMenuOpen(v => !v); setUserMenuOpen(false); }}
                 aria-expanded={toolsMenuOpen}
                 aria-haspopup="true"
-                className={`p-2 rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${
+                className={`p-2 rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-slate-500/40 ${
                   toolsMenuOpen
                     ? 'bg-white/[0.08] text-white'
                     : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
@@ -234,7 +234,7 @@ export default function AuthenticatedNavigation() {
               </button>
 
               {toolsMenuOpen && (
-                <div className="absolute right-0 mt-2 w-52 rounded-xl bg-gray-900 border border-gray-700/60 shadow-2xl shadow-black/40 ring-1 ring-black/20 z-[99999] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                <div className="absolute right-0 mt-2 w-52 rounded-xl bg-[#1a1c22] border border-white/[0.08] shadow-2xl shadow-black/50 ring-1 ring-black/20 z-[99999] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
                   <div className="px-3 py-2">
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Tools</p>
                   </div>
@@ -247,7 +247,7 @@ export default function AuthenticatedNavigation() {
                   </div>
                   {admin && (
                     <>
-                      <div className="border-t border-gray-700/40 px-3 py-2">
+                      <div className="border-t border-white/[0.06] px-3 py-2">
                         <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Admin</p>
                       </div>
                       <div className="py-1">
@@ -269,24 +269,24 @@ export default function AuthenticatedNavigation() {
                 onClick={() => { setUserMenuOpen(v => !v); setToolsMenuOpen(false); }}
                 aria-expanded={userMenuOpen}
                 aria-haspopup="true"
-                className={`p-1 rounded-full transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500/40 ring-offset-1 ring-offset-gray-900 ${
-                  userMenuOpen ? 'ring-2 ring-blue-500/50' : ''
+                className={`p-1 rounded-full transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-slate-400/40 ring-offset-1 ring-offset-[#111318] ${
+                  userMenuOpen ? 'ring-2 ring-slate-400/40' : ''
                 }`}
                 title={user?.name || user?.email || 'Account'}
               >
-                <span className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-xs font-bold text-white shadow-sm">
+                <span className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-500 to-slate-600 flex items-center justify-center text-xs font-bold text-white shadow-sm">
                   {initials}
                 </span>
               </button>
 
               {userMenuOpen && (
-                <div className="absolute right-0 mt-2 w-56 rounded-xl bg-gray-900 border border-gray-700/60 shadow-2xl shadow-black/40 ring-1 ring-black/20 z-[99999] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                <div className="absolute right-0 mt-2 w-56 rounded-xl bg-[#1a1c22] border border-white/[0.08] shadow-2xl shadow-black/50 ring-1 ring-black/20 z-[99999] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
                   {/* User info header */}
-                  <div className="px-4 py-3 border-b border-gray-700/40">
+                  <div className="px-4 py-3 border-b border-white/[0.06]">
                     <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
                     <p className="text-xs text-gray-500 truncate">{user?.email}</p>
                     {admin && (
-                      <span className="mt-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/20">
+                      <span className="mt-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-500/15 text-slate-400 ring-1 ring-slate-500/20">
                         Admin
                       </span>
                     )}
@@ -306,7 +306,7 @@ export default function AuthenticatedNavigation() {
                   </div>
 
                   {/* Sign out */}
-                  <div className="border-t border-gray-700/40 py-1">
+                  <div className="border-t border-white/[0.06] py-1">
                     <button
                       onClick={() => { signOut(); closeAll(); }}
                       className="flex w-full items-center gap-2.5 px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"

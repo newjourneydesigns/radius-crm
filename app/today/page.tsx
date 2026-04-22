@@ -804,8 +804,6 @@ export default function TodayPage() {
           ))}
         </Section>
 
-}
-
         {/* ── Upcoming Scheduled Visits ── */}
         <Section id="upcoming-visits" title="Upcoming Scheduled Visits" icon={<CalendarRange className="h-4 w-4" />} count={data.upcomingVisits.length}
           sectionKey="upcomingVisits" isOpen={isOpen('upcomingVisits')} onToggle={() => toggle('upcomingVisits')} accentColor={T.neutral}>

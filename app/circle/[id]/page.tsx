@@ -2028,95 +2028,47 @@ export default function CircleLeaderProfilePage() {
 
         {/* Header */}
         <div className="mb-6">
-          <div className="flex items-start gap-3">
+          {/* Nav row: back on left, actions on right */}
+          <div className="flex items-center justify-between mb-3">
             <button
               onClick={() => window.history.back()}
-              className="mt-1.5 p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white shrink-0"
+              className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors text-sm"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
               </svg>
+              <span>Back</span>
             </button>
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="text-2xl sm:text-3xl font-bold text-brand-light truncate">{leader.circle_name || leader.name}</h1>
-                {leader.status && (() => {
-                  const statusBadgeClass: Record<string, string> = {
-                    'invited': 'status-badge status-badge-blue',
-                    'pipeline': 'status-badge status-badge-indigo',
-                    'active': 'status-badge status-badge-green',
-                    'paused': 'status-badge status-badge-yellow',
-                    'off-boarding': 'status-badge status-badge-red',
-                  };
-                  const label = leader.status === 'off-boarding' ? 'Off-boarding' : leader.status.charAt(0).toUpperCase() + leader.status.slice(1);
-                  return (
-                    <span className={`shrink-0 ${statusBadgeClass[leader.status] || 'status-badge status-badge-blue'}`}>
-                      {label}
-                    </span>
-                  );
-                })()}
-              </div>
-              {/* Leader names subtitle */}
-              {(leader.circle_name) && (
-                <p className="mt-0.5 text-sm text-gray-400">
-                  {leader.name}
-                  {leader.additional_leader_name ? ` · ${leader.additional_leader_name}` : ''}
-                </p>
-              )}
-              {/* Context line: circle type, frequency, meeting day & time */}
-              {(leader.circle_type || leader.day) && (
-                <p className="mt-1 text-sm text-gray-400">
-                  {[
-                    normalizeCircleTypeValue(leader.circle_type),
-                    (() => {
-                      const freq = leader.frequency && leader.frequency !== 'Weekly' ? formatFrequencyLabel(leader.frequency) : null;
-                      if (leader.day && leader.time) {
-                        return freq ? `${freq} ${leader.day}s at ${formatTimeToAMPM(leader.time)}` : `${leader.day}s at ${formatTimeToAMPM(leader.time)}`;
-                      }
-                      if (leader.day) {
-                        return freq ? `${freq} ${leader.day}s` : `${leader.day}s`;
-                      }
-                      return freq;
-                    })()
-                  ].filter(Boolean).join(' · ')}
-                </p>
-              )}
-            </div>
             {isEditing ? (
-              <div className="shrink-0 mt-1 flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={handleSaveLeader}
                   disabled={isSavingLeader || !editedLeader.name?.trim()}
-                  className="inline-flex items-center px-3 py-1.5 bg-btn-primary text-white rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-btn-primary text-white rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSavingLeader ? (
-                    <>
-                      <div className="w-3.5 h-3.5 sm:mr-1.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span className="hidden sm:inline">Saving…</span>
-                    </>
+                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
-                    <>
-                      <svg className="w-3.5 h-3.5 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="hidden sm:inline">Save</span>
-                    </>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                    </svg>
                   )}
+                  {isSavingLeader ? 'Saving…' : 'Save'}
                 </button>
                 <button
                   onClick={handleCancelLeaderEdit}
                   disabled={isSavingLeader}
-                  className="inline-flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                 >
-                  <svg className="w-3.5 h-3.5 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                   </svg>
-                  <span className="hidden sm:inline">Cancel</span>
+                  Cancel
                 </button>
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
                   disabled={isSavingLeader}
-                  className="inline-flex items-center px-3 py-1.5 bg-btn-danger text-white rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                  className="inline-flex items-center px-2.5 py-1.5 bg-btn-danger text-white rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
                   title="Delete circle leader"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2127,15 +2079,60 @@ export default function CircleLeaderProfilePage() {
             ) : (
               <button
                 onClick={handleEditLeader}
-                className="shrink-0 mt-1 inline-flex items-center px-3 py-1.5 bg-gray-100/80 dark:bg-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-gray-200/80 dark:hover:bg-gray-600/60 rounded-lg transition-all duration-200 text-sm font-medium"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-700/60 hover:bg-slate-600/60 text-slate-300 rounded-lg transition-colors text-sm font-medium"
               >
-                <svg className="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
-                <span className="hidden sm:inline">Edit</span>
+                Edit
               </button>
             )}
           </div>
+
+          {/* Name + status */}
+          <h1 className="text-xl sm:text-2xl font-bold text-brand-light leading-snug">
+            {leader.circle_name || leader.name}
+          </h1>
+          <div className="flex flex-wrap items-center gap-2 mt-2">
+            {leader.status && (() => {
+              const statusBadgeClass: Record<string, string> = {
+                'invited': 'status-badge status-badge-blue',
+                'pipeline': 'status-badge status-badge-indigo',
+                'active': 'status-badge status-badge-green',
+                'paused': 'status-badge status-badge-yellow',
+                'off-boarding': 'status-badge status-badge-red',
+              };
+              const label = leader.status === 'off-boarding' ? 'Off-boarding' : leader.status.charAt(0).toUpperCase() + leader.status.slice(1);
+              return (
+                <span className={statusBadgeClass[leader.status] || 'status-badge status-badge-blue'}>
+                  {label}
+                </span>
+              );
+            })()}
+            {leader.circle_name && (
+              <span className="text-sm text-slate-400">
+                {leader.name}{leader.additional_leader_name ? ` · ${leader.additional_leader_name}` : ''}
+              </span>
+            )}
+          </div>
+          {/* Context line: circle type, frequency, meeting day & time */}
+          {(leader.circle_type || leader.day) && (
+            <p className="mt-1.5 text-sm text-slate-400">
+              {[
+                normalizeCircleTypeValue(leader.circle_type),
+                (() => {
+                  const freq = leader.frequency && leader.frequency !== 'Weekly' ? formatFrequencyLabel(leader.frequency) : null;
+                  if (leader.day && leader.time) {
+                    return freq ? `${freq} ${leader.day}s at ${formatTimeToAMPM(leader.time)}` : `${leader.day}s at ${formatTimeToAMPM(leader.time)}`;
+                  }
+                  if (leader.day) {
+                    return freq ? `${freq} ${leader.day}s` : `${leader.day}s`;
+                  }
+                  return freq;
+                })()
+              ].filter(Boolean).join(' · ')}
+            </p>
+          )}
         </div>
 
         {/* Editing mode sticky footer — mobile only, so Save/Cancel are always reachable */}
@@ -2256,48 +2253,45 @@ export default function CircleLeaderProfilePage() {
             </div>
           </div>
 
-          {/* Follow Up - Mobile */}
+          {/* Quick Actions - Mobile */}
           <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-700">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Follow-Up</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Quick Actions</span>
             </div>
-            <div className="p-4 space-y-3">
-            {/* Follow Up Toggle */}
-            <button
-              onClick={handleFollowUpClick}
-              disabled={isUpdatingFollowUp}
-              className="flex items-center justify-between w-full text-left hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg p-2 transition-colors disabled:opacity-50"
-            >
-              <div className="flex items-center">
-                <svg className={`w-4 h-4 mr-2 ${leader.follow_up_required ? 'text-orange-600' : 'text-gray-600'}`} fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d={leader.follow_up_required ? 
-                    "M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" :
-                    "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                  } clipRule="evenodd" />
-                </svg>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">
-                  {isUpdatingFollowUp ? 'Updating...' : 'Follow-Up'}
-                </span>
-              </div>
-              <span className={`text-xs font-medium ${leader.follow_up_required ? 'text-orange-600' : 'text-gray-600'}`}>
-                {leader.follow_up_required ? 'Required' : 'None'}
-              </span>
-            </button>
+            <div className="divide-y divide-slate-700/50">
 
-            {/* Follow Up Date display - Only show when follow-up is required */}
-            {leader.follow_up_required && leader.follow_up_date && (
-              <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
-                <div className="flex items-center justify-between">
+            {/* Follow Up */}
+            <div>
+              <button
+                onClick={handleFollowUpClick}
+                disabled={isUpdatingFollowUp}
+                className="w-full flex items-center justify-between px-4 py-3 text-slate-200 hover:bg-slate-700/50 text-sm transition-colors disabled:opacity-50"
+              >
+                <div className="flex items-center gap-2.5">
+                  <svg className={`w-4 h-4 ${leader.follow_up_required ? 'text-orange-500' : 'text-slate-400'}`} fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d={leader.follow_up_required ?
+                      "M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" :
+                      "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    } clipRule="evenodd" />
+                  </svg>
+                  {isUpdatingFollowUp ? 'Updating...' : 'Follow-Up'}
+                </div>
+                <span className={`text-xs font-medium ${leader.follow_up_required ? 'text-orange-400' : 'text-slate-500'}`}>
+                  {leader.follow_up_required ? 'Required' : 'None'}
+                </span>
+              </button>
+              {leader.follow_up_required && leader.follow_up_date && (
+                <div className="flex items-center justify-between px-4 py-2.5 bg-slate-700/20 border-t border-slate-700/50">
                   <div>
-                    <div className="text-sm text-slate-200 font-medium">
+                    <div className="text-xs text-slate-300">
                       {new Date(leader.follow_up_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </div>
                     <div className={`text-xs ${
-                      getFollowUpStatus(leader.follow_up_date).isOverdue 
-                        ? 'text-red-600' 
+                      getFollowUpStatus(leader.follow_up_date).isOverdue
+                        ? 'text-red-400'
                         : getFollowUpStatus(leader.follow_up_date).isApproaching
-                        ? 'text-yellow-600'
-                        : 'text-green-600'
+                        ? 'text-yellow-400'
+                        : 'text-green-400'
                     }`}>
                       {getFollowUpStatus(leader.follow_up_date).isOverdue && 'Overdue'}
                       {getFollowUpStatus(leader.follow_up_date).isApproaching && !getFollowUpStatus(leader.follow_up_date).isOverdue && 'Due Soon'}
@@ -2305,23 +2299,14 @@ export default function CircleLeaderProfilePage() {
                     </div>
                   </div>
                   <button
-                    onClick={() => { setFollowUpDateValue(leader.follow_up_date || ''); setShowFollowUpDateModal(true); }}
-                    className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-md transition-colors"
+                    onClick={(e) => { e.stopPropagation(); setFollowUpDateValue(leader.follow_up_date || ''); setShowFollowUpDateModal(true); }}
+                    className="text-xs text-blue-400 hover:text-blue-300 bg-blue-900/30 px-3 py-1.5 rounded-md transition-colors"
                   >
                     Change Date
                   </button>
                 </div>
-              </div>
-            )}
+              )}
             </div>
-          </div>
-
-          {/* Quick Actions - Mobile */}
-          <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-700">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Quick Actions</span>
-            </div>
-            <div className="divide-y divide-slate-700/50">
 
             <button
               onClick={() => setShowLogConnectionModal(true)}
@@ -2375,9 +2360,9 @@ export default function CircleLeaderProfilePage() {
 
         <div id="section-profile" ref={setSectionRef('section-profile')} className="grid grid-cols-1 lg:grid-cols-3 gap-6 scroll-mt-20">
           {/* Main Profile Info */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 flex flex-col gap-6">
             {/* Circle Info */}
-            <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass">
+            <div className="order-3 lg:order-1 bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass">
               <div className="px-6 py-4 border-b border-slate-700">
                 <h2 className="text-base font-semibold text-white">Circle Info</h2>
               </div>
@@ -2628,7 +2613,7 @@ export default function CircleLeaderProfilePage() {
             </div>
 
             {/* Primary Leader */}
-            <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass">
+            <div className="order-1 lg:order-2 bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass">
               <div className="px-6 py-4 border-b border-slate-700">
                 <h2 className="text-base font-semibold text-white">Primary Leader</h2>
               </div>
@@ -2778,7 +2763,7 @@ export default function CircleLeaderProfilePage() {
 
             {/* Additional Leader — only rendered when there is data or in edit mode */}
             {(isEditing || leader.additional_leader_name || leader.additional_leader_phone || leader.additional_leader_email) && (
-            <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass">
+            <div className="order-2 lg:order-3 bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass">
               <div className="px-6 py-4 border-b border-slate-700 flex items-center justify-between">
                 <h2 className="text-base font-semibold text-white">Additional Leader</h2>
                 <span className="text-xs text-slate-500 dark:text-slate-400">Co-leader</span>
@@ -2981,72 +2966,61 @@ export default function CircleLeaderProfilePage() {
               </div>
             </div>
 
-            {/* Follow Up - Desktop Only */}
-            <div className="hidden lg:block bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-700">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Follow-Up</span>
-              </div>
-              <div className="p-4 space-y-3">
-              {/* Follow Up Toggle */}
-              <button
-                onClick={handleFollowUpClick}
-                disabled={isUpdatingFollowUp}
-                className="flex items-center justify-between w-full text-left hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg p-2 transition-colors disabled:opacity-50"
-              >
-                <div className="flex items-center">
-                  <svg className={`w-4 h-4 mr-2 ${leader.follow_up_required ? 'text-orange-500' : 'text-slate-500'}`} fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d={leader.follow_up_required ? 
-                      "M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" :
-                      "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                    } clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm text-slate-200">
-                    {isUpdatingFollowUp ? 'Updating...' : 'Follow-Up'}
-                  </span>
-                </div>
-                <span className={`text-xs ${leader.follow_up_required ? 'text-orange-600' : 'text-gray-600'}`}>
-                  {leader.follow_up_required ? 'Required' : 'None'}
-                </span>
-              </button>
-
-              {/* Follow Up Date display - Only show when follow-up is required */}
-              {leader.follow_up_required && leader.follow_up_date && (
-                <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-sm text-slate-200 font-medium">
-                        {new Date(leader.follow_up_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </div>
-                      <div className={`text-xs ${
-                        getFollowUpStatus(leader.follow_up_date).isOverdue 
-                          ? 'text-red-600' 
-                          : getFollowUpStatus(leader.follow_up_date).isApproaching
-                          ? 'text-yellow-600'
-                          : 'text-green-600'
-                      }`}>
-                        {getFollowUpStatus(leader.follow_up_date).isOverdue && 'Overdue'}
-                        {getFollowUpStatus(leader.follow_up_date).isApproaching && !getFollowUpStatus(leader.follow_up_date).isOverdue && 'Due Soon'}
-                        {!getFollowUpStatus(leader.follow_up_date).isOverdue && !getFollowUpStatus(leader.follow_up_date).isApproaching && 'Scheduled'}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => { setFollowUpDateValue(leader.follow_up_date || ''); setShowFollowUpDateModal(true); }}
-                      className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-md transition-colors"
-                    >
-                      Change Date
-                    </button>
-                  </div>
-                </div>
-              )}
-              </div>
-            </div>
-
             {/* Quick Actions - Desktop Only */}
             <div className="hidden lg:block bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-700">
                 <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Quick Actions</span>
               </div>
               <div className="divide-y divide-slate-700/50">
+
+                {/* Follow Up */}
+                <div>
+                  <button
+                    onClick={handleFollowUpClick}
+                    disabled={isUpdatingFollowUp}
+                    className="w-full flex items-center justify-between px-4 py-3 text-slate-200 hover:bg-slate-700/50 text-sm transition-colors disabled:opacity-50"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <svg className={`w-4 h-4 ${leader.follow_up_required ? 'text-orange-500' : 'text-slate-400'}`} fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d={leader.follow_up_required ?
+                          "M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" :
+                          "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        } clipRule="evenodd" />
+                      </svg>
+                      {isUpdatingFollowUp ? 'Updating...' : 'Follow-Up'}
+                    </div>
+                    <span className={`text-xs font-medium ${leader.follow_up_required ? 'text-orange-400' : 'text-slate-500'}`}>
+                      {leader.follow_up_required ? 'Required' : 'None'}
+                    </span>
+                  </button>
+                  {leader.follow_up_required && leader.follow_up_date && (
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-slate-700/20 border-t border-slate-700/50">
+                      <div>
+                        <div className="text-xs text-slate-300">
+                          {new Date(leader.follow_up_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </div>
+                        <div className={`text-xs ${
+                          getFollowUpStatus(leader.follow_up_date).isOverdue
+                            ? 'text-red-400'
+                            : getFollowUpStatus(leader.follow_up_date).isApproaching
+                            ? 'text-yellow-400'
+                            : 'text-green-400'
+                        }`}>
+                          {getFollowUpStatus(leader.follow_up_date).isOverdue && 'Overdue'}
+                          {getFollowUpStatus(leader.follow_up_date).isApproaching && !getFollowUpStatus(leader.follow_up_date).isOverdue && 'Due Soon'}
+                          {!getFollowUpStatus(leader.follow_up_date).isOverdue && !getFollowUpStatus(leader.follow_up_date).isApproaching && 'Scheduled'}
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setFollowUpDateValue(leader.follow_up_date || ''); setShowFollowUpDateModal(true); }}
+                        className="text-xs text-blue-400 hover:text-blue-300 bg-blue-900/30 px-3 py-1.5 rounded-md transition-colors"
+                      >
+                        Change Date
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <button
                   onClick={() => setShowLogConnectionModal(true)}
                   className="w-full flex items-center px-4 py-3 text-slate-200 hover:bg-slate-700/50 text-sm transition-colors"

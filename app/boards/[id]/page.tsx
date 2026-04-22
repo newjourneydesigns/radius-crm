@@ -3242,17 +3242,15 @@ function BoardPage() {
               <ListBullet size={14} />
               List
             </button>
+            <button
+              className="kb-view-btn"
+              onClick={() => router.push(`/boards/calendar?board=${boardId}`)}
+              title="Calendar view"
+            >
+              <CalendarDays size={14} />
+              Calendar
+            </button>
           </div>
-
-          {/* Calendar view */}
-          <button
-            className="kb-note-toggle"
-            onClick={() => router.push(`/boards/calendar?board=${boardId}`)}
-            title="Calendar view"
-          >
-            <CalendarDays size={15} />
-            Calendar
-          </button>
 
           {/* Note panel toggle */}
           <button
@@ -5694,29 +5692,61 @@ const kanbanStyles = `
   /* ── View toggle ── */
   .kb-view-toggle {
     display: flex;
-    gap: 6px;
+    background: #1a1d27;
+    border: 1px solid #2a2d3a;
+    border-radius: 10px;
+    padding: 3px;
+    gap: 2px;
   }
   .kb-view-btn {
     display: flex;
     align-items: center;
     gap: 5px;
-    padding: 6px 13px;
+    padding: 5px 11px;
     font-size: 13px;
     font-weight: 500;
     color: #6b7280;
-    background: #1a1d27;
-    border: 1px solid #2a2d3a;
-    border-radius: 10px;
+    background: transparent !important;
+    border: none;
+    border-radius: 8px;
     cursor: pointer;
     transition: all 0.15s;
     white-space: nowrap;
   }
-  .kb-view-btn:hover { color: #e5e7eb; background: #252836; }
+  .kb-view-btn:hover { color: #e5e7eb; background: rgba(255,255,255,0.04) !important; }
   .kb-view-btn.active {
     background: linear-gradient(135deg, #4c6785 0%, #8da9c4 100%) !important;
     color: #fff !important;
-    border-color: #8da9c4 !important;
-    box-shadow: 0 2px 8px rgba(76, 103, 133, 0.35) !important;
+    box-shadow: 0 1px 4px rgba(76, 103, 133, 0.3);
+  }
+
+  .kb-note-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
+    border-radius: 8px;
+    border: 1px solid #2a2d3a;
+    background: #1a1d27;
+    color: #6b7280;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .kb-note-toggle:hover {
+    background: #252836;
+    color: #e5e7eb;
+    border-color: #3b3f54;
+  }
+  .kb-note-toggle-active {
+    background: rgba(99, 102, 241, 0.15) !important;
+    color: #a5b4fc !important;
+    border-color: rgba(99, 102, 241, 0.4) !important;
+  }
+  .kb-note-toggle-active:hover {
+    background: rgba(99, 102, 241, 0.25) !important;
   }
 
   /* ── List View ── */
@@ -5844,35 +5874,6 @@ const kanbanStyles = `
   .kb-list-row-count.due-today { color: #f59e0b; }
   .kb-list-quick-add {
     padding: 8px 12px 8px 28px;
-  }
-
-  .kb-note-toggle {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: 8px;
-    border: 1px solid #3b3f54;
-    background: #1e2235;
-    color: #94a3b8;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    white-space: nowrap;
-  }
-  .kb-note-toggle:hover {
-    background: #262b44;
-    color: #cbd5e1;
-    border-color: #4b5068;
-  }
-  .kb-note-toggle-active {
-    background: rgba(99, 102, 241, 0.15) !important;
-    color: #a5b4fc !important;
-    border-color: rgba(99, 102, 241, 0.4) !important;
-  }
-  .kb-note-toggle-active:hover {
-    background: rgba(99, 102, 241, 0.25) !important;
   }
 
   /* ── Column automations button highlight ── */

@@ -409,7 +409,7 @@ export default function GlobalSearch() {
             </div>
 
             {/* Results Area */}
-            <div ref={resultsRef} style={{ maxHeight: '380px', overflowY: 'auto' }}>
+            <div ref={resultsRef} style={{ maxHeight: 'min(380px, calc(100dvh - 260px))', overflowY: 'auto' }}>
               {results.length > 0 ? (
                 <div style={{ padding: '8px' }}>
                   {(() => {
@@ -664,8 +664,7 @@ export default function GlobalSearch() {
               borderTop: '1px solid rgba(76, 103, 133, 0.15)',
               background: 'rgba(9, 27, 52, 0.4)',
             }}>
-              <div style={{
-                display: 'flex',
+              <div className="hidden sm:flex" style={{
                 alignItems: 'center',
                 gap: '12px',
                 fontSize: '11px',
@@ -722,6 +721,7 @@ export default function GlobalSearch() {
                 fontSize: '10px',
                 color: 'rgba(141, 169, 196, 0.25)',
                 letterSpacing: '0.04em',
+                marginLeft: 'auto',
               }}>
                 RADIUS
               </div>

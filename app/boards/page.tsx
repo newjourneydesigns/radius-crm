@@ -1015,6 +1015,8 @@ const boardsListStyles = `
     border-bottom: 1px solid #1e2130;
     background: rgba(15, 17, 23, 0.6);
     position: relative;
+    max-width: 1200px;
+    margin: 0 auto;
     width: 100%;
     box-sizing: border-box;
   }
