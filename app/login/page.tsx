@@ -17,7 +17,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 function LoginContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [mode, setMode] = useState<'magic' | 'password'>('magic');
+  const [mode, setMode] = useState<'magic' | 'password'>('password');
   const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [isLoading, setIsLoading] = useState(false);
