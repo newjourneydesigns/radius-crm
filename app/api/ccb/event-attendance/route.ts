@@ -327,6 +327,14 @@ async function recordAttendance(
     }
     if (!event.date) continue;
 
+    // Keep circle_name in sync with the CCB event title (e.g. "FMT | S3 | Casey and Ashley Bates")
+    if (event.title) {
+      await supabase
+        .from('circle_leaders')
+        .update({ circle_name: event.title })
+        .eq('id', leaderId);
+    }
+
     // Total = tracked attendees + additional headcount (visitors/kids not individually tracked)
     const attendeeCount = event.attendees.length || 0;
     const extraHeadCount = event.headCount || 0;

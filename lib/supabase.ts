@@ -96,13 +96,16 @@ export interface CircleLeader {
   follow_up_required?: boolean;
   follow_up_date?: string;
   follow_up_note?: string;
+  circle_name?: string;
   ccb_profile_link?: string;
   ccb_group_id?: string;
+  leader_ccb_profile_link?: string;
   birthday?: string;
   additional_leader_name?: string;
   additional_leader_phone?: string;
   additional_leader_email?: string;
   additional_leader_birthday?: string;
+  additional_leader_ccb_profile_link?: string;
   check_in_cadence?: 'weekly' | 'bi-weekly' | 'monthly' | 'quarterly' | 'none';
   last_check_in_date?: string;
   uuid?: string;

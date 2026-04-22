@@ -21,6 +21,7 @@ interface SettingsItem {
 
 export default function AddLeaderPage() {
   const [formData, setFormData] = useState({
+    circleName: '',
     name: '',
     email: '',
     phone: '',
@@ -32,7 +33,8 @@ export default function AddLeaderPage() {
     frequency: '',
     meeting_start_date: '',
     circleType: '',
-    ccbProfileLink: ''
+    ccbProfileLink: '',
+    leaderCcbProfileLink: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -100,6 +102,7 @@ export default function AddLeaderPage() {
         .from('circle_leaders')
         .insert([
           {
+            circle_name: formData.circleName || formData.name || null,
             name: formData.name,
             email: formData.email || null,
             phone: formData.phone || null,
@@ -112,6 +115,7 @@ export default function AddLeaderPage() {
             meeting_start_date: formData.meeting_start_date || null,
             circle_type: formData.circleType || null,
             ccb_profile_link: formData.ccbProfileLink || null,
+            leader_ccb_profile_link: formData.leaderCcbProfileLink || null,
             event_summary_received: false
           }
         ]);
@@ -122,6 +126,7 @@ export default function AddLeaderPage() {
       
       setSuccess(true);
       setFormData({
+        circleName: '',
         name: '',
         email: '',
         phone: '',
@@ -133,7 +138,8 @@ export default function AddLeaderPage() {
         frequency: '',
         meeting_start_date: '',
         circleType: '',
-        ccbProfileLink: ''
+        ccbProfileLink: '',
+        leaderCcbProfileLink: '',
       });
 
       // Redirect to boards after a short delay
@@ -197,10 +203,27 @@ export default function AddLeaderPage() {
                 </div>
               </div>
 
+              {/* Circle Name - full width */}
+              <div>
+                <label htmlFor="circleName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Circle Name
+                </label>
+                <input
+                  type="text"
+                  name="circleName"
+                  id="circleName"
+                  value={formData.circleName}
+                  onChange={handleChange}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g. FMT | S3 | Casey and Ashley Bates (from CCB)"
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">The group name from CCB. If left blank, the primary leader name will be used.</p>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Full Name *
+                    Primary Leader Name *
                   </label>
                   <input
                     type="text"
@@ -210,7 +233,7 @@ export default function AddLeaderPage() {
                     value={formData.name}
                     onChange={handleChange}
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter full name"
+                    placeholder="Enter primary leader name"
                   />
                 </div>
 
@@ -408,12 +431,12 @@ export default function AddLeaderPage() {
 
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
             <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Additional Links</h2>
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">CCB Links</h2>
             </div>
             <div className="p-4 sm:p-6 space-y-4">
               <div>
                 <label htmlFor="ccbProfileLink" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  CCB Profile Link
+                  CCB Circle Link
                 </label>
                 <input
                   type="url"
@@ -422,8 +445,24 @@ export default function AddLeaderPage() {
                   value={formData.ccbProfileLink}
                   onChange={handleChange}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="https://..."
+                  placeholder="https://valleycreekchurch.ccbchurch.com/group_detail.php?group_id=..."
                 />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Link to the circle/group page in CCB</p>
+              </div>
+              <div>
+                <label htmlFor="leaderCcbProfileLink" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Leader CCB Profile Link
+                </label>
+                <input
+                  type="url"
+                  name="leaderCcbProfileLink"
+                  id="leaderCcbProfileLink"
+                  value={formData.leaderCcbProfileLink}
+                  onChange={handleChange}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="https://valleycreekchurch.ccbchurch.com/goto/individuals/..."
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Link to the primary leader&apos;s individual profile in CCB</p>
               </div>
             </div>
           </div>

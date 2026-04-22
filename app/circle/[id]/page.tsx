@@ -1678,13 +1678,16 @@ export default function CircleLeaderProfilePage() {
       circle_type: leader.circle_type as CircleLeader['circle_type'],
       follow_up_required: leader.follow_up_required,
       follow_up_date: leader.follow_up_date,
+      circle_name: leader.circle_name || leader.name || '',
       ccb_profile_link: leader.ccb_profile_link,
       ccb_group_id: leader.ccb_group_id || extractCcbGroupId(leader.ccb_profile_link) || '',
+      leader_ccb_profile_link: leader.leader_ccb_profile_link || '',
       birthday: leader.birthday || '',
       additional_leader_name: leader.additional_leader_name,
       additional_leader_phone: leader.additional_leader_phone,
       additional_leader_email: leader.additional_leader_email,
       additional_leader_birthday: leader.additional_leader_birthday || '',
+      additional_leader_ccb_profile_link: leader.additional_leader_ccb_profile_link || '',
       check_in_cadence: leader.check_in_cadence || 'none',
     };
     
@@ -1701,6 +1704,7 @@ export default function CircleLeaderProfilePage() {
       const { data, error } = await supabase
         .from('circle_leaders')
         .update({
+          circle_name: editedLeader.circle_name || editedLeader.name || null,
           name: editedLeader.name,
           email: editedLeader.email || null,
           phone: editedLeader.phone || null,
@@ -1716,11 +1720,13 @@ export default function CircleLeaderProfilePage() {
           follow_up_date: editedLeader.follow_up_date || null,
           ccb_profile_link: editedLeader.ccb_profile_link || null,
           ccb_group_id: editedLeader.ccb_group_id || null,
+          leader_ccb_profile_link: editedLeader.leader_ccb_profile_link || null,
           birthday: editedLeader.birthday || null,
           additional_leader_name: editedLeader.additional_leader_name || null,
           additional_leader_phone: editedLeader.additional_leader_phone || null,
           additional_leader_email: editedLeader.additional_leader_email || null,
           additional_leader_birthday: editedLeader.additional_leader_birthday || null,
+          additional_leader_ccb_profile_link: editedLeader.additional_leader_ccb_profile_link || null,
           check_in_cadence: editedLeader.check_in_cadence || 'none',
         })
         .eq('id', leaderId)
@@ -2017,7 +2023,7 @@ export default function CircleLeaderProfilePage() {
             </button>
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="text-2xl sm:text-3xl font-bold text-brand-light truncate">{leader.name}</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-brand-light truncate">{leader.circle_name || leader.name}</h1>
                 {leader.status && (() => {
                   const statusBadgeClass: Record<string, string> = {
                     'invited': 'status-badge status-badge-blue',
@@ -2034,6 +2040,13 @@ export default function CircleLeaderProfilePage() {
                   );
                 })()}
               </div>
+              {/* Leader names subtitle */}
+              {(leader.circle_name) && (
+                <p className="mt-0.5 text-sm text-gray-400">
+                  {leader.name}
+                  {leader.additional_leader_name ? ` · ${leader.additional_leader_name}` : ''}
+                </p>
+              )}
               {/* Context line: circle type, frequency, meeting day & time */}
               {(leader.circle_type || leader.day) && (
                 <p className="mt-1 text-sm text-gray-400">
@@ -2331,9 +2344,9 @@ export default function CircleLeaderProfilePage() {
               </div>
             </button>
             
-            {/* CCB Profile Link */}
+            {/* CCB Circle Link */}
             {leader?.ccb_profile_link && (
-              <a 
+              <a
                 href={leader.ccb_profile_link}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -2343,7 +2356,7 @@ export default function CircleLeaderProfilePage() {
                   <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
-                  CCB Profile
+                  CCB Circle
                 </div>
               </a>
             )}
@@ -2412,9 +2425,26 @@ export default function CircleLeaderProfilePage() {
                 )}
                 
                 <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Left Column */}
+                  {/* Circle Name - full width */}
+                  <div className="sm:col-span-2">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Circle Name</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editedLeader.circle_name !== undefined ? editedLeader.circle_name : (leader.circle_name || leader.name || '')}
+                          onChange={(e) => handleLeaderFieldChange('circle_name', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="e.g. FMT | S3 | Casey and Ashley Bates"
+                        />
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">{leader.circle_name || leader.name || 'Not provided'}</span>
+                      )}
+                    </dd>
+                  </div>
+                  {/* Primary Leader Name */}
                   <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Name</dt>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Primary Leader Name</dt>
                     <dd className="mt-1">
                       {isEditing ? (
                         <input
@@ -2422,7 +2452,7 @@ export default function CircleLeaderProfilePage() {
                           value={editedLeader.name || ''}
                           onChange={(e) => handleLeaderFieldChange('name', e.target.value)}
                           className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="Enter name"
+                          placeholder="Enter primary leader name"
                         />
                       ) : (
                         <span className="text-sm text-gray-900 dark:text-white">{leader.name || 'Not provided'}</span>
@@ -2630,29 +2660,61 @@ export default function CircleLeaderProfilePage() {
                   </div>
                   )}
                   <div className="sm:col-span-2">
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">CCB Profile Link</dt>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">CCB Circle Link</dt>
                     <dd className="mt-1">
                       {isEditing ? (
                         <input
                           type="url"
                           value={editedLeader.ccb_profile_link !== undefined ? editedLeader.ccb_profile_link : (leader.ccb_profile_link || '')}
                           onChange={(e) => handleLeaderFieldChange('ccb_profile_link', e.target.value)}
-                          placeholder="https://example.ccbchurch.com/..."
+                          placeholder="https://valleycreekchurch.ccbchurch.com/group_detail.php?group_id=..."
                           className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         />
                       ) : (
                         <span className="text-sm text-gray-900 dark:text-white">
                           {leader.ccb_profile_link ? (
-                            <a 
-                              href={leader.ccb_profile_link} 
-                              target="_blank" 
+                            <a
+                              href={leader.ccb_profile_link}
+                              target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center px-3 py-2 bg-gray-100/80 dark:bg-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-gray-200/80 dark:hover:bg-gray-600/60 rounded-xl transition-all duration-200 text-sm font-medium hover:scale-[1.02] active:scale-[0.98] backdrop-blur-sm"
                             >
                               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                               </svg>
-                              View CCB Profile
+                              View CCB Circle
+                            </a>
+                          ) : (
+                            'Not specified'
+                          )}
+                        </span>
+                      )}
+                    </dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Leader CCB Profile Link</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="url"
+                          value={editedLeader.leader_ccb_profile_link !== undefined ? editedLeader.leader_ccb_profile_link : (leader.leader_ccb_profile_link || '')}
+                          onChange={(e) => handleLeaderFieldChange('leader_ccb_profile_link', e.target.value)}
+                          placeholder="https://valleycreekchurch.ccbchurch.com/goto/individuals/..."
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">
+                          {leader.leader_ccb_profile_link ? (
+                            <a
+                              href={leader.leader_ccb_profile_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-3 py-2 bg-gray-100/80 dark:bg-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-gray-200/80 dark:hover:bg-gray-600/60 rounded-xl transition-all duration-200 text-sm font-medium hover:scale-[1.02] active:scale-[0.98] backdrop-blur-sm"
+                            >
+                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              </svg>
+                              View Leader Profile
                             </a>
                           ) : (
                             'Not specified'
@@ -2745,7 +2807,7 @@ export default function CircleLeaderProfilePage() {
             <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
                 <span className="text-base font-semibold text-slate-900 dark:text-white">Additional Leader</span>
-                <span className="text-xs text-slate-500 dark:text-slate-400">Optional Co-Leader/Spouse</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">Optional co-leader</span>
               </div>
               <div className="p-6">
                 <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2812,6 +2874,38 @@ export default function CircleLeaderProfilePage() {
                           {leader.additional_leader_birthday
                             ? new Date(leader.additional_leader_birthday + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
                             : 'Not set'}
+                        </span>
+                      )}
+                    </dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">CCB Profile Link</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="url"
+                          value={editedLeader.additional_leader_ccb_profile_link !== undefined ? editedLeader.additional_leader_ccb_profile_link : (leader.additional_leader_ccb_profile_link || '')}
+                          onChange={(e) => handleLeaderFieldChange('additional_leader_ccb_profile_link', e.target.value)}
+                          placeholder="https://valleycreekchurch.ccbchurch.com/goto/individuals/..."
+                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      ) : (
+                        <span className="text-sm text-gray-900 dark:text-white">
+                          {leader.additional_leader_ccb_profile_link ? (
+                            <a
+                              href={leader.additional_leader_ccb_profile_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-3 py-2 bg-gray-100/80 dark:bg-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-gray-200/80 dark:hover:bg-gray-600/60 rounded-xl transition-all duration-200 text-sm font-medium hover:scale-[1.02] active:scale-[0.98] backdrop-blur-sm"
+                            >
+                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              </svg>
+                              View Leader Profile
+                            </a>
+                          ) : (
+                            'Not specified'
+                          )}
                         </span>
                       )}
                     </dd>

@@ -76,7 +76,7 @@ export default function GlobalSearch() {
         { data: boardRows },
         { data: cardRows },
       ] = await Promise.all([
-        supabase.from('circle_leaders').select('id, name, email, phone, campus, acpd, status'),
+        supabase.from('circle_leaders').select('id, name, circle_name, email, phone, campus, acpd, status, additional_leader_name'),
         supabase.from('project_boards').select('id, title, description').eq('is_archived', false),
         supabase.from('board_cards').select('id, title, board_id').eq('is_archived', false),
       ]);
@@ -127,7 +127,14 @@ export default function GlobalSearch() {
     try {
       const leadersFuse = new Fuse(searchData.leaders, {
         ...fuseOptions,
-        keys: ['name', 'email', 'campus', 'acpd']
+        keys: [
+          { name: 'circle_name', weight: 3 },
+          { name: 'name', weight: 2 },
+          { name: 'additional_leader_name', weight: 2 },
+          { name: 'email', weight: 1 },
+          { name: 'campus', weight: 1 },
+          { name: 'acpd', weight: 1 },
+        ]
       });
 
       const boardsFuse = new Fuse(searchData.boards, {
@@ -477,10 +484,13 @@ export default function GlobalSearch() {
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: '14px', fontWeight: 500, color: isSelected ? '#eef4ed' : 'rgba(238, 244, 237, 0.85)', lineHeight: '1.3', transition: 'color 0.12s ease' }}>
-                                {leader.name}
+                                {(leader as any).circle_name || leader.name}
                               </div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px', fontSize: '12px', color: 'rgba(141, 169, 196, 0.6)', lineHeight: '1.3' }}>
-                                <span>Circle Leader</span>
+                                <span>
+                                  {leader.name}
+                                  {(leader as any).additional_leader_name ? ` · ${(leader as any).additional_leader_name}` : ''}
+                                </span>
                                 {leader.campus && (
                                   <>
                                     <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'rgba(141, 169, 196, 0.35)', flexShrink: 0 }} />

@@ -365,13 +365,17 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
           {/* Header with Name and Status */}
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
-              <Link 
+              <Link
                 href={`/circle/${leader.id}`}
                 className="block"
               >
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer">
-                  {leader.name || 'Unknown'}
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer">
+                  {leader.circle_name || leader.name || 'Unknown'}
                 </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                  {leader.name || ''}
+                  {leader.additional_leader_name ? ` · ${leader.additional_leader_name}` : ''}
+                </p>
               </Link>
               
               {/* Status moved under name */}
@@ -639,13 +643,17 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
           <div className="flex items-start justify-between">
             {/* Left Section - Name, Status, Circle Info */}
             <div className="flex-1 min-w-0 pr-6">
-              <Link 
+              <Link
                 href={`/circle/${leader.id}`}
                 className="block"
               >
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white truncate mb-2 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer">
-                  {leader.name || 'Unknown'}
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white truncate mb-1 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer">
+                  {leader.circle_name || leader.name || 'Unknown'}
                 </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 truncate mb-2">
+                  {leader.name || ''}
+                  {leader.additional_leader_name ? ` · ${leader.additional_leader_name}` : ''}
+                </p>
               </Link>
               
               {/* Status under name */}
