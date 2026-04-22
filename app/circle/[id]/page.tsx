@@ -381,6 +381,7 @@ export default function CircleLeaderProfilePage() {
   const [sentReminderMessages, setSentReminderMessages] = useState<number[]>([]);
   const [eventSummaryEnumAvailable, setEventSummaryEnumAvailable] = useState<boolean | null>(null);
   const [eventSummaryEnumWarningShown, setEventSummaryEnumWarningShown] = useState(false);
+  const [phoneActionModal, setPhoneActionModal] = useState<{ phone: string; name: string } | null>(null);
   
   // Key to force ACPD section to remount & refetch after coaching note added from scorecard
   const [acpdKey, setAcpdKey] = useState(0);
@@ -952,6 +953,21 @@ export default function CircleLeaderProfilePage() {
     const mailtoUrl = `mailto:${emails.join(',')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(greeting)}`;
     
     window.open(mailtoUrl, '_blank');
+  };
+
+  const openEmailLink = (email: string, name: string) => {
+    const subject = `Circle Leader Communication - ${name}`;
+    const greeting = `Hi ${name.split(' ')[0]}!`;
+    window.open(`mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(greeting)}`, '_blank');
+  };
+
+  const callNumber = (phone: string) => {
+    window.open(`tel:${phone.replace(/\D/g, '')}`, '_self');
+  };
+
+  const textNumber = (phone: string, name: string) => {
+    const greeting = `Hi ${name.split(' ')[0]}!`;
+    window.open(`sms:${phone.replace(/\D/g, '')}?body=${encodeURIComponent(greeting)}`, '_blank');
   };
 
   // Load sent reminder messages for this week
@@ -2571,8 +2587,18 @@ export default function CircleLeaderProfilePage() {
                           className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder="Enter phone"
                         />
+                      ) : leader.phone ? (
+                        <button
+                          onClick={() => setPhoneActionModal({ phone: leader.phone!, name: leader.name })}
+                          className="inline-flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                          </svg>
+                          {leader.phone}
+                        </button>
                       ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{leader.phone || 'Not provided'}</span>
+                        <span className="text-sm text-gray-500 dark:text-gray-400">Not provided</span>
                       )}
                     </dd>
                   </div>
@@ -2630,8 +2656,18 @@ export default function CircleLeaderProfilePage() {
                           className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder="Enter email"
                         />
+                      ) : leader.email ? (
+                        <button
+                          onClick={() => openEmailLink(leader.email!, leader.name)}
+                          className="inline-flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          </svg>
+                          {leader.email}
+                        </button>
                       ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{leader.email || 'Not provided'}</span>
+                        <span className="text-sm text-gray-500 dark:text-gray-400">Not provided</span>
                       )}
                     </dd>
                   </div>
@@ -2874,7 +2910,19 @@ export default function CircleLeaderProfilePage() {
                           placeholder="Enter phone number"
                         />
                       ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{leader.additional_leader_phone || 'Not provided'}</span>
+                        leader.additional_leader_phone ? (
+                          <button
+                            onClick={() => setPhoneActionModal({ phone: leader.additional_leader_phone!, name: leader.additional_leader_name || 'Additional Leader' })}
+                            className="inline-flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+                          >
+                            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
+                            {leader.additional_leader_phone}
+                          </button>
+                        ) : (
+                          <span className="text-sm text-gray-500 dark:text-gray-400">Not provided</span>
+                        )
                       )}
                     </dd>
                   </div>
@@ -2890,7 +2938,19 @@ export default function CircleLeaderProfilePage() {
                           placeholder="Enter email address"
                         />
                       ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{leader.additional_leader_email || 'Not provided'}</span>
+                        leader.additional_leader_email ? (
+                          <button
+                            onClick={() => openEmailLink(leader.additional_leader_email!, leader.additional_leader_name || 'Additional Leader')}
+                            className="inline-flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+                          >
+                            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            {leader.additional_leader_email}
+                          </button>
+                        ) : (
+                          <span className="text-sm text-gray-500 dark:text-gray-400">Not provided</span>
+                        )
                       )}
                     </dd>
                   </div>
@@ -3712,6 +3772,53 @@ export default function CircleLeaderProfilePage() {
         </div>
         </div>
       
+      {/* Call or Text modal */}
+      {phoneActionModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => setPhoneActionModal(null)}
+        >
+          <div
+            className="w-full sm:max-w-sm bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 pt-5 pb-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">Contact</p>
+              <p className="text-base font-semibold text-white">{phoneActionModal.name}</p>
+              <p className="text-sm text-slate-400 mt-0.5">{phoneActionModal.phone}</p>
+            </div>
+            <div className="px-3 pb-3 space-y-2">
+              <button
+                onClick={() => { callNumber(phoneActionModal.phone); setPhoneActionModal(null); }}
+                className="w-full flex items-center gap-3 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl transition-colors text-sm font-medium"
+              >
+                <svg className="w-5 h-5 text-green-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+                Call
+              </button>
+              <button
+                onClick={() => { textNumber(phoneActionModal.phone, phoneActionModal.name); setPhoneActionModal(null); }}
+                className="w-full flex items-center gap-3 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl transition-colors text-sm font-medium"
+              >
+                <svg className="w-5 h-5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                Text
+              </button>
+            </div>
+            <div className="px-3 pb-4">
+              <button
+                onClick={() => setPhoneActionModal(null)}
+                className="w-full py-2.5 text-slate-400 hover:text-white text-sm font-medium rounded-xl hover:bg-slate-700 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Alert Modal */}
       <AlertModal
         isOpen={showAlert.isOpen}
