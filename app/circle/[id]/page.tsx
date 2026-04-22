@@ -1307,7 +1307,7 @@ export default function CircleLeaderProfilePage() {
               isOpen: true,
               type: 'warning',
               title: 'Skipped not enabled yet',
-              message: "Your database hasn’t been migrated to the new 4-state event summary system yet. For now, ‘Skipped’ behaves like ‘Did Not Meet’. Run the Supabase migration to fully enable Skipped."
+              message: "Your database hasn't been migrated to the new 4-state event summary system yet. For now, 'Skipped' behaves like 'Did Not Meet'. Run the Supabase migration to fully enable Skipped."
             });
           }
         } else if ((nextState === 'did_not_meet') && !eventSummaryEnumWarningShown) {
@@ -1316,7 +1316,7 @@ export default function CircleLeaderProfilePage() {
             isOpen: true,
             type: 'warning',
             title: '4-state migration needed',
-            message: "Your database hasn’t been migrated to the new 4-state event summary system yet. ‘Did Not Meet’ will work, but ‘Skipped’ can’t be stored separately until you run the Supabase migration."
+            message: "Your database hasn't been migrated to the new 4-state event summary system yet. 'Did Not Meet' will work, but 'Skipped' can't be stored separately until you run the Supabase migration."
           });
         }
 
@@ -2140,7 +2140,7 @@ export default function CircleLeaderProfilePage() {
 
         {/* Editing mode sticky footer — mobile only, so Save/Cancel are always reachable */}
         {isEditing && (
-          <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur border-t border-slate-700 px-4 py-3 flex items-center gap-3">
+          <div className="lg:hidden fixed bottom-0 left-0 right-0 z-[10001] bg-slate-900/95 backdrop-blur border-t border-slate-700 px-4 py-3 flex items-center gap-3">
             <button
               onClick={handleSaveLeader}
               disabled={isSavingLeader || !editedLeader.name?.trim()}
@@ -2183,8 +2183,8 @@ export default function CircleLeaderProfilePage() {
         {/* Mobile Quick Actions - Show on mobile only, right after the name */}
         <div className="lg:hidden mb-6 space-y-4">
           {/* Event Summary - Mobile */}
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Event Summary</span>
               {(() => {
                 const state = getEventSummaryState(leader);
@@ -2198,102 +2198,56 @@ export default function CircleLeaderProfilePage() {
 
               {(() => {
                 const eventSummaryState = getEventSummaryState(leader);
-                const base =
-                  'w-full relative text-left rounded-lg border px-3 py-3 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800';
-                const disabledCls = isUpdatingEventSummary ? 'opacity-60 cursor-not-allowed' : '';
+                const disabledCls = isUpdatingEventSummary ? 'opacity-50 cursor-not-allowed' : '';
+
+                const activeColors = {
+                  not_received: 'bg-slate-600 border-slate-500 text-white',
+                  received:     'bg-green-500 border-green-400 text-white',
+                  did_not_meet: 'bg-blue-500 border-blue-400 text-white',
+                  skipped:      'bg-amber-500 border-amber-400 text-white',
+                };
 
                 const btn = (kind: EventSummaryState) => {
                   const active = eventSummaryState === kind;
-                  const colors = getEventSummaryColors(kind);
-                  const leftBar = `border-l-4 ${colors.borderLeft}`;
+                  const base = `w-full h-9 flex items-center justify-center gap-1.5 rounded-lg border text-sm font-medium transition-colors focus:outline-none ${disabledCls}`;
                   return active
-                    ? `${base} ${disabledCls} ${leftBar} ${colors.bg} ${colors.border} text-white shadow-sm`
-                    : `${base} ${disabledCls} ${leftBar} bg-white dark:bg-gray-800 ${colors.btnInactiveBorder} ${colors.btnInactiveText} ${colors.hover}`;
+                    ? `${base} ${activeColors[kind]} shadow-sm`
+                    : `${base} bg-slate-700/50 border-slate-600 text-slate-400 hover:bg-slate-700 hover:text-slate-200`;
                 };
 
-                const content = (kind: EventSummaryState) => {
-                  const colors = getEventSummaryColors(kind);
-                  const primary = getEventSummaryButtonLabel(kind);
-                  return (
-                    <span className="flex flex-col items-start leading-tight">
-                      <span className="text-base font-bold">{primary}</span>
-                      <span className="text-xs opacity-90">{colors.label}</span>
-                    </span>
-                  );
+                const labels = {
+                  not_received: 'No',
+                  received:     'Yes',
+                  did_not_meet: "Didn't Meet",
+                  skipped:      'Skip',
                 };
-
-                const check = () => (
-                  <svg
-                    className="w-4 h-4"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M16.704 5.292a1 1 0 010 1.416l-7.25 7.25a1 1 0 01-1.416 0l-3.25-3.25a1 1 0 011.416-1.416l2.542 2.542 6.542-6.542a1 1 0 011.416 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                );
 
                 return (
                   <div className="space-y-2">
                     {eventSummaryEnumAvailable === false && (
-                      <div className="text-xs text-amber-700 dark:text-amber-300">
-                        Skipped isn’t enabled until the Supabase migration runs.
+                      <div className="text-xs text-amber-400">
+                        Skipped isn't enabled until the Supabase migration runs.
                       </div>
                     )}
 
                     <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => handleSetEventSummaryState('not_received')}
-                        disabled={isUpdatingEventSummary}
-                        className={btn('not_received')}
-                        title="Not Received"
-                        aria-pressed={eventSummaryState === 'not_received'}
-                      >
-                        {content('not_received')}
-                        {eventSummaryState === 'not_received' ? (
-                          <span className="absolute top-2 right-2">{check()}</span>
-                        ) : null}
-                      </button>
-                      <button
-                        onClick={() => handleSetEventSummaryState('received')}
-                        disabled={isUpdatingEventSummary}
-                        className={btn('received')}
-                        title="Received"
-                        aria-pressed={eventSummaryState === 'received'}
-                      >
-                        {content('received')}
-                        {eventSummaryState === 'received' ? (
-                          <span className="absolute top-2 right-2">{check()}</span>
-                        ) : null}
-                      </button>
-                      <button
-                        onClick={() => handleSetEventSummaryState('did_not_meet')}
-                        disabled={isUpdatingEventSummary}
-                        className={btn('did_not_meet')}
-                        title="Did Not Meet"
-                        aria-pressed={eventSummaryState === 'did_not_meet'}
-                      >
-                        {content('did_not_meet')}
-                        {eventSummaryState === 'did_not_meet' ? (
-                          <span className="absolute top-2 right-2">{check()}</span>
-                        ) : null}
-                      </button>
-                      <button
-                        onClick={() => handleSetEventSummaryState('skipped')}
-                        disabled={isUpdatingEventSummary || eventSummaryEnumAvailable === false}
-                        className={btn('skipped')}
-                        title={eventSummaryEnumAvailable === false ? 'Run DB migration to enable Skipped' : 'Skipped'}
-                        aria-pressed={eventSummaryState === 'skipped'}
-                      >
-                        {content('skipped')}
-                        {eventSummaryState === 'skipped' ? (
-                          <span className="absolute top-2 right-2">{check()}</span>
-                        ) : null}
-                      </button>
+                      {(['not_received', 'received', 'did_not_meet', 'skipped'] as EventSummaryState[]).map((kind) => (
+                        <button
+                          key={kind}
+                          onClick={() => handleSetEventSummaryState(kind)}
+                          disabled={isUpdatingEventSummary || (kind === 'skipped' && eventSummaryEnumAvailable === false)}
+                          className={btn(kind)}
+                          title={kind === 'skipped' && eventSummaryEnumAvailable === false ? 'Run DB migration to enable Skipped' : labels[kind]}
+                          aria-pressed={eventSummaryState === kind}
+                        >
+                          {eventSummaryState === kind && (
+                            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M16.704 5.292a1 1 0 010 1.416l-7.25 7.25a1 1 0 01-1.416 0l-3.25-3.25a1 1 0 011.416-1.416l2.542 2.542 6.542-6.542a1 1 0 011.416 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                          {labels[kind]}
+                        </button>
+                      ))}
                     </div>
 
                   </div>
@@ -2303,8 +2257,8 @@ export default function CircleLeaderProfilePage() {
           </div>
 
           {/* Follow Up - Mobile */}
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-700">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Follow-Up</span>
             </div>
             <div className="p-4 space-y-3">
@@ -2335,7 +2289,7 @@ export default function CircleLeaderProfilePage() {
               <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-sm text-gray-900 dark:text-white font-medium">
+                    <div className="text-sm text-slate-200 font-medium">
                       {new Date(leader.follow_up_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </div>
                     <div className={`text-xs ${
@@ -2363,57 +2317,15 @@ export default function CircleLeaderProfilePage() {
           </div>
 
           {/* Quick Actions - Mobile */}
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-700">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Quick Actions</span>
             </div>
-            <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
-            
-            <button 
-              onClick={handleSendSMS}
-              disabled={!leader?.phone}
-              className="w-full flex items-center justify-between px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <div className="flex items-center gap-2.5">
-                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-                Send SMS
-              </div>
-              {!leader?.phone && <span className="text-xs text-slate-400">No phone</span>}
-            </button>
-            
-            <button 
-              onClick={handleCallLeader}
-              disabled={!leader?.phone}
-              className="w-full flex items-center justify-between px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <div className="flex items-center gap-2.5">
-                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                </svg>
-                Call
-              </div>
-              {!leader?.phone && <span className="text-xs text-slate-400">No phone</span>}
-            </button>
-            
-            <button 
-              onClick={handleSendEmail}
-              disabled={!leader?.email}
-              className="w-full flex items-center justify-between px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <div className="flex items-center gap-2.5">
-                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                Send Email
-              </div>
-              {!leader?.email && <span className="text-xs text-slate-400">No email</span>}
-            </button>
-            
-            <button 
+            <div className="divide-y divide-slate-700/50">
+
+            <button
               onClick={() => setShowLogConnectionModal(true)}
-              className="w-full flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm transition-colors"
+              className="w-full flex items-center px-4 py-3 text-slate-200 hover:bg-slate-700/50 text-sm transition-colors"
             >
               <div className="flex items-center gap-2.5">
                 <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2425,7 +2337,7 @@ export default function CircleLeaderProfilePage() {
             
             <button 
               onClick={() => setShowConnectPersonModal(true)}
-              className="w-full flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm transition-colors"
+              className="w-full flex items-center px-4 py-3 text-slate-200 hover:bg-slate-700/50 text-sm transition-colors"
             >
               <div className="flex items-center gap-2.5">
                 <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2435,28 +2347,11 @@ export default function CircleLeaderProfilePage() {
               </div>
             </button>
             
-            {/* CCB Circle Link */}
-            {leader?.ccb_profile_link && (
-              <a
-                href={leader.ccb_profile_link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm transition-colors"
-              >
-                <div className="flex items-center gap-2.5">
-                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                  CCB Circle
-                </div>
-              </a>
-            )}
-
             {/* View Roster Link */}
             {leader?.ccb_group_id && (
               <Link
                 href={`/circle/${leaderId}/roster`}
-                className="w-full flex items-center justify-between px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm transition-colors"
+                className="w-full flex items-center justify-between px-4 py-3 text-slate-200 hover:bg-slate-700/50 text-sm transition-colors"
               >
                 <div className="flex items-center gap-2.5">
                   <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2481,10 +2376,10 @@ export default function CircleLeaderProfilePage() {
         <div id="section-profile" ref={setSectionRef('section-profile')} className="grid grid-cols-1 lg:grid-cols-3 gap-6 scroll-mt-20">
           {/* Main Profile Info */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Circle Information */}
-            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass">
-              <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-                <h2 className="text-base font-semibold text-slate-900 dark:text-white">Circle Information</h2>
+            {/* Circle Info */}
+            <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass">
+              <div className="px-6 py-4 border-b border-slate-700">
+                <h2 className="text-base font-semibold text-white">Circle Info</h2>
               </div>
               <div className="p-6">
                 {leaderError && (
@@ -2495,69 +2390,32 @@ export default function CircleLeaderProfilePage() {
                     {leaderError}
                   </div>
                 )}
-
-                {isEditing && (
-                  <div className="mb-4">
-                    <CCBPersonLookup
-                      size="sm"
-                      label="Fill from CCB"
-                      placeholder="Search CCB by name or phone to auto-fill..."
-                      onSelect={(person: CCBPerson) => {
-                        handleLeaderFieldChange('name', person.fullName);
-                        if (person.mobilePhone || person.phone) {
-                          handleLeaderFieldChange('phone', person.mobilePhone || person.phone);
-                        }
-                        if (person.email) {
-                          handleLeaderFieldChange('email', person.email);
-                        }
-                      }}
-                    />
-                  </div>
-                )}
-                
                 <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Circle Name - full width */}
                   <div className="sm:col-span-2">
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Circle Name</dt>
+                    <dt className="text-sm font-medium text-slate-400">Circle Name</dt>
                     <dd className="mt-1">
                       {isEditing ? (
                         <input
                           type="text"
                           value={editedLeader.circle_name !== undefined ? editedLeader.circle_name : (leader.circle_name || leader.name || '')}
                           onChange={(e) => handleLeaderFieldChange('circle_name', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                           placeholder="e.g. FMT | S3 | Casey and Ashley Bates"
                         />
                       ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{leader.circle_name || leader.name || 'Not provided'}</span>
-                      )}
-                    </dd>
-                  </div>
-                  {/* Primary Leader Name */}
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Primary Leader Name</dt>
-                    <dd className="mt-1">
-                      {isEditing ? (
-                        <input
-                          type="text"
-                          value={editedLeader.name || ''}
-                          onChange={(e) => handleLeaderFieldChange('name', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="Enter primary leader name"
-                        />
-                      ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{leader.name || 'Not provided'}</span>
+                        <span className="text-sm text-slate-200">{leader.circle_name || leader.name || 'Not provided'}</span>
                       )}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</dt>
+                    <dt className="text-sm font-medium text-slate-400">Status</dt>
                     <dd className="mt-1">
                       {isEditing ? (
                         <select
                           value={editedLeader.status || 'active'}
                           onChange={(e) => handleLeaderFieldChange('status', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         >
                           {statuses.map((status) => (
                             <option key={status.id} value={status.value}>
@@ -2566,7 +2424,7 @@ export default function CircleLeaderProfilePage() {
                           ))}
                         </select>
                       ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">
+                        <span className="text-sm text-slate-200">
                           {leader.status === 'off-boarding'
                             ? 'Off-boarding'
                             : leader.status
@@ -2577,39 +2435,13 @@ export default function CircleLeaderProfilePage() {
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone</dt>
-                    <dd className="mt-1">
-                      {isEditing ? (
-                        <input
-                          type="tel"
-                          value={editedLeader.phone || ''}
-                          onChange={(e) => handleLeaderFieldChange('phone', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="Enter phone"
-                        />
-                      ) : leader.phone ? (
-                        <button
-                          onClick={() => setPhoneActionModal({ phone: leader.phone!, name: leader.name })}
-                          className="inline-flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
-                        >
-                          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                          </svg>
-                          {leader.phone}
-                        </button>
-                      ) : (
-                        <span className="text-sm text-gray-500 dark:text-gray-400">Not provided</span>
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Circle Type</dt>
+                    <dt className="text-sm font-medium text-slate-400">Circle Type</dt>
                     <dd className="mt-1">
                       {isEditing ? (
                         <select
                           value={editedLeader.circle_type || ''}
                           onChange={(e) => handleLeaderFieldChange('circle_type', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         >
                           <option value="">Select Circle Type</option>
                           {circleTypes.map((type) => (
@@ -2619,66 +2451,18 @@ export default function CircleLeaderProfilePage() {
                           ))}
                         </select>
                       ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{normalizeCircleTypeValue(leader.circle_type) || 'Not specified'}</span>
-                      )}
-                    </dd>
-                  </div>
-
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Meeting Frequency</dt>
-                    <dd className="mt-1">
-                      {isEditing ? (
-                        <select
-                          value={editedLeader.frequency || ''}
-                          onChange={(e) => handleLeaderFieldChange('frequency', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                          <option value="">Select Frequency</option>
-                          {frequencies.map((frequency) => (
-                            <option key={frequency.id} value={frequency.value}>
-                              {formatFrequencyLabel(frequency.value)}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{leader.frequency || 'Not specified'}</span>
+                        <span className="text-sm text-slate-200">{normalizeCircleTypeValue(leader.circle_type) || 'Not specified'}</span>
                       )}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Email</dt>
-                    <dd className="mt-1">
-                      {isEditing ? (
-                        <input
-                          type="email"
-                          value={editedLeader.email || ''}
-                          onChange={(e) => handleLeaderFieldChange('email', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="Enter email"
-                        />
-                      ) : leader.email ? (
-                        <button
-                          onClick={() => openEmailLink(leader.email!, leader.name)}
-                          className="inline-flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
-                        >
-                          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                          </svg>
-                          {leader.email}
-                        </button>
-                      ) : (
-                        <span className="text-sm text-gray-500 dark:text-gray-400">Not provided</span>
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Meeting Day</dt>
+                    <dt className="text-sm font-medium text-slate-400">Meeting Day</dt>
                     <dd className="mt-1">
                       {isEditing ? (
                         <select
                           value={editedLeader.day || ''}
                           onChange={(e) => handleLeaderFieldChange('day', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         >
                           <option value="">Select Day</option>
                           <option value="Monday">Monday</option>
@@ -2690,56 +2474,73 @@ export default function CircleLeaderProfilePage() {
                           <option value="Sunday">Sunday</option>
                         </select>
                       ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{leader.day || 'Not specified'}</span>
+                        <span className="text-sm text-slate-200">{leader.day || 'Not specified'}</span>
                       )}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Campus</dt>
-                    <dd className="mt-1">
-                      {isEditing ? (
-                        <select
-                          value={editedLeader.campus || ''}
-                          onChange={(e) => handleLeaderFieldChange('campus', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                          <option value="">Select Campus</option>
-                          {campuses.map((campus) => (
-                            <option key={campus.id} value={campus.value}>
-                              {campus.value}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{leader.campus || 'Not specified'}</span>
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Meeting Time</dt>
+                    <dt className="text-sm font-medium text-slate-400">Meeting Time</dt>
                     <dd className="mt-1">
                       {isEditing ? (
                         <input
                           type="time"
-                          value={leader.time?.includes('AM') || leader.time?.includes('PM') 
-                            ? convertAMPMTo24Hour(leader.time) 
+                          value={leader.time?.includes('AM') || leader.time?.includes('PM')
+                            ? convertAMPMTo24Hour(leader.time)
                             : editedLeader.time || ''}
                           onChange={(e) => handleLeaderFieldChange('time', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         />
                       ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{formatTimeToAMPM(leader.time || '') || 'Not specified'}</span>
+                        <span className="text-sm text-slate-200">{formatTimeToAMPM(leader.time || '') || 'Not specified'}</span>
                       )}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Director</dt>
+                    <dt className="text-sm font-medium text-slate-400">Meeting Frequency</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <select
+                          value={editedLeader.frequency || ''}
+                          onChange={(e) => handleLeaderFieldChange('frequency', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        >
+                          <option value="">Select Frequency</option>
+                          {frequencies.map((frequency) => (
+                            <option key={frequency.id} value={frequency.value}>
+                              {formatFrequencyLabel(frequency.value)}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-sm text-slate-200">{leader.frequency || 'Not specified'}</span>
+                      )}
+                    </dd>
+                  </div>
+                  {/(bi-?week|every other)/i.test((isEditing ? editedLeader.frequency : leader.frequency) || '') && (
+                  <div>
+                    <dt className="text-sm font-medium text-slate-400">Bi-weekly Start Date</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="date"
+                          value={editedLeader.meeting_start_date !== undefined ? (editedLeader.meeting_start_date || '') : (leader.meeting_start_date || '')}
+                          onChange={(e) => handleLeaderFieldChange('meeting_start_date', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        />
+                      ) : (
+                        <span className="text-sm text-slate-200">{leader.meeting_start_date || 'Not set'}</span>
+                      )}
+                    </dd>
+                  </div>
+                  )}
+                  <div>
+                    <dt className="text-sm font-medium text-slate-400">Director</dt>
                     <dd className="mt-1">
                       {isEditing ? (
                         <select
                           value={editedLeader.acpd || ''}
                           onChange={(e) => handleLeaderFieldChange('acpd', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         >
                           <option value="">Select Director</option>
                           {directors.map((director) => (
@@ -2749,29 +2550,49 @@ export default function CircleLeaderProfilePage() {
                           ))}
                         </select>
                       ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{leader.acpd || 'Not assigned'}</span>
+                        <span className="text-sm text-slate-200">{leader.acpd || 'Not assigned'}</span>
                       )}
                     </dd>
                   </div>
-                  {/(bi-?week|every other)/i.test((isEditing ? editedLeader.frequency : leader.frequency) || '') && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Bi-weekly Start Date</dt>
+                    <dt className="text-sm font-medium text-slate-400">Campus</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <select
+                          value={editedLeader.campus || ''}
+                          onChange={(e) => handleLeaderFieldChange('campus', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        >
+                          <option value="">Select Campus</option>
+                          {campuses.map((campus) => (
+                            <option key={campus.id} value={campus.value}>
+                              {campus.value}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-sm text-slate-200">{leader.campus || 'Not specified'}</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-slate-400">CCB Group ID</dt>
                     <dd className="mt-1">
                       {isEditing ? (
                         <input
-                          type="date"
-                          value={editedLeader.meeting_start_date !== undefined ? (editedLeader.meeting_start_date || '') : (leader.meeting_start_date || '')}
-                          onChange={(e) => handleLeaderFieldChange('meeting_start_date', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          type="text"
+                          value={editedLeader.ccb_group_id !== undefined ? editedLeader.ccb_group_id : (leader.ccb_group_id || '')}
+                          onChange={(e) => handleLeaderFieldChange('ccb_group_id', e.target.value)}
+                          placeholder="e.g. 201"
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         />
                       ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{leader.meeting_start_date || 'Not set'}</span>
+                        <span className="text-sm text-slate-200">{leader.ccb_group_id || 'Not set'}</span>
                       )}
                     </dd>
                   </div>
-                  )}
                   <div className="sm:col-span-2">
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">CCB Circle Link</dt>
+                    <dt className="text-sm font-medium text-slate-400">CCB Circle Link</dt>
                     <dd className="mt-1">
                       {isEditing ? (
                         <input
@@ -2779,10 +2600,10 @@ export default function CircleLeaderProfilePage() {
                           value={editedLeader.ccb_profile_link !== undefined ? editedLeader.ccb_profile_link : (leader.ccb_profile_link || '')}
                           onChange={(e) => handleLeaderFieldChange('ccb_profile_link', e.target.value)}
                           placeholder="https://valleycreekchurch.ccbchurch.com/group_detail.php?group_id=..."
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         />
                       ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">
+                        <span className="text-sm text-slate-200">
                           {leader.ccb_profile_link ? (
                             <a
                               href={leader.ccb_profile_link}
@@ -2802,8 +2623,125 @@ export default function CircleLeaderProfilePage() {
                       )}
                     </dd>
                   </div>
+                </dl>
+              </div>
+            </div>
+
+            {/* Primary Leader */}
+            <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass">
+              <div className="px-6 py-4 border-b border-slate-700">
+                <h2 className="text-base font-semibold text-white">Primary Leader</h2>
+              </div>
+              <div className="p-6">
+                {isEditing && (
+                  <div className="mb-4">
+                    <CCBPersonLookup
+                      size="sm"
+                      label="Fill from CCB"
+                      placeholder="Search CCB by name or phone to auto-fill..."
+                      onSelect={(person: CCBPerson) => {
+                        handleLeaderFieldChange('name', person.fullName);
+                        if (person.mobilePhone || person.phone) {
+                          handleLeaderFieldChange('phone', person.mobilePhone || person.phone);
+                        }
+                        if (person.email) {
+                          handleLeaderFieldChange('email', person.email);
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+                <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Leader CCB Profile Link</dt>
+                    <dt className="text-sm font-medium text-slate-400">Name</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editedLeader.name || ''}
+                          onChange={(e) => handleLeaderFieldChange('name', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                          placeholder="Enter primary leader name"
+                        />
+                      ) : (
+                        <span className="text-sm text-slate-200">{leader.name || 'Not provided'}</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-slate-400">Phone</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="tel"
+                          value={editedLeader.phone || ''}
+                          onChange={(e) => handleLeaderFieldChange('phone', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                          placeholder="Enter phone"
+                        />
+                      ) : leader.phone ? (
+                        <button
+                          onClick={() => setPhoneActionModal({ phone: leader.phone!, name: leader.name })}
+                          className="inline-flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                          </svg>
+                          {leader.phone}
+                        </button>
+                      ) : (
+                        <span className="text-sm text-slate-500">Not provided</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-slate-400">Email</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="email"
+                          value={editedLeader.email || ''}
+                          onChange={(e) => handleLeaderFieldChange('email', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                          placeholder="Enter email"
+                        />
+                      ) : leader.email ? (
+                        <button
+                          onClick={() => openEmailLink(leader.email!, leader.name)}
+                          title={leader.email}
+                          className="inline-flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition-colors max-w-full min-w-0"
+                        >
+                          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          </svg>
+                          <span className="truncate">{leader.email}</span>
+                        </button>
+                      ) : (
+                        <span className="text-sm text-slate-500">Not provided</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-400"><Cake className="h-4 w-4" />Birthday</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="date"
+                          value={editedLeader.birthday !== undefined ? editedLeader.birthday : (leader.birthday || '')}
+                          onChange={(e) => handleLeaderFieldChange('birthday', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        />
+                      ) : (
+                        <span className="text-sm text-slate-200">
+                          {leader.birthday
+                            ? new Date(leader.birthday + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                            : 'Not set'}
+                        </span>
+                      )}
+                    </dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="text-sm font-medium text-slate-400">CCB Profile Link</dt>
                     <dd className="mt-1">
                       {isEditing ? (
                         <input
@@ -2811,10 +2749,10 @@ export default function CircleLeaderProfilePage() {
                           value={editedLeader.leader_ccb_profile_link !== undefined ? editedLeader.leader_ccb_profile_link : (leader.leader_ccb_profile_link || '')}
                           onChange={(e) => handleLeaderFieldChange('leader_ccb_profile_link', e.target.value)}
                           placeholder="https://valleycreekchurch.ccbchurch.com/goto/individuals/..."
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         />
                       ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">
+                        <span className="text-sm text-slate-200">
                           {leader.leader_ccb_profile_link ? (
                             <a
                               href={leader.leader_ccb_profile_link}
@@ -2834,138 +2772,100 @@ export default function CircleLeaderProfilePage() {
                       )}
                     </dd>
                   </div>
-                  <div className="sm:col-span-1">
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">CCB Group ID</dt>
-                    <dd className="mt-1">
-                      {isEditing ? (
-                        <input
-                          type="text"
-                          value={editedLeader.ccb_group_id !== undefined ? editedLeader.ccb_group_id : (leader.ccb_group_id || '')}
-                          onChange={(e) => handleLeaderFieldChange('ccb_group_id', e.target.value)}
-                          placeholder="e.g. 201"
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                      ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{leader.ccb_group_id || 'Not set'}</span>
-                      )}
-                    </dd>
-                  </div>
-                  <div className="sm:col-span-1">
-                    <dt className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400"><Cake className="h-4 w-4" />Birthday</dt>
-                    <dd className="mt-1">
-                      {isEditing ? (
-                        <input
-                          type="date"
-                          value={editedLeader.birthday !== undefined ? editedLeader.birthday : (leader.birthday || '')}
-                          onChange={(e) => handleLeaderFieldChange('birthday', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                      ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">
-                          {leader.birthday
-                            ? new Date(leader.birthday + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-                            : 'Not set'}
-                        </span>
-                      )}
-                    </dd>
-                  </div>
                 </dl>
-                
               </div>
             </div>
 
-            {/* Additional Leader Information */}
-            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
-                <span className="text-base font-semibold text-slate-900 dark:text-white">Additional Leader</span>
-                <span className="text-xs text-slate-500 dark:text-slate-400">Optional co-leader</span>
+            {/* Additional Leader — only rendered when there is data or in edit mode */}
+            {(isEditing || leader.additional_leader_name || leader.additional_leader_phone || leader.additional_leader_email) && (
+            <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass">
+              <div className="px-6 py-4 border-b border-slate-700 flex items-center justify-between">
+                <h2 className="text-base font-semibold text-white">Additional Leader</h2>
+                <span className="text-xs text-slate-500 dark:text-slate-400">Co-leader</span>
               </div>
               <div className="p-6">
                 <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Name</dt>
+                  <div className="sm:col-span-2">
+                    <dt className="text-sm font-medium text-slate-400">Name</dt>
                     <dd className="mt-1">
                       {isEditing ? (
                         <input
                           type="text"
                           value={editedLeader.additional_leader_name !== undefined ? editedLeader.additional_leader_name : (leader.additional_leader_name || '')}
                           onChange={(e) => handleLeaderFieldChange('additional_leader_name', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                           placeholder="Enter additional leader name"
                         />
                       ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">{leader.additional_leader_name || 'Not provided'}</span>
+                        <span className="text-sm text-slate-200">{leader.additional_leader_name || 'Not provided'}</span>
                       )}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone</dt>
+                    <dt className="text-sm font-medium text-slate-400">Phone</dt>
                     <dd className="mt-1">
                       {isEditing ? (
                         <input
                           type="tel"
                           value={editedLeader.additional_leader_phone !== undefined ? editedLeader.additional_leader_phone : (leader.additional_leader_phone || '')}
                           onChange={(e) => handleLeaderFieldChange('additional_leader_phone', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                           placeholder="Enter phone number"
                         />
+                      ) : leader.additional_leader_phone ? (
+                        <button
+                          onClick={() => setPhoneActionModal({ phone: leader.additional_leader_phone!, name: leader.additional_leader_name || 'Additional Leader' })}
+                          className="inline-flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                          </svg>
+                          {leader.additional_leader_phone}
+                        </button>
                       ) : (
-                        leader.additional_leader_phone ? (
-                          <button
-                            onClick={() => setPhoneActionModal({ phone: leader.additional_leader_phone!, name: leader.additional_leader_name || 'Additional Leader' })}
-                            className="inline-flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
-                          >
-                            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                            </svg>
-                            {leader.additional_leader_phone}
-                          </button>
-                        ) : (
-                          <span className="text-sm text-gray-500 dark:text-gray-400">Not provided</span>
-                        )
+                        <span className="text-sm text-slate-500">Not provided</span>
                       )}
                     </dd>
                   </div>
-                  <div className="sm:col-span-2">
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Email</dt>
+                  <div>
+                    <dt className="text-sm font-medium text-slate-400">Email</dt>
                     <dd className="mt-1">
                       {isEditing ? (
                         <input
                           type="email"
                           value={editedLeader.additional_leader_email !== undefined ? editedLeader.additional_leader_email : (leader.additional_leader_email || '')}
                           onChange={(e) => handleLeaderFieldChange('additional_leader_email', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                           placeholder="Enter email address"
                         />
+                      ) : leader.additional_leader_email ? (
+                        <button
+                          onClick={() => openEmailLink(leader.additional_leader_email!, leader.additional_leader_name || 'Additional Leader')}
+                          title={leader.additional_leader_email}
+                          className="inline-flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition-colors max-w-full min-w-0"
+                        >
+                          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          </svg>
+                          <span className="truncate">{leader.additional_leader_email}</span>
+                        </button>
                       ) : (
-                        leader.additional_leader_email ? (
-                          <button
-                            onClick={() => openEmailLink(leader.additional_leader_email!, leader.additional_leader_name || 'Additional Leader')}
-                            className="inline-flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
-                          >
-                            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                            {leader.additional_leader_email}
-                          </button>
-                        ) : (
-                          <span className="text-sm text-gray-500 dark:text-gray-400">Not provided</span>
-                        )
+                        <span className="text-sm text-slate-500">Not provided</span>
                       )}
                     </dd>
                   </div>
-                  <div className="sm:col-span-1">
-                    <dt className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400"><Cake className="h-4 w-4" />Birthday</dt>
+                  <div>
+                    <dt className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-400"><Cake className="h-4 w-4" />Birthday</dt>
                     <dd className="mt-1">
                       {isEditing ? (
                         <input
                           type="date"
                           value={editedLeader.additional_leader_birthday !== undefined ? editedLeader.additional_leader_birthday : (leader.additional_leader_birthday || '')}
                           onChange={(e) => handleLeaderFieldChange('additional_leader_birthday', e.target.value)}
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         />
                       ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">
+                        <span className="text-sm text-slate-200">
                           {leader.additional_leader_birthday
                             ? new Date(leader.additional_leader_birthday + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
                             : 'Not set'}
@@ -2974,7 +2874,7 @@ export default function CircleLeaderProfilePage() {
                     </dd>
                   </div>
                   <div className="sm:col-span-2">
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">CCB Profile Link</dt>
+                    <dt className="text-sm font-medium text-slate-400">CCB Profile Link</dt>
                     <dd className="mt-1">
                       {isEditing ? (
                         <input
@@ -2982,39 +2882,36 @@ export default function CircleLeaderProfilePage() {
                           value={editedLeader.additional_leader_ccb_profile_link !== undefined ? editedLeader.additional_leader_ccb_profile_link : (leader.additional_leader_ccb_profile_link || '')}
                           onChange={(e) => handleLeaderFieldChange('additional_leader_ccb_profile_link', e.target.value)}
                           placeholder="https://valleycreekchurch.ccbchurch.com/goto/individuals/..."
-                          className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         />
+                      ) : leader.additional_leader_ccb_profile_link ? (
+                        <a
+                          href={leader.additional_leader_ccb_profile_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center px-3 py-2 bg-gray-100/80 dark:bg-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-gray-200/80 dark:hover:bg-gray-600/60 rounded-xl transition-all duration-200 text-sm font-medium hover:scale-[1.02] active:scale-[0.98] backdrop-blur-sm"
+                        >
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                          View Leader Profile
+                        </a>
                       ) : (
-                        <span className="text-sm text-gray-900 dark:text-white">
-                          {leader.additional_leader_ccb_profile_link ? (
-                            <a
-                              href={leader.additional_leader_ccb_profile_link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center px-3 py-2 bg-gray-100/80 dark:bg-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-gray-200/80 dark:hover:bg-gray-600/60 rounded-xl transition-all duration-200 text-sm font-medium hover:scale-[1.02] active:scale-[0.98] backdrop-blur-sm"
-                            >
-                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                              </svg>
-                              View Leader Profile
-                            </a>
-                          ) : (
-                            'Not specified'
-                          )}
-                        </span>
+                        <span className="text-sm text-slate-500">Not specified</span>
                       )}
                     </dd>
                   </div>
                 </dl>
               </div>
             </div>
+            )}
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Event Summary - Desktop Only */}
-            <div className="hidden lg:block bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+            <div className="hidden lg:block bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Event Summary</span>
                 {(() => {
                   const state = getEventSummaryState(leader);
@@ -3028,91 +2925,56 @@ export default function CircleLeaderProfilePage() {
 
                 {(() => {
                   const eventSummaryState = getEventSummaryState(leader);
-                  const base = 'w-full flex items-center justify-between gap-3 px-3 py-2 rounded-md border transition-colors';
-                  const disabledCls = isUpdatingEventSummary ? 'opacity-60 cursor-not-allowed' : '';
+                  const disabledCls = isUpdatingEventSummary ? 'opacity-50 cursor-not-allowed' : '';
+
+                  const activeColors: Record<EventSummaryState, string> = {
+                    not_received: 'bg-slate-600 border-slate-500 text-white',
+                    received:     'bg-green-500 border-green-400 text-white',
+                    did_not_meet: 'bg-blue-500 border-blue-400 text-white',
+                    skipped:      'bg-amber-500 border-amber-400 text-white',
+                  };
 
                   const btn = (kind: EventSummaryState) => {
                     const active = eventSummaryState === kind;
-                    const colors = getEventSummaryColors(kind);
-                    const leftBar = `border-l-4 ${colors.borderLeft}`;
+                    const base = `w-full h-9 flex items-center justify-center gap-1.5 rounded-lg border text-sm font-medium transition-colors focus:outline-none ${disabledCls}`;
                     return active
-                      ? `${base} ${disabledCls} ${leftBar} ${colors.bg} ${colors.border} text-white shadow-sm`
-                      : `${base} ${disabledCls} ${leftBar} bg-white dark:bg-gray-800 ${colors.btnInactiveBorder} ${colors.btnInactiveText} ${colors.hover}`;
+                      ? `${base} ${activeColors[kind]} shadow-sm`
+                      : `${base} bg-slate-700/50 border-slate-600 text-slate-400 hover:bg-slate-700 hover:text-slate-200`;
                   };
 
-                  const content = (kind: EventSummaryState) => {
-                    const colors = getEventSummaryColors(kind);
-                    const primary = getEventSummaryButtonLabel(kind);
-                    return (
-                      <span className="flex flex-col items-start leading-tight">
-                        <span className="text-sm font-semibold">{primary}</span>
-                        <span className="text-xs opacity-80">{colors.label}</span>
-                      </span>
-                    );
+                  const labels: Record<EventSummaryState, string> = {
+                    not_received: 'No',
+                    received:     'Yes',
+                    did_not_meet: "Didn't Meet",
+                    skipped:      'Skip',
                   };
-
-                  const check = () => (
-                    <svg
-                      className="w-4 h-4 flex-shrink-0"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M16.704 5.292a1 1 0 010 1.416l-7.25 7.25a1 1 0 01-1.416 0l-3.25-3.25a1 1 0 011.416-1.416l2.542 2.542 6.542-6.542a1 1 0 011.416 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  );
 
                   return (
                     <div className="space-y-2">
                       {eventSummaryEnumAvailable === false && (
-                        <div className="text-xs text-amber-700 dark:text-amber-300">
-                          Skipped isn’t enabled until the Supabase migration runs.
+                        <div className="text-xs text-amber-400">
+                          Skipped isn't enabled until the Supabase migration runs.
                         </div>
                       )}
-
-                      <div className="space-y-2">
-                      <button
-                        onClick={() => handleSetEventSummaryState('not_received')}
-                        disabled={isUpdatingEventSummary}
-                        className={btn('not_received')}
-                        title="Not Received"
-                      >
-                        {content('not_received')}
-                        {eventSummaryState === 'not_received' ? check() : null}
-                      </button>
-                      <button
-                        onClick={() => handleSetEventSummaryState('received')}
-                        disabled={isUpdatingEventSummary}
-                        className={btn('received')}
-                        title="Received"
-                      >
-                        {content('received')}
-                        {eventSummaryState === 'received' ? check() : null}
-                      </button>
-                      <button
-                        onClick={() => handleSetEventSummaryState('did_not_meet')}
-                        disabled={isUpdatingEventSummary}
-                        className={btn('did_not_meet')}
-                        title="Did Not Meet"
-                      >
-                        {content('did_not_meet')}
-                        {eventSummaryState === 'did_not_meet' ? check() : null}
-                      </button>
-                      <button
-                        onClick={() => handleSetEventSummaryState('skipped')}
-                        disabled={isUpdatingEventSummary || eventSummaryEnumAvailable === false}
-                        className={btn('skipped')}
-                        title={eventSummaryEnumAvailable === false ? 'Run DB migration to enable Skipped' : 'Skipped'}
-                      >
-                        {content('skipped')}
-                        {eventSummaryState === 'skipped' ? check() : null}
-                      </button>
+                      <div className="grid grid-cols-2 gap-2">
+                        {(['not_received', 'received', 'did_not_meet', 'skipped'] as EventSummaryState[]).map((kind) => (
+                          <button
+                            key={kind}
+                            onClick={() => handleSetEventSummaryState(kind)}
+                            disabled={isUpdatingEventSummary || (kind === 'skipped' && eventSummaryEnumAvailable === false)}
+                            className={btn(kind)}
+                            title={kind === 'skipped' && eventSummaryEnumAvailable === false ? 'Run DB migration to enable Skipped' : labels[kind]}
+                            aria-pressed={eventSummaryState === kind}
+                          >
+                            {eventSummaryState === kind && (
+                              <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M16.704 5.292a1 1 0 010 1.416l-7.25 7.25a1 1 0 01-1.416 0l-3.25-3.25a1 1 0 011.416-1.416l2.542 2.542 6.542-6.542a1 1 0 011.416 0z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                            {labels[kind]}
+                          </button>
+                        ))}
                       </div>
-
                     </div>
                   );
                 })()}
@@ -3120,8 +2982,8 @@ export default function CircleLeaderProfilePage() {
             </div>
 
             {/* Follow Up - Desktop Only */}
-            <div className="hidden lg:block bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+            <div className="hidden lg:block bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-700">
                 <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Follow-Up</span>
               </div>
               <div className="p-4 space-y-3">
@@ -3138,7 +3000,7 @@ export default function CircleLeaderProfilePage() {
                       "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
                     } clipRule="evenodd" />
                   </svg>
-                  <span className="text-sm text-gray-900 dark:text-white">
+                  <span className="text-sm text-slate-200">
                     {isUpdatingFollowUp ? 'Updating...' : 'Follow-Up'}
                   </span>
                 </div>
@@ -3152,7 +3014,7 @@ export default function CircleLeaderProfilePage() {
                 <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm text-gray-900 dark:text-white font-medium">
+                      <div className="text-sm text-slate-200 font-medium">
                         {new Date(leader.follow_up_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </div>
                       <div className={`text-xs ${
@@ -3180,56 +3042,14 @@ export default function CircleLeaderProfilePage() {
             </div>
 
             {/* Quick Actions - Desktop Only */}
-            <div className="hidden lg:block bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+            <div className="hidden lg:block bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-700">
                 <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Quick Actions</span>
               </div>
-              <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                <button 
-                  onClick={handleSendSMS}
-                  disabled={!leader?.phone}
-                  className="w-full flex items-center justify-between px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                    Send SMS
-                  </div>
-                  {!leader?.phone && <span className="text-xs text-slate-400">No phone</span>}
-                </button>
-                
-                <button 
-                  onClick={handleCallLeader}
-                  disabled={!leader?.phone}
-                  className="w-full flex items-center justify-between px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                    Call
-                  </div>
-                  {!leader?.phone && <span className="text-xs text-slate-400">No phone</span>}
-                </button>
-                
-                <button 
-                  onClick={handleSendEmail}
-                  disabled={!leader?.email}
-                  className="w-full flex items-center justify-between px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                    Send Email
-                  </div>
-                  {!leader?.email && <span className="text-xs text-slate-400">No email</span>}
-                </button>
-                
-                <button 
+              <div className="divide-y divide-slate-700/50">
+                <button
                   onClick={() => setShowLogConnectionModal(true)}
-                  className="w-full flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm transition-colors"
+                  className="w-full flex items-center px-4 py-3 text-slate-200 hover:bg-slate-700/50 text-sm transition-colors"
                 >
                   <div className="flex items-center gap-2.5">
                     <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3241,7 +3061,7 @@ export default function CircleLeaderProfilePage() {
                 
                 <button 
                   onClick={() => setShowConnectPersonModal(true)}
-                  className="w-full flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm transition-colors"
+                  className="w-full flex items-center px-4 py-3 text-slate-200 hover:bg-slate-700/50 text-sm transition-colors"
                 >
                   <div className="flex items-center gap-2.5">
                     <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3251,28 +3071,11 @@ export default function CircleLeaderProfilePage() {
                   </div>
                 </button>
                 
-                {/* CCB Profile Link */}
-                {leader?.ccb_profile_link && (
-                  <a 
-                    href={leader.ccb_profile_link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm transition-colors"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                      CCB Profile
-                    </div>
-                  </a>
-                )}
-
                 {/* View Roster Link */}
                 {leader?.ccb_group_id && (
                   <Link
                     href={`/circle/${leaderId}/roster`}
-                    className="w-full flex items-center justify-between px-4 py-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm transition-colors"
+                    className="w-full flex items-center justify-between px-4 py-3 text-slate-200 hover:bg-slate-700/50 text-sm transition-colors"
                   >
                     <div className="flex items-center gap-2.5">
                       <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3298,14 +3101,14 @@ export default function CircleLeaderProfilePage() {
         {/* Attendance Trends Section */}
         {leader && (
           <div id="section-attendance" ref={setSectionRef('section-attendance')} className="mt-6 scroll-mt-20">
-            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass p-4 sm:p-6">
+            <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass p-4 sm:p-6">
               <AttendanceTrends leaderId={leaderId} leaderName={leader.name} meetingDay={leader.day} refreshKey={attendanceRefreshKey} rosterCount={rosterCount} />
               {/* Event Summary action buttons */}
               <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
                 <button
                   type="button"
                   onClick={() => setShowEventExplorerModal(true)}
-                  className="flex items-center gap-2 px-4 py-2.5 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium transition-colors"
+                  className="flex items-center gap-2 px-4 py-2.5 text-slate-200 hover:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
@@ -3315,7 +3118,7 @@ export default function CircleLeaderProfilePage() {
                 <button
                   type="button"
                   onClick={() => setShowEventSummaryReminderModal(true)}
-                  className="flex items-center gap-2 px-4 py-2.5 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium transition-colors"
+                  className="flex items-center gap-2 px-4 py-2.5 text-slate-200 hover:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -3337,7 +3140,7 @@ export default function CircleLeaderProfilePage() {
         {/* Circle Visits Section */}
         {leader && (
           <div id="section-visits" ref={setSectionRef('section-visits')} className="mt-6 scroll-mt-20">
-            <div className="section-panel bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass p-6">
+            <div className="section-panel bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass p-6">
               <CircleVisitsSection leaderId={leaderId} leaderName={leader.name} />
             </div>
           </div>
@@ -3349,7 +3152,7 @@ export default function CircleLeaderProfilePage() {
         </div>
 
             {/* Notes Section */}
-            <div id="section-notes" ref={setSectionRef('section-notes')} className="section-panel bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card-glass mt-6 scroll-mt-20">
+            <div id="section-notes" ref={setSectionRef('section-notes')} className="section-panel bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass mt-6 scroll-mt-20">
               <div className="section-header-row px-4 sm:px-6 py-4">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center">
@@ -3424,7 +3227,7 @@ export default function CircleLeaderProfilePage() {
                 )}
                 
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-                  <div className="text-sm text-gray-500 dark:text-gray-400 space-y-1">
+                  <div className="text-sm text-slate-500 space-y-1">
                     {stripHtml(newNote).length > 0 && (
                       <div>{stripHtml(newNote).length} characters</div>
                     )}
@@ -3461,7 +3264,7 @@ export default function CircleLeaderProfilePage() {
               ) : (
                 <>
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                    <p className="text-sm text-slate-500">
                       {noteSearchQuery
                         ? `${notes.filter(n => {
                             const q = noteSearchQuery.toLowerCase();
@@ -3531,7 +3334,7 @@ export default function CircleLeaderProfilePage() {
                                     Cancel
                                   </button>
                                 </div>
-                                <div className="text-sm text-gray-500 dark:text-gray-400">
+                                <div className="text-sm text-slate-500">
                                   {stripHtml(editingNoteContent).length} characters
                                 </div>
                               </div>
@@ -3541,7 +3344,7 @@ export default function CircleLeaderProfilePage() {
                               {/* Mobile layout: Date → Buttons → Content */}
                               <div className="sm:hidden">
                                 <div className="flex items-center justify-between mb-2">
-                                  <div className="flex flex-col gap-1 text-sm text-gray-500 dark:text-gray-400">
+                                  <div className="flex flex-col gap-1 text-sm text-slate-500">
                                     <div className="flex items-center">
                                       <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                         <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
@@ -3648,7 +3451,7 @@ export default function CircleLeaderProfilePage() {
                                     {linkifyText(note.content)}
                                   </div>
                                 )}
-                                <div className="flex flex-row items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                                <div className="flex flex-row items-center gap-4 text-sm text-slate-500">
                                   <div className="flex items-center">
                                     <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                       <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
@@ -3755,7 +3558,7 @@ export default function CircleLeaderProfilePage() {
                       <svg className="mx-auto h-10 w-10 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
-                      <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">No notes matching &ldquo;{noteSearchQuery}&rdquo;</p>
+                      <p className="mt-3 text-sm text-slate-500">No notes matching &ldquo;{noteSearchQuery}&rdquo;</p>
                       <button
                         onClick={() => setNoteSearchQuery('')}
                         className="mt-2 text-sm text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300 transition-colors"
@@ -3775,7 +3578,7 @@ export default function CircleLeaderProfilePage() {
       {/* Call or Text modal */}
       {phoneActionModal && (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[10001] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
           onClick={() => setPhoneActionModal(null)}
         >
           <div
@@ -3915,7 +3718,7 @@ export default function CircleLeaderProfilePage() {
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
                 {leader?.follow_up_required ? 'Change Follow-Up Date' : 'Set Follow-Up'}
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              <p className="text-sm text-slate-500 mb-4">
                 {leader?.follow_up_required 
                   ? `Update the follow-up date for ${leader?.name || 'this leader'}.`
                   : `Select a follow-up date for ${leader?.name || 'this leader'}. A todo will be added to your list.`

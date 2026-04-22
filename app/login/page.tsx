@@ -53,11 +53,11 @@ function LoginContent() {
   }, [cooldown]);
 
   const redirectTo = useMemo(() => {
-    const raw = searchParams.get('redirectTo') || '/boards';
-    if (!raw.startsWith('/')) return '/boards';
-    if (raw.startsWith('//')) return '/boards';
-    if (raw.startsWith('/login')) return '/boards';
-    if (raw.startsWith('/auth')) return '/boards';
+    const raw = searchParams.get('redirectTo') || '/calendar';
+    if (!raw.startsWith('/')) return '/calendar';
+    if (raw.startsWith('//')) return '/calendar';
+    if (raw.startsWith('/login')) return '/calendar';
+    if (raw.startsWith('/auth')) return '/calendar';
     return raw;
   }, [searchParams]);
 

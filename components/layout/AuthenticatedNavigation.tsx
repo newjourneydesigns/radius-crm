@@ -120,11 +120,11 @@ const TodayIcon = () => (
 );
 
 const primaryNavItems = [
+  { name: 'Events',    href: '/calendar',  icon: CalendarIcon },
   { name: 'Today',     href: '/today',     icon: TodayIcon },
   { name: 'Boards',    href: '/boards',    icon: BoardIcon },
   { name: 'Prayer',    href: '/prayer',    icon: PrayerIcon },
   { name: 'Progress',  href: '/progress',  icon: ChartIcon },
-  { name: 'Events',    href: '/calendar',  icon: CalendarIcon },
 ];
 
 const toolsNavItems = [

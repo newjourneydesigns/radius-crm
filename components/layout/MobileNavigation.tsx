@@ -276,12 +276,12 @@ export default function MobileNavigation() {
 
   /* Tab items — split into left/right groups around the raised center button */
   const leftTabs: TabItem[] = [
-    { id: 'today',  name: 'Today',  href: '/today',  Icon: TodayIcon },
-    { id: 'boards', name: 'Boards', href: '/boards', Icon: BoardTabIcon },
+    { id: 'events', name: 'Events', href: '/calendar', Icon: CalendarIcon },
+    { id: 'today',  name: 'Today',  href: '/today',    Icon: TodayIcon },
   ];
   const rightTabs: TabItem[] = [
-    { id: 'prayer', name: 'Prayer', href: '/prayer',   Icon: PrayerIcon },
-    { id: 'events', name: 'Events', href: '/calendar', Icon: CalendarIcon },
+    { id: 'boards', name: 'Boards', href: '/boards', Icon: BoardTabIcon },
+    { id: 'prayer', name: 'Prayer', href: '/prayer', Icon: PrayerIcon },
   ];
 
   /* Drawer menu sections */

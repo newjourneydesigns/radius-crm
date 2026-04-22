@@ -15,10 +15,10 @@ function VerifyContent() {
     ran.current = true;
 
     // Determine redirect target from query params or hash
-    const raw = searchParams.get('next') || '/boards';
+    const raw = searchParams.get('next') || '/calendar';
     let next = raw;
     if (!next.startsWith('/') || next.startsWith('//') || next.startsWith('/login') || next.startsWith('/auth')) {
-      next = '/boards';
+      next = '/calendar';
     }
 
     const handleSession = async (session: any) => {

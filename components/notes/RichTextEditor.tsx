@@ -63,6 +63,7 @@ export default function RichTextEditor({
   const [linkDialog, setLinkDialog] = useState({ visible: false, displayText: '', url: '', hasSelection: false });
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         heading: { levels: [3] },
