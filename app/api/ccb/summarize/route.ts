@@ -209,6 +209,7 @@ async function callGemini(
           temperature: 0.4,
           maxOutputTokens: 8192,
           topP: 0.9,
+          thinkingConfig: { thinkingBudget: 0 },
         },
         safetySettings: [
           { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },

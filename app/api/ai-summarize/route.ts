@@ -95,6 +95,7 @@ async function callGemini(apiKey: string, systemPrompt: string, text: string, ma
           temperature: 0.3,
           maxOutputTokens: maxTokens,
           topP: 0.8,
+          thinkingConfig: { thinkingBudget: 0 },
         },
         safetySettings: [
           { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
