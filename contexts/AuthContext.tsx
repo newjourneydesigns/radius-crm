@@ -152,7 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         return prev;
       });
-    }, 1500);
+    }, 3000);
 
     // Refresh the session whenever the tab/window becomes visible again.
     // This ensures the token is silently renewed after the device wakes from
