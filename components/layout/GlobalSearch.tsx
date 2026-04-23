@@ -261,7 +261,7 @@ export default function GlobalSearch() {
       case 'active': return 'rgba(74, 222, 128, 0.8)';
       case 'inactive': return 'rgba(248, 113, 113, 0.8)';
       case 'on hold': return 'rgba(250, 204, 21, 0.8)';
-      default: return 'rgba(141, 169, 196, 0.6)';
+      default: return 'rgba(148, 163, 184, 0.6)';
     }
   };
 
@@ -277,9 +277,9 @@ export default function GlobalSearch() {
           gap: '8px',
           padding: '6px 12px',
           fontSize: '13px',
-          color: 'rgba(141, 169, 196, 0.9)',
-          background: 'rgba(11, 37, 69, 0.5) !important',
-          border: '1px solid rgba(76, 103, 133, 0.3) !important',
+          color: 'rgba(255, 255, 255, 0.7)',
+          background: 'rgba(255, 255, 255, 0.04) !important',
+          border: '1px solid rgba(255, 255, 255, 0.1) !important',
           borderRadius: '8px',
           cursor: 'pointer',
           transition: 'all 0.2s ease',
@@ -288,16 +288,16 @@ export default function GlobalSearch() {
         <svg style={{ width: 15, height: 15 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
         </svg>
-        <span className="hidden sm:inline" style={{ color: 'rgba(141, 169, 196, 0.9)' }}>Search</span>
+        <span className="hidden sm:inline" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>Search</span>
         <kbd className="hidden sm:inline-flex" style={{
           alignItems: 'center',
           padding: '1px 5px',
           borderRadius: '4px',
           fontSize: '11px',
           fontFamily: 'system-ui, -apple-system, sans-serif',
-          color: 'rgba(141, 169, 196, 0.6)',
-          background: 'rgba(76, 103, 133, 0.15)',
-          border: '1px solid rgba(76, 103, 133, 0.25)',
+          color: 'rgba(255, 255, 255, 0.45)',
+          background: 'rgba(255, 255, 255, 0.05)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
         }}>
           ⌘K
         </kbd>
@@ -316,7 +316,7 @@ export default function GlobalSearch() {
             justifyContent: 'center',
             padding: '1rem',
             paddingTop: 'min(18vh, 140px)',
-            background: 'radial-gradient(ellipse at center top, rgba(9, 27, 52, 0.85) 0%, rgba(0, 0, 0, 0.7) 100%)',
+            background: 'rgba(0, 0, 0, 0.75)',
             backdropFilter: 'blur(12px) saturate(150%)',
             WebkitBackdropFilter: 'blur(12px) saturate(150%)',
             animation: 'searchOverlayIn 0.2s ease-out',
@@ -329,9 +329,9 @@ export default function GlobalSearch() {
               maxWidth: '560px',
               borderRadius: '16px',
               overflow: 'hidden',
-              background: 'linear-gradient(180deg, rgba(14, 40, 72, 0.97) 0%, rgba(11, 37, 69, 0.98) 100%)',
-              border: '1px solid rgba(141, 169, 196, 0.15)',
-              boxShadow: '0 0 0 1px rgba(0,0,0,0.3), 0 25px 60px -12px rgba(0, 0, 0, 0.6), 0 0 40px rgba(141, 169, 196, 0.05)',
+              background: '#13151c',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              boxShadow: '0 0 0 1px rgba(0,0,0,0.3), 0 25px 60px -12px rgba(0, 0, 0, 0.6), 0 0 40px rgba(255, 255, 255, 0.02)',
               animation: 'searchModalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
@@ -341,7 +341,7 @@ export default function GlobalSearch() {
               alignItems: 'center',
               gap: '12px',
               padding: '16px 20px',
-              borderBottom: '1px solid rgba(76, 103, 133, 0.2)',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
             }}>
               {/* Search Icon */}
               <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
@@ -349,13 +349,13 @@ export default function GlobalSearch() {
                   <div style={{
                     width: '20px',
                     height: '20px',
-                    border: '2px solid rgba(141, 169, 196, 0.2)',
-                    borderTopColor: 'rgba(141, 169, 196, 0.8)',
+                    border: '2px solid rgba(255, 255, 255, 0.12)',
+                    borderTopColor: 'rgba(255, 255, 255, 0.6)',
                     borderRadius: '50%',
                     animation: 'spin 0.6s linear infinite',
                   }} />
                 ) : (
-                  <svg style={{ width: 20, height: 20, color: 'rgba(141, 169, 196, 0.5)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg style={{ width: 20, height: 20, color: 'rgba(255, 255, 255, 0.35)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                   </svg>
                 )}
@@ -378,7 +378,7 @@ export default function GlobalSearch() {
                   fontWeight: 400,
                   color: '#eef4ed',
                   letterSpacing: '0.01em',
-                  caretColor: 'rgba(141, 169, 196, 0.8)',
+                  caretColor: 'rgba(255, 255, 255, 0.6)',
                 }}
               />
 
@@ -394,14 +394,14 @@ export default function GlobalSearch() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: 'rgba(76, 103, 133, 0.25) !important',
+                    background: 'rgba(255, 255, 255, 0.08) !important',
                     border: 'none !important',
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                     padding: 0,
                   }}
                 >
-                  <svg style={{ width: 12, height: 12, color: 'rgba(141, 169, 196, 0.6)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg style={{ width: 12, height: 12, color: 'rgba(255, 255, 255, 0.45)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -426,7 +426,7 @@ export default function GlobalSearch() {
                       fontWeight: 600 as const,
                       textTransform: 'uppercase' as const,
                       letterSpacing: '0.06em',
-                      color: 'rgba(141, 169, 196, 0.45)',
+                      color: 'rgba(255, 255, 255, 0.3)',
                     };
 
                     const renderItem = (result: SearchResult, flatIndex: number) => {
@@ -441,8 +441,8 @@ export default function GlobalSearch() {
                         textAlign: 'left' as const,
                         cursor: 'pointer',
                         transition: 'all 0.12s ease',
-                        background: isSelected ? 'rgba(141, 169, 196, 0.12) !important' : 'transparent !important',
-                        border: isSelected ? '1px solid rgba(141, 169, 196, 0.15) !important' : '1px solid transparent !important',
+                        background: isSelected ? 'rgba(255, 255, 255, 0.07) !important' : 'transparent !important',
+                        border: isSelected ? '1px solid rgba(255, 255, 255, 0.08) !important' : '1px solid transparent !important',
                       };
                       const iconWrapStyle = {
                         flexShrink: 0,
@@ -453,16 +453,16 @@ export default function GlobalSearch() {
                         alignItems: 'center',
                         justifyContent: 'center',
                         background: isSelected
-                          ? 'linear-gradient(135deg, rgba(141, 169, 196, 0.3), rgba(76, 103, 133, 0.4))'
-                          : 'rgba(76, 103, 133, 0.2)',
-                        border: `1px solid ${isSelected ? 'rgba(141, 169, 196, 0.25)' : 'rgba(76, 103, 133, 0.15)'}`,
+                          ? 'rgba(255, 255, 255, 0.1)'
+                          : 'rgba(255, 255, 255, 0.06)',
+                        border: `1px solid ${isSelected ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.05)'}`,
                         transition: 'all 0.15s ease',
                       };
-                      const iconColor = isSelected ? 'rgba(141, 169, 196, 0.9)' : 'rgba(141, 169, 196, 0.5)';
+                      const iconColor = isSelected ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 255, 255, 0.35)';
                       const chevronStyle = {
                         width: 16,
                         height: 16,
-                        color: isSelected ? 'rgba(141, 169, 196, 0.6)' : 'rgba(141, 169, 196, 0.2)',
+                        color: isSelected ? 'rgba(255, 255, 255, 0.45)' : 'rgba(255, 255, 255, 0.12)',
                         transition: 'all 0.12s ease',
                         transform: isSelected ? 'translateX(2px)' : 'none',
                       };
@@ -486,14 +486,14 @@ export default function GlobalSearch() {
                               <div style={{ fontSize: '14px', fontWeight: 500, color: isSelected ? '#eef4ed' : 'rgba(238, 244, 237, 0.85)', lineHeight: '1.3', transition: 'color 0.12s ease' }}>
                                 {(leader as any).circle_name || leader.name}
                               </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px', fontSize: '12px', color: 'rgba(141, 169, 196, 0.6)', lineHeight: '1.3' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px', fontSize: '12px', color: 'rgba(255, 255, 255, 0.45)', lineHeight: '1.3' }}>
                                 <span>
                                   {leader.name}
                                   {(leader as any).additional_leader_name ? ` · ${(leader as any).additional_leader_name}` : ''}
                                 </span>
                                 {leader.campus && (
                                   <>
-                                    <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'rgba(141, 169, 196, 0.35)', flexShrink: 0 }} />
+                                    <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'rgba(255, 255, 255, 0.25)', flexShrink: 0 }} />
                                     <span>{leader.campus}</span>
                                   </>
                                 )}
@@ -530,7 +530,7 @@ export default function GlobalSearch() {
                               <div style={{ fontSize: '14px', fontWeight: 500, color: isSelected ? '#eef4ed' : 'rgba(238, 244, 237, 0.85)', lineHeight: '1.3', transition: 'color 0.12s ease' }}>
                                 {board.title}
                               </div>
-                              <div style={{ fontSize: '12px', color: 'rgba(141, 169, 196, 0.6)', marginTop: '3px', lineHeight: '1.3' }}>
+                              <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.45)', marginTop: '3px', lineHeight: '1.3' }}>
                                 Board
                               </div>
                             </div>
@@ -560,7 +560,7 @@ export default function GlobalSearch() {
                               <div style={{ fontSize: '14px', fontWeight: 500, color: isSelected ? '#eef4ed' : 'rgba(238, 244, 237, 0.85)', lineHeight: '1.3', transition: 'color 0.12s ease', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {card.title}
                               </div>
-                              <div style={{ fontSize: '12px', color: 'rgba(141, 169, 196, 0.6)', marginTop: '3px', lineHeight: '1.3' }}>
+                              <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.45)', marginTop: '3px', lineHeight: '1.3' }}>
                                 {card.board_title || 'Board Card'}
                               </div>
                             </div>
@@ -611,17 +611,17 @@ export default function GlobalSearch() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: 'rgba(76, 103, 133, 0.15)',
-                    border: '1px solid rgba(76, 103, 133, 0.15)',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.05)',
                   }}>
-                    <svg style={{ width: 22, height: 22, color: 'rgba(141, 169, 196, 0.35)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg style={{ width: 22, height: 22, color: 'rgba(255, 255, 255, 0.25)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                     </svg>
                   </div>
                   <p style={{ fontSize: '14px', fontWeight: 500, color: 'rgba(238, 244, 237, 0.6)', marginBottom: '4px' }}>
                     No results found
                   </p>
-                  <p style={{ fontSize: '12px', color: 'rgba(141, 169, 196, 0.4)' }}>
+                  <p style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.28)' }}>
                     Nothing matching &ldquo;{query}&rdquo;
                   </p>
                 </div>
@@ -638,17 +638,17 @@ export default function GlobalSearch() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: 'rgba(76, 103, 133, 0.15)',
-                    border: '1px solid rgba(76, 103, 133, 0.15)',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.05)',
                   }}>
-                    <svg style={{ width: 22, height: 22, color: 'rgba(141, 169, 196, 0.35)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg style={{ width: 22, height: 22, color: 'rgba(255, 255, 255, 0.25)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                     </svg>
                   </div>
                   <p style={{ fontSize: '14px', fontWeight: 500, color: 'rgba(238, 244, 237, 0.6)', marginBottom: '4px' }}>
                     Search leaders, boards & cards
                   </p>
-                  <p style={{ fontSize: '12px', color: 'rgba(141, 169, 196, 0.4)' }}>
+                  <p style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.28)' }}>
                     Type to find circle leaders, boards, or cards
                   </p>
                 </div>
@@ -661,14 +661,14 @@ export default function GlobalSearch() {
               alignItems: 'center',
               justifyContent: 'space-between',
               padding: '10px 20px',
-              borderTop: '1px solid rgba(76, 103, 133, 0.15)',
-              background: 'rgba(9, 27, 52, 0.4)',
+              borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+              background: 'rgba(0, 0, 0, 0.2)',
             }}>
               <div className="hidden sm:flex" style={{
                 alignItems: 'center',
                 gap: '12px',
                 fontSize: '11px',
-                color: 'rgba(141, 169, 196, 0.35)',
+                color: 'rgba(255, 255, 255, 0.25)',
               }}>
                 {/* Navigate hint */}
                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -679,8 +679,8 @@ export default function GlobalSearch() {
                     width: '18px',
                     height: '18px',
                     borderRadius: '4px',
-                    background: 'rgba(76, 103, 133, 0.2)',
-                    border: '1px solid rgba(76, 103, 133, 0.2)',
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    border: '1px solid rgba(255, 255, 255, 0.06)',
                     fontSize: '10px',
                     lineHeight: 1,
                   }}>↑</kbd>
@@ -691,8 +691,8 @@ export default function GlobalSearch() {
                     width: '18px',
                     height: '18px',
                     borderRadius: '4px',
-                    background: 'rgba(76, 103, 133, 0.2)',
-                    border: '1px solid rgba(76, 103, 133, 0.2)',
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    border: '1px solid rgba(255, 255, 255, 0.06)',
                     fontSize: '10px',
                     lineHeight: 1,
                   }}>↓</kbd>
@@ -708,8 +708,8 @@ export default function GlobalSearch() {
                     height: '18px',
                     padding: '0 5px',
                     borderRadius: '4px',
-                    background: 'rgba(76, 103, 133, 0.2)',
-                    border: '1px solid rgba(76, 103, 133, 0.2)',
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    border: '1px solid rgba(255, 255, 255, 0.06)',
                     fontSize: '10px',
                     lineHeight: 1,
                   }}>↵</kbd>
@@ -719,7 +719,7 @@ export default function GlobalSearch() {
               {/* Powered by label */}
               <div style={{
                 fontSize: '10px',
-                color: 'rgba(141, 169, 196, 0.25)',
+                color: 'rgba(255, 255, 255, 0.15)',
                 letterSpacing: '0.04em',
                 marginLeft: 'auto',
               }}>
@@ -751,8 +751,8 @@ export default function GlobalSearch() {
             border-color: transparent !important;
           }
           [data-search-item]:hover {
-            background: rgba(141, 169, 196, 0.12) !important;
-            border-color: rgba(141, 169, 196, 0.15) !important;
+            background: rgba(255, 255, 255, 0.07) !important;
+            border-color: rgba(255, 255, 255, 0.08) !important;
           }
           /* Custom scrollbar for results */
           [data-search-results]::-webkit-scrollbar {
@@ -762,20 +762,20 @@ export default function GlobalSearch() {
             background: transparent;
           }
           [data-search-results]::-webkit-scrollbar-thumb {
-            background: rgba(76, 103, 133, 0.3);
+            background: rgba(255, 255, 255, 0.1);
             border-radius: 3px;
           }
           [data-search-results]::-webkit-scrollbar-thumb:hover {
-            background: rgba(76, 103, 133, 0.5);
+            background: rgba(255, 255, 255, 0.18);
           }
           /* Override global link color inside search */
           .search-trigger-btn {
-            background: rgba(11, 37, 69, 0.5) !important;
-            border: 1px solid rgba(76, 103, 133, 0.3) !important;
+            background: rgba(255, 255, 255, 0.04) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
           }
           .search-trigger-btn:hover {
-            background: rgba(76, 103, 133, 0.3) !important;
-            border-color: rgba(141, 169, 196, 0.3) !important;
+            background: rgba(255, 255, 255, 0.08) !important;
+            border-color: rgba(255, 255, 255, 0.15) !important;
           }
         `}</style>,
         document.head

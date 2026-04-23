@@ -821,7 +821,7 @@ export class CCBClient {
    * Single API call regardless of how many leaders are checked.
    */
   async checkReportsForLeaders(
-    leaders: Array<{ id: number; name: string }>,
+    leaders: Array<{ id: number; name: string; ccb_group_name?: string | null }>,
     startDate: string,
     endDate: string
   ): Promise<Map<number, { hasReport: boolean; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number }>> {
@@ -867,8 +867,9 @@ export class CCBClient {
 
     const result = new Map<number, { hasReport: boolean; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number }>();
     for (const leader of leaders) {
-      const nameLower = leader.name.trim().toLowerCase();
-      const match = eventData.find(e => e.title.includes(nameLower));
+      // Prefer ccb_group_name (exact override) over leader.name for disambiguation
+      const matchKey = (leader.ccb_group_name?.trim() || leader.name.trim()).toLowerCase();
+      const match = eventData.find(e => e.title.includes(matchKey));
       result.set(leader.id, {
         hasReport: !!match,
         didNotMeet: match?.didNotMeet ?? false,

@@ -1186,12 +1186,11 @@ export default function CircleMeetingsCalendar({
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-semibold text-white tracking-tight">Calendar</h1>
-          <p className="text-sm text-slate-400">Circle meetings based on leader schedule (day/time/frequency).</p>
         </div>
         <div className="text-xs text-slate-400">
           {isLoadingLeaders ? 'Loading schedules…' : (
             <>
-              {leadersWithSchedules.length} scheduled
+              {scheduledLeaderIds.size} scheduled
               {leadersWithoutSchedules.length > 0 && (
                 <span className="text-amber-500 dark:text-amber-400 ml-1">
                   · {leadersWithoutSchedules.length} missing info
@@ -1284,29 +1283,29 @@ export default function CircleMeetingsCalendar({
             </div>
 
             {/* Footer: attendance stats + action buttons */}
-            <div className="px-3 sm:px-4 py-2.5 border-t border-slate-700/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-wrap">
+            <div className="px-3 sm:px-4 py-2.5 border-t border-slate-700/60 flex flex-col sm:flex-row items-center justify-between gap-3 flex-wrap">
               {weeklyAttendanceStats ? (
-                <div className="flex items-center gap-3 sm:gap-5 text-xs sm:text-sm">
-                  <div>
-                    <p className="text-xs text-slate-500">Circles</p>
-                    <p className="font-semibold text-slate-200 leading-tight">
+                <div className="flex items-center justify-center gap-6 sm:gap-8 w-full sm:w-auto">
+                  <div className="text-center">
+                    <p className="text-xs text-slate-500 uppercase tracking-wide">Circles</p>
+                    <p className="text-xl font-bold text-slate-200 leading-tight">
                       {weeklyAttendanceStats.receivedWithData}
                       {weeklyAttendanceStats.receivedWithData < weeklyAttendanceStats.totalReceived && (
-                        <span className="text-slate-500 font-normal"> of {weeklyAttendanceStats.totalReceived}</span>
+                        <span className="text-slate-500 font-normal text-sm"> of {weeklyAttendanceStats.totalReceived}</span>
                       )}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Attended</p>
-                    <p className="font-semibold text-slate-200 leading-tight flex items-center gap-1">
+                  <div className="text-center">
+                    <p className="text-xs text-slate-500 uppercase tracking-wide">Attended</p>
+                    <p className="text-xl font-bold text-slate-200 leading-tight flex items-center gap-1">
                       {weeklyAttendanceStats.totalAttended}
                       <WoWArrow trend={weeklyAttendanceStats.attendanceTrend} />
                     </p>
                   </div>
                   {weeklyAttendanceStats.avgRosterPct !== null && (
-                    <div>
-                      <p className="text-xs text-slate-500">Avg Roster</p>
-                      <p className="font-semibold text-slate-200 leading-tight">{weeklyAttendanceStats.avgRosterPct}%</p>
+                    <div className="text-center">
+                      <p className="text-xs text-slate-500 uppercase tracking-wide">Avg Roster</p>
+                      <p className="text-xl font-bold text-slate-200 leading-tight">{weeklyAttendanceStats.avgRosterPct}%</p>
                     </div>
                   )}
                 </div>
@@ -1315,7 +1314,7 @@ export default function CircleMeetingsCalendar({
                 type="button"
                 onClick={handleAutoUpdate}
                 disabled={isAutoUpdating}
-                className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/80 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors"
+                className="flex justify-center items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/80 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors w-full sm:w-auto"
               >
                 {isAutoUpdating ? (
                   <><svg className="animate-spin w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>Updating…</>
@@ -1499,26 +1498,26 @@ export default function CircleMeetingsCalendar({
               })()}
 
               {/* Footer: attendance stats + action buttons */}
-              <div className="px-4 py-2.5 border-t border-slate-700/60 flex items-center justify-between gap-4 flex-wrap">
+              <div className="px-3 sm:px-4 py-2.5 border-t border-slate-700/60 flex flex-col sm:flex-row items-center justify-between gap-3 flex-wrap">
                 {weeklyAttendanceStats ? (
-                  <div className="flex items-center gap-5">
-                    <div>
-                      <p className="text-xs text-slate-500">Circles</p>
-                      <p className="text-sm font-semibold text-slate-200 leading-tight">
+                  <div className="flex items-center justify-center gap-6 sm:gap-8 w-full sm:w-auto">
+                    <div className="text-center">
+                      <p className="text-xs text-slate-500 uppercase tracking-wide">Circles</p>
+                      <p className="text-xl font-bold text-slate-200 leading-tight">
                         {weeklyAttendanceStats.receivedWithData}
                         {weeklyAttendanceStats.receivedWithData < weeklyAttendanceStats.totalReceived && (
-                          <span className="text-slate-500 font-normal"> of {weeklyAttendanceStats.totalReceived}</span>
+                          <span className="text-slate-500 font-normal text-sm"> of {weeklyAttendanceStats.totalReceived}</span>
                         )}
                       </p>
                     </div>
-                    <div>
-                      <p className="text-xs text-slate-500">Attended</p>
-                      <p className="text-sm font-semibold text-slate-200 leading-tight">{weeklyAttendanceStats.totalAttended}</p>
+                    <div className="text-center">
+                      <p className="text-xs text-slate-500 uppercase tracking-wide">Attended</p>
+                      <p className="text-xl font-bold text-slate-200 leading-tight">{weeklyAttendanceStats.totalAttended}</p>
                     </div>
                     {weeklyAttendanceStats.avgRosterPct !== null && (
-                      <div>
-                        <p className="text-xs text-slate-500">Avg Roster</p>
-                        <p className="text-sm font-semibold text-slate-200 leading-tight">{weeklyAttendanceStats.avgRosterPct}%</p>
+                      <div className="text-center">
+                        <p className="text-xs text-slate-500 uppercase tracking-wide">Avg Roster</p>
+                        <p className="text-xl font-bold text-slate-200 leading-tight">{weeklyAttendanceStats.avgRosterPct}%</p>
                       </div>
                     )}
                   </div>
@@ -1527,7 +1526,7 @@ export default function CircleMeetingsCalendar({
                   type="button"
                   onClick={handleAutoUpdate}
                   disabled={isAutoUpdating}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/80 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors"
+                  className="flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/80 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors w-full sm:w-auto"
                 >
                   {isAutoUpdating ? (
                     <><svg className="animate-spin w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>Updating…</>

@@ -88,29 +88,21 @@ export default function CalendarFilterPanel({
 
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass mb-4">
-      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-700">
+      <div className="px-4 py-3 border-b border-slate-700">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-indigo-500/15 rounded-lg">
-              <svg className="w-[18px] h-[18px] text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 2v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
-              </svg>
-            </div>
-            <div>
-              <h2 className="text-base font-semibold text-white tracking-tight">Event Tracker Filters</h2>
-              <p className="text-xs text-slate-400">
-                {totalLeaders} circles{hasActiveFilters ? ` · ${activeFilterCount} filter${activeFilterCount !== 1 ? 's' : ''} active` : ''}
-              </p>
-            </div>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-sm font-semibold text-white">Filters</span>
+            {hasActiveFilters && (
+              <span className="text-xs text-slate-400">{activeFilterCount} active</span>
+            )}
           </div>
-
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {hasActiveFilters && (
               <button
                 onClick={onClearAllFilters}
-                className="px-3 py-1.5 text-xs font-medium text-red-400 hover:text-red-300 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors"
+                className="px-2.5 py-1 text-xs font-medium text-red-400 hover:text-red-300 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors"
               >
-                Clear All
+                Clear
               </button>
             )}
             <button
@@ -121,7 +113,7 @@ export default function CalendarFilterPanel({
                   return next;
                 });
               }}
-              className="px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white border border-slate-600 rounded-lg hover:bg-slate-700 transition-colors"
+              className="px-2.5 py-1 text-xs font-medium text-slate-300 hover:text-white border border-slate-600 rounded-lg hover:bg-slate-700 transition-colors"
             >
               {open ? 'Hide' : 'Filters'}
             </button>

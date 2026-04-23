@@ -92,15 +92,6 @@ function BoardsListPage() {
   const [cardSearchIdx, setCardSearchIdx] = useState(0);
   const cardSearchBarRef = useRef<HTMLDivElement>(null);
 
-  // Restore last boards view (board detail or calendar)
-  useEffect(() => {
-    const lastRoute = localStorage.getItem('boards-last-route');
-    if (lastRoute && lastRoute !== '/boards') {
-      localStorage.removeItem('boards-last-route');
-      router.replace(lastRoute);
-    }
-  }, [router]);
-
   useEffect(() => {
     fetchBoards();
   }, [fetchBoards]);

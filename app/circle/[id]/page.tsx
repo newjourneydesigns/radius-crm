@@ -1695,6 +1695,7 @@ export default function CircleLeaderProfilePage() {
       follow_up_required: leader.follow_up_required,
       follow_up_date: leader.follow_up_date,
       circle_name: leader.circle_name || leader.name || '',
+      ccb_group_name: leader.ccb_group_name || '',
       ccb_profile_link: leader.ccb_profile_link,
       ccb_group_id: leader.ccb_group_id || extractCcbGroupId(leader.ccb_profile_link) || '',
       leader_ccb_profile_link: leader.leader_ccb_profile_link || '',
@@ -1736,6 +1737,7 @@ export default function CircleLeaderProfilePage() {
           follow_up_date: editedLeader.follow_up_date || null,
           ccb_profile_link: editedLeader.ccb_profile_link || null,
           ccb_group_id: editedLeader.ccb_group_id || null,
+          ccb_group_name: editedLeader.ccb_group_name || null,
           leader_ccb_profile_link: editedLeader.leader_ccb_profile_link || null,
           birthday: editedLeader.birthday || null,
           additional_leader_name: editedLeader.additional_leader_name || null,
@@ -2573,6 +2575,22 @@ export default function CircleLeaderProfilePage() {
                         />
                       ) : (
                         <span className="text-sm text-slate-200">{leader.ccb_group_id || 'Not set'}</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-slate-400">CCB Group Name Override</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editedLeader.ccb_group_name !== undefined ? editedLeader.ccb_group_name : (leader.ccb_group_name || '')}
+                          onChange={(e) => handleLeaderFieldChange('ccb_group_name', e.target.value)}
+                          placeholder="e.g. LVT | S1 | Todd Baden"
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        />
+                      ) : (
+                        <span className="text-sm text-slate-200">{leader.ccb_group_name || <span className="text-slate-500">Not set — uses leader name</span>}</span>
                       )}
                     </dd>
                   </div>

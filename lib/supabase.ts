@@ -97,6 +97,7 @@ export interface CircleLeader {
   follow_up_date?: string;
   follow_up_note?: string;
   circle_name?: string;
+  ccb_group_name?: string; // Exact CCB group name for matching — overrides leader.name when set
   ccb_profile_link?: string;
   ccb_group_id?: string;
   leader_ccb_profile_link?: string;

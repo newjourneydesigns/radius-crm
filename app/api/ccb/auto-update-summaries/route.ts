@@ -61,10 +61,10 @@ export async function POST(request: NextRequest) {
 
     const supabase = getServiceClient();
 
-    // Load leader names
+    // Load leader names (and optional CCB group name override)
     const { data: leaders, error: leaderError } = await supabase
       .from('circle_leaders')
-      .select('id, name')
+      .select('id, name, ccb_group_name')
       .in('id', leader_ids);
 
     if (leaderError || !leaders || leaders.length === 0) {
