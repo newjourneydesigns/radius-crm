@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from 'next/navigation';
 import { useAuth } from "../../contexts/AuthContext";
 
 export default function PublicNavigation() {
   const { isAuthenticated } = useAuth();
+  const pathname = usePathname();
+  const isLoginPage = pathname === '/login' || pathname === '/login/';
 
   // Only show public navigation when user is NOT authenticated
   if (isAuthenticated()) {
@@ -39,12 +42,14 @@ export default function PublicNavigation() {
               Find a Circle
             </Link>
             
-            <Link 
-              href="/login" 
-              className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors shadow-md shadow-blue-900/30"
-            >
-              Sign In
-            </Link>
+            {!isLoginPage && (
+              <Link 
+                href="/login" 
+                className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors shadow-md shadow-blue-900/30"
+              >
+                Sign In
+              </Link>
+            )}
           </div>
         </div>
       </div>

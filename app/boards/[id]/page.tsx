@@ -1243,6 +1243,84 @@ function CardDetailModal({
   );
 }
 
+function DueDateQuickPicker({
+  dueDate,
+  onSave,
+  onClose,
+}: {
+  dueDate: string | null;
+  onSave: (dueDate: string | null) => Promise<void>;
+  onClose: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+
+    input.focus();
+    requestAnimationFrame(() => {
+      try {
+        input.showPicker?.();
+      } catch {
+        // Safari and Chromium can reject showPicker when the call no longer has a user gesture.
+      }
+    });
+  }, []);
+
+  const handleChange = async (value: string) => {
+    setSaving(true);
+    try {
+      await onSave(value || null);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleClear = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    setSaving(true);
+    try {
+      await onSave(null);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="kb-card-due-picker" onClick={e => e.stopPropagation()}>
+      <div className="kb-card-due-picker-label">Due date</div>
+      <div className="kb-card-due-picker-row">
+        <input
+          ref={inputRef}
+          className="kb-card-due-picker-input"
+          type="date"
+          defaultValue={dueDate || ''}
+          onChange={e => void handleChange(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              onClose();
+            }
+          }}
+          disabled={saving}
+        />
+        {dueDate && (
+          <button
+            className="kb-btn kb-btn-ghost kb-btn-sm"
+            type="button"
+            onClick={e => void handleClear(e)}
+            disabled={saving}
+          >
+            Clear
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════════
    KanbanCard
    ═══════════════════════════════════════════════════════════ */
@@ -2693,6 +2771,8 @@ function BoardPage() {
   const newColRef = useRef<HTMLInputElement>(null);
   const boardMenuRef = useRef<HTMLDivElement>(null);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
+  const dueDatePickerRef = useRef<HTMLDivElement>(null);
+  const [dueDateCardId, setDueDateCardId] = useState<string | null>(null);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -2703,10 +2783,13 @@ function BoardPage() {
       if (showFilterDropdown && filterDropdownRef.current && !filterDropdownRef.current.contains(e.target as Node)) {
         setShowFilterDropdown(false);
       }
+      if (dueDateCardId && dueDatePickerRef.current && !dueDatePickerRef.current.contains(e.target as Node)) {
+        setDueDateCardId(null);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [showBoardMenu, showFilterDropdown]);
+  }, [showBoardMenu, showFilterDropdown, dueDateCardId]);
   const addingCardRef = useRef(false);
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
 
@@ -2792,8 +2875,14 @@ function BoardPage() {
 
   // When opening card detail, find the latest version from board state
   const openCardDetail = useCallback((card: BoardCard) => {
+    setDueDateCardId(null);
     setSelectedCard(card);
   }, []);
+
+  const handleQuickDueDateUpdate = useCallback(async (cardId: string, dueDate: string | null) => {
+    await updateCard(boardId, cardId, { due_date: dueDate });
+    setDueDateCardId(null);
+  }, [boardId, updateCard]);
 
   // ── Keyboard shortcuts (desktop only, acts on hovered card) ──
   useEffect(() => {
@@ -2831,6 +2920,9 @@ function BoardPage() {
         } else {
           assignCard(card.id, user.id);
         }
+      } else if (e.key === 'd' || e.key === 'D') {
+        e.preventDefault();
+        setDueDateCardId(card.id);
       } else if (/^[0-9]$/.test(e.key)) {
         e.preventDefault();
         const sortedLabels = [...(board.labels || [])].sort((a, b) => a.name.localeCompare(b.name));
@@ -2849,6 +2941,10 @@ function BoardPage() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [hoveredCardId, board, boardId, selectedCard, user, openCardDetail, deleteCard, updateCard, assignCard, unassignCard]);
+
+  useEffect(() => {
+    if (selectedCard) setDueDateCardId(null);
+  }, [selectedCard]);
 
   useEffect(() => {
     if (addingCardCol && newCardRef.current) newCardRef.current.focus();
@@ -3427,6 +3523,15 @@ function BoardPage() {
                       onMouseEnter={() => setHoveredCardId(card.id)}
                       onMouseLeave={() => setHoveredCardId(prev => prev === card.id ? null : prev)}
                     >
+                      {dueDateCardId === card.id && (
+                        <div ref={dueDatePickerRef} className="kb-list-row-date-picker">
+                          <DueDateQuickPicker
+                            dueDate={card.due_date}
+                            onSave={(dueDate) => handleQuickDueDateUpdate(card.id, dueDate)}
+                            onClose={() => setDueDateCardId(null)}
+                          />
+                        </div>
+                      )}
                       <button
                         className={`kb-card-complete-btn ${card.is_complete ? 'checked' : ''}`}
                         onClick={async (e) => {
@@ -3633,6 +3738,15 @@ function BoardPage() {
                         isDragging={dragCardId === card.id}
                         onToggleComplete={() => handleToggleComplete(card.id, !card.is_complete)}
                       />
+                      {dueDateCardId === card.id && (
+                        <div ref={dueDatePickerRef}>
+                          <DueDateQuickPicker
+                            dueDate={card.due_date}
+                            onSave={(dueDate) => handleQuickDueDateUpdate(card.id, dueDate)}
+                            onClose={() => setDueDateCardId(null)}
+                          />
+                        </div>
+                      )}
                     </div>
                   ))}
 
@@ -3889,6 +4003,7 @@ function BoardPage() {
       <div className="kb-shortcut-bar">
         <span className="kb-shortcut-hint">Hover a card &amp; press:</span>
         <span className="kb-shortcut-key"><kbd>Enter</kbd> Open</span>
+        <span className="kb-shortcut-key"><kbd>D</kbd> Due date</span>
         <span className="kb-shortcut-key"><kbd>M</kbd> Assign to me</span>
         <span className="kb-shortcut-key"><kbd>C</kbd> Complete</span>
         <span className="kb-shortcut-key"><kbd>Del</kbd> Delete</span>
@@ -4400,6 +4515,9 @@ const kanbanStyles = `
   .kb-card-wrapper {
     position: relative;
   }
+  .kb-list-row {
+    position: relative;
+  }
   .kb-card-wrapper.drop-above::before {
     content: '';
     position: absolute;
@@ -4441,6 +4559,47 @@ const kanbanStyles = `
   .kb-card.dragging {
     opacity: 0.5;
     transform: rotate(2deg);
+  }
+  .kb-card-due-picker {
+    position: absolute;
+    inset: 8px 8px auto;
+    z-index: 30;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(141, 169, 196, 0.35);
+    background: rgba(9, 27, 52, 0.96);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(10px);
+  }
+  .kb-list-row-date-picker .kb-card-due-picker {
+    inset: 8px 8px auto auto;
+  }
+  .kb-card-due-picker-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8da9c4;
+    margin-bottom: 8px;
+  }
+  .kb-card-due-picker-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .kb-card-due-picker-input {
+    min-width: 140px;
+    background: #14161e !important;
+    border: 1px solid #2a2d3a !important;
+    border-radius: 8px !important;
+    color: #eef4ed !important;
+    padding: 7px 10px !important;
+    font-size: 12px !important;
+    outline: none;
+  }
+  .kb-card-due-picker-input:focus {
+    border-color: #8da9c4 !important;
+    box-shadow: 0 0 0 2px rgba(141, 169, 196, 0.16);
   }
   .kb-card-labels {
     display: flex;
