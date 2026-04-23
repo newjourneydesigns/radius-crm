@@ -88,13 +88,14 @@ export default function CalendarFilterPanel({
 
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass mb-4">
-      <div className="px-4 py-3 border-b border-slate-700">
+      <div className={`px-4 py-3 ${open ? 'border-b border-slate-700' : ''}`}>
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-sm font-semibold text-white">Filters</span>
             {hasActiveFilters && (
               <span className="text-xs text-slate-400">{activeFilterCount} active</span>
             )}
+            <span className="text-xs text-slate-500">{totalLeaders} circles</span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {hasActiveFilters && (
