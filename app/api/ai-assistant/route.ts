@@ -91,64 +91,71 @@ async function callGeminiWithTools(
   status: number;
   rateLimited?: boolean;
 }> {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents,
-        tools,
-        generationConfig: {
-          temperature: 0.4,
-          maxOutputTokens: 2048,
-          topP: 0.9,
-        },
-        safetySettings: [
-          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
-        ],
-      }),
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents,
+          tools,
+          generationConfig: {
+            temperature: 0.4,
+            maxOutputTokens: 2048,
+            topP: 0.9,
+          },
+          safetySettings: [
+            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+          ],
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      if (response.status === 503 && attempt < 2) {
+        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
+      if (response.status === 429) return { status: 429, rateLimited: true };
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        error: errorData?.error?.message || `Gemini error: ${response.status}`,
+        status: response.status,
+      };
     }
-  );
 
-  if (!response.ok) {
-    if (response.status === 429) return { status: 429, rateLimited: true };
-    const errorData = await response.json().catch(() => ({}));
-    return {
-      error: errorData?.error?.message || `Gemini error: ${response.status}`,
-      status: response.status,
-    };
+    const data = await response.json();
+    const candidate = data?.candidates?.[0];
+    if (!candidate?.content?.parts) {
+      return { error: 'Gemini returned an empty response.', status: 502 };
+    }
+
+    const parts: GeminiPart[] = candidate.content.parts;
+
+    // Check if the model wants to call functions
+    const functionCalls = parts
+      .filter((p: GeminiPart) => p.functionCall)
+      .map((p: GeminiPart) => ({
+        name: p.functionCall!.name,
+        args: p.functionCall!.args,
+      }));
+
+    if (functionCalls.length > 0) {
+      return { functionCalls, status: 200 };
+    }
+
+    // Otherwise, extract text reply
+    const textParts = parts.filter((p: GeminiPart) => p.text);
+    const reply = textParts.map((p: GeminiPart) => p.text).join('');
+    if (!reply) return { error: 'Gemini returned empty text.', status: 502 };
+    return { reply: reply.trim(), status: 200 };
   }
-
-  const data = await response.json();
-  const candidate = data?.candidates?.[0];
-  if (!candidate?.content?.parts) {
-    return { error: 'Gemini returned an empty response.', status: 502 };
-  }
-
-  const parts: GeminiPart[] = candidate.content.parts;
-
-  // Check if the model wants to call functions
-  const functionCalls = parts
-    .filter((p: GeminiPart) => p.functionCall)
-    .map((p: GeminiPart) => ({
-      name: p.functionCall!.name,
-      args: p.functionCall!.args,
-    }));
-
-  if (functionCalls.length > 0) {
-    return { functionCalls, status: 200 };
-  }
-
-  // Otherwise, extract text reply
-  const textParts = parts.filter((p: GeminiPart) => p.text);
-  const reply = textParts.map((p: GeminiPart) => p.text).join('');
-  if (!reply) return { error: 'Gemini returned empty text.', status: 502 };
-  return { reply: reply.trim(), status: 200 };
+  return { error: 'Gemini is experiencing high demand. Please try again in a moment.', status: 503 };
 }
 
 // ---- OpenAI-compatible message format (used by OpenAI handler) ----

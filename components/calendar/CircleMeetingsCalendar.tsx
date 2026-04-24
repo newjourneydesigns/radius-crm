@@ -38,6 +38,7 @@ function renderAISummary(text: string) {
   const lines = text.split('\n');
   const elements: ReactNode[] = [];
   let key = 0;
+  let currentSection = '';
 
   const renderInline = (str: string): ReactNode => {
     const parts = str.split(/(\*\*[^*]+\*\*)/g);
@@ -55,13 +56,18 @@ function renderAISummary(text: string) {
 
     if (!line) { i++; continue; }
 
-    // Section header: **N. Title**, N. **Title**, or plain N. Title (handles both Gemini and Groq output)
-    const cleanHeader = line.replace(/^\*\*/, '').replace(/\*\*$/, '');
+    // Section header: ## N. Title, **N. Title**, N. **Title**, or plain N. Title
+    const isMarkdownHeader = /^#{1,3}\s+/.test(line);
+    const cleanHeader = isMarkdownHeader
+      ? line.replace(/^#{1,3}\s+/, '')
+      : line.replace(/^\*\*/, '').replace(/\*\*$/, '');
     const isStyledHeader = (line.startsWith('**') && line.endsWith('**') && /\d+\./.test(line)) || /^\d+\.\s+\*\*/.test(line);
     const isPlainHeader = /^\d+\.\s+[A-Za-z]/.test(line) && !line.slice(line.indexOf('.') + 1).trim().startsWith('**') && line.length < 80 && !/:\s/.test(line.slice(line.indexOf('.') + 1));
-    if (isStyledHeader || isPlainHeader) {
+    if (isMarkdownHeader || isStyledHeader || isPlainHeader) {
       const label = cleanHeader.replace(/^\d+\.\s+/, '').replace(/\*\*/g, '');
       const num = cleanHeader.match(/^(\d+)/)?.[1];
+      const labelLower = label.toLowerCase();
+      currentSection = (labelLower.includes('pastor') || labelLower.includes('follow-up') || labelLower.includes('follow up')) ? 'followup' : '';
       elements.push(
         <div key={key++} className={`flex items-baseline gap-2 mt-5 mb-2 pb-1.5 border-b border-purple-500/20 ${i === 0 || elements.length === 0 ? 'mt-2' : ''}`}>
           {num && <span className="text-xs font-bold text-purple-400/60 tabular-nums w-4 shrink-0">{num}</span>}
@@ -69,6 +75,39 @@ function renderAISummary(text: string) {
         </div>
       );
       i++; continue;
+    }
+
+    // Follow-up card: structured bullet in the Pastor Follow-Up section
+    if (currentSection === 'followup' && /^[\*\-•]\s+/.test(line)) {
+      const content = line.replace(/^[\*\-•]\s+/, '');
+      const leaderMatch = content.match(/^\*\*([^*]+)\*\*/);
+      const personMatch = content.match(/\(Person:\s*([^)]+)\)/i);
+      const [beforeResponse, afterResponse] = content.split(/\s*Suggested (?:response|pastoral response):\s*/i);
+      const reason = (beforeResponse ?? '')
+        .replace(/^\*\*[^*]+\*\*/, '')
+        .replace(/\(Person:[^)]*\)/i, '')
+        .replace(/^[:\s]+/, '')
+        .trim();
+      if (leaderMatch) {
+        elements.push(
+          <div key={key++} className="bg-slate-800/50 border border-slate-700/40 rounded-lg p-3 mb-2">
+            <div className="flex flex-wrap items-center gap-2 mb-1.5">
+              <span className="text-sm font-semibold text-white">{leaderMatch[1]}</span>
+              {personMatch && (
+                <span className="text-xs text-slate-300 bg-slate-700/60 px-2 py-0.5 rounded-full">{personMatch[1]}</span>
+              )}
+            </div>
+            {reason && <p className="text-sm text-slate-300 leading-relaxed">{reason}</p>}
+            {afterResponse && (
+              <div className="flex items-start gap-2 mt-2 pt-2 border-t border-slate-700/30">
+                <span className="text-xs font-bold text-amber-400 mt-0.5 shrink-0">→</span>
+                <p className="text-xs text-amber-200/90 leading-relaxed">{afterResponse.trim()}</p>
+              </div>
+            )}
+          </div>
+        );
+        i++; continue;
+      }
     }
 
     // Bullet: starts with * or - or •
@@ -83,13 +122,13 @@ function renderAISummary(text: string) {
       i++; continue;
     }
 
-    // Pull quote: line starts with " or is a quoted statement with an em dash attribution
-    if (line.startsWith('"') && line.includes('–')) {
-      const [quote, ...rest] = line.split('–');
+    // Pull quote: line starts with " and has an en-dash or em-dash attribution
+    if (line.startsWith('"') && /[–—]/.test(line)) {
+      const [quote, ...rest] = line.split(/[–—]/);
       elements.push(
         <div key={key++} className="border-l-2 border-purple-500/40 pl-3 py-1 my-1">
           <p className="text-sm text-slate-300 italic leading-relaxed">{quote.trim()}</p>
-          {rest.length > 0 && <p className="text-xs text-slate-500 mt-0.5">— {rest.join('–').trim()}</p>}
+          {rest.length > 0 && <p className="text-xs text-slate-500 mt-0.5">— {rest.join('—').trim()}</p>}
         </div>
       );
       i++; continue;
@@ -430,6 +469,7 @@ export default function CircleMeetingsCalendar({
   const [isPullingCCB, setIsPullingCCB] = useState(false);
   const [isAutoUpdating, setIsAutoUpdating] = useState(false);
   const [autoUpdateConflicts, setAutoUpdateConflicts] = useState<Array<{ leader_id: number; leader_name: string; current_state: EventSummaryState; ccb_state: EventSummaryState }> | null>(null);
+  const [autoUpdatedLeaderNames, setAutoUpdatedLeaderNames] = useState<string[] | null>(null);
   const [snapshotSavingLeaderIds, setSnapshotSavingLeaderIds] = useState<Set<number>>(new Set());
 
   // Attendance data — headcount + roster size per leader for the visible week
@@ -1007,6 +1047,15 @@ export default function CircleMeetingsCalendar({
           ? `No updates applied — ${conflictCount} conflict${conflictCount !== 1 ? 's' : ''} need review.`
           : 'No changes needed — all leaders already have a status.';
       setActionSuccess(msg);
+      if (json.updated > 0 && json.updated_leaders?.length > 0) {
+        const names = (json.updated_leaders as Array<{ id: number; state: EventSummaryState }>)
+          .map(({ id }) => leaders.find(l => l.id === id)?.name)
+          .filter((n): n is string => Boolean(n));
+        setAutoUpdatedLeaderNames(names);
+        setTimeout(() => setAutoUpdatedLeaderNames(null), 8000);
+      } else {
+        setAutoUpdatedLeaderNames(null);
+      }
       setTimeout(() => setActionSuccess(null), 8000);
     } catch (err: any) {
       console.error('Error auto-updating from CCB:', err);
@@ -1203,11 +1252,18 @@ export default function CircleMeetingsCalendar({
 
       {/* Success Message */}
       {actionSuccess && (
-        <div className="mb-4 p-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-300 text-sm flex items-center gap-2">
-          <svg className="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="mb-4 p-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-300 text-sm flex items-start gap-2">
+          <svg className="h-5 w-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
-          {actionSuccess}
+          <div>
+            <div>{actionSuccess}</div>
+            {autoUpdatedLeaderNames && autoUpdatedLeaderNames.length > 0 && (
+              <div className="mt-1 text-green-400/70 text-xs">
+                {autoUpdatedLeaderNames.join(', ')}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

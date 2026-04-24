@@ -11,65 +11,42 @@ function getServiceClient() {
 
 // --- AI provider calls (mirrors /api/ai-summarize pattern) ---
 
-async function callGroq(apiKey: string, systemPrompt: string, text: string): Promise<{ summary?: string; error?: string; status: number }> {
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: text },
-      ],
-      temperature: 0.4,
-      max_tokens: 8192,
-      top_p: 0.85,
-    }),
-  });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    return { error: err?.error?.message || `Groq error: ${response.status}`, status: response.status };
-  }
-
-  const data = await response.json();
-  const summary = data?.choices?.[0]?.message?.content;
-  if (!summary) return { error: 'Groq returned an empty response.', status: 502 };
-  return { summary: summary.trim(), status: 200 };
-}
-
 async function callGemini(apiKey: string, systemPrompt: string, text: string): Promise<{ summary?: string; error?: string; status: number; rateLimited?: boolean }> {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\n---\n\n${text}` }] }],
-        generationConfig: { temperature: 0.4, maxOutputTokens: 8192, topP: 0.85, thinkingConfig: { thinkingBudget: 0 } },
-        safetySettings: [
-          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
-        ],
-      }),
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\n---\n\n${text}` }] }],
+          generationConfig: { temperature: 0.4, maxOutputTokens: 8192, topP: 0.85, thinkingConfig: { thinkingBudget: 0 } },
+          safetySettings: [
+            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+          ],
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      if (response.status === 503 && attempt < 2) {
+        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
+      if (response.status === 429) return { status: 429, rateLimited: true };
+      const err = await response.json().catch(() => ({}));
+      return { error: err?.error?.message || `Gemini error: ${response.status}`, status: response.status };
     }
-  );
 
-  if (!response.ok) {
-    if (response.status === 429) return { status: 429, rateLimited: true };
-    const err = await response.json().catch(() => ({}));
-    return { error: err?.error?.message || `Gemini error: ${response.status}`, status: response.status };
+    const data = await response.json();
+    const summary = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!summary) return { error: 'Gemini returned an empty response.', status: 502 };
+    return { summary: summary.trim(), status: 200 };
   }
-
-  const data = await response.json();
-  const summary = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!summary) return { error: 'Gemini returned an empty response.', status: 502 };
-  return { summary: summary.trim(), status: 200 };
+  return { error: 'Gemini is experiencing high demand. Please try again in a moment.', status: 503 };
 }
 
 
@@ -133,11 +110,9 @@ Give 3 to 7 bullet points describing major patterns you see in the notes.
 List any reports or moments that stand out as unusually important, unusually resistant, or especially significant.
 
 4. Pastor Follow-Up
-List specific follow-up needs with:
-- leader name
-- person if named
-- reason for follow-up
-- suggested pastoral response
+Format each follow-up item as a single bullet using this exact structure:
+- **Leader Name** (Person: first name if applicable): Brief reason for follow-up. Suggested response: specific pastoral action to take.
+If no specific person is identified, omit the Person field entirely.
 
 5. Highlight Statements
 Pull out 3 to 8 short statements or paraphrased lines that best capture the spiritual tone of the reports. For each statement, attribute it to the leader's event summary it came from — format as: "Quote or paraphrase." — [Leader Name]
@@ -344,23 +319,13 @@ export async function POST(request: NextRequest) {
     }
 
     const prompt = lines.join('\n');
+    const result = await callGemini(geminiKey, SYSTEM_PROMPT, prompt);
+    if (result.summary) return NextResponse.json({ summary: result.summary });
 
-    const groqKey = process.env.GROQ_API_KEY;
-
-    if (geminiKey) {
-      const result = await callGemini(geminiKey, SYSTEM_PROMPT, prompt);
-      if (result.summary) return NextResponse.json({ summary: result.summary });
-      // Fall through to Groq on any Gemini failure
-      console.warn('Gemini failed, trying Groq fallback:', result.error);
-    }
-
-    if (groqKey) {
-      const result = await callGroq(groqKey, SYSTEM_PROMPT, prompt);
-      if (result.summary) return NextResponse.json({ summary: result.summary });
-      return NextResponse.json({ error: result.error || 'AI error' }, { status: result.status });
-    }
-
-    return NextResponse.json({ error: 'No AI provider available.' }, { status: 500 });
+    return NextResponse.json(
+      { error: result.error || 'Gemini AI error', provider: 'gemini' },
+      { status: result.status || 500 }
+    );
   } catch (err: unknown) {
     console.error('weekly-ai-summary POST error:', err);
     const message = err instanceof Error ? err.message : 'Internal server error';

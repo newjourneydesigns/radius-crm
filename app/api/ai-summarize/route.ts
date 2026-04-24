@@ -53,69 +53,46 @@ Rules:
 - If the input is very short or unclear, do your best and note what seems unclear`;
 }
 
-async function callGroq(apiKey: string, systemPrompt: string, text: string, maxTokens: number = 2048): Promise<{ summary?: string; error?: string; status: number }> {
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: text },
-      ],
-      temperature: 0.3,
-      max_tokens: maxTokens,
-      top_p: 0.8,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    return { error: errorData?.error?.message || `Groq error: ${response.status}`, status: response.status };
-  }
-
-  const data = await response.json();
-  const summary = data?.choices?.[0]?.message?.content;
-  if (!summary) return { error: 'Groq returned an empty response.', status: 502 };
-  return { summary: summary.trim(), status: 200 };
-}
-
 async function callGemini(apiKey: string, systemPrompt: string, text: string, maxTokens: number = 2048): Promise<{ summary?: string; error?: string; status: number }> {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\n---\n\n${text}` }] }],
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: maxTokens,
-          topP: 0.8,
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-        safetySettings: [
-          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
-        ],
-      }),
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\n---\n\n${text}` }] }],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: maxTokens,
+            topP: 0.8,
+            thinkingConfig: { thinkingBudget: 0 },
+          },
+          safetySettings: [
+            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+          ],
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      if (response.status === 503 && attempt < 2) {
+        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
+      const errorData = await response.json().catch(() => ({}));
+      return { error: errorData?.error?.message || `Gemini error: ${response.status}`, status: response.status };
     }
-  );
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    return { error: errorData?.error?.message || `Gemini error: ${response.status}`, status: response.status };
+    const data = await response.json();
+    const summary = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!summary) return { error: 'Gemini returned an empty response.', status: 502 };
+    return { summary: summary.trim(), status: 200 };
   }
-
-  const data = await response.json();
-  const summary = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!summary) return { error: 'Gemini returned an empty response.', status: 502 };
-  return { summary: summary.trim(), status: 200 };
+  return { error: 'Gemini is experiencing high demand. Please try again in a moment.', status: 503 };
 }
 
 export async function POST(request: NextRequest) {
@@ -146,22 +123,15 @@ export async function POST(request: NextRequest) {
       systemPrompt = getSystemPrompt(wordCount);
     }
 
-    const groqKey = process.env.GROQ_API_KEY;
     const maxTokens = mode === 'meeting-prep' ? 4096 : 2048;
 
-    if (geminiKey) {
-      const result = await callGemini(geminiKey, systemPrompt, trimmedText, maxTokens);
-      if (result.summary) return NextResponse.json({ summary: result.summary });
-      console.warn('Gemini failed, trying Groq fallback:', result.error);
-    }
+    const result = await callGemini(geminiKey, systemPrompt, trimmedText, maxTokens);
+    if (result.summary) return NextResponse.json({ summary: result.summary });
 
-    if (groqKey) {
-      const result = await callGroq(groqKey, systemPrompt, trimmedText, maxTokens);
-      if (result.summary) return NextResponse.json({ summary: result.summary });
-      return NextResponse.json({ error: result.error || 'AI service error' }, { status: result.status });
-    }
-
-    return NextResponse.json({ error: 'No AI provider available.' }, { status: 500 });
+    return NextResponse.json(
+      { error: result.error || 'Gemini AI error', provider: 'gemini' },
+      { status: result.status || 500 }
+    );
   } catch (error: unknown) {
     console.error('AI summarize error:', error);
     const message = error instanceof Error ? error.message : 'Internal server error';
