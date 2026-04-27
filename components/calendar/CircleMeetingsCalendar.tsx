@@ -1920,11 +1920,7 @@ export default function CircleMeetingsCalendar({
           buttonText={{
             listWeek: 'List',
           }}
-          titleFormat={
-            isMobile
-              ? ({ year: 'numeric', month: 'short', day: 'numeric' } as any)
-              : ({ year: 'numeric', month: 'long' } as any)
-          }
+          titleFormat={{ year: 'numeric', month: 'short', day: 'numeric' } as any}
           height="auto"
           nowIndicator
           weekends
