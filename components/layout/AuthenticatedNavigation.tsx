@@ -203,7 +203,7 @@ export default function AuthenticatedNavigation() {
                 href={href}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150 ${
                   isActive(href)
-                    ? 'nav-active-pill text-white'
+                    ? 'nav-active-pill'
                     : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
                 }`}
               >
