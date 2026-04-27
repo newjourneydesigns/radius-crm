@@ -14,6 +14,9 @@ export default function Footer() {
   return (
     <footer className="border-t border-gray-800/50 mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <p className="text-xs text-gray-600 italic text-center mb-4">
+          &ldquo;This is quite possibly the absolute greatest tool/resource that we have for a staff leader.&rdquo; &mdash; <span className="not-italic">Anonymous</span>
+        </p>
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           {/* Left: Attribution */}
           <p className="text-xs text-gray-600 order-2 sm:order-1">

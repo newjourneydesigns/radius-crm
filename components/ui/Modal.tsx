@@ -32,15 +32,16 @@ export default function Modal({
 
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
+      // Use touch-action on body instead of overflow:hidden to avoid iOS
+      // scroll-position bug after keyboard dismissal
+      document.body.style.touchAction = 'none';
       document.body.style.overflow = 'hidden';
-      // Prevent scrolling on background
-      document.documentElement.style.overflow = 'hidden';
     }
 
     return () => {
       document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
-      document.documentElement.style.overflow = 'unset';
+      document.body.style.touchAction = '';
+      document.body.style.overflow = '';
     };
   }, [isOpen, onClose]);
 
@@ -68,8 +69,8 @@ export default function Modal({
   };
 
   const modalContent = (
-    <div 
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] animate-in fade-in duration-200"
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] animate-in fade-in duration-200 overflow-y-auto"
       onClick={handleBackdropClick}
       role="dialog"
       aria-modal="true"
@@ -82,15 +83,17 @@ export default function Modal({
         bottom: 0,
         zIndex: 99999,
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'center',
-        padding: '1rem'
+        padding: '1rem',
+        paddingTop: 'max(1rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
       }}
     >
-      <div 
+      <div
         ref={modalRef}
         tabIndex={-1}
-        className={`modal-glass rounded-xl shadow-2xl ${sizeClasses[size]} max-h-[95vh] overflow-y-auto transform transition-all animate-in zoom-in-95 duration-200 outline-none`}
+        className={`modal-glass rounded-xl shadow-2xl ${sizeClasses[size]} overflow-y-auto transform transition-all animate-in zoom-in-95 duration-200 outline-none my-auto`}
         onClick={(e) => e.stopPropagation()}
         style={{
           position: 'relative',
