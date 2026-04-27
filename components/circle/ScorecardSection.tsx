@@ -21,13 +21,14 @@ const DIMENSIONS = [
 interface ScorecardSectionProps {
   leaderId: number;
   isAdmin: boolean;
+  initialDimension?: ScorecardDimension | null;
   onNoteSaved?: () => void;
   onAddToCoaching?: (leaderId: number, category: ScorecardDimension, content: string) => Promise<any>;
 }
 
-export default function ScorecardSection({ leaderId, isAdmin, onNoteSaved, onAddToCoaching }: ScorecardSectionProps) {
+export default function ScorecardSection({ leaderId, isAdmin, initialDimension, onNoteSaved, onAddToCoaching }: ScorecardSectionProps) {
   const { ratings, isLoading, loadRatings, submitScores, updateScore, deleteScore, getLatestScores, getTrend } = useScorecard();
-  const { prospects, loadAll: loadProspects } = useDevelopmentProspects();
+  const { prospects, loadAll: loadProspects, updateProspect } = useDevelopmentProspects();
   const {
     isLoading: evalLoading,
     isSaving: evalSaving,
@@ -50,7 +51,10 @@ export default function ScorecardSection({ leaderId, isAdmin, onNoteSaved, onAdd
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [activeDimension, setActiveDimension] = useState<ScorecardDimension | null>(null);
+  const [activeDimension, setActiveDimension] = useState<ScorecardDimension | null>(initialDimension ?? null);
+  const [editingProspectId, setEditingProspectId] = useState<number | null>(null);
+  const [prospectEditValues, setProspectEditValues] = useState<{ name: string; notes: string }>({ name: '', notes: '' });
+  const [isSavingProspect, setIsSavingProspect] = useState(false);
 
   useEffect(() => {
     loadRatings(leaderId);
@@ -412,10 +416,66 @@ export default function ScorecardSection({ leaderId, isAdmin, onNoteSaved, onAdd
                 </div>
                 <div className="space-y-1.5">
                   {prospects.filter(p => p.is_active).map(prospect => (
-                    <div key={prospect.id} className="flex items-start gap-2">
-                      <span className="text-sm text-white font-medium">{prospect.name}</span>
-                      {prospect.notes && (
-                        <span className="text-xs text-gray-400 italic mt-0.5">— {prospect.notes}</span>
+                    <div key={prospect.id}>
+                      {editingProspectId === prospect.id ? (
+                        <div className="flex flex-col gap-2 pt-1">
+                          <input
+                            value={prospectEditValues.name}
+                            onChange={e => setProspectEditValues(prev => ({ ...prev, name: e.target.value }))}
+                            className="w-full bg-slate-700 border border-slate-600 text-white placeholder-slate-400 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            placeholder="Name"
+                          />
+                          <textarea
+                            value={prospectEditValues.notes}
+                            onChange={e => setProspectEditValues(prev => ({ ...prev, notes: e.target.value }))}
+                            className="w-full bg-slate-700 border border-slate-600 text-white placeholder-slate-400 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                            placeholder="Notes (optional)"
+                            rows={2}
+                          />
+                          <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={() => setEditingProspectId(null)}
+                              className="text-xs text-slate-400 hover:text-white transition-colors px-2 py-1"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              disabled={isSavingProspect || !prospectEditValues.name.trim()}
+                              onClick={async () => {
+                                setIsSavingProspect(true);
+                                await updateProspect(prospect.id, { name: prospectEditValues.name, notes: prospectEditValues.notes }, leaderId);
+                                setIsSavingProspect(false);
+                                setEditingProspectId(null);
+                              }}
+                              className="text-xs bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-3 py-1 rounded-lg transition-colors"
+                            >
+                              {isSavingProspect ? 'Saving…' : 'Save'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-start justify-between gap-2 group">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-sm text-white font-medium">{prospect.name}</span>
+                            {prospect.notes && (
+                              <span className="text-xs text-gray-400 italic whitespace-pre-wrap">{prospect.notes}</span>
+                            )}
+                          </div>
+                          {isAdmin && (
+                            <button
+                              onClick={() => {
+                                setProspectEditValues({ name: prospect.name, notes: prospect.notes || '' });
+                                setEditingProspectId(prospect.id);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-white/10 transition-all flex-shrink-0 mt-0.5"
+                              title="Edit prospect"
+                            >
+                              <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   ))}

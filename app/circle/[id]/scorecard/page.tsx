@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { supabase, type ScorecardDimension } from '../../../../lib/supabase';
 import { useAuth } from '../../../../contexts/AuthContext';
 import ProtectedRoute from '../../../../components/ProtectedRoute';
@@ -10,8 +10,13 @@ import AlertModal from '../../../../components/ui/AlertModal';
 
 export default function CircleLeaderScorecardPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const leaderId = params?.id ? parseInt(params.id as string) : 0;
   const { isAdmin } = useAuth();
+
+  const VALID_DIMENSIONS: ScorecardDimension[] = ['reach', 'connect', 'disciple', 'develop'];
+  const dimParam = searchParams?.get('dimension') as ScorecardDimension | null;
+  const initialDimension = dimParam && VALID_DIMENSIONS.includes(dimParam) ? dimParam : null;
 
   const [leaderName, setLeaderName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -67,7 +72,7 @@ export default function CircleLeaderScorecardPage() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28 lg:pb-6">
 
           {/* Header */}
           <div className="mb-6">
@@ -86,6 +91,7 @@ export default function CircleLeaderScorecardPage() {
           <ScorecardSection
             leaderId={leaderId}
             isAdmin={isAdmin()}
+            initialDimension={initialDimension}
             onNoteSaved={() => {}}
             onAddToCoaching={handleAddToCoaching}
           />

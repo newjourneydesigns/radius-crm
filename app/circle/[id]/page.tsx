@@ -24,6 +24,7 @@ import AttendanceTrends from '../../../components/circle/AttendanceTrends';
 import CircleLeaderProfileSkeleton from '../../../components/circle/CircleLeaderProfileSkeleton';
 import { useRealtimeSubscription, RealtimeSubscriptionConfig } from '../../../hooks/useRealtimeSubscription';
 import { getEventSummaryButtonLabel, getEventSummaryColors, getEventSummaryState } from '../../../lib/event-summary-utils';
+import { calculateSuggestedScore, getFinalScore } from '../../../lib/evaluationQuestions';
 
 // Helper function to format time to AM/PM
 const formatTimeToAMPM = (time: string | undefined | null): string => {
@@ -185,6 +186,7 @@ export default function CircleLeaderProfilePage() {
   const params = useParams();
   const leaderId = params?.id ? parseInt(params.id as string) : 0;
   const { user, isAdmin } = useAuth();
+  const [scorecardSummary, setScorecardSummary] = useState<{ reach: number; connect: number; disciple: number; develop: number; average: number } | null>(null);
 
   const [leader, setLeader] = useState<CircleLeader | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -333,6 +335,56 @@ export default function CircleLeaderProfilePage() {
     };
 
     loadLeaderData();
+    (async () => {
+      const [evalsResult, directResult] = await Promise.all([
+        supabase
+          .from('leader_category_evaluations')
+          .select('id, category, manual_override_score')
+          .eq('leader_id', leaderId),
+        supabase
+          .from('circle_leader_scores')
+          .select('reach_score, connect_score, disciple_score, develop_score')
+          .eq('circle_leader_id', leaderId)
+          .order('scored_date', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(1),
+      ]);
+
+      const evals = evalsResult.data || [];
+      const directRow = directResult.data?.[0] || null;
+
+      let answersByEval: Record<number, Record<string, 'yes' | 'no' | 'unsure' | null>> = {};
+      if (evals.length > 0) {
+        const { data: answers } = await supabase
+          .from('leader_category_answers')
+          .select('evaluation_id, question_key, answer')
+          .in('evaluation_id', evals.map((e: any) => e.id));
+        for (const a of (answers || [])) {
+          if (!answersByEval[a.evaluation_id]) answersByEval[a.evaluation_id] = {};
+          answersByEval[a.evaluation_id][a.question_key] = a.answer;
+        }
+      }
+
+      const evalByCategory: Record<string, any> = {};
+      for (const e of evals) evalByCategory[e.category] = e;
+
+      const dims = ['reach', 'connect', 'disciple', 'develop'] as const;
+      const computed: Record<string, number | null> = {};
+      for (const dim of dims) {
+        const ev = evalByCategory[dim];
+        const override = ev?.manual_override_score ?? null;
+        const suggested = ev ? calculateSuggestedScore(answersByEval[ev.id] || {}) : null;
+        const fallback = directRow ? (directRow as any)[`${dim}_score`] : null;
+        computed[dim] = getFinalScore(override, suggested, fallback);
+      }
+
+      const { reach, connect, disciple, develop } = computed;
+      const vals = [reach, connect, disciple, develop].filter((v): v is number => v !== null);
+      if (vals.length === 4) {
+        const avg = Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10;
+        setScorecardSummary({ reach: reach!, connect: connect!, disciple: disciple!, develop: develop!, average: avg });
+      }
+    })();
   }, [leaderId]);
 
   // ── Auto-sync attendance from CCB if stale (>6 days) ──────────────
@@ -1439,31 +1491,16 @@ export default function CircleLeaderProfilePage() {
           </div>
 
           {/* Name + status */}
-          <h1 className="text-xl sm:text-2xl font-bold text-brand-light leading-snug">
+          <h1 className="text-xl sm:text-2xl font-bold text-brand-light leading-snug mt-1">
             {leader.circle_name || leader.name}
           </h1>
-          <div className="flex flex-wrap items-center gap-2 mt-2">
-            {leader.status && (() => {
-              const statusBadgeClass: Record<string, string> = {
-                'invited': 'status-badge status-badge-blue',
-                'pipeline': 'status-badge status-badge-indigo',
-                'active': 'status-badge status-badge-green',
-                'paused': 'status-badge status-badge-yellow',
-                'off-boarding': 'status-badge status-badge-red',
-              };
-              const label = leader.status === 'off-boarding' ? 'Off-boarding' : leader.status.charAt(0).toUpperCase() + leader.status.slice(1);
-              return (
-                <span className={statusBadgeClass[leader.status] || 'status-badge status-badge-blue'}>
-                  {label}
-                </span>
-              );
-            })()}
-            {leader.circle_name && (
+          {leader.circle_name && (
+            <div className="mt-0.5">
               <span className="text-sm text-slate-400">
                 {leader.name}{leader.additional_leader_name ? ` · ${leader.additional_leader_name}` : ''}
               </span>
-            )}
-          </div>
+            </div>
+          )}
           {/* Context line: circle type, frequency, meeting day & time */}
           {(leader.circle_type || leader.day) && (
             <p className="mt-1.5 text-sm text-slate-400">
@@ -1482,6 +1519,23 @@ export default function CircleLeaderProfilePage() {
               ].filter(Boolean).join(' · ')}
             </p>
           )}
+          {leader.status && (() => {
+            const statusBadgeClass: Record<string, string> = {
+              'invited': 'status-badge status-badge-blue',
+              'pipeline': 'status-badge status-badge-indigo',
+              'active': 'status-badge status-badge-green',
+              'paused': 'status-badge status-badge-yellow',
+              'off-boarding': 'status-badge status-badge-red',
+            };
+            const label = leader.status === 'off-boarding' ? 'Off-boarding' : leader.status.charAt(0).toUpperCase() + leader.status.slice(1);
+            return (
+              <div className="mt-1.5">
+                <span className={statusBadgeClass[leader.status] || 'status-badge status-badge-blue'}>
+                  {label}
+                </span>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Editing mode sticky footer — mobile only, so Save/Cancel are always reachable */}
@@ -1705,6 +1759,7 @@ export default function CircleLeaderProfilePage() {
             )}
             </div>
           </div>
+
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -2258,7 +2313,7 @@ export default function CircleLeaderProfilePage() {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className="flex flex-col gap-6 h-full">
             {/* Event Summary - Desktop Only */}
             <div className="hidden lg:block bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
@@ -2434,6 +2489,73 @@ export default function CircleLeaderProfilePage() {
                 )}
               </div>
             </div>
+
+            {/* Scorecard Summary - Desktop sidebar */}
+            {(() => {
+              const scores = scorecardSummary;
+              const dims = [
+                { key: 'reach',    label: 'Reach',    value: scores?.reach,    color: 'text-blue-400',   bg: 'bg-blue-500/15',   dot: 'bg-blue-400' },
+                { key: 'connect',  label: 'Connect',  value: scores?.connect,  color: 'text-green-400',  bg: 'bg-green-500/15',  dot: 'bg-green-400' },
+                { key: 'disciple', label: 'Disciple', value: scores?.disciple, color: 'text-violet-400', bg: 'bg-violet-500/15', dot: 'bg-violet-400' },
+                { key: 'develop',  label: 'Develop',  value: scores?.develop,  color: 'text-orange-400', bg: 'bg-orange-500/15', dot: 'bg-orange-400' },
+              ];
+              return (
+                <div className="hidden lg:flex lg:flex-col flex-1 bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
+                  <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+                    <Link href={`/circle/${leaderId}/scorecard`} className="text-xs font-semibold uppercase tracking-wide text-slate-500 hover:text-blue-400 transition-colors">Scorecard</Link>
+                    {scores?.average != null && (
+                      <span className="text-sm font-bold text-white">
+                        {scores.average}<span className="text-xs font-normal text-slate-500">/5</span>
+                      </span>
+                    )}
+                  </div>
+                  {scores != null ? (
+                    <>
+                      <div className="flex-1 flex flex-col divide-y divide-slate-700/60">
+                        {dims.map(d => (
+                          <Link
+                            key={d.key}
+                            href={`/circle/${leaderId}/scorecard?dimension=${d.key}`}
+                            className={`flex-1 flex items-center justify-between px-4 gap-3 ${d.bg} hover:brightness-110 transition-all cursor-pointer`}
+                          >
+                            <span className={`text-sm font-semibold ${d.color} w-16 shrink-0`}>{d.label}</span>
+                            <div className="flex gap-1.5 flex-1 justify-center">
+                              {[1,2,3,4,5].map(i => (
+                                <div key={i} className={`w-2.5 h-2.5 rounded-full transition-colors ${i <= (d.value ?? 0) ? d.dot : 'bg-slate-600/60'}`} />
+                              ))}
+                            </div>
+                            <span className="text-base font-bold text-white w-8 text-right shrink-0">{d.value}<span className="text-xs font-normal text-slate-500">/5</span></span>
+                          </Link>
+                        ))}
+                      </div>
+                      <div className="px-4 py-2.5 border-t border-slate-700">
+                        <Link
+                          href={`/circle/${leaderId}/scorecard`}
+                          className="text-xs text-slate-500 hover:text-blue-400 flex items-center gap-1 transition-colors"
+                        >
+                          View full scorecard
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                          </svg>
+                        </Link>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="px-4 py-3">
+                      <Link
+                        href={`/circle/${leaderId}/scorecard`}
+                        className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
+                      >
+                        View scorecard
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
 
@@ -2471,8 +2593,59 @@ export default function CircleLeaderProfilePage() {
 
 
         </div>
+
+        {/* Scorecard Summary - Mobile (bottom of page) */}
+        {(() => {
+          const scores = scorecardSummary;
+          const dims = [
+            { key: 'reach',    label: 'Reach',    value: scores?.reach,    color: 'text-blue-400',   dot: 'bg-blue-400' },
+            { key: 'connect',  label: 'Connect',  value: scores?.connect,  color: 'text-green-400',  dot: 'bg-green-400' },
+            { key: 'disciple', label: 'Disciple', value: scores?.disciple, color: 'text-violet-400', dot: 'bg-violet-400' },
+            { key: 'develop',  label: 'Develop',  value: scores?.develop,  color: 'text-orange-400', dot: 'bg-orange-400' },
+          ];
+          return (
+            <div className="lg:hidden max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 pb-28">
+            <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+                <Link href={`/circle/${leaderId}/scorecard`} className="text-xs font-semibold uppercase tracking-wide text-slate-500 hover:text-blue-400 transition-colors">Scorecard</Link>
+                {scores?.average != null && (
+                  <span className="text-sm font-bold text-white">
+                    {scores.average}<span className="text-xs font-normal text-slate-500">/5</span>
+                  </span>
+                )}
+              </div>
+              {scores != null ? (
+                <div className="divide-y divide-slate-700/60">
+                  {dims.map(d => (
+                    <Link
+                      key={d.key}
+                      href={`/circle/${leaderId}/scorecard?dimension=${d.key}`}
+                      className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-700/40 transition-colors"
+                    >
+                      <span className={`text-sm font-semibold ${d.color} w-16 shrink-0`}>{d.label}</span>
+                      <div className="flex gap-1.5 flex-1 justify-center">
+                        {[1,2,3,4,5].map(i => (
+                          <div key={i} className={`w-2.5 h-2.5 rounded-full ${i <= (d.value ?? 0) ? d.dot : 'bg-slate-600/60'}`} />
+                        ))}
+                      </div>
+                      <span className="text-base font-bold text-white w-8 text-right shrink-0">{d.value}<span className="text-xs font-normal text-slate-500">/5</span></span>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <Link href={`/circle/${leaderId}/scorecard`} className="flex items-center justify-between px-4 py-3 hover:bg-slate-700/50 transition-colors">
+                  <span className="text-sm text-slate-400">No scores yet — tap to add</span>
+                  <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              )}
+            </div>
+            </div>
+          );
+        })()}
         </div>
-      
+
       {/* Call or Text modal */}
       {phoneActionModal && (
         <div

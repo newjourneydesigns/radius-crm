@@ -344,10 +344,10 @@ export default function AttendanceTrends({ leaderId, leaderName, meetingDay, ref
             </p>
           )}
         </div>
-        <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden self-start sm:self-auto">
+        <div className="flex w-full sm:w-auto rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
           <button
             onClick={() => setViewMode('weekly')}
-            className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+            className={`flex-1 sm:flex-none px-6 py-1.5 text-xs font-medium transition-colors ${
               viewMode === 'weekly'
                 ? 'bg-blue-600 text-white'
                 : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -357,7 +357,7 @@ export default function AttendanceTrends({ leaderId, leaderName, meetingDay, ref
           </button>
           <button
             onClick={() => setViewMode('monthly')}
-            className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+            className={`flex-1 sm:flex-none px-6 py-1.5 text-xs font-medium transition-colors ${
               viewMode === 'monthly'
                 ? 'bg-blue-600 text-white'
                 : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -412,10 +412,10 @@ export default function AttendanceTrends({ leaderId, leaderName, meetingDay, ref
           </div>
         </div>
         <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2 sm:p-3 text-center">
-          <div className="text-xl sm:text-2xl font-bold text-gray-700 dark:text-gray-300">
+          <div className="text-xl sm:text-2xl font-bold text-gray-700 dark:text-white">
             {overallStats.noRecordCount}
           </div>
-          <div className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400">
+          <div className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-300">
             No Record
           </div>
         </div>

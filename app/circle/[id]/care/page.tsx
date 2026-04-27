@@ -30,8 +30,8 @@ export default function CircleLeaderCarePage() {
   if (isLoading) {
     return (
       <ProtectedRoute>
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-600/20 border-t-blue-600" />
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+          <div className="w-5 h-5 border-2 border-slate-600 border-t-indigo-500 rounded-full animate-spin" />
         </div>
       </ProtectedRoute>
     );
@@ -39,22 +39,15 @@ export default function CircleLeaderCarePage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="min-h-screen bg-slate-900">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28 lg:pb-6">
 
-          {/* Header */}
-          <div className="mb-6">
-            <a
-              href={`/circle/${leaderId}`}
-              className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors text-sm mb-3 w-fit"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-              </svg>
-              <span>Back</span>
-            </a>
-            {leaderName && <h1 className="text-2xl font-bold text-white">{leaderName}</h1>}
-          </div>
+          {leaderName && (
+            <div className="mb-6">
+              <h1 className="text-xl font-semibold text-white tracking-tight">{leaderName}</h1>
+              <p className="text-sm text-slate-400 mt-0.5">Care & Development</p>
+            </div>
+          )}
 
           {isAdmin() ? (
             <ACPDTrackingSection
