@@ -147,13 +147,13 @@ Be warm, practical, and specific. Use the leader's name. Reference actual data p
   };
 
   return (
-    <div className="mb-4">
+    <div>
       {/* Generate Button */}
       {!prepContent && !isLoading && (
         <button
           onClick={generatePrep}
           disabled={disabled}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-violet-600 text-white rounded-lg hover:from-blue-700 hover:to-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium shadow-sm"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-all bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-300 dark:border-blue-700 hover:bg-blue-200 dark:hover:bg-blue-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />

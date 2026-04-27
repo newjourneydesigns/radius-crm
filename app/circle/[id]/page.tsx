@@ -7,13 +7,11 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Cake, Lightbulb } from 'lucide-react';
-import { supabase, type CircleLeader, type Note, type NoteTemplate, type EventSummaryState, type ScorecardRating, type ScorecardDimension } from '../../../lib/supabase';
-import { useNoteTemplates } from '../../../hooks/useNoteTemplates';
+import { supabase, type CircleLeader, type EventSummaryState } from '../../../lib/supabase';
 import { useAuth } from '../../../contexts/AuthContext';
 import AlertModal from '../../../components/ui/AlertModal';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 import LogConnectionModal from '../../../components/dashboard/LogConnectionModal';
-import NoteTemplateModal from '../../../components/dashboard/NoteTemplateModal';
 import ConnectPersonModal from '../../../components/modals/ConnectPersonModal';
 import EventSummaryReminderModal from '../../../components/modals/EventSummaryReminderModal';
 import CCBPersonLookup from '../../../components/ui/CCBPersonLookup';
@@ -22,18 +20,9 @@ import EventExplorerModal from '../../../components/modals/EventExplorerModal';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import AddToBoardModal from '../../../components/modals/AddToBoardModal';
 
-import ScorecardSection from '../../../components/circle/ScorecardSection';
-import ACPDTrackingSection from '../../../components/circle/ACPDTrackingSection';
-import CircleVisitsSection from '../../../components/circle/CircleVisitsSection';
-import CheckInCadence from '../../../components/circle/CheckInCadence';
 import AttendanceTrends from '../../../components/circle/AttendanceTrends';
-import DictateAndSummarize from '../../../components/notes/DictateAndSummarize';
-import MeetingPrepAssistant from '../../../components/notes/MeetingPrepAssistant';
-import RichTextEditor from '../../../components/notes/RichTextEditor';
 import CircleLeaderProfileSkeleton from '../../../components/circle/CircleLeaderProfileSkeleton';
-import { useScorecard } from '../../../hooks/useScorecard';
 import { useRealtimeSubscription, RealtimeSubscriptionConfig } from '../../../hooks/useRealtimeSubscription';
-import { calculateSuggestedScore, getFinalScore, AnswerValue } from '../../../lib/evaluationQuestions';
 import { getEventSummaryButtonLabel, getEventSummaryColors, getEventSummaryState } from '../../../lib/event-summary-utils';
 
 // Helper function to format time to AM/PM
@@ -173,58 +162,6 @@ const formatDateTime = (dateString: string): string => {
   });
 };
 
-// Strip HTML tags to get plain text (used for length checks and DictateAndSummarize)
-const stripHtml = (html: string): string =>
-  html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
-
-// Detect if content contains HTML markup (handles both <p>-wrapped and inline HTML)
-const isHtmlContent = (content: string): boolean =>
-  Boolean(content) && /<[a-z][\s\S]*?>/i.test(content);
-
-// Detect bare URLs and markdown-style links [text](url), converting both to clickable links
-const linkifyText = (text: string): (string | JSX.Element)[] => {
-  if (!text) return [text];
-
-  // Combined pattern: markdown links first, then bare URLs
-  const pattern = /\[([^\]]+)\]\((https?:\/\/[^)]+|mailto:[^)]+)\)|https?:\/\/[^\s<>"']+[^\s<>"'.,;:!?)'"]/g;
-
-  const elements: (string | JSX.Element)[] = [];
-  let lastIndex = 0;
-  let match;
-  let i = 0;
-
-  while ((match = pattern.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      elements.push(text.slice(lastIndex, match.index));
-    }
-
-    if (match[1] !== undefined) {
-      // Markdown-style link [display](url)
-      elements.push(
-        <a key={i++} href={match[2]} target="_blank" rel="noopener noreferrer"
-          className="text-blue-400 hover:text-blue-300 underline font-medium">
-          {match[1]}
-        </a>
-      );
-    } else {
-      // Bare URL
-      elements.push(
-        <a key={i++} href={match[0]} target="_blank" rel="noopener noreferrer"
-          className="text-blue-400 hover:text-blue-300 underline break-all">
-          {match[0]}
-        </a>
-      );
-    }
-
-    lastIndex = match.index + match[0].length;
-  }
-
-  if (lastIndex < text.length) {
-    elements.push(text.slice(lastIndex));
-  }
-
-  return elements.length > 0 ? elements : [text];
-};
 
 const uniqueByValue = <T extends { value: string }>(items: T[]): T[] => {
   const map = new Map<string, T>();
@@ -244,104 +181,13 @@ const normalizeCircleTypeValue = (value: string | undefined | null): string => {
   return raw;
 };
 
-// ── Sticky section-nav tab definitions ──────────────────────────────
-const SECTION_TABS = [
-  { id: 'section-profile',   label: 'Profile' },
-  { id: 'section-pec',       label: 'Care', adminOnly: true },
-  { id: 'section-visits',    label: 'Circle Visits', mobileLabel: 'Visits', adminOnly: true },
-  { id: 'section-notes',     label: 'Notes' },
-  { id: 'section-scorecard', label: 'Scorecard' },
-] as const;
-
 export default function CircleLeaderProfilePage() {
   const params = useParams();
   const leaderId = params?.id ? parseInt(params.id as string) : 0;
-  const { user, isAdmin } = useAuth(); // Get current user information
-  const { saveTemplate } = useNoteTemplates(); // Add note templates hook
-  const { ratings: scorecardRatings, loadRatings: loadScorecardRatings } = useScorecard();
+  const { user, isAdmin } = useAuth();
 
-  // Compute latest Big 4 scores for Meeting Prep
-  const latestBig4Scores = useMemo(() => {
-    if (!scorecardRatings || scorecardRatings.length === 0) return null;
-    const latest = scorecardRatings[0]; // already sorted by scored_date desc
-    const scores = [latest.reach_score, latest.connect_score, latest.disciple_score, latest.develop_score].filter(Boolean);
-    return {
-      reach: latest.reach_score || null,
-      connect: latest.connect_score || null,
-      disciple: latest.disciple_score || null,
-      develop: latest.develop_score || null,
-      average: scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null,
-      scoredDate: latest.scored_date || null,
-    };
-  }, [scorecardRatings]);
-
-  // ── Sticky section-nav state ──────────────────────────────────────
-  const [activeSection, setActiveSection] = useState<string>(SECTION_TABS[0].id);
-  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const navRef = useRef<HTMLDivElement>(null);
-  const isScrollingByClick = useRef(false);
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const moreMenuRef = useRef<HTMLDivElement>(null);
-
-  const setSectionRef = useCallback((id: string) => (el: HTMLDivElement | null) => {
-    sectionRefs.current[id] = el;
-  }, []);
-
-  // Observe which section is currently in view and highlight the nav tab
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (isScrollingByClick.current) return;
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setActiveSection(entry.target.id);
-            break;
-          }
-        }
-      },
-      { rootMargin: '-30% 0px -60% 0px', threshold: 0 }
-    );
-
-    const ids = SECTION_TABS.map((t) => t.id);
-    ids.forEach((id) => {
-      const el = sectionRefs.current[id];
-      if (el) observer.observe(el);
-    });
-
-    return () => observer.disconnect();
-  }, []);
-
-  const scrollToSection = useCallback((id: string) => {
-    const el = sectionRefs.current[id];
-    if (!el) return;
-    setActiveSection(id);
-    isScrollingByClick.current = true;
-
-    // Account for the sticky nav height (≈56px) + some padding
-    const navHeight = navRef.current?.offsetHeight ?? 56;
-    const y = el.getBoundingClientRect().top + window.scrollY - navHeight - 12;
-    window.scrollTo({ top: y, behavior: 'smooth' });
-
-    // Re-enable observer after scroll finishes
-    setTimeout(() => { isScrollingByClick.current = false; }, 800);
-  }, []);
-
-  // Close "More" overflow menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
-        setShowMoreMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-  
   const [leader, setLeader] = useState<CircleLeader | null>(null);
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [newNote, setNewNote] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [isSavingNote, setIsSavingNote] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isUpdatingEventSummary, setIsUpdatingEventSummary] = useState(false);
   const [isUpdatingFollowUp, setIsUpdatingFollowUp] = useState(false);
@@ -350,10 +196,6 @@ export default function CircleLeaderProfilePage() {
   const [showAddToBoardModal, setShowAddToBoardModal] = useState(false);
   const [savedFollowUpDate, setSavedFollowUpDate] = useState('');
   const [showClearFollowUpConfirm, setShowClearFollowUpConfirm] = useState(false);
-  const [noteError, setNoteError] = useState('');
-  const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
-  const [editingNoteContent, setEditingNoteContent] = useState('');
-  const [isUpdatingNote, setIsUpdatingNote] = useState(false);
   const [showAlert, setShowAlert] = useState<{
     isOpen: boolean;
     type: 'success' | 'error' | 'warning' | 'info';
@@ -365,11 +207,6 @@ export default function CircleLeaderProfilePage() {
     title: '',
     message: ''
   });
-  const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null);
-  const [isDeletingNote, setIsDeletingNote] = useState(false);
-  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-  const [isSavingAsTemplate, setIsSavingAsTemplate] = useState<number | null>(null);
-  const [noteSearchQuery, setNoteSearchQuery] = useState('');
   const [editedLeader, setEditedLeader] = useState<Partial<CircleLeader>>({});
   const [isSavingLeader, setIsSavingLeader] = useState(false);
   const [leaderError, setLeaderError] = useState('');
@@ -383,8 +220,6 @@ export default function CircleLeaderProfilePage() {
   const [eventSummaryEnumWarningShown, setEventSummaryEnumWarningShown] = useState(false);
   const [phoneActionModal, setPhoneActionModal] = useState<{ phone: string; name: string } | null>(null);
   
-  // Key to force ACPD section to remount & refetch after coaching note added from scorecard
-  const [acpdKey, setAcpdKey] = useState(0);
   // Key to force AttendanceTrends refresh after pulling event summaries
   const [attendanceRefreshKey, setAttendanceRefreshKey] = useState(0);
   const [rosterCount, setRosterCount] = useState<number | null>(null);
@@ -414,7 +249,6 @@ export default function CircleLeaderProfilePage() {
           statusesResult,
           circleTypesResult,
           frequenciesResult,
-          notesResult
         ] = await Promise.all([
           supabase.from('circle_leaders').select('*').eq('id', leaderId).single(),
           supabase.from('acpd_list').select('id, name').eq('active', true).order('name'),
@@ -422,7 +256,6 @@ export default function CircleLeaderProfilePage() {
           supabase.from('statuses').select('*').order('value'),
           supabase.from('circle_types').select('*').order('value'),
           supabase.from('frequencies').select('*').order('value'),
-          supabase.from('notes').select(`*, users!notes_created_by_fkey (name)`).eq('circle_leader_id', leaderId).order('created_at', { ascending: false })
         ]);
 
         // Process leader
@@ -492,41 +325,6 @@ export default function CircleLeaderProfilePage() {
         }
         if (frequenciesResult.data) setFrequencies(uniqueByValue(ensureDefaultFrequencies(frequenciesResult.data)));
 
-        // Process notes
-        console.log('🔍 Loading notes for leader:', leaderId);
-        if (notesResult.data && !notesResult.error) {
-          setNotes(notesResult.data);
-        } else if (notesResult.error) {
-          console.error('🚨 Notes loading error:', notesResult.error);
-          // Try fallback query without user join
-          console.log('🔄 Trying fallback query without user join...');
-          const { data: fallbackNotesData, error: fallbackError } = await supabase
-            .from('notes')
-            .select('*')
-            .eq('circle_leader_id', leaderId)
-            .order('created_at', { ascending: false });
-
-          if (fallbackNotesData && !fallbackError) {
-            setNotes(fallbackNotesData);
-          } else {
-            setNotes([
-              {
-                id: 1,
-                circle_leader_id: leaderId,
-                content: 'Great meeting last week. Good participation from the group.',
-                created_at: '2024-01-15T10:30:00Z',
-                created_by: 'Admin'
-              },
-              {
-                id: 2,
-                circle_leader_id: leaderId,
-                content: 'Need to follow up on attendance next week.',
-                created_at: '2024-01-20T14:15:00Z',
-                created_by: 'Jane Doe'
-              }
-            ]);
-          }
-        }
       } catch (error) {
         console.error('Error loading leader data:', error);
       } finally {
@@ -535,7 +333,6 @@ export default function CircleLeaderProfilePage() {
     };
 
     loadLeaderData();
-    loadScorecardRatings(leaderId); // Needed for MeetingPrepAssistant's latestBig4Scores
   }, [leaderId]);
 
   // ── Auto-sync attendance from CCB if stale (>6 days) ──────────────
@@ -611,42 +408,16 @@ export default function CircleLeaderProfilePage() {
   const handleLeaderRealtime = useCallback(
     (payload: any) => {
       const table = (payload as any).table as string;
-      // Debounce rapid events per-table (300 ms)
       if (realtimeDebounce.current[table]) clearTimeout(realtimeDebounce.current[table]);
       realtimeDebounce.current[table] = setTimeout(() => {
-        switch (table) {
-          case 'circle_leaders':
-            reloadLeader();
-            break;
-          case 'notes':
-            reloadNotes();
-            break;
-          case 'circle_visits':
-            // CircleVisitsSection manages its own state — bump a key to force re-fetch
-            setAcpdKey(prev => prev + 1);
-            break;
-          case 'acpd_prayer_points':
-          case 'acpd_encouragements':
-          case 'acpd_coaching_notes':
-            setAcpdKey(prev => prev + 1);
-            break;
-          case 'circle_leader_scores':
-            loadScorecardRatings(leaderId);
-            break;
-        }
+        if (table === 'circle_leaders') reloadLeader();
       }, 300);
     },
-    [reloadLeader, leaderId, loadScorecardRatings],
+    [reloadLeader],
   );
 
   const leaderRealtimeSubs: RealtimeSubscriptionConfig[] = useMemo(() => [
     { table: 'circle_leaders', event: 'UPDATE', filter: `id=eq.${leaderId}` },
-    { table: 'notes', event: '*', filter: `circle_leader_id=eq.${leaderId}` },
-    { table: 'circle_visits', event: '*', filter: `leader_id=eq.${leaderId}` },
-    { table: 'acpd_prayer_points', event: '*', filter: `circle_leader_id=eq.${leaderId}` },
-    { table: 'acpd_encouragements', event: '*', filter: `circle_leader_id=eq.${leaderId}` },
-    { table: 'acpd_coaching_notes', event: '*', filter: `circle_leader_id=eq.${leaderId}` },
-    { table: 'circle_leader_scores', event: '*', filter: `circle_leader_id=eq.${leaderId}` },
   ], [leaderId]);
 
   useRealtimeSubscription(
@@ -662,264 +433,6 @@ export default function CircleLeaderProfilePage() {
       Object.values(realtimeDebounce.current).forEach(clearTimeout);
     };
   }, []);
-
-  // Handle anchor link scrolling
-  useEffect(() => {
-    const hash = window.location.hash;
-    if (hash === '#notes' || hash === '#section-notes') {
-      setTimeout(() => {
-        scrollToSection('section-notes');
-        // Also focus on the textarea for better UX
-        const textarea = document.getElementById('newNote');
-        if (textarea) {
-          textarea.focus();
-        }
-      }, 100); // Small delay to ensure the element is rendered
-    } else if (!hash) {
-      // If no hash is present, ensure we're at the top of the page
-      setTimeout(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }, 100);
-    }
-  }, [scrollToSection]);
-
-  // Add a coaching note from the scorecard's Suggested Next Steps and refresh the ACPD section
-  const handleAddToCoaching = async (lid: number, category: ScorecardDimension, content: string) => {
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-    if (!authUser) return null;
-
-    const { data, error } = await supabase
-      .from('acpd_coaching_notes')
-      .insert([{ circle_leader_id: lid, user_id: authUser.id, dimension: category, content, is_resolved: false }])
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error adding coaching note from scorecard:', error);
-      return null;
-    }
-
-    // Force the ACPD section to remount so it picks up the new note
-    setAcpdKey(prev => prev + 1);
-    return data;
-  };
-
-  // Function to reload notes data
-  const reloadNotes = async () => {
-    try {
-      console.log('🔍 Reloading notes...');
-      const { data: notesData, error: notesError } = await supabase
-        .from('notes')
-        .select(`
-          *,
-          users!notes_created_by_fkey (name)
-        `)
-        .eq('circle_leader_id', leaderId)
-        .order('created_at', { ascending: false });
-
-      console.log('🔍 Reload notes result:', { notesData, notesError });
-      if (notesError) {
-        console.error('🚨 Reload notes error details:', JSON.stringify(notesError, null, 2));
-      }
-
-      if (notesData && !notesError) {
-        setNotes(notesData);
-      }
-    } catch (error) {
-      console.error('Error reloading notes:', error);
-    }
-  };
-
-  const handleAddNote = async () => {
-    if (!stripHtml(newNote).trim() || !user?.id) return;
-
-    setIsSavingNote(true);
-    setNoteError('');
-    
-    try {
-      // Insert note with user ID
-      const insertData = {
-        circle_leader_id: leaderId,
-        content: newNote.trim(),
-        created_by: user.id  // Include the user ID
-      };
-      
-      console.log('🔍 Inserting note with data:', insertData);
-      console.log('🔍 User context:', user);
-      
-      const { data, error } = await supabase
-        .from('notes')
-        .insert(insertData)
-        .select('*')
-        .single();
-
-      console.log('🔍 Insert result:', { data, error });
-
-      if (data && !error) {
-        // Success - reload notes to include user information and clear form
-        console.log('✅ Note saved successfully, reloading notes...');
-        await reloadNotes();
-        setNewNote('');
-      } else {
-        console.error('❌ Error saving note:', error);
-        console.error('❌ Full error details:', JSON.stringify(error, null, 2));
-        setNoteError(`Failed to save note: ${error?.message || 'Unknown error'}`);
-      }
-    } catch (error) {
-      console.error('Exception saving note:', error);
-      setNoteError('Failed to save note. Please try again.');
-    } finally {
-      setIsSavingNote(false);
-    }
-  };
-
-  const handleNoteKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      handleAddNote();
-    }
-  };
-
-  // Insert meeting prep briefing as a note
-  const handleInsertMeetingPrep = useCallback(async (prepText: string) => {
-    if (!prepText.trim() || !user?.id) return;
-    try {
-      const { error } = await supabase
-        .from('notes')
-        .insert({
-          circle_leader_id: leaderId,
-          content: prepText.trim(),
-          created_by: user.id,
-        });
-      if (!error) {
-        await reloadNotes();
-      }
-    } catch (err) {
-      console.error('Error saving meeting prep note:', err);
-    }
-  }, [leaderId, user?.id]);
-
-  const handleTemplateSelect = (template: NoteTemplate) => {
-    setNewNote(template.content);
-    setIsTemplateModalOpen(false);
-  };
-
-  const openTemplateModal = () => {
-    setIsTemplateModalOpen(true);
-  };
-
-  const handleEditNote = (note: Note) => {
-    setEditingNoteId(note.id);
-    setEditingNoteContent(note.content);
-  };
-
-  const handleSaveEditedNote = async () => {
-    if (!stripHtml(editingNoteContent).trim() || !editingNoteId) return;
-
-    setIsUpdatingNote(true);
-    try {
-      const { data, error } = await supabase
-        .from('notes')
-        .update({ content: editingNoteContent.trim() })
-        .eq('id', editingNoteId)
-        .select()
-        .single();
-
-      if (data && !error) {
-        // Update local state
-        setNotes(prev => prev.map(note => 
-          note.id === editingNoteId 
-            ? { ...note, content: editingNoteContent.trim() }
-            : note
-        ));
-        setEditingNoteId(null);
-        setEditingNoteContent('');
-      } else {
-        console.error('Error updating note:', error);
-        setNoteError('Failed to update note in database. Please try again.');
-        setTimeout(() => setNoteError(''), 5000);
-      }
-    } catch (error) {
-      console.error('Error updating note:', error);
-      setNoteError('Failed to update note. Please try again.');
-      setTimeout(() => setNoteError(''), 5000);
-    } finally {
-      setIsUpdatingNote(false);
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setEditingNoteId(null);
-    setEditingNoteContent('');
-  };
-
-  const handleDeleteNote = async (noteId: number) => {
-    if (deletingNoteId !== noteId) {
-      setDeletingNoteId(noteId);
-      return;
-    }
-
-    setIsDeletingNote(true);
-    try {
-      const { error } = await supabase
-        .from('notes')
-        .delete()
-        .eq('id', noteId);
-
-      if (!error) {
-        // Remove from local state
-        setNotes(prev => prev.filter(note => note.id !== noteId));
-        setDeletingNoteId(null);
-      } else {
-        console.error('Error deleting note:', error);
-        setNoteError('Failed to delete note from database. Please try again.');
-        setTimeout(() => setNoteError(''), 5000);
-      }
-    } catch (error) {
-      console.error('Error deleting note:', error);
-      setNoteError('Failed to delete note. Please try again.');
-      setTimeout(() => setNoteError(''), 5000);
-    } finally {
-      setIsDeletingNote(false);
-    }
-  };
-
-  const handleSaveAsTemplate = async (note: Note) => {
-    const templateName = window.prompt('Enter a name for this template:');
-    if (!templateName || !templateName.trim()) return;
-
-    setIsSavingAsTemplate(note.id);
-    try {
-      await saveTemplate(templateName.trim(), note.content);
-      
-      // Show success message
-      setShowAlert({
-        isOpen: true,
-        type: 'success',
-        title: 'Template Saved',
-        message: `Note saved as template "${templateName.trim()}"`
-      });
-    } catch (error: any) {
-      setShowAlert({
-        isOpen: true,
-        type: 'error',
-        title: 'Save Failed',
-        message: error.message || 'Failed to save note as template'
-      });
-    } finally {
-      setIsSavingAsTemplate(null);
-    }
-  };
-
-  const handleEditNoteKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      handleSaveEditedNote();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      handleCancelEdit();
-    }
-  };
 
   // Quick Action Handlers
   const handleSendEmail = () => {
@@ -1078,9 +591,6 @@ export default function CircleLeaderProfilePage() {
       // Update sent messages state
       setSentReminderMessages(prev => [...prev, messageNumber]);
 
-      // Reload notes to show the new one
-      await reloadNotes();
-
       // Open Messages app if leader has phone
       if (leader.phone) {
         const cleanPhone = leader.phone.replace(/\D/g, '');
@@ -1130,9 +640,6 @@ export default function CircleLeaderProfilePage() {
         .single();
 
       if (error) throw error;
-
-      // Reload notes to show the new one
-      await reloadNotes();
 
       // Open Messages app if leader has phone
       if (leader.phone) {
@@ -1372,19 +879,6 @@ export default function CircleLeaderProfilePage() {
             }
           ]);
 
-        const { data: notesData } = await supabase
-          .from('notes')
-          .select(`
-            *,
-            users (name)
-          `)
-          .eq('circle_leader_id', leaderId)
-          .order('created_at', { ascending: false });
-
-        if (notesData) {
-          setNotes(notesData);
-        }
-
         // When marked as "Yes" (received), sync last 3 weeks of attendance + roster from CCB
         if (nextState === 'received' && leader.ccb_group_id) {
           fetch('/api/ccb/sync-leader-attendance', {
@@ -1506,14 +1000,6 @@ export default function CircleLeaderProfilePage() {
           .from('notes')
           .insert([{ circle_leader_id: leaderId, content: `Follow-up enabled with date ${followUpDateValue}.`, created_by: 'System' }]);
 
-        // Refresh notes
-        const { data: notesData } = await supabase
-          .from('notes')
-          .select(`*, users (name)`)
-          .eq('circle_leader_id', leaderId)
-          .order('created_at', { ascending: false });
-        if (notesData) setNotes(notesData);
-
         setSavedFollowUpDate(followUpDateValue);
         setShowAddToBoardModal(true);
       } else {
@@ -1546,14 +1032,6 @@ export default function CircleLeaderProfilePage() {
         await supabase
           .from('notes')
           .insert([{ circle_leader_id: leaderId, content: 'Follow-up cleared.', created_by: 'System' }]);
-
-        // Refresh notes
-        const { data: notesData } = await supabase
-          .from('notes')
-          .select(`*, users (name)`)
-          .eq('circle_leader_id', leaderId)
-          .order('created_at', { ascending: false });
-        if (notesData) setNotes(notesData);
 
         setShowAlert({ isOpen: true, type: 'success', title: 'Follow-Up Cleared', message: `Follow-up for ${leader.name} has been cleared.` });
       } else {
@@ -1643,19 +1121,6 @@ export default function CircleLeaderProfilePage() {
             }
           ]);
 
-        // Refresh notes to show the new system note
-        const { data: notesData } = await supabase
-          .from('notes')
-          .select(`
-            *,
-            users (name)
-          `)
-          .eq('circle_leader_id', leaderId)
-          .order('created_at', { ascending: false });
-
-        if (notesData) {
-          setNotes(notesData);
-        }
       } else {
         console.error('Error updating follow-up date:', error);
         setShowAlert({
@@ -1767,19 +1232,6 @@ export default function CircleLeaderProfilePage() {
             }
           ]);
 
-        // Refresh notes to show the new system note
-        const { data: notesData } = await supabase
-          .from('notes')
-          .select(`
-            *,
-            users (name)
-          `)
-          .eq('circle_leader_id', leaderId)
-          .order('created_at', { ascending: false });
-
-        if (notesData) {
-          setNotes(notesData);
-        }
       } else {
         console.error('Error updating leader:', error);
         setLeaderError('Failed to update leader information. Please try again.');
@@ -1870,16 +1322,6 @@ export default function CircleLeaderProfilePage() {
     });
   };
 
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
   const formatTimeToAMPM = (timeString: string) => {
     if (!timeString) return 'Not scheduled';
     
@@ -1931,101 +1373,6 @@ export default function CircleLeaderProfilePage() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        {/* ── Sticky Section Navigation ── */}
-        <div
-          ref={navRef}
-          className="sticky top-0 z-40 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700/60"
-        >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {(() => {
-            const filteredTabs = SECTION_TABS.filter((tab) => !('adminOnly' in tab && tab.adminOnly) || isAdmin());
-            const useOverflow = filteredTabs.length > 4;
-            const visibleTabs = useOverflow ? filteredTabs.slice(0, 4) : filteredTabs;
-            const overflowTabs = useOverflow ? filteredTabs.slice(4) : [];
-            const activeInOverflow = overflowTabs.some((t) => t.id === activeSection);
-
-            const tabClass = (isActive: boolean) =>
-              `whitespace-nowrap flex-shrink-0 px-3 py-3 text-sm font-medium transition-colors cursor-pointer border-b-2 ${
-                isActive ? 'border-blue-500 text-white' : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'
-              }`;
-
-            return (
-              <>
-                {/* Mobile: first 3 tabs + More overflow */}
-                <nav className="flex md:hidden" aria-label="Section navigation">
-                  {visibleTabs.map((tab) => (
-                    <div
-                      role="tab"
-                      tabIndex={0}
-                      key={tab.id}
-                      onClick={() => { scrollToSection(tab.id); setShowMoreMenu(false); }}
-                      onKeyDown={(e) => e.key === 'Enter' && scrollToSection(tab.id)}
-                      className={tabClass(activeSection === tab.id)}
-                    >
-                      {'mobileLabel' in tab ? tab.mobileLabel : tab.label}
-                    </div>
-                  ))}
-                  {overflowTabs.length > 0 && (
-                    <div className="relative ml-auto flex-shrink-0" ref={moreMenuRef}>
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => setShowMoreMenu((v) => !v)}
-                        onKeyDown={(e) => e.key === 'Enter' && setShowMoreMenu((v) => !v)}
-                        className={`flex items-center gap-1 px-3 py-3 text-sm font-medium transition-colors cursor-pointer border-b-2 ${
-                          activeInOverflow ? 'border-blue-500 text-white' : 'border-transparent text-gray-400 hover:text-white'
-                        }`}
-                      >
-                        More
-                        <svg className={`w-3.5 h-3.5 transition-transform ${showMoreMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                      {showMoreMenu && (
-                        <div className="absolute right-0 top-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 min-w-[160px]">
-                          {overflowTabs.map((tab) => (
-                            <div
-                              key={tab.id}
-                              role="menuitem"
-                              tabIndex={0}
-                              onClick={() => { scrollToSection(tab.id); setShowMoreMenu(false); }}
-                              onKeyDown={(e) => e.key === 'Enter' && scrollToSection(tab.id)}
-                              className={`px-4 py-3 text-sm font-medium cursor-pointer transition-colors first:rounded-t-lg last:rounded-b-lg ${
-                                activeSection === tab.id
-                                  ? 'text-white bg-blue-600/25 border-l-2 border-blue-500 pl-3.5'
-                                  : 'text-gray-400 hover:text-white hover:bg-gray-700/60'
-                              }`}
-                            >
-                              {tab.label}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </nav>
-
-                {/* Desktop: all tabs */}
-                <nav className="hidden md:flex overflow-x-auto scrollbar-hide" aria-label="Section navigation">
-                  {filteredTabs.map((tab) => (
-                    <div
-                      role="tab"
-                      tabIndex={0}
-                      key={tab.id}
-                      onClick={() => scrollToSection(tab.id)}
-                      onKeyDown={(e) => e.key === 'Enter' && scrollToSection(tab.id)}
-                      className={tabClass(activeSection === tab.id)}
-                    >
-                      {tab.label}
-                    </div>
-                  ))}
-                </nav>
-              </>
-            );
-          })()}
-          </div>
-        </div>
-
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
         {/* Header */}
@@ -2360,7 +1707,7 @@ export default function CircleLeaderProfilePage() {
           </div>
         </div>
 
-        <div id="section-profile" ref={setSectionRef('section-profile')} className="grid grid-cols-1 lg:grid-cols-3 gap-6 scroll-mt-20">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Profile Info */}
           <div className="lg:col-span-2 flex flex-col gap-6">
             {/* Circle Info */}
@@ -3092,7 +2439,7 @@ export default function CircleLeaderProfilePage() {
 
         {/* Attendance Trends Section */}
         {leader && (
-          <div id="section-attendance" ref={setSectionRef('section-attendance')} className="mt-6 scroll-mt-20">
+          <div className="mt-6">
             <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass p-4 sm:p-6">
               <AttendanceTrends leaderId={leaderId} leaderName={leader.name} meetingDay={leader.day} refreshKey={attendanceRefreshKey} rosterCount={rosterCount} />
               {/* Event Summary action buttons */}
@@ -3122,448 +2469,7 @@ export default function CircleLeaderProfilePage() {
           </div>
         )}
 
-        {/* ACPD Tracking Section */}
-        {isAdmin() && leader && (
-          <div id="section-pec" ref={setSectionRef('section-pec')} className="mt-6 scroll-mt-20">
-            <ACPDTrackingSection key={acpdKey} leaderId={leaderId} leaderName={leader.name} onNoteSaved={reloadNotes} />
-          </div>
-        )}
 
-        {/* Circle Visits Section */}
-        {leader && (
-          <div id="section-visits" ref={setSectionRef('section-visits')} className="mt-6 scroll-mt-20">
-            <div className="section-panel bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass p-6">
-              <CircleVisitsSection leaderId={leaderId} leaderName={leader.name} />
-            </div>
-          </div>
-        )}
-
-        {/* Progress Scorecard Section */}
-        <div id="section-scorecard" ref={setSectionRef('section-scorecard')} className="mt-6 scroll-mt-20">
-          <ScorecardSection leaderId={leaderId} isAdmin={isAdmin()} onNoteSaved={reloadNotes} onAddToCoaching={handleAddToCoaching} />
-        </div>
-
-            {/* Notes Section */}
-            <div id="section-notes" ref={setSectionRef('section-notes')} className="section-panel bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass mt-6 scroll-mt-20">
-              <div className="section-header-row px-4 sm:px-6 py-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </div>
-                  <h2 className="text-lg font-medium text-gray-900 dark:text-white">Notes</h2>
-                </div>
-              </div>
-          <div className="p-4 sm:p-6">
-            {/* Add Note */}
-            <div className="mb-6 sm:mb-8">
-              <div className="flex justify-between items-center mb-3">
-                <label htmlFor="newNote" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Add a note
-                </label>
-                <button
-                  type="button"
-                  onClick={openTemplateModal}
-                  className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-                >
-                  Use Template
-                </button>
-              </div>
-              <div className="space-y-4">
-                {isAdmin() && leader && (
-                  <MeetingPrepAssistant
-                    leaderName={leader.name}
-                    status={leader.status}
-                    campus={leader.campus}
-                    circleType={leader.circle_type}
-                    meetingDay={leader.day}
-                    meetingTime={leader.time}
-                    meetingFrequency={leader.frequency}
-                    latestScores={latestBig4Scores}
-                    recentNotes={notes.slice(0, 10).map(n => ({
-                      content: n.content,
-                      created_at: n.created_at,
-                      author: n.users?.name,
-                    }))}
-                    onInsertNote={handleInsertMeetingPrep}
-                    disabled={isSavingNote}
-                  />
-                )}
-                <DictateAndSummarize
-                  text={stripHtml(newNote)}
-                  onTextChange={(plain) => {
-                    const html = plain
-                      ? '<p>' + plain.replace(/\n\n+/g, '</p><p>').replace(/\n/g, '<br>') + '</p>'
-                      : '';
-                    setNewNote(html);
-                  }}
-                  disabled={isSavingNote}
-                />
-                <RichTextEditor
-                  value={newNote}
-                  onChange={setNewNote}
-                  onSubmit={handleAddNote}
-                  placeholder="Enter your note here... (Cmd/Ctrl + Enter to save)"
-                  disabled={isSavingNote}
-                  minHeight="100px"
-                />
-                
-                {noteError && (
-                  <div className="flex items-start text-sm text-red-600 dark:text-red-400 p-3 bg-red-50 dark:bg-red-900/20 rounded-md">
-                    <svg className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    <span>{noteError}</span>
-                  </div>
-                )}
-                
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-                  <div className="text-sm text-slate-500 space-y-1">
-                    {stripHtml(newNote).length > 0 && (
-                      <div>{stripHtml(newNote).length} characters</div>
-                    )}
-                  </div>
-                  <button
-                    onClick={handleAddNote}
-                    disabled={!stripHtml(newNote).trim() || isSavingNote}
-                    className="w-full sm:w-auto px-6 py-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {isSavingNote ? (
-                      <div className="flex items-center justify-center">
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Adding...
-                      </div>
-                    ) : 'Add Note'}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Notes List */}
-            <div className="space-y-4 sm:space-y-6">
-              {notes.length === 0 ? (
-                <div className="text-center py-12">
-                  <svg className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <p className="mt-4 text-base text-gray-500 dark:text-gray-400">No notes yet.</p>
-                  <p className="mt-1 text-sm text-gray-400 dark:text-gray-500">Add your first note above to get started.</p>
-                </div>
-              ) : (
-                <>
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-                    <p className="text-sm text-slate-500">
-                      {noteSearchQuery
-                        ? `${notes.filter(n => {
-                            const q = noteSearchQuery.toLowerCase();
-                            return stripHtml(n.content || '').toLowerCase().includes(q) || n.users?.name?.toLowerCase().includes(q) || n.created_by?.toLowerCase().includes(q);
-                          }).length} of ${notes.length} notes`
-                        : `${notes.length} ${notes.length === 1 ? 'note' : 'notes'}`}
-                    </p>
-                    <div className="relative w-full sm:w-64">
-                      <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
-                      <input
-                        type="text"
-                        value={noteSearchQuery}
-                        onChange={(e) => setNoteSearchQuery(e.target.value)}
-                        placeholder="Search notes..."
-                        className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
-                      />
-                      {noteSearchQuery && (
-                        <button
-                          onClick={() => setNoteSearchQuery('')}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                          title="Clear search"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  {(noteSearchQuery
-                    ? notes.filter(n => {
-                        const q = noteSearchQuery.toLowerCase();
-                        return stripHtml(n.content || '').toLowerCase().includes(q) || n.users?.name?.toLowerCase().includes(q) || n.created_by?.toLowerCase().includes(q);
-                      })
-                    : notes
-                  ).map((note, index) => (
-                    <div key={note.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          {editingNoteId === note.id ? (
-                            <div className="space-y-4">
-                              <RichTextEditor
-                                value={editingNoteContent}
-                                onChange={setEditingNoteContent}
-                                onSubmit={handleSaveEditedNote}
-                                onEscape={handleCancelEdit}
-                                placeholder="Edit your note... (Cmd/Ctrl + Enter to save, Esc to cancel)"
-                                disabled={isUpdatingNote}
-                                minHeight="80px"
-                              />
-                              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                                <div className="flex items-center space-x-3">
-                                  <button
-                                    onClick={handleSaveEditedNote}
-                                    disabled={!stripHtml(editingNoteContent).trim() || isUpdatingNote}
-                                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                  >
-                                    {isUpdatingNote ? 'Saving...' : 'Save'}
-                                  </button>
-                                  <button
-                                    onClick={handleCancelEdit}
-                                    disabled={isUpdatingNote}
-                                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-md disabled:opacity-50"
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                                <div className="text-sm text-slate-500">
-                                  {stripHtml(editingNoteContent).length} characters
-                                </div>
-                              </div>
-                            </div>
-                          ) : (
-                            <>
-                              {/* Mobile layout: Date → Buttons → Content */}
-                              <div className="sm:hidden">
-                                <div className="flex items-center justify-between mb-2">
-                                  <div className="flex flex-col gap-1 text-sm text-slate-500">
-                                    <div className="flex items-center">
-                                      <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                                      </svg>
-                                      <span>{formatDateTime(note.created_at)}</span>
-                                    </div>
-                                    <div className="flex items-center">
-                                      <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                                      </svg>
-                                      <span className="truncate">{note.users?.name || note.created_by || 'Anonymous'}</span>
-                                    </div>
-                                  </div>
-                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                                    #{notes.length - index}
-                                  </span>
-                                </div>
-                                {editingNoteId !== note.id && (
-                                  <div className="flex items-center space-x-2 mb-3">
-                                    <button
-                                      onClick={() => handleEditNote(note)}
-                                      disabled={editingNoteId !== null || isDeletingNote}
-                                      className="p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-600"
-                                      title="Edit note"
-                                    >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                      </svg>
-                                    </button>
-                                    <button
-                                      onClick={() => handleSaveAsTemplate(note)}
-                                      disabled={editingNoteId !== null || isDeletingNote || isSavingAsTemplate === note.id}
-                                      className="p-2 text-gray-400 hover:text-green-600 dark:hover:text-green-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-600"
-                                      title="Save as template"
-                                    >
-                                      {isSavingAsTemplate === note.id ? (
-                                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                      ) : (
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                        </svg>
-                                      )}
-                                    </button>
-                                    {deletingNoteId === note.id ? (
-                                      <div className="flex items-center space-x-1">
-                                        <button
-                                          onClick={() => handleDeleteNote(note.id)}
-                                          disabled={isDeletingNote}
-                                          className="p-2 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-md hover:bg-red-100 dark:hover:bg-red-900/20"
-                                          title="Confirm delete"
-                                        >
-                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                                          </svg>
-                                        </button>
-                                        <button
-                                          onClick={() => setDeletingNoteId(null)}
-                                          disabled={isDeletingNote}
-                                          className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-600"
-                                          title="Cancel delete"
-                                        >
-                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                                          </svg>
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      <button
-                                        onClick={() => handleDeleteNote(note.id)}
-                                        disabled={editingNoteId !== null || isDeletingNote}
-                                        className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-600"
-                                        title="Delete note"
-                                      >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                                {isHtmlContent(note.content) ? (
-                                  <div
-                                    className="rte-display text-gray-900 dark:text-white text-base leading-relaxed"
-                                    dangerouslySetInnerHTML={{ __html: note.content }}
-                                  />
-                                ) : (
-                                  <div className="text-gray-900 dark:text-white whitespace-pre-wrap text-base leading-relaxed">
-                                    {linkifyText(note.content)}
-                                  </div>
-                                )}
-                              </div>
-                              {/* Desktop layout: Content → Meta → (Badge + Buttons on right) */}
-                              <div className="hidden sm:block">
-                                {isHtmlContent(note.content) ? (
-                                  <div
-                                    className="rte-display text-gray-900 dark:text-white text-base leading-relaxed mb-4"
-                                    dangerouslySetInnerHTML={{ __html: note.content }}
-                                  />
-                                ) : (
-                                  <div className="text-gray-900 dark:text-white whitespace-pre-wrap text-base leading-relaxed mb-4">
-                                    {linkifyText(note.content)}
-                                  </div>
-                                )}
-                                <div className="flex flex-row items-center gap-4 text-sm text-slate-500">
-                                  <div className="flex items-center">
-                                    <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                                    </svg>
-                                    <span className="truncate">{note.users?.name || note.created_by || 'Anonymous'}</span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                                    </svg>
-                                    <span>{formatDateTime(note.created_at)}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                        
-                        {/* Desktop-only: badge + action buttons on the right */}
-                        <div className="hidden sm:flex items-center justify-between sm:justify-end sm:flex-col sm:items-end gap-3">
-                          {/* Note number badge */}
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                            #{notes.length - index}
-                          </span>
-                          
-                          {/* Action buttons */}
-                          {editingNoteId !== note.id && (
-                            <div className="flex items-center space-x-2">
-                              <button
-                                onClick={() => handleEditNote(note)}
-                                disabled={editingNoteId !== null || isDeletingNote}
-                                className="p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-600"
-                                title="Edit note"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </button>
-
-                              <button
-                                onClick={() => handleSaveAsTemplate(note)}
-                                disabled={editingNoteId !== null || isDeletingNote || isSavingAsTemplate === note.id}
-                                className="p-2 text-gray-400 hover:text-green-600 dark:hover:text-green-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-600"
-                                title="Save as template"
-                              >
-                                {isSavingAsTemplate === note.id ? (
-                                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                  </svg>
-                                ) : (
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                  </svg>
-                                )}
-                              </button>
-                              
-                              {deletingNoteId === note.id ? (
-                                <div className="flex items-center space-x-1">
-                                  <button
-                                    onClick={() => handleDeleteNote(note.id)}
-                                    disabled={isDeletingNote}
-                                    className="p-2 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-md hover:bg-red-100 dark:hover:bg-red-900/20"
-                                    title="Confirm delete"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                                    </svg>
-                                  </button>
-                                  <button
-                                    onClick={() => setDeletingNoteId(null)}
-                                    disabled={isDeletingNote}
-                                    className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-600"
-                                    title="Cancel delete"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => handleDeleteNote(note.id)}
-                                  disabled={editingNoteId !== null || isDeletingNote}
-                                  className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-600"
-                                  title="Delete note"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {noteSearchQuery && notes.filter(n => {
-                    const q = noteSearchQuery.toLowerCase();
-                    return stripHtml(n.content || '').toLowerCase().includes(q) || n.users?.name?.toLowerCase().includes(q) || n.created_by?.toLowerCase().includes(q);
-                  }).length === 0 && (
-                    <div className="text-center py-8">
-                      <svg className="mx-auto h-10 w-10 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
-                      <p className="mt-3 text-sm text-slate-500">No notes matching &ldquo;{noteSearchQuery}&rdquo;</p>
-                      <button
-                        onClick={() => setNoteSearchQuery('')}
-                        className="mt-2 text-sm text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300 transition-colors"
-                      >
-                        Clear search
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-          </div>
         </div>
         </div>
       
@@ -3629,11 +2535,7 @@ export default function CircleLeaderProfilePage() {
         onClose={() => setShowLogConnectionModal(false)}
         circleLeaderId={leader?.id || 0}
         circleLeaderName={leader?.name || ''}
-        onConnectionLogged={async () => {
-          // Reload notes to show the new connection log
-          await reloadNotes();
-          
-          // Show success message
+        onConnectionLogged={() => {
           setShowAlert({
             isOpen: true,
             type: 'success',
@@ -3686,14 +2588,6 @@ export default function CircleLeaderProfilePage() {
         cancelText="Cancel"
         type="danger"
         isLoading={isDeletingLeader}
-      />
-
-      {/* Note Template Modal */}
-      <NoteTemplateModal
-        isOpen={isTemplateModalOpen}
-        onClose={() => setIsTemplateModalOpen(false)}
-        onTemplateSelect={handleTemplateSelect}
-        mode="select"
       />
 
       {/* Follow-Up Date Picker Modal */}

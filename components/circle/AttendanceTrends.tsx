@@ -459,17 +459,17 @@ export default function AttendanceTrends({ leaderId, leaderName, meetingDay, ref
           </div>
 
           {/* Event Summary Table */}
-          <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+          <div className="mt-4 rounded-lg border border-gray-200 dark:border-gray-700">
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">
-                  <th className="text-left px-3 py-2 font-medium">Date</th>
-                  <th className="text-left px-3 py-2 font-medium">Status</th>
-                  <th className="text-center px-3 py-2 font-medium">Attendance</th>
+                  <th className="text-left px-2 sm:px-3 py-2 font-medium">Date</th>
+                  <th className="text-left px-2 sm:px-3 py-2 font-medium">Status</th>
+                  <th className="text-center px-2 sm:px-3 py-2 font-medium">Attn</th>
                   {rosterCount != null && rosterCount > 0 && (
                     <>
-                      <th className="text-center px-3 py-2 font-medium">Roster</th>
-                      <th className="text-center px-3 py-2 font-medium">% of Roster</th>
+                      <th className="text-center px-2 sm:px-3 py-2 font-medium">Cap</th>
+                      <th className="text-center px-2 sm:px-3 py-2 font-medium">%</th>
                     </>
                   )}
                 </tr>
@@ -483,6 +483,11 @@ export default function AttendanceTrends({ leaderId, leaderName, meetingDay, ref
                     did_not_meet: 'bg-blue-500',
                     no_record: 'bg-gray-400',
                   };
+                  const statusLabel: Record<string, string> = {
+                    met: 'met',
+                    did_not_meet: 'did not meet',
+                    no_record: 'no record',
+                  };
                   const rosterPct = rosterCount && rosterCount > 0 && occ.headcount != null
                     ? Math.round((occ.headcount / rosterCount) * 100)
                     : null;
@@ -495,20 +500,20 @@ export default function AttendanceTrends({ leaderId, leaderName, meetingDay, ref
                         setExplorerOpen(true);
                       }}
                     >
-                      <td className="px-3 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap">{label}</td>
-                      <td className="px-3 py-2">
+                      <td className="px-2 sm:px-3 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap">{label}</td>
+                      <td className="px-2 sm:px-3 py-2">
                         <span className="inline-flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
-                          <span className={`w-1.5 h-1.5 rounded-full ${statusDot[occ.status] ?? 'bg-gray-400'}`} />
-                          {occ.status.replace(/_/g, ' ')}
+                          <span className={`shrink-0 w-1.5 h-1.5 rounded-full ${statusDot[occ.status] ?? 'bg-gray-400'}`} />
+                          {statusLabel[occ.status] ?? occ.status.replace(/_/g, ' ')}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-center text-gray-700 dark:text-gray-300">
+                      <td className="px-2 sm:px-3 py-2 text-center text-gray-700 dark:text-gray-300">
                         {occ.headcount != null ? occ.headcount : '—'}
                       </td>
                       {rosterCount != null && rosterCount > 0 && (
                         <>
-                          <td className="px-3 py-2 text-center text-gray-500 dark:text-gray-400">{rosterCount}</td>
-                          <td className="px-3 py-2 text-center">
+                          <td className="px-2 sm:px-3 py-2 text-center text-gray-500 dark:text-gray-400">{rosterCount}</td>
+                          <td className="px-2 sm:px-3 py-2 text-center">
                             {rosterPct != null ? (
                               <span className={`font-medium ${rosterPct >= 70 ? 'text-green-600 dark:text-green-400' : rosterPct >= 50 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-500 dark:text-red-400'}`}>
                                 {rosterPct}%
