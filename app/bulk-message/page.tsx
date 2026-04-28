@@ -491,7 +491,7 @@ function BulkMessageContent() {
   // ─── Render ────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-gray-400 text-sm font-medium">Loading circle leaders...</p>
@@ -501,17 +501,17 @@ function BulkMessageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100">
       {/* ── Header ── */}
-      <div className="border-b border-gray-800 bg-gray-900/80 backdrop-blur-xl sticky top-0 z-50">
+      <div className="border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link href="/boards" className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-all">
+              <Link href="/boards" className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-all">
                 <BackIcon />
               </Link>
               <div>
-                <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
                   <MessageIcon />
                   Bulk Message
                 </h1>
@@ -521,7 +521,7 @@ function BulkMessageContent() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="text-xs text-gray-500 bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-700">
+              <div className="text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700">
                 <span className="text-blue-400 font-bold">{recipients.length}</span> recipients selected
               </div>
               {sendStatus !== SendStatus.IDLE && (
@@ -546,7 +546,7 @@ function BulkMessageContent() {
           <div className="lg:col-span-7 space-y-6">
 
             {/* ── Filter Section ── */}
-            <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-lg">
+            <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-lg">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-sm font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -600,7 +600,7 @@ function BulkMessageContent() {
                         className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
                           filterStatus.includes(s)
                             ? 'bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-900/30'
-                            : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'
+                            : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-300 dark:hover:border-gray-600'
                         }`}
                       >
                         {s}
@@ -621,7 +621,7 @@ function BulkMessageContent() {
                           className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
                             filterCampus.includes(c)
                               ? 'bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-900/30'
-                              : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'
+                              : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-300 dark:hover:border-gray-600'
                           }`}
                         >
                           {c}
@@ -643,7 +643,7 @@ function BulkMessageContent() {
                           className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
                             filterCircleType.includes(ct)
                               ? 'bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-900/30'
-                              : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'
+                              : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-300 dark:hover:border-gray-600'
                           }`}
                         >
                           {ct}
@@ -665,7 +665,7 @@ function BulkMessageContent() {
                           className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
                             filterDay.includes(d)
                               ? 'bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-900/30'
-                              : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'
+                              : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-300 dark:hover:border-gray-600'
                           }`}
                         >
                           {d}
@@ -687,7 +687,7 @@ function BulkMessageContent() {
                           className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
                             filterAcpd.includes(a)
                               ? 'bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-900/30'
-                              : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'
+                              : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-300 dark:hover:border-gray-600'
                           }`}
                         >
                           {a}
@@ -706,7 +706,7 @@ function BulkMessageContent() {
                       className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
                         includeAdditionalLeaders
                           ? 'bg-purple-600 border-purple-500 text-white shadow-md shadow-purple-900/30'
-                          : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'
+                          : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-300 dark:hover:border-gray-600'
                       }`}
                     >
                       Include Additional Leaders
@@ -715,21 +715,21 @@ function BulkMessageContent() {
                 </div>
 
                 {/* Search */}
-                <div className="pt-2 border-t border-gray-800">
+                <div className="pt-2 border-t border-gray-200 dark:border-gray-800">
                   <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Search</label>
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search name, phone, campus..."
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow placeholder:text-gray-600"
+                    className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow placeholder:text-gray-400 dark:placeholder:text-gray-600"
                   />
                 </div>
               </div>
             </section>
 
             {/* ── Add from CCB ── */}
-            <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-lg">
+            <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-lg">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-bold text-teal-400 uppercase tracking-wider flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -741,7 +741,7 @@ function BulkMessageContent() {
                   <select
                     value={selectedListId}
                     onChange={(e) => handleLoadList(e.target.value)}
-                    className="bg-gray-800 text-[11px] font-medium rounded-lg px-3 py-1.5 border border-gray-700 outline-none text-gray-300 focus:ring-1 focus:ring-teal-500"
+                    className="bg-gray-100 dark:bg-gray-800 text-[11px] font-medium rounded-lg px-3 py-1.5 border border-gray-200 dark:border-gray-700 outline-none text-gray-600 dark:text-gray-300 focus:ring-1 focus:ring-teal-500"
                   >
                     <option value="">Saved Lists</option>
                     {savedLists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
@@ -772,9 +772,9 @@ function BulkMessageContent() {
                   {ccbRecipients.map(r => (
                     <div
                       key={r.phone}
-                      className="flex items-center gap-1.5 bg-gray-800 border border-gray-700 px-2.5 py-1 rounded-lg text-xs"
+                      className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-2.5 py-1 rounded-lg text-xs"
                     >
-                      <span className="text-white font-medium">{r.name}</span>
+                      <span className="text-gray-900 dark:text-white font-medium">{r.name}</span>
                       <span className="text-gray-500 font-mono text-[10px]">{r.phone}</span>
                       <button
                         type="button"
@@ -806,7 +806,7 @@ function BulkMessageContent() {
                       onChange={(e) => setListNameInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleSaveList()}
                       placeholder="List name..."
-                      className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:ring-1 focus:ring-teal-500 placeholder:text-gray-600"
+                      className="flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs text-gray-900 dark:text-white outline-none focus:ring-1 focus:ring-teal-500 placeholder:text-gray-400 dark:placeholder:text-gray-600"
                       autoFocus
                     />
                     <button
@@ -818,7 +818,7 @@ function BulkMessageContent() {
                     </button>
                     <button
                       onClick={() => { setShowSaveList(false); setListNameInput(''); }}
-                      className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase hover:bg-gray-800 border border-gray-700 rounded-lg transition-colors"
+                      className="px-3 py-1.5 text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors"
                     >
                       Cancel
                     </button>
@@ -836,8 +836,8 @@ function BulkMessageContent() {
             </section>
 
             {/* ── Recipient Preview Table ── */}
-            <section className="bg-gray-900 border border-gray-800 rounded-2xl shadow-lg overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+            <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-lg overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
                 <h2 className="text-sm font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
@@ -859,7 +859,7 @@ function BulkMessageContent() {
                   </p>
                 ) : (
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-800/50 sticky top-0">
+                    <thead className="bg-gray-100/50 dark:bg-gray-800/50 sticky top-0">
                       <tr>
                         <th className="text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider px-4 py-2">#</th>
                         <th className="text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider px-4 py-2">Name</th>
@@ -869,18 +869,18 @@ function BulkMessageContent() {
                         <th className="px-2 py-2"></th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-800/50">
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-800/50">
                       {recipients.map((r, idx) => (
                         <tr
                           key={`${r.id}-${r.phone}`}
-                          className={`hover:bg-gray-800/40 transition-colors ${
+                          className={`hover:bg-gray-100/40 dark:hover:bg-gray-800/40 transition-colors ${
                             sendStatus === SendStatus.SENDING && idx === currentIndex ? 'bg-blue-600/10 border-l-2 border-l-blue-500' : ''
                           } ${sendStatus === SendStatus.SENDING && idx < currentIndex ? 'opacity-40' : ''}`}
                         >
                           <td className="px-4 py-2 text-gray-600 text-xs font-mono">{idx + 1}</td>
                           <td className="px-4 py-2">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-white font-medium">{r.name}</span>
+                              <span className="text-gray-900 dark:text-white font-medium">{r.name}</span>
                               {r.isAdditionalLeader && (
                                 <span className="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded font-bold uppercase">Additional</span>
                               )}
@@ -916,7 +916,7 @@ function BulkMessageContent() {
             </section>
 
             {/* ── Message Composer ── */}
-            <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-lg">
+            <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-lg">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -932,7 +932,7 @@ function BulkMessageContent() {
                       if (t) { setMessage(t.content); setSelectedTemplateId(t.id); }
                       else { setSelectedTemplateId(''); }
                     }}
-                    className="bg-gray-800 text-[11px] font-medium rounded-lg px-3 py-1.5 border border-gray-700 outline-none text-gray-300 focus:ring-1 focus:ring-blue-500"
+                    className="bg-gray-100 dark:bg-gray-800 text-[11px] font-medium rounded-lg px-3 py-1.5 border border-gray-200 dark:border-gray-700 outline-none text-gray-600 dark:text-gray-300 focus:ring-1 focus:ring-blue-500"
                   >
                     <option value="">Saved Templates</option>
                     {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -965,7 +965,7 @@ function BulkMessageContent() {
                   <button
                     key={tag}
                     onClick={() => insertPlaceholder(tag)}
-                    className="px-2.5 py-1 bg-gray-800 border border-gray-700 hover:border-blue-500/50 hover:bg-gray-750 rounded-md text-[10px] font-semibold text-gray-400 hover:text-blue-400 transition-all"
+                    className="px-2.5 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-blue-500/50 rounded-md text-[10px] font-semibold text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-all"
                   >
                     {label}
                   </button>
@@ -979,9 +979,9 @@ function BulkMessageContent() {
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="Hey {{first_name}}, just wanted to check in about your circle..."
-                  className="w-full h-32 bg-gray-800 border border-gray-700 rounded-xl p-4 outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm leading-relaxed transition-shadow resize-none placeholder:text-gray-600"
+                  className="w-full h-32 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm leading-relaxed transition-shadow resize-none text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600"
                 />
-                <div className="absolute bottom-3 right-3 text-[10px] font-medium text-gray-600 bg-gray-800/80 px-2 py-0.5 rounded">
+                <div className="absolute bottom-3 right-3 text-[10px] font-medium text-gray-500 bg-gray-100/80 dark:bg-gray-800/80 px-2 py-0.5 rounded">
                   {message.length} chars
                 </div>
               </div>
@@ -996,7 +996,7 @@ function BulkMessageContent() {
                       onChange={(e) => setTemplateNameInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleSaveTemplate()}
                       placeholder="Template name..."
-                      className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-gray-600"
+                      className="flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs text-gray-900 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-600"
                       autoFocus
                     />
                     <button
@@ -1008,7 +1008,7 @@ function BulkMessageContent() {
                     </button>
                     <button
                       onClick={() => { setShowSaveTemplate(false); setTemplateNameInput(''); }}
-                      className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase hover:bg-gray-800 border border-gray-700 rounded-lg transition-colors"
+                      className="px-3 py-1.5 text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors"
                     >
                       Cancel
                     </button>
@@ -1032,12 +1032,12 @@ function BulkMessageContent() {
           <div className="lg:col-span-5 space-y-6">
 
             {/* ── iMessage Preview ── */}
-            <section className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden shadow-lg">
-              <div className="px-6 py-4 border-b border-gray-800">
-                <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Message Preview</h2>
+            <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden shadow-lg">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800">
+                <h2 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Message Preview</h2>
               </div>
 
-              <div className="bg-gray-950 p-8 min-h-[200px] flex flex-col justify-center relative">
+              <div className="bg-gray-100 dark:bg-gray-950 p-8 min-h-[200px] flex flex-col justify-center relative">
                 {currentRecipient ? (
                   <div className="flex flex-col items-end w-full">
                     <div className="relative max-w-[85%]">
@@ -1072,7 +1072,7 @@ function BulkMessageContent() {
                   {recipients.length === 0 ? 'No Recipients' : !message.trim() ? 'Write a Message First' : `Start Batch (${recipients.length})`}
                 </button>
               ) : sendStatus === SendStatus.COMPLETED ? (
-                <div className="border-t border-gray-800 p-6 text-center space-y-3">
+                <div className="border-t border-gray-200 dark:border-gray-800 p-6 text-center space-y-3">
                   <div className="text-green-400 text-lg font-bold">Batch Complete!</div>
                   <p className="text-gray-500 text-xs">
                     {logs.filter(l => l.status === LogStatus.SUCCESS).length} sent, {logs.filter(l => l.status === LogStatus.SKIPPED).length} skipped
@@ -1085,14 +1085,14 @@ function BulkMessageContent() {
                   </button>
                 </div>
               ) : (
-                <div className="border-t border-gray-800">
+                <div className="border-t border-gray-200 dark:border-gray-800">
                   {/* Active contact info */}
-                  <div className="p-5 border-b border-gray-800/50 space-y-3">
+                  <div className="p-5 border-b border-gray-200 dark:border-gray-800/50 space-y-3">
                     <div>
                       <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Now Sending To</span>
-                      <h3 className="text-xl font-bold text-white mt-1 truncate">{currentRecipient?.name}</h3>
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white mt-1 truncate">{currentRecipient?.name}</h3>
                       <div className="flex gap-2 items-center mt-1.5">
-                        <span className="text-[10px] text-gray-500 font-mono bg-gray-800 px-2 py-0.5 rounded">{currentRecipient?.phone}</span>
+                        <span className="text-[10px] text-gray-500 font-mono bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">{currentRecipient?.phone}</span>
                         {currentRecipient?.isAdditionalLeader && (
                           <span className="text-[10px] text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded font-bold uppercase">Additional Leader</span>
                         )}
@@ -1123,7 +1123,7 @@ function BulkMessageContent() {
 
                     <button
                       onClick={handleSkip}
-                      className="w-full py-3 border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800 font-bold rounded-xl transition-all uppercase tracking-widest text-[10px]"
+                      className="w-full py-3 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 font-bold rounded-xl transition-all uppercase tracking-widest text-[10px]"
                     >
                       Skip
                     </button>
@@ -1133,10 +1133,10 @@ function BulkMessageContent() {
                   <div className="p-4 flex items-center justify-between">
                     <div>
                       <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Progress</p>
-                      <p className="text-lg font-bold text-white">{currentIndex} / {recipients.length}</p>
+                      <p className="text-lg font-bold text-gray-900 dark:text-white">{currentIndex} / {recipients.length}</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="w-32 bg-gray-800 h-1.5 rounded-full overflow-hidden">
+                      <div className="w-32 bg-gray-200 dark:bg-gray-800 h-1.5 rounded-full overflow-hidden">
                         <div className="bg-blue-600 h-full transition-all duration-500" style={{ width: `${progress}%` }} />
                       </div>
                       <button onClick={handleAbort} className="text-[10px] font-bold text-rose-400 hover:text-rose-300 uppercase bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20 transition-all">
@@ -1147,12 +1147,12 @@ function BulkMessageContent() {
 
                   {/* Up Next */}
                   {nextRecipient && (
-                    <div className="border-t border-gray-800/50 px-5 py-3 flex items-center justify-between bg-gray-900/50">
+                    <div className="border-t border-gray-200 dark:border-gray-800/50 px-5 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-900/50">
                       <div className="flex items-center gap-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_6px_rgba(96,165,250,0.5)]"></div>
                         <div>
-                          <p className="text-[9px] font-bold text-gray-600 uppercase tracking-wider">Up Next</p>
-                          <p className="text-xs font-medium text-gray-300">{nextRecipient.name}</p>
+                          <p className="text-[9px] font-bold text-gray-500 dark:text-gray-600 uppercase tracking-wider">Up Next</p>
+                          <p className="text-xs font-medium text-gray-600 dark:text-gray-300">{nextRecipient.name}</p>
                         </div>
                       </div>
                       {nextRecipient.day && (
@@ -1165,8 +1165,8 @@ function BulkMessageContent() {
             </section>
 
             {/* ── Batch Log ── */}
-            <section className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden shadow-lg">
-              <div className="px-5 py-3 border-b border-gray-800 flex items-center justify-between">
+            <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden shadow-lg">
+              <div className="px-5 py-3 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
                 <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Batch Log</span>
                 {logs.length > 0 && (
                   <button onClick={() => setLogs([])} className="text-[10px] font-bold text-gray-500 hover:text-white uppercase transition-colors">
@@ -1174,16 +1174,16 @@ function BulkMessageContent() {
                   </button>
                 )}
               </div>
-              <div className="max-h-72 overflow-y-auto divide-y divide-gray-800/50">
+              <div className="max-h-72 overflow-y-auto divide-y divide-gray-200 dark:divide-gray-800/50">
                 {logs.length === 0 ? (
                   <p className="py-10 text-center text-[10px] text-gray-700 font-bold uppercase tracking-widest">No history</p>
                 ) : (
                   logs.map(log => (
                     <div key={log.id} className={`px-5 py-3 flex justify-between items-center group transition-colors ${
-                      log.status === LogStatus.SKIPPED ? 'opacity-40' : 'hover:bg-gray-800/40'
+                      log.status === LogStatus.SKIPPED ? 'opacity-40' : 'hover:bg-gray-100 dark:hover:bg-gray-800/40'
                     }`}>
                       <div>
-                        <span className="text-xs font-medium text-gray-200">{log.recipient.name}</span>
+                        <span className="text-xs font-medium text-gray-700 dark:text-gray-200">{log.recipient.name}</span>
                         <span className="text-[9px] text-gray-600 font-mono ml-2">{log.timestamp.toLocaleTimeString()}</span>
                       </div>
                       <div className="flex items-center gap-3">
@@ -1220,7 +1220,7 @@ export default function BulkMessagePage() {
   return (
     <ProtectedRoute>
       <Suspense fallback={
-        <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
           <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
       }>

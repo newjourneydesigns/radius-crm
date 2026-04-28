@@ -58,12 +58,16 @@ input, select, textarea {
   left: 0;
   right: 0;
   z-index: 10000;
-  background: rgba(22, 24, 32, 0.82);
+  background: rgba(255, 255, 255, 0.88);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   backdrop-filter: saturate(180%) blur(20px);
-  border-top: 0.5px solid rgba(255, 255, 255, 0.06);
+  border-top: 0.5px solid rgba(0, 0, 0, 0.08);
   padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 32px);
   overflow: visible;
+}
+.dark .mobile-tab-bar {
+  background: rgba(22, 24, 32, 0.82);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.06);
 }
 
 /* Hide mobile tab bar when AI chat is open (full-screen on mobile) */
@@ -108,8 +112,11 @@ input, select, textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(0, 0, 0, 0.35);
   transition: color 0.2s ease;
+}
+.dark .mobile-tab-icon {
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .mobile-tab-icon.active {
@@ -122,9 +129,12 @@ input, select, textarea {
   font-weight: 500;
   letter-spacing: 0.01em;
   line-height: 1;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(0, 0, 0, 0.4);
   transition: color 0.2s ease;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+}
+.dark .mobile-tab-label {
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .mobile-tab-label.active {
@@ -146,7 +156,7 @@ input, select, textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 3px solid rgba(22, 24, 32, 0.95);
+  border: 3px solid rgba(255, 255, 255, 0.92);
   box-shadow:
     0 -4px 16px rgba(148, 163, 184, 0.2),
     0 2px 8px rgba(0, 0, 0, 0.4);
@@ -206,6 +216,9 @@ input, select, textarea {
 }
 
 .mobile-tab-more-trigger:active {
+  background: rgba(0, 0, 0, 0.04);
+}
+.dark .mobile-tab-more-trigger:active {
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -214,12 +227,18 @@ input, select, textarea {
   font-weight: 500;
   letter-spacing: 0.01em;
   line-height: 1;
-  color: rgba(255, 255, 255, 0.28);
+  color: rgba(0, 0, 0, 0.3);
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
   transition: color 0.2s ease;
 }
+.dark .mobile-tab-more-label {
+  color: rgba(255, 255, 255, 0.28);
+}
 
 .mobile-tab-more-trigger.open .mobile-tab-more-label {
+  color: rgba(61, 67, 81, 0.8);
+}
+.dark .mobile-tab-more-trigger.open .mobile-tab-more-label {
   color: rgba(148, 163, 184, 0.7);
 }
 
@@ -227,16 +246,25 @@ input, select, textarea {
   width: 36px;
   height: 4px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.15);
   transition: background 0.2s ease, width 0.15s ease;
+}
+.dark .mobile-tab-more-handle-bar {
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .mobile-tab-more-trigger.open .mobile-tab-more-handle-bar {
-  background: rgba(148, 163, 184, 0.55);
+  background: rgba(61, 67, 81, 0.45);
   width: 42px;
+}
+.dark .mobile-tab-more-trigger.open .mobile-tab-more-handle-bar {
+  background: rgba(148, 163, 184, 0.55);
 }
 
 .mobile-tab-more-trigger:active .mobile-tab-more-handle-bar {
+  background: rgba(0, 0, 0, 0.25);
+}
+.dark .mobile-tab-more-trigger:active .mobile-tab-more-handle-bar {
   background: rgba(255, 255, 255, 0.35);
 }
 
@@ -244,17 +272,23 @@ input, select, textarea {
    Apple-inspired Bottom Sheet
    ═══════════════════════════════════════════════════════════ */
 .mobile-sheet {
-  background: rgba(22, 24, 32, 0.96);
+  background: rgba(248, 250, 252, 0.96);
   -webkit-backdrop-filter: saturate(180%) blur(40px);
   backdrop-filter: saturate(180%) blur(40px);
   border-radius: 16px 16px 0 0;
   box-shadow:
-    0 -8px 32px rgba(0, 0, 0, 0.5),
-    0 0 0 0.5px rgba(255, 255, 255, 0.05) inset;
+    0 -8px 32px rgba(0, 0, 0, 0.12),
+    0 0 0 0.5px rgba(0, 0, 0, 0.06) inset;
   max-height: 75vh;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+}
+.dark .mobile-sheet {
+  background: rgba(22, 24, 32, 0.96);
+  box-shadow:
+    0 -8px 32px rgba(0, 0, 0, 0.5),
+    0 0 0 0.5px rgba(255, 255, 255, 0.05) inset;
 }
 
 /* Custom scrollbar for the sheet */
@@ -273,6 +307,9 @@ input, select, textarea {
   width: 36px;
   height: 5px;
   border-radius: 100px;
+  background: rgba(0, 0, 0, 0.15);
+}
+.dark .mobile-sheet-handle-bar {
   background: rgba(255, 255, 255, 0.18);
 }
 
@@ -283,6 +320,9 @@ input, select, textarea {
   gap: 12px;
   padding: 12px 20px 14px;
   margin: 0 12px;
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.08);
+}
+.dark .mobile-sheet-user {
   border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -309,23 +349,29 @@ input, select, textarea {
 .mobile-sheet-user-name {
   font-size: 15px;
   font-weight: 600;
-  color: white;
+  color: #111827;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.3;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
 }
+.dark .mobile-sheet-user-name {
+  color: white;
+}
 
 .mobile-sheet-user-email {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(0, 0, 0, 0.4);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.3;
   margin-top: 1px;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+}
+.dark .mobile-sheet-user-email {
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .mobile-sheet-badge {
@@ -349,15 +395,21 @@ input, select, textarea {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(0, 0, 0, 0.35);
   padding: 0 8px 6px;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
 }
+.dark .mobile-sheet-section-title {
+  color: rgba(255, 255, 255, 0.3);
+}
 
 .mobile-sheet-group {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(0, 0, 0, 0.04);
   border-radius: 12px;
   overflow: hidden;
+}
+.dark .mobile-sheet-group {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 /* Menu rows */
@@ -369,7 +421,7 @@ input, select, textarea {
   padding: 13px 14px;
   font-size: 15px;
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.88);
+  color: rgba(0, 0, 0, 0.85);
   text-decoration: none;
   background: transparent;
   border: none;
@@ -379,12 +431,21 @@ input, select, textarea {
   transition: background 0.15s ease;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
 }
+.dark .mobile-sheet-row {
+  color: rgba(255, 255, 255, 0.88);
+}
 
 .mobile-sheet-row.bordered {
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.06);
+}
+.dark .mobile-sheet-row.bordered {
   border-bottom: 0.5px solid rgba(255, 255, 255, 0.05);
 }
 
 .mobile-sheet-row:active {
+  background: rgba(0, 0, 0, 0.04);
+}
+.dark .mobile-sheet-row:active {
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -411,9 +472,13 @@ input, select, textarea {
   width: 28px;
   height: 28px;
   border-radius: 7px;
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.5);
+  flex-shrink: 0;
+}
+.dark .mobile-sheet-row-icon {
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.55);
-  flex-shrink: 0;
 }
 
 .mobile-sheet-row-icon.destructive {
@@ -431,38 +496,19 @@ input, select, textarea {
   text-align: left;
 }
 
-/* Dark Green Theme - Custom gradient background */
-* {
-  color-scheme: dark !important;
-}
-
-html {
+/* Dark mode base */
+html.dark {
   background-color: #0d0f12 !important;
   color-scheme: dark !important;
 }
 
-html.dark {
-  color-scheme: dark !important;
-}
-
-body {
-  background-color: #111318 !important;
-  min-height: 100vh !important;
-  color: #f1f5f9 !important;
-}
-
-/* Force dark mode classes */
-.dark {
-  color-scheme: dark !important;
-}
-
 /* Board card search bar */
-.bcb-bar {
+.dark .bcb-bar {
   background: #111318 !important;
 }
 
-/* Theme Component Overrides — neutral dark */
-.bg-gray-50 {
+/* Theme Component Overrides — dark mode only */
+.dark .bg-gray-50 {
   background-color: rgba(26, 28, 34, 0.97) !important;
   backdrop-filter: blur(10px) !important;
   color: #f1f5f9 !important;
@@ -474,8 +520,8 @@ body {
   color: #f1f5f9 !important;
 }
 
-/* Card and panel backgrounds — neutral glass */
-.bg-white {
+/* Card and panel backgrounds — dark mode glass */
+.dark .bg-white {
   background-color: rgba(255, 255, 255, 0.04) !important;
   backdrop-filter: blur(12px) saturate(140%) !important;
   -webkit-backdrop-filter: blur(12px) saturate(140%) !important;
@@ -484,18 +530,30 @@ body {
   border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
-/* Explicit card-glass utility class for clean glass cards */
+/* Explicit card-glass utility class */
 .card-glass {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: rgba(255, 255, 255, 0.85) !important;
   backdrop-filter: blur(12px) saturate(140%) !important;
   -webkit-backdrop-filter: blur(12px) saturate(140%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.07) !important;
-  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  border-top: 1px solid rgba(0, 0, 0, 0.07) !important;
   border-radius: 12px !important;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), 0 0 0 0.5px rgba(255, 255, 255, 0.04) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 0 0 0.5px rgba(0, 0, 0, 0.04) !important;
   transition: box-shadow 0.2s ease, border-color 0.2s ease !important;
 }
 .card-glass:hover {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1),
+              0 8px 32px rgba(0, 0, 0, 0.12) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.dark .card-glass {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), 0 0 0 0.5px rgba(255, 255, 255, 0.04) !important;
+}
+.dark .card-glass:hover {
   box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15),
               0 8px 32px rgba(0, 0, 0, 0.4) !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
@@ -508,7 +566,7 @@ body {
 }
 
 /* Unstyled button fallback — only catches genuinely naked buttons with no variant class */
-button:not([class*="bg-"]):not([class*="btn-"]):not([class*="kb-btn"]):not(.mobile-tab-item):not(.mobile-tab-raised-btn):not(.mobile-sheet-row):not(.score-btn):not(.fc-button):not([class*="text-"]) {
+.dark button:not([class*="bg-"]):not([class*="btn-"]):not([class*="kb-btn"]):not(.mobile-tab-item):not(.mobile-tab-raised-btn):not(.mobile-sheet-row):not(.score-btn):not(.fc-button):not([class*="text-"]) {
   background-color: rgba(76, 103, 133, 0.5);
   color: #eef4ed;
   border-color: rgba(141, 169, 196, 0.2);
@@ -658,18 +716,18 @@ button.score-btn:hover {
 /* Ghost: transparent with neutral border */
 .btn-ghost {
   background: transparent !important;
-  color: rgba(241, 245, 249, 0.7) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: rgba(55, 65, 81, 0.8) !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
   box-shadow: none !important;
 }
 .btn-ghost:hover {
-  background: rgba(255, 255, 255, 0.06) !important;
-  color: #f1f5f9 !important;
-  border-color: rgba(255, 255, 255, 0.2) !important;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+  background: rgba(0, 0, 0, 0.04) !important;
+  color: #111827 !important;
+  border-color: rgba(0, 0, 0, 0.25) !important;
+  box-shadow: none !important;
 }
 .btn-ghost:active {
-  background: rgba(255, 255, 255, 0.1) !important;
+  background: rgba(0, 0, 0, 0.07) !important;
   transform: scale(0.98) !important;
 }
 .btn-ghost:focus-visible {
@@ -677,13 +735,27 @@ button.score-btn:hover {
   outline-offset: 2px !important;
 }
 
-/* Input fields — neutral glass base with focus glow */
+.dark .btn-ghost {
+  color: rgba(241, 245, 249, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+.dark .btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #f1f5f9 !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+}
+.dark .btn-ghost:active {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Input fields — light mode base */
 input,
 textarea,
 select {
-  background-color: rgba(255, 255, 255, 0.05) !important;
-  color: #f1f5f9 !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: rgba(0, 0, 0, 0.15) !important;
   border-width: 1px !important;
   transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
 }
@@ -692,37 +764,81 @@ input:focus,
 textarea:focus,
 select:focus {
   outline: none !important;
+  border-color: rgba(59, 130, 246, 0.5) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1),
+              0 0 0 1px rgba(59, 130, 246, 0.3) !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(107, 114, 128, 0.7) !important;
+}
+
+/* Dark mode input fields */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  color: #f1f5f9 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
   border-color: rgba(148, 163, 184, 0.5) !important;
   box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.1),
               0 0 0 1px rgba(148, 163, 184, 0.3) !important;
   background-color: rgba(255, 255, 255, 0.07) !important;
 }
 
-input::placeholder,
-textarea::placeholder {
+.dark input::placeholder,
+.dark textarea::placeholder {
   color: rgba(241, 245, 249, 0.35) !important;
 }
 
-/* Text colors for better contrast */
-.text-gray-900,
-.text-gray-800,
-.text-gray-700,
-.text-black {
+/* Text colors — dark mode inversion only */
+.dark .text-gray-900,
+.dark .text-gray-800,
+.dark .text-gray-700,
+.dark .text-black {
   color: #f1f5f9 !important;
 }
 
-.text-gray-600,
-.text-gray-500 {
+.dark .text-gray-600,
+.dark .text-gray-500 {
   color: rgba(241, 245, 249, 0.75) !important;
 }
 
-/* Links and accents */
+/* Links */
 a {
+  color: #3b82f6;
+}
+
+.dark a {
   color: #94a3b8 !important;
 }
 
-/* FullCalendar readability tweaks */
+/* FullCalendar — light mode defaults */
 .fc {
+  --fc-page-bg-color: transparent;
+  --fc-border-color: #e5e7eb;
+  --fc-neutral-bg-color: rgba(0, 0, 0, 0.02);
+  --fc-today-bg-color: rgba(59, 130, 246, 0.06);
+  --fc-event-bg-color: #64748b;
+  --fc-event-border-color: #64748b;
+  --fc-event-text-color: #ffffff;
+  --fc-button-bg-color: #f3f4f6;
+  --fc-button-border-color: #d1d5db;
+  --fc-button-text-color: #374151;
+  --fc-button-hover-bg-color: #e5e7eb;
+  --fc-button-hover-border-color: #9ca3af;
+  --fc-button-active-bg-color: #d1d5db;
+  --fc-button-active-border-color: #9ca3af;
+}
+
+/* FullCalendar — dark mode */
+.dark .fc {
   --fc-page-bg-color: transparent;
   --fc-border-color: rgba(255, 255, 255, 0.08);
   --fc-neutral-bg-color: rgba(255, 255, 255, 0.03);
@@ -739,12 +855,12 @@ a {
   --fc-button-active-border-color: rgba(148, 163, 184, 0.5);
 }
 
-.fc .fc-toolbar-title {
+.dark .fc .fc-toolbar-title {
   color: #f1f5f9;
 }
 
-.fc .fc-col-header-cell-cushion,
-.fc .fc-daygrid-day-number {
+.dark .fc .fc-col-header-cell-cushion,
+.dark .fc .fc-daygrid-day-number {
   color: rgba(241, 245, 249, 0.85);
 }
 
@@ -894,36 +1010,48 @@ a {
 }
 
 .calendar-shell .fc .fc-list-day-row {
-  background-color: rgba(61, 67, 81, 0.9) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-bottom: 3px solid rgba(148, 163, 184, 0.4) !important;
+  background-color: rgba(226, 232, 240, 0.9) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  border-bottom: 3px solid rgba(100, 116, 139, 0.4) !important;
   margin-bottom: 1rem !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06) !important;
 }
 
 .calendar-shell .fc .fc-list-day-side {
   background-color: transparent !important;
-  color: #f1f5f9 !important;
+  color: #374151 !important;
   font-weight: 700;
   font-size: 1.1rem;
   padding: 0 !important;
   width: auto !important;
 }
+.dark .calendar-shell .fc .fc-list-day-side {
+  color: #f1f5f9 !important;
+}
 
 .calendar-shell .fc .fc-list-day-side-text {
-  color: #f1f5f9 !important;
+  color: #374151 !important;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
 }
+.dark .calendar-shell .fc .fc-list-day-side-text {
+  color: #f1f5f9 !important;
+}
 
 .calendar-shell .fc .fc-list-day-side-text > * {
+  color: #374151 !important;
+}
+.dark .calendar-shell .fc .fc-list-day-side-text > * {
   color: #f1f5f9 !important;
 }
 
 .calendar-shell .fc .fc-list-day-side .fc-daygrid-day-number {
-  color: rgba(241, 245, 249, 0.95) !important;
+  color: rgba(55, 65, 81, 0.9) !important;
   font-size: 1rem;
+}
+.dark .calendar-shell .fc .fc-list-day-side .fc-daygrid-day-number {
+  color: rgba(241, 245, 249, 0.95) !important;
 }
 
 .calendar-shell .fc .fc-daygrid-day-frame {
@@ -1089,10 +1217,15 @@ html.modal-open {
 
 /* Apple-style focus rings */
 .focus\:ring-2:focus {
-  --tw-ring-color: rgba(148, 163, 184, 0.45);
+  --tw-ring-color: rgba(59, 130, 246, 0.45);
   --tw-ring-offset-width: 2px;
   --tw-ring-width: 2px;
   outline: none;
+  box-shadow: 0 0 0 var(--tw-ring-offset-width) #ffffff,
+              0 0 0 calc(var(--tw-ring-width) + var(--tw-ring-offset-width)) var(--tw-ring-color);
+}
+.dark .focus\:ring-2:focus {
+  --tw-ring-color: rgba(148, 163, 184, 0.45);
   box-shadow: 0 0 0 var(--tw-ring-offset-width) rgba(17, 19, 24, 1),
               0 0 0 calc(var(--tw-ring-width) + var(--tw-ring-offset-width)) var(--tw-ring-color);
 }
@@ -1117,12 +1250,21 @@ button:active {
 
 /* Modern card shadows */
 .shadow-xl {
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+              0 10px 10px -5px rgba(0, 0, 0, 0.06),
+              0 0 0 1px rgba(0, 0, 0, 0.04) !important;
+}
+.dark .shadow-xl {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15),
               0 10px 10px -5px rgba(0, 0, 0, 0.1),
               0 0 0 1px rgba(255, 255, 255, 0.05) !important;
 }
 
 .shadow-2xl {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.12),
+              0 0 0 1px rgba(0, 0, 0, 0.04) !important;
+}
+.dark .shadow-2xl {
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25),
               0 0 0 1px rgba(255, 255, 255, 0.05) !important;
 }
@@ -1137,7 +1279,7 @@ button:active {
 }
 
 /* Enhanced glass morphism for modals */
-.bg-white.dark\:bg-gray-900,
+.dark .bg-white.dark\:bg-gray-900,
 .dark .bg-gray-900 {
   background: rgba(17, 19, 24, 0.9) !important;
   backdrop-filter: blur(20px) saturate(140%) !important;
@@ -1208,6 +1350,10 @@ html {
 
 /* Premium nav — subtle inset highlight + bottom shadow */
 nav.nav-premium {
+  box-shadow: 0 1px 0 0 rgba(0, 0, 0, 0.04) inset,
+              0 4px 24px rgba(0, 0, 0, 0.08) !important;
+}
+.dark nav.nav-premium {
   box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.04) inset,
               0 4px 24px rgba(0, 0, 0, 0.4) !important;
 }
@@ -1225,9 +1371,17 @@ nav.nav-premium {
    ═══════════════════════════════════════════════════════════ */
 
 .modal-glass {
-  background: rgba(17, 19, 24, 0.92) !important;
+  background: rgba(255, 255, 255, 0.94) !important;
   backdrop-filter: blur(28px) saturate(160%) !important;
   -webkit-backdrop-filter: blur(28px) saturate(160%) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  border-top: 1px solid rgba(0, 0, 0, 0.1) !important;
+  box-shadow:
+    0 32px 64px rgba(0, 0, 0, 0.12),
+    0 0 0 0.5px rgba(0, 0, 0, 0.04) inset !important;
+}
+.dark .modal-glass {
+  background: rgba(17, 19, 24, 0.92) !important;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
   border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
   box-shadow:
@@ -1247,14 +1401,24 @@ nav.nav-premium {
   border-radius: 9999px !important;
   font-size: 0.75rem !important;
   font-weight: 600 !important;
-  background: rgba(255, 255, 255, 0.06) !important;
-  color: #94a3b8 !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(0, 0, 0, 0.05) !important;
+  color: #64748b !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
   transition: background 0.15s ease, border-color 0.15s ease !important;
   cursor: pointer !important;
   white-space: nowrap !important;
 }
 .filter-chip:hover {
+  background: rgba(0, 0, 0, 0.08) !important;
+  border-color: rgba(100, 116, 139, 0.35) !important;
+  color: #334155 !important;
+}
+.dark .filter-chip {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #94a3b8 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+.dark .filter-chip:hover {
   background: rgba(255, 255, 255, 0.1) !important;
   border-color: rgba(148, 163, 184, 0.35) !important;
   color: #f1f5f9 !important;
@@ -1272,17 +1436,26 @@ nav.nav-premium {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.15);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(0, 0, 0, 0.25);
 }
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
 * {
   scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+.dark * {
   scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
 }
 
@@ -1305,11 +1478,18 @@ nav.nav-premium {
 
 /* Adds a stronger accent to section cards */
 .section-panel {
+  border-top: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+.dark .section-panel {
   border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
 /* Gradient fade behind section header rows */
 .section-header-row {
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.03) 0%, transparent 65%) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+.dark .section-header-row {
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 0%, transparent 65%) !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
 }

@@ -129,13 +129,13 @@ export default function CategoryEvaluation({
   };
 
   return (
-    <div className="bg-gray-900/60 rounded-xl border border-gray-700 overflow-hidden">
+    <div className="bg-white dark:bg-gray-900/60 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-gray-700/50 flex items-center justify-between">
+      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700/50 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             onClick={onClose}
-            className="score-btn p-1 rounded hover:bg-gray-700/50 transition-colors"
+            className="score-btn p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
             style={{ '--score-bg': 'transparent', '--score-color': 'inherit', '--score-border': 'transparent', '--score-shadow': 'none' } as React.CSSProperties}
           >
             <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -160,7 +160,7 @@ export default function CategoryEvaluation({
       </div>
 
       {/* Score Display */}
-      <div className="px-4 py-4 flex items-center gap-4 border-b border-gray-700/30">
+      <div className="px-4 py-4 flex items-center gap-4 border-b border-gray-200 dark:border-gray-700/30">
         {/* Final Score */}
         <div className="text-center">
           <div
@@ -208,7 +208,7 @@ export default function CategoryEvaluation({
       </div>
 
       {/* Manual Override */}
-      <div className="px-4 py-3 border-b border-gray-700/30">
+      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700/30">
         <div className="flex items-center justify-between">
           <span className="text-xs text-gray-400 uppercase tracking-wide">Override Score</span>
           <div className="flex gap-1.5">
@@ -236,7 +236,7 @@ export default function CategoryEvaluation({
       </div>
 
       {/* Questions */}
-      <div className="px-4 py-3 border-b border-gray-700/30">
+      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700/30">
         <button
           onClick={() => setShowAllQuestions(!showAllQuestions)}
           className="score-btn flex items-center gap-2 text-xs text-gray-400 uppercase tracking-wide w-full mb-2"
@@ -307,7 +307,7 @@ export default function CategoryEvaluation({
                   </div>
                   {/* Label */}
                   <span className={`text-xs leading-tight ${
-                    currentAnswer !== null ? 'text-gray-300' : 'text-gray-500'
+                    currentAnswer !== null ? 'text-gray-700 dark:text-gray-300' : 'text-gray-500'
                   }`}>
                     {q.label}
                   </span>
@@ -336,14 +336,14 @@ export default function CategoryEvaluation({
           value={contextNotes}
           onChange={(e) => onContextChange(e.target.value)}
           placeholder="Why this score? Observations, context, pastoral notes..."
-          className="w-full px-3 py-2 bg-gray-800/50 border border-gray-600/50 rounded-lg text-sm text-white placeholder-gray-600 focus:border-blue-500/50 focus:outline-none resize-none"
+          className="w-full px-3 py-2 bg-white dark:bg-gray-800/50 border border-gray-300 dark:border-gray-600/50 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:border-blue-500/50 focus:outline-none resize-none"
           rows={3}
         />
       </div>
 
       {/* Developing Leaders — only for Develop category */}
       {category === 'develop' && (
-        <div className="px-4 py-3 border-t border-gray-700/30">
+        <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700/30">
           <label className="block text-xs text-gray-400 uppercase tracking-wide mb-2">
             Who Is Being Developed
             {activeProspects.length > 0 && (
@@ -360,7 +360,7 @@ export default function CategoryEvaluation({
                 onChange={e => setNewProspectName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleAddProspect()}
                 placeholder="Person's name..."
-                className="flex-1 px-3 py-2 bg-gray-800/50 border border-gray-600/50 rounded-lg text-sm text-white placeholder-gray-600 focus:border-orange-500/50 focus:outline-none transition-all"
+                className="flex-1 px-3 py-2 bg-white dark:bg-gray-800/50 border border-gray-300 dark:border-gray-600/50 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:border-orange-500/50 focus:outline-none transition-all"
               />
               <button
                 onClick={handleAddProspect}
@@ -384,7 +384,7 @@ export default function CategoryEvaluation({
                 onChange={e => setNewProspectNotes(e.target.value)}
                 placeholder="Notes (optional)..."
                 rows={2}
-                className="w-full px-3 py-2 bg-gray-800/50 border border-gray-600/50 rounded-lg text-sm text-white placeholder-gray-600 focus:border-orange-500/50 focus:outline-none resize-none"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800/50 border border-gray-300 dark:border-gray-600/50 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:border-orange-500/50 focus:outline-none resize-none"
               />
             )}
           </div>
@@ -396,21 +396,21 @@ export default function CategoryEvaluation({
 
           <div className="space-y-2">
             {activeProspects.map(prospect => (
-              <div key={prospect.id} className="bg-gray-800/40 rounded-lg border border-gray-700/40 p-2.5">
+              <div key={prospect.id} className="bg-gray-50 dark:bg-gray-800/40 rounded-lg border border-gray-200 dark:border-gray-700/40 p-2.5">
                 {editingProspectId === prospect.id ? (
                   <div className="space-y-2">
                     <input
                       type="text"
                       value={editProspectName}
                       onChange={e => setEditProspectName(e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-gray-800 border border-gray-600 rounded-lg text-sm text-white focus:border-orange-500/50 focus:outline-none"
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:border-orange-500/50 focus:outline-none"
                     />
                     <textarea
                       value={editProspectNotes}
                       onChange={e => setEditProspectNotes(e.target.value)}
                       placeholder="Notes..."
                       rows={2}
-                      className="w-full px-2.5 py-1.5 bg-gray-800 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-600 focus:border-orange-500/50 focus:outline-none resize-none"
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:border-orange-500/50 focus:outline-none resize-none"
                     />
                     <div className="flex gap-2 justify-end">
                       <button
@@ -492,10 +492,10 @@ export default function CategoryEvaluation({
               {showInactive && (
                 <div className="space-y-1.5 mt-2">
                   {inactiveProspects.map(prospect => (
-                    <div key={prospect.id} className="bg-gray-900/20 rounded-lg border border-gray-700/30 p-2.5 opacity-50">
+                    <div key={prospect.id} className="bg-gray-100/50 dark:bg-gray-900/20 rounded-lg border border-gray-200 dark:border-gray-700/30 p-2.5 opacity-50">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-5 h-5 rounded-full bg-gray-700/30 flex items-center justify-center flex-shrink-0">
+                          <div className="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-700/30 flex items-center justify-center flex-shrink-0">
                             <span className="text-[9px] font-bold text-gray-500">{prospect.name.charAt(0).toUpperCase()}</span>
                           </div>
                           <span className="text-sm text-gray-400 line-through truncate">{prospect.name}</span>

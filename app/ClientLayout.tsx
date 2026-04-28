@@ -7,6 +7,7 @@ import PublicNavigation from "../components/layout/PublicNavigation";
 import Footer from "../components/layout/Footer";
 import ScrollToTop from "../components/ui/ScrollToTop";
 import { AuthProvider } from "../contexts/AuthContext";
+import { ThemeProvider } from "../contexts/ThemeContext";
 import NavigationProgress from "../components/layout/NavigationProgress";
 
 function LayoutInner({ children }: { children: React.ReactNode }) {
@@ -52,8 +53,10 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AuthProvider>
-      <LayoutInner>{children}</LayoutInner>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <LayoutInner>{children}</LayoutInner>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

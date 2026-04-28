@@ -47,7 +47,7 @@ function LeaderRow({ summary }: { summary: LeaderProgressSummary }) {
   return (
     <Link
       href={`/circle/${summary.leader.id}`}
-      className="flex items-center p-3 rounded-lg hover:bg-gray-700/30 transition-colors group"
+      className="flex items-center p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/30 transition-colors group"
     >
       <div className="flex-1 min-w-0">
         <h4 className="text-sm font-medium text-white truncate group-hover:text-blue-400 transition-colors">
@@ -197,7 +197,7 @@ export default function ProgressDashboardPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-900">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Header */}
           <div className="mb-6">
@@ -212,7 +212,7 @@ export default function ProgressDashboardPage() {
             <select
               value={filterCampus}
               onChange={e => setFilterCampus(e.target.value)}
-              className="px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
+              className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:border-blue-500"
             >
               <option value="">All Campuses</option>
               {campuses.map(c => <option key={c} value={c}>{c}</option>)}
@@ -220,7 +220,7 @@ export default function ProgressDashboardPage() {
             <select
               value={filterAcpd}
               onChange={e => setFilterAcpd(e.target.value)}
-              className="px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
+              className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:border-blue-500"
             >
               <option value="">All ACPDs</option>
               {acpds.map(a => <option key={a} value={a}>{a}</option>)}
@@ -228,7 +228,7 @@ export default function ProgressDashboardPage() {
             <select
               value={filterStatus}
               onChange={e => setFilterStatus(e.target.value)}
-              className="px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
+              className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:border-blue-500"
             >
               <option value="">All Statuses</option>
               <option value="active">Active</option>
@@ -308,7 +308,7 @@ export default function ProgressDashboardPage() {
                       >
                         {tab.label}
                         <span className={`ml-1.5 px-1.5 py-0.5 text-xs rounded-full ${
-                          activeTab === tab.key ? 'bg-blue-500/20 text-blue-400' : 'bg-gray-700 text-gray-400'
+                          activeTab === tab.key ? 'bg-blue-500/20 text-blue-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
                         }`}>
                           {tab.count}
                         </span>
@@ -342,7 +342,7 @@ export default function ProgressDashboardPage() {
                           <Link
                             key={summary.leader.id}
                             href={`/circle/${summary.leader.id}`}
-                            className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-700/30 transition-colors"
+                            className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/30 transition-colors"
                           >
                             <div>
                               <h4 className="text-sm font-medium text-white">{summary.leader.name}</h4>
@@ -397,7 +397,7 @@ export default function ProgressDashboardPage() {
                           <Link
                             key={dl.id}
                             href={`/circle/${dl.circle_leader_id}`}
-                            className="block sm:grid sm:grid-cols-12 gap-3 p-3 rounded-lg hover:bg-gray-700/30 transition-colors group"
+                            className="block sm:grid sm:grid-cols-12 gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/30 transition-colors group"
                           >
                             <div className="col-span-3">
                               <span className="text-sm font-medium text-white group-hover:text-orange-400 transition-colors">{dl.name}</span>
