@@ -3328,7 +3328,7 @@ function BoardPage() {
               title="Board view"
             >
               <LayoutDashboard size={14} />
-              Board
+              <span className="kb-btn-label">Board</span>
             </button>
             <button
               className={`kb-view-btn ${boardView === 'list' ? 'active' : ''}`}
@@ -3336,7 +3336,7 @@ function BoardPage() {
               title="List view"
             >
               <ListBullet size={14} />
-              List
+              <span className="kb-btn-label">List</span>
             </button>
             <button
               className="kb-view-btn"
@@ -3344,19 +3344,17 @@ function BoardPage() {
               title="Calendar view"
             >
               <CalendarDays size={14} />
-              Calendar
+              <span className="kb-btn-label">Calendar</span>
+            </button>
+            <button
+              className={`kb-view-btn kb-view-btn-notes ${showNotePanel ? 'active kb-view-btn-notes-active' : ''}`}
+              onClick={() => showNotePanel ? closeNotePanel() : setShowNotePanel(true)}
+              title={showNotePanel ? 'Close Notes' : 'Open Notes'}
+            >
+              <StickyNote size={14} />
+              <span className="kb-btn-label">Notes</span>
             </button>
           </div>
-
-          {/* Note panel toggle */}
-          <button
-            className={`kb-note-toggle ${showNotePanel ? 'kb-note-toggle-active' : ''}`}
-            onClick={() => showNotePanel ? closeNotePanel() : setShowNotePanel(true)}
-            title={showNotePanel ? 'Close Notes' : 'Open Notes'}
-          >
-            <StickyNote size={15} />
-            {showNotePanel ? 'Close Notes' : 'Notes'}
-          </button>
 
           {/* Board menu */}
           <div ref={boardMenuRef} style={{ position: 'relative' }}>
@@ -5878,34 +5876,10 @@ const kanbanStyles = `
     color: #fff !important;
     box-shadow: 0 1px 4px rgba(76, 103, 133, 0.3);
   }
-
-  .kb-note-toggle {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    padding: 5px 11px;
-    border-radius: 8px;
-    border: 1px solid #2a2d3a;
-    background: #1a1d27;
-    color: #6b7280;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    white-space: nowrap;
-  }
-  .kb-note-toggle:hover {
-    background: #252836;
-    color: #e5e7eb;
-    border-color: #3b3f54;
-  }
-  .kb-note-toggle-active {
-    background: rgba(99, 102, 241, 0.15) !important;
+  .kb-view-btn-notes.active {
+    background: rgba(99, 102, 241, 0.2) !important;
     color: #a5b4fc !important;
-    border-color: rgba(99, 102, 241, 0.4) !important;
-  }
-  .kb-note-toggle-active:hover {
-    background: rgba(99, 102, 241, 0.25) !important;
+    box-shadow: none;
   }
 
   /* ── List View ── */
@@ -6210,9 +6184,16 @@ const kanbanStyles = `
 
   /* ── Responsive ── */
   @media (max-width: 768px) {
-    .kb-topbar { flex-direction: column; align-items: flex-start; max-width: 100%; overflow: hidden; }
-    .kb-topbar-right { width: 100%; flex-wrap: wrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-    .kb-topbar-right::-webkit-scrollbar { display: none; }
+    .kb-topbar { flex-direction: column; align-items: flex-start; max-width: 100%; overflow: visible; }
+    .kb-topbar-left { max-width: 100%; overflow: hidden; }
+    .kb-topbar-right { width: 100%; flex-wrap: nowrap; overflow: visible; gap: 6px; justify-content: space-between; }
+    .kb-btn-label { display: none; }
+    .kb-view-toggle { flex: 1; }
+    .kb-view-btn { flex: 1; justify-content: center; padding: 7px 6px; }
+    .kb-filter-btn { flex-shrink: 0; }
+    .kb-btn-icon { flex-shrink: 0; }
+    .kb-filter-dropdown { position: fixed; top: 110px; right: 16px; left: auto; min-width: 260px; z-index: 10001; }
+    .kb-dropdown { position: fixed; top: 110px; right: 16px; left: auto; z-index: 10001; }
     .kb-column { width: 280px; min-width: 280px; }
     .kb-add-column { width: 280px; min-width: 280px; }
     .kb-detail-body { flex-direction: column; }

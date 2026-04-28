@@ -381,7 +381,7 @@ export default function GlobalSearch() {
                   letterSpacing: '0.01em',
                   caretColor: 'rgba(99, 102, 241, 0.9)',
                   lineHeight: 1.4,
-                  padding: '10px 12px',
+                  padding: '0',
                 }}
               />
 
@@ -652,7 +652,7 @@ export default function GlobalSearch() {
                   />
                   <p style={{
                     fontSize: '11px',
-                    color: 'rgba(255, 255, 255, 0.13)',
+                    color: 'rgba(255, 255, 255, 0.72)',
                     textAlign: 'center',
                     lineHeight: 1.7,
                     maxWidth: '320px',
