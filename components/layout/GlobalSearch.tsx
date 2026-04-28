@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { supabase, CircleLeader } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
 import Fuse from 'fuse.js';
+import Image from 'next/image';
+import { supabase, CircleLeader } from '../../lib/supabase';
 
 interface BoardResult {
   id: string;
@@ -340,7 +341,7 @@ export default function GlobalSearch() {
               display: 'flex',
               alignItems: 'center',
               gap: '14px',
-              padding: '20px 22px',
+              padding: '28px 24px',
               borderBottom: '1px solid rgba(255, 255, 255, 0.07)',
             }}>
               {/* Search Icon */}
@@ -380,6 +381,7 @@ export default function GlobalSearch() {
                   letterSpacing: '0.01em',
                   caretColor: 'rgba(99, 102, 241, 0.9)',
                   lineHeight: 1.4,
+                  padding: '10px 12px',
                 }}
               />
 
@@ -640,48 +642,26 @@ export default function GlobalSearch() {
                   </p>
                 </div>
               ) : (
-                <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-                  {/* Stacked icons for visual interest */}
-                  <div style={{ position: 'relative', width: '56px', height: '56px', margin: '0 auto 20px' }}>
-                    <div style={{
-                      position: 'absolute',
-                      inset: 0,
-                      borderRadius: '16px',
-                      background: 'rgba(99, 102, 241, 0.08)',
-                      border: '1px solid rgba(99, 102, 241, 0.15)',
-                    }} />
-                    <div style={{
-                      position: 'absolute',
-                      inset: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}>
-                      <svg style={{ width: 24, height: 24, color: 'rgba(99, 102, 241, 0.5)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
-                    </div>
-                  </div>
-                  <p style={{ fontSize: '15px', fontWeight: 500, color: 'rgba(238, 244, 237, 0.5)', marginBottom: '6px' }}>
-                    Search anything
+                <div style={{ padding: '32px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '16px' }}>
+                  <Image
+                    src="/icon-32x32.png"
+                    alt="RADIUS"
+                    width={28}
+                    height={28}
+                    style={{ opacity: 0.12 }}
+                  />
+                  <p style={{
+                    fontSize: '11px',
+                    color: 'rgba(255, 255, 255, 0.13)',
+                    textAlign: 'center',
+                    lineHeight: 1.7,
+                    maxWidth: '320px',
+                    fontStyle: 'italic',
+                    letterSpacing: '0.01em',
+                  }}>
+                    "Care for the flock that God has entrusted to you. Watch over it willingly, not grudgingly—not for what you will get out of it, but because you are eager to serve God."
+                    <span style={{ display: 'block', marginTop: '6px', fontStyle: 'normal', fontWeight: 500 }}>1 Peter 5:2</span>
                   </p>
-                  <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.22)', lineHeight: 1.6 }}>
-                    Circle leaders, boards, and cards
-                  </p>
-                  {/* Quick hints row */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '20px' }}>
-                    {['Leaders', 'Boards', 'Cards'].map((label) => (
-                      <span key={label} style={{
-                        fontSize: '11px',
-                        color: 'rgba(255, 255, 255, 0.22)',
-                        background: 'rgba(255, 255, 255, 0.04)',
-                        border: '1px solid rgba(255, 255, 255, 0.07)',
-                        borderRadius: '6px',
-                        padding: '3px 8px',
-                        letterSpacing: '0.02em',
-                      }}>{label}</span>
-                    ))}
-                  </div>
                 </div>
               )}
             </div>
