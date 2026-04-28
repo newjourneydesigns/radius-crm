@@ -279,8 +279,8 @@ export default function ScorecardQuestionsManager() {
 
       {/* Seed Defaults Button (only shown when no questions exist) */}
       {!hasSeeded && questions.length === 0 && (
-        <div className="mb-6 p-4 bg-gray-100 dark:bg-gray-700/50 rounded-lg border border-gray-300 dark:border-gray-600 text-center">
-          <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+        <div className="mb-6 p-4 bg-gray-700/50 rounded-lg border border-gray-600 text-center">
+          <p className="text-sm text-gray-300 mb-3">
             No scorecard questions found. Would you like to load the default questions?
           </p>
           <button
@@ -302,7 +302,7 @@ export default function ScorecardQuestionsManager() {
             className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
               activeCategory === cat.key
                 ? `${cat.bgClass} ${cat.textClass} border ${cat.borderClass}`
-                : 'bg-gray-100 dark:bg-gray-700/30 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700/50 border border-transparent'
+                : 'bg-gray-700/30 text-gray-400 hover:text-gray-300 hover:bg-gray-700/50 border border-transparent'
             }`}
           >
             {cat.label}
@@ -354,7 +354,7 @@ export default function ScorecardQuestionsManager() {
               className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
                 editingQuestion?.id === question.id
                   ? 'bg-blue-900/20 border-blue-500/40'
-                  : 'bg-gray-50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700/50 hover:border-gray-300 dark:hover:border-gray-600/50'
+                  : 'bg-gray-800/30 border-gray-700/50 hover:border-gray-600/50'
               }`}
             >
               {/* Order indicator */}
@@ -398,7 +398,7 @@ export default function ScorecardQuestionsManager() {
                       if (e.key === 'Escape') { setEditingQuestion(null); setEditLabel(''); }
                     }}
                     autoFocus
-                    className="flex-1 px-3 py-1.5 border border-blue-500/40 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 px-3 py-1.5 border border-blue-500/40 rounded-md bg-gray-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <button
                     onClick={handleEditQuestion}
@@ -415,7 +415,7 @@ export default function ScorecardQuestionsManager() {
                   </button>
                 </div>
               ) : (
-                <span className="flex-1 text-sm text-gray-700 dark:text-gray-200 leading-snug">
+                <span className="flex-1 text-sm text-gray-200 leading-snug">
                   {question.label}
                 </span>
               )}
@@ -452,7 +452,7 @@ export default function ScorecardQuestionsManager() {
       )}
 
       {/* Info text */}
-      <div className="mt-6 p-3 bg-gray-50 dark:bg-gray-800/30 rounded-lg border border-gray-200 dark:border-gray-700/30">
+      <div className="mt-6 p-3 bg-gray-800/30 rounded-lg border border-gray-700/30">
         <p className="text-xs text-gray-500 leading-relaxed">
           <strong className="text-gray-400">How it works:</strong> These questions appear as yes/no observations 
           when evaluating a leader&apos;s scorecard. The number of &quot;yes&quot; answers determines the suggested score (1-5). 

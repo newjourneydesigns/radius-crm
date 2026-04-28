@@ -538,12 +538,12 @@ function CircleDashboardContent() {
   // ── Render ──────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-gray-950">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 mobile-nav-padding">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Circle Dashboard</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-white">Circle Dashboard</h1>
             <p className="text-sm text-gray-400 mt-0.5">
               Attendance insights across all Circles
             </p>
@@ -551,7 +551,7 @@ function CircleDashboardContent() {
           </div>
           <div className="flex items-center gap-2">
             {/* Range selector */}
-            <div className="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-700/50">
+            <div className="flex rounded-lg overflow-hidden border border-gray-700/50">
               {[3, 6, 12].map((m) => (
                 <button
                   key={m}
@@ -559,7 +559,7 @@ function CircleDashboardContent() {
                   className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                     filters.months === m
                       ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
+                      : 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700'
                   }`}
                 >
                   {m}mo
@@ -571,7 +571,7 @@ function CircleDashboardContent() {
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
                 activeFilterCount > 0
                   ? 'border-blue-500/50 bg-blue-600/10 text-blue-400'
-                  : 'border-gray-300 dark:border-gray-700/50 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  : 'border-gray-700/50 bg-gray-800 text-gray-400 hover:text-white'
               }`}
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -589,7 +589,7 @@ function CircleDashboardContent() {
 
         {/* Filters Panel */}
         {filtersVisible && (
-          <div className="bg-white dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700/40 rounded-xl p-4 mb-6">
+          <div className="bg-gray-900/60 border border-gray-700/40 rounded-xl p-4 mb-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
               {/* Campus */}
               <div>
@@ -604,7 +604,7 @@ function CircleDashboardContent() {
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                           active
                             ? 'bg-emerald-500 text-white ring-2 ring-emerald-300/70 shadow-lg shadow-emerald-500/40 scale-105'
-                            : 'bg-gray-100 dark:bg-gray-800/60 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700/80 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-700/40'
+                            : 'bg-gray-800/60 text-gray-500 hover:bg-gray-700/80 hover:text-gray-200 border border-gray-700/40'
                         }`}
                       >
                         {c.value}
@@ -627,7 +627,7 @@ function CircleDashboardContent() {
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                           active
                             ? 'bg-emerald-500 text-white ring-2 ring-emerald-300/70 shadow-lg shadow-emerald-500/40 scale-105'
-                            : 'bg-gray-100 dark:bg-gray-800/60 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700/80 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-700/40'
+                            : 'bg-gray-800/60 text-gray-500 hover:bg-gray-700/80 hover:text-gray-200 border border-gray-700/40'
                         }`}
                       >
                         {t.value}
@@ -650,7 +650,7 @@ function CircleDashboardContent() {
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                           active
                             ? 'bg-emerald-500 text-white ring-2 ring-emerald-300/70 shadow-lg shadow-emerald-500/40 scale-105'
-                            : 'bg-gray-100 dark:bg-gray-800/60 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700/80 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-700/40'
+                            : 'bg-gray-800/60 text-gray-500 hover:bg-gray-700/80 hover:text-gray-200 border border-gray-700/40'
                         }`}
                       >
                         {d.slice(0, 3)}
@@ -673,7 +673,7 @@ function CircleDashboardContent() {
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                           active
                             ? 'bg-emerald-500 text-white ring-2 ring-emerald-300/70 shadow-lg shadow-emerald-500/40 scale-105'
-                            : 'bg-gray-100 dark:bg-gray-800/60 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700/80 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-700/40'
+                            : 'bg-gray-800/60 text-gray-500 hover:bg-gray-700/80 hover:text-gray-200 border border-gray-700/40'
                         }`}
                       >
                         {a.split(' ')[0]}
@@ -696,7 +696,7 @@ function CircleDashboardContent() {
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                           active
                             ? 'bg-emerald-500 text-white ring-2 ring-emerald-300/70 shadow-lg shadow-emerald-500/40 scale-105'
-                            : 'bg-gray-100 dark:bg-gray-800/60 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700/80 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-700/40'
+                            : 'bg-gray-800/60 text-gray-500 hover:bg-gray-700/80 hover:text-gray-200 border border-gray-700/40'
                         }`}
                       >
                         {t.label}
@@ -708,10 +708,10 @@ function CircleDashboardContent() {
             </div>
 
             {activeFilterCount > 0 && (
-              <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700/30 flex justify-end">
+              <div className="mt-4 pt-3 border-t border-gray-700/30 flex justify-end">
                 <button
                   onClick={clearFilters}
-                  className="px-3 py-1.5 rounded-md text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white bg-gray-100 dark:bg-gray-800/60 hover:bg-gray-200 dark:hover:bg-gray-700/80 border border-gray-300 dark:border-gray-700/50 transition-colors"
+                  className="px-3 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-white bg-gray-800/60 hover:bg-gray-700/80 border border-gray-700/50 transition-colors"
                 >
                   Clear all filters
                 </button>
@@ -725,13 +725,13 @@ function CircleDashboardContent() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="bg-white dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700/40 rounded-xl p-4 animate-pulse">
-                  <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded mb-3" />
-                  <div className="h-7 w-20 bg-gray-200 dark:bg-gray-700 rounded" />
+                <div key={i} className="bg-gray-900/60 border border-gray-700/40 rounded-xl p-4 animate-pulse">
+                  <div className="h-3 w-16 bg-gray-700 rounded mb-3" />
+                  <div className="h-7 w-20 bg-gray-700 rounded" />
                 </div>
               ))}
             </div>
-            <div className="bg-white dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700/40 rounded-xl p-4 animate-pulse h-64" />
+            <div className="bg-gray-900/60 border border-gray-700/40 rounded-xl p-4 animate-pulse h-64" />
           </div>
         )}
 
@@ -815,12 +815,12 @@ function CircleDashboardContent() {
 
             {/* Total Attendance Week-over-Week */}
             {data.weeklyTrend?.length > 0 && (
-              <div className="bg-white dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700/40 rounded-xl p-4">
+              <div className="bg-gray-900/60 border border-gray-700/40 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Total Attendance</h3>
+                    <h3 className="text-sm font-semibold text-white">Total Attendance</h3>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      Week over week &middot; <span className="text-gray-900 dark:text-white font-medium">{(data.summary.totalHeadcount ?? 0).toLocaleString()}</span> total
+                      Week over week &middot; <span className="text-white font-medium">{(data.summary.totalHeadcount ?? 0).toLocaleString()}</span> total
                     </p>
                   </div>
                 </div>
@@ -982,14 +982,14 @@ function CircleDashboardContent() {
 
             {/* Campus Breakdown Table */}
             {data.campusBreakdown?.length > 0 && (
-              <div className="bg-white dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700/40 rounded-xl overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700/30">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Campus Summary</h3>
+              <div className="bg-gray-900/60 border border-gray-700/40 rounded-xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-700/30">
+                  <h3 className="text-sm font-semibold text-white">Campus Summary</h3>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-gray-200 dark:border-gray-700/30">
+                      <tr className="border-b border-gray-700/30">
                         <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wider">Campus</th>
                         <th className="text-right px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wider">Active Circles</th>
                         <th className="text-right px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wider">Avg Attendance</th>
@@ -997,7 +997,7 @@ function CircleDashboardContent() {
                     </thead>
                     <tbody>
                       {data.campusBreakdown.map((c, i) => (
-                        <tr key={i} className="border-b border-gray-100 dark:border-gray-800/30 hover:bg-gray-50 dark:hover:bg-gray-50 dark:hover:bg-gray-800/20 transition-colors">
+                        <tr key={i} className="border-b border-gray-800/30 hover:bg-gray-800/20 transition-colors">
                           <td className="px-4 py-2.5 text-gray-200">{c.campus}</td>
                           <td className="px-4 py-2.5 text-right text-gray-300">{c.circleCount}</td>
                           <td className="px-4 py-2.5 text-right">
@@ -1013,7 +1013,7 @@ function CircleDashboardContent() {
 
             {/* Empty State */}
             {!data.weeklyTrend?.length && !data.campusBreakdown?.length && (
-              <div className="bg-white dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700/40 rounded-xl p-12 text-center">
+              <div className="bg-gray-900/60 border border-gray-700/40 rounded-xl p-12 text-center">
                 <svg className="w-12 h-12 text-gray-600 mx-auto mb-3" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
                 </svg>
@@ -1116,14 +1116,14 @@ function ChartCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700/40 rounded-xl p-4">
+    <div className="bg-gray-900/60 border border-gray-700/40 rounded-xl p-4">
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{title}</h3>
+          <h3 className="text-sm font-semibold text-white">{title}</h3>
           {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
         </div>
         {clickHint && (
-          <span className="text-[10px] text-gray-500 bg-gray-100 dark:bg-gray-800/60 px-2 py-0.5 rounded-full">Click to filter</span>
+          <span className="text-[10px] text-gray-500 bg-gray-800/60 px-2 py-0.5 rounded-full">Click to filter</span>
         )}
       </div>
       {children}
@@ -1143,18 +1143,18 @@ function RankingCard({
   const badgeColor = color === 'green' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400';
 
   return (
-    <div className="bg-white dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700/40 rounded-xl overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700/30">
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{title}</h3>
+    <div className="bg-gray-900/60 border border-gray-700/40 rounded-xl overflow-hidden">
+      <div className="px-4 py-3 border-b border-gray-700/30">
+        <h3 className="text-sm font-semibold text-white">{title}</h3>
       </div>
       <div className="divide-y divide-gray-800/30">
         {items.map((item, i) => (
           <Link
             key={item.id}
             href={`/circle/${item.id}`}
-            className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/20 transition-colors"
+            className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-800/20 transition-colors"
           >
-            <span className="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-xs text-gray-500 dark:text-gray-400 font-medium shrink-0">
+            <span className="w-6 h-6 rounded-full bg-gray-800 flex items-center justify-center text-xs text-gray-400 font-medium shrink-0">
               {i + 1}
             </span>
             <div className="flex-1 min-w-0">
@@ -1197,10 +1197,10 @@ function NeedsAttentionSection({
 
   return (
     <div className="bg-gray-900/60 border border-red-500/20 rounded-xl overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700/30 flex items-center justify-between">
+      <div className="px-4 py-3 border-b border-gray-700/30 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Needs Attention</h3>
+          <h3 className="text-sm font-semibold text-white">Needs Attention</h3>
           <span className="text-xs text-gray-500">({alerts.length} circle{alerts.length !== 1 ? 's' : ''})</span>
         </div>
         <div className="flex items-center gap-2">
@@ -1256,7 +1256,7 @@ function NeedsAttentionSection({
             <Link
               key={`${alert.id}-${alert.reason}`}
               href={`/circle/${alert.id}`}
-              className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/20 transition-colors"
+              className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-800/20 transition-colors"
             >
               <span className="shrink-0"><Icon className="h-4 w-4" /></span>
               <div className="flex-1 min-w-0">
@@ -1276,7 +1276,7 @@ function NeedsAttentionSection({
       {alerts.length > 5 && (
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="w-full px-4 py-2 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border-t border-gray-100 dark:border-gray-800/30 transition-colors"
+          className="w-full px-4 py-2 text-xs text-gray-400 hover:text-white border-t border-gray-800/30 transition-colors"
         >
           {expanded ? 'Show less' : `Show all ${alerts.length} alerts`}
         </button>

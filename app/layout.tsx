@@ -11,14 +11,12 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const themeScript = [
+  const darkThemeScript = [
     '(function() {',
-    '  var t = localStorage.getItem("theme");',
-    '  if (t === "light") {',
-    '    document.documentElement.classList.remove("dark");',
-    '  } else {',
-    '    document.documentElement.classList.add("dark");',
-    '  }',
+    '  var html = document.documentElement;',
+    '  html.classList.add("dark");',
+    '  localStorage.setItem("theme", "dark");',
+    '  localStorage.setItem("color-scheme", "dark");',
     '})();',
   ].join('\n');
 
@@ -67,9 +65,10 @@ export default function RootLayout({
   ].join('\n');
 
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
         <link rel="manifest" href="/manifest.json" />
+        <meta name="color-scheme" content="dark" />
 
         {/* FullCalendar */}
         <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.20/index.global.min.js" />
@@ -95,13 +94,13 @@ export default function RootLayout({
         <link rel="icon" type="image/png" sizes="16x16" href="/icon-16x16.png" />
         <link rel="shortcut icon" href="/icon-32x32.png" />
 
-        {/* Restore theme from localStorage before first paint to prevent flash */}
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {/* Force dark theme immediately */}
+        <script dangerouslySetInnerHTML={{ __html: darkThemeScript }} />
 
         {/* Service Worker + PWA Install */}
         <script dangerouslySetInnerHTML={{ __html: swScript }} />
       </head>
-      <body className="font-sans bg-white dark:bg-slate-900 min-h-screen text-gray-900 dark:text-gray-100">
+      <body className="font-sans dark bg-slate-900 min-h-screen text-gray-100">
         <ClientLayout>{children}</ClientLayout>
       </body>
     </html>

@@ -12,10 +12,10 @@ import ScorecardTrendChart from './ScorecardTrendChart';
 import { useScoreHistory } from '../../hooks/useScoreHistory';
 
 const DIMENSIONS = [
-  { key: 'reach' as const, label: 'Reach', color: '#3b82f6', bgClass: 'bg-blue-500/10 border-blue-500/30', textClass: 'text-blue-600 dark:text-blue-400' },
-  { key: 'connect' as const, label: 'Connect', color: '#22c55e', bgClass: 'bg-green-500/10 border-green-500/30', textClass: 'text-green-600 dark:text-green-400' },
-  { key: 'disciple' as const, label: 'Disciple', color: '#a855f7', bgClass: 'bg-purple-500/10 border-purple-500/30', textClass: 'text-purple-600 dark:text-purple-400' },
-  { key: 'develop' as const, label: 'Develop', color: '#f97316', bgClass: 'bg-orange-500/10 border-orange-500/30', textClass: 'text-orange-600 dark:text-orange-400' },
+  { key: 'reach' as const, label: 'Reach', color: '#3b82f6', bgClass: 'bg-blue-500/10 border-blue-500/30', textClass: 'text-blue-400' },
+  { key: 'connect' as const, label: 'Connect', color: '#22c55e', bgClass: 'bg-green-500/10 border-green-500/30', textClass: 'text-green-400' },
+  { key: 'disciple' as const, label: 'Disciple', color: '#a855f7', bgClass: 'bg-purple-500/10 border-purple-500/30', textClass: 'text-purple-400' },
+  { key: 'develop' as const, label: 'Develop', color: '#f97316', bgClass: 'bg-orange-500/10 border-orange-500/30', textClass: 'text-orange-400' },
 ];
 
 interface ScorecardSectionProps {
@@ -218,10 +218,10 @@ export default function ScorecardSection({ leaderId, isAdmin, initialDimension, 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <div className="animate-pulse flex space-x-4">
           <div className="flex-1 space-y-4">
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
+            <div className="h-4 bg-gray-700 rounded w-1/3"></div>
             <div className="grid grid-cols-2 gap-4">
               {[1, 2, 3, 4].map(i => (
-                <div key={i} className="h-24 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                <div key={i} className="h-24 bg-gray-700 rounded"></div>
               ))}
             </div>
           </div>
@@ -485,8 +485,8 @@ export default function ScorecardSection({ leaderId, isAdmin, initialDimension, 
 
         {/* Rating Form */}
         {isRating && (
-          <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">{editingId ? 'Edit Rating' : 'New Rating'}</h3>
+          <div className="mt-6 p-4 bg-gray-900/50 rounded-xl border border-gray-700">
+            <h3 className="text-sm font-semibold text-white mb-4">{editingId ? 'Edit Rating' : 'New Rating'}</h3>
             <div className="space-y-4">
               {DIMENSIONS.map(dim => (
                 <div key={dim.key} className="flex items-center justify-between">
@@ -505,7 +505,7 @@ export default function ScorecardSection({ leaderId, isAdmin, initialDimension, 
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="Add context for this rating..."
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-blue-500 focus:outline-none resize-none"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none resize-none"
                   rows={2}
                 />
               </div>
@@ -533,7 +533,7 @@ export default function ScorecardSection({ leaderId, isAdmin, initialDimension, 
           <div className="mt-4">
             <button
               onClick={() => setShowHistory(!showHistory)}
-              className="flex items-center text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              className="flex items-center text-sm text-gray-400 hover:text-white transition-colors"
             >
               <svg
                 className={`w-4 h-4 mr-1 transition-transform ${showHistory ? 'rotate-90' : ''}`}
@@ -551,13 +551,13 @@ export default function ScorecardSection({ leaderId, isAdmin, initialDimension, 
                 {ratings.map(rating => {
                   const avg = ((rating.reach_score + rating.connect_score + rating.disciple_score + rating.develop_score) / 4);
                   return (
-                    <div key={rating.id} className={`p-3 bg-gray-50 dark:bg-gray-900/40 rounded-lg border ${editingId === rating.id ? 'border-blue-500/50' : 'border-gray-200 dark:border-gray-700/50'}`}>
+                    <div key={rating.id} className={`p-3 bg-gray-900/40 rounded-lg border ${editingId === rating.id ? 'border-blue-500/50' : 'border-gray-700/50'}`}>
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs text-gray-400">
                           {new Date(rating.scored_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                         </span>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-medium text-gray-900 dark:text-white">{avg.toFixed(1)} avg</span>
+                          <span className="text-sm font-medium text-white">{avg.toFixed(1)} avg</span>
                           {isAdmin && (
                             <div className="flex items-center gap-1 ml-1">
                               <button

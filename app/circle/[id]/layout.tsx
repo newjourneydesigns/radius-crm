@@ -44,13 +44,13 @@ export default function CircleLeaderLayout({
   const tabClass = (active: boolean) =>
     `flex-1 text-center whitespace-nowrap py-3 text-sm font-medium transition-colors border-b-2 ${
       active
-        ? 'border-blue-500 text-gray-900 dark:text-white'
-        : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-300 dark:hover:border-gray-600'
+        ? 'border-blue-500 text-white'
+        : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'
     }`;
 
   return (
     <>
-      <div className="sticky top-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700/60">
+      <div className="sticky top-0 z-40 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700/60">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <nav className="flex" aria-label="Section navigation">
             {filteredTabs.map(tab => {
