@@ -315,47 +315,47 @@ export default function GlobalSearch() {
             alignItems: 'flex-start',
             justifyContent: 'center',
             padding: '1rem',
-            paddingTop: 'min(18vh, 140px)',
-            background: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(12px) saturate(150%)',
-            WebkitBackdropFilter: 'blur(12px) saturate(150%)',
-            animation: 'searchOverlayIn 0.2s ease-out',
+            paddingTop: 'min(16vh, 120px)',
+            background: 'rgba(0, 0, 0, 0.8)',
+            backdropFilter: 'blur(16px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+            animation: 'searchOverlayIn 0.18s ease-out',
           }}
         >
           <div
             ref={searchRef}
             style={{
               width: '100%',
-              maxWidth: '560px',
-              borderRadius: '16px',
+              maxWidth: '620px',
+              borderRadius: '18px',
               overflow: 'hidden',
-              background: '#13151c',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              boxShadow: '0 0 0 1px rgba(0,0,0,0.3), 0 25px 60px -12px rgba(0, 0, 0, 0.6), 0 0 40px rgba(255, 255, 255, 0.02)',
-              animation: 'searchModalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+              background: 'linear-gradient(180deg, #16191f 0%, #111318 100%)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              boxShadow: '0 0 0 1px rgba(0,0,0,0.5), 0 32px 80px -12px rgba(0, 0, 0, 0.8), 0 0 60px rgba(99, 102, 241, 0.06)',
+              animation: 'searchModalIn 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
             {/* Search Input Area */}
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '12px',
-              padding: '16px 20px',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+              gap: '14px',
+              padding: '20px 22px',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.07)',
             }}>
               {/* Search Icon */}
               <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
                 {isLoading ? (
                   <div style={{
-                    width: '20px',
-                    height: '20px',
-                    border: '2px solid rgba(255, 255, 255, 0.12)',
-                    borderTopColor: 'rgba(255, 255, 255, 0.6)',
+                    width: '22px',
+                    height: '22px',
+                    border: '2px solid rgba(255, 255, 255, 0.1)',
+                    borderTopColor: 'rgba(99, 102, 241, 0.8)',
                     borderRadius: '50%',
                     animation: 'spin 0.6s linear infinite',
                   }} />
                 ) : (
-                  <svg style={{ width: 20, height: 20, color: 'rgba(255, 255, 255, 0.35)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg style={{ width: 22, height: 22, color: 'rgba(255, 255, 255, 0.3)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                   </svg>
                 )}
@@ -371,40 +371,57 @@ export default function GlobalSearch() {
                 autoFocus
                 style={{
                   flex: 1,
-                  background: 'transparent !important',
-                  border: 'none !important',
+                  background: 'transparent',
+                  border: 'none',
                   outline: 'none',
-                  fontSize: '16px',
+                  fontSize: '18px',
                   fontWeight: 400,
                   color: '#eef4ed',
                   letterSpacing: '0.01em',
-                  caretColor: 'rgba(255, 255, 255, 0.6)',
+                  caretColor: 'rgba(99, 102, 241, 0.9)',
+                  lineHeight: 1.4,
                 }}
               />
 
-              {/* Clear query button */}
-              {query && (
+              {/* Clear query button or ESC hint */}
+              {query ? (
                 <button
                   onClick={() => setQuery('')}
                   style={{
                     flexShrink: 0,
-                    width: '20px',
-                    height: '20px',
-                    borderRadius: '50%',
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '6px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: 'rgba(255, 255, 255, 0.08) !important',
-                    border: 'none !important',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    border: '1px solid rgba(255, 255, 255, 0.07)',
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                     padding: 0,
                   }}
                 >
-                  <svg style={{ width: 12, height: 12, color: 'rgba(255, 255, 255, 0.45)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg style={{ width: 12, height: 12, color: 'rgba(255, 255, 255, 0.5)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
+              ) : (
+                <kbd style={{
+                  flexShrink: 0,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  color: 'rgba(255, 255, 255, 0.3)',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.07)',
+                  fontFamily: 'system-ui, -apple-system, sans-serif',
+                  letterSpacing: '0.02em',
+                }}>
+                  esc
+                </kbd>
               )}
             </div>
 
@@ -599,58 +616,72 @@ export default function GlobalSearch() {
                   })()}
                 </div>
               ) : query.length >= 2 && !isLoading ? (
-                <div style={{
-                  padding: '40px 20px',
-                  textAlign: 'center',
-                }}>
+                <div style={{ padding: '48px 24px', textAlign: 'center' }}>
                   <div style={{
-                    width: '48px',
-                    height: '48px',
-                    margin: '0 auto 14px',
-                    borderRadius: '12px',
+                    width: '52px',
+                    height: '52px',
+                    margin: '0 auto 16px',
+                    borderRadius: '14px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    border: '1px solid rgba(255, 255, 255, 0.07)',
                   }}>
-                    <svg style={{ width: 22, height: 22, color: 'rgba(255, 255, 255, 0.25)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    <svg style={{ width: 24, height: 24, color: 'rgba(255, 255, 255, 0.2)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <p style={{ fontSize: '14px', fontWeight: 500, color: 'rgba(238, 244, 237, 0.6)', marginBottom: '4px' }}>
-                    No results found
+                  <p style={{ fontSize: '15px', fontWeight: 500, color: 'rgba(238, 244, 237, 0.55)', marginBottom: '6px' }}>
+                    No results for &ldquo;{query}&rdquo;
                   </p>
-                  <p style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.28)' }}>
-                    Nothing matching &ldquo;{query}&rdquo;
+                  <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.22)' }}>
+                    Try a different name, campus, or board title
                   </p>
                 </div>
               ) : (
-                <div style={{
-                  padding: '40px 20px',
-                  textAlign: 'center',
-                }}>
-                  <div style={{
-                    width: '48px',
-                    height: '48px',
-                    margin: '0 auto 14px',
-                    borderRadius: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.05)',
-                  }}>
-                    <svg style={{ width: 22, height: 22, color: 'rgba(255, 255, 255, 0.25)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                    </svg>
+                <div style={{ padding: '48px 24px', textAlign: 'center' }}>
+                  {/* Stacked icons for visual interest */}
+                  <div style={{ position: 'relative', width: '56px', height: '56px', margin: '0 auto 20px' }}>
+                    <div style={{
+                      position: 'absolute',
+                      inset: 0,
+                      borderRadius: '16px',
+                      background: 'rgba(99, 102, 241, 0.08)',
+                      border: '1px solid rgba(99, 102, 241, 0.15)',
+                    }} />
+                    <div style={{
+                      position: 'absolute',
+                      inset: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      <svg style={{ width: 24, height: 24, color: 'rgba(99, 102, 241, 0.5)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
                   </div>
-                  <p style={{ fontSize: '14px', fontWeight: 500, color: 'rgba(238, 244, 237, 0.6)', marginBottom: '4px' }}>
-                    Search leaders, boards & cards
+                  <p style={{ fontSize: '15px', fontWeight: 500, color: 'rgba(238, 244, 237, 0.5)', marginBottom: '6px' }}>
+                    Search anything
                   </p>
-                  <p style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.28)' }}>
-                    Type to find circle leaders, boards, or cards
+                  <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.22)', lineHeight: 1.6 }}>
+                    Circle leaders, boards, and cards
                   </p>
+                  {/* Quick hints row */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '20px' }}>
+                    {['Leaders', 'Boards', 'Cards'].map((label) => (
+                      <span key={label} style={{
+                        fontSize: '11px',
+                        color: 'rgba(255, 255, 255, 0.22)',
+                        background: 'rgba(255, 255, 255, 0.04)',
+                        border: '1px solid rgba(255, 255, 255, 0.07)',
+                        borderRadius: '6px',
+                        padding: '3px 8px',
+                        letterSpacing: '0.02em',
+                      }}>{label}</span>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -660,70 +691,50 @@ export default function GlobalSearch() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '10px 20px',
-              borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-              background: 'rgba(0, 0, 0, 0.2)',
+              padding: '10px 18px',
+              borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+              background: 'rgba(0, 0, 0, 0.25)',
             }}>
               <div className="hidden sm:flex" style={{
                 alignItems: 'center',
-                gap: '12px',
+                gap: '14px',
                 fontSize: '11px',
-                color: 'rgba(255, 255, 255, 0.25)',
+                color: 'rgba(255, 255, 255, 0.22)',
               }}>
-                {/* Navigate hint */}
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                   <kbd style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '18px',
-                    height: '18px',
-                    borderRadius: '4px',
-                    background: 'rgba(255, 255, 255, 0.06)',
-                    border: '1px solid rgba(255, 255, 255, 0.06)',
-                    fontSize: '10px',
-                    lineHeight: 1,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: '20px', height: '20px', borderRadius: '5px',
+                    background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.08)',
+                    fontSize: '11px', lineHeight: 1,
                   }}>↑</kbd>
                   <kbd style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '18px',
-                    height: '18px',
-                    borderRadius: '4px',
-                    background: 'rgba(255, 255, 255, 0.06)',
-                    border: '1px solid rgba(255, 255, 255, 0.06)',
-                    fontSize: '10px',
-                    lineHeight: 1,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: '20px', height: '20px', borderRadius: '5px',
+                    background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.08)',
+                    fontSize: '11px', lineHeight: 1,
                   }}>↓</kbd>
-                  <span style={{ marginLeft: '2px' }}>navigate</span>
+                  <span>navigate</span>
                 </span>
-                {/* Enter hint */}
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                   <kbd style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minWidth: '18px',
-                    height: '18px',
-                    padding: '0 5px',
-                    borderRadius: '4px',
-                    background: 'rgba(255, 255, 255, 0.06)',
-                    border: '1px solid rgba(255, 255, 255, 0.06)',
-                    fontSize: '10px',
-                    lineHeight: 1,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    minWidth: '20px', height: '20px', padding: '0 5px', borderRadius: '5px',
+                    background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.08)',
+                    fontSize: '11px', lineHeight: 1,
                   }}>↵</kbd>
                   <span>open</span>
                 </span>
               </div>
-              {/* Powered by label */}
               <div style={{
                 fontSize: '10px',
-                color: 'rgba(255, 255, 255, 0.15)',
-                letterSpacing: '0.04em',
+                fontWeight: 600,
+                color: 'rgba(255, 255, 255, 0.12)',
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
                 marginLeft: 'auto',
               }}>
-                RADIUS
+                Radius
               </div>
             </div>
           </div>
