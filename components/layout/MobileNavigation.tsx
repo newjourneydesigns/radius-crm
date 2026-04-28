@@ -351,7 +351,9 @@ export default function MobileNavigation() {
           className={`mobile-tab-more-trigger${sheetOpen ? ' open' : ''}`}
           onClick={() => setSheetOpen(v => !v)}
           aria-label="More"
+          aria-expanded={sheetOpen}
         >
+          <span className="mobile-tab-more-label">More</span>
           <div className="mobile-tab-more-handle-bar" />
         </button>
       </nav>
