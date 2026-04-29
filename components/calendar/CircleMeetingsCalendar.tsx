@@ -886,7 +886,7 @@ export default function CircleMeetingsCalendar({
       if (state === 'received') {
         totalReceived++;
         if (att?.hasOccurrence) receivedWithOccurrence++;
-        if (att?.headcount == null) continue;
+        if (att?.headcount == null || !scheduledLeaderIds.has(leader.id)) continue;
         totalAttended += att.headcount;
         if (att.rosterCount && att.rosterCount > 0) {
           rosterPctSum += Math.round((att.headcount / att.rosterCount) * 100);
@@ -918,7 +918,7 @@ export default function CircleMeetingsCalendar({
       unreportedLeaders,
       attendanceTrend,
     };
-  }, [attendanceData, prevAttendanceData, leaders, getEffectiveLeaderState]);
+  }, [attendanceData, prevAttendanceData, leaders, getEffectiveLeaderState, scheduledLeaderIds]);
 
   /** Updates a single leader's state in the archived snapshot for the currently-viewed past week. */
   const updateSnapshotEntry = useCallback(async (leaderId: number, state: EventSummaryState) => {
