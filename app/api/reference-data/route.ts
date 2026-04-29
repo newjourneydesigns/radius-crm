@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { ensureDefaultFrequencies } from '../../../lib/frequencyUtils';
 
+export const dynamic = 'force-dynamic';
+
 const dedupeByKey = <T,>(items: T[], keyFn: (item: T) => string): T[] => {
   const map = new Map<string, T>();
   for (const item of items) {
@@ -61,7 +63,7 @@ export async function GET() {
     );
 
     const [directorsRes, campusesRes, statusesRes, circleTypesRes, frequenciesRes, actualDataRes] = await Promise.all([
-      supabase.from('acpd_list').select('id, name').order('name'),
+      supabase.from('acpd_list').select('id, name').eq('active', true).order('name'),
       supabase.from('campuses').select('id, value').order('value'),
       supabase.from('statuses').select('id, value').order('value'),
       supabase.from('circle_types').select('id, value').order('value'),
@@ -171,7 +173,9 @@ export async function GET() {
       });
     }
 
-    return NextResponse.json(referenceData);
+    return NextResponse.json(referenceData, {
+      headers: { 'Cache-Control': 'no-store' }
+    });
   } catch (error) {
     console.error('Error loading reference data:', error);
     return NextResponse.json({ 

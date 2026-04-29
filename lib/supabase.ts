@@ -52,7 +52,7 @@ export const loadReferenceData = async () => {
   
   try {
     const [directorsRes, campusesRes, statusesRes, circleTypesRes, frequenciesRes] = await Promise.all([
-      serviceSupabase.from('acpd_list').select('id, name').order('name'),
+      serviceSupabase.from('acpd_list').select('id, name').eq('active', true).order('name'),
       serviceSupabase.from('campuses').select('id, value').order('value'),
       serviceSupabase.from('statuses').select('id, value').order('value'),
       serviceSupabase.from('circle_types').select('id, value').order('value'),
