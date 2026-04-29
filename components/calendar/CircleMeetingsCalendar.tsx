@@ -1558,15 +1558,6 @@ export default function CircleMeetingsCalendar({
                 {weeklyAttendanceStats ? (
                   <div className="flex items-center justify-center gap-6 sm:gap-8 w-full sm:w-auto">
                     <div className="text-center">
-                      <p className="text-xs text-slate-500 uppercase tracking-wide">Circles</p>
-                      <p className="text-xl font-bold text-slate-200 leading-tight">
-                        {weeklyAttendanceStats.receivedWithOccurrence}
-                        {weeklyAttendanceStats.receivedWithOccurrence < weeklyAttendanceStats.totalReceived && (
-                          <span className="text-slate-500 font-normal text-sm"> of {weeklyAttendanceStats.totalReceived}</span>
-                        )}
-                      </p>
-                    </div>
-                    <div className="text-center">
                       <p className="text-xs text-slate-500 uppercase tracking-wide">Attended</p>
                       <p className="text-xl font-bold text-slate-200 leading-tight">{weeklyAttendanceStats.totalAttended}</p>
                     </div>
