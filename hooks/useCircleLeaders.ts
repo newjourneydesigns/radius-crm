@@ -109,7 +109,7 @@ export const useCircleLeaders = () => {
 
     try {
       const baseSelect = (includeSkipped: boolean) => (
-        'id, name, email, phone, campus, acpd, status, day, time, frequency, meeting_start_date, circle_type, ' +
+        'id, name, circle_name, ccb_group_name, email, phone, campus, acpd, status, day, time, frequency, meeting_start_date, circle_type, ' +
         'event_summary_state, event_summary_state_week, event_summary_received' +
         (includeSkipped ? ', event_summary_skipped' : '') +
         ', follow_up_required, follow_up_date, ccb_profile_link'

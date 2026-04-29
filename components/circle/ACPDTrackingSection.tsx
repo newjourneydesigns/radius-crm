@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Handshake, Mail, MessageSquare, NotebookPen, Phone, SquarePen } from 'lucide-react';
 import { useACPDTracking } from '../../hooks/useACPDTracking';
 import { useAuth } from '../../contexts/AuthContext';
 import { ScorecardDimension, EncourageMethod } from '../../lib/supabase';
+import SmartNoteSuggestionsModal from '../notes/SmartNoteSuggestionsModal';
+import { detectNoteInsights, type NoteInsight } from '../../lib/noteKeywordDetector';
 
 const DIMENSIONS: { key: ScorecardDimension; label: string; color: string; bg: string; border: string; dot: string }[] = [
   { key: 'reach', label: 'Reach', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/30', dot: 'bg-blue-400' },
@@ -51,6 +53,12 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
   const [confirmDelete, setConfirmDelete] = useState<{ type: string; id: number } | null>(null);
   const [editingPrayerId, setEditingPrayerId] = useState<number | null>(null);
   const [editPrayerText, setEditPrayerText] = useState('');
+  const [smartSuggestions, setSmartSuggestions] = useState<{
+    isOpen: boolean;
+    insights: NoteInsight[];
+    matchedPhrases: Partial<Record<NoteInsight, string>>;
+  }>({ isOpen: false, insights: [], matchedPhrases: {} });
+  const suppressedInsights = useRef<Set<NoteInsight>>(new Set());
 
   useEffect(() => {
     loadAll(leaderId);
@@ -71,8 +79,14 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
 
   const handleAddCoachNote = async () => {
     if (!newCoachContent.trim()) return;
-    await addCoachingNote(leaderId, newCoachDimension, newCoachContent.trim());
+    const savedContent = newCoachContent.trim();
+    await addCoachingNote(leaderId, newCoachDimension, savedContent);
     setNewCoachContent('');
+    const { insights, matchedPhrases } = detectNoteInsights(savedContent);
+    const filtered = insights.filter(i => !suppressedInsights.current.has(i));
+    if (filtered.length > 0) {
+      setSmartSuggestions({ isOpen: true, insights: filtered, matchedPhrases });
+    }
   };
 
   const handleTogglePrayerAnswered = async (prayerId: number) => {
@@ -875,6 +889,18 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
             )}
           </div>
       </div>
+
+      <SmartNoteSuggestionsModal
+        isOpen={smartSuggestions.isOpen}
+        onClose={(suppressed) => {
+          suppressed.forEach(i => suppressedInsights.current.add(i));
+          setSmartSuggestions({ isOpen: false, insights: [], matchedPhrases: {} });
+        }}
+        insights={smartSuggestions.insights}
+        matchedPhrases={smartSuggestions.matchedPhrases}
+        leaderId={leaderId}
+        leaderName={leaderName}
+      />
     </div>
   );
 }

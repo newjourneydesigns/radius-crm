@@ -2,8 +2,14 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@supabase/supabase-js';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import Link from 'next/link';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 interface CCBGroup {
   id: string;
@@ -72,7 +78,16 @@ export default function ImportCirclesPage() {
   const [searchError, setSearchError] = useState('');
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [linkingGroupIds, setLinkingGroupIds] = useState<Set<string>>(new Set());
+  const [linkedGroupIds, setLinkedGroupIds] = useState<Set<string>>(new Set());
   const router = useRouter();
+
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setAccessToken(data.session?.access_token || null);
+    });
+  }, []);
 
   // Mass Update state
   const [massUpdateField, setMassUpdateField] = useState<'campus' | 'acpd' | 'frequency' | 'circle_type' | 'day' | 'time' | 'meeting_start_date'>('campus');
@@ -91,12 +106,14 @@ export default function ImportCirclesPage() {
   const [editingValues, setEditingValues] = useState<RowEditValues>({ frequency: '', day: '', time: '', meeting_start_date: '' });
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
+  const isValidHHmm = (t: string) => /^\d{2}:\d{2}(:\d{2})?$/.test(t);
+
   const startEditRow = (leader: MassUpdateLeader) => {
     setEditingLeaderId(leader.id);
     setEditingValues({
       frequency: leader.frequency || '',
       day: leader.day || '',
-      time: leader.time || '',
+      time: leader.time && isValidHHmm(leader.time) ? leader.time : '',
       meeting_start_date: leader.meeting_start_date || '',
     });
   };
@@ -109,9 +126,11 @@ export default function ImportCirclesPage() {
     if (editingLeaderId === null) return;
     setIsSavingEdit(true);
     try {
+      const patchHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (accessToken) patchHeaders['Authorization'] = `Bearer ${accessToken}`;
       const res = await fetch(`/api/circle-leaders/${editingLeaderId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: patchHeaders,
         body: JSON.stringify(editingValues),
       });
       const data = await res.json();
@@ -321,7 +340,9 @@ export default function ImportCirclesPage() {
     setSelected(new Set());
 
     try {
-      const res = await fetch(`/api/ccb/import-circles?q=${encodeURIComponent(q)}`);
+      const headers: Record<string, string> = {};
+      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+      const res = await fetch(`/api/ccb/import-circles?q=${encodeURIComponent(q)}`, { headers });
       const json = await res.json();
 
       if (!res.ok) {
@@ -336,7 +357,7 @@ export default function ImportCirclesPage() {
     } finally {
       setIsSearching(false);
     }
-  }, [searchTerm]);
+  }, [searchTerm, accessToken]);
 
   // ---- Selection helpers ----
   const toggleSelect = (id: string) => {
@@ -348,7 +369,7 @@ export default function ImportCirclesPage() {
     });
   };
 
-  const selectableGroups = groups.filter((g) => !g.alreadyImported);
+  const selectableGroups = groups.filter((g) => !g.alreadyImported && !g.possibleMatch);
   const selectAll = () => {
     setSelected(new Set(selectableGroups.map((g) => g.id)));
   };
@@ -365,9 +386,11 @@ export default function ImportCirclesPage() {
     const toImport = groups.filter((g) => selected.has(g.id));
 
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
       const res = await fetch('/api/ccb/import-circles', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ groups: toImport }),
       });
       const json = await res.json();
@@ -389,7 +412,40 @@ export default function ImportCirclesPage() {
     } finally {
       setIsImporting(false);
     }
-  }, [selected, groups, handleSearch]);
+  }, [selected, groups, handleSearch, accessToken]);
+
+  // ---- Link existing leader to CCB group ----
+  const handleLink = useCallback(async (group: CCBGroup) => {
+    if (!group.possibleMatch) return;
+    const leaderId = group.possibleMatch.id;
+
+    setLinkingGroupIds(prev => new Set(prev).add(group.id));
+    setSearchError('');
+
+    const ccbProfileLink = group.ccbLink || null;
+
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+
+    try {
+      const res = await fetch(`/api/circle-leaders/${leaderId}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ ccb_group_id: group.id, ccb_profile_link: ccbProfileLink }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+
+      setLinkedGroupIds(prev => new Set(prev).add(group.id));
+      setGroups(prev => prev.map(g =>
+        g.id === group.id ? { ...g, alreadyImported: true, possibleMatch: null } : g
+      ));
+    } catch (err: any) {
+      setSearchError(`Failed to link ${group.possibleMatch.name}: ${err.message}`);
+    } finally {
+      setLinkingGroupIds(prev => { const next = new Set(prev); next.delete(group.id); return next; });
+    }
+  }, [accessToken]);
 
   // ---- Key handler for search box ----
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -1000,6 +1056,9 @@ export default function ImportCirclesPage() {
                   {groups.map((g) => {
                     const isImported = g.alreadyImported;
                     const isSelected = selected.has(g.id);
+                    const hasPossibleMatch = !isImported && !!g.possibleMatch;
+                    const isLinking = linkingGroupIds.has(g.id);
+                    const isLinked = linkedGroupIds.has(g.id);
 
                     return (
                       <li
@@ -1007,20 +1066,47 @@ export default function ImportCirclesPage() {
                         className={`px-6 py-4 flex items-start gap-4 transition-colors ${
                           isImported
                             ? 'opacity-50 bg-gray-50 dark:bg-gray-800/50'
-                            : isSelected
-                              ? 'bg-blue-50 dark:bg-blue-900/20'
-                              : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                            : hasPossibleMatch
+                              ? 'bg-yellow-50/40 dark:bg-yellow-900/10'
+                              : isSelected
+                                ? 'bg-blue-50 dark:bg-blue-900/20'
+                                : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'
                         }`}
                       >
-                        {/* Checkbox */}
-                        <div className="pt-1">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            disabled={isImported}
-                            onChange={() => toggleSelect(g.id)}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-40"
-                          />
+                        {/* Checkbox or Link button */}
+                        <div className="pt-0.5 shrink-0">
+                          {hasPossibleMatch ? (
+                            <button
+                              onClick={() => handleLink(g)}
+                              disabled={isLinking}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-amber-500 hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors whitespace-nowrap"
+                            >
+                              {isLinking ? (
+                                <>
+                                  <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                  </svg>
+                                  Linking…
+                                </>
+                              ) : (
+                                <>
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                  </svg>
+                                  Link
+                                </>
+                              )}
+                            </button>
+                          ) : (
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              disabled={isImported}
+                              onChange={() => toggleSelect(g.id)}
+                              className="h-4 w-4 mt-1 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-40"
+                            />
+                          )}
                         </div>
 
                         {/* Details */}
@@ -1047,13 +1133,16 @@ export default function ImportCirclesPage() {
 
                             {isImported && (
                               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300">
-                                Already Imported
+                                {isLinked ? '✓ Linked' : 'Already Imported'}
                               </span>
                             )}
 
-                            {!isImported && g.possibleMatch && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300">
-                                Possible match: {g.possibleMatch.name}
+                            {hasPossibleMatch && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300">
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                </svg>
+                                Links to: {g.possibleMatch!.name}
                               </span>
                             )}
                           </div>

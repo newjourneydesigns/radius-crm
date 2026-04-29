@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     // Load the leader
     const { data: leader, error: leaderError } = await supabase
       .from('circle_leaders')
-      .select('id, name, ccb_group_id, day, frequency, meeting_start_date')
+      .select('id, name, circle_name, ccb_group_name, ccb_group_id, day, frequency, meeting_start_date')
       .eq('id', leaderId)
       .single();
 
@@ -71,17 +71,20 @@ export async function POST(request: NextRequest) {
     const startDate = threeWeeksAgo.toISOString().split('T')[0];
     const endDate = today.toISOString().split('T')[0];
 
-    console.log(`🔄 Sync leader attendance: ${leader.name} (${leaderId}), range=${startDate} → ${endDate}`);
+    // Match priority: ccb_group_name (explicit override) → circle_name → leader.name
+    const ccbSearchName = leader.ccb_group_name || leader.circle_name || leader.name;
 
-    // Fetch events from CCB using the leader's name
+    console.log(`🔄 Sync leader attendance: ${leader.name} (${leaderId}), CCB name="${ccbSearchName}", range=${startDate} → ${endDate}`);
+
+    // Fetch events from CCB using the circle name so CCB group names match correctly
     const events = await ccbClient.searchEventsByDateAndName(
-      leader.name,
+      ccbSearchName,
       startDate,
       endDate,
       { includeAttendees: true }
     );
 
-    console.log(`📦 Found ${events.length} CCB events for ${leader.name}`);
+    console.log(`📦 Found ${events.length} CCB events for ${ccbSearchName}`);
 
     const results = {
       synced: 0,

@@ -821,7 +821,7 @@ export class CCBClient {
    * Single API call regardless of how many leaders are checked.
    */
   async checkReportsForLeaders(
-    leaders: Array<{ id: number; name: string; ccb_group_name?: string | null }>,
+    leaders: Array<{ id: number; name: string; ccb_group_name?: string | null; ccb_group_id?: string | null }>,
     startDate: string,
     endDate: string
   ): Promise<Map<number, { hasReport: boolean; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number }>> {
@@ -842,34 +842,47 @@ export class CCBClient {
       ? eventsRoot.event
       : eventsRoot?.event ? [eventsRoot.event] : [];
 
-    // Build lookup: lowercased title+group → report data
-    const eventData: Array<{ title: string; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number }> = rawEvents.map((e: any) => {
+    type EventEntry = { groupId: string; title: string; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number };
+
+    const eventData: EventEntry[] = rawEvents.map((e: any) => {
+      const groupId = String(e?.group?.['@_id'] ?? e?.group?.id ?? e?.group_id ?? '').trim();
       const title = `${String(e?.name || e?.event_name || '')} ${String(e?.group?.name || '')}`.toLowerCase();
-      const dnmRaw = String(e?.did_not_meet ?? '').trim().toLowerCase();
-      const didNotMeet = dnmRaw === 'true' || dnmRaw === '1';
-      const headCountNum = Number(e?.head_count);
-      // Fall back to counting attendees if head_count is 0 or missing
-      const attRoot = e?.attendees ?? e?.attendee ?? null;
-      const attList: any[] = Array.isArray(attRoot?.attendee) ? attRoot.attendee
-        : attRoot?.attendee ? [attRoot.attendee]
-        : Array.isArray(attRoot) ? attRoot
-        : [];
-      const headcount = (Number.isFinite(headCountNum) && headCountNum > 0)
-        ? headCountNum
-        : (attList.length > 0 ? attList.length : null);
       const occRaw = String(e?.['@_occurrence'] ?? e?.occurrence ?? '').trim();
       const occurrenceDate = occRaw ? (DateTime.fromISO(occRaw).toISODate() ?? null) : null;
-      const hasNotes = [e?.topic, e?.notes, e?.prayer_requests, e?.info].some(f => String(f ?? '').trim().length > 0);
+
+      // Use normalizeAttendance — same path as the Event Explorer — to reliably
+      // parse head_count AND individual attendees from the bulk XML response.
+      const attendance = this.normalizeAttendance(
+        { ccb_api: { response: { attendance: e } } },
+        true
+      );
+      const headCountFromForm = attendance?.headCount ?? 0;
+      const headCountFromAttendees = attendance?.attendees?.length ?? 0;
+      const headcount = (headCountFromForm + headCountFromAttendees) || null;
+      const didNotMeet = attendance?.didNotMeet ?? false;
+      const hasNotes = !!(attendance?.topic || attendance?.notes || attendance?.prayerRequests);
       const guestCountNum = Number(e?.guest_count ?? e?.guest_cnt ?? 0);
       const guestCount = Number.isFinite(guestCountNum) && guestCountNum > 0 ? guestCountNum : 0;
-      return { title, didNotMeet, headcount, occurrenceDate, hasNotes, guestCount };
+      return { groupId, title, didNotMeet, headcount, occurrenceDate, hasNotes, guestCount };
     });
+
+    // Index by CCB group ID for O(1) exact lookup
+    const byGroupId = new Map<string, EventEntry>();
+    for (const ev of eventData) {
+      if (ev.groupId && !byGroupId.has(ev.groupId)) byGroupId.set(ev.groupId, ev);
+    }
 
     const result = new Map<number, { hasReport: boolean; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number }>();
     for (const leader of leaders) {
-      // Prefer ccb_group_name (exact override) over leader.name for disambiguation
-      const matchKey = (leader.ccb_group_name?.trim() || leader.name.trim()).toLowerCase();
-      const match = eventData.find(e => e.title.includes(matchKey));
+      // Match priority: ccb_group_id (exact) → ccb_group_name / leader.name (substring)
+      let match: EventEntry | undefined;
+      if (leader.ccb_group_id) {
+        match = byGroupId.get(String(leader.ccb_group_id));
+      }
+      if (!match) {
+        const matchKey = (leader.ccb_group_name?.trim() || leader.name.trim()).toLowerCase();
+        match = eventData.find(e => e.title.includes(matchKey));
+      }
       result.set(leader.id, {
         hasReport: !!match,
         didNotMeet: match?.didNotMeet ?? false,

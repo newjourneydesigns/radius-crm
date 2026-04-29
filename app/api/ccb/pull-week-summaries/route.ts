@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     // Fetch leader names for the provided IDs
     const { data: leaders, error: leaderError } = await supabase
       .from('circle_leaders')
-      .select('id, name')
+      .select('id, name, circle_name, ccb_group_name, ccb_group_id')
       .in('id', leader_ids);
 
     if (leaderError || !leaders || leaders.length === 0) {
@@ -58,9 +58,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Ask CCB which leaders have a report for this week (single API call)
+    // Match priority: ccb_group_id (exact) → ccb_group_name → circle_name → leader.name
     const ccb = createCCBClient();
     const reportMap = await ccb.checkReportsForLeaders(
-      leaders.map(l => ({ id: l.id, name: l.name })),
+      leaders.map(l => ({
+        id: l.id,
+        name: l.name,
+        ccb_group_name: l.ccb_group_name || l.circle_name || null,
+        ccb_group_id: l.ccb_group_id || null,
+      })),
       week_start_date,
       week_end_date
     );

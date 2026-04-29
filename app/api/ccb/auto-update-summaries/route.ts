@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     // Load leader names (and optional CCB group name override)
     const { data: leaders, error: leaderError } = await supabase
       .from('circle_leaders')
-      .select('id, name, ccb_group_name')
+      .select('id, name, circle_name, ccb_group_name, ccb_group_id')
       .in('id', leader_ids);
 
     if (leaderError || !leaders || leaders.length === 0) {
@@ -72,9 +72,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Pull CCB data (single API call)
+    // Match priority: ccb_group_id (exact) → ccb_group_name → circle_name → leader.name
     const ccb = createCCBClient();
     const ccbMap = await ccb.checkReportsForLeaders(
-      leaders.map(l => ({ id: l.id, name: l.name })),
+      leaders.map(l => ({
+        id: l.id,
+        name: l.name,
+        ccb_group_name: l.ccb_group_name || l.circle_name || null,
+        ccb_group_id: l.ccb_group_id || null,
+      })),
       week_start_date,
       week_end_date
     );
@@ -148,7 +154,6 @@ export async function POST(request: NextRequest) {
         .select('leader_id')
         .in('leader_id', stillNotReceived.map(l => l.id))
         .eq('status', 'met')
-        .not('headcount', 'is', null)
         .gte('meeting_date', week_start_date)
         .lte('meeting_date', week_end_date);
 
@@ -198,10 +203,10 @@ export async function POST(request: NextRequest) {
     const occurrenceRows = leaders
       .map(l => {
         const ccbData = ccbMap.get(l.id);
-        if (!ccbData?.hasReport || !ccbData.occurrenceDate || !ccbData.headcount) return null;
+        if (!ccbData?.hasReport) return null;
         return {
           leader_id: l.id,
-          meeting_date: ccbData.occurrenceDate,
+          meeting_date: ccbData.occurrenceDate ?? week_start_date,
           status: (ccbData.didNotMeet ? 'did_not_meet' : 'met') as 'met' | 'did_not_meet',
           headcount: ccbData.headcount,
           has_notes: ccbData.hasNotes,

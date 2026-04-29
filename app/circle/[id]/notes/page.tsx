@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase, type Note, type NoteTemplate } from '../../../../lib/supabase';
 import { useNoteTemplates } from '../../../../hooks/useNoteTemplates';
@@ -11,7 +11,9 @@ import NoteTemplateModal from '../../../../components/dashboard/NoteTemplateModa
 import DictateAndSummarize from '../../../../components/notes/DictateAndSummarize';
 import MeetingPrepAssistant from '../../../../components/notes/MeetingPrepAssistant';
 import RichTextEditor from '../../../../components/notes/RichTextEditor';
+import SmartNoteSuggestionsModal from '../../../../components/notes/SmartNoteSuggestionsModal';
 import ProtectedRoute from '../../../../components/ProtectedRoute';
+import { detectNoteInsights, type NoteInsight } from '../../../../lib/noteKeywordDetector';
 
 const stripHtml = (html: string): string =>
   html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
@@ -97,6 +99,20 @@ export default function CircleLeaderNotesPage() {
     title: string;
     message: string;
   }>({ isOpen: false, type: 'info', title: '', message: '' });
+  const [smartSuggestions, setSmartSuggestions] = useState<{
+    isOpen: boolean;
+    insights: NoteInsight[];
+    matchedPhrases: Partial<Record<NoteInsight, string>>;
+  }>({ isOpen: false, insights: [], matchedPhrases: {} });
+  const suppressedInsights = useRef<Set<NoteInsight>>(new Set());
+
+  const maybeSuggest = useCallback((content: string) => {
+    const { insights, matchedPhrases } = detectNoteInsights(content);
+    const filtered = insights.filter(i => !suppressedInsights.current.has(i));
+    if (filtered.length > 0) {
+      setSmartSuggestions({ isOpen: true, insights: filtered, matchedPhrases });
+    }
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -135,15 +151,17 @@ export default function CircleLeaderNotesPage() {
     if (!stripHtml(newNote).trim() || !user?.id) return;
     setIsSavingNote(true);
     setNoteError('');
+    const savedContent = newNote.trim();
     try {
       const { data, error } = await supabase
         .from('notes')
-        .insert({ circle_leader_id: leaderId, content: newNote.trim(), created_by: user.id })
+        .insert({ circle_leader_id: leaderId, content: savedContent, created_by: user.id })
         .select('*')
         .single();
       if (data && !error) {
         await reloadNotes();
         setNewNote('');
+        maybeSuggest(savedContent);
       } else {
         setNoteError(`Failed to save note: ${error?.message || 'Unknown error'}`);
       }
@@ -160,11 +178,14 @@ export default function CircleLeaderNotesPage() {
       const { error } = await supabase.from('notes').insert({
         circle_leader_id: leaderId, content: prepText.trim(), created_by: user.id,
       });
-      if (!error) await reloadNotes();
+      if (!error) {
+        await reloadNotes();
+        maybeSuggest(prepText.trim());
+      }
     } catch (err) {
       console.error('Error saving meeting prep note:', err);
     }
-  }, [leaderId, user?.id, reloadNotes]);
+  }, [leaderId, user?.id, reloadNotes, maybeSuggest]);
 
   const handleTemplateSelect = (template: NoteTemplate) => {
     setNewNote(template.content);
@@ -187,9 +208,11 @@ export default function CircleLeaderNotesPage() {
         .select()
         .single();
       if (data && !error) {
-        setNotes(prev => prev.map(n => n.id === editingNoteId ? { ...n, content: editingNoteContent.trim() } : n));
+        const savedContent = editingNoteContent.trim();
+        setNotes(prev => prev.map(n => n.id === editingNoteId ? { ...n, content: savedContent } : n));
         setEditingNoteId(null);
         setEditingNoteContent('');
+        maybeSuggest(savedContent);
       } else {
         setNoteError('Failed to update note. Please try again.');
         setTimeout(() => setNoteError(''), 5000);
@@ -611,6 +634,20 @@ export default function CircleLeaderNotesPage() {
         onTemplateSelect={handleTemplateSelect}
         mode="select"
       />
+
+      {leader && (
+        <SmartNoteSuggestionsModal
+          isOpen={smartSuggestions.isOpen}
+          onClose={(suppressed) => {
+            suppressed.forEach(i => suppressedInsights.current.add(i));
+            setSmartSuggestions({ isOpen: false, insights: [], matchedPhrases: {} });
+          }}
+          insights={smartSuggestions.insights}
+          matchedPhrases={smartSuggestions.matchedPhrases}
+          leaderId={leaderId}
+          leaderName={leader.name}
+        />
+      )}
     </ProtectedRoute>
   );
 }

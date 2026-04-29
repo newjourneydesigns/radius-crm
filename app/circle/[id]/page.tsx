@@ -2563,7 +2563,7 @@ export default function CircleLeaderProfilePage() {
         {leader && (
           <div className="mt-6">
             <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass p-4 sm:p-6">
-              <AttendanceTrends leaderId={leaderId} leaderName={leader.name} meetingDay={leader.day} refreshKey={attendanceRefreshKey} rosterCount={rosterCount} />
+              <AttendanceTrends leaderId={leaderId} leaderName={leader.ccb_group_name || leader.circle_name || leader.name} meetingDay={leader.day} refreshKey={attendanceRefreshKey} rosterCount={rosterCount} />
               {/* Event Summary action buttons */}
               <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
                 <button
@@ -2744,7 +2744,7 @@ export default function CircleLeaderProfilePage() {
           setAttendanceRefreshKey((k) => k + 1);
         }}
         initialDate={getLocalISODate()}
-        initialGroupName={leader?.name || ''}
+        initialGroupName={leader?.ccb_group_name || leader?.circle_name || leader?.name || ''}
         ccbProfileLink={leader?.ccb_profile_link || null}
         meetingDay={leader?.day || null}
         rosterCount={rosterCount}

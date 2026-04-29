@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../../lib/supabase';
 
-const ALLOWED_FIELDS = ['frequency', 'day', 'time', 'meeting_start_date'] as const;
+const ALLOWED_FIELDS = ['frequency', 'day', 'time', 'meeting_start_date', 'ccb_group_id', 'ccb_profile_link'] as const;
 
 export async function PATCH(
   request: NextRequest,
@@ -30,7 +30,7 @@ export async function PATCH(
       .from('circle_leaders')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id)
-      .select('id, name, frequency, day, time, meeting_start_date')
+      .select('id, name, frequency, day, time, meeting_start_date, ccb_group_id, ccb_profile_link')
       .single();
 
     if (error) {

@@ -472,8 +472,8 @@ export default function CircleMeetingsCalendar({
   const [autoUpdatedLeaderNames, setAutoUpdatedLeaderNames] = useState<string[] | null>(null);
   const [snapshotSavingLeaderIds, setSnapshotSavingLeaderIds] = useState<Set<number>>(new Set());
 
-  // Attendance data — headcount + roster size per leader for the visible week
-  type AttendanceEntry = { headcount: number | null; rosterCount: number | null; hasNotes: boolean | null; guestCount: number | null };
+  // Attendance data — includes whether a met occurrence exists, plus headcount/roster details.
+  type AttendanceEntry = { hasOccurrence: boolean; headcount: number | null; rosterCount: number | null; hasNotes: boolean | null; guestCount: number | null };
   const [attendanceData, setAttendanceData] = useState<Map<number, AttendanceEntry> | null>(null);
   // Prior week headcounts (leader_id → headcount) for WoW trend
   const [prevAttendanceData, setPrevAttendanceData] = useState<Map<number, number> | null>(null);
@@ -659,11 +659,11 @@ export default function CircleMeetingsCalendar({
       }
       const map = new Map<number, AttendanceEntry>();
       for (const leader of leaders) {
-        map.set(leader.id, { headcount: null, rosterCount: rosterCounts.get(leader.id) ?? null, hasNotes: null, guestCount: null });
+        map.set(leader.id, { hasOccurrence: false, headcount: null, rosterCount: rosterCounts.get(leader.id) ?? null, hasNotes: null, guestCount: null });
       }
       for (const occ of (occRes.data ?? [])) {
         const existing = map.get(occ.leader_id);
-        if (existing) map.set(occ.leader_id, { ...existing, headcount: occ.headcount, hasNotes: occ.has_notes ?? null, guestCount: occ.guest_count ?? null });
+        if (existing) map.set(occ.leader_id, { ...existing, hasOccurrence: true, headcount: occ.headcount, hasNotes: occ.has_notes ?? null, guestCount: occ.guest_count ?? null });
       }
       setAttendanceData(map);
       // Results are ordered newest-first — take the first headcount seen per leader (most recent prior)
@@ -793,7 +793,7 @@ export default function CircleMeetingsCalendar({
     const date = isoDate || fallbackDate || '';
 
     setSelectedEventDate(date);
-    setSelectedEventGroupName(leader.name || '');
+    setSelectedEventGroupName(leader.ccb_group_name || leader.circle_name || leader.name || '');
     setSelectedCcbProfileLink(leader.ccb_profile_link || null);
     setShowEventExplorer(true);
   }, [leaders]);
@@ -872,7 +872,7 @@ export default function CircleMeetingsCalendar({
     let totalAttended = 0;
     let rosterPctSum = 0;
     let rosterPctCount = 0;
-    let receivedWithData = 0;
+    let receivedWithOccurrence = 0;
     let totalReceived = 0;
     let unreportedWithData = 0;
     let totalUnreportedAttended = 0;
@@ -885,8 +885,8 @@ export default function CircleMeetingsCalendar({
       const att = attendanceData.get(leader.id);
       if (state === 'received') {
         totalReceived++;
-        if (!att?.headcount) continue;
-        receivedWithData++;
+        if (att?.hasOccurrence) receivedWithOccurrence++;
+        if (att?.headcount == null) continue;
         totalAttended += att.headcount;
         if (att.rosterCount && att.rosterCount > 0) {
           rosterPctSum += Math.round((att.headcount / att.rosterCount) * 100);
@@ -898,20 +898,20 @@ export default function CircleMeetingsCalendar({
           prevTotalForComparison += prev;
           comparedCount++;
         }
-      } else if (att?.headcount) {
+      } else if (att?.headcount != null) {
         unreportedWithData++;
         totalUnreportedAttended += att.headcount;
         unreportedLeaders.push({ id: leader.id, name: leader.name, headcount: att.headcount, rosterCount: att.rosterCount ?? null });
       }
     }
-    if (receivedWithData === 0 && unreportedWithData === 0) return null;
+    if (receivedWithOccurrence === 0 && unreportedWithData === 0) return null;
     const attendanceTrend = comparedCount > 0
       ? getWoWTrend(currTotalForComparison, prevTotalForComparison)
       : null;
     return {
       totalAttended,
       avgRosterPct: rosterPctCount > 0 ? Math.round(rosterPctSum / rosterPctCount) : null,
-      receivedWithData,
+      receivedWithOccurrence,
       totalReceived,
       unreportedWithData,
       totalUnreportedAttended,
@@ -1037,8 +1037,8 @@ export default function CircleMeetingsCalendar({
         ));
       }
 
-      // Refetch attendance after all syncs complete so counts reflect the latest data
-      if (json.updated > 0) fetchAttendanceData();
+      // Always refetch attendance — occurrence rows are written even when no states change
+      fetchAttendanceData();
 
       const conflictCount = json.conflicts?.length ?? 0;
       const msg = json.updated > 0
@@ -1345,8 +1345,8 @@ export default function CircleMeetingsCalendar({
                   <div className="text-center">
                     <p className="text-xs text-slate-500 uppercase tracking-wide">Circles</p>
                     <p className="text-xl font-bold text-slate-200 leading-tight">
-                      {weeklyAttendanceStats.receivedWithData}
-                      {weeklyAttendanceStats.receivedWithData < weeklyAttendanceStats.totalReceived && (
+                      {weeklyAttendanceStats.receivedWithOccurrence}
+                      {weeklyAttendanceStats.receivedWithOccurrence < weeklyAttendanceStats.totalReceived && (
                         <span className="text-slate-500 font-normal text-sm"> of {weeklyAttendanceStats.totalReceived}</span>
                       )}
                     </p>
@@ -1560,8 +1560,8 @@ export default function CircleMeetingsCalendar({
                     <div className="text-center">
                       <p className="text-xs text-slate-500 uppercase tracking-wide">Circles</p>
                       <p className="text-xl font-bold text-slate-200 leading-tight">
-                        {weeklyAttendanceStats.receivedWithData}
-                        {weeklyAttendanceStats.receivedWithData < weeklyAttendanceStats.totalReceived && (
+                        {weeklyAttendanceStats.receivedWithOccurrence}
+                        {weeklyAttendanceStats.receivedWithOccurrence < weeklyAttendanceStats.totalReceived && (
                           <span className="text-slate-500 font-normal text-sm"> of {weeklyAttendanceStats.totalReceived}</span>
                         )}
                       </p>
@@ -2495,7 +2495,7 @@ export default function CircleMeetingsCalendar({
       {/* Event Explorer Modal */}
       <EventExplorerModal
         isOpen={showEventExplorer}
-        onClose={() => setShowEventExplorer(false)}
+        onClose={() => { setShowEventExplorer(false); fetchAttendanceData(); }}
         initialDate={selectedEventDate}
         initialGroupName={selectedEventGroupName}
         ccbProfileLink={selectedCcbProfileLink}
