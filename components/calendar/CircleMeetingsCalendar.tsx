@@ -886,7 +886,7 @@ export default function CircleMeetingsCalendar({
       if (state === 'received') {
         totalReceived++;
         if (att?.hasOccurrence) receivedWithOccurrence++;
-        if (att?.headcount == null || !scheduledLeaderIds.has(leader.id)) continue;
+        if (att?.headcount == null) continue;
         totalAttended += att.headcount;
         if (att.rosterCount && att.rosterCount > 0) {
           rosterPctSum += Math.round((att.headcount / att.rosterCount) * 100);
@@ -1291,12 +1291,11 @@ export default function CircleMeetingsCalendar({
         // Calculate status counts for the current week
         const currentWeekCounts = { received: 0, did_not_meet: 0, skipped: 0, not_received: 0 };
         for (const leader of leaders) {
-          if (!scheduledLeaderIds.has(leader.id)) continue;
           const state = getEffectiveLeaderState(leader.id);
           if (state === 'received') currentWeekCounts.received++;
           else if (state === 'did_not_meet') currentWeekCounts.did_not_meet++;
           else if (state === 'skipped') currentWeekCounts.skipped++;
-          else currentWeekCounts.not_received++;
+          else if (scheduledLeaderIds.has(leader.id)) currentWeekCounts.not_received++;
         }
         // Only show the dashboard if there are scheduled leaders
         const hasScheduledLeaders = leadersWithSchedules.length > 0;
