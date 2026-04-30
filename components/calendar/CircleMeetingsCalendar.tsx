@@ -887,7 +887,7 @@ export default function CircleMeetingsCalendar({
         totalReceived++;
         if (att?.hasOccurrence) receivedWithOccurrence++;
         if (att?.headcount == null) continue;
-        totalAttended += att.headcount;
+        totalAttended += att.headcount + (att.guestCount ?? 0);
         if (att.rosterCount && att.rosterCount > 0) {
           rosterPctSum += Math.round((att.headcount / att.rosterCount) * 100);
           rosterPctCount++;
