@@ -28,7 +28,7 @@ interface ScorecardSectionProps {
 
 export default function ScorecardSection({ leaderId, isAdmin, initialDimension, onNoteSaved, onAddToCoaching }: ScorecardSectionProps) {
   const { ratings, isLoading, loadRatings, submitScores, updateScore, deleteScore, getLatestScores, getTrend } = useScorecard();
-  const { prospects, loadAll: loadProspects, updateProspect } = useDevelopmentProspects();
+  const { prospects, loadAll: loadProspects, updateProspect, deleteProspect } = useDevelopmentProspects();
   const {
     isLoading: evalLoading,
     isSaving: evalSaving,
@@ -462,18 +462,33 @@ export default function ScorecardSection({ leaderId, isAdmin, initialDimension, 
                             )}
                           </div>
                           {isAdmin && (
-                            <button
-                              onClick={() => {
-                                setProspectEditValues({ name: prospect.name, notes: prospect.notes || '' });
-                                setEditingProspectId(prospect.id);
-                              }}
-                              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-white/10 transition-all flex-shrink-0 mt-0.5"
-                              title="Edit prospect"
-                            >
-                              <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                              </svg>
-                            </button>
+                            <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-all flex-shrink-0 mt-0.5">
+                              <button
+                                onClick={() => {
+                                  setProspectEditValues({ name: prospect.name, notes: prospect.notes || '' });
+                                  setEditingProspectId(prospect.id);
+                                }}
+                                className="p-1 rounded hover:bg-white/10 transition-colors"
+                                title="Edit prospect"
+                              >
+                                <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm(`Remove ${prospect.name} from being developed?`)) {
+                                    deleteProspect(prospect.id);
+                                  }
+                                }}
+                                className="p-1 rounded hover:bg-red-500/20 transition-colors group/del"
+                                title="Remove prospect"
+                              >
+                                <svg className="w-3.5 h-3.5 text-slate-400 group-hover/del:text-red-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
                           )}
                         </div>
                       )}
