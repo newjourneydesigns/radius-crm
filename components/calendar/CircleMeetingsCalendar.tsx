@@ -2007,9 +2007,19 @@ export default function CircleMeetingsCalendar({
                           : null;
                         const trend = getWoWTrend(att.headcount, prevAttendanceData?.get(leaderId));
                         return (
-                          <div className="flex items-center gap-1 text-[11px] text-green-400/80 mt-0.5 leading-snug">
-                            <span>{att.headcount} attended{pct !== null ? ` · ${pct}% of roster` : ''}</span>
-                            <WoWArrow trend={trend} />
+                          <div className="flex flex-wrap items-center gap-1 mt-0.5 leading-snug">
+                            <div className="flex items-center gap-1 text-[11px] text-green-400/80">
+                              <span>{att.headcount} attended{pct !== null ? ` · ${pct}% of roster` : ''}</span>
+                              <WoWArrow trend={trend} />
+                            </div>
+                            {att.guestCount != null && att.guestCount > 0 && (
+                              <span className="inline-flex items-center gap-0.5 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/25 leading-none">
+                                <svg className="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                                </svg>
+                                {att.guestCount} guest{att.guestCount !== 1 ? 's' : ''}
+                              </span>
+                            )}
                           </div>
                         );
                       })()}
