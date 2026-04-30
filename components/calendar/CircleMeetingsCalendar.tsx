@@ -661,6 +661,7 @@ export default function CircleMeetingsCalendar({
       for (const leader of leaders) {
         map.set(leader.id, { hasOccurrence: false, headcount: null, rosterCount: rosterCounts.get(leader.id) ?? null, hasNotes: null, guestCount: null });
       }
+      console.debug('[attendance] occurrences from DB:', occRes.data?.map(o => ({ leader_id: o.leader_id, headcount: o.headcount, guest_count: o.guest_count })));
       for (const occ of (occRes.data ?? [])) {
         const existing = map.get(occ.leader_id);
         if (existing) map.set(occ.leader_id, { ...existing, hasOccurrence: true, headcount: occ.headcount, hasNotes: occ.has_notes ?? null, guestCount: occ.guest_count ?? null });
@@ -886,7 +887,10 @@ export default function CircleMeetingsCalendar({
       if (state === 'received') {
         totalReceived++;
         if (att?.hasOccurrence) receivedWithOccurrence++;
-        if (att?.headcount == null) continue;
+        if (att?.headcount == null) {
+          console.debug(`[attendance] ${leader.name} (${leader.id}) — received but no headcount (hasOccurrence=${att?.hasOccurrence ?? false})`);
+          continue;
+        }
         totalAttended += att.headcount + (att.guestCount ?? 0);
         if (att.rosterCount && att.rosterCount > 0) {
           rosterPctSum += Math.round((att.headcount / att.rosterCount) * 100);
