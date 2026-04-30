@@ -1558,6 +1558,12 @@ export default function CircleMeetingsCalendar({
                       <p className="text-xs text-slate-500 uppercase tracking-wide">Attended</p>
                       <p className="text-xl font-bold text-slate-200 leading-tight">{weeklyAttendanceStats.totalAttended}</p>
                     </div>
+                    {weeklyAttendanceStats.avgSize !== null && (
+                      <div className="text-center">
+                        <p className="text-xs text-slate-500 uppercase tracking-wide">Avg Size</p>
+                        <p className="text-xl font-bold text-slate-200 leading-tight">{weeklyAttendanceStats.avgSize}</p>
+                      </div>
+                    )}
                     {weeklyAttendanceStats.avgRosterPct !== null && (
                       <div className="text-center">
                         <p className="text-xs text-slate-500 uppercase tracking-wide">Avg Roster</p>
