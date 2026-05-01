@@ -22,6 +22,25 @@ import { buildRepeatLabel, type TodoRepeatRule } from '../../../lib/todoRecurren
 import { DateTime } from 'luxon';
 import AssigneePicker from '../../../components/boards/AssigneePicker';
 import RichTextEditor from '../../../components/notes/RichTextEditor';
+import { extractTextContacts, type TextContact } from '../../../lib/textContacts';
+
+/* ═══════════════════════════════════════════════════════════
+   Column color palette — each column gets a distinct color
+   ═══════════════════════════════════════════════════════════ */
+const COLUMN_COLORS = [
+  '#6366f1', // indigo
+  '#22c55e', // green
+  '#f59e0b', // amber
+  '#ef4444', // red
+  '#3b82f6', // blue
+  '#ec4899', // pink
+  '#14b8a6', // teal
+  '#f97316', // orange
+  '#a855f7', // purple
+  '#06b6d4', // cyan
+  '#84cc16', // lime
+  '#e11d48', // rose
+];
 
 /* ═══════════════════════════════════════════════════════════
    Priority helpers
@@ -342,6 +361,31 @@ function CardDetailModal({
   const checklistGroups = card.checklist_groups || [];
   const ungroupedItems = checklists.filter(cl => !cl.group_id);
   const completedCount = checklists.filter(c => c.is_completed).length;
+  const descriptionContacts = useMemo(() => extractTextContacts(editDesc), [editDesc]);
+
+  const renderContactActions = (contacts: TextContact[], variant: 'compact' | 'comment' = 'compact') => {
+    if (contacts.length === 0) return null;
+
+    return (
+      <div className={`kb-contact-actions kb-contact-actions-${variant}`}>
+        {contacts.map((contact, index) => (
+          <div key={`${contact.type}-${contact.value}-${index}`} className="kb-contact-chip">
+            <span className="kb-contact-value">{contact.value}</span>
+            <div className="kb-contact-links">
+              {contact.type === 'phone' ? (
+                <>
+                  <a href={`tel:${contact.digits}`} className="kb-contact-link">Call</a>
+                  <a href={`sms:${contact.digits}`} className="kb-contact-link">Text</a>
+                </>
+              ) : (
+                <a href={`mailto:${contact.value}`} className="kb-contact-link">Email</a>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   const renderChecklistItem = (item: NonNullable<typeof checklists>[number]) => (
     <React.Fragment key={item.id}>
@@ -595,6 +639,7 @@ function CardDetailModal({
                   minHeight="120px"
                 />
               </div>
+              {renderContactActions(descriptionContacts, 'compact')}
             </div>
 
             {/* Checklists */}
@@ -925,11 +970,14 @@ function CardDetailModal({
                         </div>
                       </div>
                     ) : (
-                      <p className="kb-comment-text">
-                        {comment.content.split('\n').map((line, i, arr) => (
-                          <span key={i}>{linkifyText(line)}{i < arr.length - 1 && <br />}</span>
-                        ))}
-                      </p>
+                      <>
+                        <p className="kb-comment-text">
+                          {comment.content.split('\n').map((line, i, arr) => (
+                            <span key={i}>{linkifyText(line)}{i < arr.length - 1 && <br />}</span>
+                          ))}
+                        </p>
+                        {renderContactActions(extractTextContacts(comment.content), 'comment')}
+                      </>
                     )}
                   </div>
                 ))}
@@ -2705,6 +2753,7 @@ function BoardPage() {
   const [dragOverPos, setDragOverPos] = useState<'above' | 'below'>('below');
   const [listActionsColId, setListActionsColId] = useState<string | null>(null);
   const [automationsColId, setAutomationsColId] = useState<string | null>(null);
+  const [colorPickerColId, setColorPickerColId] = useState<string | null>(null);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
@@ -3174,7 +3223,9 @@ function BoardPage() {
   // ── Add column ──
   const handleAddColumn = async () => {
     if (!newColTitle.trim()) return;
-    await addColumn(boardId, newColTitle);
+    const usedColors = new Set(board?.columns.map(c => c.color) ?? []);
+    const nextColor = COLUMN_COLORS.find(c => !usedColors.has(c)) ?? COLUMN_COLORS[(board?.columns.length ?? 0) % COLUMN_COLORS.length];
+    await addColumn(boardId, newColTitle, nextColor);
     setNewColTitle('');
     setAddingColumn(false);
   };
@@ -3466,14 +3517,15 @@ function BoardPage() {
           board={board}
           onImport={async (columnId, leaders) => {
             for (const leader of leaders) {
-              const desc = [
+              const descLines = [
                 leader.campus && `Campus: ${leader.campus}`,
                 leader.circle_type && `Circle Type: ${leader.circle_type}`,
                 leader.day && `Day: ${leader.day}`,
                 leader.time && `Time: ${formatTime12(leader.time)}`,
                 leader.phone && `Phone: ${leader.phone}`,
                 leader.email && `Email: ${leader.email}`,
-              ].filter(Boolean).join('\n');
+              ].filter(Boolean) as string[];
+              const desc = descLines.length ? descLines.map(l => `<p>${l}</p>`).join('') : undefined;
               await addCard(boardId, { column_id: columnId, title: leader.name, description: desc || undefined, linked_leader_id: leader.id });
             }
           }}
@@ -3640,7 +3692,30 @@ function BoardPage() {
                 {/* Column header */}
                 <div className="kb-column-header">
                   <div className="kb-column-title-row">
-                    <span className="kb-column-dot" style={{ background: col.color }} />
+                    <div className="kb-color-dot-wrapper">
+                      <button
+                        className="kb-column-dot"
+                        style={{ background: col.color }}
+                        onClick={() => setColorPickerColId(colorPickerColId === col.id ? null : col.id)}
+                        title="Change column color"
+                      />
+                      {colorPickerColId === col.id && (
+                        <>
+                          <div className="kb-click-away" onClick={() => setColorPickerColId(null)} />
+                          <div className="kb-color-picker-popover">
+                            {COLUMN_COLORS.map(c => (
+                              <button
+                                key={c}
+                                className={`kb-color-swatch${col.color === c ? ' active' : ''}`}
+                                style={{ background: c }}
+                                onClick={() => { updateColumn(boardId, col.id, { color: c }); setColorPickerColId(null); }}
+                                title={c}
+                              />
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
                     <InlineEdit
                       value={col.title}
                       onSave={title => updateColumn(boardId, col.id, { title })}
@@ -3874,7 +3949,7 @@ function BoardPage() {
                   }}
                 />
                 <div className="kb-quick-add-actions">
-                  <button className="kb-btn kb-btn-primary kb-btn-sm" onClick={handleAddColumn}>Add Column</button>
+                  <button className="kb-add-column-btn" onClick={handleAddColumn}>Add Column</button>
                   <button className="kb-btn-icon-sm" onClick={() => { setAddingColumn(false); setNewColTitle(''); }}>
                     <X size={14} />
                   </button>
@@ -4474,12 +4549,52 @@ const kanbanStyles = `
     gap: 2px;
     justify-content: flex-end;
   }
+  .kb-color-dot-wrapper {
+    position: relative;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
   .kb-column-dot {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
     flex-shrink: 0;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
+  .kb-column-dot:hover {
+    transform: scale(1.3);
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.15);
+  }
+  .kb-color-picker-popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    z-index: 2000;
+    background: #1a1d27;
+    border: 1px solid #2a2d3a;
+    border-radius: 12px;
+    padding: 10px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+    width: 136px;
+  }
+  .kb-color-swatch {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.12s ease, border-color 0.12s ease;
+  }
+  .kb-color-swatch:hover { transform: scale(1.2); }
+  .kb-color-swatch.active { border-color: #fff; box-shadow: 0 0 0 2px rgba(255,255,255,0.3); }
   .kb-column-title {
     font-size: 14px !important;
     font-weight: 600 !important;
@@ -4829,25 +4944,31 @@ const kanbanStyles = `
   /* ── Add column ── */
   .kb-add-column {
     flex-shrink: 0;
+    display: flex;
+    align-items: flex-start;
+    padding-top: 2px;
+    min-width: fit-content;
+  }
+  .kb-add-column:has(.kb-add-column-form) {
     width: 300px;
     min-width: 300px;
   }
   .kb-add-column-btn {
     display: flex;
     align-items: center;
-    gap: 8px;
-    width: 100%;
-    padding: 14px;
-    background: rgba(255,255,255,0.03) !important;
-    border: 2px dashed #2a2d3a;
-    border-radius: 14px;
-    font-size: 14px;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(255,255,255,0.10) !important;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    font-size: 13px;
     font-weight: 500;
-    color: #6b7280;
+    color: rgba(255,255,255,0.7);
     cursor: pointer;
     transition: all 0.15s ease;
+    white-space: nowrap;
   }
-  .kb-add-column-btn:hover { border-color: #8da9c4; color: #c5d8e8; background: rgba(76, 103, 133, 0.08) !important; }
+  .kb-add-column-btn:hover { background: rgba(255,255,255,0.15) !important; color: rgba(255,255,255,1); border-color: rgba(255,255,255,0.18); }
   .kb-add-column-form {
     background: #14161e !important;
     border: 1px solid #2a2d3a;
@@ -5519,6 +5640,51 @@ const kanbanStyles = `
   .kb-desc-editor [contenteditable] h3 { color: #f3f4f6 !important; }
   .kb-desc-editor [contenteditable] ul,
   .kb-desc-editor [contenteditable] ol { color: #d1d5db !important; }
+  .kb-contact-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .kb-contact-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 6px 8px;
+    border-radius: 999px;
+    background: rgba(20, 22, 30, 0.88);
+    border: 1px solid #1e2130;
+  }
+  .kb-contact-actions-comment {
+    margin-top: 6px;
+  }
+  .kb-contact-value {
+    font-size: 11px;
+    color: #d1d5db;
+    word-break: break-all;
+  }
+  .kb-contact-links {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .kb-contact-link {
+    font-size: 11px;
+    font-weight: 600;
+    color: #a5b4fc;
+    text-decoration: none;
+    padding: 3px 7px;
+    border-radius: 999px;
+    border: 1px solid rgba(129, 140, 248, 0.25);
+    background: rgba(99, 102, 241, 0.12);
+    transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  }
+  .kb-contact-link:hover {
+    color: #c7d2fe;
+    background: rgba(99, 102, 241, 0.2);
+    border-color: rgba(129, 140, 248, 0.4);
+  }
   .kb-comment-edit { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
   .kb-comment-edit-actions { display: flex; gap: 6px; justify-content: flex-end; }
   .kb-comment-add { display: flex; flex-direction: column; }

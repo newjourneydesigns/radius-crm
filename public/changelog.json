@@ -1,6 +1,84 @@
 [
   {
     "date": "2026-05-01",
+    "description": "When turning on a follow-up from the circle profile, the generated Notes timeline entry now includes the full follow-up message you typed (not just the date).",
+    "page": "/circle",
+    "type": "fix"
+  },
+  {
+    "date": "2026-05-01",
+    "description": "Circle follow-up quick action now switches labels based on status: Turn On when follow-up is off, and Turn Off when it's active.",
+    "page": "/circle",
+    "type": "improvement"
+  },
+  {
+    "date": "2026-05-01",
+    "description": "Follow-up and profile updates now consistently log to the circle leader Notes timeline when you save edits, including follow-up note/date changes.",
+    "page": "/circle",
+    "type": "fix"
+  },
+  {
+    "date": "2026-05-01",
+    "description": "Circle follow-up quick actions now use clearer labels: the top action says Turn Off and the date-row action says Edit.",
+    "page": "/circle",
+    "type": "improvement"
+  },
+  {
+    "date": "2026-05-01",
+    "description": "Confirmation dialogs now center and evenly spread action buttons across the modal footer for clearer button layout on follow-up and other confirm prompts.",
+    "page": "/circle",
+    "type": "improvement"
+  },
+  {
+    "date": "2026-05-01",
+    "description": "Circle Quick Actions follow-up now shows an Edit button (instead of the Required badge), and the follow-up modal lets you update both date and note in one place.",
+    "page": "/circle",
+    "type": "improvement"
+  },
+  {
+    "date": "2026-05-01",
+    "description": "Circle follow-up cards were cleaned up so the Change Date action sits near the date at the top, and the temporary 'Due Soon' status message was removed for a simpler quick actions layout.",
+    "page": "/circle",
+    "type": "improvement"
+  },
+  {
+    "date": "2026-05-01",
+    "description": "Circle profile follow-ups now show the saved follow-up note in Quick Actions, and follow-up notes added from the Quick Actions + menu are automatically written to the leader's Notes timeline.",
+    "page": "/circle",
+    "type": "improvement"
+  },
+  {
+    "date": "2026-05-01",
+    "description": "Boards: Click any column's color dot to change it from a 12-color palette. New columns also automatically get a unique color so no two columns look the same.",
+    "page": "/boards",
+    "type": "feature"
+  },
+  {
+    "date": "2026-05-01",
+    "description": "Boards: The 'Add Column' button now matches the Tools button style in the nav — consistent frosted glass look across the app.",
+    "page": "/boards",
+    "type": "improvement"
+  },
+  {
+    "date": "2026-05-01",
+    "description": "When importing circle leaders to a board, the auto-generated card description now puts each detail (campus, circle type, day, time, phone, email) on its own line for easier reading.",
+    "page": "/boards",
+    "type": "improvement"
+  },
+  {
+    "date": "2026-05-01",
+    "description": "Board descriptions now show tighter contact chips, and matching call, text, and email actions also appear on board comments and circle notes when contact info is mentioned.",
+    "page": "/boards",
+    "type": "improvement"
+  },
+  {
+    "date": "2026-05-01",
+    "description": "Board card descriptions now surface phone numbers and email addresses as one-tap contact actions so you can call, text, or email directly from the card.",
+    "page": "/boards",
+    "type": "improvement"
+  },
+  {
+    "date": "2026-05-01",
     "description": "Circle leader pages now show a birthday banner when a leader's (or additional leader's) birthday is within the next 7 days — highlighted in violet alongside the existing prayer and encouragement banners.",
     "page": "/circle",
     "type": "feature"

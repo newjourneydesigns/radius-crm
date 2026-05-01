@@ -79,11 +79,11 @@ export default function ConfirmModal({
           {message}
         </p>
         
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full max-w-sm mx-auto justify-center">
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="px-6 py-2.5 border border-gray-300/30 dark:border-gray-600/30 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-50/50 dark:bg-gray-700/30 hover:bg-gray-100/60 dark:hover:bg-gray-600/40 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] backdrop-blur-sm"
+            className="flex-1 min-w-0 px-6 py-2.5 border border-gray-300/30 dark:border-gray-600/30 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-50/50 dark:bg-gray-700/30 hover:bg-gray-100/60 dark:hover:bg-gray-600/40 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] backdrop-blur-sm"
           >
             {cancelText}
           </button>
@@ -91,7 +91,7 @@ export default function ConfirmModal({
           <button
             onClick={handleConfirm}
             disabled={isLoading}
-            className={`px-6 py-2.5 border border-transparent rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl ${getConfirmButtonStyles()}`}
+            className={`flex-1 min-w-0 px-6 py-2.5 border border-transparent rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl ${getConfirmButtonStyles()}`}
           >
             {isLoading ? (
               <div className="flex items-center justify-center">

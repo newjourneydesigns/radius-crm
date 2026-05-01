@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
 import LeaderCombobox from '../ui/LeaderCombobox';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface Leader { id: number; name: string; }
 
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function SetFollowUpModal({ isOpen, onClose, onSaved }: Props) {
+  const { user } = useAuth();
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [selectedLeaderId, setSelectedLeaderId] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
@@ -53,6 +55,8 @@ export default function SetFollowUpModal({ isOpen, onClose, onSaved }: Props) {
     if (!selectedLeaderId) { setError('Please select a circle leader.'); return; }
     if (!followUpDate) { setError('Please select a follow-up date.'); return; }
 
+    const leaderId = parseInt(selectedLeaderId, 10);
+
     setIsSaving(true);
     setError('');
     try {
@@ -62,8 +66,31 @@ export default function SetFollowUpModal({ isOpen, onClose, onSaved }: Props) {
           follow_up_date: followUpDate,
           follow_up_note: followUpNote.trim() || null,
         })
-        .eq('id', parseInt(selectedLeaderId));
+        .eq('id', leaderId);
       if (e) throw e;
+
+      const trimmedFollowUpNote = followUpNote.trim();
+      if (trimmedFollowUpNote) {
+        const dateLabel = new Date(followUpDate + 'T00:00:00').toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        });
+        const notePayload: { circle_leader_id: number; content: string; created_by?: string } = {
+          circle_leader_id: leaderId,
+          content: `Follow-up set for ${dateLabel}:\n${trimmedFollowUpNote}`,
+        };
+
+        if (user?.id) {
+          notePayload.created_by = user.id;
+        }
+
+        const { error: noteError } = await supabase.from('notes').insert(notePayload);
+        if (noteError) {
+          console.error('Error adding follow-up note to notes timeline:', noteError);
+        }
+      }
+
       onSaved?.();
       onClose();
     } catch {

@@ -14,6 +14,7 @@ import RichTextEditor from '../../../../components/notes/RichTextEditor';
 import SmartNoteSuggestionsModal from '../../../../components/notes/SmartNoteSuggestionsModal';
 import ProtectedRoute from '../../../../components/ProtectedRoute';
 import { detectNoteInsights, type NoteInsight } from '../../../../lib/noteKeywordDetector';
+import { extractTextContacts, type TextContact } from '../../../../lib/textContacts';
 
 const stripHtml = (html: string): string =>
   html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
@@ -56,6 +57,30 @@ const formatDateTime = (dateString: string): string => {
   return date.toLocaleDateString('en-US', {
     year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
+};
+
+const renderContactActions = (contacts: TextContact[]) => {
+  if (contacts.length === 0) return null;
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {contacts.map((contact, index) => (
+        <div key={`${contact.type}-${contact.value}-${index}`} className="inline-flex flex-wrap items-center gap-2 rounded-full border border-slate-700 bg-slate-900/80 px-3 py-1.5">
+          <span className="text-xs text-slate-300 break-all">{contact.value}</span>
+          <div className="inline-flex items-center gap-1">
+            {contact.type === 'phone' ? (
+              <>
+                <a href={`tel:${contact.digits}`} className="rounded-full border border-violet-400/25 bg-violet-500/10 px-2 py-1 text-[11px] font-semibold text-violet-300 transition-colors hover:bg-violet-500/20 hover:text-violet-200">Call</a>
+                <a href={`sms:${contact.digits}`} className="rounded-full border border-violet-400/25 bg-violet-500/10 px-2 py-1 text-[11px] font-semibold text-violet-300 transition-colors hover:bg-violet-500/20 hover:text-violet-200">Text</a>
+              </>
+            ) : (
+              <a href={`mailto:${contact.value}`} className="rounded-full border border-violet-400/25 bg-violet-500/10 px-2 py-1 text-[11px] font-semibold text-violet-300 transition-colors hover:bg-violet-500/20 hover:text-violet-200">Email</a>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 };
 
 export default function CircleLeaderNotesPage() {
@@ -531,18 +556,30 @@ export default function CircleLeaderNotesPage() {
                                     )}
                                   </div>
                                   {isHtmlContent(note.content) ? (
-                                    <div className="rte-display text-gray-900 dark:text-white text-base leading-relaxed" dangerouslySetInnerHTML={{ __html: note.content }} />
+                                    <>
+                                      <div className="rte-display text-gray-900 dark:text-white text-base leading-relaxed" dangerouslySetInnerHTML={{ __html: note.content }} />
+                                      {renderContactActions(extractTextContacts(note.content))}
+                                    </>
                                   ) : (
-                                    <div className="text-gray-900 dark:text-white whitespace-pre-wrap text-base leading-relaxed">{linkifyText(note.content)}</div>
+                                    <>
+                                      <div className="text-gray-900 dark:text-white whitespace-pre-wrap text-base leading-relaxed">{linkifyText(note.content)}</div>
+                                      {renderContactActions(extractTextContacts(note.content))}
+                                    </>
                                   )}
                                 </div>
 
                                 {/* Desktop layout */}
                                 <div className="hidden sm:block">
                                   {isHtmlContent(note.content) ? (
-                                    <div className="rte-display text-gray-900 dark:text-white text-base leading-relaxed mb-4" dangerouslySetInnerHTML={{ __html: note.content }} />
+                                    <>
+                                      <div className="rte-display text-gray-900 dark:text-white text-base leading-relaxed mb-4" dangerouslySetInnerHTML={{ __html: note.content }} />
+                                      {renderContactActions(extractTextContacts(note.content))}
+                                    </>
                                   ) : (
-                                    <div className="text-gray-900 dark:text-white whitespace-pre-wrap text-base leading-relaxed mb-4">{linkifyText(note.content)}</div>
+                                    <>
+                                      <div className="text-gray-900 dark:text-white whitespace-pre-wrap text-base leading-relaxed mb-4">{linkifyText(note.content)}</div>
+                                      {renderContactActions(extractTextContacts(note.content))}
+                                    </>
                                   )}
                                   <div className="flex flex-row items-center gap-4 text-sm text-slate-500">
                                     <div className="flex items-center">

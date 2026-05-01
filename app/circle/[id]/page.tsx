@@ -195,6 +195,7 @@ export default function CircleLeaderProfilePage() {
   const [isUpdatingFollowUp, setIsUpdatingFollowUp] = useState(false);
   const [showFollowUpDateModal, setShowFollowUpDateModal] = useState(false);
   const [followUpDateValue, setFollowUpDateValue] = useState('');
+  const [followUpNoteValue, setFollowUpNoteValue] = useState('');
   const [showAddToBoardModal, setShowAddToBoardModal] = useState(false);
   const [savedFollowUpDate, setSavedFollowUpDate] = useState('');
   const [showClearFollowUpConfirm, setShowClearFollowUpConfirm] = useState(false);
@@ -927,7 +928,7 @@ export default function CircleLeaderProfilePage() {
             {
               circle_leader_id: leaderId,
               content: `Event summary status ${statusText}.`,
-              created_by: 'System'
+              created_by: user?.id || null
             }
           ]);
 
@@ -984,6 +985,7 @@ export default function CircleLeaderProfilePage() {
     } else {
       // Not enabled — show date picker to set a follow-up
       setFollowUpDateValue('');
+      setFollowUpNoteValue('');
       setShowFollowUpDateModal(true);
     }
   };
@@ -995,12 +997,21 @@ export default function CircleLeaderProfilePage() {
     try {
       const { error } = await supabase
         .from('circle_leaders')
-        .update({ follow_up_required: true, follow_up_date: followUpDateValue })
+        .update({
+          follow_up_required: true,
+          follow_up_date: followUpDateValue,
+          follow_up_note: followUpNoteValue.trim() || null,
+        })
         .eq('id', leaderId);
 
       if (!error) {
         // Update local state
-        setLeader(prev => prev ? { ...prev, follow_up_required: true, follow_up_date: followUpDateValue } : null);
+        setLeader(prev => prev ? {
+          ...prev,
+          follow_up_required: true,
+          follow_up_date: followUpDateValue,
+          follow_up_note: followUpNoteValue.trim() || undefined,
+        } : null);
         setShowFollowUpDateModal(false);
 
         // Create follow-up todo
@@ -1047,10 +1058,19 @@ export default function CircleLeaderProfilePage() {
           }
         }
 
-        // Add system note
+        // Add timeline note including the follow-up message entered in the modal
+        const enabledNoteSuffix = followUpNoteValue.trim()
+          ? ` Follow-up note: ${followUpNoteValue.trim()}`
+          : '';
         await supabase
           .from('notes')
-          .insert([{ circle_leader_id: leaderId, content: `Follow-up enabled with date ${followUpDateValue}.`, created_by: 'System' }]);
+          .insert([
+            {
+              circle_leader_id: leaderId,
+              content: `Follow-up enabled with date ${followUpDateValue}.${enabledNoteSuffix}`,
+              created_by: user?.id || null,
+            },
+          ]);
 
         setSavedFollowUpDate(followUpDateValue);
         setShowAddToBoardModal(true);
@@ -1074,16 +1094,16 @@ export default function CircleLeaderProfilePage() {
     try {
       const { error } = await supabase
         .from('circle_leaders')
-        .update({ follow_up_required: false, follow_up_date: null })
+        .update({ follow_up_required: false, follow_up_date: null, follow_up_note: null })
         .eq('id', leaderId);
 
       if (!error) {
-        setLeader(prev => prev ? { ...prev, follow_up_required: false, follow_up_date: undefined } : null);
+        setLeader(prev => prev ? { ...prev, follow_up_required: false, follow_up_date: undefined, follow_up_note: undefined } : null);
 
         // Add system note
         await supabase
           .from('notes')
-          .insert([{ circle_leader_id: leaderId, content: 'Follow-up cleared.', created_by: 'System' }]);
+          .insert([{ circle_leader_id: leaderId, content: 'Follow-up cleared.', created_by: user?.id || null }]);
 
         setShowAlert({ isOpen: true, type: 'success', title: 'Follow-Up Cleared', message: `Follow-up for ${leader.name} has been cleared.` });
       } else {
@@ -1098,18 +1118,26 @@ export default function CircleLeaderProfilePage() {
     }
   };
 
-  const handleFollowUpDateChange = async (newDate: string) => {
+  const handleFollowUpDetailsChange = async (newDate: string, newNote: string) => {
     if (!leader) return;
 
     try {
       const { error } = await supabase
         .from('circle_leaders')
-        .update({ follow_up_date: newDate || null })
+        .update({
+          follow_up_date: newDate || null,
+          follow_up_note: newNote.trim() || null,
+        })
         .eq('id', leaderId);
 
       if (!error) {
         // Update local state
-        setLeader(prev => prev ? { ...prev, follow_up_date: newDate || undefined } : null);
+        setLeader(prev => prev ? {
+          ...prev,
+          follow_up_date: newDate || undefined,
+          follow_up_note: newNote.trim() || undefined,
+        } : null);
+        setShowFollowUpDateModal(false);
         
         // Sync follow-up todo: create if missing, update due_date if exists
         if (user?.id) {
@@ -1163,13 +1191,16 @@ export default function CircleLeaderProfilePage() {
 
         // Add a note about the date change
         const dateText = newDate ? `set to ${newDate}` : 'cleared';
+        const noteText = newNote.trim()
+          ? ` Follow-up note: ${newNote.trim()}`
+          : ' Follow-up note cleared.';
         await supabase
           .from('notes')
           .insert([
             {
               circle_leader_id: leaderId,
-              content: `Follow-up date ${dateText}.`,
-              created_by: 'System'
+              content: `Follow-up date ${dateText}.${noteText}`,
+              created_by: user?.id || null
             }
           ]);
 
@@ -1280,7 +1311,7 @@ export default function CircleLeaderProfilePage() {
             {
               circle_leader_id: leaderId,
               content: 'Circle Leader information updated.',
-              created_by: 'System'
+              created_by: user?.id || null
             }
           ]);
 
@@ -1669,11 +1700,7 @@ export default function CircleLeaderProfilePage() {
 
             {/* Follow Up */}
             <div>
-              <button
-                onClick={handleFollowUpClick}
-                disabled={isUpdatingFollowUp}
-                className="w-full flex items-center justify-between px-4 py-3 text-slate-200 hover:bg-slate-700/50 text-sm transition-colors disabled:opacity-50"
-              >
+              <div className="w-full flex items-center justify-between px-4 py-3 text-slate-200 text-sm">
                 <div className="flex items-center gap-2.5">
                   <svg className={`w-4 h-4 ${leader.follow_up_required ? 'text-orange-500' : 'text-slate-400'}`} fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d={leader.follow_up_required ?
@@ -1683,34 +1710,54 @@ export default function CircleLeaderProfilePage() {
                   </svg>
                   {isUpdatingFollowUp ? 'Updating...' : 'Follow-Up'}
                 </div>
-                <span className={`text-xs font-medium ${leader.follow_up_required ? 'text-orange-400' : 'text-slate-500'}`}>
-                  {leader.follow_up_required ? 'Required' : 'None'}
-                </span>
-              </button>
-              {leader.follow_up_required && leader.follow_up_date && (
-                <div className="flex items-center justify-between px-4 py-2.5 bg-slate-700/20 border-t border-slate-700/50">
-                  <div>
-                    <div className="text-xs text-slate-300">
-                      {new Date(leader.follow_up_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                <button
+                  onClick={handleFollowUpClick}
+                  disabled={isUpdatingFollowUp}
+                  className="text-xs text-orange-300 hover:text-orange-200 bg-orange-900/30 hover:bg-orange-900/45 border border-orange-800/40 px-3 py-1.5 rounded-md transition-colors disabled:opacity-50"
+                >
+                  {leader.follow_up_required ? 'Turn Off' : 'Turn On'}
+                </button>
+              </div>
+              {leader.follow_up_required && (leader.follow_up_date || leader.follow_up_note?.trim()) && (
+                <div className="px-4 py-3 bg-slate-700/20 border-t border-slate-700/50 space-y-2.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      {leader.follow_up_date && (
+                        <>
+                          <div className="text-xs text-slate-300">
+                            {new Date(leader.follow_up_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </div>
+                          <div className={`text-xs ${
+                            getFollowUpStatus(leader.follow_up_date).isOverdue
+                              ? 'text-red-400'
+                              : 'text-green-400'
+                          }`}>
+                            {getFollowUpStatus(leader.follow_up_date).isOverdue && 'Overdue'}
+                            {!getFollowUpStatus(leader.follow_up_date).isOverdue && 'Scheduled'}
+                          </div>
+                        </>
+                      )}
                     </div>
-                    <div className={`text-xs ${
-                      getFollowUpStatus(leader.follow_up_date).isOverdue
-                        ? 'text-red-400'
-                        : getFollowUpStatus(leader.follow_up_date).isApproaching
-                        ? 'text-yellow-400'
-                        : 'text-green-400'
-                    }`}>
-                      {getFollowUpStatus(leader.follow_up_date).isOverdue && 'Overdue'}
-                      {getFollowUpStatus(leader.follow_up_date).isApproaching && !getFollowUpStatus(leader.follow_up_date).isOverdue && 'Due Soon'}
-                      {!getFollowUpStatus(leader.follow_up_date).isOverdue && !getFollowUpStatus(leader.follow_up_date).isApproaching && 'Scheduled'}
-                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFollowUpDateValue(leader.follow_up_date || '');
+                        setFollowUpNoteValue(leader.follow_up_note || '');
+                        setShowFollowUpDateModal(true);
+                      }}
+                      className="text-xs text-blue-300 hover:text-blue-200 bg-blue-900/30 hover:bg-blue-900/45 border border-blue-800/40 px-3 py-1.5 rounded-md transition-colors"
+                    >
+                      Edit
+                    </button>
                   </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setFollowUpDateValue(leader.follow_up_date || ''); setShowFollowUpDateModal(true); }}
-                    className="text-xs text-blue-400 hover:text-blue-300 bg-blue-900/30 px-3 py-1.5 rounded-md transition-colors"
-                  >
-                    Change Date
-                  </button>
+                  <div>
+                    {leader.follow_up_note?.trim() && (
+                      <div className="rounded-md border border-slate-700/70 bg-slate-800/60 px-2.5 py-2">
+                        <div className="text-[11px] uppercase tracking-wide text-slate-500">Follow-Up Note</div>
+                        <div className="mt-1 text-xs text-slate-200 whitespace-pre-wrap break-words">{leader.follow_up_note}</div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -2399,11 +2446,7 @@ export default function CircleLeaderProfilePage() {
 
                 {/* Follow Up */}
                 <div>
-                  <button
-                    onClick={handleFollowUpClick}
-                    disabled={isUpdatingFollowUp}
-                    className="w-full flex items-center justify-between px-4 py-3 text-slate-200 hover:bg-slate-700/50 text-sm transition-colors disabled:opacity-50"
-                  >
+                  <div className="w-full flex items-center justify-between px-4 py-3 text-slate-200 text-sm">
                     <div className="flex items-center gap-2.5">
                       <svg className={`w-4 h-4 ${leader.follow_up_required ? 'text-orange-500' : 'text-slate-400'}`} fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d={leader.follow_up_required ?
@@ -2413,34 +2456,54 @@ export default function CircleLeaderProfilePage() {
                       </svg>
                       {isUpdatingFollowUp ? 'Updating...' : 'Follow-Up'}
                     </div>
-                    <span className={`text-xs font-medium ${leader.follow_up_required ? 'text-orange-400' : 'text-slate-500'}`}>
-                      {leader.follow_up_required ? 'Required' : 'None'}
-                    </span>
-                  </button>
-                  {leader.follow_up_required && leader.follow_up_date && (
-                    <div className="flex items-center justify-between px-4 py-2.5 bg-slate-700/20 border-t border-slate-700/50">
-                      <div>
-                        <div className="text-xs text-slate-300">
-                          {new Date(leader.follow_up_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    <button
+                      onClick={handleFollowUpClick}
+                      disabled={isUpdatingFollowUp}
+                      className="text-xs text-orange-300 hover:text-orange-200 bg-orange-900/30 hover:bg-orange-900/45 border border-orange-800/40 px-3 py-1.5 rounded-md transition-colors disabled:opacity-50"
+                    >
+                      {leader.follow_up_required ? 'Turn Off' : 'Turn On'}
+                    </button>
+                  </div>
+                  {leader.follow_up_required && (leader.follow_up_date || leader.follow_up_note?.trim()) && (
+                    <div className="px-4 py-3 bg-slate-700/20 border-t border-slate-700/50 space-y-2.5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          {leader.follow_up_date && (
+                            <>
+                              <div className="text-xs text-slate-300">
+                                {new Date(leader.follow_up_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </div>
+                              <div className={`text-xs ${
+                                getFollowUpStatus(leader.follow_up_date).isOverdue
+                                  ? 'text-red-400'
+                                  : 'text-green-400'
+                              }`}>
+                                {getFollowUpStatus(leader.follow_up_date).isOverdue && 'Overdue'}
+                                {!getFollowUpStatus(leader.follow_up_date).isOverdue && 'Scheduled'}
+                              </div>
+                            </>
+                          )}
                         </div>
-                        <div className={`text-xs ${
-                          getFollowUpStatus(leader.follow_up_date).isOverdue
-                            ? 'text-red-400'
-                            : getFollowUpStatus(leader.follow_up_date).isApproaching
-                            ? 'text-yellow-400'
-                            : 'text-green-400'
-                        }`}>
-                          {getFollowUpStatus(leader.follow_up_date).isOverdue && 'Overdue'}
-                          {getFollowUpStatus(leader.follow_up_date).isApproaching && !getFollowUpStatus(leader.follow_up_date).isOverdue && 'Due Soon'}
-                          {!getFollowUpStatus(leader.follow_up_date).isOverdue && !getFollowUpStatus(leader.follow_up_date).isApproaching && 'Scheduled'}
-                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFollowUpDateValue(leader.follow_up_date || '');
+                            setFollowUpNoteValue(leader.follow_up_note || '');
+                            setShowFollowUpDateModal(true);
+                          }}
+                          className="text-xs text-blue-300 hover:text-blue-200 bg-blue-900/30 hover:bg-blue-900/45 border border-blue-800/40 px-3 py-1.5 rounded-md transition-colors"
+                        >
+                          Edit
+                        </button>
                       </div>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setFollowUpDateValue(leader.follow_up_date || ''); setShowFollowUpDateModal(true); }}
-                        className="text-xs text-blue-400 hover:text-blue-300 bg-blue-900/30 px-3 py-1.5 rounded-md transition-colors"
-                      >
-                        Change Date
-                      </button>
+                      <div>
+                        {leader.follow_up_note?.trim() && (
+                          <div className="rounded-md border border-slate-700/70 bg-slate-800/60 px-2.5 py-2">
+                            <div className="text-[11px] uppercase tracking-wide text-slate-500">Follow-Up Note</div>
+                            <div className="mt-1 text-xs text-slate-200 whitespace-pre-wrap break-words">{leader.follow_up_note}</div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -2779,11 +2842,11 @@ export default function CircleLeaderProfilePage() {
           >
             <div className="p-5">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-                {leader?.follow_up_required ? 'Change Follow-Up Date' : 'Set Follow-Up'}
+                {leader?.follow_up_required ? 'Edit Follow-Up' : 'Set Follow-Up'}
               </h3>
               <p className="text-sm text-slate-500 mb-4">
                 {leader?.follow_up_required 
-                  ? `Update the follow-up date for ${leader?.name || 'this leader'}.`
+                  ? `Update the follow-up details for ${leader?.name || 'this leader'}.`
                   : `Select a follow-up date for ${leader?.name || 'this leader'}. A todo will be added to your list.`
                 }
               </p>
@@ -2799,6 +2862,20 @@ export default function CircleLeaderProfilePage() {
                   autoFocus
                 />
               </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Follow-up Note
+                </label>
+                <textarea
+                  value={followUpNoteValue}
+                  onChange={(e) => setFollowUpNoteValue(e.target.value)}
+                  rows={3}
+                  maxLength={500}
+                  placeholder="Add context for this follow-up..."
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <div className="mt-1 text-xs text-slate-500">{followUpNoteValue.length}/500</div>
+              </div>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowFollowUpDateModal(false)}
@@ -2807,7 +2884,7 @@ export default function CircleLeaderProfilePage() {
                   Cancel
                 </button>
                 <button
-                  onClick={leader?.follow_up_required ? () => { handleFollowUpDateChange(followUpDateValue); setShowFollowUpDateModal(false); } : handleFollowUpSave}
+                  onClick={leader?.follow_up_required ? () => { handleFollowUpDetailsChange(followUpDateValue, followUpNoteValue); } : handleFollowUpSave}
                   disabled={!followUpDateValue || isUpdatingFollowUp}
                   className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors"
                 >

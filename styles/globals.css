@@ -778,6 +778,7 @@ a {
 }
 
 .calendar-shell .fc .fc-toolbar-title {
+  font-size: 0.875rem;
   line-height: 1.1;
 }
 
