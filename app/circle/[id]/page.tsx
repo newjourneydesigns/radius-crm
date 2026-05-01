@@ -1445,10 +1445,11 @@ export default function CircleLeaderProfilePage() {
                 <button
                   onClick={handleSaveLeader}
                   disabled={isSavingLeader || !editedLeader.name?.trim()}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-btn-primary text-white rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ background: 'rgba(34,197,94,0.18)', border: '1px solid rgba(34,197,94,0.30)', color: 'rgba(134,239,172,1)' }}
                 >
                   {isSavingLeader ? (
-                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <div className="w-3.5 h-3.5 border-2 border-green-300/30 border-t-green-300 rounded-full animate-spin" />
                   ) : (
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
@@ -1459,7 +1460,8 @@ export default function CircleLeaderProfilePage() {
                 <button
                   onClick={handleCancelLeaderEdit}
                   disabled={isSavingLeader}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150 focus:outline-none disabled:opacity-50"
+                  style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)' }}
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -1469,7 +1471,8 @@ export default function CircleLeaderProfilePage() {
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
                   disabled={isSavingLeader}
-                  className="inline-flex items-center px-2.5 py-1.5 bg-btn-danger text-white rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                  className="inline-flex items-center px-2.5 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150 focus:outline-none disabled:opacity-50"
+                  style={{ background: 'rgba(239,68,68,0.18)', border: '1px solid rgba(239,68,68,0.30)', color: 'rgba(252,165,165,1)' }}
                   title="Delete circle leader"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1480,7 +1483,8 @@ export default function CircleLeaderProfilePage() {
             ) : (
               <button
                 onClick={handleEditLeader}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-700/60 hover:bg-slate-600/60 text-slate-300 rounded-lg transition-colors text-sm font-medium"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150 focus:outline-none"
+                style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)' }}
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />

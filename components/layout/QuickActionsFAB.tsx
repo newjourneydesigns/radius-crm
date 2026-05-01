@@ -101,16 +101,18 @@ export default function QuickActionsFAB() {
         />
       )}
 
-      {/* FAB container — bottom-left on mobile, bottom-right on desktop */}
+      {/* FAB container — stays bottom-left on both mobile and desktop */}
       <div
-        className="fixed left-4 md:left-auto md:right-6 z-[10002] flex flex-col items-start md:items-end gap-2 bottom-[calc(98px+env(safe-area-inset-bottom,0px)+16px)] md:bottom-6"
+        className="fixed left-4 z-[10002] flex flex-col items-start gap-2 bottom-[calc(98px+env(safe-area-inset-bottom,0px)+16px)] md:bottom-6"
       >
         {/* Speed dial items — rendered flex-col-reverse so index 0 (Note) is closest to FAB */}
-        <div className="flex flex-col-reverse items-start md:items-end gap-2">
+        <div className="flex flex-col-reverse items-start gap-2">
           {ACTIONS.map((action, i) => (
-            <div
+            <button
               key={action.id}
-              className={`flex items-center gap-3 transition-all duration-200 ${
+              type="button"
+              onClick={() => handleActionClick(action.id)}
+              className={`w-48 max-w-[calc(100vw-2rem)] flex items-center justify-between rounded-xl border border-slate-700 bg-slate-800/95 px-4 py-2.5 text-slate-100 shadow-card-glass transition-all duration-200 hover:bg-slate-700/95 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
                 isOpen
                   ? 'opacity-100 translate-y-0 pointer-events-auto'
                   : 'opacity-0 translate-y-3 pointer-events-none'
@@ -120,25 +122,15 @@ export default function QuickActionsFAB() {
                   ? `${i * 35}ms`
                   : `${(ACTIONS.length - 1 - i) * 20}ms`,
               }}
+              aria-label={action.label}
             >
-              {/* Action button — same w-12 h-12 and same blue as FAB */}
-              <button
-                onClick={() => handleActionClick(action.id)}
-                className="w-12 h-12 rounded-full flex items-center justify-center text-white transition-all duration-150 active:scale-90 flex-shrink-0"
-                style={{
-                  background: 'linear-gradient(135deg, #2563eb 0%, #60a5fa 100%)',
-                  boxShadow: '0 0 10px rgba(96,165,250,0.3), 0 2px 6px rgba(0,0,0,0.3)',
-                  border: '2px solid rgba(9,27,52,0.85)',
-                }}
-                aria-label={action.label}
-              >
+              <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center text-blue-300">
                 {action.icon}
-              </button>
-              {/* Label — solid dark pill, easy to read over blurred bg */}
-              <span className="bg-slate-900 text-slate-100 text-xs font-semibold px-3 py-1.5 rounded-lg shadow-md whitespace-nowrap border border-slate-700 md:order-first">
+              </span>
+              <span className="text-xs font-semibold whitespace-nowrap">
                 {action.label}
               </span>
-            </div>
+            </button>
           ))}
         </div>
 

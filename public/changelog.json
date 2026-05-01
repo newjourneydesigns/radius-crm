@@ -1,15 +1,15 @@
 [
   {
     "date": "2026-05-01",
-    "description": "The Add Board Card modal now remembers the last board and list you chose, so you don't have to re-select them every time. Cards also support an optional description field for adding context or notes.",
-    "page": "/boards",
-    "type": "improvement"
+    "description": "Circle leader pages now show a birthday banner when a leader's (or additional leader's) birthday is within the next 7 days — highlighted in violet alongside the existing prayer and encouragement banners.",
+    "page": "/circle",
+    "type": "feature"
   },
   {
     "date": "2026-05-01",
-    "description": "Circle leader pages now show a subtle banner for any scheduled prayers or planned encouragements coming up in the next 7 days, so you can see what's ahead at a glance. Dismiss it and it reappears next time you visit.",
-    "page": "/circle",
-    "type": "feature"
+    "description": "The Add Board Card modal now remembers the last board and list you chose, so you don't have to re-select them every time. Cards also support an optional description field for adding context or notes.",
+    "page": "/boards",
+    "type": "improvement"
   },
   {
     "date": "2026-05-01",
