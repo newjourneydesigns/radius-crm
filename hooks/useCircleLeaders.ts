@@ -299,7 +299,8 @@ export const useCircleLeaders = () => {
                 .from('notes')
                 .select('id, circle_leader_id, content, created_at, created_by')
                 .in('circle_leader_id', chunk)
-                .order('created_at', { ascending: false });
+                .order('created_at', { ascending: false })
+                .limit(chunk.length * 5);
 
               if (notesError) {
                 console.error('Error loading notes:', notesError);

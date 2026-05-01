@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
 export interface User {
@@ -177,7 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const signInWithMagicLink = async (email: string) => {
+  const signInWithMagicLink = useCallback(async (email: string) => {
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
       options: {
@@ -190,17 +190,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) {
       throw error;
     }
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
       throw error;
     }
     setUser(null);
-  };
+  }, []);
 
-  const clearAuthData = async () => {
+  const clearAuthData = useCallback(async () => {
     console.log('🧹 AuthContext: Clearing all auth data...');
     try {
       // Force sign out from Supabase with global scope
@@ -209,11 +209,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('❌ AuthContext: Error during signOut:', error);
     }
-    
+
     // Clear local state immediately
     setUser(null);
     setLoading(false);
-    
+
     // Remove only Supabase-related keys from storage — do NOT call
     // localStorage.clear() as that would also wipe non-auth app data such as
     // theme preferences and the "remember me" setting.
@@ -235,19 +235,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('❌ AuthContext: Error clearing storage:', error);
       }
     }
-    
+
     console.log('✅ AuthContext: All auth data cleared');
-  };
+  }, []);
 
-  const isAuthenticated = () => {
-    return user !== null;
-  };
+  const isAuthenticated = useCallback(() => user !== null, [user]);
 
-  const isAdmin = () => {
-    return user?.role === 'ACPD';
-  };
+  const isAdmin = useCallback(() => user?.role === 'ACPD', [user]);
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     if (!user) return;
     try {
       const { data: profile } = await supabase
@@ -261,9 +257,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error('❌ AuthContext: refreshUser failed:', err);
     }
-  };
+  }, [user]);
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     loading,
     signInWithMagicLink,
@@ -272,7 +268,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated,
     isAdmin,
     refreshUser,
-  };
+  }), [user, loading, signInWithMagicLink, signOut, clearAuthData, isAuthenticated, isAdmin, refreshUser]);
 
   return (
     <AuthContext.Provider value={value}>

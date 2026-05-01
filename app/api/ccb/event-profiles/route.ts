@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// CCB API credentials - should be moved to environment variables
-const CCB_USERNAME = 'vccintra_api';
-const CCB_PASSWORD = 'C4x1yAFpDV3h';
 const CCB_BASE_URL = 'https://valleycreekchurch.ccbchurch.com/api.php';
 
 export async function GET(request: NextRequest) {
@@ -34,7 +31,9 @@ export async function GET(request: NextRequest) {
     ccbUrl.searchParams.set('page', page);
 
     // Create Basic Auth header
-    const credentials = Buffer.from(`${CCB_USERNAME}:${CCB_PASSWORD}`).toString('base64');
+    const credentials = Buffer.from(
+      `${process.env.CCB_INTRA_USERNAME}:${process.env.CCB_INTRA_PASSWORD}`
+    ).toString('base64');
 
     // Make the request to CCB API
     const response = await fetch(ccbUrl.toString(), {

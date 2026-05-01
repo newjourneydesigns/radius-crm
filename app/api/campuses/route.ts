@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../lib/supabase';
+import { verifyAdminAccess } from '../../../lib/auth-middleware';
 
 export async function POST(request: NextRequest) {
+  const { isAdmin, error: authError } = await verifyAdminAccess(request);
+  if (!isAdmin) {
+    return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 403 });
+  }
+
   try {
     const { campus } = await request.json();
     

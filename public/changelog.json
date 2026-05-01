@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-05-01",
+    "description": "Backend security hardening: moved CCB API credentials out of source code into environment variables, and added admin-only protection to the campus creation endpoint.",
+    "page": "/circle-dashboard",
+    "type": "improvement"
+  },
+  {
+    "date": "2026-05-01",
+    "description": "Performance improvements across the app — reduced unnecessary re-renders in the auth layer, sped up board data loading, and reduced the amount of data fetched when loading circle leader notes.",
+    "page": "/circle-dashboard",
+    "type": "improvement"
+  },
+  {
+    "date": "2026-05-01",
     "description": "When turning on a follow-up from the circle profile, the generated Notes timeline entry now includes the full follow-up message you typed (not just the date).",
     "page": "/circle",
     "type": "fix"

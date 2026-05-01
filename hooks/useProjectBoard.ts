@@ -156,17 +156,49 @@ export function useProjectBoard() {
         }
       }
 
+      // Build Maps for O(1) lookup per card instead of O(n*m) filter chains
+      const commentsByCard = new Map<string, typeof allComments>();
+      for (const cm of allComments) {
+        const arr = commentsByCard.get(cm.card_id) || [];
+        arr.push(cm);
+        commentsByCard.set(cm.card_id, arr);
+      }
+      const checklistsByCard = new Map<string, typeof allChecklists>();
+      for (const cl of allChecklists) {
+        const arr = checklistsByCard.get(cl.card_id) || [];
+        arr.push(cl);
+        checklistsByCard.set(cl.card_id, arr);
+      }
+      const checklistGroupsByCard = new Map<string, typeof allChecklistGroups>();
+      for (const g of allChecklistGroups) {
+        const arr = checklistGroupsByCard.get(g.card_id) || [];
+        arr.push(g);
+        checklistGroupsByCard.set(g.card_id, arr);
+      }
+      const labelAssignmentsByCard = new Map<string, typeof allLabelAssignments>();
+      for (const a of allLabelAssignments) {
+        const arr = labelAssignmentsByCard.get(a.card_id) || [];
+        arr.push(a);
+        labelAssignmentsByCard.set(a.card_id, arr);
+      }
+      const cardAssignmentsByCard = new Map<string, typeof allCardAssignments>();
+      for (const a of allCardAssignments) {
+        const arr = cardAssignmentsByCard.get(a.card_id) || [];
+        arr.push(a);
+        cardAssignmentsByCard.set(a.card_id, arr);
+      }
+      const labelsById = new Map(labels.map(l => [l.id, l]));
+
       // Stitch comments, checklists, labels, assignments onto cards
       const cards = (cardsRes.data || []).map(card => ({
         ...card,
-        comments: allComments.filter(cm => cm.card_id === card.id),
-        checklists: allChecklists.filter(cl => cl.card_id === card.id),
-        checklist_groups: allChecklistGroups.filter(g => g.card_id === card.id),
-        labels: allLabelAssignments
-          .filter(a => a.card_id === card.id)
-          .map(a => labels.find(l => l.id === a.label_id))
+        comments: commentsByCard.get(card.id) || [],
+        checklists: checklistsByCard.get(card.id) || [],
+        checklist_groups: checklistGroupsByCard.get(card.id) || [],
+        labels: (labelAssignmentsByCard.get(card.id) || [])
+          .map(a => labelsById.get(a.label_id))
           .filter(Boolean),
-        assignments: allCardAssignments.filter(a => a.card_id === card.id),
+        assignments: cardAssignmentsByCard.get(card.id) || [],
       }));
 
       const fullBoard: FullBoard = { ...boardRes.data, columns, cards, labels };
