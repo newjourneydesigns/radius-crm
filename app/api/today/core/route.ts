@@ -6,6 +6,7 @@ import {
   FollowUpItem,
   NoteItem,
   BirthdayItem,
+  PrayerRequestItem,
 } from '../../../../lib/emailService';
 
 export interface TodayCoreData {
@@ -16,6 +17,7 @@ export interface TodayCoreData {
   upcomingVisits: VisitItem[];
   encouragements: { dueToday: EncouragementItem[]; overdue: EncouragementItem[] };
   followUps: { dueToday: FollowUpItem[]; overdue: FollowUpItem[] };
+  prayerRequests: { dueToday: PrayerRequestItem[]; overdue: PrayerRequestItem[] };
   recentNotes: NoteItem[];
 }
 
@@ -100,6 +102,8 @@ export async function GET(request: NextRequest) {
       { data: followUpsRaw },
       { data: birthdayLeaders },
       { data: notesRaw },
+      { data: leaderPrayersRaw },
+      { data: generalPrayersRaw },
     ] = await Promise.all([
       supabase.from('circle_visits')
         .select('id, visit_date, leader_id, previsit_note, circle_leaders!inner(name, campus)')
@@ -135,6 +139,24 @@ export async function GET(request: NextRequest) {
         .select('id, circle_leader_id, content, created_at, circle_leaders!inner(name, campus)')
         .eq('created_by', user.id)
         .order('created_at', { ascending: false }).limit(5),
+
+      // Leader prayer requests with a pray_date on or before today
+      supabase.from('acpd_prayer_points')
+        .select('id, content, pray_date, circle_leader_id, circle_leaders!inner(name, campus)')
+        .eq('user_id', user.id)
+        .eq('is_answered', false)
+        .not('pray_date', 'is', null)
+        .lte('pray_date', today)
+        .order('pray_date', { ascending: true }),
+
+      // General prayer requests with a pray_date on or before today
+      supabase.from('general_prayer_points')
+        .select('id, content, pray_date')
+        .eq('user_id', user.id)
+        .eq('is_answered', false)
+        .not('pray_date', 'is', null)
+        .lte('pray_date', today)
+        .order('pray_date', { ascending: true }),
     ]);
 
     const toVisit = (v: any): VisitItem => ({
@@ -166,6 +188,21 @@ export async function GET(request: NextRequest) {
       return m === todayMonth && d === todayDayN;
     }).map((l: any) => ({ id: l.id, name: l.name, campus: l.campus ?? undefined, birthday: l.birthday, phone: l.phone || undefined }));
 
+    const toPrayer = (p: any, isGeneral = false): PrayerRequestItem => ({
+      id: p.id,
+      content: p.content,
+      pray_date: p.pray_date,
+      circle_leader_id: isGeneral ? undefined : p.circle_leader_id,
+      leader_name: isGeneral ? undefined : (p.circle_leaders?.name ?? undefined),
+      leader_campus: isGeneral ? undefined : (p.circle_leaders?.campus ?? undefined),
+      is_general: isGeneral,
+    });
+
+    const allPrayers: PrayerRequestItem[] = [
+      ...(leaderPrayersRaw || []).map(p => toPrayer(p, false)),
+      ...(generalPrayersRaw || []).map(p => toPrayer(p, true)),
+    ];
+
     const payload: TodayCoreData = {
       today,
       user,
@@ -182,6 +219,10 @@ export async function GET(request: NextRequest) {
       followUps: {
         dueToday: (followUpsRaw || []).filter((f: any) => f.follow_up_date === today).map(toFU),
         overdue:  (followUpsRaw || []).filter((f: any) => !f.follow_up_date || f.follow_up_date < today).map(toFU),
+      },
+      prayerRequests: {
+        dueToday: allPrayers.filter(p => p.pray_date === today),
+        overdue:  allPrayers.filter(p => p.pray_date < today),
       },
       recentNotes: (notesRaw || []).map((n: any) => ({
         id: n.id, circle_leader_id: n.circle_leader_id,

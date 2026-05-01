@@ -9,6 +9,7 @@ import type {
   NoteItem,
   CircleMeetingItem,
   BirthdayItem,
+  PrayerRequestItem,
 } from '../../../lib/emailService';
 
 export interface TodayData {
@@ -19,6 +20,7 @@ export interface TodayData {
   upcomingVisits: VisitItem[];
   encouragements: { dueToday: EncouragementItem[]; overdue: EncouragementItem[] };
   followUps: { dueToday: FollowUpItem[]; overdue: FollowUpItem[] };
+  prayerRequests: { dueToday: PrayerRequestItem[]; overdue: PrayerRequestItem[] };
   cards: { dueToday: CardDigestItem[]; overdue: CardDigestItem[] };
   focusCards: CardDigestItem[];
   checklistItems: { dueToday: ChecklistDigestItem[]; overdue: ChecklistDigestItem[] };

@@ -77,6 +77,16 @@ export interface BirthdayItem {
   phone?: string;
 }
 
+export interface PrayerRequestItem {
+  id: number;
+  content: string;
+  pray_date: string;
+  circle_leader_id?: number;
+  leader_name?: string;
+  leader_campus?: string;
+  is_general?: boolean;
+}
+
 export interface PersonalDigestData {
   user: { id: string; name: string; email: string };
   date: string;
@@ -106,6 +116,10 @@ export interface PersonalDigestData {
   followUps: {
     dueToday: FollowUpItem[];
     overdue: FollowUpItem[];
+  };
+  prayerRequests?: {
+    dueToday: PrayerRequestItem[];
+    overdue: PrayerRequestItem[];
   };
 }
 
@@ -200,7 +214,7 @@ function checklistRow(item: ChecklistDigestItem, appUrl: string, today: string):
 
 export function generatePersonalDigestHTML(data: PersonalDigestData): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://myradiuscrm.com';
-  const { user, date, birthdays, cards, checklistItems, circleVisits, upcomingVisits, recentNotes, upcomingCircles, encouragements, followUps } = data;
+  const { user, date, birthdays, cards, checklistItems, circleVisits, upcomingVisits, recentNotes, upcomingCircles, encouragements, followUps, prayerRequests } = data;
 
   const totalItems =
     (birthdays || []).length +
@@ -208,7 +222,8 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
     (checklistItems?.dueToday?.length || 0) + (checklistItems?.overdue?.length || 0) +
     circleVisits.today.length + circleVisits.thisWeek.length +
     encouragements.dueToday.length + encouragements.overdue.length +
-    followUps.dueToday.length + followUps.overdue.length;
+    followUps.dueToday.length + followUps.overdue.length +
+    (prayerRequests?.dueToday?.length || 0) + (prayerRequests?.overdue?.length || 0);
 
   // CARDS DUE TODAY
   let cardsDueTodayHtml = '';
@@ -332,6 +347,37 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
     fuOverdue += '</div>';
   }
 
+  // PRAYER REQUESTS DUE TODAY
+  let prayerTodayHtml = '';
+  if ((prayerRequests?.dueToday?.length || 0) > 0) {
+    prayerTodayHtml = sectionHeader('🙏', 'Prayer Requests Today', prayerRequests!.dueToday.length, '#f59e0b');
+    prayerRequests!.dueToday.forEach(p => {
+      const bodyHtml = `<div style="font-size:13px; color:#c9d6e3; line-height:1.5;">${p.content}</div>`;
+      if (p.circle_leader_id && p.leader_name) {
+        prayerTodayHtml += leaderCard(appUrl, p.circle_leader_id, p.leader_name, p.leader_campus, bodyHtml);
+      } else {
+        prayerTodayHtml += `<div style="background:#0f2a4a; border:1px solid #1e3a5f; border-left:4px solid #f59e0b; border-radius:6px; padding:10px 14px; margin-bottom:8px;">${bodyHtml}</div>`;
+      }
+    });
+    prayerTodayHtml += `<a href="${appUrl}/prayer/" style="font-size:12px; color:#f59e0b; text-decoration:none; font-weight:600;">View all prayers →</a></div>`;
+  }
+
+  // OVERDUE PRAYER REQUESTS
+  let prayerOverdueHtml = '';
+  if ((prayerRequests?.overdue?.length || 0) > 0) {
+    prayerOverdueHtml = sectionHeader('⏰', 'Overdue Prayer Requests', prayerRequests!.overdue.length, '#d97706');
+    prayerRequests!.overdue.forEach(p => {
+      const days = daysDiff(p.pray_date, date);
+      const bodyHtml = `<div style="font-size:13px; color:#c9d6e3; line-height:1.5;">${p.content}</div><div style="font-size:11px; color:#6b8ab0; margin-top:4px;">Was scheduled for ${formatShortDate(p.pray_date)} (${days}d ago)</div>`;
+      if (p.circle_leader_id && p.leader_name) {
+        prayerOverdueHtml += leaderCard(appUrl, p.circle_leader_id, p.leader_name, p.leader_campus, bodyHtml);
+      } else {
+        prayerOverdueHtml += `<div style="background:#0f2a4a; border:1px solid #1e3a5f; border-left:4px solid #d97706; border-radius:6px; padding:10px 14px; margin-bottom:8px;">${bodyHtml}</div>`;
+      }
+    });
+    prayerOverdueHtml += `<a href="${appUrl}/prayer/" style="font-size:12px; color:#d97706; text-decoration:none; font-weight:600;">View all prayers →</a></div>`;
+  }
+
   const noItemsMsg = totalItems === 0
     ? `<div style="text-align:center; padding:40px 20px; color:#8da9c4; font-size:15px;">
         🎉 You're all caught up! No tasks, visits, encouragements, or follow-ups due today.
@@ -452,6 +498,7 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
 
   <div style="background:#0b2545; border-radius:12px; padding:20px 24px; border:1px solid #1e3a5f;">
     ${noItemsMsg}
+    ${prayerTodayHtml}
     ${birthdaysHtml}
     ${visitsToday}
     ${encToday}
@@ -462,6 +509,7 @@ export function generatePersonalDigestHTML(data: PersonalDigestData): string {
     ${checklistOverdueHtml}
     ${encOverdue}
     ${fuOverdue}
+    ${prayerOverdueHtml}
     ${visitsWeek}
     ${upcomingCirclesHtml}
     ${upcomingVisitsHtml}

@@ -11,6 +11,7 @@ import {
   Check,
   CheckSquare,
   ClipboardList,
+  Heart,
   NotebookPen,
   PartyPopper,
   Pin,
@@ -25,6 +26,7 @@ import type {
   VisitItem,
   BirthdayItem,
   NoteItem,
+  PrayerRequestItem,
 } from '../../lib/emailService';
 
 // ─── Theme ───────────────────────────────────────────────────────────────────
@@ -506,11 +508,12 @@ export default function TodayPage() {
 
   const totalEncs      = data.encouragements.dueToday.length + data.encouragements.overdue.length;
   const totalFU        = data.followUps.dueToday.length + data.followUps.overdue.length;
+  const totalPrayers   = (data.prayerRequests?.dueToday?.length || 0) + (data.prayerRequests?.overdue?.length || 0);
   const totalCards     = data.cards.dueToday.length + data.cards.overdue.length;
   const totalChecklists = data.checklistItems.dueToday.length + data.checklistItems.overdue.length;
   const totalOverdue   = data.cards.overdue.length + data.checklistItems.overdue.length + data.encouragements.overdue.length + data.followUps.overdue.length;
   const totalFocus     = (data.focusCards ?? []).length;
-  const hasAnything    = data.birthdays.length + data.circleVisits.today.length + totalEncs + totalFU + totalCards + totalChecklists + totalFocus > 0 || isCardsLoading;
+  const hasAnything    = data.birthdays.length + data.circleVisits.today.length + totalEncs + totalFU + totalCards + totalChecklists + totalFocus + totalPrayers > 0 || isCardsLoading;
 
   return (
     <>
@@ -559,6 +562,7 @@ export default function TodayPage() {
             { label: 'Birthdays',       count: data.birthdays.length,          color: T.violet,  href: '#birthdays' },
             { label: 'Overdue Items',   count: totalOverdue,                   color: T.red,     href: '#overdue-cards' },
             { label: 'Follow-Ups',      count: totalFU,                        color: T.amber,   href: '#follow-ups' },
+            { label: 'Prayers',         count: totalPrayers,                   color: T.amber,   href: '#prayers-today' },
             { label: 'Cards Due',       count: totalCards,                     color: T.amber,   href: '#cards-today' },
             { label: 'Encouragements',  count: totalEncs,                      color: T.amber,   href: '#encs-today' },
             { label: 'Checklist Tasks', count: totalChecklists,                color: T.amber,   href: '#checklists-today' },
@@ -786,6 +790,40 @@ export default function TodayPage() {
                   : <DateBadge date="No due date" color={T.textFaint} />}
                 <ActionBtn onClick={() => clearFollowUp(f.id)} color={T.green}>Clear</ActionBtn>
               </div>
+            </Item>
+          ))}
+        </Section>
+
+        {/* ── Prayer Requests Today ── */}
+        <Section id="prayers-today" title="Prayer Requests Today" icon={<Heart className="h-4 w-4" />} count={data.prayerRequests?.dueToday?.length || 0}
+          sectionKey="prayersToday" isOpen={isOpen('prayersToday')} onToggle={() => toggle('prayersToday')} accentColor={T.amber}>
+          {(data.prayerRequests?.dueToday || []).map((p: PrayerRequestItem) => (
+            <Item key={p.id} accentColor={T.amber}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {p.circle_leader_id && p.leader_name
+                  ? <><LeaderLink id={p.circle_leader_id} name={p.leader_name} />{p.leader_campus && <Sub>{p.leader_campus}</Sub>}</>
+                  : <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600 }}>General Prayer</span>
+                }
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: T.text, lineHeight: 1.5 }}>{p.content}</p>
+              </div>
+              <DateBadge date={`Pray ${formatShort(p.pray_date)}`} color={T.amber} />
+            </Item>
+          ))}
+        </Section>
+
+        {/* ── Overdue Prayer Requests ── */}
+        <Section id="prayers-overdue" title="Overdue Prayer Requests" icon={<Heart className="h-4 w-4" />} count={data.prayerRequests?.overdue?.length || 0}
+          sectionKey="prayersOverdue" isOpen={isOpen('prayersOverdue')} onToggle={() => toggle('prayersOverdue')} accentColor={T.red}>
+          {(data.prayerRequests?.overdue || []).map((p: PrayerRequestItem) => (
+            <Item key={p.id} accentColor={T.red}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {p.circle_leader_id && p.leader_name
+                  ? <><LeaderLink id={p.circle_leader_id} name={p.leader_name} />{p.leader_campus && <Sub>{p.leader_campus}</Sub>}</>
+                  : <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600 }}>General Prayer</span>
+                }
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: T.text, lineHeight: 1.5 }}>{p.content}</p>
+              </div>
+              <DateBadge date={`Due ${formatShort(p.pray_date)}`} color={T.red} />
             </Item>
           ))}
         </Section>

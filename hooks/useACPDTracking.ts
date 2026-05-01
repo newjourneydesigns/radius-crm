@@ -28,14 +28,14 @@ export const useACPDTracking = () => {
     }
   }, []);
 
-  const addPrayerPoint = useCallback(async (leaderId: number, content: string) => {
+  const addPrayerPoint = useCallback(async (leaderId: number, content: string, prayDate?: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
       const { data, error: insertError } = await supabase
         .from('acpd_prayer_points')
-        .insert([{ circle_leader_id: leaderId, user_id: user.id, content, is_answered: false, is_shared: false }])
+        .insert([{ circle_leader_id: leaderId, user_id: user.id, content, is_answered: false, is_shared: false, pray_date: prayDate || null }])
         .select()
         .single();
 

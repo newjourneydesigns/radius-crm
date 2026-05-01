@@ -107,10 +107,12 @@ function PrayerListContent() {
   const [editText, setEditText] = useState('');
   const [addingToLeader, setAddingToLeader] = useState<number | null>(null);
   const [newPrayerText, setNewPrayerText] = useState('');
+  const [newPrayerDate, setNewPrayerDate] = useState('');
 
   // General Prayer Points state
   const [generalPrayers, setGeneralPrayers] = useState<GeneralPrayer[]>([]);
   const [newGeneralText, setNewGeneralText] = useState('');
+  const [newGeneralDate, setNewGeneralDate] = useState('');
   const [editingGeneralId, setEditingGeneralId] = useState<number | null>(null);
   const [editGeneralText, setEditGeneralText] = useState('');
   const [confirmDeleteGeneral, setConfirmDeleteGeneral] = useState<number | null>(null);
@@ -343,6 +345,7 @@ function PrayerListContent() {
           content: newPrayerText.trim(),
           is_answered: false,
           is_shared: false,
+          pray_date: newPrayerDate || null,
         }])
         .select(`
           *,
@@ -371,6 +374,7 @@ function PrayerListContent() {
         return next;
       });
       setNewPrayerText('');
+      setNewPrayerDate('');
       setAddingToLeader(null);
     } catch (err: any) {
       console.error('Error adding prayer:', err);
@@ -385,12 +389,13 @@ function PrayerListContent() {
       if (!authUser) return;
       const { data, error: insertErr } = await supabase
         .from('general_prayer_points')
-        .insert([{ user_id: authUser.id, content: newGeneralText.trim(), is_answered: false, is_shared: false }])
+        .insert([{ user_id: authUser.id, content: newGeneralText.trim(), is_answered: false, is_shared: false, pray_date: newGeneralDate || null }])
         .select('*')
         .single();
       if (insertErr) throw insertErr;
       setGeneralPrayers(prev => [data, ...prev]);
       setNewGeneralText('');
+      setNewGeneralDate('');
     } catch (err: any) {
       console.error('Error adding general prayer:', err);
     }
@@ -670,7 +675,7 @@ function PrayerListContent() {
             {generalExpanded && (
               <div className="mt-5">
                 {/* Add new */}
-                <div className="flex items-center gap-2 mb-6">
+                <div className="flex items-center gap-2 mb-6 flex-wrap">
                   <input
                     type="text"
                     value={newGeneralText}
@@ -678,6 +683,13 @@ function PrayerListContent() {
                     onKeyDown={e => { if (e.key === 'Enter') addGeneralPrayer(); }}
                     placeholder="Add a prayer point..."
                     className="flex-1 px-3.5 py-2.5 bg-[#1a1c22] border border-white/[0.08] rounded-lg text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  <input
+                    type="date"
+                    value={newGeneralDate}
+                    onChange={e => setNewGeneralDate(e.target.value)}
+                    title="Pray on (optional)"
+                    className="px-2 py-2.5 bg-[#1a1c22] border border-white/[0.08] rounded-lg text-xs text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-36"
                   />
                   <button
                     onClick={addGeneralPrayer}
@@ -984,6 +996,15 @@ function PrayerListContent() {
                               placeholder={`Add a prayer for ${group.leaderName}...`}
                               className="w-full px-3 py-2 bg-[#1a1c22] border border-white/[0.12] rounded-md text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
                             />
+                            <div className="flex items-center gap-2">
+                              <label className="text-xs text-slate-500 shrink-0">Pray on:</label>
+                              <input
+                                type="date"
+                                value={newPrayerDate}
+                                onChange={e => setNewPrayerDate(e.target.value)}
+                                className="px-2 py-1 bg-[#1a1c22] border border-white/[0.12] rounded-md text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                              />
+                            </div>
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => handleAddPrayer(group.leaderId)}

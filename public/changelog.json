@@ -1,6 +1,24 @@
 [
   {
     "date": "2026-05-01",
+    "description": "The Add Board Card modal now remembers the last board and list you chose, so you don't have to re-select them every time. Cards also support an optional description field for adding context or notes.",
+    "page": "/boards",
+    "type": "improvement"
+  },
+  {
+    "date": "2026-05-01",
+    "description": "Circle leader pages now show a subtle banner for any scheduled prayers or planned encouragements coming up in the next 7 days, so you can see what's ahead at a glance. Dismiss it and it reappears next time you visit.",
+    "page": "/circle",
+    "type": "feature"
+  },
+  {
+    "date": "2026-05-01",
+    "description": "Prayer requests can now have a scheduled date — they'll appear on your Today page and in the daily digest email on the day you want to pray for them.",
+    "page": "/prayer",
+    "type": "feature"
+  },
+  {
+    "date": "2026-05-01",
     "description": "Boards buttons (New Board, view toggle) now use the same subtle style as the Tools nav button — consistent look across the app.",
     "page": "/boards",
     "type": "improvement"

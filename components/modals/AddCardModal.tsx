@@ -22,8 +22,9 @@ export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
   const [columns, setColumns] = useState<Column[]>([]);
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [title, setTitle] = useState('');
-  const [selectedBoardId, setSelectedBoardId] = useState('');
-  const [selectedColumnId, setSelectedColumnId] = useState('');
+  const [description, setDescription] = useState('');
+  const [selectedBoardId, setSelectedBoardId] = useState(() => localStorage.getItem('addCard:lastBoardId') || '');
+  const [selectedColumnId, setSelectedColumnId] = useState(() => localStorage.getItem('addCard:lastColumnId') || '');
   const [selectedLeaderId, setSelectedLeaderId] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -36,8 +37,9 @@ export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
   useEffect(() => {
     if (!isOpen) return;
     setTitle('');
-    setSelectedBoardId('');
-    setSelectedColumnId('');
+    setDescription('');
+    setSelectedBoardId(localStorage.getItem('addCard:lastBoardId') || '');
+    setSelectedColumnId(localStorage.getItem('addCard:lastColumnId') || '');
     setSelectedLeaderId('');
     setDueDate('');
     setError('');
@@ -75,7 +77,10 @@ export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
           .eq('board_id', selectedBoardId)
           .order('position');
         setColumns(data || []);
-        if (data && data.length > 0) setSelectedColumnId(data[0].id);
+        const savedColumnId = localStorage.getItem('addCard:lastColumnId');
+        const match = (data || []).find(c => c.id === savedColumnId);
+        if (match) setSelectedColumnId(match.id);
+        else if (data && data.length > 0) setSelectedColumnId(data[0].id);
       } finally {
         setIsLoadingColumns(false);
       }
@@ -100,10 +105,14 @@ export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
         -1
       );
 
+      localStorage.setItem('addCard:lastBoardId', selectedBoardId);
+      localStorage.setItem('addCard:lastColumnId', selectedColumnId);
+
       const { error: e } = await supabase.from('board_cards').insert({
         board_id: selectedBoardId,
         column_id: selectedColumnId,
         title: title.trim(),
+        description: description.trim() || null,
         due_date: dueDate || null,
         linked_leader_id: selectedLeaderId ? parseInt(selectedLeaderId) : null,
         position: maxPos + 1,
@@ -167,6 +176,21 @@ export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
             className={inputClass}
             disabled={isSaving}
             autoFocus
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Description <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            rows={3}
+            maxLength={1000}
+            placeholder="Add details, context, or notes..."
+            className={inputClass + ' resize-none'}
+            disabled={isSaving}
           />
         </div>
 

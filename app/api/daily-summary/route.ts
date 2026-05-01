@@ -11,6 +11,7 @@ import {
   NoteItem,
   CircleMeetingItem,
   BirthdayItem,
+  PrayerRequestItem,
 } from '../../../lib/emailService';
 
 function getSupabaseServiceClient() {
@@ -507,6 +508,39 @@ async function buildDigestForUser(
   const checklistDueToday = allChecklist.filter(c => c.due_date === today);
   const checklistOverdue = allChecklist.filter(c => c.due_date !== null && c.due_date! < today);
 
+  // Prayer requests due today or overdue
+  const { data: leaderPrayersRaw } = await supabase
+    .from('acpd_prayer_points')
+    .select('id, content, pray_date, circle_leader_id, circle_leaders!inner(name, campus)')
+    .eq('user_id', user.id)
+    .eq('is_answered', false)
+    .not('pray_date', 'is', null)
+    .lte('pray_date', today)
+    .order('pray_date', { ascending: true });
+
+  const { data: generalPrayersRaw } = await supabase
+    .from('general_prayer_points')
+    .select('id, content, pray_date')
+    .eq('user_id', user.id)
+    .eq('is_answered', false)
+    .not('pray_date', 'is', null)
+    .lte('pray_date', today)
+    .order('pray_date', { ascending: true });
+
+  const allPrayers: PrayerRequestItem[] = [
+    ...(leaderPrayersRaw || []).map((p: any): PrayerRequestItem => ({
+      id: p.id, content: p.content, pray_date: p.pray_date,
+      circle_leader_id: p.circle_leader_id,
+      leader_name: p.circle_leaders?.name ?? undefined,
+      leader_campus: p.circle_leaders?.campus ?? undefined,
+      is_general: false,
+    })),
+    ...(generalPrayersRaw || []).map((p: any): PrayerRequestItem => ({
+      id: p.id, content: p.content, pray_date: p.pray_date,
+      is_general: true,
+    })),
+  ];
+
   // Apply email section preferences — zero out disabled sections
   return {
     user,
@@ -532,6 +566,10 @@ async function buildDigestForUser(
     followUps: sectionPrefs.include_follow_ups
       ? { dueToday: fuDueToday, overdue: fuOverdue }
       : { dueToday: [], overdue: [] },
+    prayerRequests: {
+      dueToday: allPrayers.filter(p => p.pray_date === today),
+      overdue:  allPrayers.filter(p => p.pray_date < today),
+    },
   };
 }
 
@@ -608,6 +646,7 @@ function buildDemoDigest(user: { id: string; name: string; email: string }, toda
         { leader_id: 67, leader_name: 'Mike Chen', circle_type: 'Mixed', day: getDayName(tomorrow), time: '6:00 PM', frequency: 'Weekly', campus: 'North Campus' },
       ],
     },
+    prayerRequests: { dueToday: [], overdue: [] },
   };
 }
 

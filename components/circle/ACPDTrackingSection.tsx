@@ -41,6 +41,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
   } = useACPDTracking();
 
   const [newPrayer, setNewPrayer] = useState('');
+  const [newPrayDate, setNewPrayDate] = useState('');
   const [newEncourageNote, setNewEncourageNote] = useState('');
   const [newEncourageType, setNewEncourageType] = useState<'sent' | 'planned'>('sent');
   const [newEncourageMethod, setNewEncourageMethod] = useState<EncourageMethod>('text');
@@ -64,10 +65,18 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
     loadAll(leaderId);
   }, [leaderId, loadAll]);
 
+  const [isAddingPrayer, setIsAddingPrayer] = useState(false);
+
   const handleAddPrayer = async () => {
-    if (!newPrayer.trim()) return;
-    await addPrayerPoint(leaderId, newPrayer.trim());
-    setNewPrayer('');
+    if (!newPrayer.trim() || isAddingPrayer) return;
+    setIsAddingPrayer(true);
+    try {
+      await addPrayerPoint(leaderId, newPrayer.trim(), newPrayDate || undefined);
+      setNewPrayer('');
+      setNewPrayDate('');
+    } finally {
+      setIsAddingPrayer(false);
+    }
   };
 
   const handleAddEncouragement = async () => {
@@ -187,11 +196,20 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                 onChange={e => setNewPrayer(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAddPrayer()}
                 placeholder="Add a prayer point..."
-                className="flex-1 px-3 py-2.5 bg-slate-900/50 border border-slate-600 rounded-xl text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all"
+                disabled={isAddingPrayer}
+                className="flex-1 px-3 py-2.5 bg-slate-900/50 border border-slate-600 rounded-xl text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all disabled:opacity-50"
+              />
+              <input
+                type="date"
+                value={newPrayDate}
+                onChange={e => setNewPrayDate(e.target.value)}
+                title="Pray on (optional)"
+                disabled={isAddingPrayer}
+                className="px-2 py-2.5 bg-slate-900/50 border border-slate-600 rounded-xl text-sm text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all w-36 disabled:opacity-50"
               />
               <button
                 onClick={handleAddPrayer}
-                disabled={!newPrayer.trim()}
+                disabled={!newPrayer.trim() || isAddingPrayer}
                 className="score-btn px-4 py-2.5 text-sm font-medium rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{
                   '--score-bg': 'rgb(217 119 6)',
@@ -280,6 +298,11 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                               <p className="text-sm text-slate-200 leading-relaxed">{prayer.content}</p>
                               <div className="flex items-center gap-2 mt-1">
                                 <span className="text-[10px] text-slate-500">{formatTimestamp(prayer.created_at)}</span>
+                                {prayer.pray_date && (
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                    {prayer.pray_date.slice(5, 7)}-{prayer.pray_date.slice(8, 10)}-{prayer.pray_date.slice(0, 4)}
+                                  </span>
+                                )}
                                 {prayer.is_shared && !isPrayerOwner && (
                                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
                                     <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>

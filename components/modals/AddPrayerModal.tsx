@@ -21,6 +21,7 @@ export default function AddPrayerModal({ isOpen, onClose, onSaved }: Props) {
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [selectedLeaderId, setSelectedLeaderId] = useState('');
   const [content, setContent] = useState('');
+  const [prayDate, setPrayDate] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -30,6 +31,7 @@ export default function AddPrayerModal({ isOpen, onClose, onSaved }: Props) {
     setPrayerType('leader');
     setSelectedLeaderId('');
     setContent('');
+    setPrayDate('');
     setError('');
     loadLeaders();
   }, [isOpen]);
@@ -59,6 +61,7 @@ export default function AddPrayerModal({ isOpen, onClose, onSaved }: Props) {
           content: content.trim(),
           is_answered: false,
           is_shared: false,
+          pray_date: prayDate || null,
         });
         if (e) throw e;
       } else {
@@ -67,6 +70,7 @@ export default function AddPrayerModal({ isOpen, onClose, onSaved }: Props) {
           content: content.trim(),
           is_answered: false,
           is_shared: false,
+          pray_date: prayDate || null,
         });
         if (e) throw e;
       }
@@ -145,6 +149,20 @@ export default function AddPrayerModal({ isOpen, onClose, onSaved }: Props) {
             disabled={isSaving}
           />
           <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{content.length}/500</div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Pray On <span className="text-xs text-gray-400">(optional)</span>
+          </label>
+          <input
+            type="date"
+            value={prayDate}
+            onChange={e => setPrayDate(e.target.value)}
+            className={inputClass}
+            disabled={isSaving}
+          />
+          <p className="text-xs text-gray-400 mt-1">Set a date and it will appear on your Today page and in the daily digest.</p>
         </div>
 
         <div className="flex justify-end gap-3 pt-2">
