@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-05-01",
+    "description": "Fixed a touch dead zone on the Events calendar — the Quick Actions FAB was invisibly blocking taps on the Summary, Reminder, Profile, and CCB buttons when the FAB was closed.",
+    "page": "/calendar",
+    "type": "fix"
+  },
+  {
+    "date": "2026-05-01",
     "description": "Backend security hardening: moved CCB API credentials out of source code into environment variables, and added admin-only protection to the campus creation endpoint.",
     "page": "/circle-dashboard",
     "type": "improvement"

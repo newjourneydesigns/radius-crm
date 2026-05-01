@@ -106,7 +106,7 @@ export default function QuickActionsFAB() {
         className="fixed left-4 z-[10002] flex flex-col items-start gap-2 bottom-[calc(98px+env(safe-area-inset-bottom,0px)+16px)] md:bottom-6"
       >
         {/* Speed dial items — rendered flex-col-reverse so index 0 (Note) is closest to FAB */}
-        <div className="flex flex-col-reverse items-start gap-2">
+        <div className={`flex flex-col-reverse items-start gap-2 ${!isOpen ? 'pointer-events-none' : ''}`}>
           {ACTIONS.map((action, i) => (
             <button
               key={action.id}
