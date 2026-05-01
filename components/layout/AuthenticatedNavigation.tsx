@@ -110,6 +110,12 @@ const ToolsIcon = () => (
   </svg>
 );
 
+const ChevronDownIcon = () => (
+  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+  </svg>
+);
+
 // ----- Nav definitions -----
 const CircleDashIcon = () => (
   <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
@@ -228,14 +234,16 @@ export default function AuthenticatedNavigation() {
                 onClick={() => { setToolsMenuOpen(v => !v); setUserMenuOpen(false); }}
                 aria-expanded={toolsMenuOpen}
                 aria-haspopup="true"
-                className={`p-2 rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-slate-500/40 ${
-                  toolsMenuOpen
-                    ? 'bg-white/[0.08] text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
-                }`}
-                title="Tools"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150 focus:outline-none"
+                style={{
+                  background: toolsMenuOpen ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.10)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  color: toolsMenuOpen ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.7)',
+                }}
               >
                 <ToolsIcon />
+                <span>Tools</span>
+                <ChevronDownIcon />
               </button>
 
               {toolsMenuOpen && (
@@ -274,14 +282,15 @@ export default function AuthenticatedNavigation() {
                 onClick={() => { setUserMenuOpen(v => !v); setToolsMenuOpen(false); }}
                 aria-expanded={userMenuOpen}
                 aria-haspopup="true"
-                className={`p-1 rounded-full transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-slate-400/40 ring-offset-1 ring-offset-[#111318] ${
-                  userMenuOpen ? 'ring-2 ring-slate-400/40' : ''
-                }`}
+                className="flex items-center px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150 focus:outline-none"
+                style={{
+                  background: userMenuOpen ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.10)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  color: userMenuOpen ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.7)',
+                }}
                 title={user?.name || user?.email || 'Account'}
               >
-                <span className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-500 to-slate-600 flex items-center justify-center text-xs font-bold text-white shadow-sm">
-                  {initials}
-                </span>
+                {initials}
               </button>
 
               {userMenuOpen && (

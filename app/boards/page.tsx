@@ -752,16 +752,17 @@ const boardsListStyles = `
     white-space: nowrap;
   }
   .kb-btn-primary {
-    background: linear-gradient(135deg, #4c6785 0%, #8da9c4 100%) !important;
-    color: #fff !important;
-    box-shadow: 0 2px 8px rgba(76, 103, 133, 0.35),
-                0 0 0 0.5px rgba(255, 255, 255, 0.08) inset !important;
+    background: rgba(255,255,255,0.10) !important;
+    color: rgba(255,255,255,0.85) !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
+    box-shadow: none !important;
   }
   .kb-btn-primary:hover {
-    box-shadow: 0 4px 16px rgba(76, 103, 133, 0.5),
-                0 0 0 1px rgba(141, 169, 196, 0.3) !important;
-    filter: brightness(1.08);
-    transform: translateY(-1px);
+    background: rgba(255,255,255,0.15) !important;
+    color: #fff !important;
+    filter: none;
+    transform: none;
+    box-shadow: none !important;
   }
   .kb-btn-primary:disabled {
     opacity: 0.45;

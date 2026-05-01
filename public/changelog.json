@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-05-01",
+    "description": "Boards buttons (New Board, view toggle) now use the same subtle style as the Tools nav button — consistent look across the app.",
+    "page": "/boards",
+    "type": "improvement"
+  },
+  {
+    "date": "2026-05-01",
+    "description": "The Tools button in the top nav now shows a label and dropdown arrow — no more mystery icon.",
+    "page": "/",
+    "type": "improvement"
+  },
+  {
+    "date": "2026-05-01",
     "description": "Quick Actions FAB: Tap the + button in the bottom-left corner to instantly log a note, connection, or prayer, set a follow-up, or add a board card — from anywhere in the app.",
     "page": "/",
     "type": "feature"

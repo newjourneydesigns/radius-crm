@@ -278,9 +278,10 @@ export default function GlobalSearch() {
           gap: '8px',
           padding: '6px 12px',
           fontSize: '13px',
+          fontWeight: '500',
           color: 'rgba(255, 255, 255, 0.7)',
-          background: 'rgba(255, 255, 255, 0.04) !important',
-          border: '1px solid rgba(255, 255, 255, 0.1) !important',
+          background: 'rgba(255, 255, 255, 0.10) !important',
+          border: '1px solid rgba(255, 255, 255, 0.12) !important',
           borderRadius: '8px',
           cursor: 'pointer',
           transition: 'all 0.2s ease',
@@ -761,12 +762,12 @@ export default function GlobalSearch() {
           }
           /* Override global link color inside search */
           .search-trigger-btn {
-            background: rgba(255, 255, 255, 0.04) !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            background: rgba(255, 255, 255, 0.10) !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
           }
           .search-trigger-btn:hover {
-            background: rgba(255, 255, 255, 0.08) !important;
-            border-color: rgba(255, 255, 255, 0.15) !important;
+            background: rgba(255, 255, 255, 0.15) !important;
+            border-color: rgba(255, 255, 255, 0.18) !important;
           }
         `}</style>,
         document.head

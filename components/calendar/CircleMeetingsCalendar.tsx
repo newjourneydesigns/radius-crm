@@ -1908,8 +1908,8 @@ export default function CircleMeetingsCalendar({
           initialView={initialView}
           headerToolbar={
             isMobile
-              ? { left: 'prev,next', center: 'title', right: 'today' }
-              : { left: 'prev,next today', center: 'title', right: '' }
+              ? { left: 'prev,next today', center: '', right: 'title' }
+              : { left: 'prev,next today', center: '', right: 'title' }
           }
           footerToolbar={undefined}
           buttonText={{

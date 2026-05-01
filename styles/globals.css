@@ -767,6 +767,7 @@ a {
 .calendar-shell .fc .fc-toolbar {
   flex-wrap: wrap;
   gap: 0.5rem;
+  padding-right: 0.75rem; /* Match px-3 of panels above (Auto-update, Generate Summary buttons) */
 }
 
 .calendar-shell .fc .fc-toolbar-chunk {

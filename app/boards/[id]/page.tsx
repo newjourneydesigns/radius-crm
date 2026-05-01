@@ -5849,8 +5849,8 @@ const kanbanStyles = `
   /* ── View toggle ── */
   .kb-view-toggle {
     display: flex;
-    background: #1a1d27;
-    border: 1px solid #2a2d3a;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
     border-radius: 10px;
     padding: 3px;
     gap: 2px;
@@ -5862,7 +5862,7 @@ const kanbanStyles = `
     padding: 5px 11px;
     font-size: 13px;
     font-weight: 500;
-    color: #6b7280;
+    color: rgba(255,255,255,0.55);
     background: transparent !important;
     border: none;
     border-radius: 8px;
@@ -5870,15 +5870,15 @@ const kanbanStyles = `
     transition: all 0.15s;
     white-space: nowrap;
   }
-  .kb-view-btn:hover { color: #e5e7eb; background: rgba(255,255,255,0.04) !important; }
+  .kb-view-btn:hover { color: rgba(255,255,255,0.9); background: rgba(255,255,255,0.06) !important; }
   .kb-view-btn.active {
-    background: linear-gradient(135deg, #4c6785 0%, #8da9c4 100%) !important;
+    background: rgba(255,255,255,0.12) !important;
     color: #fff !important;
-    box-shadow: 0 1px 4px rgba(76, 103, 133, 0.3);
+    box-shadow: none;
   }
   .kb-view-btn-notes.active {
-    background: rgba(99, 102, 241, 0.2) !important;
-    color: #a5b4fc !important;
+    background: rgba(255,255,255,0.12) !important;
+    color: #fff !important;
     box-shadow: none;
   }
 
