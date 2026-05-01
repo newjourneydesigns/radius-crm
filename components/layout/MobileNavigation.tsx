@@ -136,6 +136,12 @@ const QuestionIcon = () => (
     <line x1="12" y1="17" x2="12.01" y2="17" />
   </svg>
 );
+const UpdateLogIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+);
 
 const LogoutIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -298,6 +304,7 @@ export default function MobileNavigation() {
     { href: '/profile', label: 'Profile', Icon: UserIcon },
     { href: '/settings', label: 'Settings', Icon: CogIcon },
     { href: '/help', label: 'Help & Support', Icon: QuestionIcon },
+    { href: '/update-log', label: 'Update Log', Icon: UpdateLogIcon },
   ];
 
   return (

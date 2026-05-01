@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import Link from 'next/link';
+import Fuse from 'fuse.js';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase, CircleLeader } from '../../lib/supabase';
@@ -181,6 +182,7 @@ function BulkMessageContent() {
   // Sending state
   const [sendStatus, setSendStatus] = useState<SendStatus>(SendStatus.IDLE);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [savedIndex, setSavedIndex] = useState<number | null>(null);
   const [logs, setLogs] = useState<SendLog[]>([]);
   const [copyFeedback, setCopyFeedback] = useState(false);
 
@@ -192,11 +194,37 @@ function BulkMessageContent() {
   const [showSaveList, setShowSaveList] = useState(false);
   const [ccbLookupKey, setCcbLookupKey] = useState(0);
 
+  // Search & add state
+  const [pinnedLeaderRecipients, setPinnedLeaderRecipients] = useState<Recipient[]>([]);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
   // Persist templates
   useEffect(() => { saveTemplates(templates); }, [templates]);
 
   // Persist saved lists
   useEffect(() => { saveSavedLists(savedLists); }, [savedLists]);
+
+  // Close search dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setShowSearchDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Fuse.js search across all leaders
+  const leaderSearchResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const fuse = new Fuse(leaders, {
+      keys: ['name', 'phone', 'campus', 'day'],
+      threshold: 0.35,
+    });
+    return fuse.search(searchQuery.trim()).slice(0, 8).map(r => r.item);
+  }, [leaders, searchQuery]);
 
   // ─── Load circle leaders ───────────────────────────────────
   const loadLeaders = useCallback(async () => {
@@ -298,21 +326,19 @@ function BulkMessageContent() {
       }
     }
 
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      result = result.filter(r =>
-        r.name.toLowerCase().includes(q) ||
-        r.phone.includes(q) ||
-        (r.campus || '').toLowerCase().includes(q) ||
-        (r.day || '').toLowerCase().includes(q)
-      );
+    // Merge manually pinned leaders (deduped by phone)
+    for (const r of pinnedLeaderRecipients) {
+      if (!seenPhones.has(r.phone)) {
+        seenPhones.add(r.phone);
+        result.push(r);
+      }
     }
 
     return result;
-  }, [leaders, filterCampus, filterStatus, filterCircleType, filterDay, filterAcpd, searchQuery, includeAdditionalLeaders, ccbRecipients, selectNone]);
+  }, [leaders, filterCampus, filterStatus, filterCircleType, filterDay, filterAcpd, includeAdditionalLeaders, ccbRecipients, pinnedLeaderRecipients, selectNone]);
 
   // ─── Current / next recipient ──────────────────────────────
+  const recipientPhoneSet = useMemo(() => new Set(recipients.map(r => r.phone)), [recipients]);
   const currentRecipient = recipients[currentIndex] || null;
   const nextRecipient = sendStatus === SendStatus.SENDING ? (recipients[currentIndex + 1] || null) : null;
 
@@ -372,10 +398,11 @@ function BulkMessageContent() {
     if (recipients.length === 0 || !message.trim()) return;
     setSendStatus(SendStatus.SENDING);
     setCurrentIndex(0);
+    setSavedIndex(null);
     setLogs([]);
   };
 
-  const handleSendCurrent = async () => {
+  const handleSendCurrent = useCallback(async () => {
     if (!currentRecipient) return;
     const personalizedMessage = resolveMessage(message, currentRecipient);
 
@@ -405,9 +432,9 @@ function BulkMessageContent() {
       console.error('Send failed:', err);
       openMessagesApp(currentRecipient.phone, personalizedMessage);
     }
-  };
+  }, [currentRecipient, message, currentIndex, recipients.length]);
 
-  const handleSkip = () => {
+  const handleSkip = useCallback(() => {
     if (!currentRecipient) return;
     const newLog: SendLog = {
       id: Math.random().toString(36).substr(2, 9),
@@ -421,7 +448,25 @@ function BulkMessageContent() {
     if (nextIdx >= recipients.length) {
       setSendStatus(SendStatus.COMPLETED);
     }
-  };
+  }, [currentRecipient, currentIndex, recipients.length]);
+
+  // Keyboard shortcuts during send flow
+  useEffect(() => {
+    if (sendStatus !== SendStatus.SENDING) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        handleSendCurrent();
+      } else if (e.key === 's' || e.key === 'S') {
+        e.preventDefault();
+        handleSkip();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [sendStatus, handleSendCurrent, handleSkip]);
 
   const handleResend = async (log: SendLog) => {
     const personalizedMessage = resolveMessage(message, log.recipient);
@@ -430,13 +475,37 @@ function BulkMessageContent() {
   };
 
   const handleAbort = () => {
+    setSavedIndex(currentIndex);
     setSendStatus(SendStatus.IDLE);
+  };
+
+  const handleResume = () => {
+    if (savedIndex === null || savedIndex >= recipients.length) return;
+    setCurrentIndex(savedIndex);
+    setSendStatus(SendStatus.SENDING);
   };
 
   const handleReset = () => {
     setSendStatus(SendStatus.IDLE);
     setCurrentIndex(0);
+    setSavedIndex(null);
     setLogs([]);
+  };
+
+  // ─── Search & add leader helpers ──────────────────────────
+  const handleAddLeaderFromSearch = (leader: CircleLeader) => {
+    const r = toRecipient(leader);
+    if (!r) return;
+    setPinnedLeaderRecipients(prev => {
+      if (prev.some(p => p.phone === r.phone)) return prev;
+      return [...prev, r];
+    });
+    setSearchQuery('');
+    setShowSearchDropdown(false);
+  };
+
+  const handleRemovePinnedLeader = (phone: string) => {
+    setPinnedLeaderRecipients(prev => prev.filter(r => r.phone !== phone));
   };
 
   // ─── CCB recipient helpers ─────────────────────────────────
@@ -714,16 +783,65 @@ function BulkMessageContent() {
                   </div>
                 </div>
 
-                {/* Search */}
+                {/* Search & Add */}
                 <div className="pt-2 border-t border-gray-800">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Search</label>
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search name, phone, campus..."
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow placeholder:text-gray-600"
-                  />
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Search & Add</label>
+                  <div className="relative" ref={searchContainerRef}>
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => { setSearchQuery(e.target.value); setShowSearchDropdown(true); }}
+                      onFocus={() => setShowSearchDropdown(true)}
+                      placeholder="Search name, phone, campus..."
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow placeholder:text-gray-600"
+                    />
+                    {showSearchDropdown && leaderSearchResults.length > 0 && (
+                      <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-gray-800 border border-gray-700 rounded-xl shadow-xl overflow-hidden max-h-60 overflow-y-auto">
+                        {leaderSearchResults.map(l => {
+                          const r = toRecipient(l);
+                          const alreadyPinned = pinnedLeaderRecipients.some(p => p.id === l.id);
+                          const alreadyInList = r ? recipientPhoneSet.has(r.phone) : false;
+                          return (
+                            <button
+                              key={l.id}
+                              type="button"
+                              onClick={() => handleAddLeaderFromSearch(l)}
+                              disabled={alreadyPinned || alreadyInList || !r}
+                              className="w-full text-left px-4 py-2.5 hover:bg-gray-700 transition-colors flex items-center justify-between group disabled:opacity-40 disabled:cursor-not-allowed border-b border-gray-700/50 last:border-0"
+                            >
+                              <div>
+                                <span className="text-sm font-medium text-white">{l.name}</span>
+                                <span className="text-xs text-gray-500 ml-2 font-mono">{r?.phone || 'no phone'}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {l.campus && <span className="text-[10px] text-gray-500">{l.campus}</span>}
+                                {alreadyInList
+                                  ? <span className="text-[10px] font-bold text-gray-500 uppercase">In list</span>
+                                  : alreadyPinned
+                                    ? <span className="text-[10px] font-bold text-green-400 uppercase">Added</span>
+                                    : r && <span className="text-[10px] font-bold text-blue-400 uppercase opacity-0 group-hover:opacity-100 transition-opacity">Add</span>
+                                }
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  {pinnedLeaderRecipients.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {pinnedLeaderRecipients.map(r => (
+                        <div key={r.phone} className="flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded-lg text-xs">
+                          <span className="text-blue-300 font-medium">{r.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePinnedLeader(r.phone)}
+                            className="text-blue-500/60 hover:text-rose-400 transition-colors font-bold leading-none"
+                          >×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </section>
@@ -1064,13 +1182,23 @@ function BulkMessageContent() {
 
               {/* Send Controls */}
               {sendStatus === SendStatus.IDLE ? (
-                <button
-                  onClick={handleStartBatch}
-                  disabled={recipients.length === 0 || !message.trim()}
-                  className="w-full py-5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold text-lg transition-all uppercase tracking-tight border-t border-blue-500/30 disabled:border-gray-700"
-                >
-                  {recipients.length === 0 ? 'No Recipients' : !message.trim() ? 'Write a Message First' : `Start Batch (${recipients.length})`}
-                </button>
+                <div className="flex flex-col">
+                  {savedIndex !== null && savedIndex < recipients.length && (
+                    <button
+                      onClick={handleResume}
+                      className="w-full py-3.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 font-bold text-sm transition-all uppercase tracking-tight border-t border-amber-500/20"
+                    >
+                      Resume from #{savedIndex + 1} of {recipients.length}
+                    </button>
+                  )}
+                  <button
+                    onClick={handleStartBatch}
+                    disabled={recipients.length === 0 || !message.trim()}
+                    className="w-full py-5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold text-lg transition-all uppercase tracking-tight border-t border-blue-500/30 disabled:border-gray-700"
+                  >
+                    {recipients.length === 0 ? 'No Recipients' : !message.trim() ? 'Write a Message First' : `Start Batch (${recipients.length})`}
+                  </button>
+                </div>
               ) : sendStatus === SendStatus.COMPLETED ? (
                 <div className="border-t border-gray-800 p-6 text-center space-y-3">
                   <div className="text-green-400 text-lg font-bold">Batch Complete!</div>
@@ -1114,6 +1242,7 @@ function BulkMessageContent() {
                       className="w-full py-4 bg-white text-gray-900 font-bold rounded-xl hover:scale-[1.01] active:scale-[0.99] transition-all relative overflow-hidden shadow-lg"
                     >
                       <span className="text-sm uppercase tracking-tight">Open Messages</span>
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] text-gray-400 font-mono bg-gray-100 px-1.5 py-0.5 rounded">Space</span>
                       {copyFeedback && (
                         <div className="absolute inset-0 bg-green-500 text-white flex items-center justify-center animate-pulse">
                           <span className="text-xs font-bold uppercase">Text Copied & Ready!</span>
@@ -1123,9 +1252,10 @@ function BulkMessageContent() {
 
                     <button
                       onClick={handleSkip}
-                      className="w-full py-3 border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800 font-bold rounded-xl transition-all uppercase tracking-widest text-[10px]"
+                      className="w-full py-3 border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800 font-bold rounded-xl transition-all uppercase tracking-widest text-[10px] relative"
                     >
                       Skip
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] text-gray-600 font-mono bg-gray-800 px-1.5 py-0.5 rounded border border-gray-700">S</span>
                     </button>
                   </div>
 

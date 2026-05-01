@@ -59,6 +59,11 @@ const LogoutIcon = () => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
   </svg>
 );
+const UpdateLogIcon = () => (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
 
 const BirthdayCakeIcon = () => (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
@@ -300,8 +305,11 @@ export default function AuthenticatedNavigation() {
                     <Link href="/settings" onClick={closeAll} className={dropdownLinkClass('/settings')}>
                       <CogIcon /> Settings
                     </Link>
-                    <Link href="/help"     onClick={closeAll} className={dropdownLinkClass('/help')}>
+                    <Link href="/help"       onClick={closeAll} className={dropdownLinkClass('/help')}>
                       <QuestionIcon /> Help
+                    </Link>
+                    <Link href="/update-log" onClick={closeAll} className={dropdownLinkClass('/update-log')}>
+                      <UpdateLogIcon /> Update Log
                     </Link>
                   </div>
 

@@ -1,0 +1,18 @@
+[
+  {
+    "date": "2026-05-01",
+    "description": "Added Update Log to the account menu (below Help) so you can always see what's changed in RADIUS."
+  },
+  {
+    "date": "2026-05-01",
+    "description": "Bulk Message: You can now search for and manually add individual leaders to a message batch — even ones that don't match your current filters. Search by name, phone, or campus and tap to add."
+  },
+  {
+    "date": "2026-05-01",
+    "description": "Bulk Message: Added keyboard shortcuts during a batch — press Space or Enter to open Messages, press S to skip. Shortcut hints are shown on the buttons."
+  },
+  {
+    "date": "2026-05-01",
+    "description": "Bulk Message: You can now pause a batch mid-way and resume right where you left off instead of starting over."
+  }
+]
