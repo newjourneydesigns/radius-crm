@@ -6,6 +6,7 @@ import AuthenticatedNavigation from "../components/layout/AuthenticatedNavigatio
 import PublicNavigation from "../components/layout/PublicNavigation";
 import Footer from "../components/layout/Footer";
 import ScrollToTop from "../components/ui/ScrollToTop";
+import QuickActionsFAB from "../components/layout/QuickActionsFAB";
 import { AuthProvider } from "../contexts/AuthContext";
 import NavigationProgress from "../components/layout/NavigationProgress";
 
@@ -44,6 +45,9 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
 
           {/* Scroll to Top Button */}
           <ScrollToTop />
+
+          {/* Quick Actions FAB */}
+          <QuickActionsFAB />
         </>
       )}
     </>

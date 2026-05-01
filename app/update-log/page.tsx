@@ -6,7 +6,15 @@ import { join } from 'path';
 interface ChangelogEntry {
   date: string;
   description: string;
+  page?: string;
+  type?: 'feature' | 'improvement' | 'fix';
 }
+
+const badgeConfig = {
+  feature:     { label: 'New Feature',  bg: 'rgba(99,102,241,0.15)',  color: '#a5b4fc', border: 'rgba(99,102,241,0.25)'  },
+  improvement: { label: 'Improvement',  bg: 'rgba(139,92,246,0.15)', color: '#c4b5fd', border: 'rgba(139,92,246,0.25)' },
+  fix:         { label: 'Bug Fix',      bg: 'rgba(251,191,36,0.12)',  color: '#fde68a', border: 'rgba(251,191,36,0.25)'  },
+} as const;
 
 function getChangelog(): ChangelogEntry[] {
   try {
@@ -71,10 +79,33 @@ export default function UpdateLogPage() {
 
                     {/* Content */}
                     <div className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 flex-1 shadow-card-glass">
-                      <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">
-                        {formatDate(entry.date)}
-                      </p>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <p className="text-xs text-slate-500 uppercase tracking-wide">
+                          {formatDate(entry.date)}
+                        </p>
+                        {entry.type && (() => {
+                          const b = badgeConfig[entry.type];
+                          return (
+                            <span style={{ background: b.bg, color: b.color, border: `1px solid ${b.border}`, fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '5px', letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>
+                              {b.label}
+                            </span>
+                          );
+                        })()}
+                      </div>
                       <p className="text-sm text-slate-200 leading-relaxed">{entry.description}</p>
+                      {entry.page && (
+                        <div className="mt-2">
+                          <Link
+                            href={entry.page}
+                            className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                          >
+                            View page
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                            </svg>
+                          </Link>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
+import LeaderCombobox from '../ui/LeaderCombobox';
 import { supabase, NoteTemplate } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import NoteTemplateModal from './NoteTemplateModal';
@@ -186,28 +187,16 @@ export default function AddNoteModal({
         {/* Circle Leader Selector - only show if no specific leader is provided */}
         {!circleLeaderId && (
           <div>
-            <label htmlFor="circle-leader" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Circle Leader
             </label>
-            {isLoadingLeaders ? (
-              <div className="text-sm text-gray-500 dark:text-gray-400">Loading circle leaders...</div>
-            ) : (
-              <select
-                id="circle-leader"
-                value={selectedLeaderId || ''}
-                onChange={(e) => setSelectedLeaderId(e.target.value ? Number(e.target.value) : undefined)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                disabled={isSubmitting}
-                required
-              >
-                <option value="">Select a Circle Leader</option>
-                {circleLeaders.map(leader => (
-                  <option key={leader.id} value={leader.id}>
-                    {leader.name}
-                  </option>
-                ))}
-              </select>
-            )}
+            <LeaderCombobox
+              leaders={circleLeaders}
+              value={selectedLeaderId ? String(selectedLeaderId) : ''}
+              onChange={(id) => setSelectedLeaderId(id ? Number(id) : undefined)}
+              disabled={isSubmitting}
+              isLoading={isLoadingLeaders}
+            />
           </div>
         )}
 

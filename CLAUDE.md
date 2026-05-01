@@ -145,13 +145,29 @@ Internal Valley Creek app for tracking Circle Leader interactions and developmen
 
 ---
 
+## Update Log
+
+Every user-facing change must be logged in `public/changelog.json` **before committing** — no exceptions. This is what powers the `/update-log` page in the app.
+
+- Add a new entry at the top of the array
+- Use today's date in `YYYY-MM-DD` format
+- Write the description from the user's perspective — what changed and why it matters
+- Include a `page` field with the app route where the change lives (e.g. `"/boards"`, `"/prayer"`) — this renders a "View page" link on the update log
+- Include a `type` field: `"feature"` (new capability), `"improvement"` (enhancement to existing), or `"fix"` (bug fix) — this renders a colored badge
+- One entry per distinct change; batch only if the changes are tightly related
+
+If multiple files are being committed, make sure `public/changelog.json` is always one of them.
+
+---
+
 ## Git + Deploy Workflow
 
 After every meaningful commit and push:
-1. `git add .`
-2. `git commit -m "[clear message]"`
-3. `git push`
-4. Trigger a Netlify redeploy
+1. Update `public/changelog.json` (see above)
+2. `git add .`
+3. `git commit -m "[clear message]"`
+4. `git push`
+5. Trigger a Netlify redeploy
 
 Never assume a push is enough. Always follow through to redeploy.
 

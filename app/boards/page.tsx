@@ -21,7 +21,10 @@ import {
   ChevronDown,
   Search,
   X,
+  GripVertical,
 } from '../../components/icons/BoardIcons';
+
+type SortMode = 'new-old' | 'a-z' | 'last-updated' | 'custom';
 
 // ── Lightweight types for stats queries ──
 interface CardStub {
@@ -80,6 +83,15 @@ function BoardsListPage() {
       return saved ? new Set<string>(JSON.parse(saved)) : new Set<string>();
     } catch { return new Set<string>(); }
   });
+
+  const [sortMode, setSortMode] = useState<SortMode>(() => {
+    try { return (localStorage.getItem('boards-sort-mode') as SortMode) || 'new-old'; } catch { return 'new-old'; }
+  });
+  const [customOrder, setCustomOrder] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('boards-custom-order') || '[]'); } catch { return []; }
+  });
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   // Lightweight stats data
   const [cards, setCards] = useState<CardStub[]>([]);
@@ -158,6 +170,21 @@ function BoardsListPage() {
     }
   }, [boards, statsLoaded, fetchStats]);
 
+  // Sync custom order as boards are added/removed
+  useEffect(() => {
+    if (boards.length === 0) return;
+    setCustomOrder(prev => {
+      const existingIds = new Set(prev);
+      const newBoards = boards.filter(b => !existingIds.has(b.id));
+      if (newBoards.length === 0) return prev;
+      const newOrder = prev.length === 0
+        ? boards.map(b => b.id)
+        : [...newBoards.map(b => b.id), ...prev];
+      try { localStorage.setItem('boards-custom-order', JSON.stringify(newOrder)); } catch {}
+      return newOrder;
+    });
+  }, [boards]);
+
   // Compute stats per board
   const statsByBoard = useMemo(() => {
     const today = getToday();
@@ -213,6 +240,28 @@ function BoardsListPage() {
     return map;
   }, [boards, cards, checklists]);
 
+  const sortedBoards = useMemo(() => {
+    if (sortMode === 'a-z') {
+      return [...boards].sort((a, b) => a.title.localeCompare(b.title));
+    }
+    if (sortMode === 'last-updated') {
+      return [...boards].sort((a, b) => {
+        const aAct = statsByBoard.get(a.id)?.lastActivity || a.updated_at || a.created_at || '';
+        const bAct = statsByBoard.get(b.id)?.lastActivity || b.updated_at || b.created_at || '';
+        return bAct.localeCompare(aAct);
+      });
+    }
+    if (sortMode === 'custom') {
+      const orderMap = new Map(customOrder.map((id, i) => [id, i]));
+      return [...boards].sort((a, b) => {
+        const ai = orderMap.has(a.id) ? orderMap.get(a.id)! : 9999;
+        const bi = orderMap.has(b.id) ? orderMap.get(b.id)! : 9999;
+        return ai - bi;
+      });
+    }
+    return boards; // new-old: already ordered by created_at desc from hook
+  }, [boards, sortMode, customOrder, statsByBoard]);
+
   const toggleExpand = (boardId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setExpandedBoards(prev => {
@@ -222,6 +271,42 @@ function BoardsListPage() {
       try { localStorage.setItem('boards-expanded-stats', JSON.stringify(Array.from(next))); } catch {}
       return next;
     });
+  };
+
+  const handleSortChange = (mode: SortMode) => {
+    setSortMode(mode);
+    try { localStorage.setItem('boards-sort-mode', mode); } catch {}
+  };
+
+  const handleDragStart = (e: React.DragEvent, boardId: string) => {
+    setDraggingId(boardId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, boardId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (boardId !== draggingId) setDragOverId(boardId);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggingId || draggingId === targetId) { setDraggingId(null); setDragOverId(null); return; }
+    const currentOrder = sortedBoards.map(b => b.id);
+    const fromIdx = currentOrder.indexOf(draggingId);
+    const toIdx = currentOrder.indexOf(targetId);
+    const newOrder = [...currentOrder];
+    newOrder.splice(fromIdx, 1);
+    newOrder.splice(toIdx, 0, draggingId);
+    setCustomOrder(newOrder);
+    try { localStorage.setItem('boards-custom-order', JSON.stringify(newOrder)); } catch {}
+    setDraggingId(null);
+    setDragOverId(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingId(null);
+    setDragOverId(null);
   };
 
   const handleCreate = async () => {
@@ -374,21 +459,54 @@ function BoardsListPage() {
             </button>
           </div>
         ) : (
+          <>
+            {/* Sort control */}
+            {boards.length > 1 && (
+              <div className="kb-sort-bar">
+                <span className="kb-sort-label">Sort</span>
+                <div className="kb-sort-group">
+                  {(['new-old', 'a-z', 'last-updated', 'custom'] as SortMode[]).map(mode => (
+                    <button
+                      key={mode}
+                      className={`kb-sort-btn${sortMode === mode ? ' active' : ''}`}
+                      onClick={() => handleSortChange(mode)}
+                    >
+                      {mode === 'new-old' && 'Newest'}
+                      {mode === 'a-z' && 'A–Z'}
+                      {mode === 'last-updated' && 'Last Updated'}
+                      {mode === 'custom' && <><GripVertical size={12} /> Custom</>}
+                    </button>
+                  ))}
+                </div>
+                {sortMode === 'custom' && (
+                  <span className="kb-sort-hint">Drag boards to reorder</span>
+                )}
+              </div>
+            )}
           <div className="kb-board-grid">
-            {boards.map(board => {
+            {sortedBoards.map(board => {
               const s = statsByBoard.get(board.id);
               const expanded = expandedBoards.has(board.id);
               const hasAlerts = s && (s.overdue > 0 || s.checklistOverdue > 0);
               const hasDue = s && (s.dueToday > 0 || s.checklistDueToday > 0);
 
-
               return (
                 <div
                   key={board.id}
-                  className="kb-board-card"
+                  className={`kb-board-card${sortMode === 'custom' ? ' kb-board-card-draggable' : ''}${draggingId === board.id ? ' kb-board-card-dragging' : ''}${dragOverId === board.id ? ' kb-board-card-dragover' : ''}`}
+                  draggable={sortMode === 'custom'}
+                  onDragStart={sortMode === 'custom' ? e => handleDragStart(e, board.id) : undefined}
+                  onDragOver={sortMode === 'custom' ? e => handleDragOver(e, board.id) : undefined}
+                  onDrop={sortMode === 'custom' ? e => handleDrop(e, board.id) : undefined}
+                  onDragEnd={sortMode === 'custom' ? handleDragEnd : undefined}
                   onClick={() => router.push(`/boards/${board.id}`)}
                 >
                   <div className="kb-board-card-header">
+                    {sortMode === 'custom' && (
+                      <span className="kb-drag-handle" onClick={e => e.stopPropagation()}>
+                        <GripVertical size={14} />
+                      </span>
+                    )}
                     <h3 className="kb-board-card-title">{board.title}</h3>
                     {board.is_public && (
                       <span className="kb-visibility-badge public"><Globe size={10} /> Public</span>
@@ -533,6 +651,7 @@ function BoardsListPage() {
               );
             })}
           </div>
+          </>
         )}
       </div>
     </div>
@@ -995,6 +1114,74 @@ const boardsListStyles = `
   }
   @keyframes kb-spin {
     to { transform: rotate(360deg); }
+  }
+
+  /* ── Sort bar ── */
+  .kb-sort-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .kb-sort-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #4b5563;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+  .kb-sort-group {
+    display: flex;
+    background: #1a1d27;
+    border: 1px solid #2a2d3a;
+    border-radius: 10px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .kb-sort-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    outline: none;
+    background: transparent !important;
+    color: #6b7280 !important;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .kb-sort-btn:hover { color: #d1d5db !important; background: rgba(255,255,255,0.04) !important; }
+  .kb-sort-btn.active { background: #2563eb !important; color: #fff !important; box-shadow: 0 1px 4px rgba(37,99,235,0.3); }
+  .kb-sort-hint {
+    font-size: 11px;
+    color: #4b5563;
+    font-style: italic;
+  }
+
+  /* ── Drag and drop ── */
+  .kb-drag-handle {
+    color: #4b5563;
+    cursor: grab;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding: 2px;
+    border-radius: 4px;
+    transition: color 0.15s;
+  }
+  .kb-drag-handle:hover { color: #9ca3af; }
+  .kb-drag-handle:active { cursor: grabbing; }
+  .kb-board-card-draggable { cursor: grab; }
+  .kb-board-card-dragging { opacity: 0.4; transform: scale(0.98); }
+  .kb-board-card-dragover {
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 2px rgba(99,102,241,0.35), 0 8px 24px rgba(0,0,0,0.3) !important;
   }
 
   /* ── Search bar ── */

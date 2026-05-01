@@ -818,7 +818,13 @@ function PrayerListContent() {
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <h3 className="text-[15px] font-bold text-white truncate">{group.leaderName}</h3>
+                          <Link
+                            href={`/circle/${group.leaderId}`}
+                            onClick={e => e.stopPropagation()}
+                            className="text-[15px] font-bold text-white hover:text-indigo-300 truncate transition-colors"
+                          >
+                            {group.leaderName}
+                          </Link>
                           {group.leaderCampus && (
                             <span className="hidden sm:inline text-xs text-slate-500">• {group.leaderCampus}</span>
                           )}

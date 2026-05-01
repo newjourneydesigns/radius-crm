@@ -1,18 +1,44 @@
 [
   {
     "date": "2026-05-01",
-    "description": "Added Update Log to the account menu (below Help) so you can always see what's changed in RADIUS."
+    "description": "Quick Actions FAB: Tap the + button in the bottom-left corner to instantly log a note, connection, or prayer, set a follow-up, or add a board card — from anywhere in the app.",
+    "page": "/",
+    "type": "feature"
   },
   {
     "date": "2026-05-01",
-    "description": "Bulk Message: You can now search for and manually add individual leaders to a message batch — even ones that don't match your current filters. Search by name, phone, or campus and tap to add."
+    "description": "Boards: You can now sort your boards by Newest, A–Z, Last Updated, or a Custom drag-and-drop order. Your preference is saved automatically.",
+    "page": "/boards",
+    "type": "feature"
   },
   {
     "date": "2026-05-01",
-    "description": "Bulk Message: Added keyboard shortcuts during a batch — press Space or Enter to open Messages, press S to skip. Shortcut hints are shown on the buttons."
+    "description": "Prayer Page: Leader names are now clickable links that take you directly to their profile.",
+    "page": "/prayer",
+    "type": "improvement"
   },
   {
     "date": "2026-05-01",
-    "description": "Bulk Message: You can now pause a batch mid-way and resume right where you left off instead of starting over."
+    "description": "Added Update Log to the account menu (below Help) so you can always see what's changed in RADIUS.",
+    "page": "/update-log",
+    "type": "feature"
+  },
+  {
+    "date": "2026-05-01",
+    "description": "Bulk Message: You can now search for and manually add individual leaders to a message batch — even ones that don't match your current filters. Search by name, phone, or campus and tap to add.",
+    "page": "/bulk-message",
+    "type": "improvement"
+  },
+  {
+    "date": "2026-05-01",
+    "description": "Bulk Message: Added keyboard shortcuts during a batch — press Space or Enter to open Messages, press S to skip. Shortcut hints are shown on the buttons.",
+    "page": "/bulk-message",
+    "type": "improvement"
+  },
+  {
+    "date": "2026-05-01",
+    "description": "Bulk Message: You can now pause a batch mid-way and resume right where you left off instead of starting over.",
+    "page": "/bulk-message",
+    "type": "improvement"
   }
 ]
