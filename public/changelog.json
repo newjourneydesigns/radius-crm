@@ -1,7 +1,7 @@
 [
   {
     "date": "2026-05-01",
-    "description": "Unified button and color styling across the entire app — all pages and modals now use the same consistent design system (primary, secondary, success, danger, ghost) instead of a mix of blue, green, purple, and teal variants. Everything should feel cohesive now.",
+    "description": "Unified button and color styling across the entire app — all pages and modals now use the same consistent design system instead of a mix of blue, green, purple, and teal variants. The Bulk Message iMessage bubble and START BATCH button are intentionally kept in iMessage blue.",
     "page": "/today",
     "type": "improvement"
   },

@@ -1159,7 +1159,7 @@ function BulkMessageContent() {
                 {currentRecipient ? (
                   <div className="flex flex-col items-end w-full">
                     <div className="relative max-w-[85%]">
-                      <div className="bg-slate-600 text-white px-5 py-3 rounded-[20px] rounded-br-[6px] text-sm font-medium shadow-lg leading-relaxed whitespace-pre-wrap">
+                      <div className="bg-[#0A7FF5] text-white px-5 py-3 rounded-[20px] rounded-br-[6px] text-sm font-medium shadow-lg leading-relaxed whitespace-pre-wrap">
                         {visualPreview}
                       </div>
                     </div>
@@ -1194,7 +1194,7 @@ function BulkMessageContent() {
                   <button
                     onClick={handleStartBatch}
                     disabled={recipients.length === 0 || !message.trim()}
-                    className="btn-primary w-full py-5 text-lg font-bold uppercase tracking-tight border-t border-white/10"
+                    className="w-full py-5 bg-[#0A7FF5] hover:bg-[#0A7FF5]/90 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold text-lg transition-all uppercase tracking-tight border-t border-[#0A7FF5]/30 disabled:border-gray-700"
                   >
                     {recipients.length === 0 ? 'No Recipients' : !message.trim() ? 'Write a Message First' : `Start Batch (${recipients.length})`}
                   </button>
@@ -1207,7 +1207,7 @@ function BulkMessageContent() {
                   </p>
                   <button
                     onClick={handleReset}
-                    className="btn-primary w-full py-3 rounded-xl font-bold uppercase text-sm"
+                    className="w-full py-3 bg-[#0A7FF5] hover:bg-[#0A7FF5]/90 text-white font-bold rounded-xl transition-all uppercase text-sm"
                   >
                     Start New Batch
                   </button>
