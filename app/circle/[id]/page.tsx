@@ -1745,7 +1745,7 @@ export default function CircleLeaderProfilePage() {
                         setFollowUpNoteValue(leader.follow_up_note || '');
                         setShowFollowUpDateModal(true);
                       }}
-                      className="text-xs text-blue-300 hover:text-blue-200 bg-blue-900/30 hover:bg-blue-900/45 border border-blue-800/40 px-3 py-1.5 rounded-md transition-colors"
+                      className="btn-ghost px-3 py-1.5 rounded-lg text-xs"
                     >
                       Edit
                     </button>
@@ -2491,7 +2491,7 @@ export default function CircleLeaderProfilePage() {
                             setFollowUpNoteValue(leader.follow_up_note || '');
                             setShowFollowUpDateModal(true);
                           }}
-                          className="text-xs text-blue-300 hover:text-blue-200 bg-blue-900/30 hover:bg-blue-900/45 border border-blue-800/40 px-3 py-1.5 rounded-md transition-colors"
+                          className="btn-ghost px-3 py-1.5 rounded-lg text-xs"
                         >
                           Edit
                         </button>
@@ -2886,7 +2886,7 @@ export default function CircleLeaderProfilePage() {
                 <button
                   onClick={leader?.follow_up_required ? () => { handleFollowUpDetailsChange(followUpDateValue, followUpNoteValue); } : handleFollowUpSave}
                   disabled={!followUpDateValue || isUpdatingFollowUp}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors"
+                  className="btn-primary flex-1 px-4 py-2 rounded-lg text-sm"
                 >
                   {isUpdatingFollowUp ? 'Saving...' : 'Save'}
                 </button>

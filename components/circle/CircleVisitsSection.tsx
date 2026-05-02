@@ -144,7 +144,7 @@ const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({
             <button
               type="submit"
               disabled={isLoading || !visitDate}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 touch-manipulation"
+              className="btn-primary px-4 py-2 rounded-lg touch-manipulation"
             >
               {isLoading ? 'Scheduling...' : 'Schedule Visit'}
             </button>
@@ -299,7 +299,7 @@ const CompleteVisitModal: React.FC<CompleteVisitModalProps> = ({
             <button
               type="submit"
               disabled={isLoading}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 touch-manipulation"
+              className="btn-success px-4 py-2 rounded-lg touch-manipulation"
             >
               {isLoading ? 'Recording...' : 'Record Visit'}
             </button>
@@ -486,7 +486,7 @@ const CircleVisitsSection: React.FC<CircleVisitsSectionProps> = ({ leaderId, lea
         </div>
         <button
           onClick={() => setShowScheduleModal(true)}
-          className="flex items-center space-x-2 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+          className="btn-primary flex items-center space-x-2 px-3 py-2 rounded-lg text-sm"
         >
           <PlusIcon className="h-4 w-4" />
           <span>Schedule Visit</span>
@@ -499,7 +499,7 @@ const CircleVisitsSection: React.FC<CircleVisitsSectionProps> = ({ leaderId, lea
           href="https://form.jotform.com/230576051412144"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm"
+          className="btn-secondary flex items-center justify-center space-x-2 px-4 py-2 rounded-lg text-sm"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -513,7 +513,7 @@ const CircleVisitsSection: React.FC<CircleVisitsSectionProps> = ({ leaderId, lea
           href="https://docs.google.com/spreadsheets/d/1PWorX0udibjgbskLU6lOQ5T8oS6AWGyCW-9x76CUbxs/edit#gid=1262105001"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
+          className="btn-secondary flex items-center justify-center space-x-2 px-4 py-2 rounded-lg text-sm"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -545,7 +545,7 @@ const CircleVisitsSection: React.FC<CircleVisitsSectionProps> = ({ leaderId, lea
                   <CalendarIcon className="h-4 w-4 flex-shrink-0" />
                   <span>{formatDate(nextVisit.visit_date)}</span>
                   {isVisitToday(nextVisit.visit_date) && (
-                    <span className="bg-blue-600 text-white px-2 py-0.5 rounded text-xs font-medium">
+                    <span className="bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full text-xs font-medium">
                       Today
                     </span>
                   )}
@@ -569,7 +569,7 @@ const CircleVisitsSection: React.FC<CircleVisitsSectionProps> = ({ leaderId, lea
                   setVisitToComplete(nextVisit);
                   setShowCompleteModal(true);
                 }}
-                className="flex items-center gap-1 bg-green-600 text-white px-3 py-1.5 rounded text-sm hover:bg-green-700 transition-colors"
+                className="btn-success flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm"
               >
                 <CheckIcon className="h-4 w-4" />
                 <span>Complete</span>

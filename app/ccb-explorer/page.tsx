@@ -479,7 +479,7 @@ export default function CCBExplorerPage() {
             <button
               onClick={handleFetchData}
               disabled={loading || !startDate || !groupName}
-              className="w-full px-4 py-3 bg-blue-600/90 hover:bg-blue-600 text-white rounded-xl font-medium text-sm tracking-tight transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
+              className="btn-primary w-full px-4 py-3 rounded-xl text-sm flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
@@ -539,7 +539,7 @@ export default function CCBExplorerPage() {
                   <button
                     onClick={handleSummarize}
                     disabled={loading}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 bg-purple-600 hover:bg-purple-700 text-white shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="btn-primary inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs"
                   >
                     <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
@@ -576,11 +576,11 @@ export default function CCBExplorerPage() {
                   className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden"
                 >
                   {/* Event Header */}
-                  <div className="bg-blue-600 dark:bg-blue-700 px-4 py-3">
+                  <div className="bg-slate-700 px-4 py-3">
                     <h3 className="text-base font-semibold text-white">
                       {event.title}
                     </h3>
-                    <div className="text-sm text-blue-100 mt-1">
+                    <div className="text-sm text-slate-300 mt-1">
                       {(() => {
                         try {
                           const dateStr = event.date;
@@ -694,7 +694,7 @@ export default function CCBExplorerPage() {
                     <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
                       <button
                         onClick={() => handleOpenFollowUpModal(event)}
-                        className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-2"
+                        className="btn-primary w-full px-4 py-2.5 rounded-lg text-sm flex items-center justify-center gap-2"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />

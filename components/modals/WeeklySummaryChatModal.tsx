@@ -435,7 +435,7 @@ export default function WeeklySummaryChatModal({
               <button
                 onClick={handleSendMessage}
                 disabled={!chatInput.trim() || isChatLoading}
-                className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-purple-600 hover:bg-purple-500 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="btn-primary shrink-0 w-8 h-8 flex items-center justify-center rounded-full"
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" />

@@ -892,7 +892,7 @@ export default function ImportCirclesPage() {
                       <button
                         onClick={handleMassUpdate}
                         disabled={massUpdateLoading || massUpdateSelected.size === 0 || !massUpdateValue}
-                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
+                        className="btn-primary px-6 py-2 rounded-lg text-sm"
                       >
                         {massUpdateLoading ? 'Updating...' : `Update ${massUpdateSelected.size} Leader${massUpdateSelected.size !== 1 ? 's' : ''}`}
                       </button>
@@ -963,7 +963,7 @@ export default function ImportCirclesPage() {
               <button
                 onClick={handleSearch}
                 disabled={isSearching}
-                className="inline-flex items-center px-5 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-primary inline-flex items-center px-5 py-2 rounded-lg text-sm"
               >
                 {isSearching ? (
                   <>
@@ -1027,7 +1027,7 @@ export default function ImportCirclesPage() {
                       <button
                         onClick={handleImport}
                         disabled={selected.size === 0 || isImporting}
-                        className="inline-flex items-center px-4 py-1.5 text-xs font-medium rounded shadow-sm text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="btn-success inline-flex items-center px-4 py-1.5 rounded-lg text-xs"
                       >
                         {isImporting ? (
                           <>

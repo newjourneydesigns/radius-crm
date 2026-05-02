@@ -160,7 +160,7 @@ const CircleVisitsDashboard: React.FC<CircleVisitsDashboardProps> = ({
         <div className="flex space-x-2">
           <button 
             onClick={() => onScheduleVisit?.(0)} // TODO: Implement schedule new visit modal
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            className="btn-primary px-4 py-2 rounded-lg text-sm"
           >
             Schedule Visit
           </button>

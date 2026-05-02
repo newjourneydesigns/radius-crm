@@ -245,17 +245,15 @@ export default function AddNoteModal({
           <button
             type="button"
             onClick={handleClose}
-            className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded-md transition-colors"
+            className="btn-ghost px-4 py-2 rounded-lg text-sm"
             disabled={isSubmitting}
           >
             Cancel
           </button>
           <button
             type="submit"
-            className={`px-4 py-2 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-              clearFollowUp 
-                ? 'bg-red-600 hover:bg-red-700' 
-                : 'bg-blue-600 hover:bg-blue-700'
+            className={`px-4 py-2 rounded-lg text-sm ${
+              clearFollowUp ? 'btn-danger' : 'btn-primary'
             }`}
             disabled={isSubmitting || !content.trim() || (!circleLeaderId && !selectedLeaderId)}
           >

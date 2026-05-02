@@ -221,7 +221,7 @@ Be warm, practical, and specific. Use the leader's name. Reference actual data p
           <div className="px-4 py-3 bg-white dark:bg-gray-900 border-t border-blue-200 dark:border-blue-800 flex flex-wrap items-center gap-2">
             <button
               onClick={handleInsertAsNote}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+              className="btn-primary flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 5v14M5 12h14" />

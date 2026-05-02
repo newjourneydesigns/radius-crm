@@ -33,11 +33,11 @@ export default function ConfirmModal({
   const getConfirmButtonStyles = () => {
     switch (type) {
       case 'danger':
-        return 'bg-red-600/90 hover:bg-red-600 focus:ring-red-500/20 text-white font-medium';
+        return 'btn-danger';
       case 'warning':
-        return 'bg-yellow-600/90 hover:bg-yellow-600 focus:ring-yellow-500/20 text-white font-medium';
+        return 'btn-primary';
       default:
-        return 'bg-blue-600/90 hover:bg-blue-600 focus:ring-blue-500/20 text-white font-medium';
+        return 'btn-primary';
     }
   };
 
@@ -61,8 +61,8 @@ export default function ConfirmModal({
         );
       default:
         return (
-          <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-blue-100 dark:bg-blue-900/20 rounded-full">
-            <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-slate-700/50 rounded-full">
+            <svg className="w-6 h-6 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
@@ -83,15 +83,15 @@ export default function ConfirmModal({
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="flex-1 min-w-0 px-6 py-2.5 border border-gray-300/30 dark:border-gray-600/30 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-50/50 dark:bg-gray-700/30 hover:bg-gray-100/60 dark:hover:bg-gray-600/40 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] backdrop-blur-sm"
+            className="btn-ghost flex-1 min-w-0 px-6 py-2.5 rounded-xl text-sm"
           >
             {cancelText}
           </button>
-          
+
           <button
             onClick={handleConfirm}
             disabled={isLoading}
-            className={`flex-1 min-w-0 px-6 py-2.5 border border-transparent rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl ${getConfirmButtonStyles()}`}
+            className={`flex-1 min-w-0 px-6 py-2.5 rounded-xl text-sm ${getConfirmButtonStyles()}`}
           >
             {isLoading ? (
               <div className="flex items-center justify-center">

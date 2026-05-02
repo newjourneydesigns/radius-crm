@@ -587,7 +587,7 @@ export default function SettingsPage() {
                   <button
                     onClick={handleAddDirector}
                     disabled={!newDirector.name.trim()}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    className="btn-primary px-4 py-2 rounded-lg text-sm"
                   >
                     Add Director
                   </button>
@@ -705,7 +705,7 @@ export default function SettingsPage() {
                   <button
                     onClick={handleAddCircleType}
                     disabled={!newCircleType.trim()}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    className="btn-primary px-4 py-2 rounded-lg text-sm"
                   >
                     Add Type
                   </button>
@@ -803,7 +803,7 @@ export default function SettingsPage() {
                   <button
                     onClick={handleAddStatus}
                     disabled={!newStatus.trim()}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    className="btn-primary px-4 py-2 rounded-lg text-sm"
                   >
                     Add Status
                   </button>
@@ -901,7 +901,7 @@ export default function SettingsPage() {
                   <button
                     onClick={handleAddFrequency}
                     disabled={!newFrequency.trim()}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    className="btn-primary px-4 py-2 rounded-lg text-sm"
                   >
                     Add Frequency
                   </button>
@@ -999,7 +999,7 @@ export default function SettingsPage() {
                   <button
                     onClick={handleAddCampus}
                     disabled={!newCampus.trim()}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    className="btn-primary px-4 py-2 rounded-lg text-sm"
                   >
                     Add Campus
                   </button>
@@ -1113,7 +1113,7 @@ export default function SettingsPage() {
               <div className="mb-8 flex flex-col sm:flex-row gap-4">
                 <a
                   href="/import"
-                  className="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-md transition-colors"
+                  className="btn-secondary inline-flex items-center px-4 py-2 rounded-lg text-sm"
                 >
                   <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
@@ -1122,7 +1122,7 @@ export default function SettingsPage() {
                 </a>
                 <a
                   href="/add-leader"
-                  className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
+                  className="btn-primary inline-flex items-center px-4 py-2 rounded-lg text-sm"
                 >
                   <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />

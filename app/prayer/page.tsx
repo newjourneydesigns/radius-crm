@@ -694,7 +694,7 @@ function PrayerListContent() {
                   <button
                     onClick={addGeneralPrayer}
                     disabled={!newGeneralText.trim()}
-                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="btn-primary px-4 py-2.5 rounded-lg text-sm font-semibold"
                   >
                     Add
                   </button>
@@ -736,7 +736,7 @@ function PrayerListContent() {
                                   className="w-full px-3 py-2 bg-[#1a1c22] border border-white/[0.12] rounded-md text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
                                 />
                                 <div className="flex items-center gap-2">
-                                  <button onClick={saveGeneralEdit} disabled={!editGeneralText.trim()} className="px-3.5 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors disabled:opacity-50">Save</button>
+                                  <button onClick={saveGeneralEdit} disabled={!editGeneralText.trim()} className="btn-primary px-3.5 py-1.5 rounded-lg text-xs font-semibold">Save</button>
                                   <button onClick={cancelEditingGeneral} className="px-3 py-1.5 text-xs font-semibold text-slate-400 bg-white/[0.07] hover:bg-white/[0.1] rounded-md transition-colors">Cancel</button>
                                   <span className="text-[10px] text-slate-600 ml-auto hidden sm:inline">Enter to save · Esc to cancel</span>
                                 </div>
@@ -893,7 +893,7 @@ function PrayerListContent() {
                                           className="w-full px-3 py-2 bg-[#1a1c22] border border-white/[0.12] rounded-md text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
                                         />
                                         <div className="flex items-center gap-2">
-                                          <button onClick={saveEdit} disabled={!editText.trim()} className="px-3.5 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors disabled:opacity-50">Save</button>
+                                          <button onClick={saveEdit} disabled={!editText.trim()} className="btn-primary px-3.5 py-1.5 rounded-lg text-xs font-semibold">Save</button>
                                           <button onClick={cancelEditing} className="px-3 py-1.5 text-xs font-semibold text-slate-400 bg-white/[0.07] hover:bg-white/[0.1] rounded-md transition-colors">Cancel</button>
                                           <span className="text-[10px] text-slate-600 ml-auto hidden sm:inline">Enter to save · Esc to cancel</span>
                                         </div>
@@ -973,7 +973,7 @@ function PrayerListContent() {
                             <p className="text-sm text-slate-600 mb-3">No active prayers</p>
                             <button
                               onClick={() => { setAddingToLeader(group.leaderId); setNewPrayerText(''); }}
-                              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-lg transition-colors"
+                              className="btn-ghost inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
                               Add a prayer
@@ -1009,7 +1009,7 @@ function PrayerListContent() {
                               <button
                                 onClick={() => handleAddPrayer(group.leaderId)}
                                 disabled={!newPrayerText.trim()}
-                                className="px-4 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="btn-primary px-4 py-1.5 rounded-lg text-xs font-semibold"
                               >
                                 Save
                               </button>
@@ -1036,7 +1036,7 @@ function PrayerListContent() {
                           ) : <div />}
                           <Link
                             href={`/circle/${group.leaderId}`}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg transition-colors"
+                            className="btn-primary inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold"
                           >
                             View in Radius →
                           </Link>

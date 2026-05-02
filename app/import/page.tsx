@@ -776,7 +776,7 @@ export default function ImportPage() {
                       <button
                         onClick={handleMassUpdate}
                         disabled={massUpdateLoading || massUpdateSelected.size === 0 || !massUpdateValue}
-                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
+                        className="btn-primary px-6 py-2 rounded-lg text-sm"
                       >
                         {massUpdateLoading ? 'Updating...' : `Update ${massUpdateSelected.size} Leader${massUpdateSelected.size !== 1 ? 's' : ''}`}
                       </button>
@@ -933,7 +933,7 @@ export default function ImportPage() {
                       <button
                         onClick={handleImport}
                         disabled={isLoading || fieldMappings.length === 0}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
+                        className="btn-primary px-4 py-2 rounded-lg text-sm"
                       >
                         {isLoading ? 'Importing...' : 'Import Circle Leaders'}
                       </button>
@@ -1043,7 +1043,7 @@ export default function ImportPage() {
                   </button>
                   <Link
                     href="/boards"
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
+                    className="btn-primary px-4 py-2 rounded-lg text-sm"
                   >
                     Go to Boards
                   </Link>

@@ -316,7 +316,7 @@ export default function EventExplorerModal({
               href={ccbProfileLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+              className="btn-ghost inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -476,7 +476,7 @@ export default function EventExplorerModal({
         <button
           onClick={handleFetchData}
           disabled={loading || !date || !groupName || (rangeMode && !endDate)}
-          className="w-full px-4 py-3 bg-blue-600/90 hover:bg-blue-600 text-white rounded-xl font-medium text-sm tracking-tight transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
+          className="btn-primary w-full px-4 py-3 rounded-xl text-sm flex items-center justify-center gap-2"
         >
           {loading ? (
             <>
@@ -580,11 +580,11 @@ export default function EventExplorerModal({
                 className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden"
               >
                 {/* Event Header */}
-                <div className="bg-blue-600 dark:bg-blue-700 px-4 py-3">
+                <div className="bg-slate-700 px-4 py-3">
                   <h3 className="text-base font-semibold text-white">
                     {event.title}
                   </h3>
-                  <div className="text-sm text-blue-100 mt-1">
+                  <div className="text-sm text-slate-300 mt-1">
                     {(() => {
                       try {
                         const dateStr = event.date;

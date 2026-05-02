@@ -635,7 +635,7 @@ export default function HelpPage() {
         <div className="fixed bottom-6 right-6">
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition-colors"
+            className="btn-primary rounded-full p-3"
             aria-label="Back to top"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

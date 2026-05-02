@@ -23,13 +23,13 @@ export default function AlertModal({
   const getButtonStyles = () => {
     switch (type) {
       case 'success':
-        return 'bg-green-600 hover:bg-green-700 focus:ring-green-500 text-white';
+        return 'btn-success';
       case 'error':
-        return 'bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white';
+        return 'btn-danger';
       case 'warning':
-        return 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500 text-white';
+        return 'btn-primary';
       default:
-        return 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500 text-white';
+        return 'btn-primary';
     }
   };
 
@@ -61,8 +61,8 @@ export default function AlertModal({
         );
       default:
         return (
-          <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-blue-100 dark:bg-blue-900/20 rounded-full">
-            <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-slate-700/50 rounded-full">
+            <svg className="w-6 h-6 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
@@ -81,7 +81,7 @@ export default function AlertModal({
         
         <button
           onClick={onClose}
-          className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors ${getButtonStyles()}`}
+          className={`px-4 py-2 rounded-lg text-sm ${getButtonStyles()}`}
         >
           {buttonText}
         </button>

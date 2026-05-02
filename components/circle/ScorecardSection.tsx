@@ -534,7 +534,7 @@ export default function ScorecardSection({ leaderId, isAdmin, initialDimension, 
                 <button
                   onClick={handleSubmit}
                   disabled={isSubmitting}
-                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white text-sm rounded-lg transition-colors"
+                  className="btn-primary px-4 py-1.5 rounded-lg text-sm"
                 >
                   {isSubmitting ? 'Saving...' : editingId ? 'Update Rating' : 'Save Rating'}
                 </button>

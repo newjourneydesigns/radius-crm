@@ -158,7 +158,7 @@ export default function AddToBoardModal({
           <div className="flex justify-end pt-2">
             <button
               onClick={onClose}
-              className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
+              className="btn-primary px-5 py-2.5 rounded-xl text-sm"
             >
               Done
             </button>
@@ -268,7 +268,7 @@ export default function AddToBoardModal({
             type="button"
             onClick={handleCreate}
             disabled={!selectedBoardId || !selectedColumnId || !cardTitle.trim() || isSaving}
-            className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed rounded-xl transition-colors shadow-sm"
+            className="btn-primary px-5 py-2.5 rounded-xl text-sm"
           >
             {isSaving ? 'Creating…' : 'Add to Board'}
           </button>

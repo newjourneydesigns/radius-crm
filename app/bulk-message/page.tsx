@@ -930,7 +930,7 @@ function BulkMessageContent() {
                     <button
                       onClick={handleSaveList}
                       disabled={!listNameInput.trim()}
-                      className="px-3 py-1.5 text-[10px] font-bold text-teal-400 uppercase bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/20 rounded-lg transition-all disabled:opacity-30"
+                      className="btn-ghost px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase"
                     >
                       Save
                     </button>
@@ -945,7 +945,7 @@ function BulkMessageContent() {
                   <button
                     onClick={() => setShowSaveList(true)}
                     disabled={ccbRecipients.length === 0}
-                    className="px-3 py-1.5 text-[10px] font-bold text-teal-400 uppercase bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/20 rounded-lg transition-all disabled:opacity-30"
+                    className="btn-ghost px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase"
                   >
                     Save as List
                   </button>
@@ -1057,7 +1057,7 @@ function BulkMessageContent() {
                   </select>
 
                   {selectedTemplateId && isTemplateModified && (
-                    <button onClick={handleUpdateTemplate} className="px-2.5 py-1 text-[10px] font-bold text-green-400 uppercase bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 rounded-lg transition-all">
+                    <button onClick={handleUpdateTemplate} className="btn-ghost px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase">
                       Update
                     </button>
                   )}
@@ -1120,7 +1120,7 @@ function BulkMessageContent() {
                     <button
                       onClick={handleSaveTemplate}
                       disabled={!templateNameInput.trim()}
-                      className="px-3 py-1.5 text-[10px] font-bold text-blue-400 uppercase bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 rounded-lg transition-all disabled:opacity-30"
+                      className="btn-ghost px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase"
                     >
                       Save
                     </button>
@@ -1135,7 +1135,7 @@ function BulkMessageContent() {
                   <button
                     onClick={() => setShowSaveTemplate(true)}
                     disabled={!message.trim()}
-                    className="px-3 py-1.5 text-[10px] font-bold text-blue-400 uppercase bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 rounded-lg transition-all disabled:opacity-30"
+                    className="btn-ghost px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase"
                   >
                     Save as Template
                   </button>
@@ -1159,7 +1159,7 @@ function BulkMessageContent() {
                 {currentRecipient ? (
                   <div className="flex flex-col items-end w-full">
                     <div className="relative max-w-[85%]">
-                      <div className="bg-blue-600 text-white px-5 py-3 rounded-[20px] rounded-br-[6px] text-sm font-medium shadow-lg leading-relaxed whitespace-pre-wrap">
+                      <div className="bg-slate-600 text-white px-5 py-3 rounded-[20px] rounded-br-[6px] text-sm font-medium shadow-lg leading-relaxed whitespace-pre-wrap">
                         {visualPreview}
                       </div>
                     </div>
@@ -1194,7 +1194,7 @@ function BulkMessageContent() {
                   <button
                     onClick={handleStartBatch}
                     disabled={recipients.length === 0 || !message.trim()}
-                    className="w-full py-5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold text-lg transition-all uppercase tracking-tight border-t border-blue-500/30 disabled:border-gray-700"
+                    className="btn-primary w-full py-5 text-lg font-bold uppercase tracking-tight border-t border-white/10"
                   >
                     {recipients.length === 0 ? 'No Recipients' : !message.trim() ? 'Write a Message First' : `Start Batch (${recipients.length})`}
                   </button>
@@ -1207,7 +1207,7 @@ function BulkMessageContent() {
                   </p>
                   <button
                     onClick={handleReset}
-                    className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all uppercase text-sm"
+                    className="btn-primary w-full py-3 rounded-xl font-bold uppercase text-sm"
                   >
                     Start New Batch
                   </button>
@@ -1320,7 +1320,7 @@ function BulkMessageContent() {
                         {log.status === LogStatus.SUCCESS && (
                           <button
                             onClick={() => handleResend(log)}
-                            className="px-2 py-1 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 text-[9px] font-bold uppercase rounded border border-blue-500/20 transition-all opacity-0 group-hover:opacity-100"
+                            className="btn-ghost px-2 py-1 rounded text-[9px] font-bold uppercase opacity-0 group-hover:opacity-100"
                           >
                             Resend
                           </button>

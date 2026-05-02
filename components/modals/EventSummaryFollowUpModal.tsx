@@ -124,14 +124,14 @@ export default function EventSummaryFollowUpModal({
           <button
             onClick={handleClose}
             disabled={isSaving}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-ghost px-4 py-2 rounded-lg text-sm"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={!message.trim() || isSaving}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="btn-primary px-4 py-2 rounded-lg text-sm flex items-center gap-2"
           >
             {isSaving ? (
               <>

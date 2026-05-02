@@ -305,7 +305,7 @@ export default function RichTextEditor({
             <button type="button" onClick={cancelLinkDialog} className="text-xs px-2 py-1 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
               Cancel
             </button>
-            <button type="button" onClick={handleSetLink} className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium">
+            <button type="button" onClick={handleSetLink} className="btn-primary px-3 py-1 rounded-lg text-xs">
               Insert
             </button>
           </div>

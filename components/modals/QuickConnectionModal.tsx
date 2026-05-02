@@ -177,14 +177,14 @@ export default function QuickConnectionModal({ isOpen, onClose, onSaved }: Props
             type="button"
             onClick={onClose}
             disabled={isSaving}
-            className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded-md transition-colors text-sm"
+            className="btn-ghost px-4 py-2 rounded-lg text-sm"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={isSaving || !selectedLeaderId || !date || !connectionTypeId}
-            className="px-4 py-2 text-white bg-teal-600 hover:bg-teal-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            className="btn-primary px-4 py-2 rounded-lg text-sm"
           >
             {isSaving ? 'Saving...' : 'Save Connection'}
           </button>

@@ -145,7 +145,7 @@ export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">"{savedTitle}" was added to the board.</p>
           <button
             onClick={onClose}
-            className="px-6 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors text-sm"
+            className="btn-primary px-6 py-2 rounded-lg text-sm"
           >
             Done
           </button>
@@ -265,14 +265,14 @@ export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
             type="button"
             onClick={onClose}
             disabled={isSaving}
-            className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded-md transition-colors text-sm"
+            className="btn-ghost px-4 py-2 rounded-lg text-sm"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={isSaving || !title.trim() || !selectedBoardId || !selectedColumnId}
-            className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            className="btn-primary px-4 py-2 rounded-lg text-sm"
           >
             {isSaving ? 'Adding...' : 'Add Card'}
           </button>

@@ -466,7 +466,7 @@ export default function ProfilePage() {
                     <button
                       onClick={handleSaveProfile}
                       disabled={isSaving}
-                      className="px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="btn-primary px-5 py-2.5 rounded-lg text-sm"
                     >
                       {isSaving ? 'Saving...' : 'Save Changes'}
                     </button>
@@ -779,7 +779,7 @@ export default function ProfilePage() {
                 <button
                   onClick={handleSaveEmailPreferences}
                   disabled={isSaving}
-                  className="px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="btn-primary px-5 py-2.5 rounded-lg text-sm"
                 >
                   {isSaving ? 'Saving...' : 'Save Preferences'}
                 </button>
@@ -807,7 +807,7 @@ export default function ProfilePage() {
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm" />
             </div>
             <button type="submit" disabled={isSavingPassword || !newPassword || !confirmPassword}
-              className="px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+              className="btn-primary px-5 py-2.5 rounded-lg text-sm">
               {isSavingPassword ? 'Saving…' : 'Update password'}
             </button>
           </form>

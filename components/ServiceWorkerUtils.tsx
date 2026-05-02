@@ -80,7 +80,7 @@ export default function ServiceWorkerUtils() {
           
           <button
             onClick={refreshApp}
-            className="px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            className="btn-primary px-3 py-2 rounded-lg text-sm"
           >
             Refresh App
           </button>

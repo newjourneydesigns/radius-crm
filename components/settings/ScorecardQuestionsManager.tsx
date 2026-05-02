@@ -286,7 +286,7 @@ export default function ScorecardQuestionsManager() {
           <button
             onClick={seedDefaults}
             disabled={isSaving}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+            className="btn-primary px-4 py-2 rounded-lg text-sm"
           >
             {isSaving ? 'Loading...' : 'Load Default Questions'}
           </button>
@@ -330,7 +330,7 @@ export default function ScorecardQuestionsManager() {
           <button
             onClick={handleAddQuestion}
             disabled={!newQuestionLabel.trim() || isSaving}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium whitespace-nowrap"
+            className="btn-primary px-4 py-2 rounded-lg text-sm whitespace-nowrap"
           >
             Add Question
           </button>
@@ -403,7 +403,7 @@ export default function ScorecardQuestionsManager() {
                   <button
                     onClick={handleEditQuestion}
                     disabled={isSaving || !editLabel.trim()}
-                    className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded-md font-medium disabled:opacity-50"
+                    className="btn-primary px-3 py-1.5 rounded-lg text-xs"
                   >
                     Save
                   </button>
