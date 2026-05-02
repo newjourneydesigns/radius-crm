@@ -101,12 +101,12 @@ export default function QuickActionsFAB() {
         />
       )}
 
-      {/* FAB container — stays bottom-left on both mobile and desktop */}
+      {/* FAB container — pointer-events-none so hidden items don't block underlying touches */}
       <div
-        className="fixed left-4 z-[10002] flex flex-col items-start gap-2 bottom-[calc(98px+env(safe-area-inset-bottom,0px)+16px)] md:bottom-6"
+        className="fixed left-4 z-[10002] flex flex-col items-start gap-2 bottom-[calc(98px+env(safe-area-inset-bottom,0px)+16px)] md:bottom-6 pointer-events-none"
       >
         {/* Speed dial items — rendered flex-col-reverse so index 0 (Note) is closest to FAB */}
-        <div className={`flex flex-col-reverse items-start gap-2 ${!isOpen ? 'pointer-events-none' : ''}`}>
+        <div className={`flex flex-col-reverse items-start gap-2 ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
           {ACTIONS.map((action, i) => (
             <button
               key={action.id}
@@ -137,7 +137,7 @@ export default function QuickActionsFAB() {
         {/* Main FAB button */}
         <button
           onClick={() => setIsOpen(prev => !prev)}
-          className="w-12 h-12 rounded-full flex items-center justify-center text-white transition-all duration-200 active:scale-90"
+          className="w-12 h-12 rounded-full flex items-center justify-center text-white transition-all duration-200 active:scale-90 pointer-events-auto"
           style={{
             background: 'linear-gradient(135deg, #2563eb 0%, #60a5fa 100%)',
             boxShadow: isOpen
