@@ -77,7 +77,7 @@ export default function GlobalSearch() {
         { data: boardRows },
         { data: cardRows },
       ] = await Promise.all([
-        supabase.from('circle_leaders').select('id, name, circle_name, email, phone, campus, acpd, status, additional_leader_name'),
+        supabase.from('circle_leaders').select('id, name, circle_name, team_name, leader_type, email, phone, campus, acpd, status, additional_leader_name'),
         supabase.from('project_boards').select('id, title, description').eq('is_archived', false),
         supabase.from('board_cards').select('id, title, board_id').eq('is_archived', false),
       ]);
@@ -130,6 +130,7 @@ export default function GlobalSearch() {
         ...fuseOptions,
         keys: [
           { name: 'circle_name', weight: 3 },
+          { name: 'team_name', weight: 3 },
           { name: 'name', weight: 2 },
           { name: 'additional_leader_name', weight: 2 },
           { name: 'email', weight: 1 },
@@ -503,8 +504,17 @@ export default function GlobalSearch() {
                               </svg>
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: '14px', fontWeight: 500, color: isSelected ? '#eef4ed' : 'rgba(238, 244, 237, 0.85)', lineHeight: '1.3', transition: 'color 0.12s ease' }}>
-                                {(leader as any).circle_name || leader.name}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '14px', fontWeight: 500, color: isSelected ? '#eef4ed' : 'rgba(238, 244, 237, 0.85)', lineHeight: '1.3', transition: 'color 0.12s ease' }}>
+                                  {(leader as any).leader_type === 'host_team'
+                                    ? ((leader as any).team_name || leader.name)
+                                    : ((leader as any).circle_name || leader.name)}
+                                </span>
+                                {(leader as any).leader_type === 'host_team' && (
+                                  <span style={{ fontSize: '10px', fontWeight: 600, padding: '1px 6px', borderRadius: '99px', background: 'rgba(139, 92, 246, 0.2)', color: 'rgba(167, 139, 250, 0.9)', border: '1px solid rgba(139, 92, 246, 0.3)', lineHeight: '1.6', whiteSpace: 'nowrap' }}>
+                                    Team
+                                  </span>
+                                )}
                               </div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px', fontSize: '12px', color: 'rgba(255, 255, 255, 0.45)', lineHeight: '1.3' }}>
                                 <span>
@@ -598,7 +608,7 @@ export default function GlobalSearch() {
                       <>
                         {leaderItems.length > 0 && (
                           <>
-                            <div style={sectionHeaderStyle}>Circle Leaders · {leaderItems.length}</div>
+                            <div style={sectionHeaderStyle}>Leaders · {leaderItems.length}</div>
                             {leaderItems.map((r, i) => renderItem(r, i))}
                           </>
                         )}

@@ -20,6 +20,7 @@ export interface CircleLeaderFilters {
   frequency?: string[];
   eventSummary?: string;
   timeOfDay?: string;
+  leaderType?: 'circle' | 'host_team' | 'all';
 }
 
 // Cache management
@@ -46,7 +47,8 @@ const generateCacheKey = (filters?: CircleLeaderFilters): string => {
     circleType: filters.circleType?.sort().join(',') || '',
     frequency: filters.frequency?.sort().join(',') || '',
     eventSummary: filters.eventSummary || '',
-    timeOfDay: (filters.timeOfDay || '').trim().toUpperCase() // Ensure cache key includes normalized timeOfDay
+    timeOfDay: (filters.timeOfDay || '').trim().toUpperCase(),
+    leaderType: filters.leaderType || ''
   };
   return JSON.stringify(sortedFilters);
 };
@@ -112,7 +114,7 @@ export const useCircleLeaders = () => {
         'id, name, circle_name, ccb_group_name, email, phone, campus, acpd, status, day, time, frequency, meeting_start_date, circle_type, ' +
         'event_summary_state, event_summary_state_week, event_summary_received' +
         (includeSkipped ? ', event_summary_skipped' : '') +
-        ', follow_up_required, follow_up_date, ccb_profile_link'
+        ', follow_up_required, follow_up_date, ccb_profile_link, leader_type, team_name, director'
       );
 
       const applyServerFilters = (q: any, f?: CircleLeaderFilters, includeSkipped: boolean = true) => {
@@ -196,6 +198,11 @@ export const useCircleLeaders = () => {
           }
         } else if (f.eventSummary === 'not_received') {
           q = q.or('event_summary_state.eq.not_received,and(event_summary_state.is.null,event_summary_received.neq.true,event_summary_skipped.neq.true)');
+        }
+
+        // Leader type filter
+        if (f.leaderType && f.leaderType !== 'all') {
+          q = q.eq('leader_type', f.leaderType);
         }
 
         return q;

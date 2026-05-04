@@ -139,7 +139,7 @@ const primaryNavItems = [
 ];
 
 const toolsNavItems = [
-  { href: '/search',        label: 'Find a Circle',  Icon: SearchNavIcon },
+  { href: '/search',        label: 'Find Leaders',   Icon: SearchNavIcon },
   { href: '/person-lookup', label: 'Person Lookup',   Icon: SearchNavIcon },
   { href: '/birthday-list', label: 'Birthday List',   Icon: BirthdayCakeIcon },
 ];

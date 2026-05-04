@@ -15,6 +15,7 @@ interface CircleSearchResult {
   time: string;
   circle_type: string;
   ccb_group_id?: string;
+  leader_type?: string;
 }
 
 interface DashboardFilters {
@@ -27,6 +28,7 @@ interface DashboardFilters {
   connected?: string;
   timeOfDay: string;
   searchTerm?: string;
+  leaderType?: string;
 }
 
 export default function SearchPage() {
@@ -45,12 +47,12 @@ export default function SearchPage() {
   // State for filters - using dashboard filter structure
   // Initialise from localStorage when available
   const [filters, setFilters] = useState<DashboardFilters>(() => {
-    if (typeof window === 'undefined') return { campus: [], meetingDay: [], circleType: [], timeOfDay: 'all', searchTerm: '' };
+    if (typeof window === 'undefined') return { campus: [], meetingDay: [], circleType: [], timeOfDay: 'all', searchTerm: '', leaderType: 'all' };
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) return { leaderType: 'all', ...JSON.parse(saved) };
     } catch { /* ignore */ }
-    return { campus: [], meetingDay: [], circleType: [], timeOfDay: 'all', searchTerm: '' };
+    return { campus: [], meetingDay: [], circleType: [], timeOfDay: 'all', searchTerm: '', leaderType: 'all' };
   });
 
   // State for export modal
@@ -95,7 +97,7 @@ export default function SearchPage() {
       try {
         const { data: allData, error: allError } = await supabase
           .from('circle_leaders')
-          .select('id, name, campus, day, time, circle_type, status, ccb_group_id')
+          .select('id, name, campus, day, time, circle_type, status, ccb_group_id, leader_type')
           .order('name');
 
         if (allError) {
@@ -160,6 +162,11 @@ export default function SearchPage() {
       filtered = filtered.filter(circle => filters.meetingDay.includes(circle.day));
     }
 
+    // Apply leader type filter
+    if (filters.leaderType && filters.leaderType !== 'all') {
+      filtered = filtered.filter(circle => (circle.leader_type || 'circle') === filters.leaderType);
+    }
+
     // Apply time of day filter
     if (filters.timeOfDay && filters.timeOfDay !== 'all') {
       filtered = filtered.filter(circle => {
@@ -213,7 +220,8 @@ export default function SearchPage() {
       meetingDay: [],
       circleType: [],
       timeOfDay: 'all',
-      searchTerm: ''
+      searchTerm: '',
+      leaderType: 'all'
     };
     setFilters(defaults);
     setSortConfig({ key: 'name', direction: 'asc' });
@@ -287,10 +295,10 @@ export default function SearchPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                  Find a Circle
+                  Find Leaders
                 </h1>
                 <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                  Search for active circles in your area
+                  Search circle and host team leaders
                 </p>
               </div>
               <button
@@ -316,6 +324,25 @@ export default function SearchPage() {
           totalLeaders={filteredCircles.length}
           allLeaders={circles}
         />
+
+        {/* Leader Type Filter */}
+        <div className="flex items-center gap-2 mb-4">
+          {(['all', 'circle', 'host_team'] as const).map((type) => (
+            <button
+              key={type}
+              onClick={() => setFilters(prev => ({ ...prev, leaderType: type }))}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                (filters.leaderType || 'all') === type
+                  ? type === 'host_team'
+                    ? 'bg-violet-600 text-white'
+                    : 'bg-blue-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              {type === 'all' ? 'All Leaders' : type === 'circle' ? 'Circles' : 'Teams'}
+            </button>
+          ))}
+        </div>
 
         {/* Circle Count + Roster Total */}
         {!isLoading && (

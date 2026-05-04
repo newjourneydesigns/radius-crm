@@ -214,6 +214,7 @@ export default function CircleLeaderProfilePage() {
   const [isSavingLeader, setIsSavingLeader] = useState(false);
   const [leaderError, setLeaderError] = useState('');
   const [directors, setDirectors] = useState<Array<{id: number, name: string}>>([]);
+  const [hostTeamDirectors, setHostTeamDirectors] = useState<Array<{id: number, name: string}>>([]);
   const [showLogConnectionModal, setShowLogConnectionModal] = useState(false);
   const [showConnectPersonModal, setShowConnectPersonModal] = useState(false);
   const [showEventSummaryReminderModal, setShowEventSummaryReminderModal] = useState(false);
@@ -248,6 +249,7 @@ export default function CircleLeaderProfilePage() {
         const [
           leaderResult,
           directorsResult,
+          htDirectorsResult,
           campusesResult,
           statusesResult,
           circleTypesResult,
@@ -255,6 +257,7 @@ export default function CircleLeaderProfilePage() {
         ] = await Promise.all([
           supabase.from('circle_leaders').select('*').eq('id', leaderId).single(),
           supabase.from('acpd_list').select('id, name').eq('active', true).order('name'),
+          supabase.from('directors_list').select('id, name').eq('active', true).order('name'),
           supabase.from('campuses').select('*').order('value'),
           supabase.from('statuses').select('*').order('value'),
           supabase.from('circle_types').select('*').order('value'),
@@ -304,6 +307,9 @@ export default function CircleLeaderProfilePage() {
         }
 
         // Process directors
+        if (htDirectorsResult.data && !htDirectorsResult.error) {
+          setHostTeamDirectors(htDirectorsResult.data);
+        }
         if (directorsResult.data && !directorsResult.error) {
           setDirectors(directorsResult.data);
         } else {
@@ -1243,6 +1249,8 @@ export default function CircleLeaderProfilePage() {
       follow_up_required: leader.follow_up_required,
       follow_up_date: leader.follow_up_date,
       circle_name: leader.circle_name || leader.name || '',
+      team_name: leader.team_name || '',
+      director: leader.director || '',
       ccb_group_name: leader.ccb_group_name || '',
       ccb_profile_link: leader.ccb_profile_link,
       ccb_group_id: leader.ccb_group_id || extractCcbGroupId(leader.ccb_profile_link) || '',
@@ -1270,6 +1278,8 @@ export default function CircleLeaderProfilePage() {
         .from('circle_leaders')
         .update({
           circle_name: editedLeader.circle_name || editedLeader.name || null,
+          team_name: editedLeader.team_name || null,
+          director: editedLeader.director || null,
           name: editedLeader.name,
           email: editedLeader.email || null,
           phone: editedLeader.phone || null,
@@ -1453,6 +1463,8 @@ export default function CircleLeaderProfilePage() {
     );
   }
 
+  const isHostTeam = leader?.leader_type === 'host_team';
+
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -1527,17 +1539,23 @@ export default function CircleLeaderProfilePage() {
 
           {/* Name + status */}
           <h1 className="text-xl sm:text-2xl font-bold text-brand-light leading-snug mt-1">
-            {leader.circle_name || leader.name}
+            {isHostTeam ? (leader.team_name || leader.name) : (leader.circle_name || leader.name)}
           </h1>
-          {leader.circle_name && (
+          {(isHostTeam ? leader.team_name : leader.circle_name) && (
             <div className="mt-0.5">
               <span className="text-sm text-slate-400">
-                {leader.name}{leader.additional_leader_name ? ` · ${leader.additional_leader_name}` : ''}
+                {leader.name}{!isHostTeam && leader.additional_leader_name ? ` · ${leader.additional_leader_name}` : ''}
               </span>
             </div>
           )}
-          {/* Context line: circle type, frequency, meeting day & time */}
-          {(leader.circle_type || leader.day) && (
+          {/* Context line: circle type / meeting schedule (circle only) or team type badge (host team) */}
+          {isHostTeam ? (
+            <div className="mt-1.5">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                Team
+              </span>
+            </div>
+          ) : (leader.circle_type || leader.day) && (
             <p className="mt-1.5 text-sm text-slate-400">
               {[
                 normalizeCircleTypeValue(leader.circle_type),
@@ -1617,8 +1635,8 @@ export default function CircleLeaderProfilePage() {
 
         {/* Mobile Quick Actions - Show on mobile only, right after the name */}
         <div className="lg:hidden mb-6 space-y-4">
-          {/* Event Summary - Mobile */}
-          <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
+          {/* Event Summary - Mobile (circle leaders only) */}
+          {!isHostTeam && <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Event Summary</span>
               {(() => {
@@ -1689,7 +1707,7 @@ export default function CircleLeaderProfilePage() {
                 );
               })()}
             </div>
-          </div>
+          </div>}
 
           {/* Quick Actions - Mobile */}
           <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
@@ -1816,10 +1834,10 @@ export default function CircleLeaderProfilePage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Profile Info */}
           <div className="lg:col-span-2 flex flex-col gap-6">
-            {/* Circle Info */}
+            {/* Circle / Team Info */}
             <div className="order-3 lg:order-1 bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass">
               <div className="px-6 py-4 border-b border-slate-700">
-                <h2 className="text-base font-semibold text-white">Circle Info</h2>
+                <h2 className="text-base font-semibold text-white">{isHostTeam ? 'Team Info' : 'Circle Info'}</h2>
               </div>
               <div className="p-6">
                 {leaderError && (
@@ -1831,20 +1849,24 @@ export default function CircleLeaderProfilePage() {
                   </div>
                 )}
                 <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Circle Name - full width */}
+                  {/* Circle Name (circle) / Team Name (host team) - full width */}
                   <div className="sm:col-span-2">
-                    <dt className="text-sm font-medium text-slate-400">Circle Name</dt>
+                    <dt className="text-sm font-medium text-slate-400">{isHostTeam ? 'Team Name' : 'Circle Name'}</dt>
                     <dd className="mt-1">
                       {isEditing ? (
                         <input
                           type="text"
-                          value={editedLeader.circle_name !== undefined ? editedLeader.circle_name : (leader.circle_name || leader.name || '')}
-                          onChange={(e) => handleLeaderFieldChange('circle_name', e.target.value)}
+                          value={isHostTeam
+                            ? (editedLeader.team_name !== undefined ? editedLeader.team_name : (leader.team_name || ''))
+                            : (editedLeader.circle_name !== undefined ? editedLeader.circle_name : (leader.circle_name || leader.name || ''))}
+                          onChange={(e) => handleLeaderFieldChange(isHostTeam ? 'team_name' : 'circle_name', e.target.value)}
                           className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                          placeholder="e.g. FMT | S3 | Casey and Ashley Bates"
+                          placeholder={isHostTeam ? 'e.g. Fire Mound Usher Team' : 'e.g. FMT | S3 | Casey and Ashley Bates'}
                         />
                       ) : (
-                        <span className="text-sm text-slate-200">{leader.circle_name || leader.name || 'Not provided'}</span>
+                        <span className="text-sm text-slate-200">
+                          {isHostTeam ? (leader.team_name || 'Not provided') : (leader.circle_name || leader.name || 'Not provided')}
+                        </span>
                       )}
                     </dd>
                   </div>
@@ -1874,7 +1896,7 @@ export default function CircleLeaderProfilePage() {
                       )}
                     </dd>
                   </div>
-                  <div>
+                  {!isHostTeam && <div>
                     <dt className="text-sm font-medium text-slate-400">Circle Type</dt>
                     <dd className="mt-1">
                       {isEditing ? (
@@ -1894,8 +1916,8 @@ export default function CircleLeaderProfilePage() {
                         <span className="text-sm text-slate-200">{normalizeCircleTypeValue(leader.circle_type) || 'Not specified'}</span>
                       )}
                     </dd>
-                  </div>
-                  <div>
+                  </div>}
+                  {!isHostTeam && <div>
                     <dt className="text-sm font-medium text-slate-400">Meeting Day</dt>
                     <dd className="mt-1">
                       {isEditing ? (
@@ -1917,8 +1939,8 @@ export default function CircleLeaderProfilePage() {
                         <span className="text-sm text-slate-200">{leader.day || 'Not specified'}</span>
                       )}
                     </dd>
-                  </div>
-                  <div>
+                  </div>}
+                  {!isHostTeam && <div>
                     <dt className="text-sm font-medium text-slate-400">Meeting Time</dt>
                     <dd className="mt-1">
                       {isEditing ? (
@@ -1934,8 +1956,8 @@ export default function CircleLeaderProfilePage() {
                         <span className="text-sm text-slate-200">{formatTimeToAMPM(leader.time || '') || 'Not specified'}</span>
                       )}
                     </dd>
-                  </div>
-                  <div>
+                  </div>}
+                  {!isHostTeam && <div>
                     <dt className="text-sm font-medium text-slate-400">Meeting Frequency</dt>
                     <dd className="mt-1">
                       {isEditing ? (
@@ -1955,8 +1977,8 @@ export default function CircleLeaderProfilePage() {
                         <span className="text-sm text-slate-200">{leader.frequency || 'Not specified'}</span>
                       )}
                     </dd>
-                  </div>
-                  {/(bi-?week|every other)/i.test((isEditing ? editedLeader.frequency : leader.frequency) || '') && (
+                  </div>}
+                  {!isHostTeam && /(bi-?week|every other)/i.test((isEditing ? editedLeader.frequency : leader.frequency) || '') && (
                   <div>
                     <dt className="text-sm font-medium text-slate-400">Bi-weekly Start Date</dt>
                     <dd className="mt-1">
@@ -1978,19 +2000,19 @@ export default function CircleLeaderProfilePage() {
                     <dd className="mt-1">
                       {isEditing ? (
                         <select
-                          value={editedLeader.acpd || ''}
-                          onChange={(e) => handleLeaderFieldChange('acpd', e.target.value)}
+                          value={isHostTeam ? (editedLeader.director || '') : (editedLeader.acpd || '')}
+                          onChange={(e) => handleLeaderFieldChange(isHostTeam ? 'director' : 'acpd', e.target.value)}
                           className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         >
                           <option value="">Select Director</option>
-                          {directors.map((director) => (
-                            <option key={director.id} value={director.name}>
-                              {director.name}
-                            </option>
+                          {(isHostTeam ? hostTeamDirectors : directors).map((d) => (
+                            <option key={d.id} value={d.name}>{d.name}</option>
                           ))}
                         </select>
                       ) : (
-                        <span className="text-sm text-slate-200">{leader.acpd || 'Not assigned'}</span>
+                        <span className="text-sm text-slate-200">
+                          {isHostTeam ? (leader.director || 'Not assigned') : (leader.acpd || 'Not assigned')}
+                        </span>
                       )}
                     </dd>
                   </div>
@@ -2015,7 +2037,7 @@ export default function CircleLeaderProfilePage() {
                       )}
                     </dd>
                   </div>
-                  <div>
+                  {!isHostTeam && <div>
                     <dt className="text-sm font-medium text-slate-400">CCB Group ID</dt>
                     <dd className="mt-1">
                       {isEditing ? (
@@ -2030,8 +2052,8 @@ export default function CircleLeaderProfilePage() {
                         <span className="text-sm text-slate-200">{leader.ccb_group_id || 'Not set'}</span>
                       )}
                     </dd>
-                  </div>
-                  <div>
+                  </div>}
+                  {!isHostTeam && <div>
                     <dt className="text-sm font-medium text-slate-400">CCB Group Name Override</dt>
                     <dd className="mt-1">
                       {isEditing ? (
@@ -2046,8 +2068,8 @@ export default function CircleLeaderProfilePage() {
                         <span className="text-sm text-slate-200">{leader.ccb_group_name || <span className="text-slate-500">Not set — uses leader name</span>}</span>
                       )}
                     </dd>
-                  </div>
-                  <div className="sm:col-span-2">
+                  </div>}
+                  {!isHostTeam && <div className="sm:col-span-2">
                     <dt className="text-sm font-medium text-slate-400">CCB Circle Link</dt>
                     <dd className="mt-1">
                       {isEditing ? (
@@ -2078,7 +2100,7 @@ export default function CircleLeaderProfilePage() {
                         </span>
                       )}
                     </dd>
-                  </div>
+                  </div>}
                 </dl>
               </div>
             </div>
@@ -2089,7 +2111,7 @@ export default function CircleLeaderProfilePage() {
                 <h2 className="text-base font-semibold text-white">Primary Leader</h2>
               </div>
               <div className="p-6">
-                {isEditing && (
+                {isEditing && !isHostTeam && (
                   <div className="mb-4">
                     <CCBPersonLookup
                       size="sm"
@@ -2196,7 +2218,7 @@ export default function CircleLeaderProfilePage() {
                       )}
                     </dd>
                   </div>
-                  <div className="sm:col-span-2">
+                  {!isHostTeam && <div className="sm:col-span-2">
                     <dt className="text-sm font-medium text-slate-400">CCB Profile Link</dt>
                     <dd className="mt-1">
                       {isEditing ? (
@@ -2227,7 +2249,7 @@ export default function CircleLeaderProfilePage() {
                         </span>
                       )}
                     </dd>
-                  </div>
+                  </div>}
                 </dl>
               </div>
             </div>
@@ -2329,7 +2351,7 @@ export default function CircleLeaderProfilePage() {
                       )}
                     </dd>
                   </div>
-                  <div className="sm:col-span-2">
+                  {!isHostTeam && <div className="sm:col-span-2">
                     <dt className="text-sm font-medium text-slate-400">CCB Profile Link</dt>
                     <dd className="mt-1">
                       {isEditing ? (
@@ -2356,7 +2378,7 @@ export default function CircleLeaderProfilePage() {
                         <span className="text-sm text-slate-500">Not specified</span>
                       )}
                     </dd>
-                  </div>
+                  </div>}
                 </dl>
               </div>
             </div>
@@ -2365,8 +2387,8 @@ export default function CircleLeaderProfilePage() {
 
           {/* Sidebar */}
           <div className="flex flex-col gap-6 h-full">
-            {/* Event Summary - Desktop Only */}
-            <div className="hidden lg:block bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
+            {/* Event Summary - Desktop Only (circle leaders only) */}
+            {!isHostTeam && <div className="hidden lg:block bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Event Summary</span>
                 {(() => {
@@ -2435,7 +2457,7 @@ export default function CircleLeaderProfilePage() {
                   );
                 })()}
               </div>
-            </div>
+            </div>}
 
             {/* Quick Actions - Desktop Only */}
             <div className="hidden lg:block bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
@@ -2557,8 +2579,8 @@ export default function CircleLeaderProfilePage() {
               </div>
             </div>
 
-            {/* Scorecard Summary - Desktop sidebar */}
-            {(() => {
+            {/* Scorecard Summary - Desktop sidebar (circle leaders only) */}
+            {!isHostTeam && (() => {
               const scores = scorecardSummary;
               const dims = [
                 { key: 'reach',    label: 'Reach',    value: scores?.reach,    color: 'text-blue-400',   bg: 'bg-blue-500/15',   dot: 'bg-blue-400' },
@@ -2626,8 +2648,8 @@ export default function CircleLeaderProfilePage() {
           </div>
         </div>
 
-        {/* Attendance Trends Section */}
-        {leader && (
+        {/* Attendance Trends Section (circle leaders only) */}
+        {leader && !isHostTeam && (
           <div className="mt-6">
             <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass p-4 sm:p-6">
               <AttendanceTrends leaderId={leaderId} leaderName={leader.ccb_group_name || leader.circle_name || leader.name} meetingDay={leader.day} refreshKey={attendanceRefreshKey} rosterCount={rosterCount} />
@@ -2661,8 +2683,8 @@ export default function CircleLeaderProfilePage() {
 
         </div>
 
-        {/* Scorecard Summary - Mobile (bottom of page) */}
-        {(() => {
+        {/* Scorecard Summary - Mobile (bottom of page, circle leaders only) */}
+        {!isHostTeam && (() => {
           const scores = scorecardSummary;
           const dims = [
             { key: 'reach',    label: 'Reach',    value: scores?.reach,    color: 'text-blue-400',   dot: 'bg-blue-400' },

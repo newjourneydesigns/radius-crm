@@ -176,21 +176,20 @@ export default function CCBPersonLookup({
 
       {/* Search Results Dropdown */}
       {showResults && searchResults.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
+        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-md shadow-xl max-h-60 overflow-y-auto">
           {searchResults.map((person) => (
             <button
               key={person.id}
               type="button"
               onClick={() => handleSelectPerson(person)}
               className="w-full text-left px-3 py-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors"
-              style={{ backgroundColor: 'transparent' }}
             >
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-sm font-medium text-gray-900 dark:text-white">
                     {person.fullName}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                  <div className="text-xs text-gray-500 dark:text-gray-300 flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                     {(person.mobilePhone || person.phone) && (
                       <span className="flex items-center gap-1">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
@@ -221,7 +220,7 @@ export default function CCBPersonLookup({
 
       {/* No results message */}
       {showResults && searchResults.length === 0 && !isSearching && searchQuery.trim().length >= 2 && (
-        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md shadow-lg px-3 py-3">
+        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-md shadow-xl px-3 py-3">
           <p className="text-sm text-gray-500 dark:text-gray-400 text-center">No results found in CCB</p>
         </div>
       )}

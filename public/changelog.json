@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-05-02",
+    "type": "feature",
+    "description": "Host Team Leaders — Track volunteer team leaders (ushers, kids, hospitality, etc.) alongside Circle Leaders using the same relationship tools. Add Host Team Leaders via the Add Leader form, filter by type on the Find Leaders page, and manage HT Directors in Settings.",
+    "page": "/search"
+  },
+  {
     "date": "2026-05-01",
     "description": "Unified button and color styling across the entire app — all pages and modals now use the same consistent design system instead of a mix of blue, green, purple, and teal variants. The Bulk Message iMessage bubble and START BATCH button are intentionally kept in iMessage blue.",
     "page": "/today",

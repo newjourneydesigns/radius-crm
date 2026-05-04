@@ -109,6 +109,9 @@ export interface CircleLeader {
   additional_leader_ccb_profile_link?: string;
   check_in_cadence?: 'weekly' | 'bi-weekly' | 'monthly' | 'quarterly' | 'none';
   last_check_in_date?: string;
+  leader_type?: 'circle' | 'host_team';
+  team_name?: string;
+  director?: string;
   uuid?: string;
   created_at?: string;
   updated_at?: string;
@@ -162,6 +165,14 @@ export interface Campus {
 }
 
 export interface ACPD {
+  id: number;
+  name: string;
+  active: boolean;
+  description?: string;
+  created_at?: string;
+}
+
+export interface Director {
   id: number;
   name: string;
   active: boolean;

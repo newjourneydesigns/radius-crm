@@ -417,7 +417,7 @@ export default function MobileNavigation() {
             <Link href="/search"
               className={`mobile-sheet-row bordered ${isActive('/search') ? 'active' : ''}`}>
               <span className="mobile-sheet-row-icon"><FindCircleIcon /></span>
-              <span className="mobile-sheet-row-label">Find Circle</span>
+              <span className="mobile-sheet-row-label">Find Leaders</span>
               <ChevronRightIcon />
             </Link>
             <Link href="/calendar"
