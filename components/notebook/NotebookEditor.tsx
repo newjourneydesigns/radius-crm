@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNotebookContext } from '../../contexts/NotebookContext';
 import RichTextEditor from '../notes/RichTextEditor';
 import DictateAndSummarize from '../notes/DictateAndSummarize';
-import NotebookAISummary from './NotebookAISummary';
 
 function htmlToPlainText(html: string): string {
   return html
@@ -148,22 +147,6 @@ export default function NotebookEditor() {
             <DictateAndSummarize
               text={htmlToPlainText(localContent)}
               onTextChange={handleDictateChange}
-            />
-          </div>
-
-          {/* AI Summary toolbar */}
-          <div className="mt-4">
-            <NotebookAISummary
-              htmlContent={localContent}
-              onReplaceContent={html => {
-                setLocalContent(html);
-                if (activePage) scheduleSave(activePage.id, { title: localTitle, content: html });
-              }}
-              onAppendContent={html => {
-                const merged = localContent + html;
-                setLocalContent(merged);
-                if (activePage) scheduleSave(activePage.id, { title: localTitle, content: merged });
-              }}
             />
           </div>
         </div>
