@@ -161,6 +161,7 @@ function CalendarPageContent() {
       circleType: filters.circleType,
       frequency: filters.frequency,
       eventSummary: filters.eventSummary,
+      leaderType: 'circle',
       // NOTE: connected + timeOfDay handled client-side to match Leaders page behavior
     };
 
@@ -182,6 +183,7 @@ function CalendarPageContent() {
         circleType: filters.circleType,
         frequency: filters.frequency,
         eventSummary: filters.eventSummary,
+        leaderType: 'circle',
       };
       loadCircleLeaders(serverFilters);
     },

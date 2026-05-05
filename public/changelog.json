@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-05-05",
+    "type": "feature",
+    "description": "New Notebooks page: organize your notes in one place with folders, page navigation, and a focused writing workspace for ongoing leader conversations and follow-up planning.",
+    "page": "/notebook"
+  },
+  {
+    "date": "2026-05-05",
     "type": "improvement",
     "description": "Added subtle left padding to the Notebook page title field so title text starts with better spacing and aligns more cleanly with editor content.",
     "page": "/notebook"
