@@ -137,7 +137,7 @@ export default function QuickActionsFAB() {
         {/* Main FAB button */}
         <button
           onClick={() => setIsOpen(prev => !prev)}
-          className="w-12 h-12 rounded-full flex items-center justify-center text-white transition-all duration-200 active:scale-90 pointer-events-auto"
+          className="w-9 h-9 rounded-full flex items-center justify-center text-white transition-all duration-200 active:scale-90 pointer-events-auto"
           style={{
             background: 'linear-gradient(135deg, #2563eb 0%, #60a5fa 100%)',
             boxShadow: isOpen
@@ -149,8 +149,8 @@ export default function QuickActionsFAB() {
           aria-expanded={isOpen}
         >
           <svg
-            width="20"
-            height="20"
+            width="16"
+            height="16"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"

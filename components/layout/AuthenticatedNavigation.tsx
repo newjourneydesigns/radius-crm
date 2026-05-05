@@ -92,6 +92,12 @@ const BoardIcon = () => (
   </svg>
 );
 
+const NotebookIcon = () => (
+  <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+  </svg>
+);
+
 const MessageBulkIcon = () => (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -134,6 +140,7 @@ const primaryNavItems = [
   { name: 'Events',    href: '/calendar',  icon: CalendarIcon },
   { name: 'Today',     href: '/today',     icon: TodayIcon },
   { name: 'Boards',    href: '/boards',    icon: BoardIcon },
+  { name: 'Notebook',  href: '/notebook',  icon: NotebookIcon },
   { name: 'Prayer',    href: '/prayer',    icon: PrayerIcon },
   { name: 'Progress',  href: '/progress',  icon: ChartIcon },
 ];

@@ -5,7 +5,6 @@ import MobileNavigation from "../components/layout/MobileNavigation";
 import AuthenticatedNavigation from "../components/layout/AuthenticatedNavigation";
 import PublicNavigation from "../components/layout/PublicNavigation";
 import Footer from "../components/layout/Footer";
-import ScrollToTop from "../components/ui/ScrollToTop";
 import QuickActionsFAB from "../components/layout/QuickActionsFAB";
 import { AuthProvider } from "../contexts/AuthContext";
 import NavigationProgress from "../components/layout/NavigationProgress";
@@ -14,6 +13,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const hideChrome = pathname === '/login' || pathname.startsWith('/auth');
   const isBoardDetailPage = /^\/boards\/[^/]+/.test(pathname);
+  const isNotebookPage = pathname.startsWith('/notebook');
 
   return (
     <>
@@ -36,15 +36,12 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
       {/* Main Content — bottom padding clears the fixed bottom nav + safe area on mobile */}
       <main className="mobile-nav-padding">{children}</main>
 
-      {!hideChrome && (
+      {!hideChrome && !isNotebookPage && (
         <>
           {/* Footer — extra bottom padding on board detail pages to clear the fixed shortcut bar */}
           <div className={isBoardDetailPage ? 'pb-10' : ''}>
             <Footer />
           </div>
-
-          {/* Scroll to Top Button */}
-          <ScrollToTop />
 
           {/* Quick Actions FAB */}
           <QuickActionsFAB />

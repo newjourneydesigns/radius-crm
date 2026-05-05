@@ -1,61 +1,112 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../../../lib/supabase';
+import { verifyAdminAccessDemo } from '../../../lib/auth-middleware';
+
+const VALID_STATUSES = ['invited', 'pipeline', 'on-boarding', 'active', 'paused', 'off-boarding'] as const;
+
+function normalizeString(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function getServiceClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    return null;
+  }
+
+  return createClient(url, key, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
+    const { isAdmin, error: adminAuthError } = await verifyAdminAccessDemo(request);
+    if (!isAdmin) {
+      return NextResponse.json({ error: adminAuthError || 'Admin access required' }, { status: 403 });
+    }
+
     const circleLeader = await request.json();
-    
+
     // Validate required fields
-    if (!circleLeader.name || circleLeader.name.trim().length === 0) {
+    const name = normalizeString(circleLeader.name);
+    if (!name) {
       return NextResponse.json(
         { error: 'Name is required' },
         { status: 400 }
       );
     }
 
+    const isHostTeam = circleLeader.leader_type === 'host_team';
+
     // Clean up the data
-    const cleanData: any = {
-      name: circleLeader.name.trim(),
+    const cleanData: Record<string, any> = {
+      leader_type: isHostTeam ? 'host_team' : 'circle',
+      name,
       // Set default status if none provided
-      status: 'active', // Default to active status for new imports
+      status: 'active',
+      event_summary_received: false,
     };
 
-    // Add optional fields if they exist and are not empty
-    if (circleLeader.email && circleLeader.email.trim()) {
-      cleanData.email = circleLeader.email.trim();
-    }
-    
-    if (circleLeader.phone && circleLeader.phone.trim()) {
-      cleanData.phone = circleLeader.phone.trim();
-    }
-    
-    if (circleLeader.campus && circleLeader.campus.trim()) {
-      cleanData.campus = circleLeader.campus.trim();
-    }
-    
-    if (circleLeader.acpd && circleLeader.acpd.trim()) {
-      cleanData.acpd = circleLeader.acpd.trim();
-    }
-    
-    // Override status if explicitly provided
-    if (circleLeader.status && circleLeader.status.trim()) {
-      const validStatuses = ['invited', 'pipeline', 'active', 'paused', 'off-boarding'];
-      const status = circleLeader.status.trim().toLowerCase();
-      if (validStatuses.includes(status)) {
-        cleanData.status = status;
+    const email = normalizeString(circleLeader.email);
+    if (email) cleanData.email = email;
+
+    const phone = normalizeString(circleLeader.phone);
+    if (phone) cleanData.phone = phone;
+
+    const campus = normalizeString(circleLeader.campus);
+    if (campus) cleanData.campus = campus;
+
+    const statusValue = normalizeString(circleLeader.status);
+    if (statusValue) {
+      const normalizedStatus = statusValue.toLowerCase();
+      if (!VALID_STATUSES.includes(normalizedStatus as (typeof VALID_STATUSES)[number])) {
+        return NextResponse.json(
+          { error: `Status must be one of: ${VALID_STATUSES.join(', ')}` },
+          { status: 400 }
+        );
       }
+      cleanData.status = normalizedStatus;
     }
-    
-    if (circleLeader.day && circleLeader.day.trim()) {
-      cleanData.day = circleLeader.day.trim();
-    }
-    
-    if (circleLeader.time && circleLeader.time.trim()) {
-      cleanData.time = circleLeader.time.trim();
-    }
-    
-    if (circleLeader.frequency && circleLeader.frequency.trim()) {
-      cleanData.frequency = circleLeader.frequency.trim();
+
+    if (!isHostTeam) {
+      const circleName = normalizeString(circleLeader.circle_name);
+      cleanData.circle_name = circleName || name;
+
+      const acpd = normalizeString(circleLeader.acpd);
+      if (acpd) cleanData.acpd = acpd;
+
+      const day = normalizeString(circleLeader.day);
+      if (day) cleanData.day = day;
+
+      const time = normalizeString(circleLeader.time);
+      if (time) cleanData.time = time;
+
+      const frequency = normalizeString(circleLeader.frequency);
+      if (frequency) cleanData.frequency = frequency;
+
+      const circleType = normalizeString(circleLeader.circle_type);
+      if (circleType) cleanData.circle_type = circleType;
+
+      const ccbProfileLink = normalizeString(circleLeader.ccb_profile_link);
+      if (ccbProfileLink) cleanData.ccb_profile_link = ccbProfileLink;
+
+      const leaderCcbProfileLink = normalizeString(circleLeader.leader_ccb_profile_link);
+      if (leaderCcbProfileLink) cleanData.leader_ccb_profile_link = leaderCcbProfileLink;
+    } else {
+      const teamName = normalizeString(circleLeader.team_name);
+      if (teamName) cleanData.team_name = teamName;
+
+      const director = normalizeString(circleLeader.director);
+      if (director) cleanData.director = director;
     }
 
     // Optional: anchor date for bi-weekly parity (expects YYYY-MM-DD)
@@ -65,17 +116,11 @@ export async function POST(request: NextRequest) {
         cleanData.meeting_start_date = raw;
       }
     }
-    
-    if (circleLeader.circle_type && circleLeader.circle_type.trim()) {
-      cleanData.circle_type = circleLeader.circle_type.trim();
-    }
-    
-    if (circleLeader.ccb_profile_link && circleLeader.ccb_profile_link.trim()) {
-      cleanData.ccb_profile_link = circleLeader.ccb_profile_link.trim();
-    }
+
+    const db = getServiceClient() || supabase;
 
     // Insert into database
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('circle_leaders')
       .insert([cleanData])
       .select()

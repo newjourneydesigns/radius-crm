@@ -2,6 +2,42 @@
   {
     "date": "2026-05-05",
     "type": "improvement",
+    "description": "Added subtle left padding to the Notebook page title field so title text starts with better spacing and aligns more cleanly with editor content.",
+    "page": "/notebook"
+  },
+  {
+    "date": "2026-05-05",
+    "type": "improvement",
+    "description": "Cleaned up Notebook checklist controls by moving bulk checklist actions into a compact actions menu, reducing visual clutter while keeping Mark all complete, Clear completed, and Duplicate available.",
+    "page": "/notebook"
+  },
+  {
+    "date": "2026-05-05",
+    "type": "improvement",
+    "description": "Refined Notebook checklist readability by adding left padding inside checklist title and item text fields and reducing checklist text size for a cleaner, less crowded look.",
+    "page": "/notebook"
+  },
+  {
+    "date": "2026-05-05",
+    "type": "improvement",
+    "description": "Notebook checklists now default to \"Checklist\" when you create one, long checklist item text wraps fully, and each checklist includes quick bulk actions to Mark all complete, Clear completed, or Duplicate.",
+    "page": "/notebook"
+  },
+  {
+    "date": "2026-05-05",
+    "type": "fix",
+    "description": "Fixed Add Leader reliability and cleaned up duplicate Status options in the Add Leader form so each status now appears once and leader creation uses the secured API flow.",
+    "page": "/add-leader"
+  },
+  {
+    "date": "2026-05-05",
+    "type": "improvement",
+    "description": "Notebook pages can now be moved and reordered by dragging in the sidebar — hover a page to reveal the drag handle, then drag within a folder or into a different folder. Order and folder placement are saved automatically.",
+    "page": "/notebook"
+  },
+  {
+    "date": "2026-05-05",
+    "type": "improvement",
     "description": "Mass Update now supports Status — you can bulk-change the status (invited, on-boarding, active, paused, off-boarding) for multiple circle leaders at once from the Import & Manage Circles page.",
     "page": "/import-circles"
   },

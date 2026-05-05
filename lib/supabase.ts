@@ -479,3 +479,95 @@ export interface AIConversation {
   created_at: string;
   updated_at: string;
 }
+
+// ---- Notebook Types ----
+
+export interface NotebookFolder {
+  id: string;
+  user_id: string;
+  title: string;
+  icon: string;
+  color: string;
+  position: number;
+  parent_id: string | null;
+  is_unfiled: boolean;
+  created_at: string;
+  updated_at: string;
+  // Client-only: populated after fetch
+  children?: NotebookFolder[];
+  pages?: NotebookPage[];
+}
+
+export interface NotebookChecklistItem {
+  id: string;
+  text: string;
+  checked: boolean;
+}
+
+export interface NotebookChecklist {
+  id: string;
+  title: string;
+  items: NotebookChecklistItem[];
+}
+
+export interface NotebookPage {
+  id: string;
+  user_id: string;
+  folder_id: string;
+  title: string;
+  content: string;
+  checklists: NotebookChecklist[];
+  is_pinned: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  linked_leaders?: NotebookPageLeader[];
+  linked_boards?: NotebookPageBoard[];
+  linked_cards?: NotebookPageCard[];
+}
+
+export interface NotebookPageLeader {
+  page_id: string;
+  circle_leader_id: number;
+  linked_by: string;
+  linked_at: string;
+  circle_leader?: {
+    id: number;
+    name: string;
+    campus?: string;
+    status?: string;
+  };
+}
+
+export interface NotebookPageBoard {
+  page_id: string;
+  board_id: string;
+  linked_by: string;
+  linked_at: string;
+  project_board?: {
+    id: string;
+    title: string;
+    description?: string;
+  };
+}
+
+export interface NotebookPageCard {
+  page_id: string;
+  card_id: string;
+  linked_by: string;
+  linked_at: string;
+  board_card?: {
+    id: string;
+    title: string;
+    description?: string;
+    priority: CardPriority;
+    due_date?: string;
+    is_complete: boolean;
+    board_id: string;
+    column_id: string;
+    // Joined board + column context
+    project_board?: { id: string; title: string };
+    board_column?: { id: string; title: string };
+  };
+}

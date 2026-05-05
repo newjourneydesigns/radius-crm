@@ -651,7 +651,7 @@ function CardDetailModal({
                   className="kb-btn-icon-sm"
                   title="Add checklist"
                   onClick={async () => {
-                    const newGroup = await onAddChecklistGroup('New Checklist');
+                    const newGroup = await onAddChecklistGroup('Checklist');
                     if (newGroup) { setEditingGroupId(newGroup.id); setEditingGroupTitle(newGroup.title); }
                   }}
                 >

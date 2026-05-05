@@ -171,6 +171,22 @@ const CloudImportIcon = () => (
   </svg>
 );
 
+const NotebookNavIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+  </svg>
+);
+
+const NotebookTabIcon = ({ active }: { active?: boolean }) => active ? (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M11.25 4.533A9.707 9.707 0 006 3a9.735 9.735 0 00-3.25.555.75.75 0 00-.5.707v14.25a.75.75 0 001 .707A8.237 8.237 0 016 18.75c1.995 0 3.823.707 5.25 1.875V4.533zM12.75 20.625A8.214 8.214 0 0118 18.75c.966 0 1.89.166 2.75.47a.75.75 0 001-.708V4.262a.75.75 0 00-.5-.707A9.735 9.735 0 0018 3a9.707 9.707 0 00-5.25 1.533v16.092z" />
+  </svg>
+) : (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+  </svg>
+);
+
 const BoardIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3" y="3" width="7" height="9" rx="1.5" />
@@ -282,12 +298,12 @@ export default function MobileNavigation() {
 
   /* Tab items — split into left/right groups around the raised center button */
   const leftTabs: TabItem[] = [
-    { id: 'events', name: 'Events', href: '/calendar', Icon: CalendarIcon },
-    { id: 'today',  name: 'Today',  href: '/today',    Icon: TodayIcon },
+    { id: 'events',   name: 'Events',   href: '/calendar',  Icon: CalendarIcon },
+    { id: 'today',    name: 'Today',    href: '/today',     Icon: TodayIcon },
   ];
   const rightTabs: TabItem[] = [
-    { id: 'boards', name: 'Boards', href: '/boards', Icon: BoardTabIcon },
-    { id: 'prayer', name: 'Prayer', href: '/prayer', Icon: PrayerIcon },
+    { id: 'notebook', name: 'Notebook', href: '/notebook',  Icon: NotebookTabIcon },
+    { id: 'boards',   name: 'Boards',   href: '/boards',    Icon: BoardTabIcon },
   ];
 
   /* Drawer menu sections */
@@ -352,18 +368,51 @@ export default function MobileNavigation() {
           })}
         </div>
 
-        {/* More handle — bottom of nav bar */}
-        <button
-          type="button"
-          className={`mobile-tab-more-trigger${sheetOpen ? ' open' : ''}`}
-          onClick={() => setSheetOpen(v => !v)}
-          aria-label="More"
-          aria-expanded={sheetOpen}
-        >
-          <span className="mobile-tab-more-label">More</span>
-          <div className="mobile-tab-more-handle-bar" />
-        </button>
       </nav>
+
+      {/* ════════════════════════════════════════════════════
+          More FAB — right side, mirrors QuickActionsFAB on left
+         ════════════════════════════════════════════════════ */}
+      <button
+        type="button"
+        onClick={() => setSheetOpen(v => !v)}
+        className="md:hidden fixed right-4 z-[10002] w-9 h-9 rounded-full flex items-center justify-center text-white transition-all duration-200 active:scale-90"
+        style={{
+          bottom: 'calc(98px + env(safe-area-inset-bottom, 0px) + 16px)',
+          background: 'linear-gradient(135deg, #2563eb 0%, #60a5fa 100%)',
+          boxShadow: sheetOpen
+            ? '0 2px 8px rgba(96, 165, 250, 0.3), 0 1px 4px rgba(0,0,0,0.3)'
+            : '0 0 14px rgba(96, 165, 250, 0.45), 0 2px 8px rgba(0,0,0,0.35)',
+          border: '2px solid rgba(9, 27, 52, 0.85)',
+        }}
+        aria-label={sheetOpen ? 'Close menu' : 'Open menu'}
+        aria-expanded={sheetOpen}
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`transition-transform duration-200 ${sheetOpen ? 'rotate-90' : 'rotate-0'}`}
+        >
+          {sheetOpen ? (
+            <>
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </>
+          ) : (
+            <>
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </>
+          )}
+        </svg>
+      </button>
 
       {/* ════════════════════════════════════════════════════
           iOS-style Bottom Sheet
@@ -420,10 +469,10 @@ export default function MobileNavigation() {
               <span className="mobile-sheet-row-label">Find Leaders</span>
               <ChevronRightIcon />
             </Link>
-            <Link href="/calendar"
-              className={`mobile-sheet-row bordered ${isActive('/calendar') ? 'active' : ''}`}>
-              <span className="mobile-sheet-row-icon"><CalendarIcon /></span>
-              <span className="mobile-sheet-row-label">Events</span>
+            <Link href="/prayer"
+              className={`mobile-sheet-row bordered ${isActive('/prayer') ? 'active' : ''}`}>
+              <span className="mobile-sheet-row-icon"><PrayerIcon /></span>
+              <span className="mobile-sheet-row-label">Prayer</span>
               <ChevronRightIcon />
             </Link>
             <Link href="/progress"
@@ -432,10 +481,22 @@ export default function MobileNavigation() {
               <span className="mobile-sheet-row-label">Progress</span>
               <ChevronRightIcon />
             </Link>
+            <Link href="/calendar"
+              className={`mobile-sheet-row bordered ${isActive('/calendar') ? 'active' : ''}`}>
+              <span className="mobile-sheet-row-icon"><CalendarIcon /></span>
+              <span className="mobile-sheet-row-label">Events</span>
+              <ChevronRightIcon />
+            </Link>
             <Link href="/boards"
-              className={`mobile-sheet-row ${isActive('/boards') ? 'active' : ''}`}>
+              className={`mobile-sheet-row bordered ${isActive('/boards') ? 'active' : ''}`}>
               <span className="mobile-sheet-row-icon"><BoardIcon /></span>
               <span className="mobile-sheet-row-label">Boards</span>
+              <ChevronRightIcon />
+            </Link>
+            <Link href="/notebook"
+              className={`mobile-sheet-row ${isActive('/notebook') ? 'active' : ''}`}>
+              <span className="mobile-sheet-row-icon"><NotebookNavIcon /></span>
+              <span className="mobile-sheet-row-label">Notebook</span>
               <ChevronRightIcon />
             </Link>
           </div>
@@ -487,7 +548,7 @@ export default function MobileNavigation() {
         )}
 
         {/* Sign out */}
-        <div className="mobile-sheet-section" style={{ paddingBottom: '12px' }}>
+        <div className="mobile-sheet-section" style={{ paddingBottom: '72px' }}>
           <div className="mobile-sheet-group">
             <button onClick={() => { signOut(); setSheetOpen(false); }}
               className="mobile-sheet-row destructive">

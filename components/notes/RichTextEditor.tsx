@@ -15,6 +15,8 @@ interface RichTextEditorProps {
   placeholder?: string;
   disabled?: boolean;
   minHeight?: string;
+  stickyToolbar?: boolean;
+  borderless?: boolean;
 }
 
 function ToolbarButton({
@@ -59,6 +61,8 @@ export default function RichTextEditor({
   placeholder = 'Write a note...',
   disabled = false,
   minHeight = '80px',
+  stickyToolbar = false,
+  borderless = false,
 }: RichTextEditorProps) {
   const [linkDialog, setLinkDialog] = useState({ visible: false, displayText: '', url: '', hasSelection: false });
 
@@ -166,10 +170,17 @@ export default function RichTextEditor({
   if (!editor) return null;
 
   return (
-    <div className="border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 bg-white dark:bg-gray-700">
+    <div className={borderless
+      ? ''
+      : 'border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 bg-white dark:bg-gray-700'
+    }>
       {/* Toolbar */}
       <div
-        className="flex items-center gap-0.5 px-2 py-1 border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 flex-wrap"
+        className={`flex items-center gap-0.5 flex-wrap ${
+          stickyToolbar
+            ? 'sticky top-0 z-20 px-0 py-1.5 bg-[#0f1117] border-b border-white/[0.06]'
+            : 'px-2 py-1 border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800'
+        }`}
         onMouseDown={(e) => e.preventDefault()}
       >
         <ToolbarButton
@@ -257,7 +268,7 @@ export default function RichTextEditor({
             openLinkDialog();
           }}
           disabled={disabled}
-          className={`px-2 py-1 rounded text-sm font-medium transition-colors select-none flex items-center gap-1
+          className={`px-2 py-1 rounded text-sm font-medium transition-colors select-none flex items-center
             ${editor.isActive('link')
               ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
               : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -268,7 +279,6 @@ export default function RichTextEditor({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
           </svg>
-          Link
         </button>
       </div>
 

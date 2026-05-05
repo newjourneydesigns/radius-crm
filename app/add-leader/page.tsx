@@ -19,6 +19,36 @@ interface SettingsItem {
   value: string;
 }
 
+const VALID_STATUS_VALUES = ['invited', 'pipeline', 'on-boarding', 'active', 'paused', 'off-boarding'] as const;
+
+const dedupeItemsByValue = (items: SettingsItem[] = []): SettingsItem[] => {
+  const seen = new Set<string>();
+  const deduped: SettingsItem[] = [];
+
+  for (const item of items) {
+    const normalized = (item?.value || '').trim().toLowerCase();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    deduped.push(item);
+  }
+
+  return deduped;
+};
+
+const dedupeDirectorsByName = (items: DirectorEntry[] = []): DirectorEntry[] => {
+  const seen = new Set<string>();
+  const deduped: DirectorEntry[] = [];
+
+  for (const item of items) {
+    const normalized = (item?.name || '').trim().toLowerCase();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    deduped.push(item);
+  }
+
+  return deduped;
+};
+
 export default function AddLeaderPage() {
   const [leaderType, setLeaderType] = useState<'circle' | 'host_team'>('circle');
   const [formData, setFormData] = useState({
@@ -70,15 +100,27 @@ export default function AddLeaderPage() {
       ]);
 
       if (acpdResult.data) {
-        setAcpdDirectors(acpdResult.data.map(d => ({ ...d, status: d.active ? 'active' : 'inactive' })));
+        setAcpdDirectors(
+          dedupeDirectorsByName(acpdResult.data.map(d => ({ ...d, status: d.active ? 'active' : 'inactive' })))
+        );
       }
       if (htDirectorsResult.data) {
-        setHostTeamDirectors(htDirectorsResult.data.map(d => ({ ...d, status: d.active ? 'active' : 'inactive' })));
+        setHostTeamDirectors(
+          dedupeDirectorsByName(htDirectorsResult.data.map(d => ({ ...d, status: d.active ? 'active' : 'inactive' })))
+        );
       }
-      if (campusesResult.data) setCampuses(campusesResult.data);
-      if (circleTypesResult.data) setCircleTypes(circleTypesResult.data);
-      if (statusesResult.data) setStatuses(statusesResult.data);
-      if (frequenciesResult.data) setFrequencies(ensureDefaultFrequencies(frequenciesResult.data));
+      if (campusesResult.data) setCampuses(dedupeItemsByValue(campusesResult.data));
+      if (circleTypesResult.data) setCircleTypes(dedupeItemsByValue(circleTypesResult.data));
+      if (statusesResult.data) {
+        const filteredStatuses = statusesResult.data.filter((status) => {
+          const normalized = (status?.value || '').trim().toLowerCase();
+          return VALID_STATUS_VALUES.includes(normalized as (typeof VALID_STATUS_VALUES)[number]);
+        });
+        setStatuses(dedupeItemsByValue(filteredStatuses));
+      }
+      if (frequenciesResult.data) {
+        setFrequencies(dedupeItemsByValue(ensureDefaultFrequencies(frequenciesResult.data)));
+      }
     } catch (err) {
       console.error('Error loading reference data:', err);
     } finally {
@@ -120,16 +162,22 @@ export default function AddLeaderPage() {
 
     try {
       const isHostTeam = leaderType === 'host_team';
-      const { error: insertError } = await supabase
-        .from('circle_leaders')
-        .insert([{
+      const { data: sessionData } = await supabase.auth.getSession();
+      const sessionToken = sessionData?.session?.access_token;
+
+      const response = await fetch('/api/circle-leaders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+        },
+        body: JSON.stringify({
           leader_type: leaderType,
           name: formData.name,
           email: formData.email || null,
           phone: formData.phone || null,
           campus: formData.campus || null,
           status: formData.status || null,
-          event_summary_received: false,
           // Circle-specific fields
           circle_name: !isHostTeam ? (formData.circleName || formData.name || null) : null,
           acpd: !isHostTeam ? (formData.acpd || null) : null,
@@ -143,9 +191,13 @@ export default function AddLeaderPage() {
           // Host team-specific fields
           team_name: isHostTeam ? (formData.teamName || null) : null,
           director: isHostTeam ? (formData.hostTeamDirector || null) : null,
-        }]);
+        }),
+      });
 
-      if (insertError) throw insertError;
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error || 'Failed to add leader. Please try again.');
+      }
 
       setSuccess(true);
       resetForm();
