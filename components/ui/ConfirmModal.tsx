@@ -83,7 +83,7 @@ export default function ConfirmModal({
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="btn-ghost flex-1 min-w-0 px-6 py-2.5 rounded-xl text-sm"
+            className="btn-ghost flex-1 min-w-0 px-6 py-2.5 rounded-xl text-sm justify-center text-center"
           >
             {cancelText}
           </button>
@@ -91,7 +91,7 @@ export default function ConfirmModal({
           <button
             onClick={handleConfirm}
             disabled={isLoading}
-            className={`flex-1 min-w-0 px-6 py-2.5 rounded-xl text-sm ${getConfirmButtonStyles()}`}
+            className={`flex-1 min-w-0 px-6 py-2.5 rounded-xl text-sm justify-center text-center ${getConfirmButtonStyles()}`}
           >
             {isLoading ? (
               <div className="flex items-center justify-center">
