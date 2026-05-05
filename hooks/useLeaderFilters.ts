@@ -11,6 +11,7 @@ export interface LeaderFilters {
   eventSummary: string;
   connected: string;
   timeOfDay: string;
+  leaderType: string;
 }
 
 export const defaultLeaderFilters: LeaderFilters = {
@@ -22,7 +23,8 @@ export const defaultLeaderFilters: LeaderFilters = {
   frequency: [],
   eventSummary: 'all',
   connected: 'all',
-  timeOfDay: 'all'
+  timeOfDay: 'all',
+  leaderType: 'all'
 };
 
 type UseLeaderFiltersOptions = {
@@ -55,12 +57,13 @@ export const useLeaderFilters = (options: UseLeaderFiltersOptions = {}) => {
         const urlEventSummary = searchParams.get('eventSummary');
         const urlConnected = searchParams.get('connected');
         const urlTimeOfDay = searchParams.get('timeOfDay');
+        const urlLeaderType = searchParams.get('leaderType');
 
-        if (urlCampus.length > 0 || urlAcpd.length > 0 || urlStatus.length > 0 || 
+        if (urlCampus.length > 0 || urlAcpd.length > 0 || urlStatus.length > 0 ||
             urlMeetingDay.length > 0 || urlCircleType.length > 0 || urlFrequency.length > 0 ||
-            urlEventSummary || urlConnected || urlTimeOfDay) {
+            urlEventSummary || urlConnected || urlTimeOfDay || urlLeaderType) {
           hasUrlParams = true;
-          
+
           initialFilters = {
             campus: urlCampus,
             acpd: urlAcpd,
@@ -70,7 +73,8 @@ export const useLeaderFilters = (options: UseLeaderFiltersOptions = {}) => {
             frequency: urlFrequency,
             eventSummary: urlEventSummary || 'all',
             connected: urlConnected || 'all',
-            timeOfDay: urlTimeOfDay || 'all'
+            timeOfDay: urlTimeOfDay || 'all',
+            leaderType: urlLeaderType || 'all'
           };
           
           console.log('📄 [useLeaderFilters] Loaded filters from URL:', initialFilters);
@@ -92,7 +96,8 @@ export const useLeaderFilters = (options: UseLeaderFiltersOptions = {}) => {
             frequency: filterState.frequency || [],
             eventSummary: filterState.eventSummary || 'all',
             connected: filterState.connected || 'all',
-            timeOfDay: filterState.timeOfDay || 'all'
+            timeOfDay: filterState.timeOfDay || 'all',
+            leaderType: filterState.leaderType || 'all'
           };
           console.log('📂 [useLeaderFilters] Parsed and cleaned filters:', initialFilters);
         }
@@ -141,7 +146,8 @@ export const useLeaderFilters = (options: UseLeaderFiltersOptions = {}) => {
     JSON.stringify(filters.frequency),
     filters.eventSummary,
     filters.connected,
-    filters.timeOfDay
+    filters.timeOfDay,
+    filters.leaderType
   ]);
 
   return { 

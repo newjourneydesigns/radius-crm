@@ -9,9 +9,9 @@ import { supabase } from '../../../lib/supabase';
 const TABS = [
   { label: 'Profile',   route: (id: string) => `/circle/${id}` },
   { label: 'Notes',     route: (id: string) => `/circle/${id}/notes` },
-  { label: 'Scorecard', route: (id: string) => `/circle/${id}/scorecard` },
+  { label: 'Scorecard', route: (id: string) => `/circle/${id}/scorecard`,     circleOnly: true },
   { label: 'Care',      route: (id: string) => `/circle/${id}/care`,          adminOnly: true },
-  { label: 'Visits',    route: (id: string) => `/circle/${id}/circle-visits`, adminOnly: true },
+  { label: 'Visits',    route: (id: string) => `/circle/${id}/circle-visits`, adminOnly: true, circleOnly: true },
 ] as const;
 
 type Tab = (typeof TABS)[number];
@@ -86,6 +86,7 @@ export default function CircleLeaderLayout({
 
   const [banners, setBanners] = useState<UpcomingBanner[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [leaderType, setLeaderType] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -118,10 +119,14 @@ export default function CircleLeaderLayout({
 
         supabase
           .from('circle_leaders')
-          .select('name, birthday, additional_leader_name, additional_leader_birthday')
+          .select('name, birthday, additional_leader_name, additional_leader_birthday, leader_type')
           .eq('id', parseInt(id))
           .single(),
       ]);
+
+      if (leaderRow) {
+        setLeaderType(leaderRow.leader_type || 'circle');
+      }
 
       const birthdayBanners: UpcomingBanner[] = [];
       const checkBirthday = (raw: string | undefined | null, name: string, key: string) => {
@@ -179,7 +184,11 @@ export default function CircleLeaderLayout({
     window.scrollTo(0, 0);
   }, [pathname]);
 
-  const filteredTabs = TABS.filter(t => !('adminOnly' in t) || isAdmin());
+  const filteredTabs = TABS.filter(t => {
+    if ('adminOnly' in t && !isAdmin()) return false;
+    if ('circleOnly' in t && leaderType === 'host_team') return false;
+    return true;
+  });
 
   const profileHref = `/circle/${id}`;
 

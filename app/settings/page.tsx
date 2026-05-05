@@ -52,9 +52,14 @@ export default function SettingsPage() {
   const [digestUserId, setDigestUserId] = useState<string | null>(null);
   const [digestFrequencyHours, setDigestFrequencyHours] = useState<number>(24);
 
+  // Host Team Directors state
+  const [hostTeamDirectors, setHostTeamDirectors] = useState<Director[]>([]);
+  const [newHostTeamDirector, setNewHostTeamDirector] = useState<{ name: string; description: string; status: 'active' | 'inactive' }>({ name: '', description: '', status: 'active' });
+  const [editingHostTeamDirector, setEditingHostTeamDirector] = useState<Director | null>(null);
+
   // UI state
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'directors' | 'circles' | 'statuses' | 'frequencies' | 'campuses' | 'templates' | 'scorecard' | 'app'>('directors');
+  const [activeTab, setActiveTab] = useState<'directors' | 'host_team_directors' | 'circles' | 'statuses' | 'frequencies' | 'campuses' | 'templates' | 'scorecard' | 'app'>('directors');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{isOpen: boolean, type: string, id: number, name: string}>({
     isOpen: false, type: '', id: 0, name: ''
   });
@@ -141,6 +146,7 @@ export default function SettingsPage() {
       
       await Promise.all([
         loadDirectors(),
+        loadHostTeamDirectors(),
         loadCircleTypes(),
         loadStatuses(),
         loadFrequencies(),
@@ -210,6 +216,24 @@ export default function SettingsPage() {
         { id: 3, name: 'Trip Ochenski (Error)', description: 'Mock director', status: 'active' },
         { id: 4, name: 'Sarah Johnson (Error)', description: 'Mock director', status: 'inactive' },
       ]);
+    }
+  };
+
+  const loadHostTeamDirectors = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('directors_list')
+        .select('*')
+        .order('name');
+      if (data && !error) {
+        setHostTeamDirectors(data.map(d => ({ ...d, status: d.active ? 'active' : 'inactive' })));
+      } else {
+        console.warn('Could not load HT directors:', error);
+        setHostTeamDirectors([]);
+      }
+    } catch (error) {
+      console.error('Error in loadHostTeamDirectors:', error);
+      setHostTeamDirectors([]);
     }
   };
 
@@ -378,6 +402,66 @@ export default function SettingsPage() {
     }
   };
 
+  const handleAddHostTeamDirector = async () => {
+    if (!newHostTeamDirector.name.trim()) return;
+    try {
+      const { data, error } = await supabase
+        .from('directors_list')
+        .insert([{ name: newHostTeamDirector.name, description: newHostTeamDirector.description || null, active: newHostTeamDirector.status === 'active' }])
+        .select().single();
+      if (data && !error) {
+        setHostTeamDirectors(prev => [...prev, { ...data, status: data.active ? 'active' : 'inactive' }]);
+        setNewHostTeamDirector({ name: '', description: '', status: 'active' });
+        showAlertMessage('success', 'Success', 'Director added successfully');
+      } else {
+        throw new Error(error?.message || 'Failed to add director');
+      }
+    } catch (error) {
+      console.error('Error adding HT director:', error);
+      showAlertMessage('error', 'Error', 'Failed to add director');
+    }
+  };
+
+  const handleEditHostTeamDirector = async (director: Director) => {
+    if (!director.name.trim()) return;
+    try {
+      const { data, error } = await supabase
+        .from('directors_list')
+        .update({ name: director.name, description: director.description || null, active: director.status === 'active' })
+        .eq('id', director.id).select().single();
+      if (data && !error) {
+        setHostTeamDirectors(prev => prev.map(d => d.id === director.id ? { ...data, status: data.active ? 'active' : 'inactive' } : d));
+        setEditingHostTeamDirector(null);
+        showAlertMessage('success', 'Success', 'Director updated successfully');
+      } else {
+        throw new Error(error?.message || 'Failed to update director');
+      }
+    } catch (error) {
+      console.error('Error updating HT director:', error);
+      showAlertMessage('error', 'Error', 'Failed to update director');
+    }
+  };
+
+  const handleDeleteHostTeamDirector = async () => {
+    try {
+      const { error } = await supabase
+        .from('directors_list')
+        .delete()
+        .eq('id', showDeleteConfirm.id);
+      if (!error) {
+        setHostTeamDirectors(prev => prev.filter(d => d.id !== showDeleteConfirm.id));
+        showAlertMessage('success', 'Success', 'Director deleted successfully');
+      } else {
+        throw new Error(error?.message || 'Failed to delete director');
+      }
+    } catch (error) {
+      console.error('Error deleting HT director:', error);
+      showAlertMessage('error', 'Error', 'Failed to delete director');
+    } finally {
+      setShowDeleteConfirm({ isOpen: false, type: '', id: 0, name: '' });
+    }
+  };
+
   const confirmDelete = (type: string, id: number, name: string) => {
     setShowDeleteConfirm({ isOpen: true, type, id, name });
   };
@@ -469,6 +553,9 @@ export default function SettingsPage() {
       case 'director':
         await handleDeleteDirector();
         break;
+      case 'host_team_director':
+        await handleDeleteHostTeamDirector();
+        break;
       case 'circle-type':
         await handleDeleteSettingItem('circle_types', id, setCircleTypes);
         break;
@@ -488,7 +575,8 @@ export default function SettingsPage() {
   };
 
   const tabs = [
-    { id: 'directors', label: 'Directors', icon: Users },
+    { id: 'directors', label: 'ACPD Directors', icon: Users },
+    { id: 'host_team_directors', label: 'Team Directors', icon: Users },
     { id: 'circles', label: 'Circle Types', icon: Shapes },
     { id: 'statuses', label: 'Statuses', icon: ClipboardList },
     { id: 'frequencies', label: 'Frequencies', icon: CalendarDays },
@@ -548,13 +636,13 @@ export default function SettingsPage() {
 
         {/* Tab Content */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-          {/* Directors Tab */}
+          {/* ACPD Directors Tab */}
           {activeTab === 'directors' && (
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h2 className="text-lg font-medium text-gray-900 dark:text-white">Directors (ACD/Ps)</h2>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Manage Directors</p>
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-white">ACPD Directors</h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Manage ACPD Directors (coaches assigned to Circle Leaders)</p>
                 </div>
               </div>
 
@@ -677,6 +765,145 @@ export default function SettingsPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* HT Directors Tab */}
+          {activeTab === 'host_team_directors' && (
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-white">Team Directors</h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Manage directors assigned to Team Leaders</p>
+                </div>
+              </div>
+
+              {/* Add New HT Director Form */}
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-6">
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Add New Director</h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <input
+                    type="text"
+                    placeholder="Full Name *"
+                    value={newHostTeamDirector.name}
+                    onChange={(e) => setNewHostTeamDirector(prev => ({ ...prev, name: e.target.value }))}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Description (optional)"
+                    value={newHostTeamDirector.description}
+                    onChange={(e) => setNewHostTeamDirector(prev => ({ ...prev, description: e.target.value }))}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <select
+                    value={newHostTeamDirector.status}
+                    onChange={(e) => setNewHostTeamDirector(prev => ({ ...prev, status: e.target.value as 'active' | 'inactive' }))}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                  <button
+                    onClick={handleAddHostTeamDirector}
+                    disabled={!newHostTeamDirector.name.trim()}
+                    className="btn-primary px-4 py-2 rounded-lg text-sm"
+                  >
+                    Add Director
+                  </button>
+                </div>
+              </div>
+
+              {/* HT Directors List */}
+              {hostTeamDirectors.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500 dark:text-gray-400">No HT directors found.</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">Add your first director above.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {hostTeamDirectors.map((director) => (
+                    <div key={director.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-600 rounded-lg">
+                      {editingHostTeamDirector?.id === director.id ? (
+                        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-3 mr-4">
+                          <input
+                            type="text"
+                            value={editingHostTeamDirector.name}
+                            onChange={(e) => setEditingHostTeamDirector(prev => prev ? { ...prev, name: e.target.value } : null)}
+                            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <input
+                            type="text"
+                            value={editingHostTeamDirector.description || ''}
+                            onChange={(e) => setEditingHostTeamDirector(prev => prev ? { ...prev, description: e.target.value } : null)}
+                            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <select
+                            value={editingHostTeamDirector.status}
+                            onChange={(e) => setEditingHostTeamDirector(prev => prev ? { ...prev, status: e.target.value as 'active' | 'inactive' } : null)}
+                            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                          </select>
+                        </div>
+                      ) : (
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3">
+                            <div>
+                              <h4 className="font-medium text-gray-900 dark:text-white">{director.name}</h4>
+                              {director.description && (
+                                <p className="text-sm text-gray-600 dark:text-gray-400">{director.description}</p>
+                              )}
+                            </div>
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              director.status === 'active'
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                            }`}>
+                              {director.status}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center space-x-2">
+                        {editingHostTeamDirector?.id === director.id ? (
+                          <>
+                            <button
+                              onClick={() => handleEditHostTeamDirector(editingHostTeamDirector)}
+                              className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingHostTeamDirector(null)}
+                              className="text-gray-600 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => setEditingHostTeamDirector(director)}
+                              className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => confirmDelete('host_team_director', director.id, director.name)}
+                              className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

@@ -147,6 +147,7 @@ interface FilterPanelProps {
     eventSummary: string;
     connected: string;
     timeOfDay: string;
+    leaderType?: string;
   };
   onFiltersChange: (filters: any) => void;
   onClearAllFilters: () => void;
@@ -534,7 +535,7 @@ export default function FilterPanel({
    * @param valueToRemove - The value to remove from the filter
    */
   const removeFilterValue = (filterKey: string, valueToRemove: string) => {
-    if (filterKey === 'eventSummary' || filterKey === 'connected' || filterKey === 'timeOfDay') {
+    if (filterKey === 'eventSummary' || filterKey === 'connected' || filterKey === 'timeOfDay' || filterKey === 'leaderType') {
       handleFilterChange(filterKey, 'all');
     } else {
       const currentValues = filters[filterKey as keyof typeof filters] as string[];
@@ -629,7 +630,8 @@ export default function FilterPanel({
            filters.frequency.length > 0 ||
            filters.eventSummary !== 'all' ||
            filters.connected !== 'all' ||
-           filters.timeOfDay !== 'all';
+           filters.timeOfDay !== 'all' ||
+           (filters.leaderType !== undefined && filters.leaderType !== 'all');
   }, [filters]);
 
   /**
@@ -812,7 +814,7 @@ export default function FilterPanel({
               {/* Time Filter */}
               <div className="space-y-2">
                 <label htmlFor="timeOfDayFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Time</label>
-                <select 
+                <select
                   id="timeOfDayFilter"
                   value={filters.timeOfDay}
                   onChange={(e) => handleFilterChange('timeOfDay', e.target.value)}
@@ -821,6 +823,21 @@ export default function FilterPanel({
                   <option value="all">All</option>
                   <option value="am">AM</option>
                   <option value="pm">PM</option>
+                </select>
+              </div>
+
+              {/* Leader Type Filter */}
+              <div className="space-y-2">
+                <label htmlFor="leaderTypeFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Leader Type</label>
+                <select
+                  id="leaderTypeFilter"
+                  value={filters.leaderType || 'all'}
+                  onChange={(e) => handleFilterChange('leaderType', e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-10"
+                >
+                  <option value="all">All Leaders</option>
+                  <option value="circle">Circles Only</option>
+                  <option value="host_team">Teams Only</option>
                 </select>
               </div>
             </div>

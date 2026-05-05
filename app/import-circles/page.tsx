@@ -90,7 +90,7 @@ export default function ImportCirclesPage() {
   }, []);
 
   // Mass Update state
-  const [massUpdateField, setMassUpdateField] = useState<'campus' | 'acpd' | 'frequency' | 'circle_type' | 'day' | 'time' | 'meeting_start_date'>('campus');
+  const [massUpdateField, setMassUpdateField] = useState<'campus' | 'acpd' | 'frequency' | 'circle_type' | 'day' | 'time' | 'meeting_start_date' | 'status'>('campus');
   const [massUpdateValue, setMassUpdateValue] = useState('');
   const [massUpdateFilterField, setMassUpdateFilterField] = useState<'all' | 'campus' | 'acpd'>('all');
   const [massUpdateFilterValue, setMassUpdateFilterValue] = useState('');
@@ -581,7 +581,7 @@ export default function ImportCirclesPage() {
                       <select
                         value={massUpdateField}
                         onChange={(e) => {
-                          setMassUpdateField(e.target.value as 'campus' | 'acpd' | 'frequency' | 'circle_type' | 'day' | 'time' | 'meeting_start_date');
+                          setMassUpdateField(e.target.value as 'campus' | 'acpd' | 'frequency' | 'circle_type' | 'day' | 'time' | 'meeting_start_date' | 'status');
                           setMassUpdateValue('');
                         }}
                         className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
@@ -593,6 +593,7 @@ export default function ImportCirclesPage() {
                         <option value="day">Meeting Day</option>
                         <option value="time">Meeting Time</option>
                         <option value="meeting_start_date">Bi-weekly Start Date</option>
+                        <option value="status">Status</option>
                       </select>
                     </div>
                     <div>
@@ -635,6 +636,10 @@ export default function ImportCirclesPage() {
                             : massUpdateField === 'day'
                             ? ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((d) => (
                                 <option key={d} value={d}>{d}</option>
+                              ))
+                            : massUpdateField === 'status'
+                            ? ['invited', 'on-boarding', 'active', 'paused', 'off-boarding'].map((s) => (
+                                <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
                               ))
                             : referenceData.circleTypes.map((ct) => (
                                 <option key={ct.id} value={ct.value}>{ct.value}</option>

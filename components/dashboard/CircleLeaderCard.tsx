@@ -182,17 +182,19 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const [editingFollowUpDate, setEditingFollowUpDate] = useState(false);
 
+  const isHostTeam = leader.leader_type === 'host_team';
+
   // Memoized computed values
   const circleSchedule = useMemo(() => {
+    if (isHostTeam) return leader.team_name || '';
     const schedule = [
-      leader.circle_type || '', 
-      leader.day || '', 
-      formatTimeToAMPM(leader.time), 
+      leader.circle_type || '',
+      leader.day || '',
+      formatTimeToAMPM(leader.time),
       leader.frequency || ''
     ].filter(Boolean).join(' • ');
-    
     return schedule || 'Schedule not specified';
-  }, [leader.circle_type, leader.day, leader.time, leader.frequency]);
+  }, [isHostTeam, leader.team_name, leader.circle_type, leader.day, leader.time, leader.frequency]);
 
   const followUpStatus = useMemo(() => 
     getFollowUpStatus(leader.follow_up_date), 
@@ -370,11 +372,11 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
                 className="block"
               >
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer">
-                  {leader.circle_name || leader.name || 'Unknown'}
+                  {isHostTeam ? (leader.team_name || leader.name || 'Unknown') : (leader.circle_name || leader.name || 'Unknown')}
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
                   {leader.name || ''}
-                  {leader.additional_leader_name ? ` · ${leader.additional_leader_name}` : ''}
+                  {!isHostTeam && leader.additional_leader_name ? ` · ${leader.additional_leader_name}` : ''}
                 </p>
               </Link>
               
@@ -417,6 +419,11 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
                   {leader.follow_up_required && (
                     <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-500 text-white">
                       Follow Up
+                    </span>
+                  )}
+                  {isHostTeam && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                      Team
                     </span>
                   )}
                 </div>
@@ -501,8 +508,8 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
                 </button>
               )}
               
-              {/* CCB Profile Link - Mobile */}
-              {leader.ccb_profile_link && (
+              {/* CCB Profile Link - Mobile (circle only) */}
+              {!isHostTeam && leader.ccb_profile_link && (
                 <a 
                   href={leader.ccb_profile_link}
                   target="_blank"
@@ -520,8 +527,8 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
 
           {/* Checkboxes Section - Mobile */}
           <div className="mt-4 space-y-3">
-            {/* Event Summary (tri-state) */}
-            <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+            {/* Event Summary (tri-state) - circle leaders only */}
+            {!isHostTeam && <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
               <div className="flex items-center justify-between">
                 <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Event Summary</div>
                 <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
@@ -574,7 +581,7 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
                   Skipped
                 </button>
               </div>
-            </div>
+            </div>}
 
             {/* Follow-Up Required Checkbox */}
             <div className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
@@ -648,11 +655,11 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
                 className="block"
               >
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white truncate mb-1 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer">
-                  {leader.circle_name || leader.name || 'Unknown'}
+                  {isHostTeam ? (leader.team_name || leader.name || 'Unknown') : (leader.circle_name || leader.name || 'Unknown')}
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 truncate mb-2">
                   {leader.name || ''}
-                  {leader.additional_leader_name ? ` · ${leader.additional_leader_name}` : ''}
+                  {!isHostTeam && leader.additional_leader_name ? ` · ${leader.additional_leader_name}` : ''}
                 </p>
               </Link>
               
@@ -695,6 +702,11 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
                   {leader.follow_up_required && (
                     <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-500 text-white whitespace-nowrap">
                       Follow Up
+                    </span>
+                  )}
+                  {isHostTeam && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                      Team
                     </span>
                   )}
                 </div>
@@ -796,8 +808,8 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
                   </button>
                 )}
                 
-                {/* CCB Profile Link */}
-                {leader.ccb_profile_link && (
+                {/* CCB Profile Link (circle only) */}
+                {!isHostTeam && leader.ccb_profile_link && (
                   <a 
                     href={leader.ccb_profile_link}
                     target="_blank"
@@ -814,8 +826,8 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
 
               {/* Checkboxes Section - Desktop */}
               <div className="space-y-2 min-w-0">
-                {/* Event Summary (tri-state) */}
-                <div className="p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg min-w-[300px]">
+                {/* Event Summary (tri-state) - circle leaders only */}
+                {!isHostTeam && <div className="p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg min-w-[300px]">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Event Summary</div>
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
@@ -867,7 +879,7 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
                       Skipped
                     </button>
                   </div>
-                </div>
+                </div>}
 
                 {/* Follow-Up Required Checkbox */}
                 <div className="flex items-center justify-between p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg min-w-[240px]">

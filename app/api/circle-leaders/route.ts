@@ -140,11 +140,22 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    if (!field || !['campus', 'acpd', 'frequency', 'circle_type', 'day', 'time', 'meeting_start_date'].includes(field)) {
+    const validFields = ['campus', 'acpd', 'frequency', 'circle_type', 'day', 'time', 'meeting_start_date', 'status'];
+    if (!field || !validFields.includes(field)) {
       return NextResponse.json(
-        { error: 'field must be "campus", "acpd", "frequency", "circle_type", "day", "time", or "meeting_start_date"' },
+        { error: `field must be one of: ${validFields.join(', ')}` },
         { status: 400 }
       );
+    }
+
+    if (field === 'status') {
+      const validStatuses = ['invited', 'on-boarding', 'active', 'paused', 'off-boarding'];
+      if (!validStatuses.includes(value.trim().toLowerCase())) {
+        return NextResponse.json(
+          { error: `status must be one of: ${validStatuses.join(', ')}` },
+          { status: 400 }
+        );
+      }
     }
 
     if (typeof value !== 'string' || value.trim().length === 0) {
