@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-05-05",
+    "type": "improvement",
+    "description": "Mass Update now supports Status — you can bulk-change the status (invited, on-boarding, active, paused, off-boarding) for multiple circle leaders at once from the Import & Manage Circles page.",
+    "page": "/import-circles"
+  },
+  {
     "date": "2026-05-02",
     "type": "feature",
     "description": "Host Team Leaders — Track volunteer team leaders (ushers, kids, hospitality, etc.) alongside Circle Leaders using the same relationship tools. Add Host Team Leaders via the Add Leader form, filter by type on the Find Leaders page, and manage HT Directors in Settings.",
