@@ -237,6 +237,91 @@ export class CCBClient {
     }
   }
 
+  async postXml<T = any>(srv: string, body: Record<string, string | number>): Promise<T> {
+    if (IS_DEV) {
+      console.log(`🔍 CCB API POST: srv=${srv}`, body);
+    }
+    const params = new URLSearchParams();
+    Object.entries(body).forEach(([k, v]) => params.append(k, String(v)));
+    const cfg: AxiosRequestConfig = {
+      method: "POST",
+      url: this.baseUrl,
+      params: { srv },
+      data: params.toString(),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      auth: { username: this.config.username, password: this.config.password },
+      timeout: 30000,
+      validateStatus: (s) => s >= 200 && s < 500,
+    };
+    const startedAt = Date.now();
+    try {
+      const res = await axios(cfg);
+      const durationMs = Date.now() - startedAt;
+      if (res.status >= 400) {
+        const errorMessage = `HTTP ${res.status}: ${typeof res.data === 'string' ? res.data.slice(0, 200) : 'error'}`;
+        await recordCCBApiTelemetry({
+          context: this.telemetryContext,
+          service: srv,
+          method: 'POST',
+          statusCode: res.status,
+          success: false,
+          durationMs,
+          response: res,
+          errorMessage,
+        });
+        throw new Error(errorMessage);
+      }
+      const data = typeof res.data === "string" ? this.parser.parse(res.data) : res.data;
+      // Surface CCB-level error messages embedded in a 200 response
+      const ccbError = data?.ccb_api?.response?.errors?.error;
+      if (ccbError) {
+        const msg = typeof ccbError === 'string' ? ccbError : JSON.stringify(ccbError);
+        await recordCCBApiTelemetry({
+          context: this.telemetryContext,
+          service: srv,
+          method: 'POST',
+          statusCode: res.status,
+          success: false,
+          durationMs,
+          response: res,
+          errorMessage: msg,
+        });
+        throw new Error(`CCB error: ${msg}`);
+      }
+      await recordCCBApiTelemetry({
+        context: this.telemetryContext,
+        service: srv,
+        method: 'POST',
+        statusCode: res.status,
+        success: true,
+        durationMs,
+        response: res,
+      });
+      return data as T;
+    } catch (e: any) {
+      if (!e.response) {
+        await recordCCBApiTelemetry({
+          context: this.telemetryContext,
+          service: srv,
+          method: 'POST',
+          statusCode: undefined,
+          success: false,
+          durationMs: Date.now() - startedAt,
+          errorMessage: e.message || 'CCB POST request failed',
+        });
+      }
+      throw e;
+    }
+  }
+
+  async createIndividualNote(individualId: string, noteText: string): Promise<void> {
+    await this.postXml('create_individual_note', {
+      individual_id: individualId,
+      note: noteText,
+      note_type: 'note',
+    });
+  }
+
   // ---- Normalizers ----
 
   /** Normalize event XML from `event_profiles` */

@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-05-06",
+    "type": "feature",
+    "description": "New Copy for CCB shortcut on the Notes page — click the clipboard icon on any note to copy it as plain text and open the leader's CCB profile in one click, ready to paste. Or use \"Save + Copy for CCB\" while composing to save and copy in one step.",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-05-06",
     "type": "fix",
     "description": "Notebook sidebar now updates immediately when pages are deleted or changed, so removed pages disappear right away and newly available pages reliably show up without needing a refresh.",
     "page": "/notebook"
