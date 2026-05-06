@@ -25,9 +25,17 @@ interface Recipient {
   acpd?: string;
   isAdditionalLeader?: boolean;
   isFromCCB?: boolean;
+  isFromPaste?: boolean;
   circleLeaderName?: string;
   additionalLeaderName?: string;
   additionalLeaderPhone?: string;
+}
+
+interface PastedEntry {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
 }
 
 interface SendLog {
@@ -198,6 +206,11 @@ function BulkMessageContent() {
   const [pinnedLeaderRecipients, setPinnedLeaderRecipients] = useState<Recipient[]>([]);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Paste import state
+  const [showPastePanel, setShowPastePanel] = useState(false);
+  const [pasteText, setPasteText] = useState('');
+  const [parsedEntries, setParsedEntries] = useState<PastedEntry[]>([]);
 
   // Persist templates
   useEffect(() => { saveTemplates(templates); }, [templates]);
@@ -547,6 +560,58 @@ function BulkMessageContent() {
     if (!selectedListId) return;
     setSavedLists(prev => prev.filter(l => l.id !== selectedListId));
     setSelectedListId('');
+  };
+
+  // ─── Paste import helpers ──────────────────────────────────
+  const parsePastedList = useCallback(() => {
+    const dataLines = pasteText
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l.length > 0 && !/^first[,\s]/i.test(l));
+
+    const entries: PastedEntry[] = [];
+    for (let i = 0; i + 2 < dataLines.length; i += 3) {
+      entries.push({
+        id: `p-${Date.now()}-${i}`,
+        firstName: dataLines[i],
+        lastName: dataLines[i + 1],
+        phone: dataLines[i + 2],
+      });
+    }
+    setParsedEntries(entries);
+  }, [pasteText]);
+
+  const updateParsedEntry = (id: string, field: keyof Omit<PastedEntry, 'id'>, value: string) => {
+    setParsedEntries(prev => prev.map(e => e.id === id ? { ...e, [field]: value } : e));
+  };
+
+  const removeParsedEntry = (id: string) => {
+    setParsedEntries(prev => prev.filter(e => e.id !== id));
+  };
+
+  const handleAddParsedToRecipients = () => {
+    const newRecipients = parsedEntries
+      .map((e): Recipient | null => {
+        const phone = normalizePhone(e.phone);
+        if (phone.length < 7) return null;
+        return {
+          id: -(Date.now() + Math.floor(Math.random() * 10000)),
+          name: `${e.firstName} ${e.lastName}`.trim(),
+          firstName: e.firstName,
+          phone,
+          isFromCCB: true,
+          isFromPaste: true,
+        };
+      })
+      .filter((r): r is Recipient => r !== null);
+
+    setCcbRecipients(prev => {
+      const seenPhones = new Set(prev.map(r => r.phone));
+      return [...prev, ...newRecipients.filter(r => !seenPhones.has(r.phone))];
+    });
+    setParsedEntries([]);
+    setPasteText('');
+    setShowPastePanel(false);
   };
 
   // ─── Filter toggle helpers ─────────────────────────────────
@@ -953,6 +1018,133 @@ function BulkMessageContent() {
               </div>
             </section>
 
+            {/* ── Paste Import ── */}
+            <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-lg">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-bold text-violet-400 uppercase tracking-wider flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+                  </svg>
+                  Paste Import
+                </h2>
+                <button
+                  onClick={() => { setShowPastePanel(v => !v); if (showPastePanel) { setParsedEntries([]); setPasteText(''); } }}
+                  className={`text-[10px] font-bold uppercase px-3 py-1.5 rounded-lg border transition-all ${
+                    showPastePanel
+                      ? 'text-gray-400 border-gray-700 hover:bg-gray-800'
+                      : 'text-violet-400 border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20'
+                  }`}
+                >
+                  {showPastePanel ? 'Close' : 'Paste List'}
+                </button>
+              </div>
+
+              {showPastePanel && (
+                <div className="space-y-4">
+                  {/* Textarea */}
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">
+                      Paste your list — First, Last, Phone (one per line, groups of 3)
+                    </label>
+                    <textarea
+                      value={pasteText}
+                      onChange={e => { setPasteText(e.target.value); if (parsedEntries.length > 0) setParsedEntries([]); }}
+                      placeholder={"First, Last, Phone\n\nDiana\nNall\n817-905-9682\n\nLinsey\nShields\n940-368-2782"}
+                      className="w-full h-36 bg-gray-800 border border-gray-700 rounded-xl p-4 text-xs text-gray-300 font-mono outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 resize-none placeholder:text-gray-700 transition-shadow"
+                    />
+                  </div>
+
+                  <button
+                    onClick={parsePastedList}
+                    disabled={!pasteText.trim()}
+                    className="w-full py-2.5 bg-violet-600 hover:bg-violet-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all"
+                  >
+                    Parse List
+                  </button>
+
+                  {/* Parsed entries table */}
+                  {parsedEntries.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                          {parsedEntries.length} {parsedEntries.length === 1 ? 'entry' : 'entries'} parsed — edit as needed
+                        </span>
+                        <button
+                          onClick={() => setParsedEntries([])}
+                          className="text-[10px] font-bold text-gray-500 hover:text-rose-400 uppercase transition-colors"
+                        >
+                          Clear
+                        </button>
+                      </div>
+
+                      <div className="border border-gray-800 rounded-xl overflow-hidden">
+                        <div className="overflow-y-auto max-h-72">
+                          <table className="w-full text-xs">
+                            <thead className="bg-gray-800/60 sticky top-0">
+                              <tr>
+                                <th className="text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider px-3 py-2">First</th>
+                                <th className="text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider px-3 py-2">Last</th>
+                                <th className="text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider px-3 py-2">Phone</th>
+                                <th className="px-2 py-2 w-8"></th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-800/50">
+                              {parsedEntries.map(entry => (
+                                <tr key={entry.id} className="hover:bg-gray-800/30 transition-colors group">
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      value={entry.firstName}
+                                      onChange={e => updateParsedEntry(entry.id, 'firstName', e.target.value)}
+                                      className="w-full bg-transparent text-white text-xs px-1.5 py-1 rounded border border-transparent focus:border-gray-600 focus:bg-gray-800 outline-none transition-all"
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      value={entry.lastName}
+                                      onChange={e => updateParsedEntry(entry.id, 'lastName', e.target.value)}
+                                      className="w-full bg-transparent text-white text-xs px-1.5 py-1 rounded border border-transparent focus:border-gray-600 focus:bg-gray-800 outline-none transition-all"
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      value={entry.phone}
+                                      onChange={e => updateParsedEntry(entry.id, 'phone', e.target.value)}
+                                      className="w-full bg-transparent text-gray-400 font-mono text-xs px-1.5 py-1 rounded border border-transparent focus:border-gray-600 focus:bg-gray-800 outline-none transition-all"
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => removeParsedEntry(entry.id)}
+                                      className="text-gray-700 hover:text-rose-400 transition-colors font-bold text-sm leading-none opacity-0 group-hover:opacity-100"
+                                      aria-label="Remove entry"
+                                    >×</button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleAddParsedToRecipients}
+                        className="w-full py-3 bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm uppercase tracking-tight rounded-xl transition-all"
+                      >
+                        Add {parsedEntries.length} to Recipients
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!showPastePanel && (
+                <p className="text-[11px] text-gray-600">
+                  Paste a First / Last / Phone list to quickly build a recipient group.
+                </p>
+              )}
+            </section>
+
             {/* ── Recipient Preview Table ── */}
             <section className="bg-gray-900 border border-gray-800 rounded-2xl shadow-lg overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
@@ -1002,7 +1194,10 @@ function BulkMessageContent() {
                               {r.isAdditionalLeader && (
                                 <span className="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded font-bold uppercase">Additional</span>
                               )}
-                              {r.isFromCCB && (
+                              {r.isFromPaste && (
+                                <span className="text-[9px] bg-violet-500/20 text-violet-400 px-1.5 py-0.5 rounded font-bold uppercase">Paste</span>
+                              )}
+                              {r.isFromCCB && !r.isFromPaste && (
                                 <span className="text-[9px] bg-teal-500/20 text-teal-400 px-1.5 py-0.5 rounded font-bold uppercase">CCB</span>
                               )}
                             </div>

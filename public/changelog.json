@@ -2,6 +2,12 @@
   {
     "date": "2026-05-06",
     "type": "feature",
+    "description": "Paste Import on the Bulk Message page — paste a raw First / Last / Phone list, review and edit parsed entries inline, then add them to your recipient list in one click. Pasted entries are saved with the rest of your list using the existing \"Save as List\" flow.",
+    "page": "/bulk-message"
+  },
+  {
+    "date": "2026-05-06",
+    "type": "feature",
     "description": "New Copy for CCB shortcut on the Notes page — click the clipboard icon on any note to copy it as plain text and open the leader's CCB profile in one click, ready to paste. Or use \"Save + Copy for CCB\" while composing to save and copy in one step.",
     "page": "/circle"
   },
