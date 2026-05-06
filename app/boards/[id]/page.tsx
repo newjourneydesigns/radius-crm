@@ -22,6 +22,7 @@ import { buildRepeatLabel, type TodoRepeatRule } from '../../../lib/todoRecurren
 import { DateTime } from 'luxon';
 import AssigneePicker from '../../../components/boards/AssigneePicker';
 import RichTextEditor from '../../../components/notes/RichTextEditor';
+import DictateAndSummarize from '../../../components/notes/DictateAndSummarize';
 import { extractTextContacts, type TextContact } from '../../../lib/textContacts';
 
 /* ═══════════════════════════════════════════════════════════
@@ -638,6 +639,9 @@ function CardDetailModal({
                   placeholder="Add a more detailed description..."
                   minHeight="120px"
                 />
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <DictateAndSummarize text={editDesc} onTextChange={setEditDesc} />
               </div>
               {renderContactActions(descriptionContacts, 'compact')}
             </div>

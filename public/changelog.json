@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-05-06",
+    "type": "improvement",
+    "description": "Board card descriptions now support voice dictation and AI summarize — tap the mic to speak your notes directly into the description field, or use AI Summarize to clean them up.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-05-06",
+    "type": "improvement",
+    "description": "URLs in description fields (boards, notes) are now automatically rendered as clickable links — no need to manually insert a link with the toolbar.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-05-06",
     "type": "feature",
     "description": "Paste Import on the Bulk Message page — paste a raw First / Last / Phone list, review and edit parsed entries inline, then add them to your recipient list in one click. Pasted entries are saved with the rest of your list using the existing \"Save as List\" flow.",
     "page": "/bulk-message"

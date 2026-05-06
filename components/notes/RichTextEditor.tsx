@@ -7,6 +7,24 @@ import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
 import { useEffect, useState, useCallback } from 'react';
 
+// Converts bare URLs in HTML text nodes to <a> tags; idempotent (won't double-wrap).
+function linkifyHtml(html: string): string {
+  if (!html) return html;
+  const parts = html.split(/(<\/?a[^>]*>)/i);
+  let inAnchor = false;
+  return parts
+    .map((part) => {
+      if (/^<a /i.test(part)) { inAnchor = true; return part; }
+      if (/^<\/a>/i.test(part)) { inAnchor = false; return part; }
+      if (inAnchor) return part;
+      return part.replace(/(https?:\/\/[^\s<>"']+)/g, (url) => {
+        const clean = url.replace(/[.,;:!?)>\]]+$/, '');
+        return `<a href="${clean}" target="_blank" rel="noopener noreferrer">${clean}</a>`;
+      });
+    })
+    .join('');
+}
+
 interface RichTextEditorProps {
   value: string;
   onChange: (html: string) => void;
@@ -77,7 +95,7 @@ export default function RichTextEditor({
       }),
       Underline,
       Link.configure({
-        openOnClick: false,
+        openOnClick: true,
         autolink: true,
         linkOnPaste: true,
         HTMLAttributes: {
@@ -91,7 +109,7 @@ export default function RichTextEditor({
         emptyEditorClass: 'is-editor-empty',
       }),
     ],
-    content: value || '',
+    content: linkifyHtml(value || ''),
     editable: !disabled,
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
@@ -118,8 +136,9 @@ export default function RichTextEditor({
     if (!editor || editor.isDestroyed) return;
     const current = editor.getHTML();
     const normalizedCurrent = current === '<p></p>' ? '' : current;
-    if (normalizedCurrent !== value) {
-      editor.commands.setContent(value || '', false);
+    const processed = linkifyHtml(value || '');
+    if (normalizedCurrent !== processed) {
+      editor.commands.setContent(processed, false);
     }
   }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
 
