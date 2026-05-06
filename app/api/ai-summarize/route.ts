@@ -6,17 +6,17 @@ function getSystemPrompt(wordCount: number): string {
   if (wordCount < 100) {
     depthInstruction = `The input is brief. Provide:
 - A concise 1-2 sentence summary
-- 1-3 suggested next steps`;
+- 1-3 suggested next steps, if any can be inferred`;
   } else if (wordCount < 300) {
     depthInstruction = `The input is moderate length. Provide:
 - A solid summary paragraph covering all key points
 - Any key themes or topics mentioned
-- 2-4 concrete next steps`;
+- 2-4 concrete next steps, if any can be inferred`;
   } else {
     depthInstruction = `The input is a detailed brain dump. Be thorough and comprehensive. Provide:
 - A multi-paragraph summary organized by topic/theme — capture EVERY key point, decision, concern, and idea
 - All people or groups mentioned and their context
-- Next steps prioritized by urgency (most urgent first)
+- Next steps prioritized by urgency (most urgent first), if any can be inferred
 - Any unresolved questions or open items that need follow-up
 
 Do NOT summarize away important details. The user needs to see everything they mentioned reflected back clearly.`;
@@ -25,6 +25,8 @@ Do NOT summarize away important details. The user needs to see everything they m
   return `You are a meeting notes assistant for a church CRM application. Your job is to take raw dictated or typed meeting notes and produce a clean, well-organized summary.
 
 ${depthInstruction}
+
+The source note is provided with line numbers. Use those line numbers to identify where action items came from.
 
 Format your response EXACTLY like this:
 
@@ -37,9 +39,10 @@ Key Points
 (include this section only if the input has enough substance to warrant it — skip for very short inputs)
 
 Next Steps
-• [action item 1]
-• [action item 2]
-• [action item 3]
+• [action item 1] (source: line [line number] — "[short exact phrase from the note]")
+• [action item 2] (source: line [line number] — "[short exact phrase from the note]")
+• [action item 3] (source: line [line number] — "[short exact phrase from the note]")
+(include this section only if there are explicit or strongly implied follow-up actions)
 
 Open Items
 • [unresolved question or thing needing follow-up]
@@ -50,7 +53,18 @@ Rules:
 - If a meeting type/category is obvious from the content, mention it naturally in the summary (e.g., "This one-on-one meeting covered..." or "During this leadership planning session...") — but don't force a category
 - Be warm but professional — this is for church ministry context
 - Preserve any specific names, dates, numbers, or commitments mentioned
+- Automatically find next steps from explicit commitments, requests, decisions, problems to solve, follow-up language, "we should/we need to" statements, and implied pastoral care or leadership actions
+- Every next step must include a source reference with the line number and a short exact phrase from the note, so the user can find where it came from
+- Do not invent next steps that are not supported by the source note
+- If the note contains no supported next steps, omit the Next Steps section
 - If the input is very short or unclear, do your best and note what seems unclear`;
+}
+
+function addLineNumbers(text: string): string {
+  return text
+    .split(/\r?\n/)
+    .map((line, index) => `${index + 1}: ${line}`)
+    .join('\n');
 }
 
 async function callGemini(apiKey: string, systemPrompt: string, text: string, maxTokens: number = 2048): Promise<{ summary?: string; error?: string; status: number }> {
@@ -116,16 +130,18 @@ export async function POST(request: NextRequest) {
     const trimmedText = text.trim();
 
     let systemPrompt: string;
+    let sourceText = trimmedText;
     if (mode === 'meeting-prep') {
       systemPrompt = 'You are an expert coaching assistant for church ministry leadership. Follow the user\'s instructions exactly and produce a thorough, well-structured briefing.';
     } else {
       const wordCount = trimmedText.split(/\s+/).length;
       systemPrompt = getSystemPrompt(wordCount);
+      sourceText = addLineNumbers(trimmedText);
     }
 
     const maxTokens = mode === 'meeting-prep' ? 4096 : 2048;
 
-    const result = await callGemini(geminiKey, systemPrompt, trimmedText, maxTokens);
+    const result = await callGemini(geminiKey, systemPrompt, sourceText, maxTokens);
     if (result.summary) return NextResponse.json({ summary: result.summary });
 
     return NextResponse.json(

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
+import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 
 export const dynamic = 'force-dynamic';
 
@@ -84,7 +85,11 @@ export async function POST(request: Request) {
     }
 
     // Create CCB client (credentials are server-side only)
-    const ccbClient = createCCBClient();
+    const ccbClient = createCCBClient(await getCCBRequestContext(request, {
+      module: 'Profile Page',
+      action: 'Fetch Attendance',
+      direction: 'pull',
+    }));
 
     if (process.env.NODE_ENV === 'development') {
       console.log(`🔍 Fetching CCB events for group "${groupName}" from ${date} to ${effectiveEndDate}`);
@@ -439,9 +444,13 @@ function findLeaderForEvent(
 }
 
 // Optional: GET endpoint to test API connection
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const ccbClient = createCCBClient();
+    const ccbClient = createCCBClient(await getCCBRequestContext(request, {
+      module: 'Profile Page',
+      action: 'Test Attendance Connection',
+      direction: 'pull',
+    }));
     const isConnected = await ccbClient.testConnection();
 
     return NextResponse.json({

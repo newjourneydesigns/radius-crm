@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
 
   let authenticated = false;
+  let authenticatedUserId: string | null = null;
 
   // Check Supabase session token first
   if (token && token !== cronSecret) {
@@ -41,7 +42,10 @@ export async function POST(request: NextRequest) {
         { auth: { persistSession: false } }
       );
       const { data: { user }, error } = await anonClient.auth.getUser(token);
-      if (user && !error) authenticated = true;
+      if (user && !error) {
+        authenticated = true;
+        authenticatedUserId = user.id;
+      }
     } catch {
       // fall through
     }
@@ -137,7 +141,12 @@ export async function POST(request: NextRequest) {
   // 3. Fetch rosters from CCB for each missing leader
   let ccbClient: ReturnType<typeof createCCBClient>;
   try {
-    ccbClient = createCCBClient();
+    ccbClient = createCCBClient({
+      userId: authenticatedUserId,
+      module: 'Admin',
+      action: 'Bulk Fetch Rosters',
+      direction: 'pull',
+    });
   } catch (err: any) {
     return NextResponse.json(
       { error: 'CCB client init failed', details: err.message },

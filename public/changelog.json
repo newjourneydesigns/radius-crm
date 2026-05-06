@@ -1,5 +1,35 @@
 [
   {
+    "date": "2026-05-06",
+    "type": "fix",
+    "description": "Notebook sidebar now updates immediately when pages are deleted or changed, so removed pages disappear right away and newly available pages reliably show up without needing a refresh.",
+    "page": "/notebook"
+  },
+  {
+    "date": "2026-05-06",
+    "type": "feature",
+    "description": "Notebook AI checklists: use Suggest in the Checklists panel to read the current note and propose concise next-step or outstanding-item checklist entries, with source context shown underneath each item.",
+    "page": "/notebook"
+  },
+  {
+    "date": "2026-05-06",
+    "type": "feature",
+    "description": "Notebook-linked cards now support AI checklist suggestions too — open a linked card from the Notebook page, use Suggest in the card checklist area, and add selected items directly to the card.",
+    "page": "/notebook"
+  },
+  {
+    "date": "2026-05-06",
+    "type": "improvement",
+    "description": "Saved checklist items now use a cleaner two-line layout: a short item title with smaller supporting context beneath it. AI-created checklist items preserve their source note line as the supporting detail.",
+    "page": "/notebook"
+  },
+  {
+    "date": "2026-05-06",
+    "type": "improvement",
+    "description": "Creating a card from a Notebook page now defaults the card title to the note title, keeps it editable before saving, and adds a backlink to the original note in the card description.",
+    "page": "/notebook"
+  },
+  {
     "date": "2026-05-05",
     "type": "feature",
     "description": "New Notebooks page: organize your notes in one place with folders, page navigation, and a focused writing workspace for ongoing leader conversations and follow-up planning.",

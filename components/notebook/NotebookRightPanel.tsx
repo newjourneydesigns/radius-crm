@@ -291,6 +291,7 @@ export default function NotebookRightPanel() {
       {quickAddOpen && (
         <QuickAddCardModal
           pageId={activePage.id}
+          pageTitle={activePage.title}
           onCreated={handleQuickAddCreated}
           onClose={() => setQuickAddOpen(false)}
         />

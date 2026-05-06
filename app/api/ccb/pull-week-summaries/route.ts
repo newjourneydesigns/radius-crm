@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
+import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import type { EventSummaryState } from '../../../../lib/supabase';
 
 export const dynamic = 'force-dynamic';
@@ -59,7 +60,11 @@ export async function POST(request: NextRequest) {
 
     // Ask CCB which leaders have a report for this week (single API call)
     // Match priority: ccb_group_id (exact) → ccb_group_name → circle_name → leader.name
-    const ccb = createCCBClient();
+    const ccb = createCCBClient(await getCCBRequestContext(request, {
+      module: 'Dashboard',
+      action: 'Pull Week Summaries',
+      direction: 'pull',
+    }));
     const reportMap = await ccb.checkReportsForLeaders(
       leaders.map(l => ({
         id: l.id,

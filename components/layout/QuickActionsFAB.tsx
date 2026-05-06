@@ -39,7 +39,7 @@ const ACTIONS: { id: ActionId; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: 'notebook',
-    label: 'Start a New Note...',
+    label: 'Start a New Note',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M5 3h10a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z" />
@@ -66,7 +66,7 @@ const ACTIONS: { id: ActionId; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: 'prayer',
-    label: 'Log Prayer',
+    label: 'Log Prayer Request',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />

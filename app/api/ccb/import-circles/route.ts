@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
+import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import { verifyAdminAccessDemo } from '../../../../lib/auth-middleware';
 import type { CCBGroup } from '../../../../lib/ccb-types';
 
@@ -68,7 +69,11 @@ export async function GET(request: NextRequest) {
     }
 
     // 1. Search CCB via the cached group_profiles call
-    const ccb = createCCBClient();
+    const ccb = createCCBClient(await getCCBRequestContext(request, {
+      module: 'Import Circles',
+      action: 'Search CCB Groups',
+      direction: 'pull',
+    }));
     const ccbGroups = await ccb.searchGroups(q);
 
     // 2. Check which groups are already imported (by ccb_group_id)

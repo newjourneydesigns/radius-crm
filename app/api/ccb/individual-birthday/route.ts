@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
+import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,7 +40,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No name available to search' }, { status: 400 });
     }
 
-    const ccbClient = createCCBClient();
+    const ccbClient = createCCBClient(await getCCBRequestContext(request, {
+      module: 'Birthday List',
+      action: 'Fetch Birthday',
+      direction: 'pull',
+    }));
     let individualId: string | null = null;
 
     // Primary path for Circle Leaders: fetch group roster and find best name match

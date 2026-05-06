@@ -20,7 +20,7 @@ export default function RootLayout({
     '})();',
   ].join('\n');
 
-  const swScript = [
+  const swScript = (process.env.NODE_ENV === 'production' ? [
     'if ("serviceWorker" in navigator) {',
     '  window.addEventListener("load", function() {',
     '    navigator.serviceWorker.register("/sw.js", { scope: "/" })',
@@ -41,6 +41,20 @@ export default function RootLayout({
     '      .catch(function(err) { console.error("SW registration failed: ", err); });',
     '  });',
     '}',
+  ] : [
+    'if ("serviceWorker" in navigator) {',
+    '  window.addEventListener("load", function() {',
+    '    navigator.serviceWorker.getRegistrations().then(function(registrations) {',
+    '      registrations.forEach(function(registration) { registration.unregister(); });',
+    '    });',
+    '    if ("caches" in window) {',
+    '      caches.keys().then(function(names) {',
+    '        names.forEach(function(name) { caches.delete(name); });',
+    '      });',
+    '    }',
+    '  });',
+    '}',
+  ]).concat([
     'var deferredPrompt;',
     'window.addEventListener("beforeinstallprompt", function(e) {',
     '  console.log("PWA install prompt available");',
@@ -62,7 +76,7 @@ export default function RootLayout({
     '    });',
     '  }',
     '};',
-  ].join('\n');
+  ]).join('\n');
 
   return (
     <html lang="en" className="dark">

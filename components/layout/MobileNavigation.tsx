@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { usePathname } from "next/navigation";
+import { DateTime } from "luxon";
 import { useAuth } from "../../contexts/AuthContext";
 import GlobalSearch from './GlobalSearch';
 
@@ -233,6 +234,7 @@ interface TabItem {
 export default function MobileNavigation() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [showUpdateLogBadge, setShowUpdateLogBadge] = useState(false);
   const [sheetY, setSheetY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -260,6 +262,34 @@ export default function MobileNavigation() {
     return () => {
       window.removeEventListener('pwaInstallAvailable', show);
       window.removeEventListener('pwaInstalled', hide);
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const checkForTodayUpdate = async () => {
+      try {
+        const response = await fetch('/changelog.json', { cache: 'no-store' });
+        if (!response.ok) {
+          if (mounted) setShowUpdateLogBadge(false);
+          return;
+        }
+
+        const entries = await response.json() as Array<{ date?: string }>;
+        const today = DateTime.local().toISODate();
+        const hasTodayEntry = Boolean(today) && entries.some((entry) => entry.date === today);
+
+        if (mounted) setShowUpdateLogBadge(hasTodayEntry);
+      } catch {
+        if (mounted) setShowUpdateLogBadge(false);
+      }
+    };
+
+    checkForTodayUpdate();
+
+    return () => {
+      mounted = false;
     };
   }, []);
 
@@ -527,7 +557,14 @@ export default function MobileNavigation() {
               <Link key={href} href={href}
                 className={`mobile-sheet-row ${isActive(href) ? 'active' : ''} ${i < accountItems.length - 1 ? 'bordered' : ''}`}>
                 <span className="mobile-sheet-row-icon"><Icon /></span>
-                <span className="mobile-sheet-row-label">{label}</span>
+                <span className="mobile-sheet-row-label flex items-center gap-2">
+                  {label}
+                  {href === '/update-log' && showUpdateLogBadge && (
+                    <span className="inline-flex items-center rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300 ring-1 ring-emerald-400/30">
+                      New
+                    </span>
+                  )}
+                </span>
                 <ChevronRightIcon />
               </Link>
             ))}

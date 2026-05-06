@@ -1270,7 +1270,15 @@ a, button, input, select, textarea {
    Rich Text Editor — ProseMirror (Tiptap) in-editor styles
    ═══════════════════════════════════════════════════════════ */
 
-.rte-editor .ProseMirror { outline: none; }
+.rte-editor .ProseMirror {
+  outline: none;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.rte-editor .ProseMirror * {
+  max-width: 100%;
+}
 .rte-editor .ProseMirror p { margin-bottom: 0.3em; }
 .rte-editor .ProseMirror p:last-child { margin-bottom: 0; }
 .rte-editor .ProseMirror strong { font-weight: 600; }

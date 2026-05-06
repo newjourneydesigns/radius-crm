@@ -52,7 +52,7 @@ export default function UpdateLogPage() {
             </Link>
             <div>
               <h1 className="text-xl font-semibold text-white tracking-tight">Update Log</h1>
-              <p className="text-xs text-slate-500 mt-0.5">What's changed in RADIUS</p>
+              <p className="text-xs text-slate-500 mt-0.5">What&apos;s changed in RADIUS</p>
             </div>
           </div>
 

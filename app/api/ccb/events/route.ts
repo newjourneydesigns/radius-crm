@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
+import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 
 export async function POST(request: Request) {
   try {
@@ -14,7 +15,11 @@ export async function POST(request: Request) {
     }
 
     // Create CCB client
-    const ccbClient = createCCBClient();
+    const ccbClient = createCCBClient(await getCCBRequestContext(request, {
+      module: 'CCB Events',
+      action: 'Fetch Events',
+      direction: 'pull',
+    }));
 
     console.log(`🔍 API Request: Group Name "${groupName}", Date Range: ${startDate} to ${endDate}`);
     console.log(`📋 Options: Attendance=${includeAttendance}, Attendees=${includeAttendees}`);
@@ -43,10 +48,14 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     // Test CCB connection
-    const ccbClient = createCCBClient();
+    const ccbClient = createCCBClient(await getCCBRequestContext(request, {
+      module: 'CCB Events',
+      action: 'Test Connection',
+      direction: 'pull',
+    }));
     const isConnected = await ccbClient.testConnection();
     
     return NextResponse.json({

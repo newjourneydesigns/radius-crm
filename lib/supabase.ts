@@ -430,6 +430,7 @@ export interface CardChecklist {
   card_id: string;
   group_id?: string;
   title: string;
+  description?: string;
   is_completed: boolean;
   position: number;
   due_date?: string;
@@ -501,6 +502,7 @@ export interface NotebookFolder {
 export interface NotebookChecklistItem {
   id: string;
   text: string;
+  description?: string;
   checked: boolean;
 }
 

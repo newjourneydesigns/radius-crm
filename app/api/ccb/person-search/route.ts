@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
+import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 
 export async function POST(request: Request) {
   try {
@@ -12,7 +13,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const ccbClient = createCCBClient();
+    const ccbClient = createCCBClient(await getCCBRequestContext(request, {
+      module: 'Person Lookup',
+      action: 'Search Person',
+      direction: 'pull',
+    }));
     const results = await ccbClient.searchIndividuals(query.trim());
 
     return NextResponse.json({

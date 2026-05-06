@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
+import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,7 +80,11 @@ export async function POST(request: NextRequest) {
 
   let ccbClient: ReturnType<typeof createCCBClient>;
   try {
-    ccbClient = createCCBClient();
+    ccbClient = createCCBClient(await getCCBRequestContext(request, {
+      module: 'Admin',
+      action: 'Discover Events',
+      direction: 'pull',
+    }));
   } catch (err: any) {
     return NextResponse.json(
       { error: 'CCB client initialization failed', details: err.message },

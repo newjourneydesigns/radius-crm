@@ -6,6 +6,13 @@ import { supabase } from '../../lib/supabase';
 import { useNotebookContext } from '../../contexts/NotebookContext';
 import type { NotebookPageCard, CardChecklist, CardComment } from '../../lib/supabase';
 
+interface ChecklistSuggestion {
+  text: string;
+  kind: 'next_step' | 'open_item';
+  sourceLine: number;
+  sourceQuote: string;
+}
+
 const PRIORITY_CONFIG = {
   urgent: { label: 'Urgent', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
   high:   { label: 'High',   color: '#f97316', bg: 'rgba(249,115,22,0.15)' },
@@ -13,13 +20,34 @@ const PRIORITY_CONFIG = {
   low:    { label: 'Low',    color: '#6b7280', bg: 'rgba(107,114,128,0.15)' },
 } as const;
 
+function htmlToPlainText(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<\/h[1-6]>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '• ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function suggestionDescription(suggestion: ChecklistSuggestion): string {
+  return `${suggestion.kind === 'open_item' ? 'Open item' : 'Next step'} · line ${suggestion.sourceLine}: "${suggestion.sourceQuote}"`;
+}
+
 interface CardDetailDrawerProps {
   link: NotebookPageCard;
   onClose: () => void;
 }
 
 export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProps) {
-  const { updateLinkedCard } = useNotebookContext();
+  const { activePage, updateLinkedCard } = useNotebookContext();
   const card = link.board_card;
 
   // Card fields
@@ -36,6 +64,10 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
   const [newChecklistTitle, setNewChecklistTitle] = useState('');
   const [editingChecklistId, setEditingChecklistId] = useState<string | null>(null);
   const [editingChecklistTitle, setEditingChecklistTitle] = useState('');
+  const [isSuggestingChecklist, setIsSuggestingChecklist] = useState(false);
+  const [checklistSuggestionError, setChecklistSuggestionError] = useState('');
+  const [checklistSuggestions, setChecklistSuggestions] = useState<ChecklistSuggestion[]>([]);
+  const [selectedChecklistSuggestions, setSelectedChecklistSuggestions] = useState<Set<number>>(new Set());
 
   // Comments
   const [comments, setComments] = useState<CardComment[]>([]);
@@ -52,7 +84,7 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
     setPriority(card.priority);
     setDueDate(card.due_date ?? '');
     setIsComplete(card.is_complete);
-  }, [link.card_id]);
+  }, [card, link.card_id]);
 
   // Load checklists + comments
   useEffect(() => {
@@ -142,6 +174,117 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
   async function handleChecklistDueDate(itemId: string, dueDate: string | null) {
     setChecklists(prev => prev.map(cl => cl.id === itemId ? { ...cl, due_date: dueDate ?? undefined } : cl));
     await supabase.from('card_checklists').update({ due_date: dueDate }).eq('id', itemId);
+  }
+
+  async function handleSuggestCardChecklistItems() {
+    if (isSuggestingChecklist) return;
+
+    const noteText = activePage?.content ? htmlToPlainText(activePage.content) : '';
+    if (!noteText) {
+      setChecklistSuggestionError('Write a note before asking for card checklist suggestions.');
+      return;
+    }
+
+    setIsSuggestingChecklist(true);
+    setChecklistSuggestionError('');
+    setChecklistSuggestions([]);
+    setSelectedChecklistSuggestions(new Set());
+
+    try {
+      const response = await fetch('/api/notebook/checklist-suggestions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: noteText }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setChecklistSuggestionError(data.error || 'Failed to suggest card checklist items.');
+        return;
+      }
+
+      const nextSuggestions: ChecklistSuggestion[] = Array.isArray(data.suggestions) ? data.suggestions : [];
+      setChecklistSuggestions(nextSuggestions);
+      setSelectedChecklistSuggestions(new Set(nextSuggestions.map((_, index) => index)));
+
+      if (nextSuggestions.length === 0) {
+        setChecklistSuggestionError('No clear next steps or outstanding items were found in this note.');
+      }
+    } catch (err) {
+      console.error('Card checklist suggestion error:', err);
+      setChecklistSuggestionError('Network error. Please try again.');
+    } finally {
+      setIsSuggestingChecklist(false);
+    }
+  }
+
+  function toggleCardChecklistSuggestion(index: number) {
+    setSelectedChecklistSuggestions(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  }
+
+  async function addSelectedCardChecklistSuggestions() {
+    if (checklistSuggestions.length === 0 || selectedChecklistSuggestions.size === 0) return;
+
+    const existingTitles = new Set(checklists.map(item => item.title.trim().toLowerCase()).filter(Boolean));
+    const selectedItems = checklistSuggestions
+      .filter((_, index) => selectedChecklistSuggestions.has(index))
+      .map(suggestion => ({ ...suggestion, text: suggestion.text.trim() }))
+      .filter(suggestion => suggestion.text && !existingTitles.has(suggestion.text.toLowerCase()));
+
+    if (selectedItems.length === 0) {
+      setChecklistSuggestionError('Those items are already on this card.');
+      return;
+    }
+
+    const maxPos = checklists.reduce((m, cl) => Math.max(m, cl.position), -1);
+    const rows = selectedItems.map((suggestion, index) => ({
+      card_id: link.card_id,
+      title: suggestion.text,
+      description: suggestionDescription(suggestion),
+      position: maxPos + index + 1,
+    }));
+
+    let { data, error } = await supabase
+      .from('card_checklists')
+      .insert(rows)
+      .select();
+
+    if (error && /description/i.test(error.message || '')) {
+      const fallbackRows = rows.map(row => ({
+        card_id: row.card_id,
+        title: row.title,
+        position: row.position,
+      }));
+      const fallbackResult = await supabase
+        .from('card_checklists')
+        .insert(fallbackRows)
+        .select();
+
+      data = fallbackResult.data;
+      error = fallbackResult.error;
+    }
+
+    if (error) {
+      setChecklistSuggestionError(error.message || 'Failed to add checklist items.');
+      return;
+    }
+
+    if (data) {
+      setChecklists(prev => [...prev, ...(data as CardChecklist[])]);
+    }
+
+    setChecklistSuggestions([]);
+    setSelectedChecklistSuggestions(new Set());
+    setChecklistSuggestionError('');
   }
 
   // ─── Comments ───────────────────────────────────────────────
@@ -241,8 +384,8 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
           <textarea
             value={title}
             onChange={e => handleTitleChange(e.target.value)}
-            rows={2}
-            className={`w-full bg-transparent text-lg font-semibold text-white placeholder-white/20 border-none outline-none resize-none leading-snug ${
+            rows={5}
+            className={`w-full bg-transparent text-lg font-semibold text-white placeholder-white/20 border-none outline-none resize-none leading-relaxed py-3 ${
               isComplete ? 'line-through text-gray-400' : ''
             }`}
             placeholder="Card title"
@@ -294,7 +437,75 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
               <p className="text-[10px] text-gray-500 uppercase tracking-wide">
                 Checklist{checklists.length > 0 ? ` · ${completedCount}/${checklists.length}` : ''}
               </p>
+              <button
+                onClick={handleSuggestCardChecklistItems}
+                disabled={isSuggestingChecklist}
+                className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-violet-400 transition-colors hover:bg-violet-500/10 hover:text-violet-300 disabled:cursor-not-allowed disabled:opacity-50"
+                title="Suggest card checklist items from this note"
+              >
+                {isSuggestingChecklist ? (
+                  <span className="h-3 w-3 rounded-full border border-violet-400 border-t-transparent animate-spin" />
+                ) : (
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                  </svg>
+                )}
+                Suggest
+              </button>
             </div>
+
+            {checklistSuggestionError && (
+              <div className="mb-3 rounded-md border border-amber-500/20 bg-amber-500/10 px-2.5 py-2 text-[11px] text-amber-200">
+                {checklistSuggestionError}
+              </div>
+            )}
+
+            {checklistSuggestions.length > 0 && (
+              <div className="mb-3 rounded-lg border border-violet-400/20 bg-violet-500/10 p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-violet-300">Suggested Card Items</p>
+                  <button
+                    onClick={() => {
+                      setChecklistSuggestions([]);
+                      setSelectedChecklistSuggestions(new Set());
+                    }}
+                    className="text-violet-400 hover:text-violet-200"
+                    title="Dismiss suggestions"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="space-y-1.5">
+                  {checklistSuggestions.map((suggestion, index) => (
+                    <label key={`${suggestion.sourceLine}-${index}`} className="flex cursor-pointer items-start gap-2 rounded-md px-1 py-1 hover:bg-white/[0.05]">
+                      <input
+                        type="checkbox"
+                        checked={selectedChecklistSuggestions.has(index)}
+                        onChange={() => toggleCardChecklistSuggestion(index)}
+                        className="mt-1 h-3 w-3 rounded border-white/20 bg-transparent accent-violet-500"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[11px] leading-4 text-gray-200">{suggestion.text}</span>
+                        <span className="block text-[9px] leading-3 text-gray-500">
+                          {suggestion.kind === 'open_item' ? 'Open item' : 'Next step'} · line {suggestion.sourceLine}: &quot;{suggestion.sourceQuote}&quot;
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+
+                <button
+                  onClick={addSelectedCardChecklistSuggestions}
+                  disabled={selectedChecklistSuggestions.size === 0}
+                  className="mt-3 inline-flex w-full items-center justify-center rounded-md bg-violet-600 px-2.5 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Add selected to card
+                </button>
+              </div>
+            )}
 
             {/* Progress bar */}
             {checklists.length > 0 && (
@@ -337,12 +548,19 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
                         className="flex-1 text-sm bg-white/[0.06] border border-indigo-400/60 rounded px-2 py-0.5 text-white focus:outline-none"
                       />
                     ) : (
-                      <span
+                      <div
                         onDoubleClick={() => { setEditingChecklistId(item.id); setEditingChecklistTitle(item.title); }}
-                        className={`flex-1 text-sm cursor-default select-none ${item.is_completed ? 'line-through text-gray-500' : 'text-gray-300'}`}
+                        className="flex-1 min-w-0 cursor-default select-none"
                       >
-                        {item.title}
-                      </span>
+                        <p className={`text-sm leading-5 ${item.is_completed ? 'line-through text-gray-500 decoration-emerald-400/60 decoration-2' : 'text-gray-300'}`}>
+                          {item.title}
+                        </p>
+                        {item.description && (
+                          <p className={`mt-0.5 text-[11px] leading-4 ${item.is_completed ? 'text-gray-600' : 'text-gray-500'}`}>
+                            {item.description}
+                          </p>
+                        )}
+                      </div>
                     )}
 
                     <button

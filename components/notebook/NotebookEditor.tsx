@@ -114,10 +114,10 @@ export default function NotebookEditor() {
   if (!activePage) return null;
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-[#0f1117]">
+    <div className="flex-1 min-w-0 w-full flex flex-col overflow-hidden bg-[#0f1117]">
       {/* Sticky title bar — always visible above the scroll area */}
-      <div className="flex-shrink-0 px-4 sm:px-6 pt-5 sm:pt-8 pb-4 bg-[#0f1117]">
-        <div className="max-w-[680px] mx-auto">
+      <div className="flex-shrink-0 w-full min-w-0 px-4 sm:px-6 pt-5 sm:pt-8 pb-4 bg-[#0f1117]">
+        <div className="w-full min-w-0 max-w-[680px] mx-auto">
           <input
             ref={titleRef}
             type="text"
@@ -130,8 +130,8 @@ export default function NotebookEditor() {
       </div>
 
       {/* Scrollable editor area */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-[680px] mx-auto px-4 sm:px-6 pb-24 sm:pb-20">
+      <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
+        <div className="w-full min-w-0 max-w-[680px] mx-auto px-4 sm:px-6 pb-24 sm:pb-20">
           {/* Rich text body — toolbar sticks to top of scroll area */}
           <RichTextEditor
             value={localContent}

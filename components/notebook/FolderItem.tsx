@@ -10,7 +10,7 @@ import type { NotebookFolder, NotebookPage } from '../../lib/supabase';
 import PageListItem from './PageListItem';
 import FolderColorPicker from './FolderColorPicker';
 
-function SortablePageItem({ page }: { page: NotebookPage }) {
+function SortablePageItem({ page, onDelete }: { page: NotebookPage; onDelete?: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: page.id });
   return (
     <div
@@ -25,6 +25,7 @@ function SortablePageItem({ page }: { page: NotebookPage }) {
     >
       <PageListItem
         page={page}
+        onDelete={onDelete}
         dragListeners={listeners as unknown as Record<string, unknown>}
         dragAttributes={attributes as unknown as Record<string, unknown>}
       />
@@ -36,9 +37,10 @@ interface FolderItemProps {
   folder: NotebookFolder;
   depth?: number;
   onPageCreated?: (page: NotebookPage) => void;
+  onPageDeleted?: (pageId: string) => void;
 }
 
-export default function FolderItem({ folder, depth = 0, onPageCreated }: FolderItemProps) {
+export default function FolderItem({ folder, depth = 0, onPageCreated, onPageDeleted }: FolderItemProps) {
   const {
     activeFolderId, setActiveFolderId,
     updateFolder, deleteFolder, createFolder, createPage,
@@ -60,12 +62,11 @@ export default function FolderItem({ folder, depth = 0, onPageCreated }: FolderI
   // Droppable target for cross-folder drag
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: `folder:${folder.id}` });
 
-  // Sync when the active folder's pages change (new page created, deleted, etc.)
+  // Keep loaded folder pages synchronized with canonical pages state.
   useEffect(() => {
-    if (activeFolderId === folder.id && pages.length > 0) {
-      setPagesForFolder(folder.id, pages.filter(p => p.folder_id === folder.id));
-    }
-  }, [pages, activeFolderId, folder.id]);
+    if (!loaded) return;
+    setPagesForFolder(folder.id, pages.filter(p => p.folder_id === folder.id));
+  }, [loaded, pages, folder.id, setPagesForFolder]);
 
   // Auto-open when this folder becomes active
   useEffect(() => {
@@ -73,6 +74,21 @@ export default function FolderItem({ folder, depth = 0, onPageCreated }: FolderI
       handleOpen();
     }
   }, [activeFolderId]);
+
+  // If the folder starts open (or is opened externally), ensure pages are loaded.
+  useEffect(() => {
+    if (!open || loaded) return;
+    let mounted = true;
+    (async () => {
+      const folderPagesData = await fetchPagesForFolder(folder.id);
+      if (!mounted) return;
+      setPagesForFolder(folder.id, folderPagesData);
+      setLoaded(true);
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [open, loaded, folder.id, fetchPagesForFolder, setPagesForFolder]);
 
   async function handleOpen() {
     setOpen(true);
@@ -118,6 +134,14 @@ export default function FolderItem({ folder, depth = 0, onPageCreated }: FolderI
       setOpen(true);
       onPageCreated?.(page);
     }
+  }
+
+  function handlePageDeleted(pageId: string) {
+    setPagesForFolder(
+      folder.id,
+      getPagesForFolder(folder.id).filter(page => page.id !== pageId),
+    );
+    onPageDeleted?.(pageId);
   }
 
   useEffect(() => {
@@ -283,13 +307,19 @@ export default function FolderItem({ folder, depth = 0, onPageCreated }: FolderI
         <div className="pl-5">
           <SortableContext items={folderPages.map(p => p.id)} strategy={verticalListSortingStrategy}>
             {folderPages.map(page => (
-              <SortablePageItem key={page.id} page={page} />
+              <SortablePageItem key={page.id} page={page} onDelete={() => handlePageDeleted(page.id)} />
             ))}
           </SortableContext>
 
           {/* Sub-folders (max 1 level) */}
           {depth === 0 && folder.children?.map(child => (
-            <FolderItem key={child.id} folder={child} depth={1} onPageCreated={onPageCreated} />
+            <FolderItem
+              key={child.id}
+              folder={child}
+              depth={1}
+              onPageCreated={onPageCreated}
+              onPageDeleted={onPageDeleted}
+            />
           ))}
 
           {folderPages.length === 0 && !folder.children?.length && (

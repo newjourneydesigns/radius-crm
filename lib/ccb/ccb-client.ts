@@ -8,6 +8,7 @@ import axios, { AxiosRequestConfig } from "axios";
 import { XMLParser } from "fast-xml-parser";
 import type { CCBGroup } from "../ccb-types";
 import { DateTime, Interval } from "luxon";
+import { recordCCBApiTelemetry, recordCCBDailyStatus, type CCBApiRequestContext } from "./ccb-api-gateway";
 
 const IS_DEV = process.env.NODE_ENV === 'development';
 
@@ -75,13 +76,15 @@ export class CCBClient {
   private readonly baseUrl: string;
   private readonly parser: XMLParser;
   private readonly config: CCBConfig;
+  private readonly telemetryContext?: CCBApiRequestContext;
 
   // In-memory cache for group_profiles (avoids repeated full-list fetches)
   private groupsCache: { data: CCBGroup[]; expiresAt: number } | null = null;
   private static readonly GROUPS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-  constructor(config: CCBConfig) {
+  constructor(config: CCBConfig, telemetryContext?: CCBApiRequestContext) {
     this.config = config;
+    this.telemetryContext = telemetryContext;
     this.baseUrl = (() => {
       const toApiUrl = (value: string) => {
         const trimmed = value.trim();
@@ -129,7 +132,7 @@ export class CCBClient {
 
   // ---- HTTP helpers ----
 
-  private async getXml<T = any>(params: Record<string, string | number | boolean>, maxRetries = 3): Promise<T> {
+  async getXml<T = any>(params: Record<string, string | number | boolean>, maxRetries = 3): Promise<T> {
     if (IS_DEV) {
       console.log(`🔍 CCB API Call: ${JSON.stringify(params)}`);
     }
@@ -148,17 +151,56 @@ export class CCBClient {
 
     let attempt = 0;
     while (true) {
+      const startedAt = Date.now();
+      const service = String(params.srv || 'unknown');
       try {
         const res = await axios(cfg);
+        const durationMs = Date.now() - startedAt;
         if (IS_DEV) {
           console.log(`🔍 CCB API Response: Status ${res.status}, Content-Length: ${res.data?.length || 'unknown'}`);
         }
         
-        if (res.status === 429) throw new Error("Rate limited (429)");
+        if (res.status === 429) {
+          await recordCCBApiTelemetry({
+            context: this.telemetryContext,
+            service,
+            method: 'GET',
+            statusCode: res.status,
+            success: false,
+            durationMs,
+            response: res,
+            errorMessage: 'Rate limited (429)',
+          });
+          const error: any = new Error("Rate limited (429)");
+          error.telemetryRecorded = true;
+          throw error;
+        }
         if (res.status >= 400) {
-          throw new Error(`HTTP ${res.status}: ${typeof res.data === 'string' ? res.data.slice(0,200) : 'error'}`);
+          const errorMessage = `HTTP ${res.status}: ${typeof res.data === 'string' ? res.data.slice(0,200) : 'error'}`;
+          await recordCCBApiTelemetry({
+            context: this.telemetryContext,
+            service,
+            method: 'GET',
+            statusCode: res.status,
+            success: false,
+            durationMs,
+            response: res,
+            errorMessage,
+          });
+          const error: any = new Error(errorMessage);
+          error.telemetryRecorded = true;
+          throw error;
         }
         const data = typeof res.data === "string" ? this.parser.parse(res.data) : res.data;
+        await recordCCBApiTelemetry({
+          context: this.telemetryContext,
+          service,
+          method: 'GET',
+          statusCode: res.status,
+          success: true,
+          durationMs,
+          response: res,
+        });
         
         // Log a sample of the parsed response for debugging
         if (params.srv === 'public_calendar_listing' || params.srv === 'event_occurrences') {
@@ -169,6 +211,17 @@ export class CCBClient {
         
         return data as T;
       } catch (e: any) {
+        if (!e.response && !e.telemetryRecorded) {
+          await recordCCBApiTelemetry({
+            context: this.telemetryContext,
+            service,
+            method: 'GET',
+            statusCode: undefined,
+            success: false,
+            durationMs: Date.now() - startedAt,
+            errorMessage: e.message || 'CCB request failed',
+          });
+        }
         attempt++;
         console.error(`🔍 CCB API Error (attempt ${attempt}):`, e.message);
         
@@ -788,7 +841,17 @@ export class CCBClient {
       ? eventsRoot.event
       : eventsRoot?.event ? [eventsRoot.event] : [];
 
-    const results = [];
+    const results: Array<{
+      eventId: string;
+      title: string;
+      occurDate: string;
+      notes: string | null;
+      prayerRequests: string | null;
+      topic: string | null;
+      headCount: number | null;
+      didNotMeet: boolean;
+      attendees: Array<{ id?: string; name?: string; status?: string }>;
+    }> = [];
     for (const event of rawEvents) {
       const attendance = this.normalizeAttendance(
         { ccb_api: { response: { attendance: event } } },
@@ -1864,11 +1927,34 @@ export class CCBClient {
       statusId: String(ind?.status?.['@_id'] ?? ''),
     }));
   }
+
+  async getApiStatus(): Promise<{
+    dailyLimit: number | null;
+    counter: number | null;
+    lastRunDate: string | null;
+  }> {
+    const xml = await this.getXml({ srv: 'api_status' });
+    const response = xml?.ccb_api?.response ?? {};
+    const status = response?.api_status ?? response?.status ?? response;
+
+    const dailyLimit = Number(status?.daily_limit ?? status?.dailyLimit ?? NaN);
+    const counter = Number(status?.counter ?? NaN);
+    const lastRunDate = String(status?.last_run_date ?? status?.lastRunDate ?? '').slice(0, 10) || null;
+
+    const normalized = {
+      dailyLimit: Number.isFinite(dailyLimit) ? dailyLimit : null,
+      counter: Number.isFinite(counter) ? counter : null,
+      lastRunDate,
+    };
+
+    await recordCCBDailyStatus(normalized);
+    return normalized;
+  }
 }
 
 // ---- Factory function ----
 
-export function createCCBClient(): CCBClient {
+export function createCCBClient(context?: CCBApiRequestContext): CCBClient {
   const subdomain = process.env.CCB_SUBDOMAIN;
   const baseUrl = process.env.CCB_BASE_URL;
   const username = process.env.CCB_API_USERNAME;
@@ -1878,5 +1964,5 @@ export function createCCBClient(): CCBClient {
     throw new Error("Missing CCB env vars. Please set CCB_SUBDOMAIN (or CCB_BASE_URL), CCB_API_USERNAME, CCB_API_PASSWORD");
   }
 
-  return new CCBClient({ subdomain: subdomain || '', baseUrl, username, password });
+  return new CCBClient({ subdomain: subdomain || '', baseUrl, username, password }, context);
 }

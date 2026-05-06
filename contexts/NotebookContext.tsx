@@ -28,7 +28,7 @@ interface NotebookContextType {
   fetchAllPinnedPages: () => Promise<NotebookPage[]>;
   fetchPage: (pageId: string) => Promise<NotebookPage | null>;
   createPage: (folderId: string) => Promise<NotebookPage | null>;
-  updatePage: (id: string, updates: Partial<Pick<NotebookPage, 'title' | 'content' | 'is_pinned' | 'folder_id'>>) => Promise<void>;
+  updatePage: (id: string, updates: Partial<Pick<NotebookPage, 'title' | 'content' | 'checklists' | 'is_pinned' | 'folder_id'>>) => Promise<void>;
   scheduleSave: (id: string, updates: Partial<Pick<NotebookPage, 'title' | 'content'>>) => void;
   deletePage: (id: string) => Promise<void>;
   searchPages: (query: string) => Promise<NotebookPage[]>;

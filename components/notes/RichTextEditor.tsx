@@ -325,7 +325,7 @@ export default function RichTextEditor({
       {/* Editor area */}
       <div
         style={{ minHeight }}
-        className="px-3 py-2 text-sm text-gray-900 dark:text-white cursor-text rte-editor"
+        className="min-w-0 max-w-full overflow-x-hidden px-3 py-2 text-sm text-gray-900 dark:text-white cursor-text rte-editor"
         onClick={() => editor.commands.focus()}
       >
         <EditorContent editor={editor} />

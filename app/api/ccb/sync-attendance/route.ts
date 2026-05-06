@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createCCBClient, type LinkRow } from '../../../../lib/ccb/ccb-client';
+import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 
 export const dynamic = 'force-dynamic';
 
@@ -244,7 +245,11 @@ export async function POST(request: NextRequest) {
   // ── Fetch attendance: single bulk API call ────────────────────────
   let ccbClient: ReturnType<typeof createCCBClient>;
   try {
-    ccbClient = createCCBClient();
+    ccbClient = createCCBClient(await getCCBRequestContext(request, {
+      module: 'Admin',
+      action: 'Sync Attendance',
+      direction: 'pull',
+    }));
   } catch (err: any) {
     return NextResponse.json(
       { error: 'CCB client initialization failed', details: err.message },

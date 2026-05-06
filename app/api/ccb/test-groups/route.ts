@@ -12,7 +12,11 @@ export async function GET() {
     console.log('🔍 Testing CCB groups API...');
     
     // Create CCB client
-    const ccbClient = createCCBClient();
+    const ccbClient = createCCBClient({
+      module: 'CCB Diagnostics',
+      action: 'Test Groups',
+      direction: 'pull',
+    });
 
     // Test connection first
     const connected = await ccbClient.testConnection();

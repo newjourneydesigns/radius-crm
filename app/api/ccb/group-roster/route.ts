@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
+import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,7 +14,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const client = createCCBClient();
+    const client = createCCBClient(await getCCBRequestContext(request, {
+      module: 'Profile Page',
+      action: 'Fetch Groups',
+      direction: 'pull',
+    }));
     const participants = await client.getGroupParticipants(String(groupId));
 
     // Enrich members missing phone data with individual profile lookups

@@ -58,6 +58,16 @@ export default function NotebookSidebar({ onClose }: NotebookSidebarProps) {
     fetchAllPinnedPages().then(setPinnedPages);
   }, []);
 
+  function handlePageDeleted(pageId: string) {
+    setPinnedPages(prev => prev.filter(page => page.id !== pageId));
+    const folderId = findFolderForPage(pageId);
+    if (!folderId) return;
+    setPagesForFolder(
+      folderId,
+      getPagesForFolder(folderId).filter(page => page.id !== pageId),
+    );
+  }
+
   function handleDragStart(event: DragStartEvent) {
     setActiveDragId(String(event.active.id));
   }
@@ -220,7 +230,7 @@ export default function NotebookSidebar({ onClose }: NotebookSidebarProps) {
           <div className="mb-1">
             <p className="text-[10px] text-gray-600 uppercase tracking-wider px-3 mb-0.5">Pinned</p>
             {pinnedPages.map(page => (
-              <PageListItem key={page.id} page={page} />
+              <PageListItem key={page.id} page={page} onDelete={() => handlePageDeleted(page.id)} />
             ))}
           </div>
         )}
@@ -235,7 +245,12 @@ export default function NotebookSidebar({ onClose }: NotebookSidebarProps) {
         >
           <div>
             {folders.map(folder => (
-              <FolderItem key={folder.id} folder={folder} onPageCreated={handlePageCreated} />
+              <FolderItem
+                key={folder.id}
+                folder={folder}
+                onPageCreated={handlePageCreated}
+                onPageDeleted={handlePageDeleted}
+              />
             ))}
           </div>
 

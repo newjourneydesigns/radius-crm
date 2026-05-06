@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS card_checklists (
   id            uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   card_id       uuid NOT NULL REFERENCES board_cards(id) ON DELETE CASCADE,
   title         text NOT NULL,
+  description   text,
   is_completed  boolean DEFAULT false,
   position      integer NOT NULL DEFAULT 0,
   created_at    timestamptz DEFAULT now()

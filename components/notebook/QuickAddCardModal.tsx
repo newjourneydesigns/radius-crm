@@ -6,12 +6,21 @@ import type { ProjectBoard, BoardColumn } from '../../lib/supabase';
 
 interface QuickAddCardModalProps {
   pageId: string;
+  pageTitle?: string;
   onCreated: (cardId: string) => void;
   onClose: () => void;
 }
 
-export default function QuickAddCardModal({ pageId, onCreated, onClose }: QuickAddCardModalProps) {
-  const [title, setTitle] = useState('');
+function buildNotebookDescription(pageId: string, pageTitle?: string): string {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const noteUrl = `${origin}/notebook/${pageId}`;
+  const title = pageTitle?.trim() || 'Untitled note';
+
+  return `Created from notebook note: ${title}\n${noteUrl}`;
+}
+
+export default function QuickAddCardModal({ pageId, pageTitle, onCreated, onClose }: QuickAddCardModalProps) {
+  const [title, setTitle] = useState(pageTitle?.trim() || '');
   const [boards, setBoards] = useState<ProjectBoard[]>([]);
   const [columns, setColumns] = useState<BoardColumn[]>([]);
   const [boardId, setBoardId] = useState('');
@@ -78,6 +87,7 @@ export default function QuickAddCardModal({ pageId, onCreated, onClose }: QuickA
         .from('board_cards')
         .insert({
           title: title.trim(),
+          description: buildNotebookDescription(pageId, pageTitle),
           board_id: boardId,
           column_id: columnId,
           priority,
@@ -96,14 +106,12 @@ export default function QuickAddCardModal({ pageId, onCreated, onClose }: QuickA
       if (linkErr) throw linkErr;
 
       onCreated(newCard.id);
-    } catch (err: any) {
-      setError(err.message || 'Failed to create card.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to create card.');
     } finally {
       setSaving(false);
     }
   }
-
-  const selectedBoard = boards.find(b => b.id === boardId);
 
   return (
     <>

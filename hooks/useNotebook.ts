@@ -325,7 +325,7 @@ export function useNotebook() {
   // Immediate update (for pin toggle etc.)
   const updatePage = useCallback(async (
     pageId: string,
-    updates: Partial<Pick<NotebookPage, 'title' | 'content' | 'is_pinned' | 'folder_id'>>,
+    updates: Partial<Pick<NotebookPage, 'title' | 'content' | 'checklists' | 'is_pinned' | 'folder_id'>>,
   ) => {
     setError(null);
     try {

@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { usePathname } from "next/navigation";
+import { DateTime } from "luxon";
 import { useAuth } from "../../contexts/AuthContext";
 import GlobalSearch from './GlobalSearch';
 
@@ -153,6 +154,7 @@ const toolsNavItems = [
 
 const adminToolsNavItems = [
   { href: '/ccb-explorer',   label: 'CCB Explorer',    Icon: CompassIcon },
+  { href: '/ccb-usage',      label: 'CCB Usage',       Icon: ChartIcon },
   { href: '/bulk-message',   label: 'Bulk Message',    Icon: MessageBulkIcon },
   { href: '/add-leader',     label: 'Add Leader',      Icon: UserPlusIcon },
   { href: '/import-circles', label: 'Import Circles',  Icon: ImportCirclesIcon },
@@ -163,6 +165,7 @@ export default function AuthenticatedNavigation() {
   const { user, signOut, isAuthenticated, isAdmin } = useAuth();
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [showUpdateLogBadge, setShowUpdateLogBadge] = useState(false);
   const toolsMenuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
@@ -185,6 +188,34 @@ export default function AuthenticatedNavigation() {
 
   // Close menus on route change
   useEffect(() => { closeAll(); }, [pathname, closeAll]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const checkForTodayUpdate = async () => {
+      try {
+        const response = await fetch('/changelog.json', { cache: 'no-store' });
+        if (!response.ok) {
+          if (mounted) setShowUpdateLogBadge(false);
+          return;
+        }
+
+        const entries = await response.json() as Array<{ date?: string }>;
+        const today = DateTime.local().toISODate();
+        const hasTodayEntry = Boolean(today) && entries.some((entry) => entry.date === today);
+
+        if (mounted) setShowUpdateLogBadge(hasTodayEntry);
+      } catch {
+        if (mounted) setShowUpdateLogBadge(false);
+      }
+    };
+
+    checkForTodayUpdate();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   if (!isAuthenticated()) return null;
 
@@ -325,7 +356,15 @@ export default function AuthenticatedNavigation() {
                       <QuestionIcon /> Help
                     </Link>
                     <Link href="/update-log" onClick={closeAll} className={dropdownLinkClass('/update-log')}>
-                      <UpdateLogIcon /> Update Log
+                      <UpdateLogIcon />
+                      <span className="flex items-center gap-2">
+                        Update Log
+                        {showUpdateLogBadge && (
+                          <span className="inline-flex items-center rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300 ring-1 ring-emerald-400/30">
+                            New
+                          </span>
+                        )}
+                      </span>
                     </Link>
                   </div>
 
