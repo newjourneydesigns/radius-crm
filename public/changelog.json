@@ -1,5 +1,17 @@
 [
   {
+    "date": "2026-05-07",
+    "type": "improvement",
+    "description": "AI Summarize now inserts properly formatted content — headers, bullet lists, and line breaks are preserved as rich text instead of collapsing into a wall of plain text.",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-05-07",
+    "type": "improvement",
+    "description": "Board cards now have AI checklist suggestions — tap \"Suggest\" in the Checklists section to get AI-generated next steps and open items pulled from the card's description.",
+    "page": "/boards"
+  },
+  {
     "date": "2026-05-06",
     "type": "improvement",
     "description": "Board card descriptions now support voice dictation and AI summarize — tap the mic to speak your notes directly into the description field, or use AI Summarize to clean them up.",

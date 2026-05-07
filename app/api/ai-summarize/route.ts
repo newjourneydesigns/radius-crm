@@ -50,7 +50,8 @@ Open Items
 
 Rules:
 - Use plain text with bullet points (•), no markdown headers or bold
-- If a meeting type/category is obvious from the content, mention it naturally in the summary (e.g., "This one-on-one meeting covered..." or "During this leadership planning session...") — but don't force a category
+- Do not start the summary paragraph with "This meeting note", "This is a summary", "This note", or any variant — start with the actual substance directly
+- If a meeting type/category is obvious from the content, weave it into the summary naturally — but don't force a category
 - Be warm but professional — this is for church ministry context
 - Preserve any specific names, dates, numbers, or commitments mentioned
 - Automatically find next steps from explicit commitments, requests, decisions, problems to solve, follow-up language, "we should/we need to" statements, and implied pastoral care or leadership actions

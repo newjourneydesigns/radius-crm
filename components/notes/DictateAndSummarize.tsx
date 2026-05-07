@@ -9,6 +9,76 @@ interface DictateAndSummarizeProps {
   disabled?: boolean;
 }
 
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Converts the AI's plain-text summary format (headers + • bullets) into HTML for RichTextEditor.
+function plainTextToHtml(text: string): string {
+  const lines = text.split('\n');
+  const out: string[] = [];
+  let i = 0;
+  let listItems: string[] = [];
+
+  const flushList = () => {
+    if (listItems.length > 0) {
+      out.push('<ul>' + listItems.map(t => `<li>${t}</li>`).join('') + '</ul>');
+      listItems = [];
+    }
+  };
+
+  while (i < lines.length) {
+    const raw = lines[i];
+    const line = raw.trimEnd();
+    const trimmed = line.trim();
+
+    if (trimmed === '' || trimmed === '---') {
+      flushList();
+      i++;
+      continue;
+    }
+
+    if (trimmed.startsWith('• ') || trimmed.startsWith('- ')) {
+      flushList();
+      listItems.push(escapeHtml(trimmed.slice(2)));
+      i++;
+      continue;
+    }
+
+    flushList();
+
+    // Peek ahead to determine if this is a section header.
+    // A line is a header if the next non-empty line is a bullet (or it's the only line in a block).
+    let j = i + 1;
+    while (j < lines.length && lines[j].trim() === '') j++;
+    const nextNonEmpty = j < lines.length ? lines[j].trim() : '';
+    const nextIsBullet = nextNonEmpty.startsWith('• ') || nextNonEmpty.startsWith('- ');
+    const nextIsEmpty = nextNonEmpty === '';
+
+    if (nextIsBullet || nextIsEmpty) {
+      out.push(`<h3>${escapeHtml(trimmed)}</h3>`);
+      i++;
+    } else {
+      // Paragraph — collect contiguous non-bullet lines
+      const paraLines: string[] = [escapeHtml(trimmed)];
+      i++;
+      while (
+        i < lines.length &&
+        lines[i].trim() !== '' &&
+        !lines[i].trim().startsWith('• ') &&
+        !lines[i].trim().startsWith('- ')
+      ) {
+        paraLines.push(escapeHtml(lines[i].trimEnd()));
+        i++;
+      }
+      out.push(`<p>${paraLines.join('<br>')}</p>`);
+    }
+  }
+
+  flushList();
+  return out.join('');
+}
+
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -96,13 +166,16 @@ export default function DictateAndSummarize({ text, onTextChange, disabled }: Di
   }, [text, isSummarizing, isListening, stopListening, onTextChange]);
 
   const handleUseSummary = useCallback(() => {
-    onTextChange(pendingSummary);
+    onTextChange(plainTextToHtml(pendingSummary));
     setPendingSummary('');
     setRawTextBeforeSummary('');
   }, [pendingSummary, onTextChange]);
 
   const handleKeepBoth = useCallback(() => {
-    const merged = rawTextBeforeSummary + '\n\n---\n' + pendingSummary + '\n---';
+    const summaryHtml = plainTextToHtml(pendingSummary);
+    const merged = rawTextBeforeSummary
+      ? rawTextBeforeSummary + '<hr>' + summaryHtml
+      : summaryHtml;
     onTextChange(merged);
     setPendingSummary('');
     setRawTextBeforeSummary('');

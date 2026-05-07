@@ -257,6 +257,10 @@ function CardDetailModal({
   const [linkedLeaderId, setLinkedLeaderId] = useState<number | null>(card.linked_leader_id ?? null);
   const [isFocused, setIsFocused] = useState(card.is_focused ?? false);
   const [allLeaders, setAllLeaders] = useState<{ id: number; name: string }[]>([]);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [suggestionError, setSuggestionError] = useState('');
+  const [suggestions, setSuggestions] = useState<{ text: string; kind: string; sourceLine: number; sourceQuote: string }[]>([]);
+  const [selectedSuggestions, setSelectedSuggestions] = useState<Set<number>>(new Set());
   const titleRef = useRef<HTMLInputElement>(null);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialRef = useRef(true);
@@ -363,6 +367,60 @@ function CardDetailModal({
   const ungroupedItems = checklists.filter(cl => !cl.group_id);
   const completedCount = checklists.filter(c => c.is_completed).length;
   const descriptionContacts = useMemo(() => extractTextContacts(editDesc), [editDesc]);
+
+  const htmlToPlainText = (html: string) =>
+    html
+      .replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n').replace(/<\/li>/gi, '\n')
+      .replace(/<\/h[1-6]>/gi, '\n').replace(/<li[^>]*>/gi, '• ').replace(/<[^>]+>/g, '')
+      .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"')
+      .replace(/\n{3,}/g, '\n\n').trim();
+
+  const suggestChecklistItems = async () => {
+    if (isSuggesting) return;
+    const descText = htmlToPlainText(editDesc);
+    const sourceText = [card.title, descText].filter(Boolean).join('\n\n');
+    if (!sourceText.trim()) {
+      setSuggestionError('Add a description before asking for checklist suggestions.');
+      return;
+    }
+    setIsSuggesting(true);
+    setSuggestionError('');
+    setSuggestions([]);
+    setSelectedSuggestions(new Set());
+    try {
+      const res = await fetch('/api/notebook/checklist-suggestions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: sourceText }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setSuggestionError(data.error || 'Failed to get suggestions.'); return; }
+      const next = Array.isArray(data.suggestions) ? data.suggestions : [];
+      setSuggestions(next);
+      setSelectedSuggestions(new Set(next.map((_: unknown, i: number) => i)));
+      if (next.length === 0) setSuggestionError('No clear next steps or outstanding items were found.');
+    } catch {
+      setSuggestionError('Network error. Please try again.');
+    } finally {
+      setIsSuggesting(false);
+    }
+  };
+
+  const addSelectedSuggestions = async () => {
+    if (suggestions.length === 0 || selectedSuggestions.size === 0) return;
+    const selected = suggestions.filter((_, i) => selectedSuggestions.has(i));
+    const existingTitles = new Set(checklists.map(cl => cl.title.trim().toLowerCase()));
+    const unique = selected.filter(s => !existingTitles.has(s.text.trim().toLowerCase()));
+    if (unique.length === 0) { setSuggestionError('Those items are already in your checklists.'); return; }
+    const group = await onAddChecklistGroup('AI Suggestions');
+    const groupId = group?.id;
+    for (const s of unique) {
+      await onAddChecklistItem(s.text, groupId);
+    }
+    setSuggestions([]);
+    setSelectedSuggestions(new Set());
+    setSuggestionError('');
+  };
 
   const renderContactActions = (contacts: TextContact[], variant: 'compact' | 'comment' = 'compact') => {
     if (contacts.length === 0) return null;
@@ -652,6 +710,22 @@ function CardDetailModal({
                 <CheckSquare size={13} />
                 Checklists {checklists.length > 0 && `(${completedCount}/${checklists.length})`}
                 <button
+                  onClick={suggestChecklistItems}
+                  disabled={isSuggesting}
+                  title="Suggest checklist items from description"
+                  className="kb-btn-icon-sm"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 6px', fontSize: 11, color: 'var(--kb-violet, #a78bfa)', opacity: isSuggesting ? 0.5 : 1 }}
+                >
+                  {isSuggesting ? (
+                    <span style={{ width: 10, height: 10, border: '1.5px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
+                  ) : (
+                    <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                    </svg>
+                  )}
+                  Suggest
+                </button>
+                <button
                   className="kb-btn-icon-sm"
                   title="Add checklist"
                   onClick={async () => {
@@ -662,6 +736,60 @@ function CardDetailModal({
                   <Plus size={12} />
                 </button>
               </div>
+
+              {/* Suggestion error */}
+              {suggestionError && (
+                <div style={{ marginBottom: 8, padding: '6px 10px', borderRadius: 6, background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', fontSize: 11, color: '#fbbf24' }}>
+                  {suggestionError}
+                </div>
+              )}
+
+              {/* AI Suggestions panel */}
+              {suggestions.length > 0 && (
+                <div style={{ marginBottom: 10, borderRadius: 8, border: '1px solid rgba(139,92,246,0.25)', background: 'rgba(139,92,246,0.07)', padding: '10px 12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#a78bfa' }}>Suggested Items</span>
+                    <button
+                      onClick={() => { setSuggestions([]); setSelectedSuggestions(new Set()); setSuggestionError(''); }}
+                      style={{ color: '#a78bfa', background: 'none', border: 'none', cursor: 'pointer', padding: 2, lineHeight: 1 }}
+                      title="Dismiss suggestions"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {suggestions.map((s, i) => (
+                      <label key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', padding: '3px 4px', borderRadius: 4 }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedSuggestions.has(i)}
+                          onChange={() => {
+                            setSelectedSuggestions(prev => {
+                              const next = new Set(prev);
+                              next.has(i) ? next.delete(i) : next.add(i);
+                              return next;
+                            });
+                          }}
+                          style={{ marginTop: 2, accentColor: '#8b5cf6', flexShrink: 0 }}
+                        />
+                        <span style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ display: 'block', fontSize: 12, color: 'var(--kb-text, #e2e8f0)', lineHeight: 1.4 }}>{s.text}</span>
+                          <span style={{ display: 'block', fontSize: 10, color: 'var(--kb-muted, #64748b)', lineHeight: 1.3 }}>
+                            {s.kind === 'open_item' ? 'Open item' : 'Next step'} · "{s.sourceQuote}"
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <button
+                    onClick={addSelectedSuggestions}
+                    disabled={selectedSuggestions.size === 0}
+                    style={{ marginTop: 10, width: '100%', padding: '6px 12px', borderRadius: 6, background: '#7c3aed', color: '#fff', border: 'none', fontSize: 12, fontWeight: 600, cursor: selectedSuggestions.size === 0 ? 'not-allowed' : 'pointer', opacity: selectedSuggestions.size === 0 ? 0.5 : 1 }}
+                  >
+                    Add {selectedSuggestions.size} selected
+                  </button>
+                </div>
+              )}
 
               {/* Overall progress bar */}
               {checklists.length > 0 && (
