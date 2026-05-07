@@ -1276,6 +1276,15 @@ a, button, input, select, textarea {
   overflow-wrap: anywhere;
   word-break: break-word;
 }
+
+@media (max-width: 767px) {
+  .rte-editor .ProseMirror[contenteditable="true"] {
+    font-size: 16px !important;
+    line-height: 1.25;
+    -webkit-text-size-adjust: 100%;
+  }
+}
+
 .rte-editor .ProseMirror * {
   max-width: 100%;
 }
@@ -1318,4 +1327,3 @@ a, button, input, select, textarea {
 .rte-display li { margin-bottom: 0.1em; display: list-item; }
 .rte-display a, .rte-display a.rte-link { color: #60a5fa !important; text-decoration: underline; }
 .rte-display a:hover, .rte-display a.rte-link:hover { color: #93c5fd !important; }
-

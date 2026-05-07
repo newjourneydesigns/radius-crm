@@ -261,6 +261,7 @@ function CardDetailModal({
   const [suggestionError, setSuggestionError] = useState('');
   const [suggestions, setSuggestions] = useState<{ text: string; kind: string; sourceLine: number; sourceQuote: string }[]>([]);
   const [selectedSuggestions, setSelectedSuggestions] = useState<Set<number>>(new Set());
+  const [targetSuggestionGroupId, setTargetSuggestionGroupId] = useState<string>('__new__');
   const titleRef = useRef<HTMLInputElement>(null);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialRef = useRef(true);
@@ -398,6 +399,7 @@ function CardDetailModal({
       const next = Array.isArray(data.suggestions) ? data.suggestions : [];
       setSuggestions(next);
       setSelectedSuggestions(new Set(next.map((_: unknown, i: number) => i)));
+      setTargetSuggestionGroupId(checklistGroups[0]?.id ?? '__new__');
       if (next.length === 0) setSuggestionError('No clear next steps or outstanding items were found.');
     } catch {
       setSuggestionError('Network error. Please try again.');
@@ -412,8 +414,13 @@ function CardDetailModal({
     const existingTitles = new Set(checklists.map(cl => cl.title.trim().toLowerCase()));
     const unique = selected.filter(s => !existingTitles.has(s.text.trim().toLowerCase()));
     if (unique.length === 0) { setSuggestionError('Those items are already in your checklists.'); return; }
-    const group = await onAddChecklistGroup('AI Suggestions');
-    const groupId = group?.id;
+    let groupId: string | undefined;
+    if (targetSuggestionGroupId === '__new__') {
+      const group = await onAddChecklistGroup('Checklist');
+      groupId = group?.id;
+    } else {
+      groupId = targetSuggestionGroupId;
+    }
     for (const s of unique) {
       await onAddChecklistItem(s.text, groupId);
     }
@@ -781,10 +788,20 @@ function CardDetailModal({
                       </label>
                     ))}
                   </div>
+                  <select
+                    value={targetSuggestionGroupId}
+                    onChange={e => setTargetSuggestionGroupId(e.target.value)}
+                    style={{ marginTop: 10, width: '100%', padding: '5px 8px', borderRadius: 6, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(139,92,246,0.3)', color: '#c4b5fd', fontSize: 11, outline: 'none' }}
+                  >
+                    {checklistGroups.map(g => (
+                      <option key={g.id} value={g.id}>{g.title || 'Untitled checklist'}</option>
+                    ))}
+                    <option value="__new__">New checklist</option>
+                  </select>
                   <button
                     onClick={addSelectedSuggestions}
                     disabled={selectedSuggestions.size === 0}
-                    style={{ marginTop: 10, width: '100%', padding: '6px 12px', borderRadius: 6, background: '#7c3aed', color: '#fff', border: 'none', fontSize: 12, fontWeight: 600, cursor: selectedSuggestions.size === 0 ? 'not-allowed' : 'pointer', opacity: selectedSuggestions.size === 0 ? 0.5 : 1 }}
+                    style={{ marginTop: 8, width: '100%', padding: '6px 12px', borderRadius: 6, background: '#7c3aed', color: '#fff', border: 'none', fontSize: 12, fontWeight: 600, cursor: selectedSuggestions.size === 0 ? 'not-allowed' : 'pointer', opacity: selectedSuggestions.size === 0 ? 0.5 : 1 }}
                   >
                     Add {selectedSuggestions.size} selected
                   </button>

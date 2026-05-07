@@ -26,8 +26,6 @@ Do NOT summarize away important details. The user needs to see everything they m
 
 ${depthInstruction}
 
-The source note is provided with line numbers. Use those line numbers to identify where action items came from.
-
 Format your response EXACTLY like this:
 
 Meeting Summary
@@ -39,9 +37,9 @@ Key Points
 (include this section only if the input has enough substance to warrant it — skip for very short inputs)
 
 Next Steps
-• [action item 1] (source: line [line number] — "[short exact phrase from the note]")
-• [action item 2] (source: line [line number] — "[short exact phrase from the note]")
-• [action item 3] (source: line [line number] — "[short exact phrase from the note]")
+• [action item 1]
+• [action item 2]
+• [action item 3]
 (include this section only if there are explicit or strongly implied follow-up actions)
 
 Open Items
@@ -55,7 +53,6 @@ Rules:
 - Be warm but professional — this is for church ministry context
 - Preserve any specific names, dates, numbers, or commitments mentioned
 - Automatically find next steps from explicit commitments, requests, decisions, problems to solve, follow-up language, "we should/we need to" statements, and implied pastoral care or leadership actions
-- Every next step must include a source reference with the line number and a short exact phrase from the note, so the user can find where it came from
 - Do not invent next steps that are not supported by the source note
 - If the note contains no supported next steps, omit the Next Steps section
 - If the input is very short or unclear, do your best and note what seems unclear`;

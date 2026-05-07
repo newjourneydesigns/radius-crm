@@ -2,6 +2,18 @@
   {
     "date": "2026-05-07",
     "type": "improvement",
+    "description": "Notebook folder icons now use a categorized Lucide icon picker instead of emoji, with selected icons shown directly in the sidebar for a cleaner, more consistent UI.",
+    "page": "/notebook"
+  },
+  {
+    "date": "2026-05-07",
+    "type": "improvement",
+    "description": "Checklist suggestions now let you choose whether to add items to an existing checklist or start a new one — no more duplicate checklists.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-05-07",
+    "type": "improvement",
     "description": "AI Summarize now inserts properly formatted content — headers, bullet lists, and line breaks are preserved as rich text instead of collapsing into a wall of plain text.",
     "page": "/circle"
   },
