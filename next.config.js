@@ -14,10 +14,6 @@ const nextConfig = {
   images: {
     unoptimized: true
   },
-  // Configure for Netlify deployment
-  experimental: {
-    esmExternals: 'loose'
-  },
   env: {
     // Exposed to the browser at build time
     NEXT_PUBLIC_APP_VERSION:
