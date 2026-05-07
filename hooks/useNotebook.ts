@@ -64,7 +64,7 @@ export function useNotebook() {
           .insert({
             user_id: user.id,
             title: 'Unfiled',
-            icon: '📥',
+            icon: 'Folder',
             color: '#6b7280',
             position: 9999,
             is_unfiled: true,
@@ -87,7 +87,7 @@ export function useNotebook() {
 
   const createFolder = useCallback(async (
     title: string,
-    icon = '📁',
+    icon = 'Folder',
     color = '#6366f1',
     parentId: string | null = null,
   ): Promise<NotebookFolder | null> => {

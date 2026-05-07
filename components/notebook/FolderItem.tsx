@@ -9,6 +9,7 @@ import { useSidebarPages } from '../../contexts/SidebarPagesContext';
 import type { NotebookFolder, NotebookPage } from '../../lib/supabase';
 import PageListItem from './PageListItem';
 import FolderColorPicker from './FolderColorPicker';
+import FolderIconPicker, { FolderIcon } from './FolderIconPicker';
 
 function SortablePageItem({ page, onDelete }: { page: NotebookPage; onDelete?: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: page.id });
@@ -55,6 +56,7 @@ export default function FolderItem({ folder, depth = 0, onPageCreated, onPageDel
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(folder.title);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const renameRef = useRef<HTMLInputElement>(null);
 
   const folderPages = getPagesForFolder(folder.id);
@@ -123,7 +125,7 @@ export default function FolderItem({ folder, depth = 0, onPageCreated, onPageDel
 
   async function handleAddSubfolder() {
     setMenuOpen(false);
-    await createFolder('New Folder', '📁', '#6366f1', folder.id);
+    await createFolder('New Folder', 'Folder', '#6366f1', folder.id);
   }
 
   async function handleNewPage() {
@@ -181,6 +183,7 @@ export default function FolderItem({ folder, depth = 0, onPageCreated, onPageDel
         {/* Icon + title */}
         <button onClick={handleToggle} className="flex items-center gap-1.5 flex-1 min-w-0 text-left">
           <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: folder.color }} />
+          <FolderIcon name={folder.icon} size={14} className="text-gray-400 flex-shrink-0" />
           {renaming ? (
             <input
               ref={renameRef}
@@ -215,7 +218,7 @@ export default function FolderItem({ folder, depth = 0, onPageCreated, onPageDel
         {/* Folder context menu */}
         <div className="relative">
           <button
-            onClick={e => { e.stopPropagation(); setMenuOpen(v => !v); setColorPickerOpen(false); }}
+            onClick={e => { e.stopPropagation(); setMenuOpen(v => !v); setColorPickerOpen(false); setIconPickerOpen(false); }}
             className={`transition-opacity p-1 rounded text-gray-500 hover:text-gray-200 active:text-white ${menuOpen ? 'opacity-100' : 'sm:opacity-0 group-hover:opacity-100'}`}
             title="Folder options"
           >
@@ -226,12 +229,12 @@ export default function FolderItem({ folder, depth = 0, onPageCreated, onPageDel
 
           {menuOpen && (
             <>
-              <div className="fixed inset-0 z-40" onClick={() => { setMenuOpen(false); setColorPickerOpen(false); }} />
-              <div className="absolute right-0 top-5 z-50 w-48 bg-[#1e2130] border border-white/[0.1] rounded-lg shadow-xl py-1 text-sm">
-                {colorPickerOpen ? (
+              <div className="fixed inset-0 z-40" onClick={() => { setMenuOpen(false); setColorPickerOpen(false); setIconPickerOpen(false); }} />
+              <div className={`absolute right-0 top-5 z-50 bg-[#1e2130] border border-white/[0.1] rounded-lg shadow-xl py-1 text-sm ${colorPickerOpen || iconPickerOpen ? 'w-64' : 'w-48'}`}>
+                {colorPickerOpen || iconPickerOpen ? (
                   <div>
                     <button
-                      onClick={() => setColorPickerOpen(false)}
+                      onClick={() => { setColorPickerOpen(false); setIconPickerOpen(false); }}
                       className="w-full flex items-center gap-2 px-3 py-1.5 text-gray-400 hover:text-white transition-colors text-left"
                     >
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
@@ -240,10 +243,17 @@ export default function FolderItem({ folder, depth = 0, onPageCreated, onPageDel
                       <span className="text-xs">Back</span>
                     </button>
                     <div className="px-3 pb-3">
-                      <FolderColorPicker
-                        value={folder.color}
-                        onChange={async color => { await updateFolder(folder.id, { color }); setColorPickerOpen(false); setMenuOpen(false); }}
-                      />
+                      {colorPickerOpen ? (
+                        <FolderColorPicker
+                          value={folder.color}
+                          onChange={async color => { await updateFolder(folder.id, { color }); setColorPickerOpen(false); setMenuOpen(false); }}
+                        />
+                      ) : (
+                        <FolderIconPicker
+                          value={folder.icon}
+                          onChange={async icon => { await updateFolder(folder.id, { icon }); setIconPickerOpen(false); setMenuOpen(false); }}
+                        />
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -266,6 +276,14 @@ export default function FolderItem({ folder, depth = 0, onPageCreated, onPageDel
                     >
                       <span className="w-3.5 h-3.5 rounded-full border border-white/20 flex-shrink-0" style={{ backgroundColor: folder.color }} />
                       Change color
+                    </button>
+
+                    <button
+                      onClick={() => setIconPickerOpen(true)}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-gray-300 hover:bg-white/[0.08] hover:text-white transition-colors text-left"
+                    >
+                      <FolderIcon name={folder.icon} size={14} className="text-gray-400 flex-shrink-0" />
+                      Change icon
                     </button>
 
                     {depth === 0 && (
