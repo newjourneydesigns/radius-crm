@@ -39,3 +39,6 @@ next-env.d.ts
 # OS
 Thumbs.db
 .claude/
+
+# CCB skill local mirror
+.claude/skills/ccb/ccb.db
