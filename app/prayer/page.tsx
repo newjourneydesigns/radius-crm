@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { SearchX } from 'lucide-react';
 import ProtectedRoute from '../../components/ProtectedRoute';
-import { supabase, PrayerPoint, CircleLeader } from '../../lib/supabase';
+import { supabase, PrayerPoint } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 
 // ── Types ──────────────────────────────────────────────
@@ -36,6 +36,8 @@ interface GeneralPrayer {
   content: string;
   is_answered: boolean;
   is_shared: boolean;
+  pray_date?: string | null;
+  prayed_on?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -58,6 +60,18 @@ function timeAgo(ts: string) {
   if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
   if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`;
   return `${Math.floor(diffDays / 365)}y ago`;
+}
+
+function formatPrayerDate(dateStr: string) {
+  return new Date(`${dateStr}T00:00:00`).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function getTodayDateInputValue() {
+  return new Date().toISOString().split('T')[0];
 }
 
 // ── Main Component ─────────────────────────────────────
@@ -117,6 +131,10 @@ function PrayerListContent() {
   const [editGeneralText, setEditGeneralText] = useState('');
   const [confirmDeleteGeneral, setConfirmDeleteGeneral] = useState<number | null>(null);
   const [generalExpanded, setGeneralExpanded] = useState(true);
+  const [editingPrayerDateKey, setEditingPrayerDateKey] = useState<string | null>(null);
+  const [editPrayerDate, setEditPrayerDate] = useState('');
+  const [editingPrayedDateKey, setEditingPrayedDateKey] = useState<string | null>(null);
+  const [editPrayedDate, setEditPrayedDate] = useState('');
 
   // ─── Load all leaders + prayers ───
   const loadData = useCallback(async () => {
@@ -419,6 +437,26 @@ function PrayerListContent() {
     setEditGeneralText(gp.content);
   };
   const cancelEditingGeneral = () => { setEditingGeneralId(null); setEditGeneralText(''); };
+  const startEditingPrayerDate = (key: string, currentDate?: string | null) => {
+    setEditingPrayedDateKey(null);
+    setEditPrayedDate('');
+    setEditingPrayerDateKey(key);
+    setEditPrayerDate(currentDate || '');
+  };
+  const cancelEditingPrayerDate = () => {
+    setEditingPrayerDateKey(null);
+    setEditPrayerDate('');
+  };
+  const startEditingPrayedDate = (key: string, currentDate?: string | null) => {
+    setEditingPrayerDateKey(null);
+    setEditPrayerDate('');
+    setEditingPrayedDateKey(key);
+    setEditPrayedDate(currentDate || getTodayDateInputValue());
+  };
+  const cancelEditingPrayedDate = () => {
+    setEditingPrayedDateKey(null);
+    setEditPrayedDate('');
+  };
   const saveGeneralEdit = async () => {
     if (!editingGeneralId || !editGeneralText.trim()) return;
     try {
@@ -434,6 +472,78 @@ function PrayerListContent() {
       setEditGeneralText('');
     } catch (err: any) {
       console.error('Error updating general prayer:', err);
+    }
+  };
+
+  const savePrayerDate = async (prayerId: number) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('acpd_prayer_points')
+        .update({ pray_date: editPrayerDate || null, updated_at: new Date().toISOString() })
+        .eq('id', prayerId);
+
+      if (updateError) throw updateError;
+
+      setAllPrayers(prev =>
+        prev.map(p => p.id === prayerId ? { ...p, pray_date: editPrayerDate || null } : p)
+      );
+      cancelEditingPrayerDate();
+    } catch (err: any) {
+      console.error('Error updating prayer date:', err);
+    }
+  };
+
+  const savePrayedDate = async (prayerId: number) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('acpd_prayer_points')
+        .update({ prayed_on: editPrayedDate || null, updated_at: new Date().toISOString() })
+        .eq('id', prayerId);
+
+      if (updateError) throw updateError;
+
+      setAllPrayers(prev =>
+        prev.map(p => p.id === prayerId ? { ...p, prayed_on: editPrayedDate || null } : p)
+      );
+      cancelEditingPrayedDate();
+    } catch (err: any) {
+      console.error('Error updating prayed date:', err);
+    }
+  };
+
+  const saveGeneralPrayerDate = async (prayerId: number) => {
+    try {
+      const { error: updateErr } = await supabase
+        .from('general_prayer_points')
+        .update({ pray_date: editPrayerDate || null, updated_at: new Date().toISOString() })
+        .eq('id', prayerId);
+
+      if (updateErr) throw updateErr;
+
+      setGeneralPrayers(prev =>
+        prev.map(p => p.id === prayerId ? { ...p, pray_date: editPrayerDate || null } : p)
+      );
+      cancelEditingPrayerDate();
+    } catch (err: any) {
+      console.error('Error updating general prayer date:', err);
+    }
+  };
+
+  const saveGeneralPrayedDate = async (prayerId: number) => {
+    try {
+      const { error: updateErr } = await supabase
+        .from('general_prayer_points')
+        .update({ prayed_on: editPrayedDate || null, updated_at: new Date().toISOString() })
+        .eq('id', prayerId);
+
+      if (updateErr) throw updateErr;
+
+      setGeneralPrayers(prev =>
+        prev.map(p => p.id === prayerId ? { ...p, prayed_on: editPrayedDate || null } : p)
+      );
+      cancelEditingPrayedDate();
+    } catch (err: any) {
+      console.error('Error updating general prayed date:', err);
     }
   };
 
@@ -514,7 +624,6 @@ function PrayerListContent() {
   const totalPrayers = allPrayers.length;
   const totalLeaders = allLeaders.length;
   const leadersWithPrayers = new Set(allPrayers.map(p => p.circle_leader_id)).size;
-  const totalGeneral = generalPrayers.length;
 
   // ─── Loading state ───
   if (isLoading) {
@@ -744,9 +853,85 @@ function PrayerListContent() {
                             ) : (
                               <>
                                 <p className="text-sm text-slate-200 font-medium leading-relaxed whitespace-pre-wrap">{gp.content}</p>
+                                {editingPrayerDateKey === `general-${gp.id}` && isOwner && (
+                                  <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-white/[0.08] bg-[#111318] p-2.5">
+                                    <span className="text-[11px] font-medium text-slate-400">Pray on</span>
+                                    <input
+                                      type="date"
+                                      value={editPrayerDate}
+                                      onChange={e => setEditPrayerDate(e.target.value)}
+                                      className="px-2 py-1.5 bg-[#1a1c22] border border-white/[0.12] rounded-md text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                    />
+                                    <button
+                                      onClick={() => saveGeneralPrayerDate(gp.id)}
+                                      className="btn-primary px-3 py-1.5 rounded-lg text-xs font-semibold"
+                                    >
+                                      Save date
+                                    </button>
+                                    <button
+                                      onClick={cancelEditingPrayerDate}
+                                      className="px-3 py-1.5 text-xs font-semibold text-slate-400 bg-white/[0.07] hover:bg-white/[0.1] rounded-md transition-colors"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                )}
+                                {editingPrayedDateKey === `general-${gp.id}` && isOwner && (
+                                  <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-white/[0.08] bg-[#111318] p-2.5">
+                                    <span className="text-[11px] font-medium text-slate-400">Prayed on</span>
+                                    <input
+                                      type="date"
+                                      value={editPrayedDate}
+                                      onChange={e => setEditPrayedDate(e.target.value)}
+                                      className="px-2 py-1.5 bg-[#1a1c22] border border-white/[0.12] rounded-md text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                    />
+                                    <button
+                                      onClick={() => saveGeneralPrayedDate(gp.id)}
+                                      className="btn-primary px-3 py-1.5 rounded-lg text-xs font-semibold"
+                                    >
+                                      Save prayed date
+                                    </button>
+                                    <button
+                                      onClick={cancelEditingPrayedDate}
+                                      className="px-3 py-1.5 text-xs font-semibold text-slate-400 bg-white/[0.07] hover:bg-white/[0.1] rounded-md transition-colors"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                )}
                                 <div className="flex items-center justify-between mt-1.5">
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-2 flex-wrap">
                                     <span className="text-[11px] text-slate-600">{timeAgo(gp.created_at)} · {formatDate(gp.created_at)}</span>
+                                    {isOwner ? (
+                                      <button
+                                        onClick={() => startEditingPrayerDate(`general-${gp.id}`, gp.pray_date)}
+                                        className="inline-flex items-center gap-1 rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium text-violet-300 transition-colors hover:border-violet-400/40 hover:bg-violet-500/15"
+                                        title={gp.pray_date ? 'Edit prayer date' : 'Set prayer date'}
+                                      >
+                                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                        {gp.pray_date ? `Pray on ${formatPrayerDate(gp.pray_date)}` : 'Set pray date'}
+                                      </button>
+                                    ) : gp.pray_date ? (
+                                      <span className="inline-flex items-center gap-1 rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium text-violet-300">
+                                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                        {formatPrayerDate(gp.pray_date)}
+                                      </span>
+                                    ) : null}
+                                    {isOwner ? (
+                                      <button
+                                        onClick={() => startEditingPrayedDate(`general-${gp.id}`, gp.prayed_on)}
+                                        className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300 transition-colors hover:border-emerald-400/40 hover:bg-emerald-500/15"
+                                        title={gp.prayed_on ? 'Edit prayed date' : 'Log prayed date'}
+                                      >
+                                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                        {gp.prayed_on ? `Prayed on ${formatPrayerDate(gp.prayed_on)}` : 'Log prayed date'}
+                                      </button>
+                                    ) : gp.prayed_on ? (
+                                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                        {formatPrayerDate(gp.prayed_on)}
+                                      </span>
+                                    ) : null}
                                     {gp.is_shared && !isOwner && (
                                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-500/10 text-slate-400 border border-slate-500/20">
                                         <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
@@ -901,9 +1086,85 @@ function PrayerListContent() {
                                     ) : (
                                       <>
                                         <p className="text-sm text-slate-200 font-medium leading-relaxed whitespace-pre-wrap">{prayer.content}</p>
+                                        {editingPrayerDateKey === `leader-${prayer.id}` && isPrayerOwner && (
+                                          <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-white/[0.08] bg-[#1a1c22] p-2.5">
+                                            <span className="text-[11px] font-medium text-slate-400">Pray on</span>
+                                            <input
+                                              type="date"
+                                              value={editPrayerDate}
+                                              onChange={e => setEditPrayerDate(e.target.value)}
+                                              className="px-2 py-1.5 bg-[#111318] border border-white/[0.12] rounded-md text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                            />
+                                            <button
+                                              onClick={() => savePrayerDate(prayer.id)}
+                                              className="btn-primary px-3 py-1.5 rounded-lg text-xs font-semibold"
+                                            >
+                                              Save date
+                                            </button>
+                                            <button
+                                              onClick={cancelEditingPrayerDate}
+                                              className="px-3 py-1.5 text-xs font-semibold text-slate-400 bg-white/[0.07] hover:bg-white/[0.1] rounded-md transition-colors"
+                                            >
+                                              Cancel
+                                            </button>
+                                          </div>
+                                        )}
+                                        {editingPrayedDateKey === `leader-${prayer.id}` && isPrayerOwner && (
+                                          <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-white/[0.08] bg-[#1a1c22] p-2.5">
+                                            <span className="text-[11px] font-medium text-slate-400">Prayed on</span>
+                                            <input
+                                              type="date"
+                                              value={editPrayedDate}
+                                              onChange={e => setEditPrayedDate(e.target.value)}
+                                              className="px-2 py-1.5 bg-[#111318] border border-white/[0.12] rounded-md text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                            />
+                                            <button
+                                              onClick={() => savePrayedDate(prayer.id)}
+                                              className="btn-primary px-3 py-1.5 rounded-lg text-xs font-semibold"
+                                            >
+                                              Save prayed date
+                                            </button>
+                                            <button
+                                              onClick={cancelEditingPrayedDate}
+                                              className="px-3 py-1.5 text-xs font-semibold text-slate-400 bg-white/[0.07] hover:bg-white/[0.1] rounded-md transition-colors"
+                                            >
+                                              Cancel
+                                            </button>
+                                          </div>
+                                        )}
                                         <div className="flex items-center justify-between mt-1.5">
-                                          <div className="flex items-center gap-2">
+                                          <div className="flex items-center gap-2 flex-wrap">
                                             <span className="text-[11px] text-slate-600">{timeAgo(prayer.created_at)} · {formatDate(prayer.created_at)}</span>
+                                            {isPrayerOwner ? (
+                                              <button
+                                                onClick={() => startEditingPrayerDate(`leader-${prayer.id}`, prayer.pray_date)}
+                                                className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300 transition-colors hover:border-amber-400/40 hover:bg-amber-500/15"
+                                                title={prayer.pray_date ? 'Edit prayer date' : 'Set prayer date'}
+                                              >
+                                                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                                {prayer.pray_date ? `Pray on ${formatPrayerDate(prayer.pray_date)}` : 'Set pray date'}
+                                              </button>
+                                            ) : prayer.pray_date ? (
+                                              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+                                                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                                {formatPrayerDate(prayer.pray_date)}
+                                              </span>
+                                            ) : null}
+                                            {isPrayerOwner ? (
+                                              <button
+                                                onClick={() => startEditingPrayedDate(`leader-${prayer.id}`, prayer.prayed_on)}
+                                                className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300 transition-colors hover:border-emerald-400/40 hover:bg-emerald-500/15"
+                                                title={prayer.prayed_on ? 'Edit prayed date' : 'Log prayed date'}
+                                              >
+                                                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                {prayer.prayed_on ? `Prayed on ${formatPrayerDate(prayer.prayed_on)}` : 'Log prayed date'}
+                                              </button>
+                                            ) : prayer.prayed_on ? (
+                                              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                                                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                {formatPrayerDate(prayer.prayed_on)}
+                                              </span>
+                                            ) : null}
                                             {prayer.is_shared && !isPrayerOwner && (
                                               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-500/10 text-slate-400 border border-slate-500/20">
                                                 <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>

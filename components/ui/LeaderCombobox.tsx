@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import Fuse from 'fuse.js';
+import { Pencil, Search, UserRound, X } from 'lucide-react';
 
 interface Leader { id: number; name: string; }
 
@@ -25,6 +26,8 @@ export default function LeaderCombobox({
   optional = false,
 }: LeaderComboboxProps) {
   const [query, setQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const fuse = useMemo(
     () => new Fuse(leaders, { keys: ['name'], threshold: 0.4, ignoreLocation: true }),
@@ -32,20 +35,28 @@ export default function LeaderCombobox({
   );
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return leaders.slice(0, 30);
-    return fuse.search(query.trim()).map(r => r.item);
-  }, [query, fuse, leaders]);
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) return [];
+    return fuse.search(trimmedQuery).map(r => r.item).slice(0, 30);
+  }, [query, fuse]);
 
   const selectedLeader = leaders.find(l => String(l.id) === value);
 
   const handleSelect = (leader: Leader) => {
     onChange(String(leader.id));
     setQuery('');
+    setIsSearching(false);
   };
 
   const handleClear = () => {
     onChange('');
     setQuery('');
+    setIsSearching(false);
+  };
+
+  const handleStartSearch = () => {
+    setIsSearching(true);
+    requestAnimationFrame(() => inputRef.current?.focus());
   };
 
   const inputClass =
@@ -59,83 +70,119 @@ export default function LeaderCombobox({
     );
   }
 
-  // Selected state — show pill with clear button
-  if (selectedLeader) {
+  // Selected state - keep the current selection visible and editable.
+  if (selectedLeader && !isSearching) {
     return (
       <div className="flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700">
-        <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-        </svg>
+        <UserRound className="w-4 h-4 text-gray-400 flex-shrink-0" aria-hidden="true" />
         <span className="flex-1 text-sm text-gray-900 dark:text-white">{selectedLeader.name}</span>
         {!disabled && (
-          <button
-            type="button"
-            onClick={handleClear}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-0.5 rounded"
-            aria-label="Clear selection"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handleStartSearch}
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 rounded transition-colors"
+            >
+              <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+              Change
+            </button>
+            {optional && (
+              <button
+                type="button"
+                onClick={handleClear}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-0.5 rounded"
+                aria-label="Clear leader selection"
+              >
+                <X className="w-4 h-4" aria-hidden="true" />
+              </button>
+            )}
+          </div>
         )}
       </div>
     );
   }
 
-  // Unselected state — search input + results list
+  // Unselected/searching state - only show matching leaders after the user types.
   return (
     <div>
       <div className="relative">
-        <svg
+        <Search
           className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          strokeWidth="1.5"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-        </svg>
+          aria-hidden="true"
+        />
         <input
+          ref={inputRef}
           type="text"
           value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder={placeholder}
+          onChange={e => {
+            setQuery(e.target.value);
+            setIsSearching(true);
+          }}
+          onFocus={() => setIsSearching(true)}
+          placeholder={selectedLeader ? 'Search to change leader...' : placeholder}
           className={inputClass}
           disabled={disabled}
           autoComplete="off"
         />
+        {selectedLeader && !disabled && (
+          <button
+            type="button"
+            onClick={() => setIsSearching(false)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-0.5 rounded"
+            aria-label="Cancel leader change"
+          >
+            <X className="w-4 h-4" aria-hidden="true" />
+          </button>
+        )}
       </div>
 
-      <div className="mt-1 max-h-36 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 divide-y divide-gray-100 dark:divide-gray-600/50">
-        {optional && (
+      {isSearching && query.trim() && (
+        <div className="mt-1 max-h-36 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 divide-y divide-gray-100 dark:divide-gray-600/50">
+          {optional && value && (
+            <button
+              type="button"
+              onMouseDown={e => e.preventDefault()}
+              onClick={handleClear}
+              disabled={disabled}
+              className="w-full text-left px-3 py-2 text-sm text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-600/50 transition-colors italic"
+            >
+              No leader link
+            </button>
+          )}
+          {filtered.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-gray-400 dark:text-gray-500">
+              No leaders found
+            </div>
+          ) : (
+            filtered.map(leader => (
+              <button
+                key={leader.id}
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => handleSelect(leader)}
+                disabled={disabled}
+                className="w-full text-left px-3 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600/60 active:bg-gray-100 dark:active:bg-gray-600 transition-colors"
+              >
+                {leader.name}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+
+      {selectedLeader && isSearching && (
+        <div className="mt-1 flex items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
+          <span>Current: {selectedLeader.name}</span>
           <button
             type="button"
             onClick={handleClear}
             disabled={disabled}
-            className="w-full text-left px-3 py-2 text-sm text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-600/50 transition-colors italic"
+            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
           >
-            No leader link
+            Clear
           </button>
-        )}
-        {filtered.length === 0 ? (
-          <div className="px-3 py-2 text-sm text-gray-400 dark:text-gray-500">
-            No leaders found
-          </div>
-        ) : (
-          filtered.map(leader => (
-            <button
-              key={leader.id}
-              type="button"
-              onClick={() => handleSelect(leader)}
-              disabled={disabled}
-              className="w-full text-left px-3 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600/60 active:bg-gray-100 dark:active:bg-gray-600 transition-colors"
-            >
-              {leader.name}
-            </button>
-          ))
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

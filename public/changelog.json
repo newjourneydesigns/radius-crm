@@ -1,5 +1,17 @@
 [
   {
+    "date": "2026-05-09",
+    "type": "improvement",
+    "description": "The floating quick-actions menu is simpler now — the extra Start a New Note shortcut has been removed so the list stays focused on the actions you actually use in the moment.",
+    "page": "/prayer"
+  },
+  {
+    "date": "2026-05-09",
+    "type": "feature",
+    "description": "Prayer points on the Prayer page now keep separate Pray on and Prayed on dates, so you can schedule when to pray and also log when you actually prayed without overwriting either one.",
+    "page": "/prayer"
+  },
+  {
     "date": "2026-05-07",
     "type": "improvement",
     "description": "Notebook folder icons now use a categorized Lucide icon picker instead of emoji, with selected icons shown directly in the sidebar for a cleaner, more consistent UI.",

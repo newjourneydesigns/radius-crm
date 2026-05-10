@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
 import AddNoteModal from '../dashboard/AddNoteModal';
 import QuickConnectionModal from '../modals/QuickConnectionModal';
 import AddPrayerModal from '../modals/AddPrayerModal';
@@ -11,10 +10,10 @@ import SetFollowUpModal from '../modals/SetFollowUpModal';
 import AddCardModal from '../modals/AddCardModal';
 
 type ModalActionId = 'note' | 'connection' | 'followup' | 'prayer' | 'card';
-type ActionId = ModalActionId | 'notebook';
+type ActionId = ModalActionId;
 
 const ACTIONS: { id: ActionId; label: string; icon: React.ReactNode }[] = [
-  // Index 0 = bottom (closest to FAB), index 5 = top (furthest)
+  // Index 0 = bottom (closest to FAB), highest index = top (furthest)
   {
     id: 'note',
     label: 'Log a Leader Note',
@@ -34,20 +33,6 @@ const ACTIONS: { id: ActionId; label: string; icon: React.ReactNode }[] = [
         <circle cx="9" cy="7" r="4" />
         <path d="M23 21v-2a4 4 0 00-3-3.87" />
         <path d="M16 3.13a4 4 0 010 7.75" />
-      </svg>
-    ),
-  },
-  {
-    id: 'notebook',
-    label: 'Start a New Note',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M5 3h10a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z" />
-        <path d="M8 8h6" />
-        <path d="M8 12h6" />
-        <path d="M8 16h4" />
-        <path d="M19 7v6" />
-        <path d="M16 10h6" />
       </svg>
     ),
   },
@@ -90,10 +75,8 @@ const ACTIONS: { id: ActionId; label: string; icon: React.ReactNode }[] = [
 export default function QuickActionsFAB() {
   const { isAuthenticated } = useAuth();
   const pathname = usePathname();
-  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [activeModal, setActiveModal] = useState<ModalActionId | null>(null);
-  const [creatingNotebookNote, setCreatingNotebookNote] = useState(false);
 
   useEffect(() => {
     setIsOpen(false);
@@ -101,73 +84,8 @@ export default function QuickActionsFAB() {
 
   if (!isAuthenticated()) return null;
 
-  const startNotebookNote = async () => {
-    if (creatingNotebookNote) return;
-
-    setCreatingNotebookNote(true);
-    try {
-      const { data: userResult } = await supabase.auth.getUser();
-      const userId = userResult.user?.id;
-      if (!userId) {
-        router.push('/notebook');
-        return;
-      }
-
-      const { data: recentPage } = await supabase
-        .from('notebook_pages')
-        .select('folder_id')
-        .eq('user_id', userId)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      let targetFolderId = recentPage?.folder_id ?? null;
-
-      if (!targetFolderId) {
-        const { data: folders } = await supabase
-          .from('notebook_folders')
-          .select('id, is_unfiled, position')
-          .eq('user_id', userId)
-          .order('position', { ascending: true });
-
-        if (folders?.length) {
-          targetFolderId = folders.find(folder => folder.is_unfiled)?.id ?? folders[0].id;
-        }
-      }
-
-      if (!targetFolderId) {
-        router.push('/notebook');
-        return;
-      }
-
-      const { data: newPage } = await supabase
-        .from('notebook_pages')
-        .insert({
-          user_id: userId,
-          folder_id: targetFolderId,
-          title: 'Untitled',
-          content: '',
-        })
-        .select('id')
-        .single();
-
-      if (newPage?.id) {
-        router.push(`/notebook/${newPage.id}`);
-        return;
-      }
-
-      router.push('/notebook');
-    } finally {
-      setCreatingNotebookNote(false);
-    }
-  };
-
   const handleActionClick = (id: ActionId) => {
     setIsOpen(false);
-    if (id === 'notebook') {
-      startNotebookNote();
-      return;
-    }
     setActiveModal(id);
   };
 
@@ -207,14 +125,11 @@ export default function QuickActionsFAB() {
                   : `${(ACTIONS.length - 1 - i) * 20}ms`,
               }}
               aria-label={action.label}
-              aria-busy={action.id === 'notebook' ? creatingNotebookNote : undefined}
             >
               <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center text-blue-300">
                 {action.icon}
               </span>
-              <span className="text-xs font-semibold whitespace-nowrap">
-                {action.id === 'notebook' && creatingNotebookNote ? 'Creating...' : action.label}
-              </span>
+              <span className="text-xs font-semibold whitespace-nowrap">{action.label}</span>
             </button>
           ))}
         </div>
