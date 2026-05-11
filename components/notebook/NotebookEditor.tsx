@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { CSSProperties, PointerEvent } from 'react';
 import dynamic from 'next/dynamic';
 import { useNotebookContext } from '../../contexts/NotebookContext';
 import RichTextEditor from '../notes/RichTextEditor';
@@ -268,9 +269,23 @@ export default function NotebookEditor() {
   const hasSavedInk = Boolean(activePage.has_ink || activePage.ink_stroke_count > 0 || activePage.ink?.strokes?.length);
 
   const isInkMode = editorMode === 'ink';
+  const inkSelectionGuardStyle = isInkMode
+    ? {
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none',
+      } as CSSProperties
+    : undefined;
+
+  function preventInkModeTextSelection(event: PointerEvent<HTMLTextAreaElement>) {
+    if (!isInkMode) return;
+    if (event.pointerType === 'pen' || event.pointerType === 'touch') {
+      event.preventDefault();
+    }
+  }
 
   return (
-    <div className="flex-1 min-w-0 w-full flex flex-col overflow-hidden bg-[#0f1117]">
+    <div className="flex-1 min-w-0 w-full flex flex-col overflow-hidden bg-[#0f1117]" style={inkSelectionGuardStyle}>
       <div className={`flex-1 min-w-0 ${isInkMode ? 'min-h-0 overflow-hidden' : 'overflow-y-auto overflow-x-hidden'}`}>
         <div
           className={
@@ -287,6 +302,7 @@ export default function NotebookEditor() {
               placeholder="Untitled"
               rows={1}
               spellCheck={false}
+              onPointerDown={preventInkModeTextSelection}
               className={`notebook-title-input block w-full min-w-0 resize-none overflow-hidden font-bold text-white leading-tight ${
                 isInkMode ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-3xl md:text-4xl'
               }`}

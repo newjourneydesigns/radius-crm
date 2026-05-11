@@ -185,6 +185,18 @@ export default function NotebookSidebar({ onClose, onCollapse }: NotebookSidebar
       <div className="flex items-center justify-between px-3 py-3 border-b border-white/[0.06]">
         <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Notebook</span>
         <div className="flex items-center gap-0.5">
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="w-8 h-8 flex min-[1100px]:hidden items-center justify-center rounded-md text-gray-500 hover:text-gray-200 hover:bg-white/[0.08] active:bg-white/[0.12] transition-colors"
+              title="Close sidebar"
+              aria-label="Close sidebar"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
           {onCollapse && (
             <button
               onClick={onCollapse}

@@ -31,7 +31,7 @@ export default function NotebookShell({ children }: NotebookShellProps) {
       {/* ── Mobile sidebar backdrop ── */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/60 md:hidden"
+          className="fixed inset-0 z-40 bg-black/60 min-[1100px]:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
-import { Brush, Eraser, RotateCcw, RotateCw, Trash2, ZoomIn, ZoomOut } from 'lucide-react';
+import { Brush, Eraser, MoreHorizontal, RotateCcw, RotateCw, Trash2, ZoomIn, ZoomOut } from 'lucide-react';
 import getStroke from 'perfect-freehand';
 import type { NotebookInk, NotebookInkStroke } from '../../lib/supabase';
 
@@ -106,11 +106,12 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
   const viewportRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   const activePointersRef = useRef(new Map<number, TrackedPointer>());
   const strokePointerRef = useRef<number | null>(null);
   const currentStrokeRef = useRef<Point[]>([]);
   const deletedIdsRef = useRef<Set<string>>(new Set());
-  const pinchRef = useRef<{ distance: number; scale: number; centerY: number; translateY: number } | null>(null);
+  const touchPanRef = useRef<{ centerY: number; translateY: number } | null>(null);
   const rafRef = useRef<number | null>(null);
 
   const [draftInk, setDraftInk] = useState<NotebookInk>(() => ink ?? makeEmptyInk());
@@ -118,11 +119,12 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
   const [color, setColor] = useState('#f8fafc');
   const [size, setSize] = useState(8);
   const [viewport, setViewport] = useState<Viewport>({ scale: 1, translateY: 0 });
-  const [pencilSeen, setPencilSeen] = useState(false);
   const [pencilOnly, setPencilOnly] = useState(false);
   const [undoStack, setUndoStack] = useState<NotebookInk[]>([]);
   const [redoStack, setRedoStack] = useState<NotebookInk[]>([]);
   const [payloadWarning, setPayloadWarning] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
     setDraftInk(ink ?? makeEmptyInk(viewportRef.current?.clientHeight));
@@ -202,15 +204,13 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
   const getTouchPointers = () =>
     Array.from(activePointersRef.current.values()).filter(pointer => pointer.pointerType === 'touch');
 
-  const startPinchIfReady = (event: React.PointerEvent<HTMLDivElement>) => {
+  const startTouchPanIfReady = (event: React.PointerEvent<HTMLDivElement>) => {
     const touches = getTouchPointers();
     if (touches.length < 2 || strokePointerRef.current !== null) return false;
     const [first, second] = touches;
     currentStrokeRef.current = [];
     clearCanvas();
-    pinchRef.current = {
-      distance: Math.hypot(first.point[0] - second.point[0], first.point[1] - second.point[1]),
-      scale: viewport.scale,
+    touchPanRef.current = {
       centerY: (first.clientY + second.clientY) / 2 || event.clientY,
       translateY: viewport.translateY,
     };
@@ -222,7 +222,6 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
     const point = pointFromEvent(event);
 
     if (event.pointerType === 'pen') {
-      setPencilSeen(true);
       setPencilOnly(true);
     }
 
@@ -234,7 +233,7 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
     activePointersRef.current.set(event.pointerId, { point, pointerType: event.pointerType, clientY: event.clientY });
     event.currentTarget.setPointerCapture(event.pointerId);
 
-    if (event.pointerType === 'touch' && startPinchIfReady(event)) return;
+    if (event.pointerType === 'touch' && startTouchPanIfReady(event)) return;
     if (pencilOnly && event.pointerType === 'touch') return;
 
     strokePointerRef.current = event.pointerId;
@@ -266,16 +265,14 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
       activePointersRef.current.set(event.pointerId, { point, pointerType: event.pointerType, clientY: event.clientY });
     }
 
-    if (pinchRef.current) {
+    if (touchPanRef.current) {
       const touches = getTouchPointers();
       if (touches.length < 2) return;
       const [first, second] = touches;
-      const distance = Math.hypot(first.point[0] - second.point[0], first.point[1] - second.point[1]);
-      const nextScale = clamp(pinchRef.current.scale * (distance / Math.max(1, pinchRef.current.distance)), MIN_ZOOM, MAX_ZOOM);
       const centerY = (first.clientY + second.clientY) / 2;
       updateViewport({
-        scale: nextScale,
-        translateY: pinchRef.current.translateY + (centerY - pinchRef.current.centerY),
+        scale: viewport.scale,
+        translateY: touchPanRef.current.translateY + (centerY - touchPanRef.current.centerY),
       });
       return;
     }
@@ -292,7 +289,7 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     activePointersRef.current.delete(event.pointerId);
-    if (getTouchPointers().length < 2) pinchRef.current = null;
+    if (getTouchPointers().length < 2) touchPanRef.current = null;
 
     if (strokePointerRef.current !== event.pointerId) return;
     strokePointerRef.current = null;
@@ -336,12 +333,6 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
   };
 
   const handleWheel = (event: React.WheelEvent<HTMLDivElement>) => {
-    if (event.ctrlKey || event.metaKey) {
-      event.preventDefault();
-      const direction = event.deltaY > 0 ? -0.08 : 0.08;
-      updateViewport({ scale: viewport.scale + direction, translateY: viewport.translateY });
-      return;
-    }
     event.preventDefault();
     updateViewport({ scale: viewport.scale, translateY: viewport.translateY - event.deltaY });
   };
@@ -364,9 +355,21 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
 
   const clear = () => {
     if (!draftInk.strokes.length) return;
+    setMenuOpen(false);
     if (!window.confirm('Clear all ink from this page?')) return;
     pushHistory();
     commitInk({ ...draftInk, strokes: [] });
+  };
+
+  const toggleMenu = () => {
+    const rect = menuButtonRef.current?.getBoundingClientRect();
+    if (rect) {
+      setMenuPosition({
+        top: rect.bottom + 6,
+        left: Math.max(8, rect.right - 176),
+      });
+    }
+    setMenuOpen(open => !open);
   };
 
   const colors = [
@@ -437,21 +440,9 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
           <button type="button" onClick={redo} disabled={!redoStack.length} className="p-2 rounded text-gray-400 hover:text-white disabled:opacity-30" title="Redo">
             <RotateCw className="h-4 w-4" />
           </button>
-          <button type="button" onClick={clear} disabled={!draftInk.strokes.length} className="p-2 rounded text-gray-400 hover:text-red-300 disabled:opacity-30" title="Clear ink">
-            <Trash2 className="h-4 w-4" />
-          </button>
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
-          {(pencilSeen || pencilOnly) && (
-            <button
-              type="button"
-              onClick={() => setPencilOnly(v => !v)}
-              className={`rounded-full px-3 py-1.5 text-xs ${pencilOnly ? 'bg-indigo-500/20 text-indigo-200' : 'bg-white/[0.06] text-gray-400'}`}
-            >
-              Pencil only
-            </button>
-          )}
           {payloadWarning && <span className="text-xs text-amber-300">Large ink page</span>}
           <button type="button" onClick={() => updateViewport({ scale: viewport.scale - 0.1, translateY: viewport.translateY })} className="p-2 rounded text-gray-400 hover:text-white" title="Zoom out">
             <ZoomOut className="h-4 w-4" />
@@ -467,8 +458,46 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
           <button type="button" onClick={() => updateViewport({ scale: viewport.scale + 0.1, translateY: viewport.translateY })} className="p-2 rounded text-gray-400 hover:text-white" title="Zoom in">
             <ZoomIn className="h-4 w-4" />
           </button>
+          <button
+            ref={menuButtonRef}
+            type="button"
+            onClick={toggleMenu}
+            className={`rounded p-2 text-gray-400 hover:text-white ${menuOpen ? 'bg-white/[0.08] text-white' : ''}`}
+            title="Ink options"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
         </div>
       </div>
+
+      {menuOpen && (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-40 cursor-default"
+            aria-label="Close ink options"
+            onClick={() => setMenuOpen(false)}
+          />
+          <div
+            role="menu"
+            className="fixed z-50 w-44 rounded-lg border border-white/[0.1] bg-[#1e2130] py-1 shadow-xl"
+            style={{ top: menuPosition.top, left: menuPosition.left }}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              onClick={clear}
+              disabled={!draftInk.strokes.length}
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs text-red-200 hover:bg-red-500/10 hover:text-red-100 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Clear All
+            </button>
+          </div>
+        </>
+      )}
 
       <div
         ref={viewportRef}
