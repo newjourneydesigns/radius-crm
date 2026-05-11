@@ -1,54 +1,53 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useNotebookContext } from '../../contexts/NotebookContext';
 import NotebookEmptyState from '../../components/notebook/NotebookEmptyState';
+import NotebookEditorSkeleton from '../../components/notebook/NotebookEditorSkeleton';
 
 export default function NotebookRootPage() {
   const router = useRouter();
-  const { fetchFolders, setActiveFolderId, loading } = useNotebookContext();
-  const [initializing, setInitializing] = useState(true);
+  const { folders, initialized, setActiveFolderId } = useNotebookContext();
+  const [resolving, setResolving] = useState(true);
+  const hasResolvedRef = useRef(false);
 
   useEffect(() => {
-    async function init() {
-      let redirected = false;
-      const { supabase } = await import('../../lib/supabase');
+    // Wait until the provider has finished its initial folder load.
+    if (!initialized || hasResolvedRef.current) return;
+    hasResolvedRef.current = true;
 
+    (async () => {
       try {
-        // Fetch folders and most recent page in parallel — RLS scopes pages to current user
-        const [allFolders, { data: recentPage }] = await Promise.all([
-          fetchFolders(),
-          supabase
-            .from('notebook_pages')
-            .select('id, folder_id')
-            .order('updated_at', { ascending: false })
-            .limit(1)
-            .single(),
-        ]);
+        // No folders → no pages possible — render empty state immediately.
+        const flat = folders.flatMap(f => [f, ...(f.children || [])]);
+        if (!flat.length) {
+          setResolving(false);
+          return;
+        }
 
-        if (!allFolders.length) return;
+        const { supabase } = await import('../../lib/supabase');
+        const { data: recentPage } = await supabase
+          .from('notebook_pages')
+          .select('id, folder_id')
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
         if (recentPage) {
-          redirected = true;
           setActiveFolderId(recentPage.folder_id);
           router.replace(`/notebook/${recentPage.id}`);
           return;
         }
-      } finally {
-        if (!redirected) setInitializing(false);
+        setResolving(false);
+      } catch {
+        setResolving(false);
       }
-    }
+    })();
+  }, [initialized, folders, router, setActiveFolderId]);
 
-    init();
-  }, []);
-
-  if (loading || initializing) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-[#0f1117]">
-        <div className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+  if (!initialized || resolving) {
+    return <NotebookEditorSkeleton />;
   }
 
   return <NotebookEmptyState />;

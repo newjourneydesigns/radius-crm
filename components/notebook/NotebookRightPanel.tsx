@@ -2,14 +2,17 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useNotebookContext } from '../../contexts/NotebookContext';
 import type { CircleLeader, ProjectBoard, NotebookPageCard } from '../../lib/supabase';
-import LeaderPickerModal from './LeaderPickerModal';
-import BoardPickerModal from './BoardPickerModal';
-import CardPickerModal from './CardPickerModal';
-import QuickAddCardModal from './QuickAddCardModal';
-import CardDetailDrawer from './CardDetailDrawer';
-import ChecklistsWidget from './ChecklistsWidget';
+
+// Modals/drawer are only mounted when opened — keep them out of the initial chunk.
+const LeaderPickerModal = dynamic(() => import('./LeaderPickerModal'), { ssr: false });
+const BoardPickerModal = dynamic(() => import('./BoardPickerModal'), { ssr: false });
+const CardPickerModal = dynamic(() => import('./CardPickerModal'), { ssr: false });
+const QuickAddCardModal = dynamic(() => import('./QuickAddCardModal'), { ssr: false });
+const CardDetailDrawer = dynamic(() => import('./CardDetailDrawer'), { ssr: false });
+const ChecklistsWidget = dynamic(() => import('./ChecklistsWidget'), { ssr: false });
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: '#ef4444',

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useEffect } from 'react';
 import { useNotebook, type SaveStatus } from '../hooks/useNotebook';
 import type { NotebookFolder, NotebookPage } from '../lib/supabase';
 
@@ -8,10 +8,12 @@ interface NotebookContextType {
   // State
   folders: NotebookFolder[];
   pages: NotebookPage[];
+  pagesById: Record<string, NotebookPage>;
   activePage: NotebookPage | null;
   activeFolderId: string | null;
   saveStatus: SaveStatus;
   loading: boolean;
+  initialized: boolean;
   error: string | null;
   // Setters
   setActivePage: (page: NotebookPage | null) => void;
@@ -27,9 +29,10 @@ interface NotebookContextType {
   reorderPages: (orderedIds: string[]) => Promise<void>;
   fetchAllPinnedPages: () => Promise<NotebookPage[]>;
   fetchPage: (pageId: string) => Promise<NotebookPage | null>;
+  loadPageOptimistic: (pageId: string) => NotebookPage | null;
   createPage: (folderId: string) => Promise<NotebookPage | null>;
-  updatePage: (id: string, updates: Partial<Pick<NotebookPage, 'title' | 'content' | 'checklists' | 'is_pinned' | 'folder_id'>>) => Promise<void>;
-  scheduleSave: (id: string, updates: Partial<Pick<NotebookPage, 'title' | 'content'>>) => void;
+  updatePage: (id: string, updates: Partial<Pick<NotebookPage, 'title' | 'content' | 'checklists' | 'is_pinned' | 'folder_id' | 'editor_mode' | 'ink'>>) => Promise<void>;
+  scheduleSave: (id: string, updates: Partial<Pick<NotebookPage, 'title' | 'content' | 'ink'>>) => void;
   deletePage: (id: string) => Promise<void>;
   searchPages: (query: string) => Promise<NotebookPage[]>;
   // Link operations
@@ -60,6 +63,13 @@ export function NotebookProvider({
   setActiveFolderId: (id: string | null) => void;
 }) {
   const notebook = useNotebook();
+
+  // Single source of truth for folder load — runs once for the whole notebook tree.
+  // Children no longer need to call fetchFolders on mount; dedup guard in the hook
+  // protects against any stragglers.
+  useEffect(() => {
+    notebook.fetchFolders();
+  }, []);
 
   const value: NotebookContextType = {
     ...notebook,

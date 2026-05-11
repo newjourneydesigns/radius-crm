@@ -7,7 +7,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useNotebookContext } from '../../contexts/NotebookContext';
 import { useSidebarPages } from '../../contexts/SidebarPagesContext';
 import type { NotebookFolder, NotebookPage } from '../../lib/supabase';
-import PageListItem from './PageListItem';
+import PageListItem, { pageHasInk } from './PageListItem';
 import FolderColorPicker from './FolderColorPicker';
 import FolderIconPicker, { FolderIcon } from './FolderIconPicker';
 
@@ -60,6 +60,7 @@ export default function FolderItem({ folder, depth = 0, onPageCreated, onPageDel
   const renameRef = useRef<HTMLInputElement>(null);
 
   const folderPages = getPagesForFolder(folder.id);
+  const inkPageCount = folderPages.filter(pageHasInk).length;
 
   // Droppable target for cross-folder drag
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: `folder:${folder.id}` });
@@ -203,6 +204,18 @@ export default function FolderItem({ folder, depth = 0, onPageCreated, onPageDel
             </span>
           )}
         </button>
+
+        {inkPageCount > 0 && (
+          <span
+            className="hidden sm:inline-flex flex-shrink-0 items-center gap-1 rounded-full bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-300"
+            title={`${inkPageCount} page${inkPageCount === 1 ? '' : 's'} with saved ink`}
+          >
+            <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L7.5 19.152 3 21l1.848-4.5 12.014-12.013Z" />
+            </svg>
+            {inkPageCount}
+          </span>
+        )}
 
         {/* New page button */}
         <button

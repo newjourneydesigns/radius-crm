@@ -648,6 +648,25 @@ textarea::placeholder {
   color: rgba(241, 245, 249, 0.35) !important;
 }
 
+/* Notebook page title — opt out of the global glass input chrome */
+textarea.notebook-title-input,
+textarea.notebook-title-input:focus,
+textarea.notebook-title-input:hover,
+input.notebook-title-input,
+input.notebook-title-input:focus,
+input.notebook-title-input:hover {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  outline: none !important;
+  resize: none !important;
+  font-family: inherit !important;
+}
+.notebook-title-input::placeholder {
+  color: rgba(255, 255, 255, 0.18) !important;
+}
+
 /* Text colors for better contrast */
 .text-gray-900,
 .text-gray-800,

@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { useNotebookContext } from '../../contexts/NotebookContext';
 import type { NotebookPage } from '../../lib/supabase';
+import { pageHasInk } from './PageListItem';
 
 export default function NotebookSearch() {
   const { searchPages } = useNotebookContext();
@@ -70,7 +71,14 @@ export default function NotebookSearch() {
               onClick={clear}
               className="flex flex-col px-2 py-1.5 rounded-md hover:bg-white/[0.06] transition-colors"
             >
-              <span className="text-sm text-gray-300 truncate">{page.title || 'Untitled'}</span>
+              <span className="flex min-w-0 items-center gap-1.5 text-sm text-gray-300">
+                <span className="truncate">{page.title || 'Untitled'}</span>
+                {pageHasInk(page) && (
+                  <span className="inline-flex flex-shrink-0 items-center rounded-full bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-medium leading-none text-sky-300">
+                    Ink
+                  </span>
+                )}
+              </span>
             </Link>
           ))}
         </div>

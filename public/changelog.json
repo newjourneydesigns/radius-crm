@@ -1,6 +1,30 @@
 [
   {
     "date": "2026-05-11",
+    "type": "feature",
+    "description": "Notebook pages now support Ink mode: flip an individual page from rich text to a drawing surface, write with Apple Pencil or any pointer device, pinch or wheel-zoom, erase whole strokes, and keep text and ink saved independently.",
+    "page": "/notebook"
+  },
+  {
+    "date": "2026-05-11",
+    "type": "improvement",
+    "description": "Notebook feels dramatically faster: pages you've already visited open instantly from an in-memory cache, switching pages no longer triggers a blank spinner, the root /notebook redirect no longer double-fetches your folders, the heavy rich-text editor and link pickers now load on-demand, and every loading state shows a content-shaped skeleton instead of a lonely spinner.",
+    "page": "/notebook"
+  },
+  {
+    "date": "2026-05-11",
+    "type": "fix",
+    "description": "Notebook page editor reworked on iPad — the title is now an auto-growing textarea (no more text getting scrolled or clipped inside an input element), padding from the sidebar scales generously across tablet breakpoints (56px on iPad portrait, 107px on landscape), the title font scales up at md and uses the page font family, and the title's bottom margin is restored so it visually separates from the body.",
+    "page": "/notebook"
+  },
+  {
+    "date": "2026-05-11",
+    "type": "fix",
+    "description": "Notebook on iPad now adapts to orientation — in portrait the right-side links panel tucks away as a bottom sheet so the typing area gets full width, and rotating to landscape docks the panel back alongside the editor.",
+    "page": "/notebook"
+  },
+  {
+    "date": "2026-05-11",
     "type": "fix",
     "description": "Auto-update from CCB now matches leaders even when CCB titles include a co-leader name (e.g. \"FMT | S2 | Shannon and Sherrie Hawk\") by checking that both the leader's first and last name appear in the event title — a huge bump in how many summaries get pulled in a single click.",
     "page": "/calendar"

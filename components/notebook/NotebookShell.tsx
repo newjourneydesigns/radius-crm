@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import NotebookSidebar from './NotebookSidebar';
 import NotebookRightPanel from './NotebookRightPanel';
 import { useNotebookContext } from '../../contexts/NotebookContext';
@@ -11,11 +11,22 @@ interface NotebookShellProps {
 
 export default function NotebookShell({ children }: NotebookShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const { activePage } = useNotebookContext();
 
+  const desktopColumns = [
+    !sidebarCollapsed ? '300px' : null,
+    'minmax(0,1fr)',
+    !rightPanelCollapsed ? '260px' : null,
+  ].filter(Boolean).join('_');
+
   return (
-    <div className="flex h-[calc(100vh-57px)] bg-[#0f1117] overflow-hidden">
+    <div
+      className="grid grid-cols-1 h-[calc(100vh-57px)] bg-[#0f1117] overflow-hidden min-[1100px]:grid-cols-[var(--notebook-columns)]"
+      style={{ '--notebook-columns': desktopColumns } as CSSProperties}
+    >
 
       {/* ── Mobile sidebar backdrop ── */}
       {sidebarOpen && (
@@ -25,25 +36,28 @@ export default function NotebookShell({ children }: NotebookShellProps) {
         />
       )}
 
-      {/* ── Left Sidebar ── */}
-      <aside
-        className={`
-          fixed md:relative z-50 md:z-auto
-          w-[280px] md:w-[260px] flex-shrink-0
-          h-full overflow-hidden
-          bg-[#13151c] border-r border-white/[0.06]
-          transform transition-transform duration-200 ease-out
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-        `}
-      >
-        <NotebookSidebar onClose={() => setSidebarOpen(false)} />
-      </aside>
+      {/* ── Left Sidebar — desktop grid column ── */}
+      {!sidebarCollapsed && (
+        <aside className="hidden min-[1100px]:block min-w-0 h-full overflow-hidden bg-[#13151c] border-r border-white/[0.06]">
+          <NotebookSidebar onCollapse={() => setSidebarCollapsed(true)} />
+        </aside>
+      )}
+
+      {/* ── Left Sidebar — mobile/tablet overlay ── */}
+      {sidebarOpen && (
+        <aside
+          className="min-[1100px]:hidden z-50 w-[300px] max-w-[86vw] h-full overflow-hidden bg-[#13151c] border-r border-white/[0.06] shadow-2xl"
+          style={{ position: 'fixed', left: 0, top: 57, bottom: 0 }}
+        >
+          <NotebookSidebar onClose={() => setSidebarOpen(false)} />
+        </aside>
+      )}
 
       {/* ── Center Editor ── */}
-      <main className="flex-1 min-w-0 flex flex-col overflow-hidden">
+      <main className="min-w-0 flex flex-col overflow-hidden">
 
-        {/* Mobile top bar */}
-        <div className="flex md:hidden items-center gap-3 px-3 py-2.5 border-b border-white/[0.06] bg-[#13151c]">
+        {/* Mobile / tablet top bar */}
+        <div className="flex min-[1100px]:hidden items-center gap-3 px-3 py-2.5 border-b border-white/[0.06] bg-[#13151c]">
           <button
             onClick={() => setSidebarOpen(true)}
             className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-white/[0.08] active:bg-white/[0.12] transition-colors"
@@ -73,22 +87,69 @@ export default function NotebookShell({ children }: NotebookShellProps) {
           </button>
         </div>
 
+        {(sidebarCollapsed || rightPanelCollapsed) && (
+          <div className="hidden min-[1100px]:flex items-center gap-2 px-4 py-2 border-b border-white/[0.06] bg-[#10131b]">
+            {sidebarCollapsed && (
+              <button
+                onClick={() => setSidebarCollapsed(false)}
+                className="inline-flex h-8 items-center gap-2 rounded-md border border-white/[0.08] bg-white/[0.04] px-2.5 text-xs font-medium text-gray-300 hover:bg-white/[0.08] hover:text-white transition-colors"
+                aria-label="Open notebook sidebar"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" />
+                </svg>
+                Notebook
+              </button>
+            )}
+            <span className="min-w-0 flex-1 truncate text-xs text-gray-500">{activePage?.title || 'Notebook'}</span>
+            {rightPanelCollapsed && (
+              <button
+                onClick={() => setRightPanelCollapsed(false)}
+                className="inline-flex h-8 items-center gap-2 rounded-md border border-white/[0.08] bg-white/[0.04] px-2.5 text-xs font-medium text-gray-300 hover:bg-white/[0.08] hover:text-white transition-colors"
+                aria-label="Open links panel"
+              >
+                Links
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5 15.75 12l-7.5 7.5" />
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
+
         {children}
       </main>
 
       {/* ── Right Panel — desktop ── */}
-      <aside className="hidden lg:flex flex-col w-[260px] flex-shrink-0 h-full overflow-y-auto bg-[#13151c] border-l border-white/[0.06]">
-        <NotebookRightPanel />
-      </aside>
+      {!rightPanelCollapsed && (
+        <aside className="hidden min-[1100px]:flex min-w-0 flex-col h-full overflow-y-auto bg-[#13151c] border-l border-white/[0.06]">
+          <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
+            <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">Links</span>
+            <button
+              onClick={() => setRightPanelCollapsed(true)}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-white/[0.08] hover:text-gray-200 active:bg-white/[0.12]"
+              title="Collapse links panel"
+              aria-label="Collapse links panel"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5 15.75 12l-7.5 7.5" />
+              </svg>
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <NotebookRightPanel />
+          </div>
+        </aside>
+      )}
 
-      {/* ── Right Panel — mobile bottom sheet ── */}
+      {/* ── Right Panel — mobile / tablet bottom sheet ── */}
       {rightPanelOpen && (
         <>
           <div
-            className="fixed inset-0 z-[10001] bg-black/60 lg:hidden"
+            className="fixed inset-0 z-[10001] bg-black/60 min-[1100px]:hidden"
             onClick={() => setRightPanelOpen(false)}
           />
-          <div className="fixed bottom-0 left-0 right-0 z-[10002] bg-[#13151c] border-t border-white/[0.08] max-h-[80vh] flex flex-col rounded-t-2xl lg:hidden">
+          <div className="fixed bottom-0 left-0 right-0 z-[10002] bg-[#13151c] border-t border-white/[0.08] max-h-[80vh] flex flex-col rounded-t-2xl min-[1100px]:hidden">
             {/* Drag handle */}
             <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
               <div className="w-10 h-1 bg-white/20 rounded-full" />

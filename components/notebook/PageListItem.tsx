@@ -15,6 +15,10 @@ function checklistSummary(checklists: NotebookChecklist[]): { total: number; don
   return total > 0 ? { total, done } : null;
 }
 
+export function pageHasInk(page: NotebookPage): boolean {
+  return page.editor_mode === 'ink' || Boolean(page.ink?.strokes?.length);
+}
+
 function relativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
@@ -78,8 +82,19 @@ export default function PageListItem({ page, onDelete, dragListeners, dragAttrib
         </div>
       )}
       <Link href={`/notebook/${page.id}`} className="flex-1 min-w-0 flex flex-col gap-0.5">
-        <span className="text-sm truncate leading-tight">
-          {page.title || 'Untitled'}
+        <span className="flex min-w-0 items-center gap-1.5 text-sm leading-tight">
+          <span className="truncate">{page.title || 'Untitled'}</span>
+          {pageHasInk(page) && (
+            <span
+              className="inline-flex flex-shrink-0 items-center gap-1 rounded-full bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-medium leading-none text-sky-300"
+              title="Has saved ink"
+            >
+              <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L7.5 19.152 3 21l1.848-4.5 12.014-12.013Z" />
+              </svg>
+              Ink
+            </span>
+          )}
         </span>
         <div className="flex items-center gap-2">
           <span className="text-[11px] text-gray-500">

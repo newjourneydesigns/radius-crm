@@ -1,9 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useNotebookContext } from '../../contexts/NotebookContext';
 import RichTextEditor from '../notes/RichTextEditor';
 import DictateAndSummarize from '../notes/DictateAndSummarize';
+import NotebookEditorSkeleton from './NotebookEditorSkeleton';
+import type { NotebookEditorMode, NotebookInk } from '../../lib/supabase';
+
+const NotebookInkCanvas = dynamic(() => import('./NotebookInkCanvas'), {
+  ssr: false,
+  loading: () => <NotebookEditorSkeleton />,
+});
 
 function htmlToPlainText(html: string): string {
   return html
@@ -42,13 +50,21 @@ function relativeTime(dateStr: string): string {
 }
 
 export default function NotebookEditor() {
-  const { activePage, scheduleSave, saveStatus } = useNotebookContext();
+  const { activePage, updatePage, scheduleSave, saveStatus } = useNotebookContext();
   const [localTitle, setLocalTitle] = useState(activePage?.title ?? '');
   const [localContent, setLocalContent] = useState(activePage?.content ?? '');
   const [savedAt, setSavedAt] = useState<string>(activePage?.updated_at ?? new Date().toISOString());
   const [exportOpen, setExportOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const titleRef = useRef<HTMLInputElement>(null);
+  const titleRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-resize title textarea to fit its content (no scrollbar, wraps naturally)
+  useLayoutEffect(() => {
+    const el = titleRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }, [localTitle]);
 
   // Sync local state when active page changes
   useEffect(() => {
@@ -74,6 +90,15 @@ export default function NotebookEditor() {
     setLocalContent(html);
     if (activePage) scheduleSave(activePage.id, { title: localTitle, content: html });
   }
+
+  function handleModeChange(mode: NotebookEditorMode) {
+    if (!activePage || (activePage.editor_mode ?? 'text') === mode) return;
+    updatePage(activePage.id, { editor_mode: mode });
+  }
+
+  const handleInkChange = useCallback((nextInk: NotebookInk) => {
+    if (activePage) scheduleSave(activePage.id, { ink: nextInk });
+  }, [activePage, scheduleSave]);
 
   const handleDictateChange = useCallback((plain: string) => {
     const html = plainTextToHtml(plain);
@@ -112,43 +137,68 @@ export default function NotebookEditor() {
   }
 
   if (!activePage) return null;
+  const editorMode = activePage.editor_mode ?? 'text';
 
   return (
     <div className="flex-1 min-w-0 w-full flex flex-col overflow-hidden bg-[#0f1117]">
-      {/* Sticky title bar — always visible above the scroll area */}
-      <div className="flex-shrink-0 w-full min-w-0 px-4 sm:px-6 pt-5 sm:pt-8 pb-4 bg-[#0f1117]">
-        <div className="w-full min-w-0 max-w-[680px] mx-auto">
-          <input
-            ref={titleRef}
-            type="text"
-            value={localTitle}
-            onChange={e => handleTitleChange(e.target.value)}
-            placeholder="Untitled"
-            className="w-full bg-transparent pl-1 text-2xl sm:text-3xl font-bold text-white placeholder-white/20 border-none outline-none leading-tight"
-          />
-        </div>
-      </div>
-
-      {/* Scrollable editor area */}
+      {/* Scrollable editor area — outer padding gives content real breathing room from the sidebar at tablet widths */}
       <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
-        <div className="w-full min-w-0 max-w-[680px] mx-auto px-4 sm:px-6 pb-24 sm:pb-20">
-          {/* Rich text body — toolbar sticks to top of scroll area */}
-          <RichTextEditor
-            value={localContent}
-            onChange={handleContentChange}
-            placeholder="Start writing…"
-            minHeight="400px"
-            stickyToolbar
-            borderless
-          />
-
-          {/* Dictate & AI Summarize */}
-          <div className="mt-6 pt-5 border-t border-white/[0.06]">
-            <DictateAndSummarize
-              text={htmlToPlainText(localContent)}
-              onTextChange={handleDictateChange}
+        <div className={`mx-auto w-full px-5 sm:px-10 md:px-14 lg:px-16 pt-6 sm:pt-10 pb-24 sm:pb-20 ${editorMode === 'ink' ? 'max-w-[1180px]' : 'max-w-[760px]'}`}>
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start">
+            <textarea
+              ref={titleRef}
+              value={localTitle}
+              onChange={e => handleTitleChange(e.target.value)}
+              placeholder="Untitled"
+              rows={1}
+              spellCheck={false}
+              className="notebook-title-input block w-full min-w-0 resize-none overflow-hidden text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-tight"
             />
+            <div className="flex shrink-0 rounded-full border border-white/[0.08] bg-white/[0.04] p-0.5">
+              <button
+                type="button"
+                onClick={() => handleModeChange('text')}
+                className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${editorMode === 'text' ? 'bg-white text-[#111421]' : 'text-gray-400 hover:text-white'}`}
+              >
+                Text
+              </button>
+              <button
+                type="button"
+                onClick={() => handleModeChange('ink')}
+                className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${editorMode === 'ink' ? 'bg-indigo-500 text-white' : 'text-gray-400 hover:text-white'}`}
+              >
+                Ink
+              </button>
+            </div>
           </div>
+
+          {editorMode === 'ink' ? (
+            <NotebookInkCanvas
+              pageId={activePage.id}
+              ink={activePage.ink}
+              onChange={handleInkChange}
+            />
+          ) : (
+            <>
+              {/* Rich text body — toolbar sticks to top of scroll area */}
+              <RichTextEditor
+                value={localContent}
+                onChange={handleContentChange}
+                placeholder="Start writing…"
+                minHeight="400px"
+                stickyToolbar
+                borderless
+              />
+
+              {/* Dictate & AI Summarize */}
+              <div className="mt-6 pt-5 border-t border-white/[0.06]">
+                <DictateAndSummarize
+                  text={htmlToPlainText(localContent)}
+                  onTextChange={handleDictateChange}
+                />
+              </div>
+            </>
+          )}
         </div>
       </div>
 

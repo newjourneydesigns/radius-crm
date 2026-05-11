@@ -8,10 +8,10 @@ export default function NotebookEmptyState() {
   const { folders, createPage, fetchFolders } = useNotebookContext();
 
   async function handleCreate() {
+    // Folders are loaded once by NotebookProvider; only refetch on the edge case
+    // where the provider hasn't populated yet (e.g. user lands here before init).
     let allFolders = folders.flatMap(f => [f, ...(f.children || [])]);
-    if (!allFolders.length) {
-      allFolders = await fetchFolders();
-    }
+    if (!allFolders.length) allFolders = await fetchFolders();
     const unfiled = allFolders.find(f => f.is_unfiled);
     const target = unfiled || allFolders[0];
     if (!target) return;

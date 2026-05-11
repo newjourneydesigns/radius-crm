@@ -513,12 +513,31 @@ export interface NotebookChecklist {
   items: NotebookChecklistItem[];
 }
 
+export type NotebookEditorMode = 'text' | 'ink';
+
+export interface NotebookInkStroke {
+  id: string;
+  mode: 'pen';
+  color: string;
+  size: number;
+  points: Array<[number, number, number]>;
+}
+
+export interface NotebookInk {
+  version: 1;
+  logicalWidth: number;
+  contentHeight: number;
+  strokes: NotebookInkStroke[];
+}
+
 export interface NotebookPage {
   id: string;
   user_id: string;
   folder_id: string;
   title: string;
   content: string;
+  editor_mode: NotebookEditorMode;
+  ink: NotebookInk | null;
   checklists: NotebookChecklist[];
   is_pinned: boolean;
   position: number;

@@ -24,6 +24,7 @@ import NotebookSearch from './NotebookSearch';
 
 interface NotebookSidebarProps {
   onClose?: () => void;
+  onCollapse?: () => void;
 }
 
 const dragOverlayCursorOffset: Modifier = ({ transform }) => ({
@@ -33,7 +34,7 @@ const dragOverlayCursorOffset: Modifier = ({ transform }) => ({
   y: transform.y - 14,
 });
 
-export default function NotebookSidebar({ onClose }: NotebookSidebarProps) {
+export default function NotebookSidebar({ onClose, onCollapse }: NotebookSidebarProps) {
   const router = useRouter();
   const {
     folders, activeFolderId, setActiveFolderId,
@@ -54,7 +55,7 @@ export default function NotebookSidebar({ onClose }: NotebookSidebarProps) {
   );
 
   useEffect(() => {
-    fetchFolders();
+    // Folder load is owned by NotebookProvider — sidebar only loads pinned pages.
     fetchAllPinnedPages().then(setPinnedPages);
   }, []);
 
@@ -184,6 +185,18 @@ export default function NotebookSidebar({ onClose }: NotebookSidebarProps) {
       <div className="flex items-center justify-between px-3 py-3 border-b border-white/[0.06]">
         <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Notebook</span>
         <div className="flex items-center gap-0.5">
+          {onCollapse && (
+            <button
+              onClick={onCollapse}
+              className="w-8 h-8 hidden min-[1100px]:flex items-center justify-center rounded-md text-gray-500 hover:text-gray-200 hover:bg-white/[0.08] active:bg-white/[0.12] transition-colors"
+              title="Collapse sidebar"
+              aria-label="Collapse sidebar"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+              </svg>
+            </button>
+          )}
           <button
             onClick={() => setCreatingFolder(true)}
             className="w-8 h-8 flex items-center justify-center rounded-md text-gray-500 hover:text-gray-200 hover:bg-white/[0.08] active:bg-white/[0.12] transition-colors"

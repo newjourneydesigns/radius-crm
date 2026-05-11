@@ -16,11 +16,15 @@ export function useNotebook() {
   const [folders, setFolders] = useState<NotebookFolder[]>([]);
   const [pages, setPages] = useState<NotebookPage[]>([]);
   const [activePage, setActivePage] = useState<NotebookPage | null>(null);
+  const [pagesById, setPagesById] = useState<Record<string, NotebookPage>>({});
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [loading, setLoading] = useState(false);
+  const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSaveRef = useRef<{ pageId: string; updates: Partial<Pick<NotebookPage, 'title' | 'content' | 'ink'>> } | null>(null);
+  const foldersInFlightRef = useRef<Promise<NotebookFolder[]> | null>(null);
 
   // ── Helpers ─────────────────────────────────────────────────
 
@@ -42,47 +46,57 @@ export function useNotebook() {
   // ── Folders ─────────────────────────────────────────────────
 
   const fetchFolders = useCallback(async () => {
+    // Dedupe concurrent calls — provider mount + child effects can fire together
+    if (foldersInFlightRef.current) return foldersInFlightRef.current;
+
     setLoading(true);
     setError(null);
-    try {
-      const user = await getCurrentUser();
+    const run = (async () => {
+      try {
+        const user = await getCurrentUser();
 
-      const { data, error: err } = await supabase
-        .from('notebook_folders')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('is_unfiled', { ascending: false })
-        .order('position', { ascending: true });
-      if (err) throw err;
-
-      const existing = data || [];
-
-      // Auto-create Unfiled folder if it doesn't exist yet
-      if (!existing.some(f => f.is_unfiled)) {
-        const { data: newFolder, error: createErr } = await supabase
+        const { data, error: err } = await supabase
           .from('notebook_folders')
-          .insert({
-            user_id: user.id,
-            title: 'Unfiled',
-            icon: 'Folder',
-            color: '#6b7280',
-            position: 9999,
-            is_unfiled: true,
-          })
-          .select()
-          .single();
-        if (createErr) throw createErr;
-        existing.push(newFolder);
-      }
+          .select('*')
+          .eq('user_id', user.id)
+          .order('is_unfiled', { ascending: false })
+          .order('position', { ascending: true });
+        if (err) throw err;
 
-      setFolders(buildFolderTree(existing));
-      return existing;
-    } catch (err: any) {
-      setError(err.message);
-      return [];
-    } finally {
-      setLoading(false);
-    }
+        const existing = data || [];
+
+        // Auto-create Unfiled folder if it doesn't exist yet
+        if (!existing.some(f => f.is_unfiled)) {
+          const { data: newFolder, error: createErr } = await supabase
+            .from('notebook_folders')
+            .insert({
+              user_id: user.id,
+              title: 'Unfiled',
+              icon: 'Folder',
+              color: '#6b7280',
+              position: 9999,
+              is_unfiled: true,
+            })
+            .select()
+            .single();
+          if (createErr) throw createErr;
+          existing.push(newFolder);
+        }
+
+        setFolders(buildFolderTree(existing));
+        return existing;
+      } catch (err: any) {
+        setError(err.message);
+        return [];
+      } finally {
+        setLoading(false);
+        setInitialized(true);
+        foldersInFlightRef.current = null;
+      }
+    })();
+
+    foldersInFlightRef.current = run;
+    return run;
   }, []);
 
   const createFolder = useCallback(async (
@@ -193,6 +207,13 @@ export function useNotebook() {
         const withoutFolder = prev.filter(p => p.folder_id !== folderId);
         return [...withoutFolder, ...(data || [])];
       });
+      if (data && data.length) {
+        setPagesById(prev => {
+          const next = { ...prev };
+          for (const p of data) next[p.id] = { ...next[p.id], ...p };
+          return next;
+        });
+      }
       return data || [];
     } catch (err: any) {
       setError(err.message);
@@ -233,6 +254,13 @@ export function useNotebook() {
         .eq('is_pinned', true)
         .order('updated_at', { ascending: false });
       if (err) throw err;
+      if (data && data.length) {
+        setPagesById(prev => {
+          const next = { ...prev };
+          for (const p of data) next[p.id] = { ...next[p.id], ...p };
+          return next;
+        });
+      }
       return data || [];
     } catch (err: any) {
       setError(err.message);
@@ -246,11 +274,18 @@ export function useNotebook() {
     try {
       const { data, error: err } = await supabase
         .from('notebook_pages')
-        .select('id, title, content, checklists, folder_id, is_pinned, position, user_id, created_at, updated_at')
+        .select('id, title, content, editor_mode, ink, checklists, folder_id, is_pinned, position, user_id, created_at, updated_at')
         .eq('id', pageId)
         .single();
       if (err) throw err;
-      setActivePage(data);
+      setActivePage(prev => {
+        // Preserve existing link data if we're refreshing a cached page
+        if (prev?.id === pageId) {
+          return { ...prev, ...data };
+        }
+        return data;
+      });
+      setPagesById(prev => ({ ...prev, [pageId]: { ...prev[pageId], ...data } }));
       return data;
     } catch (err: any) {
       setError(err.message);
@@ -285,10 +320,16 @@ export function useNotebook() {
         .eq('id', pageId)
         .single();
       if (err || !data) return;
+      const linkPatch = {
+        linked_leaders: data.linked_leaders,
+        linked_boards: data.linked_boards,
+        linked_cards: data.linked_cards,
+      };
       setActivePage(prev =>
-        prev?.id === pageId
-          ? { ...prev, linked_leaders: data.linked_leaders, linked_boards: data.linked_boards, linked_cards: data.linked_cards }
-          : prev
+        prev?.id === pageId ? { ...prev, ...linkPatch } : prev
+      );
+      setPagesById(prev =>
+        prev[pageId] ? { ...prev, [pageId]: { ...prev[pageId], ...linkPatch } } : prev
       );
     } catch {
       // non-critical — right panel just stays empty
@@ -301,6 +342,20 @@ export function useNotebook() {
     return page;
   }, [fetchPageContent, fetchPageLinks]);
 
+  // Optimistic load: render cached page instantly, revalidate in background.
+  // Returns the cached page (or null) synchronously via a ref-style read.
+  const loadPageOptimistic = useCallback((pageId: string): NotebookPage | null => {
+    const cached = pagesById[pageId];
+    if (cached) {
+      setActivePage(cached);
+      // Background revalidate — don't block render
+      fetchPage(pageId);
+      return cached;
+    }
+    fetchPage(pageId);
+    return null;
+  }, [pagesById, fetchPage]);
+
   const createPage = useCallback(async (folderId: string): Promise<NotebookPage | null> => {
     setError(null);
     try {
@@ -308,12 +363,13 @@ export function useNotebook() {
 
       const { data, error: err } = await supabase
         .from('notebook_pages')
-        .insert({ user_id: user.id, folder_id: folderId, title: 'Untitled', content: '' })
+        .insert({ user_id: user.id, folder_id: folderId, title: 'Untitled', content: '', editor_mode: 'text' })
         .select()
         .single();
       if (err) throw err;
 
       setPages(prev => [data, ...prev]);
+      setPagesById(prev => ({ ...prev, [data.id]: data }));
       setActivePage(data);
       return data;
     } catch (err: any) {
@@ -325,7 +381,7 @@ export function useNotebook() {
   // Immediate update (for pin toggle etc.)
   const updatePage = useCallback(async (
     pageId: string,
-    updates: Partial<Pick<NotebookPage, 'title' | 'content' | 'checklists' | 'is_pinned' | 'folder_id'>>,
+    updates: Partial<Pick<NotebookPage, 'title' | 'content' | 'checklists' | 'is_pinned' | 'folder_id' | 'editor_mode' | 'ink'>>,
   ) => {
     setError(null);
     try {
@@ -337,6 +393,7 @@ export function useNotebook() {
 
       setPages(prev => prev.map(p => p.id === pageId ? { ...p, ...updates } : p));
       setActivePage(prev => prev?.id === pageId ? { ...prev, ...updates } : prev);
+      setPagesById(prev => (prev[pageId] ? { ...prev, [pageId]: { ...prev[pageId], ...updates } } : prev));
     } catch (err: any) {
       setError(err.message);
     }
@@ -345,21 +402,28 @@ export function useNotebook() {
   // Debounced save called by the editor on every keystroke
   const scheduleSave = useCallback((
     pageId: string,
-    updates: Partial<Pick<NotebookPage, 'title' | 'content'>>,
+    updates: Partial<Pick<NotebookPage, 'title' | 'content' | 'ink'>>,
   ) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    pendingSaveRef.current = pendingSaveRef.current?.pageId === pageId
+      ? { pageId, updates: { ...pendingSaveRef.current.updates, ...updates } }
+      : { pageId, updates };
     setSaveStatus('saving');
 
     saveTimerRef.current = setTimeout(async () => {
+      const pending = pendingSaveRef.current;
+      if (!pending) return;
+      pendingSaveRef.current = null;
       try {
         const { error: err } = await supabase
           .from('notebook_pages')
-          .update(updates)
-          .eq('id', pageId);
+          .update(pending.updates)
+          .eq('id', pending.pageId);
         if (err) throw err;
 
-        setPages(prev => prev.map(p => p.id === pageId ? { ...p, ...updates } : p));
-        setActivePage(prev => prev?.id === pageId ? { ...prev, ...updates } : prev);
+        setPages(prev => prev.map(p => p.id === pending.pageId ? { ...p, ...pending.updates } : p));
+        setActivePage(prev => prev?.id === pending.pageId ? { ...prev, ...pending.updates } : prev);
+        setPagesById(prev => (prev[pending.pageId] ? { ...prev, [pending.pageId]: { ...prev[pending.pageId], ...pending.updates } } : prev));
         setSaveStatus('saved');
       } catch (err: any) {
         setError(err.message);
@@ -378,6 +442,11 @@ export function useNotebook() {
       if (err) throw err;
 
       setPages(prev => prev.filter(p => p.id !== pageId));
+      setPagesById(prev => {
+        if (!prev[pageId]) return prev;
+        const { [pageId]: _omit, ...rest } = prev;
+        return rest;
+      });
       if (activePage?.id === pageId) setActivePage(null);
     } catch (err: any) {
       setError(err.message);
@@ -391,7 +460,7 @@ export function useNotebook() {
 
       const { data, error: err } = await supabase
         .from('notebook_pages')
-        .select('id, title, folder_id, updated_at, is_pinned, content, user_id, created_at, position, checklists')
+        .select('id, title, folder_id, updated_at, is_pinned, content, editor_mode, ink, user_id, created_at, position, checklists')
         .eq('user_id', user.id)
         .textSearch('fts', query, { type: 'websearch', config: 'english' })
         .order('updated_at', { ascending: false })
@@ -557,9 +626,11 @@ export function useNotebook() {
     // State
     folders,
     pages,
+    pagesById,
     activePage,
     saveStatus,
     loading,
+    initialized,
     error,
     // Setters
     setActivePage,
@@ -575,6 +646,7 @@ export function useNotebook() {
     reorderPages,
     fetchAllPinnedPages,
     fetchPage,
+    loadPageOptimistic,
     createPage,
     updatePage,
     scheduleSave,
