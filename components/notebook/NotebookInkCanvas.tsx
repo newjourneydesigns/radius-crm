@@ -133,10 +133,10 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
     const pageChanged = pageIdRef.current !== pageId;
 
     pageIdRef.current = pageId;
+    if (!pageChanged) return;
+
     setDraftInk(nextInk);
     setPayloadWarning(getInkByteSize(nextInk) > MAX_INK_BYTES);
-
-    if (!pageChanged) return;
     setUndoStack([]);
     setRedoStack([]);
     clearCanvas();

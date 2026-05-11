@@ -444,6 +444,12 @@ export function useNotebook() {
           .eq('id', pending.pageId);
         if (err) throw err;
 
+        // If the user kept writing while this request was in flight, a newer
+        // debounced payload is already queued. Do not echo this older payload
+        // back into activePage or it can clobber the live ink canvas.
+        const hasNewerPendingSave = pendingSaveRef.current?.pageId === pending.pageId;
+        if (hasNewerPendingSave) return;
+
         setPages(prev => prev.map(p => p.id === pending.pageId ? { ...p, ...pending.updates } : p));
         setActivePage(prev => prev?.id === pending.pageId ? { ...prev, ...pending.updates } : prev);
         setPagesById(prev => (prev[pending.pageId] ? { ...prev, [pending.pageId]: { ...prev[pending.pageId], ...pending.updates } } : prev));
