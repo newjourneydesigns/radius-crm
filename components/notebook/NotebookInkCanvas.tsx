@@ -107,6 +107,8 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const viewportStateRef = useRef<Viewport>({ scale: 1, translateY: 0 });
+  const pageIdRef = useRef(pageId);
   const activePointersRef = useRef(new Map<number, TrackedPointer>());
   const strokePointerRef = useRef<number | null>(null);
   const currentStrokeRef = useRef<Point[]>([]);
@@ -127,7 +129,14 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
-    setDraftInk(ink ?? makeEmptyInk(viewportRef.current?.clientHeight));
+    const nextInk = ink ?? makeEmptyInk(viewportRef.current?.clientHeight);
+    const pageChanged = pageIdRef.current !== pageId;
+
+    pageIdRef.current = pageId;
+    setDraftInk(nextInk);
+    setPayloadWarning(getInkByteSize(nextInk) > MAX_INK_BYTES);
+
+    if (!pageChanged) return;
     setUndoStack([]);
     setRedoStack([]);
     clearCanvas();
@@ -147,7 +156,9 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
 
   const updateViewport = useCallback((next: Viewport) => {
     const scale = clamp(next.scale, MIN_ZOOM, MAX_ZOOM);
-    setViewport({ scale, translateY: clampTranslate(scale, next.translateY) });
+    const nextViewport = { scale, translateY: clampTranslate(scale, next.translateY) };
+    viewportStateRef.current = nextViewport;
+    setViewport(nextViewport);
   }, [clampTranslate]);
 
   function clearCanvas() {
@@ -204,17 +215,26 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
   const getTouchPointers = () =>
     Array.from(activePointersRef.current.values()).filter(pointer => pointer.pointerType === 'touch');
 
+  const startTouchPan = (centerY: number) => {
+    currentStrokeRef.current = [];
+    clearCanvas();
+    touchPanRef.current = {
+      centerY,
+      translateY: viewportStateRef.current.translateY,
+    };
+    return true;
+  };
+
   const startTouchPanIfReady = (event: React.PointerEvent<HTMLDivElement>) => {
     const touches = getTouchPointers();
     if (touches.length < 2 || strokePointerRef.current !== null) return false;
     const [first, second] = touches;
-    currentStrokeRef.current = [];
-    clearCanvas();
-    touchPanRef.current = {
-      centerY: (first.clientY + second.clientY) / 2 || event.clientY,
-      translateY: viewport.translateY,
-    };
-    return true;
+    return startTouchPan((first.clientY + second.clientY) / 2 || event.clientY);
+  };
+
+  const pointsFromCoalescedEvent = (event: React.PointerEvent<HTMLDivElement>) => {
+    const samples = event.nativeEvent.getCoalescedEvents?.() ?? [event.nativeEvent];
+    return samples.map(sample => pointFromEvent(sample));
   };
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -234,6 +254,7 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
     event.currentTarget.setPointerCapture(event.pointerId);
 
     if (event.pointerType === 'touch' && startTouchPanIfReady(event)) return;
+    if (pencilOnly && event.pointerType === 'touch' && startTouchPan(event.clientY)) return;
     if (pencilOnly && event.pointerType === 'touch') return;
 
     strokePointerRef.current = event.pointerId;
@@ -267,11 +288,10 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
 
     if (touchPanRef.current) {
       const touches = getTouchPointers();
-      if (touches.length < 2) return;
-      const [first, second] = touches;
-      const centerY = (first.clientY + second.clientY) / 2;
+      if (!touches.length) return;
+      const centerY = touches.reduce((sum, touch) => sum + touch.clientY, 0) / touches.length;
       updateViewport({
-        scale: viewport.scale,
+        scale: viewportStateRef.current.scale,
         translateY: touchPanRef.current.translateY + (centerY - touchPanRef.current.centerY),
       });
       return;
@@ -279,10 +299,10 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
 
     if (strokePointerRef.current !== event.pointerId) return;
     if (tool === 'eraser') {
-      eraseAt(point);
+      pointsFromCoalescedEvent(event).forEach(eraseAt);
       return;
     }
-    currentStrokeRef.current.push(point);
+    currentStrokeRef.current.push(...pointsFromCoalescedEvent(event));
     scheduleDraw();
   };
 
@@ -295,6 +315,7 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
     strokePointerRef.current = null;
 
     if (tool === 'eraser') {
+      eraseAt(pointFromEvent(event));
       if (deletedIdsRef.current.size) {
         pushHistory();
         commitInk({
@@ -306,10 +327,14 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
       return;
     }
 
+    currentStrokeRef.current.push(pointFromEvent(event));
     const points = removeDuplicatePoints(currentStrokeRef.current);
     currentStrokeRef.current = [];
     clearCanvas();
-    if (points.length < 2) return;
+    if (points.length < 2) {
+      const [x, y, pressure] = points[0] ?? pointFromEvent(event);
+      points.push([x + 0.75, y + 0.75, pressure]);
+    }
 
     pushHistory();
     const maxY = Math.max(...points.map(p => p[1]));

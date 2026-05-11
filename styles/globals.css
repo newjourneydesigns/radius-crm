@@ -667,6 +667,17 @@ input.notebook-title-input:hover {
   color: rgba(255, 255, 255, 0.18) !important;
 }
 
+/* Ink mode is a drawing surface. Safari can otherwise select nearby chrome
+   when fast Apple Pencil strokes or palm contact graze the header/buttons. */
+html.notebook-ink-active,
+html.notebook-ink-active *,
+body.notebook-ink-active,
+body.notebook-ink-active * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
 /* Text colors for better contrast */
 .text-gray-900,
 .text-gray-800,

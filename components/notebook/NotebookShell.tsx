@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import NotebookSidebar from './NotebookSidebar';
 import NotebookRightPanel from './NotebookRightPanel';
 import { useNotebookContext } from '../../contexts/NotebookContext';
@@ -21,11 +21,58 @@ export default function NotebookShell({ children }: NotebookShellProps) {
     'minmax(0,1fr)',
     !rightPanelCollapsed ? '260px' : null,
   ].filter(Boolean).join(' ');
+  const isInkMode = activePage?.editor_mode === 'ink';
+  const selectionGuardStyle = isInkMode
+    ? {
+        '--notebook-columns': desktopColumns,
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none',
+      }
+    : { '--notebook-columns': desktopColumns };
+
+  function preventSelectionGesture(event: React.PointerEvent<HTMLElement>) {
+    if (!isInkMode) return;
+    if (event.pointerType === 'touch' || event.pointerType === 'pen') {
+      event.currentTarget.blur();
+      window.getSelection()?.removeAllRanges();
+    }
+  }
+
+  useEffect(() => {
+    if (!isInkMode) return;
+
+    document.documentElement.classList.add('notebook-ink-active');
+    document.body.classList.add('notebook-ink-active');
+
+    const clearSelection = () => window.getSelection()?.removeAllRanges();
+    const preventSelection = (event: Event) => {
+      event.preventDefault();
+      clearSelection();
+    };
+
+    document.addEventListener('selectionchange', clearSelection);
+    document.addEventListener('selectstart', preventSelection, { capture: true });
+
+    return () => {
+      document.documentElement.classList.remove('notebook-ink-active');
+      document.body.classList.remove('notebook-ink-active');
+      document.removeEventListener('selectionchange', clearSelection);
+      document.removeEventListener('selectstart', preventSelection, { capture: true });
+    };
+  }, [isInkMode]);
 
   return (
     <div
       className="grid grid-cols-1 h-[calc(100vh-57px)] bg-[#0f1117] overflow-hidden min-[1100px]:grid-cols-[var(--notebook-columns)]"
-      style={{ '--notebook-columns': desktopColumns } as CSSProperties}
+      style={selectionGuardStyle as CSSProperties}
+      onPointerUpCapture={preventSelectionGesture}
+      onPointerCancelCapture={preventSelectionGesture}
+      onSelect={event => {
+        if (!isInkMode) return;
+        event.preventDefault();
+        window.getSelection()?.removeAllRanges();
+      }}
     >
 
       {/* ── Mobile sidebar backdrop ── */}
@@ -57,7 +104,10 @@ export default function NotebookShell({ children }: NotebookShellProps) {
       <main className="min-w-0 flex flex-col overflow-hidden">
 
         {/* Mobile / tablet top bar */}
-        <div className="flex min-[1100px]:hidden items-center gap-3 px-3 py-2.5 border-b border-white/[0.06] bg-[#13151c]">
+        <div
+          className="flex min-[1100px]:hidden items-center gap-3 px-3 py-2.5 border-b border-white/[0.06] bg-[#13151c] select-none"
+          style={selectionGuardStyle as CSSProperties}
+        >
           <button
             onClick={() => setSidebarOpen(true)}
             className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-white/[0.08] active:bg-white/[0.12] transition-colors"
@@ -68,7 +118,7 @@ export default function NotebookShell({ children }: NotebookShellProps) {
             </svg>
           </button>
 
-          <span className="flex-1 min-w-0 text-sm font-medium text-white/80 truncate">
+          <span className="flex-1 min-w-0 text-sm font-medium text-white/80 truncate select-none">
             {activePage?.title || 'Notebook'}
           </span>
 
@@ -88,7 +138,10 @@ export default function NotebookShell({ children }: NotebookShellProps) {
         </div>
 
         {(sidebarCollapsed || rightPanelCollapsed) && (
-          <div className="hidden min-[1100px]:flex items-center gap-2 px-4 py-2 border-b border-white/[0.06] bg-[#10131b]">
+          <div
+            className="hidden min-[1100px]:flex items-center gap-2 px-4 py-2 border-b border-white/[0.06] bg-[#10131b] select-none"
+            style={selectionGuardStyle as CSSProperties}
+          >
             {sidebarCollapsed && (
               <button
                 onClick={() => setSidebarCollapsed(false)}
