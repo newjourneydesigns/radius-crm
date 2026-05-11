@@ -18,6 +18,7 @@ type Tool = 'pen' | 'eraser';
 type Point = [number, number, number];
 type Viewport = { scale: number; translateY: number };
 type TrackedPointer = { point: Point; pointerType: string; clientY: number };
+type RenderedStroke = NotebookInkStroke & { path: string };
 
 interface NotebookInkCanvasProps {
   pageId: string;
@@ -102,6 +103,10 @@ function getInkByteSize(ink: NotebookInk) {
   return new Blob([JSON.stringify(ink)]).size;
 }
 
+function getEstimatedInkByteSize(ink: NotebookInk) {
+  return ink.strokes.reduce((total, stroke) => total + 140 + stroke.points.length * 24, 96);
+}
+
 export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInkCanvasProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -109,6 +114,9 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const viewportStateRef = useRef<Viewport>({ scale: 1, translateY: 0 });
   const pageIdRef = useRef(pageId);
+  const draftInkRef = useRef<NotebookInk>(ink ?? makeEmptyInk());
+  const pathCacheRef = useRef(new Map<string, { stroke: NotebookInkStroke; path: string }>());
+  const warningTimerRef = useRef<number | null>(null);
   const activePointersRef = useRef(new Map<number, TrackedPointer>());
   const strokePointerRef = useRef<number | null>(null);
   const currentStrokeRef = useRef<Point[]>([]);
@@ -128,6 +136,14 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
 
+  function schedulePayloadWarning(nextInk: NotebookInk) {
+    if (warningTimerRef.current !== null) window.clearTimeout(warningTimerRef.current);
+    warningTimerRef.current = window.setTimeout(() => {
+      warningTimerRef.current = null;
+      setPayloadWarning(getEstimatedInkByteSize(nextInk) > MAX_INK_BYTES);
+    }, 500);
+  }
+
   useEffect(() => {
     const nextInk = ink ?? makeEmptyInk(viewportRef.current?.clientHeight);
     const pageChanged = pageIdRef.current !== pageId;
@@ -135,17 +151,33 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
     pageIdRef.current = pageId;
     if (!pageChanged) return;
 
+    draftInkRef.current = nextInk;
+    pathCacheRef.current.clear();
     setDraftInk(nextInk);
-    setPayloadWarning(getInkByteSize(nextInk) > MAX_INK_BYTES);
+    schedulePayloadWarning(nextInk);
     setUndoStack([]);
     setRedoStack([]);
     clearCanvas();
   }, [pageId, ink]);
 
-  const paths = useMemo(
-    () => draftInk.strokes.map(stroke => ({ ...stroke, path: strokeToPath(stroke.points, stroke.size) })),
-    [draftInk.strokes],
-  );
+  useEffect(() => () => {
+    if (warningTimerRef.current !== null) window.clearTimeout(warningTimerRef.current);
+  }, []);
+
+  const paths = useMemo(() => {
+    const activeStrokeIds = new Set(draftInk.strokes.map(stroke => stroke.id));
+    pathCacheRef.current.forEach((_, strokeId) => {
+      if (!activeStrokeIds.has(strokeId)) pathCacheRef.current.delete(strokeId);
+    });
+
+    return draftInk.strokes.map((stroke): RenderedStroke => {
+      const cached = pathCacheRef.current.get(stroke.id);
+      if (cached?.stroke === stroke) return { ...stroke, path: cached.path };
+      const path = strokeToPath(stroke.points, stroke.size);
+      pathCacheRef.current.set(stroke.id, { stroke, path });
+      return { ...stroke, path };
+    });
+  }, [draftInk.strokes]);
 
   const clampTranslate = useCallback((scale: number, translateY: number) => {
     const viewportHeight = viewportRef.current?.clientHeight ?? 0;
@@ -202,15 +234,16 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
   }, [draftInk.contentHeight, draftInk.logicalWidth]);
 
   const commitInk = useCallback((nextInk: NotebookInk) => {
+    draftInkRef.current = nextInk;
     setDraftInk(nextInk);
-    setPayloadWarning(getInkByteSize(nextInk) > MAX_INK_BYTES);
+    schedulePayloadWarning(nextInk);
     onChange(nextInk);
   }, [onChange]);
 
   const pushHistory = useCallback(() => {
-    setUndoStack(prev => [...prev.slice(-24), draftInk]);
+    setUndoStack(prev => [...prev.slice(-24), draftInkRef.current]);
     setRedoStack([]);
-  }, [draftInk]);
+  }, []);
 
   const getTouchPointers = () =>
     Array.from(activePointersRef.current.values()).filter(pointer => pointer.pointerType === 'touch');
@@ -270,8 +303,9 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
   };
 
   const eraseAt = (point: Point) => {
-    for (let i = draftInk.strokes.length - 1; i >= 0; i -= 1) {
-      const stroke = draftInk.strokes[i];
+    const currentInk = draftInkRef.current;
+    for (let i = currentInk.strokes.length - 1; i >= 0; i -= 1) {
+      const stroke = currentInk.strokes[i];
       if (!deletedIdsRef.current.has(stroke.id) && hitStroke(stroke, point, 14)) {
         deletedIdsRef.current.add(stroke.id);
         break;
@@ -318,9 +352,10 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
       eraseAt(pointFromEvent(event));
       if (deletedIdsRef.current.size) {
         pushHistory();
+        const currentInk = draftInkRef.current;
         commitInk({
-          ...draftInk,
-          strokes: draftInk.strokes.filter(stroke => !deletedIdsRef.current.has(stroke.id)),
+          ...currentInk,
+          strokes: currentInk.strokes.filter(stroke => !deletedIdsRef.current.has(stroke.id)),
         });
       }
       deletedIdsRef.current = new Set();
@@ -338,14 +373,15 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
 
     pushHistory();
     const maxY = Math.max(...points.map(p => p[1]));
-    const contentHeight = maxY > draftInk.contentHeight - GROW_ZONE
-      ? draftInk.contentHeight + GROW_BY
-      : draftInk.contentHeight;
+    const currentInk = draftInkRef.current;
+    const contentHeight = maxY > currentInk.contentHeight - GROW_ZONE
+      ? currentInk.contentHeight + GROW_BY
+      : currentInk.contentHeight;
     commitInk({
-      ...draftInk,
+      ...currentInk,
       contentHeight,
       strokes: [
-        ...draftInk.strokes,
+        ...currentInk.strokes,
         {
           id: crypto.randomUUID(),
           mode: 'pen',
@@ -366,7 +402,7 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
     const previous = undoStack[undoStack.length - 1];
     if (!previous) return;
     setUndoStack(prev => prev.slice(0, -1));
-    setRedoStack(prev => [...prev, draftInk]);
+    setRedoStack(prev => [...prev, draftInkRef.current]);
     commitInk(previous);
   };
 
@@ -374,16 +410,16 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
     const next = redoStack[redoStack.length - 1];
     if (!next) return;
     setRedoStack(prev => prev.slice(0, -1));
-    setUndoStack(prev => [...prev, draftInk]);
+    setUndoStack(prev => [...prev, draftInkRef.current]);
     commitInk(next);
   };
 
   const clear = () => {
-    if (!draftInk.strokes.length) return;
+    if (!draftInkRef.current.strokes.length) return;
     setMenuOpen(false);
     if (!window.confirm('Clear all ink from this page?')) return;
     pushHistory();
-    commitInk({ ...draftInk, strokes: [] });
+    commitInk({ ...draftInkRef.current, strokes: [] });
   };
 
   const toggleMenu = () => {
@@ -468,7 +504,6 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
-          {payloadWarning && <span className="text-xs text-amber-300">Large ink page</span>}
           <button type="button" onClick={() => updateViewport({ scale: viewport.scale - 0.1, translateY: viewport.translateY })} className="p-2 rounded text-gray-400 hover:text-white" title="Zoom out">
             <ZoomOut className="h-4 w-4" />
           </button>
@@ -488,11 +523,16 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
             type="button"
             onClick={toggleMenu}
             className={`rounded p-2 text-gray-400 hover:text-white ${menuOpen ? 'bg-white/[0.08] text-white' : ''}`}
-            title="Ink options"
+            title={payloadWarning ? 'Ink options - large ink page' : 'Ink options'}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
           >
-            <MoreHorizontal className="h-4 w-4" />
+            <span className="relative block">
+              <MoreHorizontal className="h-4 w-4" />
+              {payloadWarning && (
+                <span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-amber-300" />
+              )}
+            </span>
           </button>
         </div>
       </div>
@@ -510,6 +550,11 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
             className="fixed z-50 w-44 rounded-lg border border-white/[0.1] bg-[#1e2130] py-1 shadow-xl"
             style={{ top: menuPosition.top, left: menuPosition.left }}
           >
+            {payloadWarning && (
+              <div className="border-b border-white/[0.06] px-3 py-2 text-xs text-amber-200">
+                Large ink page
+              </div>
+            )}
             <button
               type="button"
               role="menuitem"
