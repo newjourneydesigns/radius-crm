@@ -1068,9 +1068,18 @@ export class CCBClient {
       if (leader.ccb_group_id) {
         match = byGroupId.get(String(leader.ccb_group_id));
       }
+      // Try ccb_group_name first (most specific), then fall back to leader.name.
+      // Without the fallback, any leader whose stored ccb_group_name doesn't
+      // perfectly substring-match the CCB event title is silently skipped —
+      // e.g. stored "FMT | S1 | Scott and Holly Sharrer" vs CCB title
+      // "FMT | S1 | Scott Sharrer".
+      if (!match && leader.ccb_group_name) {
+        const key = leader.ccb_group_name.trim().toLowerCase();
+        if (key) match = eventData.find(e => e.title.includes(key));
+      }
       if (!match) {
-        const matchKey = (leader.ccb_group_name?.trim() || leader.name.trim()).toLowerCase();
-        match = eventData.find(e => e.title.includes(matchKey));
+        const key = leader.name.trim().toLowerCase();
+        if (key) match = eventData.find(e => e.title.includes(key));
       }
       result.set(leader.id, {
         hasReport: !!match,

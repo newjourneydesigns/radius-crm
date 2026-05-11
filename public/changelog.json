@@ -2,6 +2,12 @@
   {
     "date": "2026-05-11",
     "type": "fix",
+    "description": "Auto-update from CCB now falls back to matching by the leader's name when their stored CCB group name doesn't quite match the event title in CCB — so leaders whose group name in RADIUS includes extra detail (e.g. a co-leader's name) finally get their summaries pulled.",
+    "page": "/calendar"
+  },
+  {
+    "date": "2026-05-11",
+    "type": "fix",
     "description": "The CCB Event Explorer no longer silently shows \"No events found\" when CCB is actually rejecting the request — credential and service-permission errors from CCB now surface with the real error message so problems can be diagnosed instead of guessed at.",
     "page": "/calendar"
   },
