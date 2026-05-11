@@ -192,6 +192,42 @@ export class CCBClient {
           throw error;
         }
         const data = typeof res.data === "string" ? this.parser.parse(res.data) : res.data;
+
+        // CCB returns HTTP 200 even for auth / permission failures, with the
+        // problem reported inside <ccb_api><response><errors><error>. Without
+        // this check, callers silently see "no events" for what is actually a
+        // dead API user or a service the user lacks permission for.
+        const errNode = (data as any)?.ccb_api?.response?.errors?.error;
+        if (errNode) {
+          const errArr = Array.isArray(errNode) ? errNode : [errNode];
+          const first = errArr[0] || {};
+          const text = String(first['#text'] || first.text || 'CCB returned an error').trim();
+          const type = String(first['@_type'] || first.type || '').trim();
+          const number = String(first['@_number'] || first.number || '').trim();
+          await recordCCBApiTelemetry({
+            context: this.telemetryContext,
+            service,
+            method: 'GET',
+            statusCode: res.status,
+            success: false,
+            durationMs,
+            response: res,
+            errorMessage: `CCB ${type || 'Error'} ${number}: ${text}`.trim(),
+          });
+          const err: any = new Error(
+            `CCB ${type || 'Error'}${number ? ` (${number})` : ''}: ${text}`
+          );
+          err.ccbErrorType = type;
+          err.ccbErrorNumber = number;
+          err.telemetryRecorded = true;
+          // Treat "Service Permission" as an upstream 403 so the API route
+          // surfaces a clear auth/permission message to the UI.
+          if (/permission/i.test(type) || /invalid username or password/i.test(text)) {
+            err.response = { status: 403 };
+          }
+          throw err;
+        }
+
         await recordCCBApiTelemetry({
           context: this.telemetryContext,
           service,
@@ -229,7 +265,12 @@ export class CCBClient {
         if (e.message?.includes('timeout') && timeout > 30000) {
           throw e;
         }
-        
+
+        // Don't burn API quota retrying auth / permission errors
+        if (e.ccbErrorType && /permission/i.test(e.ccbErrorType)) {
+          throw e;
+        }
+
         if (attempt > maxRetries) throw e;
         const delayMs = 500 * Math.pow(2, attempt - 1);
         await new Promise((r) => setTimeout(r, delayMs));
