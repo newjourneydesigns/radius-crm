@@ -12,6 +12,8 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const start = url.searchParams.get('start');
     const end = url.searchParams.get('end');
+    const filter = (url.searchParams.get('q') || '').toLowerCase().trim();
+    const limit = Math.min(Number(url.searchParams.get('limit') || 50), 500);
     if (!start || !end) {
       return NextResponse.json({ error: 'start and end query params required (YYYY-MM-DD)' }, { status: 400 });
     }
@@ -34,23 +36,33 @@ export async function GET(request: Request) {
       ? eventsRoot.event
       : eventsRoot?.event ? [eventsRoot.event] : [];
 
+    const mapped = rawEvents.map((e: any) => ({
+      id: e?.['@_id'] ?? e?.id ?? null,
+      occurrence: e?.['@_occurrence'] ?? e?.occurrence ?? null,
+      name: String(e?.name || e?.event_name || ''),
+      groupName: String(e?.group?.name || ''),
+      groupId: e?.group?.['@_id'] ?? e?.group?.id ?? null,
+      headCount: e?.head_count ?? null,
+      didNotMeet: e?.did_not_meet ?? null,
+      hasNotes: Boolean(e?.notes),
+      hasPrayer: Boolean(e?.prayers || e?.prayer_requests),
+      hasTopic: Boolean(e?.topic),
+    }));
+
+    const filtered = filter
+      ? mapped.filter((e) =>
+          (e.name + ' ' + e.groupName).toLowerCase().includes(filter)
+        )
+      : mapped;
+
     return NextResponse.json({
       responseKeys: response ? Object.keys(response) : null,
       eventsRootType: eventsRoot === null ? 'null' : typeof eventsRoot,
       eventsRootKeys: eventsRoot && typeof eventsRoot === 'object' ? Object.keys(eventsRoot) : null,
       rawEventCount: rawEvents.length,
-      sampleEvents: rawEvents.slice(0, 25).map((e: any) => ({
-        id: e?.['@_id'] ?? e?.id ?? null,
-        occurrence: e?.['@_occurrence'] ?? e?.occurrence ?? null,
-        name: String(e?.name || e?.event_name || ''),
-        groupName: String(e?.group?.name || ''),
-        groupId: e?.group?.['@_id'] ?? e?.group?.id ?? null,
-        headCount: e?.head_count ?? null,
-        didNotMeet: e?.did_not_meet ?? null,
-        hasNotes: Boolean(e?.notes),
-        hasPrayer: Boolean(e?.prayers || e?.prayer_requests),
-        hasTopic: Boolean(e?.topic),
-      })),
+      filteredCount: filtered.length,
+      filter,
+      sampleEvents: filtered.slice(0, limit),
     });
   } catch (err: any) {
     return NextResponse.json(
