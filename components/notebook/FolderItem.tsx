@@ -207,13 +207,13 @@ export default function FolderItem({ folder, depth = 0, onPageCreated, onPageDel
 
         {inkPageCount > 0 && (
           <span
-            className="hidden sm:inline-flex flex-shrink-0 items-center gap-1 rounded-full bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-300"
+            className="hidden sm:inline-flex h-5 min-w-5 flex-shrink-0 items-center justify-center gap-0.5 rounded-full bg-sky-500/10 px-1 text-[10px] font-medium text-sky-300/80"
             title={`${inkPageCount} page${inkPageCount === 1 ? '' : 's'} with saved ink`}
           >
-            <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor">
+            <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L7.5 19.152 3 21l1.848-4.5 12.014-12.013Z" />
             </svg>
-            {inkPageCount}
+            <span>{inkPageCount}</span>
           </span>
         )}
 

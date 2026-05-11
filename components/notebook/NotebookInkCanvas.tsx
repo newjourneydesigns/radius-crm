@@ -452,7 +452,7 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
         onPointerCancel={handlePointerUp}
         onWheel={handleWheel}
       >
-        <div className="absolute left-1/2 top-0 w-full max-w-[1100px] -translate-x-1/2 py-4">
+        <div className="absolute left-1/2 top-0 w-full -translate-x-1/2 px-4 py-4">
           <div
             ref={stageRef}
             className="relative mx-auto bg-[#151821] shadow-2xl shadow-black/40"

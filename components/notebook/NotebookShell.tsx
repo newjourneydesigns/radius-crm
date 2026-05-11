@@ -20,7 +20,7 @@ export default function NotebookShell({ children }: NotebookShellProps) {
     !sidebarCollapsed ? '300px' : null,
     'minmax(0,1fr)',
     !rightPanelCollapsed ? '260px' : null,
-  ].filter(Boolean).join('_');
+  ].filter(Boolean).join(' ');
 
   return (
     <div

@@ -86,13 +86,12 @@ export default function PageListItem({ page, onDelete, dragListeners, dragAttrib
           <span className="truncate">{page.title || 'Untitled'}</span>
           {pageHasInk(page) && (
             <span
-              className="inline-flex flex-shrink-0 items-center gap-1 rounded-full bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-medium leading-none text-sky-300"
+              className="inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-sky-500/10 text-sky-300/80"
               title="Has saved ink"
             >
-              <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor">
+              <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L7.5 19.152 3 21l1.848-4.5 12.014-12.013Z" />
               </svg>
-              Ink
             </span>
           )}
         </span>

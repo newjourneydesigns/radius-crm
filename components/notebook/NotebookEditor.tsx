@@ -143,7 +143,7 @@ export default function NotebookEditor() {
     <div className="flex-1 min-w-0 w-full flex flex-col overflow-hidden bg-[#0f1117]">
       {/* Scrollable editor area — outer padding gives content real breathing room from the sidebar at tablet widths */}
       <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
-        <div className={`mx-auto w-full px-5 sm:px-10 md:px-14 lg:px-16 pt-6 sm:pt-10 pb-24 sm:pb-20 ${editorMode === 'ink' ? 'max-w-[1180px]' : 'max-w-[760px]'}`}>
+        <div className={`mx-auto w-full px-5 sm:px-10 md:px-14 lg:px-16 pt-6 sm:pt-10 pb-24 sm:pb-20 ${editorMode === 'ink' ? 'max-w-none' : 'max-w-[760px]'}`}>
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start">
             <textarea
               ref={titleRef}
