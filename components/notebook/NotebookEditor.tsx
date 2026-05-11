@@ -49,6 +49,122 @@ function relativeTime(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function renderInkForPrint(ink?: NotebookInk | null): string {
+  if (!ink?.strokes?.length) return '';
+  const paths = ink.strokes.map(stroke => {
+    const points = stroke.points.map(([x, y]) => `${x},${y}`).join(' ');
+    return `<polyline points="${points}" fill="none" stroke="${escapeHtml(stroke.color)}" stroke-width="${stroke.size}" stroke-linecap="round" stroke-linejoin="round" />`;
+  }).join('');
+
+  return `
+    <section class="export-section">
+      <h2>Ink Drawing</h2>
+      <div class="ink-frame">
+        <svg viewBox="0 0 ${ink.logicalWidth} ${ink.contentHeight}" xmlns="http://www.w3.org/2000/svg">
+          <rect width="${ink.logicalWidth}" height="${ink.contentHeight}" fill="#151821" />
+          ${paths}
+        </svg>
+      </div>
+    </section>
+  `;
+}
+
+function renderLinkedItemsForPrint(page: NonNullable<ReturnType<typeof useNotebookContext>['activePage']>): string {
+  const leaders = page.linked_leaders || [];
+  const boards = page.linked_boards || [];
+  const cards = page.linked_cards || [];
+  const checklists = page.checklists || [];
+  const hasLinkedItems = leaders.length || boards.length || cards.length || checklists.length;
+  if (!hasLinkedItems) return '';
+
+  const leadersHtml = leaders.length ? `
+    <h3>Leaders</h3>
+    <ul>${leaders.map(link => `<li>${escapeHtml(link.circle_leader?.name || 'Leader')}${link.circle_leader?.campus ? `, ${escapeHtml(link.circle_leader.campus)}` : ''}</li>`).join('')}</ul>
+  ` : '';
+
+  const boardsHtml = boards.length ? `
+    <h3>Boards</h3>
+    <ul>${boards.map(link => `<li>${escapeHtml(link.project_board?.title || 'Board')}</li>`).join('')}</ul>
+  ` : '';
+
+  const cardsHtml = cards.length ? `
+    <h3>Cards</h3>
+    <ul>${cards.map(link => {
+      const card = link.board_card;
+      if (!card) return '';
+      const meta = [
+        card.project_board?.title,
+        card.priority,
+        card.due_date ? `due ${card.due_date}` : '',
+        card.is_complete ? 'complete' : '',
+      ].filter(Boolean).join(' · ');
+      return `<li>${escapeHtml(card.title)}${meta ? `<span class="muted"> (${escapeHtml(meta)})</span>` : ''}</li>`;
+    }).join('')}</ul>
+  ` : '';
+
+  const checklistsHtml = checklists.length ? `
+    <h3>Checklists</h3>
+    ${checklists.map(checklist => `
+      <div class="checklist">
+        <strong>${escapeHtml(checklist.title || 'Checklist')}</strong>
+        <ul>${checklist.items.map(item => `<li>${item.checked ? '☑' : '☐'} ${escapeHtml(item.text)}${item.description ? `<span class="muted"> — ${escapeHtml(item.description)}</span>` : ''}</li>`).join('')}</ul>
+      </div>
+    `).join('')}
+  ` : '';
+
+  return `
+    <section class="export-section">
+      <h2>Linked Items</h2>
+      ${leadersHtml}
+      ${boardsHtml}
+      ${cardsHtml}
+      ${checklistsHtml}
+    </section>
+  `;
+}
+
+function linkedItemsToPlainText(page: NonNullable<ReturnType<typeof useNotebookContext>['activePage']>): string {
+  const sections: string[] = [];
+  if (page.ink?.strokes?.length) sections.push(`Ink drawing: ${page.ink.strokes.length} stroke${page.ink.strokes.length === 1 ? '' : 's'} included in print/PDF export.`);
+
+  const leaders = page.linked_leaders || [];
+  if (leaders.length) {
+    sections.push(`Leaders:\n${leaders.map(link => `- ${link.circle_leader?.name || 'Leader'}${link.circle_leader?.campus ? ` (${link.circle_leader.campus})` : ''}`).join('\n')}`);
+  }
+
+  const boards = page.linked_boards || [];
+  if (boards.length) sections.push(`Boards:\n${boards.map(link => `- ${link.project_board?.title || 'Board'}`).join('\n')}`);
+
+  const cards = page.linked_cards || [];
+  if (cards.length) {
+    sections.push(`Cards:\n${cards.map(link => {
+      const card = link.board_card;
+      if (!card) return '- Card';
+      const meta = [card.project_board?.title, card.priority, card.due_date ? `due ${card.due_date}` : '', card.is_complete ? 'complete' : ''].filter(Boolean).join(' · ');
+      return `- ${card.title}${meta ? ` (${meta})` : ''}`;
+    }).join('\n')}`);
+  }
+
+  const checklists = page.checklists || [];
+  if (checklists.length) {
+    sections.push(`Checklists:\n${checklists.map(checklist => [
+      `- ${checklist.title || 'Checklist'}`,
+      ...checklist.items.map(item => `  ${item.checked ? '[x]' : '[ ]'} ${item.text}${item.description ? ` - ${item.description}` : ''}`),
+    ].join('\n')).join('\n')}`);
+  }
+
+  return sections.length ? `\n\n---\n${sections.join('\n\n')}` : '';
+}
+
 export default function NotebookEditor() {
   const { activePage, updatePage, scheduleSave, saveStatus } = useNotebookContext();
   const [localTitle, setLocalTitle] = useState(activePage?.title ?? '');
@@ -107,7 +223,7 @@ export default function NotebookEditor() {
   }, [activePage, localTitle, scheduleSave]);
 
   async function handleCopyText() {
-    const plain = (localTitle ? localTitle + '\n\n' : '') + htmlToPlainText(localContent);
+    const plain = (localTitle ? localTitle + '\n\n' : '') + htmlToPlainText(localContent) + (activePage ? linkedItemsToPlainText(activePage) : '');
     await navigator.clipboard.writeText(plain);
     setCopied(true);
     setExportOpen(false);
@@ -118,18 +234,29 @@ export default function NotebookEditor() {
     setExportOpen(false);
     const win = window.open('', '_blank');
     if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head><title>${localTitle || 'Untitled'}</title><style>
-      body { font-family: Georgia, serif; max-width: 680px; margin: 40px auto; padding: 0 24px; color: #111; line-height: 1.7; }
+    const linkedItemsHtml = activePage ? renderLinkedItemsForPrint(activePage) : '';
+    const inkHtml = activePage ? renderInkForPrint(activePage.ink) : '';
+    win.document.write(`<!DOCTYPE html><html><head><title>${escapeHtml(localTitle || 'Untitled')}</title><style>
+      body { font-family: Georgia, serif; max-width: 760px; margin: 40px auto; padding: 0 24px; color: #111; line-height: 1.7; }
       h1 { font-size: 2rem; font-weight: 700; margin-bottom: 1.5rem; }
+      h2 { font-size: 1.15rem; margin: 2rem 0 0.75rem; padding-top: 1rem; border-top: 1px solid #ddd; }
+      h3 { font-size: 0.9rem; margin: 1rem 0 0.35rem; text-transform: uppercase; letter-spacing: 0.08em; color: #555; }
       p { margin: 0.75em 0; }
       ul, ol { padding-left: 1.5em; margin: 0.75em 0; }
       li { margin: 0.25em 0; }
       strong { font-weight: 700; }
       em { font-style: italic; }
+      .muted { color: #666; }
+      .export-section { break-inside: avoid; }
+      .ink-frame { overflow: hidden; border: 1px solid #d8d8d8; border-radius: 8px; background: #151821; }
+      .ink-frame svg { display: block; width: 100%; height: auto; max-height: 70vh; }
+      .checklist + .checklist { margin-top: 0.75rem; }
       @media print { body { margin: 0; } }
     </style></head><body>
-      ${localTitle ? `<h1>${localTitle}</h1>` : ''}
+      ${localTitle ? `<h1>${escapeHtml(localTitle)}</h1>` : ''}
       ${localContent}
+      ${inkHtml}
+      ${linkedItemsHtml}
     </body></html>`);
     win.document.close();
     win.focus();
@@ -138,13 +265,21 @@ export default function NotebookEditor() {
 
   if (!activePage) return null;
   const editorMode = activePage.editor_mode ?? 'text';
+  const hasSavedInk = Boolean(activePage.has_ink || activePage.ink_stroke_count > 0 || activePage.ink?.strokes?.length);
+
+  const isInkMode = editorMode === 'ink';
 
   return (
     <div className="flex-1 min-w-0 w-full flex flex-col overflow-hidden bg-[#0f1117]">
-      {/* Scrollable editor area — outer padding gives content real breathing room from the sidebar at tablet widths */}
-      <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
-        <div className={`mx-auto w-full px-5 sm:px-10 md:px-14 lg:px-16 pt-6 sm:pt-10 pb-24 sm:pb-20 ${editorMode === 'ink' ? 'max-w-none' : 'max-w-[760px]'}`}>
-          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start">
+      <div className={`flex-1 min-w-0 ${isInkMode ? 'min-h-0 overflow-hidden' : 'overflow-y-auto overflow-x-hidden'}`}>
+        <div
+          className={
+            isInkMode
+              ? 'mx-auto flex h-full min-h-0 w-full max-w-none flex-col px-3 pt-3 pb-3 sm:px-4 sm:pt-4 sm:pb-4'
+              : 'mx-auto w-full max-w-[1120px] px-5 pt-6 pb-24 sm:px-8 sm:pt-10 sm:pb-20 md:px-10 lg:px-12'
+          }
+        >
+          <div className={`${isInkMode ? 'mb-3' : 'mb-6'} flex flex-col gap-3 sm:flex-row sm:items-start`}>
             <textarea
               ref={titleRef}
               value={localTitle}
@@ -152,7 +287,9 @@ export default function NotebookEditor() {
               placeholder="Untitled"
               rows={1}
               spellCheck={false}
-              className="notebook-title-input block w-full min-w-0 resize-none overflow-hidden text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-tight"
+              className={`notebook-title-input block w-full min-w-0 resize-none overflow-hidden font-bold text-white leading-tight ${
+                isInkMode ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-3xl md:text-4xl'
+              }`}
             />
             <div className="flex shrink-0 rounded-full border border-white/[0.08] bg-white/[0.04] p-0.5">
               <button
@@ -165,17 +302,20 @@ export default function NotebookEditor() {
               <button
                 type="button"
                 onClick={() => handleModeChange('ink')}
-                className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${editorMode === 'ink' ? 'bg-indigo-500 text-white' : 'text-gray-400 hover:text-white'}`}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${editorMode === 'ink' ? 'bg-indigo-500 text-white' : 'text-gray-400 hover:text-white'}`}
               >
                 Ink
+                {hasSavedInk && (
+                  <span className={`h-1.5 w-1.5 rounded-full ${editorMode === 'ink' ? 'bg-white/80' : 'bg-sky-300/80'}`} title="Saved ink on this page" />
+                )}
               </button>
             </div>
           </div>
 
-          {editorMode === 'ink' ? (
+          {isInkMode ? (
             <NotebookInkCanvas
               pageId={activePage.id}
-              ink={activePage.ink}
+              ink={activePage.ink ?? null}
               onChange={handleInkChange}
             />
           ) : (
@@ -185,7 +325,7 @@ export default function NotebookEditor() {
                 value={localContent}
                 onChange={handleContentChange}
                 placeholder="Start writing…"
-                minHeight="400px"
+                minHeight="min(760px, calc(100vh - 360px))"
                 stickyToolbar
                 borderless
               />

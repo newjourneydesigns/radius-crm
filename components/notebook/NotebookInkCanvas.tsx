@@ -17,6 +17,7 @@ const MAX_INK_BYTES = 1_000_000;
 type Tool = 'pen' | 'eraser';
 type Point = [number, number, number];
 type Viewport = { scale: number; translateY: number };
+type TrackedPointer = { point: Point; pointerType: string; clientY: number };
 
 interface NotebookInkCanvasProps {
   pageId: string;
@@ -41,9 +42,9 @@ function strokeToPath(points: Point[], size: number) {
   if (!points.length) return '';
   const outline = getStroke(points, {
     size,
-    thinning: 0.55,
-    smoothing: 0.55,
-    streamline: 0.45,
+    thinning: 0.42,
+    smoothing: 0.28,
+    streamline: 0.16,
     simulatePressure: false,
   });
   if (!outline.length) return '';
@@ -105,7 +106,7 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
   const viewportRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const activePointersRef = useRef(new Map<number, Point>());
+  const activePointersRef = useRef(new Map<number, TrackedPointer>());
   const strokePointerRef = useRef<number | null>(null);
   const currentStrokeRef = useRef<Point[]>([]);
   const deletedIdsRef = useRef<Set<string>>(new Set());
@@ -198,31 +199,44 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
     setRedoStack([]);
   }, [draftInk]);
 
+  const getTouchPointers = () =>
+    Array.from(activePointersRef.current.values()).filter(pointer => pointer.pointerType === 'touch');
+
+  const startPinchIfReady = (event: React.PointerEvent<HTMLDivElement>) => {
+    const touches = getTouchPointers();
+    if (touches.length < 2 || strokePointerRef.current !== null) return false;
+    const [first, second] = touches;
+    currentStrokeRef.current = [];
+    clearCanvas();
+    pinchRef.current = {
+      distance: Math.hypot(first.point[0] - second.point[0], first.point[1] - second.point[1]),
+      scale: viewport.scale,
+      centerY: (first.clientY + second.clientY) / 2 || event.clientY,
+      translateY: viewport.translateY,
+    };
+    return true;
+  };
+
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
     const point = pointFromEvent(event);
-    activePointersRef.current.set(event.pointerId, point);
 
     if (event.pointerType === 'pen') {
       setPencilSeen(true);
       setPencilOnly(true);
     }
 
-    if (activePointersRef.current.size >= 2) {
-      currentStrokeRef.current = [];
-      strokePointerRef.current = null;
-      clearCanvas();
-      const points = Array.from(activePointersRef.current.values());
-      pinchRef.current = {
-        distance: Math.hypot(points[0][0] - points[1][0], points[0][1] - points[1][1]),
-        scale: viewport.scale,
-        centerY: event.clientY,
-        translateY: viewport.translateY,
-      };
+    // Palm rejection: once Pencil is active, touch input never interrupts an in-progress stroke.
+    if (pencilOnly && event.pointerType === 'touch' && strokePointerRef.current !== null) {
       return;
     }
 
-    if (pencilOnly && event.pointerType === 'touch') return;
+    activePointersRef.current.set(event.pointerId, { point, pointerType: event.pointerType, clientY: event.clientY });
     event.currentTarget.setPointerCapture(event.pointerId);
+
+    if (event.pointerType === 'touch' && startPinchIfReady(event)) return;
+    if (pencilOnly && event.pointerType === 'touch') return;
+
     strokePointerRef.current = event.pointerId;
 
     if (tool === 'eraser') {
@@ -246,16 +260,22 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
     const point = pointFromEvent(event);
-    activePointersRef.current.set(event.pointerId, point);
+    if (activePointersRef.current.has(event.pointerId)) {
+      activePointersRef.current.set(event.pointerId, { point, pointerType: event.pointerType, clientY: event.clientY });
+    }
 
-    if (activePointersRef.current.size >= 2 && pinchRef.current) {
-      const points = Array.from(activePointersRef.current.values());
-      const distance = Math.hypot(points[0][0] - points[1][0], points[0][1] - points[1][1]);
+    if (pinchRef.current) {
+      const touches = getTouchPointers();
+      if (touches.length < 2) return;
+      const [first, second] = touches;
+      const distance = Math.hypot(first.point[0] - second.point[0], first.point[1] - second.point[1]);
       const nextScale = clamp(pinchRef.current.scale * (distance / Math.max(1, pinchRef.current.distance)), MIN_ZOOM, MAX_ZOOM);
+      const centerY = (first.clientY + second.clientY) / 2;
       updateViewport({
         scale: nextScale,
-        translateY: pinchRef.current.translateY + (event.clientY - pinchRef.current.centerY),
+        translateY: pinchRef.current.translateY + (centerY - pinchRef.current.centerY),
       });
       return;
     }
@@ -270,8 +290,9 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
   };
 
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
     activePointersRef.current.delete(event.pointerId);
-    if (activePointersRef.current.size < 2) pinchRef.current = null;
+    if (getTouchPointers().length < 2) pinchRef.current = null;
 
     if (strokePointerRef.current !== event.pointerId) return;
     strokePointerRef.current = null;
@@ -369,9 +390,9 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
   ];
 
   return (
-    <div className="flex min-h-[560px] flex-1 flex-col rounded-lg border border-white/[0.08] bg-[#0b0d13] overflow-hidden">
-      <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.08] bg-[#111421] px-3 py-2">
-        <div className="flex rounded-md border border-white/[0.08] bg-white/[0.04] p-0.5">
+    <div className="flex min-h-0 flex-1 flex-col rounded-md border border-white/[0.08] bg-[#0b0d13] overflow-hidden">
+      <div className="flex items-center gap-2 overflow-x-auto border-b border-white/[0.08] bg-[#111421] px-3 py-2 touch-none select-none">
+        <div className="flex shrink-0 rounded-md border border-white/[0.08] bg-white/[0.04] p-0.5">
           <button type="button" onClick={() => setTool('pen')} className={`p-2 rounded ${tool === 'pen' ? 'bg-indigo-500 text-white' : 'text-gray-400 hover:text-white'}`} title="Pen">
             <Brush className="h-4 w-4" />
           </button>
@@ -380,7 +401,7 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
           </button>
         </div>
 
-        <div className="flex max-w-[360px] flex-wrap items-center gap-1">
+        <div className="flex shrink-0 flex-nowrap items-center gap-1">
           {colors.map(c => (
             <button
               key={c.value}
@@ -396,7 +417,7 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
           ))}
         </div>
 
-        <div className="flex rounded-md border border-white/[0.08] bg-white/[0.04] p-0.5">
+        <div className="flex shrink-0 rounded-md border border-white/[0.08] bg-white/[0.04] p-0.5">
           {sizes.map(option => (
             <button
               key={option.label}
@@ -409,7 +430,7 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
           ))}
         </div>
 
-        <div className="flex rounded-md border border-white/[0.08] bg-white/[0.04] p-0.5">
+        <div className="flex shrink-0 rounded-md border border-white/[0.08] bg-white/[0.04] p-0.5">
           <button type="button" onClick={undo} disabled={!undoStack.length} className="p-2 rounded text-gray-400 hover:text-white disabled:opacity-30" title="Undo">
             <RotateCcw className="h-4 w-4" />
           </button>
@@ -421,7 +442,7 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
           </button>
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           {(pencilSeen || pencilOnly) && (
             <button
               type="button"
@@ -435,7 +456,14 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
           <button type="button" onClick={() => updateViewport({ scale: viewport.scale - 0.1, translateY: viewport.translateY })} className="p-2 rounded text-gray-400 hover:text-white" title="Zoom out">
             <ZoomOut className="h-4 w-4" />
           </button>
-          <span className="w-12 text-center text-xs tabular-nums text-gray-500">{Math.round(viewport.scale * 100)}%</span>
+          <button
+            type="button"
+            onClick={() => updateViewport({ scale: 1, translateY: 0 })}
+            className="w-12 rounded px-1 py-2 text-center text-xs tabular-nums text-gray-500 hover:bg-white/[0.06] hover:text-gray-300"
+            title="Reset zoom"
+          >
+            {Math.round(viewport.scale * 100)}%
+          </button>
           <button type="button" onClick={() => updateViewport({ scale: viewport.scale + 0.1, translateY: viewport.translateY })} className="p-2 rounded text-gray-400 hover:text-white" title="Zoom in">
             <ZoomIn className="h-4 w-4" />
           </button>
@@ -444,13 +472,21 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
 
       <div
         ref={viewportRef}
-        className="relative flex-1 overflow-hidden bg-[#090b10]"
-        style={{ touchAction: 'none', overscrollBehavior: 'contain' }}
+        className="relative flex-1 overflow-hidden bg-[#090b10] select-none"
+        style={{
+          touchAction: 'none',
+          overscrollBehavior: 'contain',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none',
+        } as React.CSSProperties}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         onWheel={handleWheel}
+        onContextMenu={event => event.preventDefault()}
+        onSelect={event => event.preventDefault()}
       >
         <div className="absolute left-1/2 top-0 w-full -translate-x-1/2 px-4 py-4">
           <div

@@ -31,8 +31,8 @@ interface NotebookContextType {
   fetchPage: (pageId: string) => Promise<NotebookPage | null>;
   loadPageOptimistic: (pageId: string) => NotebookPage | null;
   createPage: (folderId: string) => Promise<NotebookPage | null>;
-  updatePage: (id: string, updates: Partial<Pick<NotebookPage, 'title' | 'content' | 'checklists' | 'is_pinned' | 'folder_id' | 'editor_mode' | 'ink'>>) => Promise<void>;
-  scheduleSave: (id: string, updates: Partial<Pick<NotebookPage, 'title' | 'content' | 'ink'>>) => void;
+  updatePage: (id: string, updates: Partial<Pick<NotebookPage, 'title' | 'content' | 'checklists' | 'is_pinned' | 'folder_id' | 'editor_mode' | 'ink' | 'has_ink' | 'ink_stroke_count' | 'ink_updated_at'>>) => Promise<void>;
+  scheduleSave: (id: string, updates: Partial<Pick<NotebookPage, 'title' | 'content' | 'ink' | 'has_ink' | 'ink_stroke_count' | 'ink_updated_at'>>) => void;
   deletePage: (id: string) => Promise<void>;
   searchPages: (query: string) => Promise<NotebookPage[]>;
   // Link operations

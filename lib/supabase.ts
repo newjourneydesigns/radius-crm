@@ -537,7 +537,10 @@ export interface NotebookPage {
   title: string;
   content: string;
   editor_mode: NotebookEditorMode;
-  ink: NotebookInk | null;
+  ink?: NotebookInk | null;
+  has_ink: boolean;
+  ink_stroke_count: number;
+  ink_updated_at?: string | null;
   checklists: NotebookChecklist[];
   is_pinned: boolean;
   position: number;

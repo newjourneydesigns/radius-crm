@@ -16,7 +16,7 @@ function checklistSummary(checklists: NotebookChecklist[]): { total: number; don
 }
 
 export function pageHasInk(page: NotebookPage): boolean {
-  return page.editor_mode === 'ink' || Boolean(page.ink?.strokes?.length);
+  return Boolean(page.has_ink || page.ink_stroke_count > 0 || page.ink?.strokes?.length);
 }
 
 function relativeTime(dateStr: string): string {

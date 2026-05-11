@@ -12,6 +12,25 @@ import type {
 
 export type SaveStatus = 'idle' | 'saving' | 'saved';
 
+type NotebookPageUpdates = Partial<Pick<
+  NotebookPage,
+  'title' | 'content' | 'checklists' | 'is_pinned' | 'folder_id' | 'editor_mode' | 'ink' | 'has_ink' | 'ink_stroke_count' | 'ink_updated_at'
+>>;
+
+const NOTEBOOK_PAGE_LIST_SELECT = 'id, title, editor_mode, has_ink, ink_stroke_count, ink_updated_at, checklists, folder_id, is_pinned, position, user_id, created_at, updated_at';
+const NOTEBOOK_PAGE_DETAIL_SELECT = 'id, title, content, editor_mode, ink, has_ink, ink_stroke_count, ink_updated_at, checklists, folder_id, is_pinned, position, user_id, created_at, updated_at';
+
+function withInkMetadata(updates: NotebookPageUpdates): NotebookPageUpdates {
+  if (!Object.prototype.hasOwnProperty.call(updates, 'ink')) return updates;
+  const strokeCount = updates.ink?.strokes?.length ?? 0;
+  return {
+    ...updates,
+    has_ink: strokeCount > 0,
+    ink_stroke_count: strokeCount,
+    ink_updated_at: strokeCount > 0 ? new Date().toISOString() : null,
+  };
+}
+
 export function useNotebook() {
   const [folders, setFolders] = useState<NotebookFolder[]>([]);
   const [pages, setPages] = useState<NotebookPage[]>([]);
@@ -23,7 +42,7 @@ export function useNotebook() {
   const [error, setError] = useState<string | null>(null);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingSaveRef = useRef<{ pageId: string; updates: Partial<Pick<NotebookPage, 'title' | 'content' | 'ink'>> } | null>(null);
+  const pendingSaveRef = useRef<{ pageId: string; updates: NotebookPageUpdates } | null>(null);
   const foldersInFlightRef = useRef<Promise<NotebookFolder[]> | null>(null);
 
   // ── Helpers ─────────────────────────────────────────────────
@@ -196,7 +215,7 @@ export function useNotebook() {
     try {
       const { data, error: err } = await supabase
         .from('notebook_pages')
-        .select('*')
+        .select(NOTEBOOK_PAGE_LIST_SELECT)
         .eq('folder_id', folderId)
         .order('is_pinned', { ascending: false })
         .order('position', { ascending: true })
@@ -249,7 +268,7 @@ export function useNotebook() {
 
       const { data, error: err } = await supabase
         .from('notebook_pages')
-        .select('*')
+        .select(NOTEBOOK_PAGE_LIST_SELECT)
         .eq('user_id', user.id)
         .eq('is_pinned', true)
         .order('updated_at', { ascending: false });
@@ -274,7 +293,7 @@ export function useNotebook() {
     try {
       const { data, error: err } = await supabase
         .from('notebook_pages')
-        .select('id, title, content, editor_mode, ink, checklists, folder_id, is_pinned, position, user_id, created_at, updated_at')
+        .select(NOTEBOOK_PAGE_DETAIL_SELECT)
         .eq('id', pageId)
         .single();
       if (err) throw err;
@@ -347,10 +366,12 @@ export function useNotebook() {
   const loadPageOptimistic = useCallback((pageId: string): NotebookPage | null => {
     const cached = pagesById[pageId];
     if (cached) {
-      setActivePage(cached);
-      // Background revalidate — don't block render
+      const hasContent = Object.prototype.hasOwnProperty.call(cached, 'content');
+      const hasInkPayload = cached.editor_mode !== 'ink' || Object.prototype.hasOwnProperty.call(cached, 'ink');
+      if (hasContent && hasInkPayload) setActivePage(cached);
+      // Background revalidate — don't block render when the cached page is complete.
       fetchPage(pageId);
-      return cached;
+      return hasContent && hasInkPayload ? cached : null;
     }
     fetchPage(pageId);
     return null;
@@ -381,19 +402,20 @@ export function useNotebook() {
   // Immediate update (for pin toggle etc.)
   const updatePage = useCallback(async (
     pageId: string,
-    updates: Partial<Pick<NotebookPage, 'title' | 'content' | 'checklists' | 'is_pinned' | 'folder_id' | 'editor_mode' | 'ink'>>,
+    updates: NotebookPageUpdates,
   ) => {
     setError(null);
+    const updatePayload = withInkMetadata(updates);
     try {
       const { error: err } = await supabase
         .from('notebook_pages')
-        .update(updates)
+        .update(updatePayload)
         .eq('id', pageId);
       if (err) throw err;
 
-      setPages(prev => prev.map(p => p.id === pageId ? { ...p, ...updates } : p));
-      setActivePage(prev => prev?.id === pageId ? { ...prev, ...updates } : prev);
-      setPagesById(prev => (prev[pageId] ? { ...prev, [pageId]: { ...prev[pageId], ...updates } } : prev));
+      setPages(prev => prev.map(p => p.id === pageId ? { ...p, ...updatePayload } : p));
+      setActivePage(prev => prev?.id === pageId ? { ...prev, ...updatePayload } : prev);
+      setPagesById(prev => (prev[pageId] ? { ...prev, [pageId]: { ...prev[pageId], ...updatePayload } } : prev));
     } catch (err: any) {
       setError(err.message);
     }
@@ -402,12 +424,13 @@ export function useNotebook() {
   // Debounced save called by the editor on every keystroke
   const scheduleSave = useCallback((
     pageId: string,
-    updates: Partial<Pick<NotebookPage, 'title' | 'content' | 'ink'>>,
+    updates: NotebookPageUpdates,
   ) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    const updatePayload = withInkMetadata(updates);
     pendingSaveRef.current = pendingSaveRef.current?.pageId === pageId
-      ? { pageId, updates: { ...pendingSaveRef.current.updates, ...updates } }
-      : { pageId, updates };
+      ? { pageId, updates: { ...pendingSaveRef.current.updates, ...updatePayload } }
+      : { pageId, updates: updatePayload };
     setSaveStatus('saving');
 
     saveTimerRef.current = setTimeout(async () => {
@@ -460,7 +483,7 @@ export function useNotebook() {
 
       const { data, error: err } = await supabase
         .from('notebook_pages')
-        .select('id, title, folder_id, updated_at, is_pinned, content, editor_mode, ink, user_id, created_at, position, checklists')
+        .select(NOTEBOOK_PAGE_LIST_SELECT)
         .eq('user_id', user.id)
         .textSearch('fts', query, { type: 'websearch', config: 'english' })
         .order('updated_at', { ascending: false })
