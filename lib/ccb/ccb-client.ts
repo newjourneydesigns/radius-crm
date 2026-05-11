@@ -1068,11 +1068,9 @@ export class CCBClient {
       if (leader.ccb_group_id) {
         match = byGroupId.get(String(leader.ccb_group_id));
       }
-      // Try ccb_group_name first (most specific), then fall back to leader.name.
-      // Without the fallback, any leader whose stored ccb_group_name doesn't
-      // perfectly substring-match the CCB event title is silently skipped —
-      // e.g. stored "FMT | S1 | Scott and Holly Sharrer" vs CCB title
-      // "FMT | S1 | Scott Sharrer".
+      // Match priority: ccb_group_name → leader.name (substring) → first+last
+      // name tokens both present in the title (handles co-leader titles like
+      // "FMT | S2 | Shannon and Sherrie Hawk" matching leader "Shannon Hawk").
       if (!match && leader.ccb_group_name) {
         const key = leader.ccb_group_name.trim().toLowerCase();
         if (key) match = eventData.find(e => e.title.includes(key));
@@ -1080,6 +1078,19 @@ export class CCBClient {
       if (!match) {
         const key = leader.name.trim().toLowerCase();
         if (key) match = eventData.find(e => e.title.includes(key));
+      }
+      if (!match) {
+        const tokens = leader.name.trim().toLowerCase().split(/\s+/).filter(Boolean);
+        if (tokens.length >= 2) {
+          const first = tokens[0];
+          const last = tokens[tokens.length - 1];
+          // Both first and last must appear in the event title. Avoid matching
+          // a different leader sharing the same surname (their first name won't
+          // be in the title).
+          if (first !== last) {
+            match = eventData.find(e => e.title.includes(first) && e.title.includes(last));
+          }
+        }
       }
       result.set(leader.id, {
         hasReport: !!match,

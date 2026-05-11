@@ -2,7 +2,13 @@
   {
     "date": "2026-05-11",
     "type": "fix",
-    "description": "Auto-update from CCB now falls back to matching by the leader's name when their stored CCB group name doesn't quite match the event title in CCB — so leaders whose group name in RADIUS includes extra detail (e.g. a co-leader's name) finally get their summaries pulled.",
+    "description": "Auto-update from CCB now matches leaders even when CCB titles include a co-leader name (e.g. \"FMT | S2 | Shannon and Sherrie Hawk\") by checking that both the leader's first and last name appear in the event title — a huge bump in how many summaries get pulled in a single click.",
+    "page": "/calendar"
+  },
+  {
+    "date": "2026-05-11",
+    "type": "fix",
+    "description": "Auto-update from CCB now falls back to matching by the leader's name when their stored CCB group name doesn't quite match the event title in CCB — so leaders whose group name in RADIUS includes extra detail finally get their summaries pulled.",
     "page": "/calendar"
   },
   {
