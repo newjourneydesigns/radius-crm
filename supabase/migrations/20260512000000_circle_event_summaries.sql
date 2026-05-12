@@ -7,7 +7,7 @@
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS circle_event_summaries (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  leader_id UUID REFERENCES circle_leaders(id) ON DELETE CASCADE,
+  leader_id BIGINT REFERENCES circle_leaders(id) ON DELETE CASCADE,
   ccb_event_id TEXT NOT NULL,
   ccb_group_id TEXT,
   occurrence TIMESTAMPTZ NOT NULL,
@@ -44,7 +44,7 @@ CREATE INDEX IF NOT EXISTS circle_event_summaries_status_idx
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS circle_event_summary_drafts (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  leader_id UUID REFERENCES circle_leaders(id) ON DELETE CASCADE,
+  leader_id BIGINT REFERENCES circle_leaders(id) ON DELETE CASCADE,
   ccb_event_id TEXT NOT NULL,
   occurrence TIMESTAMPTZ NOT NULL,
   payload JSONB NOT NULL DEFAULT '{}',
@@ -74,9 +74,10 @@ CREATE TABLE IF NOT EXISTS dynamic_questions (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS dynamic_questions_active_idx
-  ON dynamic_questions (sort_order)
-  WHERE active_from IS NULL OR active_to IS NULL OR active_to >= CURRENT_DATE;
+CREATE INDEX IF NOT EXISTS dynamic_questions_sort_idx
+  ON dynamic_questions (sort_order);
+CREATE INDEX IF NOT EXISTS dynamic_questions_active_window_idx
+  ON dynamic_questions (active_from, active_to);
 
 -- ============================================================================
 -- 4. manual_roster_additions — people added during submission but not in CCB
@@ -84,7 +85,7 @@ CREATE INDEX IF NOT EXISTS dynamic_questions_active_idx
 CREATE TABLE IF NOT EXISTS manual_roster_additions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   summary_id UUID REFERENCES circle_event_summaries(id) ON DELETE CASCADE,
-  leader_id UUID REFERENCES circle_leaders(id) ON DELETE CASCADE,
+  leader_id BIGINT REFERENCES circle_leaders(id) ON DELETE CASCADE,
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
   phone TEXT,
@@ -102,13 +103,13 @@ CREATE INDEX IF NOT EXISTS manual_roster_additions_leader_idx
 CREATE TABLE IF NOT EXISTS circle_info_update_requests (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   summary_id UUID REFERENCES circle_event_summaries(id) ON DELETE CASCADE,
-  leader_id UUID REFERENCES circle_leaders(id) ON DELETE CASCADE,
-  current_day TEXT,
-  current_time TEXT,
-  current_location TEXT,
-  requested_day TEXT,
-  requested_time TEXT,
-  requested_location TEXT,
+  leader_id BIGINT REFERENCES circle_leaders(id) ON DELETE CASCADE,
+  existing_day TEXT,
+  existing_time TEXT,
+  existing_location TEXT,
+  proposed_day TEXT,
+  proposed_time TEXT,
+  proposed_location TEXT,
   reviewed_at TIMESTAMPTZ,
   reviewed_by UUID REFERENCES users(id),
   review_action TEXT CHECK (review_action IN ('applied', 'rejected', 'deferred')),
@@ -125,7 +126,7 @@ CREATE INDEX IF NOT EXISTS circle_info_update_requests_pending_idx
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS leader_otp_codes (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  leader_id UUID REFERENCES circle_leaders(id) ON DELETE CASCADE,
+  leader_id BIGINT REFERENCES circle_leaders(id) ON DELETE CASCADE,
   code_hash TEXT NOT NULL,
   expires_at TIMESTAMPTZ NOT NULL,
   attempts INTEGER NOT NULL DEFAULT 0,
@@ -167,15 +168,15 @@ CREATE POLICY "Authenticated read dynamic_questions" ON dynamic_questions
   FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Admin manage dynamic_questions" ON dynamic_questions
   FOR ALL TO authenticated USING (
-    EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
+    EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role::text = 'ACPD')
   ) WITH CHECK (
-    EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
+    EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role::text = 'ACPD')
   );
 
 -- Admins can manage info update requests (review them)
 CREATE POLICY "Admin manage info requests" ON circle_info_update_requests
   FOR UPDATE TO authenticated USING (
-    EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
+    EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role::text = 'ACPD')
   );
 
 -- All write paths from the public link go through server-side API routes that

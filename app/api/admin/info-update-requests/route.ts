@@ -19,8 +19,8 @@ export async function GET(req: NextRequest) {
   let q = supabase
     .from('circle_info_update_requests')
     .select(
-      `id, leader_id, current_day, current_time, current_location,
-       requested_day, requested_time, requested_location,
+      `id, leader_id, existing_day, existing_time, existing_location,
+       proposed_day, proposed_time, proposed_location,
        review_action, review_notes, reviewed_at, created_at,
        circle_leaders!inner(name, campus, acpd)`
     )
@@ -57,7 +57,7 @@ export async function PATCH(req: NextRequest) {
   const supabase = createServiceSupabaseClient();
   const { data: row, error: loadErr } = await supabase
     .from('circle_info_update_requests')
-    .select('leader_id, requested_day, requested_time, requested_location')
+    .select('leader_id, proposed_day, proposed_time, proposed_location')
     .eq('id', id)
     .single();
   if (loadErr || !row) {
@@ -66,8 +66,8 @@ export async function PATCH(req: NextRequest) {
 
   if (applyToLeader && action === 'applied') {
     const patch: any = {};
-    if (row.requested_day) patch.day = row.requested_day;
-    if (row.requested_time) patch.time = row.requested_time;
+    if (row.proposed_day) patch.day = row.proposed_day;
+    if (row.proposed_time) patch.time = row.proposed_time;
     // (no location column on circle_leaders today; surfaced in notes only)
     if (Object.keys(patch).length) {
       await supabase.from('circle_leaders').update(patch).eq('id', row.leader_id);

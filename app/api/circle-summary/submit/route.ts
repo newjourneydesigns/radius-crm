@@ -231,12 +231,12 @@ export async function POST(req: Request) {
     await supabase.from('circle_info_update_requests').insert({
       summary_id: summaryRow.id,
       leader_id: leader.id,
-      current_day: infoUpdate?.current?.day ?? null,
-      current_time: infoUpdate?.current?.time ?? null,
-      current_location: infoUpdate?.current?.location ?? null,
-      requested_day: infoUpdate?.day ?? null,
-      requested_time: infoUpdate?.time ?? null,
-      requested_location: infoUpdate?.location ?? null,
+      existing_day: infoUpdate?.current?.day ?? null,
+      existing_time: infoUpdate?.current?.time ?? null,
+      existing_location: infoUpdate?.current?.location ?? null,
+      proposed_day: infoUpdate?.day ?? null,
+      proposed_time: infoUpdate?.time ?? null,
+      proposed_location: infoUpdate?.location ?? null,
     });
   }
 

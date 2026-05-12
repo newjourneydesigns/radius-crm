@@ -14,7 +14,7 @@ import {
 import { createServiceSupabaseClient } from '../server-supabase';
 
 export type SessionLeader = {
-  id: string;
+  id: number | string;
   name: string;
   email: string | null;
   phone: string | null;
