@@ -47,7 +47,7 @@ export async function POST(req: Request) {
 
   const { data: leaders, error: lookupError } = await leaderQuery;
   if (lookupError) {
-    console.error('Leader lookup failed:', lookupError);
+    console.error('[circle-summary] Leader lookup failed:', lookupError);
     return NextResponse.json({ error: 'Lookup failed. Try again.' }, { status: 500 });
   }
 
@@ -115,7 +115,7 @@ export async function POST(req: Request) {
   });
 
   if (!emailResult.success) {
-    console.error('OTP email send failed:', emailResult.error);
+    console.error('[circle-summary] OTP email send failed:', emailResult.error);
     return NextResponse.json(
       { error: 'Could not send the code email. Try again or contact your ACPD.' },
       { status: 500 }

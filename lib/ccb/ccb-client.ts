@@ -369,6 +369,41 @@ export class CCBClient {
    * `status` controls behavior: 'add' (direct add), 'invite' (send invitation),
    * or 'request' (leader must approve).
    */
+  /**
+   * Fetch a group's calendar events via the iCal feed returned by
+   * `group_profile_from_id.calendar_feed`. Works on CCB instances where
+   * `event_profiles?group_id=X` is broken (returns the whole church and
+   * blows the XML parser).
+   *
+   * Returns one row per occurrence (RRULE weekly events are expanded to
+   * every occurrence inside [startDate, endDate]).
+   */
+  async getGroupCalendarEvents(
+    groupId: string | number,
+    startDate: string,
+    endDate: string
+  ): Promise<Array<{ eventId: string; title: string; startDateTime: string; startDate: string; startTime: string }>> {
+    const xml: any = await this.getXml({
+      srv: 'group_profile_from_id',
+      id: groupId,
+      include_participants: 'false',
+    });
+    const g = xml?.ccb_api?.response?.groups?.group;
+    const feedRaw =
+      typeof g?.calendar_feed === 'string' ? g.calendar_feed : g?.calendar_feed?.['#text'];
+    if (!feedRaw) return [];
+
+    const httpsUrl = String(feedRaw).replace(/^webcal:/i, 'https:');
+    const res = await axios.get(httpsUrl, {
+      auth: { username: this.config.username, password: this.config.password },
+      timeout: 20000,
+      validateStatus: (s) => s >= 200 && s < 500,
+    });
+    if (res.status >= 400 || typeof res.data !== 'string') return [];
+
+    return parseGroupICal(res.data, startDate, endDate);
+  }
+
   async addIndividualToGroup(
     individualId: string | number,
     groupId: string | number,
@@ -2207,6 +2242,149 @@ ${attendeesXml}
     await recordCCBDailyStatus(normalized);
     return normalized;
   }
+}
+
+// ---- iCal parser for group calendar feeds ----
+
+/**
+ * Minimal iCal VEVENT parser. CCB returns straightforward iCal with:
+ *   UID:62928-16875@ccbchurch.com  → event_id is the segment after "-"
+ *   SUMMARY:LVT | S1 | Radius Test
+ *   DTSTART;TZID=America/Chicago:20260506T170000
+ *   RRULE:FREQ=WEEKLY;BYDAY=TU  (for recurring events)
+ *
+ * We expand weekly RRULEs within [startDate, endDate]. Anything more exotic
+ * is returned as a single occurrence.
+ */
+function parseGroupICal(
+  ical: string,
+  startDate: string,
+  endDate: string
+): Array<{ eventId: string; title: string; startDateTime: string; startDate: string; startTime: string }> {
+  const start = DateTime.fromFormat(startDate, 'yyyy-LL-dd', { zone: 'America/Chicago' }).startOf('day');
+  const end = DateTime.fromFormat(endDate, 'yyyy-LL-dd', { zone: 'America/Chicago' }).endOf('day');
+
+  // Unfold lines: iCal continues a long line with a space at the start of next
+  const unfolded = ical.replace(/\r?\n[ \t]/g, '');
+  const lines = unfolded.split(/\r?\n/);
+
+  const events: Array<{ eventId: string; title: string; startDateTime: string; startDate: string; startTime: string }> = [];
+
+  let inEvent = false;
+  let cur: Record<string, string> = {};
+
+  const flush = () => {
+    if (!cur.UID || !cur.DTSTART) return;
+    const uidMatch = cur.UID.match(/^(?:\d+-)?(\d+)/);
+    const eventId = uidMatch?.[1] || '';
+    if (!eventId) return;
+
+    const title = (cur.SUMMARY || '').replace(/\\,/g, ',').replace(/\\n/g, ' ').trim();
+    const dtstartRaw = cur.DTSTART; // e.g. "20260506T170000" (TZID stripped from param earlier)
+    const baseDt = parseIcalDateTime(dtstartRaw);
+    if (!baseDt?.isValid) return;
+
+    const rrule = cur.RRULE;
+    if (!rrule) {
+      // Single occurrence
+      if (baseDt >= start && baseDt <= end) {
+        events.push(emitOccurrence(eventId, title, baseDt));
+      }
+      return;
+    }
+
+    // Parse RRULE bits we care about (FREQ + INTERVAL + UNTIL + COUNT)
+    const parts: Record<string, string> = {};
+    for (const seg of rrule.split(';')) {
+      const [k, v] = seg.split('=');
+      if (k) parts[k] = v || '';
+    }
+    const freq = parts.FREQ;
+    if (freq !== 'WEEKLY' && freq !== 'DAILY' && freq !== 'MONTHLY') {
+      // Unhandled — fall back to single occurrence
+      if (baseDt >= start && baseDt <= end) {
+        events.push(emitOccurrence(eventId, title, baseDt));
+      }
+      return;
+    }
+
+    const interval = Math.max(1, Number(parts.INTERVAL || 1));
+    const until = parts.UNTIL ? parseIcalDateTime(parts.UNTIL) : null;
+    const count = parts.COUNT ? Number(parts.COUNT) : Infinity;
+
+    let occ = baseDt;
+    let emitted = 0;
+    // Hard upper bound to avoid runaway loops on weird recurrences
+    for (let i = 0; i < 500; i++) {
+      if (until && occ > until) break;
+      if (emitted >= count) break;
+      if (occ > end) break;
+      if (occ >= start) {
+        events.push(emitOccurrence(eventId, title, occ));
+        emitted++;
+      }
+      switch (freq) {
+        case 'DAILY':
+          occ = occ.plus({ days: interval });
+          break;
+        case 'WEEKLY':
+          occ = occ.plus({ weeks: interval });
+          break;
+        case 'MONTHLY':
+          occ = occ.plus({ months: interval });
+          break;
+      }
+    }
+  };
+
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    if (line === 'BEGIN:VEVENT') {
+      inEvent = true;
+      cur = {};
+      continue;
+    }
+    if (line === 'END:VEVENT') {
+      flush();
+      inEvent = false;
+      cur = {};
+      continue;
+    }
+    if (!inEvent) continue;
+
+    // Split on the first colon, with possible ;PARAM after the key
+    const colonIdx = line.indexOf(':');
+    if (colonIdx < 0) continue;
+    const keyAndParams = line.slice(0, colonIdx);
+    const value = line.slice(colonIdx + 1);
+    const key = keyAndParams.split(';')[0];
+    cur[key] = value;
+  }
+
+  return events;
+}
+
+function parseIcalDateTime(raw: string): DateTime | null {
+  if (!raw) return null;
+  // Forms: "20260506T170000", "20260506T170000Z", "20260506"
+  const m = raw.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})(Z?))?$/);
+  if (!m) return null;
+  const [, y, mo, d, h = '0', mi = '0', s = '0', z] = m;
+  const opts = { zone: z === 'Z' ? 'utc' : 'America/Chicago' };
+  return DateTime.fromObject(
+    { year: +y, month: +mo, day: +d, hour: +h, minute: +mi, second: +s },
+    opts
+  ).setZone('America/Chicago');
+}
+
+function emitOccurrence(eventId: string, title: string, dt: DateTime) {
+  return {
+    eventId,
+    title,
+    startDateTime: dt.toFormat('yyyy-LL-dd HH:mm:ss'),
+    startDate: dt.toFormat('yyyy-LL-dd'),
+    startTime: dt.toFormat('HH:mm:ss'),
+  };
 }
 
 // ---- Factory function ----

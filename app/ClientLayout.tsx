@@ -11,7 +11,10 @@ import NavigationProgress from "../components/layout/NavigationProgress";
 
 function LayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const hideChrome = pathname === '/login' || pathname.startsWith('/auth');
+  const hideChrome =
+    pathname === '/login' ||
+    pathname.startsWith('/auth') ||
+    pathname.startsWith('/circle-summary');
   const isBoardDetailPage = /^\/boards\/[^/]+/.test(pathname);
   const isNotebookPage = pathname.startsWith('/notebook');
 

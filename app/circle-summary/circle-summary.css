@@ -1,0 +1,373 @@
+/* Valley Creek brand palette for the public Circle Summary section. */
+
+/* Force a clean white surface on /circle-summary regardless of the dark
+   theme applied by the root layout. Hero text re-overrides to white below. */
+html:has(.cs-root),
+body:has(.cs-root) {
+  background: #ffffff !important;
+  color: #3E3E3E !important;
+}
+.cs-hero,
+.cs-hero * {
+  color: #ffffff !important;
+}
+.cs-dark,
+.cs-dark * {
+  color: #ffffff !important;
+}
+
+.cs-root,
+.cs-root .cs-card,
+.cs-root span,
+.cs-root p,
+.cs-root label,
+.cs-root h1,
+.cs-root h2,
+.cs-root h3,
+.cs-root h4,
+.cs-root input,
+.cs-root textarea,
+.cs-root select,
+.cs-root button {
+  color: #3E3E3E !important;
+}
+/* Hero / dark sections re-override (must come after the rule above) */
+.cs-root .cs-hero,
+.cs-root .cs-hero *,
+.cs-root .cs-dark,
+.cs-root .cs-dark * {
+  color: #ffffff !important;
+}
+/* Buttons keep their own color */
+.cs-root .cs-btn-primary {
+  color: #ffffff !important;
+}
+.cs-root .cs-btn-outline {
+  color: var(--cs-green-dark) !important;
+}
+.cs-root .cs-btn-outline:hover:not(:disabled) {
+  color: #ffffff !important;
+}
+
+.cs-root {
+  min-height: 100vh;
+  --cs-green: #34B233;
+  --cs-green-dark: #2a9329;
+  --cs-green-darker: #1f7320;
+  --cs-ink: #3E3E3E;
+  --cs-ink-soft: #5a5a5a;
+  --cs-muted: #7A7A7A;
+  --cs-border: #e5e7eb;
+  --cs-bg-soft: #f5f5f3;
+  --cs-dark: #1c1c1c;
+
+  font-family: var(--font-cs-body), 'Open Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-weight: 400;
+  color: var(--cs-ink);
+  background: #ffffff;
+}
+
+.cs-display {
+  font-family: var(--font-cs-body), 'Open Sans', sans-serif;
+  font-style: italic;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  line-height: 1;
+  font-stretch: condensed;
+}
+
+.cs-hero {
+  background: var(--cs-green);
+  color: #ffffff;
+}
+
+.cs-dark {
+  background: var(--cs-dark);
+  color: #ffffff;
+}
+
+.cs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 15px 30px;
+  font-family: var(--font-cs-body), 'Open Sans', sans-serif;
+  font-style: normal;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 16px;
+  line-height: 1;
+  border-radius: 4px;
+  transition: background-color 120ms ease, color 120ms ease, transform 60ms ease, opacity 120ms ease;
+  cursor: pointer;
+  border: 3px solid transparent;
+}
+.cs-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.cs-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.cs-btn-primary {
+  background: var(--cs-green);
+  color: #ffffff;
+  border-color: var(--cs-green);
+}
+.cs-btn-primary:hover:not(:disabled) {
+  background: var(--cs-green-dark);
+  border-color: var(--cs-green-dark);
+}
+
+.cs-btn-outline {
+  background: transparent;
+  color: var(--cs-green-dark);
+  border-color: var(--cs-green);
+}
+.cs-btn-outline:hover:not(:disabled) {
+  background: var(--cs-green);
+  color: #ffffff;
+}
+
+.cs-btn-ghost {
+  background: transparent;
+  color: var(--cs-ink-soft);
+}
+.cs-btn-ghost:hover:not(:disabled) {
+  color: var(--cs-ink);
+}
+
+.cs-card {
+  background: #ffffff;
+  border: 1px solid var(--cs-border);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.cs-input,
+.cs-textarea,
+.cs-select {
+  width: 100%;
+  border: 1px solid var(--cs-border);
+  background: #ffffff;
+  color: var(--cs-ink);
+  border-radius: 0.5rem;
+  padding: 0.7rem 0.85rem;
+  font-size: 1rem;
+  line-height: 1.4;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.cs-input:focus,
+.cs-textarea:focus,
+.cs-select:focus {
+  outline: none;
+  border-color: var(--cs-green);
+  box-shadow: 0 0 0 3px rgba(101, 179, 45, 0.18);
+}
+.cs-textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+}
+
+.cs-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--cs-ink);
+  margin-bottom: 0.35rem;
+}
+.cs-help {
+  font-size: 0.8rem;
+  color: var(--cs-muted);
+  margin-top: 0.3rem;
+}
+
+.cs-check {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px;
+  min-height: 24px;
+  border: 2px solid #cbd5e1;
+  border-radius: 4px;
+  background: #ffffff;
+  display: inline-block;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  margin: 0;
+  vertical-align: middle;
+  transition: border-color 100ms ease, background 100ms ease;
+}
+.cs-check:hover:not(:checked) {
+  border-color: var(--cs-green);
+}
+.cs-check:checked {
+  background: var(--cs-green) !important;
+  border-color: var(--cs-green) !important;
+}
+.cs-check:checked::after {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 3px;
+  width: 6px;
+  height: 11px;
+  border: solid #ffffff;
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg);
+  box-sizing: content-box;
+}
+
+.cs-radio {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px;
+  min-height: 22px;
+  border: 2px solid #cbd5e1;
+  border-radius: 50%;
+  background: #ffffff;
+  display: inline-block;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  margin: 0;
+  vertical-align: middle;
+  transition: border-color 100ms ease;
+}
+.cs-radio:hover:not(:checked) {
+  border-color: var(--cs-green);
+}
+.cs-radio:checked {
+  border-color: var(--cs-green) !important;
+}
+.cs-radio:checked::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  right: 3px;
+  bottom: 3px;
+  border-radius: 50%;
+  background: var(--cs-green);
+}
+
+.cs-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 2.75rem;
+  height: 1.55rem;
+  background: #d1d5db;
+  border-radius: 999px;
+  position: relative;
+  cursor: pointer;
+  transition: background 140ms ease;
+  flex-shrink: 0;
+}
+.cs-toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 1.15rem;
+  height: 1.15rem;
+  background: #ffffff;
+  border-radius: 50%;
+  transition: transform 140ms ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+.cs-toggle:checked {
+  background: var(--cs-green);
+}
+.cs-toggle:checked::after {
+  transform: translateX(1.18rem);
+}
+
+.cs-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.cs-badge-warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+.cs-badge-success {
+  background: #dcfce7;
+  color: #166534;
+}
+.cs-badge-muted {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+.cs-badge-new {
+  background: rgba(101, 179, 45, 0.15);
+  color: var(--cs-green-darker);
+}
+
+.cs-alert {
+  padding: 0.85rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  border: 1px solid transparent;
+}
+.cs-alert-error {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+.cs-alert-info {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e3a8a;
+}
+.cs-alert-warning {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.cs-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--cs-muted);
+  font-size: 0.75rem;
+  margin: 0.5rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.cs-divider::before,
+.cs-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--cs-border);
+}
+
+.cs-skeleton {
+  background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%);
+  background-size: 200% 100%;
+  animation: cs-shimmer 1.2s ease-in-out infinite;
+  border-radius: 0.5rem;
+}
+@keyframes cs-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

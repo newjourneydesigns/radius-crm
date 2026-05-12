@@ -47,7 +47,7 @@ export async function getSessionLeader(): Promise<SessionLeader | null> {
 }
 
 /** Issue the session cookie on a NextResponse. */
-export function attachSessionCookie(res: NextResponse, leaderId: string): NextResponse {
+export function attachSessionCookie(res: NextResponse, leaderId: string | number): NextResponse {
   const token = createSessionToken(leaderId);
   res.cookies.set({
     name: SESSION_COOKIE_NAME,

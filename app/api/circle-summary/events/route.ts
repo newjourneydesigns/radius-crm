@@ -37,8 +37,9 @@ export async function GET(req: Request) {
     await getCCBRequestContext(req, { module: 'circle-summary', action: 'list_events' })
   );
 
-  // Pull all attendance profiles in window, then filter to this leader's group
-  // by event title match (CCB doesn't return group on attendance_profiles).
+  // Pull every scheduled occurrence in the window from the group's CCB iCal
+  // calendar. Then enrich with attendance_profile per event to flag which
+  // already have a summary.
   let events: Array<{
     eventId: string;
     occurrenceDate: string;
@@ -48,35 +49,41 @@ export async function GET(req: Request) {
     didNotMeet: boolean;
   }> = [];
   try {
-    const map = await ccb.fetchAllAttendanceInRange(
+    const calEvents = await ccb.getGroupCalendarEvents(
+      String(leader.ccb_group_id),
       start.toFormat('yyyy-LL-dd'),
       end.toFormat('yyyy-LL-dd')
     );
 
-    // Build candidate list — we'd ideally know the leader's group's event IDs.
-    // Falling back to title-match against the leader's name + "Radius"/"Circle".
-    const leaderNameLower = (leader.name || '').toLowerCase();
-    const groupId = leader.ccb_group_id;
+    // Look up attendance per (eventId, occurrence) in parallel, capped.
+    const attendanceLookups = await Promise.all(
+      calEvents.map(async (e) => {
+        try {
+          const occurYYYYMMDD = e.startDate.replace(/-/g, '');
+          const xml: any = await (ccb as any).getXml({
+            srv: 'attendance_profile',
+            id: e.eventId,
+            occurrence: `${e.startDate} ${e.startTime}`,
+          });
+          const a = xml?.ccb_api?.response?.attendance ?? null;
+          const has =
+            !!(a?.notes || a?.topic || (a?.attendees?.attendee && (Array.isArray(a.attendees.attendee) ? a.attendees.attendee.length : 1)));
+          const dnm = String(a?.did_not_meet ?? '').toLowerCase() === 'true';
+          return { hasExistingAttendance: has, didNotMeet: dnm };
+        } catch {
+          return { hasExistingAttendance: false, didNotMeet: false };
+        }
+      })
+    );
 
-    for (const links of map.values()) {
-      for (const link of links) {
-        const titleLower = (link.title || '').toLowerCase();
-        const matches =
-          (groupId && (link as any).groupId === groupId) ||
-          (leaderNameLower && titleLower.includes(leaderNameLower));
-        if (!matches) continue;
-        const dt = DateTime.fromFormat(link.occurDate, 'yyyy-LL-dd', { zone: 'America/Chicago' });
-        events.push({
-          eventId: link.eventId,
-          occurrenceDate: link.occurDate,
-          occurrenceDateTime: dt.toFormat('yyyy-LL-dd HH:mm:ss'),
-          title: link.title,
-          hasExistingAttendance:
-            !!(link.attendance?.notes || link.attendance?.topic || link.attendance?.attendees?.length),
-          didNotMeet: !!link.attendance?.didNotMeet,
-        });
-      }
-    }
+    events = calEvents.map((e, i) => ({
+      eventId: e.eventId,
+      occurrenceDate: e.startDate,
+      occurrenceDateTime: e.startDateTime,
+      title: e.title,
+      hasExistingAttendance: attendanceLookups[i].hasExistingAttendance,
+      didNotMeet: attendanceLookups[i].didNotMeet,
+    }));
   } catch (e: any) {
     console.error('CCB fetch failed for circle-summary events:', e);
     return NextResponse.json({ leader, events: [], error: 'Could not load events from CCB.' });

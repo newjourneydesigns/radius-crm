@@ -25,6 +25,15 @@ export type InfoUpdate = {
   requested: string;
 };
 
+/**
+ * Note: CCB's display layer escapes newlines (showing them as literal "\n")
+ * and adds backslashes in front of apostrophes. To keep the output readable,
+ * we compose everything as a single line with pipe separators between
+ * sections and " · " between list items inside a section.
+ *
+ * Apostrophes are replaced with U+2019 (right single quotation mark) which
+ * isn't escaped by CCB's display layer.
+ */
 export function formatNotesForCCB(input: {
   baseNotes: string;
   manualAttendees?: ManualAttendee[];
@@ -35,7 +44,7 @@ export function formatNotesForCCB(input: {
   const sections: string[] = [];
 
   if (input.didNotMeetReason) {
-    sections.push(`Reason we didn't meet: ${input.didNotMeetReason.trim()}`);
+    sections.push(`Reason we didn’t meet: ${input.didNotMeetReason.trim()}`);
   }
 
   if (input.baseNotes?.trim()) {
@@ -43,31 +52,32 @@ export function formatNotesForCCB(input: {
   }
 
   if (input.dynamicResponses?.length) {
-    const lines = input.dynamicResponses.map((r) => {
+    const items = input.dynamicResponses.map((r) => {
       const v = Array.isArray(r.value)
         ? r.value.join(', ')
         : typeof r.value === 'boolean'
           ? (r.value ? 'Yes' : 'No')
           : String(r.value ?? '');
-      return `  • ${r.label}: ${v}`;
+      return `${r.label}: ${v}`;
     });
-    sections.push(`Additional questions:\n${lines.join('\n')}`);
+    sections.push(`Additional questions — ${items.join(' · ')}`);
   }
 
   if (input.manualAttendees?.length) {
-    const lines = input.manualAttendees.map((p) => {
+    const items = input.manualAttendees.map((p) => {
       const contact = [p.phone, p.email].filter(Boolean).join(' / ');
-      return `  • ${p.firstName} ${p.lastName}${contact ? ` (${contact})` : ''}`;
+      return `${p.firstName} ${p.lastName}${contact ? ` (${contact})` : ''}`;
     });
-    sections.push(`Roster additions for follow-up:\n${lines.join('\n')}`);
+    sections.push(`Roster additions for follow-up — ${items.join(' · ')}`);
   }
 
   if (input.infoUpdates?.length) {
-    const lines = input.infoUpdates.map(
-      (u) => `  • ${u.field}: ${u.current || '(unset)'} → ${u.requested}`
+    const items = input.infoUpdates.map(
+      (u) => `${u.field}: ${u.current || '(unset)'} → ${u.requested}`
     );
-    sections.push(`Requested Circle info updates (for ACPD review):\n${lines.join('\n')}`);
+    sections.push(`Requested Circle info updates (for ACPD review) — ${items.join(' · ')}`);
   }
 
-  return sections.join('\n\n');
+  // CCB display escapes apostrophes — use the typographic right single quote
+  return sections.join('  ||  ').replace(/'/g, '’');
 }

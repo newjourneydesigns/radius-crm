@@ -63,9 +63,10 @@ function signSession(leaderId: string, expiresMs: number): string {
   );
 }
 
-export function createSessionToken(leaderId: string, ttlMs = SESSION_TTL_MS): string {
+export function createSessionToken(leaderId: string | number, ttlMs = SESSION_TTL_MS): string {
+  const id = String(leaderId);
   const expiresMs = Date.now() + ttlMs;
-  return `${b64urlEncode(leaderId)}.${expiresMs}.${signSession(leaderId, expiresMs)}`;
+  return `${b64urlEncode(id)}.${expiresMs}.${signSession(id, expiresMs)}`;
 }
 
 export function verifySessionToken(token: string | undefined | null): { leaderId: string } | null {
