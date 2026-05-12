@@ -363,6 +363,117 @@ export class CCBClient {
     });
   }
 
+  /**
+   * Add an individual to a group via CCB's add_individual_to_group service.
+   * Note: CCB uses a GET endpoint with query params, despite this being a write.
+   * `status` controls behavior: 'add' (direct add), 'invite' (send invitation),
+   * or 'request' (leader must approve).
+   */
+  async addIndividualToGroup(
+    individualId: string | number,
+    groupId: string | number,
+    status: 'add' | 'invite' | 'request' = 'add'
+  ): Promise<any> {
+    return this.getXml({
+      srv: 'add_individual_to_group',
+      id: individualId,
+      group_id: groupId,
+      status,
+    });
+  }
+
+  async createEventAttendance(payload: {
+    eventId: string | number;
+    occurrence: string; // "YYYY-MM-DD HH:MM:SS"
+    didNotMeet?: boolean;
+    headCount?: number;
+    attendeeIds?: Array<string | number>;
+    topic?: string;
+    notes?: string;
+    prayerRequests?: string;
+    info?: string;
+    emailNotification?: 'none' | 'leaders' | 'all';
+  }): Promise<any> {
+    const esc = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    const attendeesXml = (payload.attendeeIds ?? [])
+      .map((id) => `    <attendee id="${esc(String(id))}"></attendee>`)
+      .join('\n');
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<events>
+  <event id="${esc(String(payload.eventId))}" occurrence="${esc(payload.occurrence)}">
+    <did_not_meet>${payload.didNotMeet ? 'true' : 'false'}</did_not_meet>
+    ${payload.headCount != null ? `<head_count>${payload.headCount}</head_count>` : ''}
+    <attendees>
+${attendeesXml}
+    </attendees>
+    ${payload.topic != null ? `<topic>${esc(payload.topic)}</topic>` : ''}
+    ${payload.notes != null ? `<notes>${esc(payload.notes)}</notes>` : ''}
+    ${payload.prayerRequests != null ? `<prayer_requests>${esc(payload.prayerRequests)}</prayer_requests>` : ''}
+    ${payload.info != null ? `<info>${esc(payload.info)}</info>` : ''}
+    <email_notification>${payload.emailNotification ?? 'none'}</email_notification>
+  </event>
+</events>`;
+
+    const srv = 'create_event_attendance';
+    const form = new FormData();
+    form.append('filedata', new Blob([xml], { type: 'text/xml' }), 'attendance.xml');
+
+    const startedAt = Date.now();
+    const cfg: AxiosRequestConfig = {
+      method: 'POST',
+      url: this.baseUrl,
+      params: { srv },
+      data: form,
+      auth: { username: this.config.username, password: this.config.password },
+      timeout: 30000,
+      validateStatus: (s) => s >= 200 && s < 500,
+    };
+
+    try {
+      const res = await axios(cfg);
+      const durationMs = Date.now() - startedAt;
+      if (res.status >= 400) {
+        const msg = `HTTP ${res.status}: ${typeof res.data === 'string' ? res.data.slice(0, 200) : 'error'}`;
+        await recordCCBApiTelemetry({
+          context: this.telemetryContext,
+          service: srv, method: 'POST', statusCode: res.status,
+          success: false, durationMs, response: res, errorMessage: msg,
+        });
+        throw new Error(msg);
+      }
+      const data = typeof res.data === 'string' ? this.parser.parse(res.data) : res.data;
+      const ccbError = data?.ccb_api?.response?.errors?.error;
+      if (ccbError) {
+        const msg = typeof ccbError === 'string' ? ccbError : JSON.stringify(ccbError);
+        await recordCCBApiTelemetry({
+          context: this.telemetryContext,
+          service: srv, method: 'POST', statusCode: res.status,
+          success: false, durationMs, response: res, errorMessage: msg,
+        });
+        throw new Error(`CCB error: ${msg}`);
+      }
+      await recordCCBApiTelemetry({
+        context: this.telemetryContext,
+        service: srv, method: 'POST', statusCode: res.status,
+        success: true, durationMs, response: res,
+      });
+      return data;
+    } catch (e: any) {
+      if (!e.response) {
+        await recordCCBApiTelemetry({
+          context: this.telemetryContext,
+          service: srv, method: 'POST', statusCode: undefined,
+          success: false, durationMs: Date.now() - startedAt,
+          errorMessage: e.message || 'CCB POST request failed',
+        });
+      }
+      throw e;
+    }
+  }
+
   // ---- Normalizers ----
 
   /** Normalize event XML from `event_profiles` */
