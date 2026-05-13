@@ -20,7 +20,14 @@ export default function CircleSummarySignInPage() {
       try {
         const res = await fetch('/api/circle-summary/me');
         const data = await res.json();
-        if (!cancelled && data.leader) router.replace('/circle-summary/events');
+        if (cancelled || !data.leader) return;
+        const groupId = data.leader.ccb_group_id;
+        if (groupId != null) {
+          router.replace(`/circle-summary/${groupId}/events`);
+        }
+        // If logged in but no ccb_group_id, stay here — the leader has
+        // nowhere to go yet. (A future "no circle linked" state could be
+        // surfaced on this page.)
       } catch {}
     })();
     return () => {

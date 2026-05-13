@@ -87,6 +87,57 @@ export async function GET(req: Request) {
     });
   }
 
+  // Final fallback: load whatever's currently in CCB for this event +
+  // occurrence so leaders can review/edit a summary that was entered directly
+  // in CCB without going through this app.
+  try {
+    const { createCCBClient } = await import('../../../../lib/ccb/ccb-client');
+    const { getCCBRequestContext } = await import('../../../../lib/ccb/ccb-api-gateway');
+    const ccb = createCCBClient(
+      await getCCBRequestContext(req, { module: 'circle-summary', action: 'draft_ccb_prefill' })
+    );
+    const xml: any = await (ccb as any).getXml({
+      srv: 'attendance_profile',
+      id: eventId,
+      occurrence,
+    });
+    const a = xml?.ccb_api?.response?.attendance ?? null;
+    if (a) {
+      const dnm = String(a?.did_not_meet ?? '').toLowerCase() === 'true';
+      const text = (v: any) => (v == null ? '' : typeof v === 'string' ? v : (v['#text'] ?? ''));
+      const attendeeNode = a?.attendees?.attendee;
+      const attendeeIds: string[] = !attendeeNode
+        ? []
+        : (Array.isArray(attendeeNode) ? attendeeNode : [attendeeNode])
+            .map((x: any) => String(x?.['@_id'] ?? x?.id ?? ''))
+            .filter(Boolean);
+      const hasAnything =
+        !!text(a?.notes) || !!text(a?.topic) || dnm || attendeeIds.length > 0;
+      if (hasAnything) {
+        return NextResponse.json({
+          draft: {
+            didNotMeet: dnm,
+            didNotMeetReason: '',
+            notes: text(a?.notes),
+            topic: text(a?.topic),
+            prayerRequests: text(a?.prayer_requests),
+            info: text(a?.info),
+            attendeeCcbIds: attendeeIds,
+            manualAttendees: [],
+            dynamicValues: {},
+            infoUpdateDay: '',
+            infoUpdateTime: '',
+            infoUpdateLocation: '',
+          },
+          updatedAt: null,
+          source: 'ccb',
+        });
+      }
+    }
+  } catch {
+    // CCB lookup is best-effort — silently fall through to blank
+  }
+
   return NextResponse.json({ draft: null, updatedAt: null, source: null });
 }
 

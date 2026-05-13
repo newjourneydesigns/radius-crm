@@ -192,6 +192,7 @@ export default function CircleLeaderProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isUpdatingEventSummary, setIsUpdatingEventSummary] = useState(false);
+  const [isSendingMagicLink, setIsSendingMagicLink] = useState(false);
   const [isUpdatingFollowUp, setIsUpdatingFollowUp] = useState(false);
   const [showFollowUpDateModal, setShowFollowUpDateModal] = useState(false);
   const [followUpDateValue, setFollowUpDateValue] = useState('');
@@ -981,6 +982,88 @@ export default function CircleLeaderProfilePage() {
     }
   };
 
+  const handleToggleEmailReminders = async () => {
+    if (!leader) return;
+    const next = !leader.email_reminders_enabled;
+    const { error } = await supabase
+      .from('circle_leaders')
+      .update({ email_reminders_enabled: next })
+      .eq('id', leader.id);
+    if (error) {
+      setShowAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Update failed',
+        message: error.message,
+      });
+      return;
+    }
+    setLeader((prev) => (prev ? { ...prev, email_reminders_enabled: next } : prev));
+  };
+
+  const handleSendMagicLink = async () => {
+    if (!leader) return;
+    setIsSendingMagicLink(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess?.session?.access_token;
+      if (!token) {
+        setShowAlert({ isOpen: true, type: 'error', title: 'Not signed in', message: 'Please sign in again.' });
+        return;
+      }
+      const res = await fetch('/api/circle-summary/admin-magic-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ leader_id: leader.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setShowAlert({
+          isOpen: true,
+          type: 'error',
+          title: 'Could not generate link',
+          message: data.error || 'Try again.',
+        });
+        return;
+      }
+
+      const cleanPhone = (data.phone || '').replace(/\D/g, '');
+      if (cleanPhone) {
+        // Opens the user's SMS app pre-filled with the magic link
+        const smsUrl = `sms:${cleanPhone}?body=${encodeURIComponent(data.smsBody)}`;
+        window.location.href = smsUrl;
+      } else {
+        // No phone on file — copy to clipboard so the admin can paste it anywhere
+        try {
+          await navigator.clipboard.writeText(data.url);
+          setShowAlert({
+            isOpen: true,
+            type: 'success',
+            title: 'Link copied',
+            message:
+              "No phone on file, so we copied the magic link to your clipboard. Paste it into a text or email to the leader.",
+          });
+        } catch {
+          setShowAlert({
+            isOpen: true,
+            type: 'info',
+            title: 'Magic link',
+            message: data.url,
+          });
+        }
+      }
+    } catch (e: any) {
+      setShowAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Send failed',
+        message: e?.message || 'Try again.',
+      });
+    } finally {
+      setIsSendingMagicLink(false);
+    }
+  };
+
   // Follow-up handlers
   const handleFollowUpClick = () => {
     if (!leader) return;
@@ -1703,6 +1786,19 @@ export default function CircleLeaderProfilePage() {
                       ))}
                     </div>
 
+                    <button
+                      type="button"
+                      onClick={handleSendMagicLink}
+                      disabled={isSendingMagicLink}
+                      className="w-full h-9 flex items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 text-sm font-medium hover:bg-emerald-500/20 hover:text-emerald-200 transition-colors disabled:opacity-50"
+                      title="Open your texting app with a pre-filled Circle Summary sign-in link"
+                    >
+                      <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                        <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                      </svg>
+                      {isSendingMagicLink ? 'Generating link…' : 'Text Circle Summary link'}
+                    </button>
                   </div>
                 );
               })()}
@@ -1734,6 +1830,34 @@ export default function CircleLeaderProfilePage() {
                   className="text-xs text-orange-300 hover:text-orange-200 bg-orange-900/30 hover:bg-orange-900/45 border border-orange-800/40 px-3 py-1.5 rounded-md transition-colors disabled:opacity-50"
                 >
                   {leader.follow_up_required ? 'Turn Off' : 'Turn On'}
+                </button>
+              </div>
+
+              {/* Email Reminders (Circle Summary) */}
+              <div className="w-full flex items-center justify-between px-4 py-3 text-slate-200 text-sm border-t border-slate-700/50">
+                <div className="flex items-center gap-2.5">
+                  <svg className={`w-4 h-4 ${leader.email_reminders_enabled ? 'text-emerald-400' : 'text-slate-400'}`} fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                  </svg>
+                  <div className="flex flex-col">
+                    <span>Email Reminders</span>
+                    <span className="text-[11px] text-slate-500">
+                      {leader.email_reminders_enabled
+                        ? 'On — gets reminders to submit Circle Summary'
+                        : 'Off'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={handleToggleEmailReminders}
+                  className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
+                    leader.email_reminders_enabled
+                      ? 'text-emerald-300 hover:text-emerald-200 bg-emerald-900/30 hover:bg-emerald-900/45 border-emerald-800/40'
+                      : 'text-slate-300 hover:text-white bg-slate-700/40 hover:bg-slate-700/70 border-slate-700'
+                  }`}
+                >
+                  {leader.email_reminders_enabled ? 'Turn Off' : 'Turn On'}
                 </button>
               </div>
               {leader.follow_up_required && (leader.follow_up_date || leader.follow_up_note?.trim()) && (
@@ -2453,6 +2577,20 @@ export default function CircleLeaderProfilePage() {
                           </button>
                         ))}
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSendMagicLink}
+                        disabled={isSendingMagicLink}
+                        className="w-full h-9 mt-2 flex items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 text-sm font-medium hover:bg-emerald-500/20 hover:text-emerald-200 transition-colors disabled:opacity-50"
+                        title="Open your texting app with a pre-filled Circle Summary sign-in link"
+                      >
+                        <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                          <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                        </svg>
+                        {isSendingMagicLink ? 'Generating link…' : 'Text Circle Summary link'}
+                      </button>
                     </div>
                   );
                 })()}

@@ -33,7 +33,8 @@ export async function POST(req: Request) {
   let leaderQuery = supabase
     .from('circle_leaders')
     .select('id, name, email, phone')
-    .limit(5);
+    .order('id', { ascending: true })
+    .limit(10);
 
   if (isEmail) {
     leaderQuery = leaderQuery.ilike('email', normalizeEmail(raw));

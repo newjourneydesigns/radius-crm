@@ -96,6 +96,7 @@ export interface CircleLeader {
   follow_up_required?: boolean;
   follow_up_date?: string;
   follow_up_note?: string;
+  email_reminders_enabled?: boolean;
   circle_name?: string;
   ccb_group_name?: string; // Exact CCB group name for matching — overrides leader.name when set
   ccb_profile_link?: string;

@@ -1,6 +1,30 @@
 [
   {
     "date": "2026-05-13",
+    "type": "improvement",
+    "description": "Circle Summary reflection step is now a single open-ended prompt — \"Tell us about your Circle\" — instead of four separate fields. Less friction, more room for whatever the leader wants to share.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-13",
+    "type": "feature",
+    "description": "Circle Summary email reminders: turn on per-leader from the Quick Actions panel and they'll get a VCC-branded, mobile-friendly email an hour before each meeting plus a follow-up every morning until they submit. Each email has a one-tap link that signs them in automatically — no password.",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-05-13",
+    "type": "feature",
+    "description": "On a Circle Leader profile, the Event Summary panel now has a \"Text Circle Summary link\" button. Tap it and your phone's texting app opens with a pre-filled message containing a magic sign-in link addressed to the leader — perfect for nudging a leader from your phone after Circle.",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-05-13",
+    "type": "improvement",
+    "description": "Circle Summary URLs now include the leader's CCB group ID (e.g. /circle-summary/12345/events) so you can tell which Circle you're looking at. The events list and submission form always show the logged-in leader's own Circle — manually changing the group ID in the URL redirects you back to your own Circle, and all data still comes from the session, so other Circles' data can't be reached.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-13",
     "type": "fix",
     "description": "Auto-Update from CCB no longer marks circles as \"Did Not Meet\" if their meeting is scheduled for today or later in the week. CCB pre-creates attendance records before meetings happen and defaults them to Did Not Meet — the auto-update now skips those until the meeting date has passed.",
     "page": "/calendar"

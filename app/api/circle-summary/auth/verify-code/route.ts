@@ -28,7 +28,12 @@ export async function POST(req: Request) {
   const isEmail = identifier.includes('@');
   const supabase = createServiceSupabaseClient();
 
-  let leaderQuery = supabase.from('circle_leaders').select('id, name, email, phone').limit(5);
+  // Deterministic ordering so request-code and verify-code pick the same leader
+  let leaderQuery = supabase
+    .from('circle_leaders')
+    .select('id, name, email, phone')
+    .order('id', { ascending: true })
+    .limit(10);
   if (isEmail) {
     leaderQuery = leaderQuery.ilike('email', normalizeEmail(identifier));
   } else {
@@ -38,49 +43,52 @@ export async function POST(req: Request) {
   if (!leaders || leaders.length === 0) {
     return NextResponse.json({ error: 'Code is invalid or expired.' }, { status: 401 });
   }
-  const leader = leaders.find((l) => l.email) || leaders[0];
 
-  // Find the most recent unconsumed code for this leader
-  const { data: otpRow } = await supabase
+  // Candidate leaders: anyone whose identifier matches. We accept the code if
+  // it matches an outstanding OTP for ANY of them. This handles two real cases:
+  //   1. Multiple leaders share a phone number (family)
+  //   2. The user requested multiple codes (older code still unconsumed)
+  const candidateIds = leaders.map((l) => l.id);
+
+  const nowIso = new Date().toISOString();
+  const { data: otps } = await supabase
     .from('leader_otp_codes')
-    .select('id, code_hash, expires_at, attempts, consumed_at')
-    .eq('leader_id', leader.id)
+    .select('id, leader_id, code_hash, expires_at, attempts, consumed_at')
+    .in('leader_id', candidateIds)
     .is('consumed_at', null)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .gt('expires_at', nowIso)
+    .order('created_at', { ascending: false });
 
-  if (!otpRow) {
+  if (!otps || otps.length === 0) {
     return NextResponse.json({ error: 'Code is invalid or expired.' }, { status: 401 });
-  }
-
-  if (new Date(otpRow.expires_at).getTime() < Date.now()) {
-    return NextResponse.json({ error: 'Code has expired. Request a new one.' }, { status: 401 });
-  }
-
-  if (otpRow.attempts >= OTP_MAX_ATTEMPTS) {
-    return NextResponse.json(
-      { error: 'Too many attempts. Request a new code.' },
-      { status: 429 }
-    );
   }
 
   const submittedHash = hashOtpCode(code);
-  const matches = submittedHash === otpRow.code_hash;
+  const match = otps.find((o) => o.code_hash === submittedHash && o.attempts < OTP_MAX_ATTEMPTS);
 
-  if (!matches) {
-    await supabase
-      .from('leader_otp_codes')
-      .update({ attempts: otpRow.attempts + 1 })
-      .eq('id', otpRow.id);
+  if (!match) {
+    // No match — bump the attempt counter on every outstanding row for these
+    // leaders so we still enforce the per-code attempt limit.
+    await Promise.all(
+      otps.map((o) =>
+        supabase
+          .from('leader_otp_codes')
+          .update({ attempts: o.attempts + 1 })
+          .eq('id', o.id)
+      )
+    );
     return NextResponse.json({ error: 'Code is invalid or expired.' }, { status: 401 });
   }
 
+  // Mark the matched code consumed (and any other still-outstanding codes for
+  // the same leader — only one code should ever survive a successful login).
   await supabase
     .from('leader_otp_codes')
-    .update({ consumed_at: new Date().toISOString() })
-    .eq('id', otpRow.id);
+    .update({ consumed_at: nowIso })
+    .eq('leader_id', match.leader_id)
+    .is('consumed_at', null);
 
+  const leader = leaders.find((l) => l.id === match.leader_id) || leaders[0];
   return attachSessionCookie(
     NextResponse.json({ ok: true, leaderId: leader.id, name: leader.name }),
     leader.id

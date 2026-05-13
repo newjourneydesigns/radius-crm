@@ -17,7 +17,7 @@ import { createHmac, createHash, randomInt, timingSafeEqual } from 'crypto';
 
 const SESSION_SECRET_ENV = 'LEADER_SESSION_SECRET';
 export const SESSION_COOKIE_NAME = 'radius_leader_session';
-export const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 export const OTP_TTL_MS = 10 * 60 * 1000; // 10min
 export const OTP_MAX_ATTEMPTS = 5;
 
