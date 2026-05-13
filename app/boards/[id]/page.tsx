@@ -3426,6 +3426,15 @@ function BoardPage() {
   }
 
   const columns = [...board.columns].sort((a, b) => a.position - b.position);
+  const activeLabelSummaries = board.labels
+    .map(label => ({
+      label,
+      count: board.cards.reduce((total, card) => (
+        (card.labels || []).some(cardLabel => cardLabel.id === label.id) ? total + 1 : total
+      ), 0),
+    }))
+    .filter(item => item.count > 0)
+    .sort((a, b) => a.label.name.localeCompare(b.label.name));
 
   return (
     <div className="kb-root">
@@ -3446,6 +3455,30 @@ function BoardPage() {
             <span className="kb-public-badge"><Globe size={11} /> Public</span>
           )}
         </div>
+
+        {activeLabelSummaries.length > 0 && (
+          <div className="kb-board-label-summary" aria-label="Active board labels">
+            {activeLabelSummaries.map(({ label, count }) => (
+              <button
+                key={label.id}
+                type="button"
+                className={`kb-board-label-badge ${filterLabel === label.id ? 'active' : ''}`}
+                style={{
+                  background: label.color,
+                  borderColor: label.color,
+                  boxShadow: filterLabel === label.id
+                    ? `0 0 0 2px #0f1117, 0 0 0 4px ${label.color}88`
+                    : `0 1px 8px ${label.color}38`,
+                }}
+                onClick={() => setFilterLabel(current => current === label.id ? '' : label.id)}
+                title={`${count} card${count === 1 ? '' : 's'} labeled ${label.name}`}
+              >
+                <span className="kb-board-label-name">{label.name}</span>
+                <span className="kb-board-label-count">{count}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="kb-topbar-right">
           {/* Filter dropdown */}
@@ -4336,12 +4369,14 @@ const kanbanStyles = `
     align-items: center;
     gap: 10px;
     min-width: 0;
+    flex: 0 1 auto;
   }
   .kb-topbar-right {
     display: flex;
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+    flex: 0 0 auto;
   }
   .kb-board-title {
     font-size: 18px !important;
@@ -4365,6 +4400,57 @@ const kanbanStyles = `
     white-space: nowrap;
     text-transform: uppercase;
     letter-spacing: 0.04em;
+  }
+  .kb-board-label-summary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex: 1 1 280px;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .kb-board-label-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 190px;
+    min-width: 0;
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid currentColor;
+    border-radius: 7px;
+    color: #fff;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    transition: transform 0.12s ease, filter 0.12s ease, box-shadow 0.12s ease;
+  }
+  .kb-board-label-badge:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+  }
+  .kb-board-label-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .kb-board-label-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: rgba(15, 17, 23, 0.28);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    flex-shrink: 0;
   }
 
   /* ── Search bar ── */
@@ -6500,7 +6586,20 @@ const kanbanStyles = `
   /* ── Responsive ── */
   @media (max-width: 768px) {
     .kb-topbar { flex-direction: column; align-items: flex-start; max-width: 100%; overflow: visible; }
-    .kb-topbar-left { max-width: 100%; overflow: hidden; }
+    .kb-topbar-left { max-width: 100%; overflow: hidden; width: 100%; }
+    .kb-board-label-summary {
+      order: 2;
+      width: 100%;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+      overflow: visible;
+      flex-basis: auto;
+      gap: 6px;
+    }
+    .kb-board-label-badge {
+      max-width: min(100%, 180px);
+      height: 27px;
+    }
     .kb-topbar-right { width: 100%; flex-wrap: nowrap; overflow: visible; gap: 6px; justify-content: space-between; }
     .kb-btn-label { display: none; }
     .kb-view-toggle { flex: 1; }
