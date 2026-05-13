@@ -1,13 +1,37 @@
 'use client';
 
 import { useEffect, useState, type CSSProperties } from 'react';
-import NotebookSidebar from './NotebookSidebar';
-import NotebookRightPanel from './NotebookRightPanel';
+import dynamic from 'next/dynamic';
 import { useNotebookContext } from '../../contexts/NotebookContext';
 
 interface NotebookShellProps {
   children: React.ReactNode;
 }
+
+function PanelLoading() {
+  return (
+    <div className="h-full animate-pulse bg-[#13151c]">
+      <div className="border-b border-white/[0.06] px-4 py-4">
+        <div className="h-3 w-24 rounded bg-white/[0.08]" />
+      </div>
+      <div className="space-y-3 p-3">
+        <div className="h-9 rounded bg-white/[0.06]" />
+        <div className="h-5 w-2/3 rounded bg-white/[0.05]" />
+        <div className="h-5 w-4/5 rounded bg-white/[0.05]" />
+      </div>
+    </div>
+  );
+}
+
+const NotebookSidebar = dynamic(() => import('./NotebookSidebar'), {
+  ssr: false,
+  loading: () => <PanelLoading />,
+});
+
+const NotebookRightPanel = dynamic(() => import('./NotebookRightPanel'), {
+  ssr: false,
+  loading: () => <PanelLoading />,
+});
 
 export default function NotebookShell({ children }: NotebookShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);

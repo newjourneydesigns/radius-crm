@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useRealtimeSubscription } from './useRealtimeSubscription';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
@@ -11,7 +11,7 @@ import type {
   NotebookPageShare,
 } from '../lib/supabase';
 
-export type SaveStatus = 'idle' | 'saving' | 'saved';
+export type SaveStatus = 'idle' | 'saving' | 'saved' | 'conflict';
 
 type NotebookPageUpdates = Partial<Pick<
   NotebookPage,
@@ -64,13 +64,22 @@ export function useNotebook() {
   const [activePage, setActivePage] = useState<NotebookPage | null>(null);
   const [pagesById, setPagesById] = useState<Record<string, NotebookPage>>({});
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [saveStatusPageId, setSaveStatusPageId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingSaveRef = useRef<{ pageId: string; updates: NotebookPageUpdates } | null>(null);
+  const pendingSaveRef = useRef<{ pageId: string; updates: NotebookPageUpdates; baseUpdatedAt?: string } | null>(null);
   const foldersInFlightRef = useRef<Promise<NotebookFolder[]> | null>(null);
+  const pinnedPagesInFlightRef = useRef<Promise<NotebookPage[]> | null>(null);
+  const sharedPagesInFlightRef = useRef<Promise<NotebookPage[]> | null>(null);
+  const activePageRef = useRef<NotebookPage | null>(null);
+  const lastLocalSaveUpdatedAtRef = useRef<Record<string, string>>({});
+  const realtimePageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingRealtimePageRef = useRef<NotebookPage | null>(null);
+  const realtimeLinksTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const applyRealtimePage = useCallback((page: NotebookPage) => {
     setPages(prev => prev.map(p => p.id === page.id ? { ...p, ...page } : p));
@@ -81,6 +90,54 @@ export function useNotebook() {
       [page.id]: { ...prev[page.id], ...page },
     }));
   }, []);
+
+  useEffect(() => {
+    activePageRef.current = activePage;
+
+    if (pendingSaveRef.current && pendingSaveRef.current.pageId !== activePage?.id) {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      pendingSaveRef.current = null;
+    }
+
+    if (saveStatusPageId && saveStatusPageId !== activePage?.id) {
+      setSaveStatus('idle');
+      setSaveStatusPageId(null);
+    }
+  }, [activePage, saveStatusPageId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase.auth.getUser().then(({ data }) => {
+      if (!cancelled) setCurrentUserId(data.user?.id ?? null);
+    });
+    return () => {
+      cancelled = true;
+      if (realtimePageTimerRef.current) clearTimeout(realtimePageTimerRef.current);
+      if (realtimeLinksTimerRef.current) clearTimeout(realtimeLinksTimerRef.current);
+    };
+  }, []);
+
+  const isActivePageShared = useMemo(() => {
+    if (!activePage?.id || !currentUserId) return false;
+    return (
+      activePage.user_id !== currentUserId ||
+      Boolean(activePage.shares?.length) ||
+      Boolean(activePage.shared_with_me?.length)
+    );
+  }, [
+    activePage?.id,
+    activePage?.user_id,
+    activePage?.shares?.length,
+    activePage?.shared_with_me?.length,
+    currentUserId,
+  ]);
+
+  const activeSaveStatus = saveStatusPageId && saveStatusPageId !== activePage?.id
+    ? 'idle'
+    : saveStatus;
 
   // ── Helpers ─────────────────────────────────────────────────
 
@@ -300,64 +357,82 @@ export function useNotebook() {
   }, []);
 
   const fetchAllPinnedPages = useCallback(async () => {
-    setError(null);
-    try {
-      const user = await getCurrentUser();
+    if (pinnedPagesInFlightRef.current) return pinnedPagesInFlightRef.current;
 
-      const { data, error: err } = await supabase
-        .from('notebook_pages')
-        .select(NOTEBOOK_PAGE_LIST_SELECT)
-        .eq('user_id', user.id)
-        .eq('is_pinned', true)
-        .order('updated_at', { ascending: false });
-      if (err) throw err;
-      if (data && data.length) {
-        setPagesById(prev => {
-          const next = { ...prev };
-          for (const p of data) next[p.id] = { ...next[p.id], ...p };
-          return next;
-        });
+    setError(null);
+    const run = (async () => {
+      try {
+        const user = await getCurrentUser();
+
+        const { data, error: err } = await supabase
+          .from('notebook_pages')
+          .select(NOTEBOOK_PAGE_LIST_SELECT)
+          .eq('user_id', user.id)
+          .eq('is_pinned', true)
+          .order('updated_at', { ascending: false });
+        if (err) throw err;
+        if (data && data.length) {
+          setPagesById(prev => {
+            const next = { ...prev };
+            for (const p of data) next[p.id] = { ...next[p.id], ...p };
+            return next;
+          });
+        }
+        return (data || []) as unknown as NotebookPage[];
+      } catch (err: any) {
+        setError(err.message);
+        return [];
+      } finally {
+        pinnedPagesInFlightRef.current = null;
       }
-      return (data || []) as unknown as NotebookPage[];
-    } catch (err: any) {
-      setError(err.message);
-      return [];
-    }
+    })();
+
+    pinnedPagesInFlightRef.current = run;
+    return run;
   }, []);
 
   const fetchSharedPages = useCallback(async () => {
+    if (sharedPagesInFlightRef.current) return sharedPagesInFlightRef.current;
+
     setError(null);
-    try {
-      const user = await getCurrentUser();
+    const run = (async () => {
+      try {
+        const user = await getCurrentUser();
 
-      const { data, error: err } = await supabase
-        .from('notebook_pages')
-        .select(`
-          ${NOTEBOOK_PAGE_LIST_SELECT},
-          shared_with_me:notebook_page_shares!inner(${NOTEBOOK_PAGE_SHARE_SELECT})
-        `)
-        .eq('shared_with_me.user_id', user.id)
-        .order('updated_at', { ascending: false });
-      if (err) throw err;
+        const { data, error: err } = await supabase
+          .from('notebook_pages')
+          .select(`
+            ${NOTEBOOK_PAGE_LIST_SELECT},
+            shared_with_me:notebook_page_shares!inner(${NOTEBOOK_PAGE_SHARE_SELECT})
+          `)
+          .eq('shared_with_me.user_id', user.id)
+          .order('updated_at', { ascending: false });
+        if (err) throw err;
 
-      const normalized = ((data || []) as unknown as Array<NotebookPage & { shared_with_me?: NotebookPageShareRow[] }>).map(page => ({
-        ...page,
-        shared_with_me: (page.shared_with_me || []).map(normalizeShare),
-      })) as NotebookPage[];
+        const normalized = ((data || []) as unknown as Array<NotebookPage & { shared_with_me?: NotebookPageShareRow[] }>).map(page => ({
+          ...page,
+          shared_with_me: (page.shared_with_me || []).map(normalizeShare),
+        })) as NotebookPage[];
 
-      setSharedPages(normalized);
-      if (normalized.length) {
-        setPagesById(prev => {
-          const next = { ...prev };
-          for (const p of normalized) next[p.id] = { ...next[p.id], ...p };
-          return next;
-        });
+        setSharedPages(normalized);
+        if (normalized.length) {
+          setPagesById(prev => {
+            const next = { ...prev };
+            for (const p of normalized) next[p.id] = { ...next[p.id], ...p };
+            return next;
+          });
+        }
+        return normalized;
+      } catch (err: any) {
+        setError(err.message);
+        return [];
+      } finally {
+        sharedPagesInFlightRef.current = null;
       }
-      return normalized;
-    } catch (err: any) {
-      setError(err.message);
-      return [];
-    }
+    })();
+
+    sharedPagesInFlightRef.current = run;
+    return run;
   }, []);
 
   // Fast: content only — shows editor immediately
@@ -482,20 +557,21 @@ export function useNotebook() {
     setError(null);
     const updatePayload = withInkMetadata(updates);
     try {
-      const { error: err } = await supabase
+      const { data, error: err } = await supabase
         .from('notebook_pages')
         .update(updatePayload)
-        .eq('id', pageId);
+        .eq('id', pageId)
+        .select(NOTEBOOK_PAGE_DETAIL_SELECT)
+        .single();
       if (err) throw err;
 
-      setPages(prev => prev.map(p => p.id === pageId ? { ...p, ...updatePayload } : p));
-      setSharedPages(prev => prev.map(p => p.id === pageId ? { ...p, ...updatePayload } : p));
-      setActivePage(prev => prev?.id === pageId ? { ...prev, ...updatePayload } : prev);
-      setPagesById(prev => (prev[pageId] ? { ...prev, [pageId]: { ...prev[pageId], ...updatePayload } } : prev));
+      const page = data as unknown as NotebookPage;
+      lastLocalSaveUpdatedAtRef.current[pageId] = page.updated_at;
+      applyRealtimePage(page);
     } catch (err: any) {
       setError(err.message);
     }
-  }, []);
+  }, [applyRealtimePage]);
 
   // Debounced save called by the editor on every keystroke
   const scheduleSave = useCallback((
@@ -504,21 +580,42 @@ export function useNotebook() {
   ) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     const updatePayload = withInkMetadata(updates);
+    const currentPage = activePageRef.current?.id === pageId ? activePageRef.current : pagesById[pageId];
     pendingSaveRef.current = pendingSaveRef.current?.pageId === pageId
-      ? { pageId, updates: { ...pendingSaveRef.current.updates, ...updatePayload } }
-      : { pageId, updates: updatePayload };
+      ? { ...pendingSaveRef.current, updates: { ...pendingSaveRef.current.updates, ...updatePayload } }
+      : { pageId, updates: updatePayload, baseUpdatedAt: currentPage?.updated_at };
+    setSaveStatusPageId(pageId);
     setSaveStatus('saving');
 
     saveTimerRef.current = setTimeout(async () => {
       const pending = pendingSaveRef.current;
       if (!pending) return;
       pendingSaveRef.current = null;
+      if (activePageRef.current?.id !== pending.pageId) {
+        setSaveStatus('idle');
+        setSaveStatusPageId(null);
+        return;
+      }
       try {
-        const { error: err } = await supabase
+        let query = supabase
           .from('notebook_pages')
           .update(pending.updates)
           .eq('id', pending.pageId);
+        if (pending.baseUpdatedAt) query = query.eq('updated_at', pending.baseUpdatedAt);
+
+        const { data, error: err } = await query
+          .select(NOTEBOOK_PAGE_DETAIL_SELECT)
+          .maybeSingle();
         if (err) throw err;
+        if (!data) {
+          await fetchPage(pending.pageId);
+          if (activePageRef.current?.id === pending.pageId) {
+            setError('This note changed elsewhere. Review the shared update before saving again.');
+            setSaveStatusPageId(pending.pageId);
+            setSaveStatus('conflict');
+          }
+          return;
+        }
 
         // If the user kept writing while this request was in flight, a newer
         // debounced payload is already queued. Do not echo this older payload
@@ -527,17 +624,22 @@ export function useNotebook() {
         const hasNewerPendingSave = currentPending?.pageId === pending.pageId;
         if (hasNewerPendingSave) return;
 
-        setPages(prev => prev.map(p => p.id === pending.pageId ? { ...p, ...pending.updates } : p));
-        setSharedPages(prev => prev.map(p => p.id === pending.pageId ? { ...p, ...pending.updates } : p));
-        setActivePage(prev => prev?.id === pending.pageId ? { ...prev, ...pending.updates } : prev);
-        setPagesById(prev => (prev[pending.pageId] ? { ...prev, [pending.pageId]: { ...prev[pending.pageId], ...pending.updates } } : prev));
-        setSaveStatus('saved');
+        const page = data as unknown as NotebookPage;
+        lastLocalSaveUpdatedAtRef.current[pending.pageId] = page.updated_at;
+        applyRealtimePage(page);
+        if (activePageRef.current?.id === pending.pageId) {
+          setSaveStatusPageId(pending.pageId);
+          setSaveStatus('saved');
+        }
       } catch (err: any) {
-        setError(err.message);
-        setSaveStatus('idle');
+        if (activePageRef.current?.id === pending.pageId) {
+          setError(err.message);
+          setSaveStatus('idle');
+          setSaveStatusPageId(pending.pageId);
+        }
       }
     }, 1000);
-  }, []);
+  }, [applyRealtimePage, fetchPage, pagesById]);
 
   const deletePage = useCallback(async (pageId: string) => {
     setError(null);
@@ -800,16 +902,29 @@ export function useNotebook() {
   const handleNotebookRealtime = useCallback((payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
     if (payload.table === 'notebook_pages') {
       const page = payload.new as unknown as NotebookPage | undefined;
-      if (page?.id) applyRealtimePage(page);
+      if (!page?.id) return;
+      if (lastLocalSaveUpdatedAtRef.current[page.id] === page.updated_at) return;
+
+      pendingRealtimePageRef.current = page;
+      if (realtimePageTimerRef.current) clearTimeout(realtimePageTimerRef.current);
+      realtimePageTimerRef.current = setTimeout(() => {
+        const pendingPage = pendingRealtimePageRef.current;
+        pendingRealtimePageRef.current = null;
+        if (pendingPage) applyRealtimePage(pendingPage);
+      }, 500);
       return;
     }
 
-    if (activePage?.id) fetchPageLinks(activePage.id);
+    if (!activePage?.id) return;
+    if (realtimeLinksTimerRef.current) clearTimeout(realtimeLinksTimerRef.current);
+    realtimeLinksTimerRef.current = setTimeout(() => {
+      if (activePageRef.current?.id) fetchPageLinks(activePageRef.current.id);
+    }, 500);
   }, [activePage?.id, applyRealtimePage, fetchPageLinks]);
 
   useRealtimeSubscription(
     `notebook-page-${activePage?.id ?? 'none'}`,
-    activePage?.id ? [
+    activePage?.id && isActivePageShared ? [
       { table: 'notebook_pages', event: 'UPDATE', filter: `id=eq.${activePage.id}` },
       { table: 'notebook_page_shares', filter: `page_id=eq.${activePage.id}` },
       { table: 'notebook_page_leaders', filter: `page_id=eq.${activePage.id}` },
@@ -817,7 +932,7 @@ export function useNotebook() {
       { table: 'notebook_page_cards', filter: `page_id=eq.${activePage.id}` },
     ] : [],
     handleNotebookRealtime,
-    Boolean(activePage?.id),
+    Boolean(activePage?.id && isActivePageShared),
   );
 
   return {
@@ -827,7 +942,8 @@ export function useNotebook() {
     sharedPages,
     pagesById,
     activePage,
-    saveStatus,
+    saveStatus: activeSaveStatus,
+    isRealtimeActive: isActivePageShared,
     loading,
     initialized,
     error,

@@ -13,6 +13,7 @@ interface NotebookContextType {
   activePage: NotebookPage | null;
   activeFolderId: string | null;
   saveStatus: SaveStatus;
+  isRealtimeActive: boolean;
   loading: boolean;
   initialized: boolean;
   error: string | null;

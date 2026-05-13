@@ -44,6 +44,11 @@ export default function GlobalSearch() {
   const resultsRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
+  const isEditableTarget = useCallback((target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return false;
+    return Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
+  }, []);
+
   // Auto-focus input whenever modal opens
   useEffect(() => {
     if (isOpen) {
@@ -198,7 +203,10 @@ export default function GlobalSearch() {
         e.preventDefault();
         setIsOpen(true);
         setTimeout(() => inputRef.current?.focus(), 100);
+        return;
       }
+
+      if (isEditableTarget(e.target)) return;
 
       if (!isOpen) return;
 
@@ -229,7 +237,7 @@ export default function GlobalSearch() {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, results, selectedIndex]);
+  }, [isEditableTarget, isOpen, results, selectedIndex]);
 
   // Close search when clicking outside
   useEffect(() => {

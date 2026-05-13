@@ -167,7 +167,7 @@ function linkedItemsToPlainText(page: NonNullable<ReturnType<typeof useNotebookC
 }
 
 export default function NotebookEditor() {
-  const { activePage, updatePage, scheduleSave, saveStatus } = useNotebookContext();
+  const { activePage, updatePage, scheduleSave, saveStatus, isRealtimeActive } = useNotebookContext();
   const [localTitle, setLocalTitle] = useState(activePage?.title ?? '');
   const [localContent, setLocalContent] = useState(activePage?.content ?? '');
   const [savedAt, setSavedAt] = useState<string>(activePage?.updated_at ?? new Date().toISOString());
@@ -201,6 +201,16 @@ export default function NotebookEditor() {
     setRemoteUpdatePending(false);
   }, [activePage]);
 
+  const handleLoadLatest = useCallback(() => {
+    const willDiscardLocalChanges = hasLocalEditsRef.current || remoteUpdatePending || saveStatus === 'conflict';
+    if (willDiscardLocalChanges) {
+      const confirmed = window.confirm('Load latest will replace your local notebook edits with the shared version. Continue?');
+      if (!confirmed) return;
+    }
+
+    syncFromActivePage();
+  }, [remoteUpdatePending, saveStatus, syncFromActivePage]);
+
   // Sync local state when the page changes, or when realtime updates arrive.
   useEffect(() => {
     if (!activePage) return;
@@ -219,7 +229,7 @@ export default function NotebookEditor() {
       setSavedAt(activePage.updated_at);
       setRemoteUpdatePending(true);
     }
-  }, [activePage, activePage?.id, activePage?.title, activePage?.content, activePage?.updated_at, syncFromActivePage]);
+  }, [activePage, syncFromActivePage]);
 
   // Update savedAt timestamp when a save completes
   useEffect(() => {
@@ -229,6 +239,10 @@ export default function NotebookEditor() {
       setHasLocalEdits(false);
     }
   }, [saveStatus]);
+
+  useEffect(() => {
+    if (!isRealtimeActive) setRemoteUpdatePending(false);
+  }, [isRealtimeActive]);
 
   function handleTitleChange(value: string) {
     localTitleRef.current = value;
@@ -441,15 +455,33 @@ export default function NotebookEditor() {
 
         {/* Save status */}
         <div>
-          {remoteUpdatePending && (
+          {isRealtimeActive && !remoteUpdatePending && saveStatus !== 'conflict' && (
+            <span className="mr-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-xs text-emerald-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
+              Live
+            </span>
+          )}
+          {isRealtimeActive && remoteUpdatePending && (
             <span className="mr-3 inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs text-amber-200">
               Newer shared version available
               <button
                 type="button"
-                onClick={syncFromActivePage}
+                onClick={handleLoadLatest}
                 className="font-medium text-amber-50 underline decoration-amber-200/50 underline-offset-2 hover:text-white"
               >
-                Load latest
+                Replace mine
+              </button>
+            </span>
+          )}
+          {saveStatus === 'conflict' && (
+            <span className="mr-3 inline-flex items-center gap-2 rounded-full border border-rose-400/30 bg-rose-400/10 px-3 py-1 text-xs text-rose-200">
+              Shared edit detected
+              <button
+                type="button"
+                onClick={handleLoadLatest}
+                className="font-medium text-rose-50 underline decoration-rose-200/50 underline-offset-2 hover:text-white"
+              >
+                Replace mine
               </button>
             </span>
           )}
@@ -459,10 +491,10 @@ export default function NotebookEditor() {
               Saving…
             </span>
           )}
-          {saveStatus !== 'saving' && hasLocalEdits && (
+          {saveStatus !== 'saving' && saveStatus !== 'conflict' && hasLocalEdits && (
             <span className="text-xs text-gray-500">Unsaved local edits</span>
           )}
-          {saveStatus !== 'saving' && !hasLocalEdits && (
+          {saveStatus !== 'saving' && saveStatus !== 'conflict' && !hasLocalEdits && (
             <span className="text-xs text-gray-600">
               Saved {relativeTime(savedAt)}
             </span>

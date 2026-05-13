@@ -3430,7 +3430,7 @@ function BoardPage() {
     .map(label => ({
       label,
       count: board.cards.reduce((total, card) => (
-        (card.labels || []).some(cardLabel => cardLabel.id === label.id) ? total + 1 : total
+        !card.is_complete && (card.labels || []).some(cardLabel => cardLabel.id === label.id) ? total + 1 : total
       ), 0),
     }))
     .filter(item => item.count > 0)
@@ -4416,15 +4416,15 @@ const kanbanStyles = `
     gap: 6px;
     max-width: 190px;
     min-width: 0;
-    height: 28px;
-    padding: 0 8px;
+    min-height: 30px;
+    padding: 4px 8px;
     border: 1px solid currentColor;
     border-radius: 7px;
     color: #fff;
     font-family: inherit;
     font-size: 12px;
     font-weight: 700;
-    line-height: 1;
+    line-height: 1.25;
     cursor: pointer;
     transition: transform 0.12s ease, filter 0.12s ease, box-shadow 0.12s ease;
   }
@@ -6598,7 +6598,7 @@ const kanbanStyles = `
     }
     .kb-board-label-badge {
       max-width: min(100%, 180px);
-      height: 27px;
+      min-height: 29px;
     }
     .kb-topbar-right { width: 100%; flex-wrap: nowrap; overflow: visible; gap: 6px; justify-content: space-between; }
     .kb-btn-label { display: none; }
