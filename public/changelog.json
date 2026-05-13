@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-05-13",
+    "type": "fix",
+    "description": "Auto-Update from CCB no longer marks circles as \"Did Not Meet\" if their meeting is scheduled for today or later in the week. CCB pre-creates attendance records before meetings happen and defaults them to Did Not Meet — the auto-update now skips those until the meeting date has passed.",
+    "page": "/calendar"
+  },
+  {
+    "date": "2026-05-13",
     "type": "feature",
     "description": "Circle Summary is live: leaders sign in with a 6-digit code emailed to them, see their last 8 weeks of Circle meetings, and submit topic, notes, prayer requests, attendees, and follow-up items in one tap. Submissions push straight into CCB and email the ACPD automatically. Editing a previously submitted summary pre-fills the form so corrections don't need to be retyped.",
     "page": "/circle-summary"

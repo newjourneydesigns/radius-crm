@@ -128,8 +128,12 @@ export default function EventExplorerModal({
         }
       }
 
-      setDate(initialDate || defaultStart);
-      setEndDate(defaultEnd);
+      const startDate = initialDate || defaultStart;
+      // Ensure end is never before start (happens when initialDate is a future occurrence)
+      const endDate = startDate > defaultEnd ? startDate : defaultEnd;
+
+      setDate(startDate);
+      setEndDate(endDate);
       setRangeMode(true);
       setGroupName(initialGroupName);
       setError(null);

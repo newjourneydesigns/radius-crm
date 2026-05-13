@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { DateTime } from 'luxon';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import type { EventSummaryState } from '../../../../lib/supabase';
@@ -130,6 +131,19 @@ export async function POST(request: NextRequest) {
       }
 
       const ccbState: EventSummaryState = ccbData.didNotMeet ? 'did_not_meet' : 'received';
+
+      // If CCB says "did not meet", only apply it if the occurrence date is in the past.
+      // CCB pre-creates attendance records before meetings happen and defaults them to
+      // did_not_meet. If the date is today or later, or unknown (null), skip it —
+      // the meeting may not have happened yet.
+      if (ccbState === 'did_not_meet') {
+        const today = DateTime.now().toISODate()!;
+        if (!ccbData.occurrenceDate || ccbData.occurrenceDate >= today) {
+          skipped++;
+          continue;
+        }
+      }
+
       const currentState = currentStateMap.get(leader.id) ?? 'not_received';
 
       if (currentState === 'not_received') {
