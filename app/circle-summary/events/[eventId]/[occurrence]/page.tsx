@@ -95,6 +95,7 @@ export default function CircleSummaryFormPage() {
   const [manualForm, setManualForm] = useState<ManualAttendee>({ firstName: '', lastName: '', phone: '', email: '' });
 
   const [showInfoUpdate, setShowInfoUpdate] = useState(false);
+  const [loadedFromSubmission, setLoadedFromSubmission] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,6 +131,9 @@ export default function CircleSummaryFormPage() {
         const draftData = await draftRes.json();
         if (draftData?.draft) {
           const d = draftData.draft;
+          if (draftData.source === 'submitted' && draftData.updatedAt) {
+            setLoadedFromSubmission(draftData.updatedAt);
+          }
           setDidNotMeet(!!d.didNotMeet);
           setDidNotMeetReason(d.didNotMeetReason ?? '');
           setDidNotMeetReasonOther(d.didNotMeetReasonOther ?? '');
@@ -409,6 +413,19 @@ export default function CircleSummaryFormPage() {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-6 pb-32 space-y-4">
+        {loadedFromSubmission && (
+          <div className="cs-alert cs-alert-info">
+            Editing a summary you submitted on{' '}
+            {new Date(loadedFromSubmission).toLocaleString('en-US', {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+            })}
+            . Saving again will update CCB.
+          </div>
+        )}
         {/* Did your Circle meet? */}
         <div className="cs-card">
           <label className="flex items-center justify-between gap-4 cursor-pointer">

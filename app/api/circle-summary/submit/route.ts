@@ -175,7 +175,10 @@ export async function POST(req: Request) {
         did_not_meet: didNotMeet,
         did_not_meet_reason: didNotMeet ? didNotMeetReason : null,
         topic: didNotMeet ? null : topic,
-        notes: finalNotes,
+        // Store the user's raw notes so re-edits can repopulate cleanly.
+        // The composed blob (finalNotes) is what we send to CCB but only
+        // stored on the CCB side, not duplicated here.
+        notes: notes ?? '',
         prayer_requests: didNotMeet ? null : prayerRequests,
         info: didNotMeet ? null : info,
         attendee_ccb_ids: didNotMeet ? [] : attendeeCcbIds,

@@ -1,0 +1,21 @@
+{
+  "name": "radius-cli",
+  "version": "0.1.0",
+  "description": "Command-line interface for the RADIUS CRM (Supabase backend).",
+  "type": "module",
+  "bin": {
+    "radius": "./bin/radius.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "node bin/radius.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}

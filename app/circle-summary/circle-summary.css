@@ -263,16 +263,20 @@ body:has(.cs-root) {
 }
 
 .cs-toggle {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 2.75rem;
-  height: 1.55rem;
-  background: #d1d5db;
-  border-radius: 999px;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 2.75rem !important;
+  height: 1.55rem !important;
+  background: #d1d5db !important;
+  border: none !important;
+  border-radius: 999px !important;
   position: relative;
   cursor: pointer;
   transition: background 140ms ease;
   flex-shrink: 0;
+  padding: 0;
+  margin: 0;
+  vertical-align: middle;
 }
 .cs-toggle::after {
   content: '';
@@ -287,7 +291,7 @@ body:has(.cs-root) {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 .cs-toggle:checked {
-  background: var(--cs-green);
+  background: var(--cs-green) !important;
 }
 .cs-toggle:checked::after {
   transform: translateX(1.18rem);

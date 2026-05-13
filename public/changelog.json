@@ -1,5 +1,23 @@
 [
   {
+    "date": "2026-05-13",
+    "type": "feature",
+    "description": "Circle Summary is live: leaders sign in with a 6-digit code emailed to them, see their last 8 weeks of Circle meetings, and submit topic, notes, prayer requests, attendees, and follow-up items in one tap. Submissions push straight into CCB and email the ACPD automatically. Editing a previously submitted summary pre-fills the form so corrections don't need to be retyped.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-13",
+    "type": "feature",
+    "description": "ACPD admin pages for Circle Summary: build dynamic questions that appear on the leader form (with date windows and field types), review meeting-info change requests with one click to apply them to the leader's profile, and audit every submission with CCB push status.",
+    "page": "/admin/submission-log"
+  },
+  {
+    "date": "2026-05-13",
+    "type": "fix",
+    "description": "Circle Summary 'Did your Circle meet?' toggle now reliably renders as a green pill switch when on, instead of falling back to a default checkbox in some browsers.",
+    "page": "/circle-summary"
+  },
+  {
     "date": "2026-05-11",
     "type": "feature",
     "description": "Notebook pages now support Ink mode: flip an individual page from rich text to a drawing surface, write with Apple Pencil or any pointer device, pinch or wheel-zoom, erase whole strokes, and keep text and ink saved independently.",
