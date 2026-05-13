@@ -13,12 +13,15 @@ const GROW_BY = 600;
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
 const MAX_INK_BYTES = 1_000_000;
+const SHAPE_HOLD_MS = 1000;
+const SHAPE_HOLD_MOVE_THRESHOLD = 8;
 
 type Tool = 'pen' | 'eraser';
 type Point = [number, number, number];
 type Viewport = { scale: number; translateY: number };
 type TrackedPointer = { point: Point; pointerType: string; clientY: number };
 type RenderedStroke = NotebookInkStroke & { path: string };
+type InkBounds = { minX: number; minY: number; maxX: number; maxY: number; width: number; height: number; centerX: number; centerY: number };
 
 interface NotebookInkCanvasProps {
   pageId: string;
@@ -99,8 +102,176 @@ function removeDuplicatePoints(points: Point[], threshold = 0.25) {
   return keep;
 }
 
-function getInkByteSize(ink: NotebookInk) {
-  return new Blob([JSON.stringify(ink)]).size;
+function getBounds(points: Point[]): InkBounds {
+  const xs = points.map(point => point[0]);
+  const ys = points.map(point => point[1]);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  return {
+    minX,
+    minY,
+    maxX,
+    maxY,
+    width: maxX - minX,
+    height: maxY - minY,
+    centerX: (minX + maxX) / 2,
+    centerY: (minY + maxY) / 2,
+  };
+}
+
+function pathLength(points: Point[]) {
+  let length = 0;
+  for (let i = 1; i < points.length; i += 1) {
+    length += Math.hypot(points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]);
+  }
+  return length;
+}
+
+function distanceToLine(point: Point, start: Point, end: Point) {
+  const dx = end[0] - start[0];
+  const dy = end[1] - start[1];
+  if (dx === 0 && dy === 0) return Math.hypot(point[0] - start[0], point[1] - start[1]);
+  return Math.abs(dy * point[0] - dx * point[1] + end[0] * start[1] - end[1] * start[0]) / Math.hypot(dx, dy);
+}
+
+function simplifyPoints(points: Point[], epsilon: number): Point[] {
+  if (points.length <= 2) return points;
+
+  let farthestIndex = 0;
+  let farthestDistance = 0;
+  for (let i = 1; i < points.length - 1; i += 1) {
+    const distance = distanceToLine(points[i], points[0], points[points.length - 1]);
+    if (distance > farthestDistance) {
+      farthestDistance = distance;
+      farthestIndex = i;
+    }
+  }
+
+  if (farthestDistance <= epsilon) return [points[0], points[points.length - 1]];
+  const before = simplifyPoints(points.slice(0, farthestIndex + 1), epsilon);
+  const after = simplifyPoints(points.slice(farthestIndex), epsilon);
+  return [...before.slice(0, -1), ...after];
+}
+
+function normalizeClosedVertices(points: Point[], bounds: InkBounds) {
+  const epsilon = Math.max(14, Math.min(bounds.width, bounds.height) * 0.08);
+  const simplified = simplifyPoints(points, epsilon);
+  const vertices = simplified.slice();
+  if (vertices.length > 2 && Math.hypot(vertices[0][0] - vertices[vertices.length - 1][0], vertices[0][1] - vertices[vertices.length - 1][1]) < epsilon * 1.6) {
+    vertices.pop();
+  }
+  return vertices;
+}
+
+function pointsFromVertices(vertices: Array<[number, number]>, pressure: number): Point[] {
+  return vertices.map(([x, y]) => [x, y, pressure]);
+}
+
+function makeCirclePoints(bounds: InkBounds, pressure: number): Point[] {
+  const radius = Math.max(bounds.width, bounds.height) / 2;
+  const points: Point[] = [];
+  for (let i = 0; i <= 48; i += 1) {
+    const angle = (Math.PI * 2 * i) / 48;
+    points.push([
+      bounds.centerX + Math.cos(angle) * radius,
+      bounds.centerY + Math.sin(angle) * radius,
+      pressure,
+    ]);
+  }
+  return points;
+}
+
+function makeSquarePoints(bounds: InkBounds, pressure: number): Point[] {
+  const side = Math.max(bounds.width, bounds.height);
+  const left = bounds.centerX - side / 2;
+  const right = bounds.centerX + side / 2;
+  const top = bounds.centerY - side / 2;
+  const bottom = bounds.centerY + side / 2;
+  return pointsFromVertices([
+    [left, top],
+    [right, top],
+    [right, bottom],
+    [left, bottom],
+    [left, top],
+  ], pressure);
+}
+
+function makeTrianglePoints(vertices: Point[], bounds: InkBounds, pressure: number): Point[] {
+  const triangle = vertices.length >= 3 && vertices.length <= 5
+    ? vertices.slice(0, 3).map(point => [point[0], point[1]] as [number, number])
+    : [
+      [bounds.centerX, bounds.minY],
+      [bounds.maxX, bounds.maxY],
+      [bounds.minX, bounds.maxY],
+    ] as Array<[number, number]>;
+  return pointsFromVertices([...triangle, triangle[0]], pressure);
+}
+
+function makeArrowPoints(points: Point[], bounds: InkBounds, pressure: number): Point[] | null {
+  const start = points[0];
+  let tip = points[0];
+  let tipDistance = 0;
+  for (const point of points) {
+    const distance = Math.hypot(point[0] - start[0], point[1] - start[1]);
+    if (distance > tipDistance) {
+      tip = point;
+      tipDistance = distance;
+    }
+  }
+
+  if (tipDistance < Math.max(80, Math.min(bounds.width, bounds.height) * 1.2)) return null;
+
+  const angle = Math.atan2(tip[1] - start[1], tip[0] - start[0]);
+  const headLength = clamp(tipDistance * 0.22, 28, 90);
+  const headAngle = Math.PI / 7;
+  const left: Point = [
+    tip[0] - Math.cos(angle - headAngle) * headLength,
+    tip[1] - Math.sin(angle - headAngle) * headLength,
+    pressure,
+  ];
+  const right: Point = [
+    tip[0] - Math.cos(angle + headAngle) * headLength,
+    tip[1] - Math.sin(angle + headAngle) * headLength,
+    pressure,
+  ];
+
+  return [
+    [start[0], start[1], pressure],
+    [tip[0], tip[1], pressure],
+    left,
+    [tip[0], tip[1], pressure],
+    right,
+  ];
+}
+
+function cleanHeldShape(points: Point[]): Point[] | null {
+  if (points.length < 6) return null;
+  const bounds = getBounds(points);
+  const minDimension = Math.min(bounds.width, bounds.height);
+  const maxDimension = Math.max(bounds.width, bounds.height);
+  if (maxDimension < 42) return null;
+
+  const pressure = points.reduce((sum, point) => sum + point[2], 0) / points.length || 0.5;
+  const closingDistance = Math.hypot(points[0][0] - points[points.length - 1][0], points[0][1] - points[points.length - 1][1]);
+  const closed = minDimension > 0 && closingDistance <= Math.max(44, maxDimension * 0.24);
+
+  if (!closed) {
+    const simplified = simplifyPoints(points, Math.max(12, maxDimension * 0.06));
+    const straightness = Math.hypot(points[points.length - 1][0] - points[0][0], points[points.length - 1][1] - points[0][1]) / Math.max(pathLength(points), 1);
+    if (simplified.length >= 4 && simplified.length <= 8 && straightness < 0.86) return makeArrowPoints(points, bounds, pressure);
+    return null;
+  }
+
+  const vertices = normalizeClosedVertices(points, bounds);
+  if (vertices.length === 3) return makeTrianglePoints(vertices, bounds, pressure);
+  if (vertices.length >= 4 && vertices.length <= 6) return makeSquarePoints(bounds, pressure);
+
+  const aspect = bounds.width / Math.max(bounds.height, 1);
+  if (aspect >= 0.65 && aspect <= 1.35) return makeCirclePoints(bounds, pressure);
+
+  return null;
 }
 
 function getEstimatedInkByteSize(ink: NotebookInk) {
@@ -120,6 +291,7 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
   const activePointersRef = useRef(new Map<number, TrackedPointer>());
   const strokePointerRef = useRef<number | null>(null);
   const currentStrokeRef = useRef<Point[]>([]);
+  const shapeHoldRef = useRef<{ lastMoveAt: number; lastPoint: Point | null }>({ lastMoveAt: 0, lastPoint: null });
   const deletedIdsRef = useRef<Set<string>>(new Set());
   const touchPanRef = useRef<{ centerY: number; translateY: number } | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -298,6 +470,7 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
       return;
     }
 
+    shapeHoldRef.current = { lastMoveAt: performance.now(), lastPoint: point };
     currentStrokeRef.current = [point];
     scheduleDraw();
   };
@@ -336,7 +509,16 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
       pointsFromCoalescedEvent(event).forEach(eraseAt);
       return;
     }
-    currentStrokeRef.current.push(...pointsFromCoalescedEvent(event));
+    const points = pointsFromCoalescedEvent(event);
+    const holdState = shapeHoldRef.current;
+    points.forEach(sample => {
+      const lastPoint = holdState.lastPoint;
+      if (!lastPoint || Math.hypot(sample[0] - lastPoint[0], sample[1] - lastPoint[1]) >= SHAPE_HOLD_MOVE_THRESHOLD) {
+        holdState.lastMoveAt = performance.now();
+        holdState.lastPoint = sample;
+      }
+    });
+    currentStrokeRef.current.push(...points);
     scheduleDraw();
   };
 
@@ -362,9 +544,25 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
       return;
     }
 
-    currentStrokeRef.current.push(pointFromEvent(event));
-    const points = removeDuplicatePoints(currentStrokeRef.current);
+    const upPoint = pointFromEvent(event);
+    const holdState = shapeHoldRef.current;
+    if (!holdState.lastPoint || Math.hypot(upPoint[0] - holdState.lastPoint[0], upPoint[1] - holdState.lastPoint[1]) >= SHAPE_HOLD_MOVE_THRESHOLD) {
+      holdState.lastMoveAt = performance.now();
+      holdState.lastPoint = upPoint;
+    }
+    currentStrokeRef.current.push(upPoint);
+    const heldForShape = performance.now() - shapeHoldRef.current.lastMoveAt >= SHAPE_HOLD_MS;
+    const rawPoints = removeDuplicatePoints(currentStrokeRef.current);
+    const cleanedShape = heldForShape
+      ? cleanHeldShape(rawPoints)?.map(([x, y, pressure]) => [
+        clamp(x, 0, draftInkRef.current.logicalWidth),
+        clamp(y, 0, draftInkRef.current.contentHeight),
+        pressure,
+      ] as Point)
+      : null;
+    const points = cleanedShape ?? rawPoints;
     currentStrokeRef.current = [];
+    shapeHoldRef.current = { lastMoveAt: 0, lastPoint: null };
     clearCanvas();
     if (points.length < 2) {
       const [x, y, pressure] = points[0] ?? pointFromEvent(event);

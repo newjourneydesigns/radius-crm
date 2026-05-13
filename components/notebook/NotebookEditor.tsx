@@ -171,9 +171,15 @@ export default function NotebookEditor() {
   const [localTitle, setLocalTitle] = useState(activePage?.title ?? '');
   const [localContent, setLocalContent] = useState(activePage?.content ?? '');
   const [savedAt, setSavedAt] = useState<string>(activePage?.updated_at ?? new Date().toISOString());
+  const [hasLocalEdits, setHasLocalEdits] = useState(false);
+  const [remoteUpdatePending, setRemoteUpdatePending] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const titleRef = useRef<HTMLTextAreaElement>(null);
+  const pageIdRef = useRef<string | null>(activePage?.id ?? null);
+  const localTitleRef = useRef(localTitle);
+  const localContentRef = useRef(localContent);
+  const hasLocalEditsRef = useRef(false);
 
   // Auto-resize title textarea to fit its content (no scrollbar, wraps naturally)
   useLayoutEffect(() => {
@@ -183,28 +189,60 @@ export default function NotebookEditor() {
     el.style.height = el.scrollHeight + 'px';
   }, [localTitle]);
 
-  // Sync local state when active page changes
+  const syncFromActivePage = useCallback(() => {
+    if (!activePage) return;
+    localTitleRef.current = activePage.title;
+    localContentRef.current = activePage.content ?? '';
+    hasLocalEditsRef.current = false;
+    setLocalTitle(activePage.title);
+    setLocalContent(activePage.content ?? '');
+    setSavedAt(activePage.updated_at);
+    setHasLocalEdits(false);
+    setRemoteUpdatePending(false);
+  }, [activePage]);
+
+  // Sync local state when the page changes, or when realtime updates arrive.
   useEffect(() => {
     if (!activePage) return;
-    setLocalTitle(activePage.title);
-    setLocalContent(activePage.content);
-    setSavedAt(activePage.updated_at);
-  }, [activePage?.id]);
+    const isDifferentPage = pageIdRef.current !== activePage.id;
+    pageIdRef.current = activePage.id;
+
+    if (isDifferentPage || !hasLocalEditsRef.current) {
+      syncFromActivePage();
+      return;
+    }
+
+    const remoteChanged =
+      activePage.title !== localTitleRef.current ||
+      (activePage.content ?? '') !== localContentRef.current;
+    if (remoteChanged) {
+      setSavedAt(activePage.updated_at);
+      setRemoteUpdatePending(true);
+    }
+  }, [activePage, activePage?.id, activePage?.title, activePage?.content, activePage?.updated_at, syncFromActivePage]);
 
   // Update savedAt timestamp when a save completes
   useEffect(() => {
     if (saveStatus === 'saved') {
       setSavedAt(new Date().toISOString());
+      hasLocalEditsRef.current = false;
+      setHasLocalEdits(false);
     }
   }, [saveStatus]);
 
   function handleTitleChange(value: string) {
+    localTitleRef.current = value;
+    hasLocalEditsRef.current = true;
     setLocalTitle(value);
+    setHasLocalEdits(true);
     if (activePage) scheduleSave(activePage.id, { title: value, content: localContent });
   }
 
   function handleContentChange(html: string) {
+    localContentRef.current = html;
+    hasLocalEditsRef.current = true;
     setLocalContent(html);
+    setHasLocalEdits(true);
     if (activePage) scheduleSave(activePage.id, { title: localTitle, content: html });
   }
 
@@ -219,7 +257,10 @@ export default function NotebookEditor() {
 
   const handleDictateChange = useCallback((plain: string) => {
     const html = plainTextToHtml(plain);
+    localContentRef.current = html;
+    hasLocalEditsRef.current = true;
     setLocalContent(html);
+    setHasLocalEdits(true);
     if (activePage) scheduleSave(activePage.id, { title: localTitle, content: html });
   }, [activePage, localTitle, scheduleSave]);
 
@@ -400,13 +441,28 @@ export default function NotebookEditor() {
 
         {/* Save status */}
         <div>
+          {remoteUpdatePending && (
+            <span className="mr-3 inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs text-amber-200">
+              Newer shared version available
+              <button
+                type="button"
+                onClick={syncFromActivePage}
+                className="font-medium text-amber-50 underline decoration-amber-200/50 underline-offset-2 hover:text-white"
+              >
+                Load latest
+              </button>
+            </span>
+          )}
           {saveStatus === 'saving' && (
             <span className="flex items-center gap-1.5 text-xs text-gray-500">
               <span className="w-3 h-3 border border-gray-500 border-t-transparent rounded-full animate-spin" />
               Saving…
             </span>
           )}
-          {saveStatus !== 'saving' && (
+          {saveStatus !== 'saving' && hasLocalEdits && (
+            <span className="text-xs text-gray-500">Unsaved local edits</span>
+          )}
+          {saveStatus !== 'saving' && !hasLocalEdits && (
             <span className="text-xs text-gray-600">
               Saved {relativeTime(savedAt)}
             </span>

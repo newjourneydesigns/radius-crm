@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useNotebookContext } from '../../contexts/NotebookContext';
+import { supabase } from '../../lib/supabase';
 import type { CircleLeader, ProjectBoard, NotebookPageCard } from '../../lib/supabase';
 
 // Modals/drawer are only mounted when opened — keep them out of the initial chunk.
@@ -21,14 +22,43 @@ const PRIORITY_COLORS: Record<string, string> = {
   low:    '#6b7280',
 };
 
+function firstUser<T>(value: T | T[] | undefined): T | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default function NotebookRightPanel() {
-  const { activePage, linkLeader, unlinkLeader, linkBoard, unlinkBoard, linkCard, unlinkCard, fetchPage } = useNotebookContext();
+  const {
+    activePage,
+    linkLeader, unlinkLeader,
+    linkBoard, unlinkBoard,
+    linkCard, unlinkCard,
+    fetchPage,
+    fetchSystemUsers,
+    fetchPageShares,
+    sharePage,
+    unsharePage,
+  } = useNotebookContext();
 
   const [leaderPickerOpen, setLeaderPickerOpen] = useState(false);
   const [boardPickerOpen, setBoardPickerOpen] = useState(false);
   const [cardPickerOpen, setCardPickerOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<NotebookPageCard | null>(null);
+  const [users, setUsers] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [userSearch, setUserSearch] = useState('');
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [sharingUserId, setSharingUserId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [addingShare, setAddingShare] = useState(false);
+
+  useEffect(() => {
+    if (!activePage?.id) return;
+    fetchPageShares(activePage.id);
+  }, [activePage?.id, fetchPageShares]);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
+  }, []);
 
   if (!activePage) {
     return (
@@ -44,6 +74,22 @@ export default function NotebookRightPanel() {
   const linkedLeaderIds = linkedLeaders.map(l => l.circle_leader_id);
   const linkedBoardIds  = linkedBoards.map(b => b.board_id);
   const linkedCardIds   = linkedCards.map(c => c.card_id);
+  const shares = activePage.shares || [];
+  const isOwner = currentUserId === activePage.user_id;
+  const sharedUserIds = new Set(shares.map(s => s.user_id));
+  const userQuery = userSearch.trim().toLowerCase();
+  const matchingUsers = users
+    .filter(user => user.id !== activePage.user_id && !sharedUserIds.has(user.id))
+    .filter(user => !userQuery || user.name?.toLowerCase().includes(userQuery) || user.email?.toLowerCase().includes(userQuery))
+    .slice(0, 8);
+
+  async function loadUsers() {
+    if (users.length > 0 || loadingUsers) return;
+    setLoadingUsers(true);
+    const data = await fetchSystemUsers();
+    setUsers(data);
+    setLoadingUsers(false);
+  }
 
   async function handleSelectLeader(leader: CircleLeader) {
     setLeaderPickerOpen(false);
@@ -65,8 +111,119 @@ export default function NotebookRightPanel() {
     await fetchPage(activePage!.id);
   }
 
+  async function handleShare(userId: string) {
+    setSharingUserId(userId);
+    try {
+      await sharePage(activePage!.id, userId);
+      setUserSearch('');
+      setAddingShare(false);
+    } finally {
+      setSharingUserId(null);
+    }
+  }
+
   return (
     <div className="p-4 space-y-5">
+
+      {/* ── Sharing ───────────────────────────────────── */}
+      <section>
+        <div className="flex items-center justify-between mb-2.5">
+          <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Sharing</h3>
+          {isOwner ? (
+            <button
+              onClick={() => {
+                setAddingShare(value => {
+                  const next = !value;
+                  if (next) loadUsers();
+                  if (!next) setUserSearch('');
+                  return next;
+                });
+              }}
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 active:bg-indigo-500/20 transition-colors"
+            >
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              Add
+            </button>
+          ) : (
+            <span className="text-[10px] text-gray-600">{shares.length} user{shares.length === 1 ? '' : 's'}</span>
+          )}
+        </div>
+
+        {shares.length === 0 ? (
+          <p className="text-xs text-gray-600 italic mb-2.5">Private note</p>
+        ) : (
+          <div className="space-y-0.5 mb-2.5">
+            {shares.map(share => {
+              const user = firstUser(share.shared_with);
+              return (
+                <div key={share.user_id} className="group flex items-center gap-2 py-1.5 rounded-lg px-1 hover:bg-white/[0.04] transition-colors">
+                  <div className="w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-[10px] font-bold text-emerald-300 flex-shrink-0">
+                    {(user?.name || user?.email || '?').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-gray-200 truncate">{user?.name || user?.email || 'User'}</p>
+                    {user?.email && <p className="text-[10px] text-gray-500 truncate">{user.email}</p>}
+                  </div>
+                  {(isOwner || currentUserId === share.user_id) && (
+                    <button
+                      onClick={() => unsharePage(activePage.id, share.user_id)}
+                      className="sm:opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 flex items-center justify-center rounded text-gray-600 hover:text-red-400"
+                      title={isOwner ? 'Remove access' : 'Leave shared note'}
+                    >
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {isOwner && addingShare && (
+        <div className="space-y-2">
+          <input
+            value={userSearch}
+            onFocus={loadUsers}
+            onChange={event => { setUserSearch(event.target.value); loadUsers(); }}
+            placeholder="Add user by name or email"
+            className="w-full rounded-md border border-white/[0.08] bg-white/[0.04] px-2.5 py-2 text-xs text-gray-200 placeholder:text-gray-600 focus:border-indigo-400/60 focus:outline-none"
+            autoFocus
+          />
+          {(userSearch || loadingUsers || users.length > 0) && (
+            <div className="max-h-48 overflow-y-auto rounded-lg border border-white/[0.08] bg-[#10131b]">
+              {loadingUsers ? (
+                <p className="px-3 py-2 text-xs text-gray-500">Loading users...</p>
+              ) : matchingUsers.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-gray-500">No available users</p>
+              ) : (
+                matchingUsers.map(user => (
+                  <button
+                    key={user.id}
+                    onClick={() => handleShare(user.id)}
+                    disabled={sharingUserId === user.id}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-white/[0.06] disabled:opacity-60"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-[10px] font-bold text-indigo-300 flex-shrink-0">
+                      {(user.name || user.email || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-gray-200 truncate">{user.name || user.email}</p>
+                      {user.email && <p className="text-[10px] text-gray-500 truncate">{user.email}</p>}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+        )}
+      </section>
+
+      <div className="h-px bg-white/[0.06]" />
 
       {/* ── Linked Leaders ─────────────────────────────── */}
       <section>

@@ -2,12 +2,13 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { useRealtimeSubscription } from './useRealtimeSubscription';
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import type {
   NotebookFolder,
   NotebookPage,
-  NotebookPageLeader,
-  NotebookPageBoard,
   NotebookPageCard,
+  NotebookPageShare,
 } from '../lib/supabase';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved';
@@ -19,6 +20,31 @@ type NotebookPageUpdates = Partial<Pick<
 
 const NOTEBOOK_PAGE_LIST_SELECT = 'id, title, editor_mode, has_ink, ink_stroke_count, ink_updated_at, checklists, folder_id, is_pinned, position, user_id, created_at, updated_at';
 const NOTEBOOK_PAGE_DETAIL_SELECT = 'id, title, content, editor_mode, ink, has_ink, ink_stroke_count, ink_updated_at, checklists, folder_id, is_pinned, position, user_id, created_at, updated_at';
+const NOTEBOOK_PAGE_SHARE_SELECT = `
+  page_id,
+  user_id,
+  shared_by,
+  created_at,
+  shared_with:users!notebook_page_shares_user_id_fkey(id, name, email),
+  shared_by_user:users!notebook_page_shares_shared_by_fkey(id, name, email)
+`;
+
+type NotebookPageShareRow = Omit<NotebookPageShare, 'shared_with' | 'shared_by_user'> & {
+  shared_with?: NotebookPageShare['shared_with'];
+  shared_by_user?: NotebookPageShare['shared_by_user'];
+};
+
+function firstUser(value: NotebookPageShare['shared_with']) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function normalizeShare(row: NotebookPageShareRow): NotebookPageShare {
+  return {
+    ...row,
+    shared_with: firstUser(row.shared_with),
+    shared_by_user: firstUser(row.shared_by_user),
+  };
+}
 
 function withInkMetadata(updates: NotebookPageUpdates): NotebookPageUpdates {
   if (!Object.prototype.hasOwnProperty.call(updates, 'ink')) return updates;
@@ -34,6 +60,7 @@ function withInkMetadata(updates: NotebookPageUpdates): NotebookPageUpdates {
 export function useNotebook() {
   const [folders, setFolders] = useState<NotebookFolder[]>([]);
   const [pages, setPages] = useState<NotebookPage[]>([]);
+  const [sharedPages, setSharedPages] = useState<NotebookPage[]>([]);
   const [activePage, setActivePage] = useState<NotebookPage | null>(null);
   const [pagesById, setPagesById] = useState<Record<string, NotebookPage>>({});
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
@@ -44,6 +71,16 @@ export function useNotebook() {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSaveRef = useRef<{ pageId: string; updates: NotebookPageUpdates } | null>(null);
   const foldersInFlightRef = useRef<Promise<NotebookFolder[]> | null>(null);
+
+  const applyRealtimePage = useCallback((page: NotebookPage) => {
+    setPages(prev => prev.map(p => p.id === page.id ? { ...p, ...page } : p));
+    setSharedPages(prev => prev.map(p => p.id === page.id ? { ...p, ...page } : p));
+    setActivePage(prev => prev?.id === page.id ? { ...prev, ...page } : prev);
+    setPagesById(prev => ({
+      ...prev,
+      [page.id]: { ...prev[page.id], ...page },
+    }));
+  }, []);
 
   // ── Helpers ─────────────────────────────────────────────────
 
@@ -210,7 +247,7 @@ export function useNotebook() {
 
   // ── Pages ────────────────────────────────────────────────────
 
-  const fetchPagesForFolder = useCallback(async (folderId: string) => {
+  const fetchPagesForFolder = useCallback(async (folderId: string): Promise<NotebookPage[]> => {
     setError(null);
     try {
       const { data, error: err } = await supabase
@@ -221,19 +258,20 @@ export function useNotebook() {
         .order('position', { ascending: true })
         .order('updated_at', { ascending: false });
       if (err) throw err;
+      const folderPages = (data || []) as unknown as NotebookPage[];
 
       setPages(prev => {
         const withoutFolder = prev.filter(p => p.folder_id !== folderId);
-        return [...withoutFolder, ...(data || [])];
+        return [...withoutFolder, ...folderPages];
       });
-      if (data && data.length) {
+      if (folderPages.length) {
         setPagesById(prev => {
           const next = { ...prev };
-          for (const p of data) next[p.id] = { ...next[p.id], ...p };
+          for (const p of folderPages) next[p.id] = { ...next[p.id], ...p };
           return next;
         });
       }
-      return data || [];
+      return folderPages;
     } catch (err: any) {
       setError(err.message);
       return [];
@@ -280,7 +318,42 @@ export function useNotebook() {
           return next;
         });
       }
-      return data || [];
+      return (data || []) as unknown as NotebookPage[];
+    } catch (err: any) {
+      setError(err.message);
+      return [];
+    }
+  }, []);
+
+  const fetchSharedPages = useCallback(async () => {
+    setError(null);
+    try {
+      const user = await getCurrentUser();
+
+      const { data, error: err } = await supabase
+        .from('notebook_pages')
+        .select(`
+          ${NOTEBOOK_PAGE_LIST_SELECT},
+          shared_with_me:notebook_page_shares!inner(${NOTEBOOK_PAGE_SHARE_SELECT})
+        `)
+        .eq('shared_with_me.user_id', user.id)
+        .order('updated_at', { ascending: false });
+      if (err) throw err;
+
+      const normalized = ((data || []) as unknown as Array<NotebookPage & { shared_with_me?: NotebookPageShareRow[] }>).map(page => ({
+        ...page,
+        shared_with_me: (page.shared_with_me || []).map(normalizeShare),
+      })) as NotebookPage[];
+
+      setSharedPages(normalized);
+      if (normalized.length) {
+        setPagesById(prev => {
+          const next = { ...prev };
+          for (const p of normalized) next[p.id] = { ...next[p.id], ...p };
+          return next;
+        });
+      }
+      return normalized;
     } catch (err: any) {
       setError(err.message);
       return [];
@@ -334,7 +407,8 @@ export function useNotebook() {
               project_board:project_boards(id, title),
               board_column:board_columns(id, title)
             )
-          )
+          ),
+          shares:notebook_page_shares(${NOTEBOOK_PAGE_SHARE_SELECT})
         `)
         .eq('id', pageId)
         .single();
@@ -343,7 +417,8 @@ export function useNotebook() {
         linked_leaders: data.linked_leaders,
         linked_boards: data.linked_boards,
         linked_cards: data.linked_cards,
-      };
+        shares: ((data.shares || []) as NotebookPageShareRow[]).map(normalizeShare),
+      } satisfies Partial<NotebookPage>;
       setActivePage(prev =>
         prev?.id === pageId ? { ...prev, ...linkPatch } : prev
       );
@@ -414,6 +489,7 @@ export function useNotebook() {
       if (err) throw err;
 
       setPages(prev => prev.map(p => p.id === pageId ? { ...p, ...updatePayload } : p));
+      setSharedPages(prev => prev.map(p => p.id === pageId ? { ...p, ...updatePayload } : p));
       setActivePage(prev => prev?.id === pageId ? { ...prev, ...updatePayload } : prev);
       setPagesById(prev => (prev[pageId] ? { ...prev, [pageId]: { ...prev[pageId], ...updatePayload } } : prev));
     } catch (err: any) {
@@ -447,10 +523,12 @@ export function useNotebook() {
         // If the user kept writing while this request was in flight, a newer
         // debounced payload is already queued. Do not echo this older payload
         // back into activePage or it can clobber the live ink canvas.
-        const hasNewerPendingSave = pendingSaveRef.current?.pageId === pending.pageId;
+        const currentPending = pendingSaveRef.current as typeof pending | null;
+        const hasNewerPendingSave = currentPending?.pageId === pending.pageId;
         if (hasNewerPendingSave) return;
 
         setPages(prev => prev.map(p => p.id === pending.pageId ? { ...p, ...pending.updates } : p));
+        setSharedPages(prev => prev.map(p => p.id === pending.pageId ? { ...p, ...pending.updates } : p));
         setActivePage(prev => prev?.id === pending.pageId ? { ...prev, ...pending.updates } : prev);
         setPagesById(prev => (prev[pending.pageId] ? { ...prev, [pending.pageId]: { ...prev[pending.pageId], ...pending.updates } } : prev));
         setSaveStatus('saved');
@@ -471,9 +549,11 @@ export function useNotebook() {
       if (err) throw err;
 
       setPages(prev => prev.filter(p => p.id !== pageId));
+      setSharedPages(prev => prev.filter(p => p.id !== pageId));
       setPagesById(prev => {
         if (!prev[pageId]) return prev;
-        const { [pageId]: _omit, ...rest } = prev;
+        const rest = { ...prev };
+        delete rest[pageId];
         return rest;
       });
       if (activePage?.id === pageId) setActivePage(null);
@@ -485,22 +565,88 @@ export function useNotebook() {
   const searchPages = useCallback(async (query: string): Promise<NotebookPage[]> => {
     if (!query.trim()) return [];
     try {
-      const user = await getCurrentUser();
-
       const { data, error: err } = await supabase
         .from('notebook_pages')
         .select(NOTEBOOK_PAGE_LIST_SELECT)
-        .eq('user_id', user.id)
         .textSearch('fts', query, { type: 'websearch', config: 'english' })
         .order('updated_at', { ascending: false })
         .limit(20);
       if (err) throw err;
-      return data || [];
+      return (data || []) as unknown as NotebookPage[];
     } catch (err: any) {
       setError(err.message);
       return [];
     }
   }, []);
+
+  // ── Sharing ────────────────────────────────────────────────
+
+  const fetchSystemUsers = useCallback(async () => {
+    try {
+      const { data, error: err } = await supabase
+        .from('users')
+        .select('id, name, email')
+        .order('name');
+      if (err) throw err;
+      return (data || []) as { id: string; name: string; email: string }[];
+    } catch (err: any) {
+      setError(err.message);
+      return [];
+    }
+  }, []);
+
+  const fetchPageShares = useCallback(async (pageId: string): Promise<NotebookPageShare[]> => {
+    setError(null);
+    try {
+      const { data, error: err } = await supabase
+        .from('notebook_page_shares')
+        .select(NOTEBOOK_PAGE_SHARE_SELECT)
+        .eq('page_id', pageId)
+        .order('created_at', { ascending: true });
+      if (err) throw err;
+
+      const shares = ((data || []) as unknown as NotebookPageShareRow[]).map(normalizeShare);
+      setActivePage(prev => prev?.id === pageId ? { ...prev, shares } : prev);
+      setPagesById(prev => (prev[pageId] ? { ...prev, [pageId]: { ...prev[pageId], shares } } : prev));
+      return shares;
+    } catch (err: any) {
+      setError(err.message);
+      return [];
+    }
+  }, []);
+
+  const sharePage = useCallback(async (pageId: string, userId: string) => {
+    setError(null);
+    try {
+      const user = await getCurrentUser();
+
+      const { error: err } = await supabase
+        .from('notebook_page_shares')
+        .insert({ page_id: pageId, user_id: userId, shared_by: user.id });
+      if (err) throw err;
+
+      await fetchPageShares(pageId);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }, [fetchPageShares]);
+
+  const unsharePage = useCallback(async (pageId: string, userId: string) => {
+    setError(null);
+    try {
+      const { error: err } = await supabase
+        .from('notebook_page_shares')
+        .delete()
+        .eq('page_id', pageId)
+        .eq('user_id', userId);
+      if (err) throw err;
+
+      await fetchPageShares(pageId);
+      setSharedPages(prev => prev.filter(p => p.id !== pageId || p.user_id === userId));
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }, [fetchPageShares]);
 
   // ── Leader Links ─────────────────────────────────────────────
 
@@ -651,10 +797,34 @@ export function useNotebook() {
     }
   }, []);
 
+  const handleNotebookRealtime = useCallback((payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
+    if (payload.table === 'notebook_pages') {
+      const page = payload.new as unknown as NotebookPage | undefined;
+      if (page?.id) applyRealtimePage(page);
+      return;
+    }
+
+    if (activePage?.id) fetchPageLinks(activePage.id);
+  }, [activePage?.id, applyRealtimePage, fetchPageLinks]);
+
+  useRealtimeSubscription(
+    `notebook-page-${activePage?.id ?? 'none'}`,
+    activePage?.id ? [
+      { table: 'notebook_pages', event: 'UPDATE', filter: `id=eq.${activePage.id}` },
+      { table: 'notebook_page_shares', filter: `page_id=eq.${activePage.id}` },
+      { table: 'notebook_page_leaders', filter: `page_id=eq.${activePage.id}` },
+      { table: 'notebook_page_boards', filter: `page_id=eq.${activePage.id}` },
+      { table: 'notebook_page_cards', filter: `page_id=eq.${activePage.id}` },
+    ] : [],
+    handleNotebookRealtime,
+    Boolean(activePage?.id),
+  );
+
   return {
     // State
     folders,
     pages,
+    sharedPages,
     pagesById,
     activePage,
     saveStatus,
@@ -674,6 +844,7 @@ export function useNotebook() {
     fetchPagesForFolder,
     reorderPages,
     fetchAllPinnedPages,
+    fetchSharedPages,
     fetchPage,
     loadPageOptimistic,
     createPage,
@@ -681,6 +852,10 @@ export function useNotebook() {
     scheduleSave,
     deletePage,
     searchPages,
+    fetchSystemUsers,
+    fetchPageShares,
+    sharePage,
+    unsharePage,
     // Link operations
     linkLeader,
     unlinkLeader,

@@ -174,7 +174,7 @@ export default function ChecklistsWidget() {
   async function suggestChecklistItems() {
     if (!activePage || isSuggesting) return;
 
-    const noteText = htmlToPlainText(activePage.content);
+    const noteText = htmlToPlainText(activePage.content ?? '');
     if (!noteText) {
       setSuggestionError('Write a note before asking for checklist suggestions.');
       return;

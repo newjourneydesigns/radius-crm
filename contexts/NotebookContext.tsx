@@ -8,6 +8,7 @@ interface NotebookContextType {
   // State
   folders: NotebookFolder[];
   pages: NotebookPage[];
+  sharedPages: NotebookPage[];
   pagesById: Record<string, NotebookPage>;
   activePage: NotebookPage | null;
   activeFolderId: string | null;
@@ -28,6 +29,7 @@ interface NotebookContextType {
   fetchPagesForFolder: (folderId: string) => Promise<NotebookPage[]>;
   reorderPages: (orderedIds: string[]) => Promise<void>;
   fetchAllPinnedPages: () => Promise<NotebookPage[]>;
+  fetchSharedPages: () => Promise<NotebookPage[]>;
   fetchPage: (pageId: string) => Promise<NotebookPage | null>;
   loadPageOptimistic: (pageId: string) => NotebookPage | null;
   createPage: (folderId: string) => Promise<NotebookPage | null>;
@@ -35,6 +37,10 @@ interface NotebookContextType {
   scheduleSave: (id: string, updates: Partial<Pick<NotebookPage, 'title' | 'content' | 'ink' | 'has_ink' | 'ink_stroke_count' | 'ink_updated_at'>>) => void;
   deletePage: (id: string) => Promise<void>;
   searchPages: (query: string) => Promise<NotebookPage[]>;
+  fetchSystemUsers: () => Promise<{ id: string; name: string; email: string }[]>;
+  fetchPageShares: (pageId: string) => Promise<NonNullable<NotebookPage['shares']>>;
+  sharePage: (pageId: string, userId: string) => Promise<void>;
+  unsharePage: (pageId: string, userId: string) => Promise<void>;
   // Link operations
   linkLeader: (pageId: string, leaderId: number) => Promise<void>;
   unlinkLeader: (pageId: string, leaderId: number) => Promise<void>;

@@ -132,7 +132,7 @@ export interface Note {
   id: number;
   circle_leader_id: number;
   user_id?: string;
-  content: string;
+  content?: string;
   created_at: string;
   updated_at?: string;
   note_date?: string;
@@ -550,6 +550,33 @@ export interface NotebookPage {
   linked_leaders?: NotebookPageLeader[];
   linked_boards?: NotebookPageBoard[];
   linked_cards?: NotebookPageCard[];
+  shares?: NotebookPageShare[];
+  shared_with_me?: NotebookPageShare[];
+}
+
+export interface NotebookPageShare {
+  page_id: string;
+  user_id: string;
+  shared_by?: string | null;
+  created_at: string;
+  shared_with?: {
+    id: string;
+    name: string;
+    email: string;
+  } | Array<{
+    id: string;
+    name: string;
+    email: string;
+  }>;
+  shared_by_user?: {
+    id: string;
+    name: string;
+    email: string;
+  } | Array<{
+    id: string;
+    name: string;
+    email: string;
+  }>;
 }
 
 export interface NotebookPageLeader {

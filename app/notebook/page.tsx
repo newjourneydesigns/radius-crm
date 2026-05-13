@@ -8,7 +8,7 @@ import NotebookEditorSkeleton from '../../components/notebook/NotebookEditorSkel
 
 export default function NotebookRootPage() {
   const router = useRouter();
-  const { folders, initialized, setActiveFolderId } = useNotebookContext();
+  const { folders, sharedPages, initialized, setActiveFolderId, fetchSharedPages } = useNotebookContext();
   const [resolving, setResolving] = useState(true);
   const hasResolvedRef = useRef(false);
 
@@ -19,9 +19,9 @@ export default function NotebookRootPage() {
 
     (async () => {
       try {
-        // No folders → no pages possible — render empty state immediately.
         const flat = folders.flatMap(f => [f, ...(f.children || [])]);
-        if (!flat.length) {
+        const loadedSharedPages = sharedPages.length ? sharedPages : await fetchSharedPages();
+        if (!flat.length && !loadedSharedPages.length) {
           setResolving(false);
           return;
         }
@@ -44,7 +44,7 @@ export default function NotebookRootPage() {
         setResolving(false);
       }
     })();
-  }, [initialized, folders, router, setActiveFolderId]);
+  }, [initialized, folders, sharedPages, router, setActiveFolderId, fetchSharedPages]);
 
   if (!initialized || resolving) {
     return <NotebookEditorSkeleton />;

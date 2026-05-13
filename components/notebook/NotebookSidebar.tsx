@@ -39,6 +39,7 @@ export default function NotebookSidebar({ onClose, onCollapse }: NotebookSidebar
   const {
     folders, activeFolderId, setActiveFolderId,
     createFolder, createPage, fetchFolders, fetchAllPinnedPages,
+    fetchSharedPages, sharedPages,
     reorderPages, updatePage,
   } = useNotebookContext();
 
@@ -55,8 +56,9 @@ export default function NotebookSidebar({ onClose, onCollapse }: NotebookSidebar
   );
 
   useEffect(() => {
-    // Folder load is owned by NotebookProvider — sidebar only loads pinned pages.
+    // Folder load is owned by NotebookProvider — sidebar only loads pinned/shared pages.
     fetchAllPinnedPages().then(setPinnedPages);
+    fetchSharedPages();
   }, []);
 
   function handlePageDeleted(pageId: string) {
@@ -255,6 +257,15 @@ export default function NotebookSidebar({ onClose, onCollapse }: NotebookSidebar
           <div className="mb-1">
             <p className="text-[10px] text-gray-600 uppercase tracking-wider px-3 mb-0.5">Pinned</p>
             {pinnedPages.map(page => (
+              <PageListItem key={page.id} page={page} onDelete={() => handlePageDeleted(page.id)} />
+            ))}
+          </div>
+        )}
+
+        {sharedPages.length > 0 && (
+          <div className="mb-1">
+            <p className="text-[10px] text-gray-600 uppercase tracking-wider px-3 mb-0.5">Shared Notes</p>
+            {sharedPages.map(page => (
               <PageListItem key={page.id} page={page} onDelete={() => handlePageDeleted(page.id)} />
             ))}
           </div>
