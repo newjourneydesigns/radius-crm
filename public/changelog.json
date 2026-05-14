@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-05-13",
+    "type": "fix",
+    "description": "\"Send magic link\" on a Circle page now shows a clear error if the request fails (e.g. during a Netlify redeploy) instead of crashing with \"Unexpected end of JSON input\".",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-05-13",
     "type": "improvement",
     "description": "Circle Summary reflection step is now a single open-ended prompt — \"Tell us about your Circle\" — instead of four separate fields. Less friction, more room for whatever the leader wants to share.",
     "page": "/circle-summary"

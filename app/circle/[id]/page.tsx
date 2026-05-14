@@ -1016,13 +1016,23 @@ export default function CircleLeaderProfilePage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ leader_id: leader.id }),
       });
-      const data = await res.json();
+      const raw = await res.text();
+      let data: any = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch {
+        // Non-JSON response (e.g. 404/502 HTML from Netlify mid-deploy)
+      }
       if (!res.ok) {
         setShowAlert({
           isOpen: true,
           type: 'error',
           title: 'Could not generate link',
-          message: data.error || 'Try again.',
+          message:
+            data.error ||
+            (res.status === 404
+              ? 'Endpoint not found — the latest version may still be deploying. Try again in a minute.'
+              : `Request failed (${res.status}). Try again.`),
         });
         return;
       }
