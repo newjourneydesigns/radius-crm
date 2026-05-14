@@ -40,6 +40,7 @@ interface MassUpdateLeader {
   campus: string | null;
   acpd: string | null;
   status: string | null;
+  email_reminders_enabled: boolean;
 }
 
 interface ReferenceData {
@@ -61,7 +62,7 @@ export default function ImportPage() {
   const [activeTab, setActiveTab] = useState<'csv' | 'mass-update'>('csv');
 
   // Mass Update state
-  const [massUpdateField, setMassUpdateField] = useState<'campus' | 'acpd'>('campus');
+  const [massUpdateField, setMassUpdateField] = useState<'campus' | 'acpd' | 'email_reminders_enabled'>('campus');
   const [massUpdateValue, setMassUpdateValue] = useState('');
   const [massUpdateFilterField, setMassUpdateFilterField] = useState<'all' | 'campus' | 'acpd'>('all');
   const [massUpdateFilterValue, setMassUpdateFilterValue] = useState('');
@@ -106,6 +107,7 @@ export default function ImportPage() {
         campus: l.campus || null,
         acpd: l.acpd || null,
         status: l.status || null,
+        email_reminders_enabled: Boolean(l.email_reminders_enabled),
       }));
 
       // Apply filter
@@ -143,7 +145,7 @@ export default function ImportPage() {
   };
 
   const handleMassUpdate = async () => {
-    if (massUpdateSelected.size === 0 || !massUpdateValue) return;
+    if (massUpdateSelected.size === 0 || massUpdateValue === '') return;
 
     setMassUpdateLoading(true);
     setMassUpdateResult(null);
@@ -558,10 +560,10 @@ export default function ImportPage() {
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
                 <div className="p-6">
                   <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-1">
-                    Mass Update ACPD or Campus
+                    Mass Update ACPD, Campus, or Email Reminders
                   </h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                    Select circle leaders and assign them a new ACPD or Campus value in bulk.
+                    Select circle leaders and update assignments or Circle Summary email reminders in bulk.
                   </p>
 
                   {/* Filter controls */}
@@ -629,13 +631,14 @@ export default function ImportPage() {
                       <select
                         value={massUpdateField}
                         onChange={(e) => {
-                          setMassUpdateField(e.target.value as 'campus' | 'acpd');
+                          setMassUpdateField(e.target.value as 'campus' | 'acpd' | 'email_reminders_enabled');
                           setMassUpdateValue('');
                         }}
                         className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                       >
                         <option value="campus">Campus</option>
                         <option value="acpd">ACPD / Director</option>
+                        <option value="email_reminders_enabled">Circle Summary Email Reminders</option>
                       </select>
                     </div>
                     <div>
@@ -652,9 +655,16 @@ export default function ImportPage() {
                           ? referenceData.campuses.map((c) => (
                               <option key={c.id} value={c.value}>{c.value}</option>
                             ))
-                          : referenceData.directors.map((d) => (
+                          : massUpdateField === 'acpd'
+                          ? referenceData.directors.map((d) => (
                               <option key={d.id} value={d.name}>{d.name}</option>
-                            ))}
+                            ))
+                          : (
+                            <>
+                              <option value="true">Turn On</option>
+                              <option value="false">Turn Off</option>
+                            </>
+                          )}
                       </select>
                     </div>
                   </div>
@@ -712,6 +722,9 @@ export default function ImportPage() {
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                               Status
                             </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                              Email Reminders
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -754,6 +767,15 @@ export default function ImportPage() {
                                   {leader.status || '—'}
                                 </span>
                               </td>
+                              <td className="px-4 py-3 text-sm">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  leader.email_reminders_enabled
+                                    ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300'
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
+                                }`}>
+                                  {leader.email_reminders_enabled ? 'On' : 'Off'}
+                                </span>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -763,10 +785,10 @@ export default function ImportPage() {
                     {/* Apply button */}
                     <div className="mt-6 flex items-center justify-between">
                       <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {massUpdateSelected.size > 0 && massUpdateValue ? (
+                        {massUpdateSelected.size > 0 && massUpdateValue !== '' ? (
                           <span>
-                            Will set <strong>{massUpdateField === 'campus' ? 'Campus' : 'ACPD'}</strong> to{' '}
-                            <strong>&ldquo;{massUpdateValue}&rdquo;</strong> for{' '}
+                            Will set <strong>{massUpdateField === 'campus' ? 'Campus' : massUpdateField === 'acpd' ? 'ACPD' : 'Circle Summary Email Reminders'}</strong> to{' '}
+                            <strong>&ldquo;{massUpdateField === 'email_reminders_enabled' ? (massUpdateValue === 'true' ? 'On' : 'Off') : massUpdateValue}&rdquo;</strong> for{' '}
                             <strong>{massUpdateSelected.size}</strong> leader{massUpdateSelected.size !== 1 ? 's' : ''}
                           </span>
                         ) : (
@@ -775,7 +797,7 @@ export default function ImportPage() {
                       </div>
                       <button
                         onClick={handleMassUpdate}
-                        disabled={massUpdateLoading || massUpdateSelected.size === 0 || !massUpdateValue}
+                        disabled={massUpdateLoading || massUpdateSelected.size === 0 || massUpdateValue === ''}
                         className="btn-primary px-6 py-2 rounded-lg text-sm"
                       >
                         {massUpdateLoading ? 'Updating...' : `Update ${massUpdateSelected.size} Leader${massUpdateSelected.size !== 1 ? 's' : ''}`}

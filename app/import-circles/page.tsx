@@ -49,6 +49,7 @@ interface MassUpdateLeader {
   day: string | null;
   time: string | null;
   meeting_start_date: string | null;
+  email_reminders_enabled: boolean;
 }
 
 interface RowEditValues {
@@ -90,7 +91,7 @@ export default function ImportCirclesPage() {
   }, []);
 
   // Mass Update state
-  const [massUpdateField, setMassUpdateField] = useState<'campus' | 'acpd' | 'frequency' | 'circle_type' | 'day' | 'time' | 'meeting_start_date' | 'status'>('campus');
+  const [massUpdateField, setMassUpdateField] = useState<'campus' | 'acpd' | 'frequency' | 'circle_type' | 'day' | 'time' | 'meeting_start_date' | 'status' | 'email_reminders_enabled'>('campus');
   const [massUpdateValue, setMassUpdateValue] = useState('');
   const [massUpdateFilterField, setMassUpdateFilterField] = useState<'all' | 'campus' | 'acpd'>('all');
   const [massUpdateFilterValue, setMassUpdateFilterValue] = useState('');
@@ -161,7 +162,7 @@ export default function ImportCirclesPage() {
   };
 
   // Sort state for mass update table
-  type SortField = 'name' | 'campus' | 'acpd' | 'status' | 'frequency' | 'circle_type' | 'day' | 'time';
+  type SortField = 'name' | 'campus' | 'acpd' | 'status' | 'frequency' | 'circle_type' | 'day' | 'time' | 'email_reminders_enabled';
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
@@ -176,8 +177,8 @@ export default function ImportCirclesPage() {
 
   const sortedMassUpdateLeaders = useMemo(() => {
     return [...massUpdateLeaders].sort((a, b) => {
-      const aVal = (a[sortField] || '').toLowerCase();
-      const bVal = (b[sortField] || '').toLowerCase();
+      const aVal = String(a[sortField] ?? '').toLowerCase();
+      const bVal = String(b[sortField] ?? '').toLowerCase();
       const cmp = aVal.localeCompare(bVal);
       return sortDirection === 'asc' ? cmp : -cmp;
     });
@@ -243,6 +244,7 @@ export default function ImportCirclesPage() {
         day: l.day || null,
         time: l.time || null,
         meeting_start_date: l.meeting_start_date || null,
+        email_reminders_enabled: Boolean(l.email_reminders_enabled),
       }));
 
       if (massUpdateFilterField === 'campus' && massUpdateFilterValue) {
@@ -299,7 +301,7 @@ export default function ImportCirclesPage() {
   };
 
   const handleMassUpdate = async () => {
-    if (massUpdateSelected.size === 0 || !massUpdateValue) return;
+    if (massUpdateSelected.size === 0 || massUpdateValue === '') return;
 
     setMassUpdateLoading(true);
     setMassUpdateResult(null);
@@ -516,7 +518,7 @@ export default function ImportCirclesPage() {
                     Mass Update Circles
                   </h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                    Select circle leaders and update their Campus, ACPD, Frequency, or Circle Type in bulk.
+                    Select circle leaders and update their Campus, ACPD, Frequency, Circle Type, or Circle Summary email reminders in bulk.
                   </p>
 
                   {/* Filter controls */}
@@ -581,7 +583,7 @@ export default function ImportCirclesPage() {
                       <select
                         value={massUpdateField}
                         onChange={(e) => {
-                          setMassUpdateField(e.target.value as 'campus' | 'acpd' | 'frequency' | 'circle_type' | 'day' | 'time' | 'meeting_start_date' | 'status');
+                          setMassUpdateField(e.target.value as 'campus' | 'acpd' | 'frequency' | 'circle_type' | 'day' | 'time' | 'meeting_start_date' | 'status' | 'email_reminders_enabled');
                           setMassUpdateValue('');
                         }}
                         className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
@@ -594,6 +596,7 @@ export default function ImportCirclesPage() {
                         <option value="time">Meeting Time</option>
                         <option value="meeting_start_date">Bi-weekly Start Date</option>
                         <option value="status">Status</option>
+                        <option value="email_reminders_enabled">Circle Summary Email Reminders</option>
                       </select>
                     </div>
                     <div>
@@ -641,6 +644,13 @@ export default function ImportCirclesPage() {
                             ? ['invited', 'on-boarding', 'active', 'paused', 'off-boarding'].map((s) => (
                                 <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
                               ))
+                            : massUpdateField === 'email_reminders_enabled'
+                            ? (
+                              <>
+                                <option value="true">Turn On</option>
+                                <option value="false">Turn Off</option>
+                              </>
+                            )
                             : referenceData.circleTypes.map((ct) => (
                                 <option key={ct.id} value={ct.value}>{ct.value}</option>
                               ))}
@@ -738,6 +748,12 @@ export default function ImportCirclesPage() {
                             >
                               <span className="inline-flex items-center">Status<SortIcon field="status" /></span>
                             </th>
+                            <th
+                              onClick={() => handleSort('email_reminders_enabled')}
+                              className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:text-white select-none"
+                            >
+                              <span className="inline-flex items-center">Email Reminders<SortIcon field="email_reminders_enabled" /></span>
+                            </th>
                             <th className="px-4 py-3 w-10" />
                           </tr>
                         </thead>
@@ -830,6 +846,15 @@ export default function ImportCirclesPage() {
                                   {leader.status || '—'}
                                 </span>
                               </td>
+                              <td className="px-4 py-3 text-sm">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  leader.email_reminders_enabled
+                                    ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300'
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
+                                }`}>
+                                  {leader.email_reminders_enabled ? 'On' : 'Off'}
+                                </span>
+                              </td>
                               <td className="px-4 py-3 text-sm" onClick={(e) => e.stopPropagation()}>
                                 {isEditing ? (
                                   <div className="flex items-center gap-1">
@@ -884,10 +909,10 @@ export default function ImportCirclesPage() {
                     {/* Apply button */}
                     <div className="mt-6 flex items-center justify-between">
                       <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {massUpdateSelected.size > 0 && massUpdateValue ? (
+                        {massUpdateSelected.size > 0 && massUpdateValue !== '' ? (
                           <span>
-                            Will set <strong>{massUpdateField === 'campus' ? 'Campus' : massUpdateField === 'acpd' ? 'ACPD' : massUpdateField === 'frequency' ? 'Frequency' : massUpdateField === 'day' ? 'Meeting Day' : massUpdateField === 'time' ? 'Meeting Time' : massUpdateField === 'meeting_start_date' ? 'Bi-weekly Start Date' : 'Circle Type'}</strong> to{' '}
-                            <strong>&ldquo;{massUpdateField === 'time' ? formatTime(massUpdateValue) : massUpdateValue}&rdquo;</strong> for{' '}
+                            Will set <strong>{massUpdateField === 'campus' ? 'Campus' : massUpdateField === 'acpd' ? 'ACPD' : massUpdateField === 'frequency' ? 'Frequency' : massUpdateField === 'day' ? 'Meeting Day' : massUpdateField === 'time' ? 'Meeting Time' : massUpdateField === 'meeting_start_date' ? 'Bi-weekly Start Date' : massUpdateField === 'status' ? 'Status' : massUpdateField === 'email_reminders_enabled' ? 'Circle Summary Email Reminders' : 'Circle Type'}</strong> to{' '}
+                            <strong>&ldquo;{massUpdateField === 'time' ? formatTime(massUpdateValue) : massUpdateField === 'email_reminders_enabled' ? (massUpdateValue === 'true' ? 'On' : 'Off') : massUpdateValue}&rdquo;</strong> for{' '}
                             <strong>{massUpdateSelected.size}</strong> leader{massUpdateSelected.size !== 1 ? 's' : ''}
                           </span>
                         ) : (
@@ -896,7 +921,7 @@ export default function ImportCirclesPage() {
                       </div>
                       <button
                         onClick={handleMassUpdate}
-                        disabled={massUpdateLoading || massUpdateSelected.size === 0 || !massUpdateValue}
+                        disabled={massUpdateLoading || massUpdateSelected.size === 0 || massUpdateValue === ''}
                         className="btn-primary px-6 py-2 rounded-lg text-sm"
                       >
                         {massUpdateLoading ? 'Updating...' : `Update ${massUpdateSelected.size} Leader${massUpdateSelected.size !== 1 ? 's' : ''}`}

@@ -448,6 +448,41 @@ export default function CircleSummaryFormPage() {
         setSubmitError(data.error || data.ccbError || 'Submission failed.');
         return;
       }
+      try {
+        const selectedAttendees = participants
+          .filter((p) => selectedCcbIds.has(p.id))
+          .map((p) => p.fullName || `${p.firstName} ${p.lastName}`.trim());
+        const requestedRosterAdds = manualAttendees.map((m) =>
+          `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim()
+        );
+        window.sessionStorage.setItem(
+          `circle-summary-submission:${data.summaryId}`,
+          JSON.stringify({
+            summaryId: data.summaryId,
+            submittedAt: new Date().toISOString(),
+            occurrence,
+            occurrenceLabel: dateLabel(occurrence),
+            didNotMeet,
+            didNotMeetReason: didNotMeet ? finalReason : '',
+            attendees: didNotMeet ? [] : selectedAttendees,
+            requestedRosterAdds: didNotMeet ? [] : requestedRosterAdds,
+            topic: didNotMeet ? '' : topic,
+            notes,
+            prayerRequests: didNotMeet ? '' : prayerRequests,
+            info: didNotMeet ? '' : info,
+            dynamicResponses,
+            infoUpdate: infoUpdateChanged
+              ? {
+                  day: infoUpdateDay || '',
+                  time: infoUpdateTime || '',
+                  location: infoUpdateLocation || '',
+                }
+              : null,
+          })
+        );
+      } catch {
+        // The success page can still load the stored submission by id.
+      }
       router.replace(`/circle-summary/success?id=${data.summaryId}`);
     } catch (e: any) {
       setSubmitError(e?.message || 'Submission failed.');

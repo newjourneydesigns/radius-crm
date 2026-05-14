@@ -147,6 +147,7 @@ export async function POST(req: Request) {
       occurrence,
       didNotMeet,
       attendeeIds: didNotMeet ? [] : attendeeCcbIds,
+      guestCount: didNotMeet ? 0 : manualAttendees.length,
       topic: didNotMeet ? '' : flattenForCCB(topic),
       notes: finalNotes,
       prayerRequests: didNotMeet ? '' : flattenForCCB(prayerRequests),

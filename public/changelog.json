@@ -2,6 +2,12 @@
   {
     "date": "2026-05-14",
     "type": "improvement",
+    "description": "Circle Summary → CCB: when a leader adds new people via \"Add to roster\", those pending names are now also counted as guests on the CCB event summary. So 7 checked roster attendees + 2 pending adds shows as 9 total attendance in CCB (7 attendees + 2 guests).",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-14",
+    "type": "improvement",
     "description": "Circle Summary events page: cached events list now persists across browser sessions so repeat visits paint instantly, and the loading state shows \"Loading your Circle events…\" — escalating to \"Still loading — pulling the latest from Church Community Builder\" after 5 seconds so leaders know the page isn't stuck.",
     "page": "/circle-summary"
   },

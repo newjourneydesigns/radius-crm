@@ -171,7 +171,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Mass update ACPD or Campus for multiple circle leaders
+// Mass update selected fields for multiple circle leaders
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
@@ -185,7 +185,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const validFields = ['campus', 'acpd', 'frequency', 'circle_type', 'day', 'time', 'meeting_start_date', 'status'];
+    const validFields = ['campus', 'acpd', 'frequency', 'circle_type', 'day', 'time', 'meeting_start_date', 'status', 'email_reminders_enabled'];
     if (!field || !validFields.includes(field)) {
       return NextResponse.json(
         { error: `field must be one of: ${validFields.join(', ')}` },
@@ -193,7 +193,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    if (field === 'status') {
+    if (field === 'status' && typeof value === 'string') {
       const validStatuses = ['invited', 'on-boarding', 'active', 'paused', 'off-boarding'];
       if (!validStatuses.includes(value.trim().toLowerCase())) {
         return NextResponse.json(
@@ -203,18 +203,30 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    if (typeof value !== 'string' || value.trim().length === 0) {
+    if (field === 'email_reminders_enabled') {
+      if (typeof value !== 'boolean' && value !== 'true' && value !== 'false') {
+        return NextResponse.json(
+          { error: 'value must be true or false for email_reminders_enabled' },
+          { status: 400 }
+        );
+      }
+    } else if (typeof value !== 'string' || value.trim().length === 0) {
       return NextResponse.json(
         { error: 'value must be a non-empty string' },
         { status: 400 }
       );
     }
 
+    const updateValue =
+      field === 'email_reminders_enabled'
+        ? value === true || value === 'true'
+        : value.trim();
+
     const { data, error } = await supabase
       .from('circle_leaders')
-      .update({ [field]: value.trim(), updated_at: new Date().toISOString() })
+      .update({ [field]: updateValue, updated_at: new Date().toISOString() })
       .in('id', leaderIds)
-      .select('id, name, campus, acpd');
+      .select('id, name, campus, acpd, email_reminders_enabled');
 
     if (error) {
       console.error('Mass update error:', error);

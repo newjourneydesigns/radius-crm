@@ -433,6 +433,7 @@ export class CCBClient {
     occurrence: string; // "YYYY-MM-DD HH:MM:SS"
     didNotMeet?: boolean;
     headCount?: number;
+    guestCount?: number;
     attendeeIds?: Array<string | number>;
     topic?: string;
     notes?: string;
@@ -452,6 +453,7 @@ export class CCBClient {
   <event id="${esc(String(payload.eventId))}" occurrence="${esc(payload.occurrence)}">
     <did_not_meet>${payload.didNotMeet ? 'true' : 'false'}</did_not_meet>
     ${payload.headCount != null ? `<head_count>${payload.headCount}</head_count>` : ''}
+    ${payload.guestCount != null ? `<guest_count>${payload.guestCount}</guest_count>` : ''}
     <attendees>
 ${attendeesXml}
     </attendees>
