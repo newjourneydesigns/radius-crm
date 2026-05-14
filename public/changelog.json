@@ -2,7 +2,7 @@
   {
     "date": "2026-05-13",
     "type": "fix",
-    "description": "\"Send magic link\" on a Circle page now shows a clear error if the request fails (e.g. during a Netlify redeploy) instead of crashing with \"Unexpected end of JSON input\".",
+    "description": "\"Send magic link\" on a Circle page now shows a clear error if the request fails (instead of crashing with \"Unexpected end of JSON input\"), and the server returns the actual error message instead of a bare 500.",
     "page": "/circle"
   },
   {
