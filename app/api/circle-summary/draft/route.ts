@@ -10,6 +10,7 @@
 import { NextResponse } from 'next/server';
 import { getSessionLeader, unauthorized } from '../../../../lib/circle-summary/session';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
+import { cleanManualAttendees, splitLegacyRosterAdditions } from '../../../../lib/circle-summary/notes-formatter';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,8 +36,15 @@ export async function GET(req: Request) {
     .maybeSingle();
 
   if (draftRow?.payload) {
+    const payload = draftRow.payload as Record<string, unknown>;
+    const parsed = splitLegacyRosterAdditions(String(payload.notes ?? ''));
+    const existingManual = cleanManualAttendees(payload.manualAttendees);
     return NextResponse.json({
-      draft: draftRow.payload,
+      draft: {
+        ...payload,
+        notes: parsed.notes,
+        manualAttendees: existingManual.length ? existingManual : parsed.manualAttendees,
+      },
       updatedAt: draftRow.updated_at,
       source: 'draft',
     });
@@ -66,16 +74,18 @@ export async function GET(req: Request) {
     const infoUpdate = subRow.info_update_requested as
       | { day?: string; time?: string; location?: string }
       | null;
+    const parsed = splitLegacyRosterAdditions(subRow.notes ?? '');
+    const existingManual = cleanManualAttendees(subRow.manual_attendees);
     return NextResponse.json({
       draft: {
         didNotMeet: subRow.did_not_meet,
         didNotMeetReason: subRow.did_not_meet_reason ?? '',
-        notes: subRow.notes ?? '',
+        notes: parsed.notes,
         topic: subRow.topic ?? '',
         prayerRequests: subRow.prayer_requests ?? '',
         info: subRow.info ?? '',
         attendeeCcbIds: subRow.attendee_ccb_ids ?? [],
-        manualAttendees: subRow.manual_attendees ?? [],
+        manualAttendees: existingManual.length ? existingManual : parsed.manualAttendees,
         dynamicValues,
         infoUpdateDay: infoUpdate?.day ?? '',
         infoUpdateTime: infoUpdate?.time ?? '',
@@ -117,16 +127,17 @@ export async function GET(req: Request) {
       const hasAnything =
         !!text(a?.notes) || !!text(a?.topic) || dnm || attendeeIds.length > 0;
       if (hasAnything) {
+        const parsed = splitLegacyRosterAdditions(text(a?.notes));
         return NextResponse.json({
           draft: {
             didNotMeet: dnm,
             didNotMeetReason: '',
-            notes: text(a?.notes),
+            notes: parsed.notes,
             topic: text(a?.topic),
             prayerRequests: text(a?.prayer_requests),
             info: text(a?.info),
             attendeeCcbIds: attendeeIds,
-            manualAttendees: [],
+            manualAttendees: parsed.manualAttendees,
             dynamicValues: {},
             infoUpdateDay: '',
             infoUpdateTime: '',

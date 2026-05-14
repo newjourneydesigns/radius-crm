@@ -405,19 +405,6 @@ export default function CircleSummaryFormPage() {
       const finalReason =
         didNotMeetReason === 'Other' ? didNotMeetReasonOther.trim() : didNotMeetReason;
 
-      const rosterRequestBlocks = didNotMeet
-        ? []
-        : manualAttendees.map((m) => {
-            const name = `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim();
-            return ['Add New Person to Roster:', name, m.phone ?? '', m.email ?? '']
-              .filter((line) => line && line.length > 0)
-              .join('\n');
-          });
-      const notesWithRosterRequests =
-        rosterRequestBlocks.length > 0
-          ? [notes.trimEnd(), ...rosterRequestBlocks].filter(Boolean).join('\n\n')
-          : notes;
-
       const res = await fetch('/api/circle-summary/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -427,11 +414,11 @@ export default function CircleSummaryFormPage() {
           didNotMeet,
           didNotMeetReason: didNotMeet ? finalReason : '',
           topic: didNotMeet ? '' : topic,
-          notes: notesWithRosterRequests,
+          notes,
           prayerRequests: didNotMeet ? '' : prayerRequests,
           info: didNotMeet ? '' : info,
           attendeeCcbIds: didNotMeet ? [] : Array.from(selectedCcbIds),
-          manualAttendees: [],
+          manualAttendees: didNotMeet ? [] : manualAttendees,
           dynamicResponses,
           infoUpdate: infoUpdateChanged
             ? {
@@ -452,9 +439,6 @@ export default function CircleSummaryFormPage() {
         const selectedAttendees = participants
           .filter((p) => selectedCcbIds.has(p.id))
           .map((p) => p.fullName || `${p.firstName} ${p.lastName}`.trim());
-        const requestedRosterAdds = manualAttendees.map((m) =>
-          `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim()
-        );
         window.sessionStorage.setItem(
           `circle-summary-submission:${data.summaryId}`,
           JSON.stringify({
@@ -465,7 +449,8 @@ export default function CircleSummaryFormPage() {
             didNotMeet,
             didNotMeetReason: didNotMeet ? finalReason : '',
             attendees: didNotMeet ? [] : selectedAttendees,
-            requestedRosterAdds: didNotMeet ? [] : requestedRosterAdds,
+            requestedRosterAdds: didNotMeet ? [] : manualAttendees,
+            manualAttendees: didNotMeet ? [] : manualAttendees,
             topic: didNotMeet ? '' : topic,
             notes,
             prayerRequests: didNotMeet ? '' : prayerRequests,

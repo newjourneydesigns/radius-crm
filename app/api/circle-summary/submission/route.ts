@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server';
 import { getSessionLeader, unauthorized } from '../../../../lib/circle-summary/session';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
+import { cleanManualAttendees, splitLegacyRosterAdditions } from '../../../../lib/circle-summary/notes-formatter';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,6 +47,9 @@ export async function GET(req: Request) {
         })
       )
     : [];
+  const parsed = splitLegacyRosterAdditions(data.notes ?? '');
+  const existingManual = cleanManualAttendees(data.manual_attendees);
+  const manualAttendees = existingManual.length ? existingManual : parsed.manualAttendees;
 
   return NextResponse.json({
     submission: {
@@ -55,9 +59,9 @@ export async function GET(req: Request) {
       didNotMeet: data.did_not_meet,
       didNotMeetReason: data.did_not_meet_reason ?? '',
       attendeeCount: Array.isArray(data.attendee_ccb_ids) ? data.attendee_ccb_ids.length : 0,
-      manualAttendees: data.manual_attendees ?? [],
+      manualAttendees,
       topic: data.topic ?? '',
-      notes: data.notes ?? '',
+      notes: parsed.notes,
       prayerRequests: data.prayer_requests ?? '',
       info: data.info ?? '',
       dynamicResponses,

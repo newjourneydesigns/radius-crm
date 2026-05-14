@@ -465,6 +465,17 @@ ${attendeesXml}
   </event>
 </events>`;
 
+    if (process.env.NODE_ENV !== 'production') {
+      console.info('[ccb] create_event_attendance payload counts', {
+        eventId: payload.eventId,
+        occurrence: payload.occurrence,
+        didNotMeet: Boolean(payload.didNotMeet),
+        rosterAttendeeCount: payload.attendeeIds?.length ?? 0,
+        headCount: payload.headCount ?? null,
+        guestCount: payload.guestCount ?? null,
+      });
+    }
+
     const srv = 'create_event_attendance';
     const form = new FormData();
     form.append('filedata', new Blob([xml], { type: 'text/xml' }), 'attendance.xml');

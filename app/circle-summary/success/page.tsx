@@ -19,8 +19,8 @@ type SubmissionSnapshot = {
   didNotMeetReason?: string;
   attendees?: string[];
   attendeeCount?: number;
-  requestedRosterAdds?: string[];
-  manualAttendees?: Array<{ firstName?: string; lastName?: string }>;
+  requestedRosterAdds?: Array<string | { firstName?: string; lastName?: string; phone?: string; email?: string }>;
+  manualAttendees?: Array<{ firstName?: string; lastName?: string; phone?: string; email?: string }>;
   topic?: string;
   notes?: string;
   prayerRequests?: string;
@@ -61,6 +61,36 @@ function ReviewItem({ label, children }: { label: string; children: React.ReactN
         {label}
       </div>
       <div className="text-sm font-medium text-neutral-900 whitespace-pre-wrap">{children}</div>
+    </div>
+  );
+}
+
+function RosterAddList({
+  people,
+}: {
+  people: Array<string | { firstName?: string; lastName?: string; phone?: string; email?: string }>;
+}) {
+  if (!people.length) return null;
+  return (
+    <div className="grid gap-2">
+      {people.map((person, index) => {
+        const name =
+          typeof person === 'string'
+            ? person
+            : `${person.firstName ?? ''} ${person.lastName ?? ''}`.trim();
+        const phone = typeof person === 'string' ? '' : person.phone;
+        const email = typeof person === 'string' ? '' : person.email;
+        return (
+          <div key={`${name}-${index}`} className="rounded-lg border border-[color:var(--cs-border)] bg-[color:var(--cs-bg-soft)] px-3 py-2">
+            <div className="font-semibold">{name || 'New person'}</div>
+            {(phone || email) && (
+              <div className="mt-0.5 text-xs font-normal text-neutral-500">
+                {[phone, email].filter(Boolean).join(' · ')}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -118,12 +148,9 @@ function SuccessInner() {
   const rosterAdds = useMemo(() => {
     if (!submission || submission.didNotMeet) return '';
     const requested = submission.requestedRosterAdds || [];
-    if (requested.length > 0) return requested.join('\n');
+    if (requested.length > 0) return requested;
     const manual = submission.manualAttendees || [];
-    return manual
-      .map((m) => `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim())
-      .filter(Boolean)
-      .join('\n');
+    return manual.filter((m) => `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim());
   }, [submission]);
 
   const infoUpdateText = submission?.infoUpdate
@@ -179,7 +206,11 @@ function SuccessInner() {
             </ReviewItem>
             <ReviewItem label="Reason">{submission.didNotMeetReason}</ReviewItem>
             <ReviewItem label="Who came?">{attendeeText}</ReviewItem>
-            <ReviewItem label="Roster additions requested">{rosterAdds}</ReviewItem>
+            {Array.isArray(rosterAdds) && rosterAdds.length > 0 && (
+              <ReviewItem label="Roster additions requested">
+                <RosterAddList people={rosterAdds} />
+              </ReviewItem>
+            )}
             <ReviewItem label="Topic">{submission.topic}</ReviewItem>
             <ReviewItem label="Notes">{submission.notes}</ReviewItem>
             <ReviewItem label="Prayer requests">{submission.prayerRequests}</ReviewItem>

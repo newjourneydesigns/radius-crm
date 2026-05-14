@@ -36,7 +36,9 @@ import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
 import {
   flattenForCCB,
+  cleanManualAttendees,
   formatNotesForCCB,
+  normalizeSummaryText,
   type DynamicResponse,
   type InfoUpdate,
   type ManualAttendee,
@@ -48,7 +50,7 @@ export async function POST(req: Request) {
   const leader = await getSessionLeader();
   if (!leader) return unauthorized();
 
-  let body: any = {};
+  let body: unknown = {};
   try {
     body = await req.json();
   } catch {
@@ -124,9 +126,25 @@ export async function POST(req: Request) {
     }
   }
 
+  const cleanNotes = normalizeSummaryText(notes);
+  const cleanPrayerRequests = normalizeSummaryText(prayerRequests);
+  const cleanInfo = normalizeSummaryText(info);
+  const manualAttendeesForSubmit = didNotMeet ? [] : cleanManualAttendees(manualAttendees);
+  const supabase = createServiceSupabaseClient();
+  const { data: existingSummary } = await supabase
+    .from('circle_event_summaries')
+    .select('status, ccb_submitted_at')
+    .eq('leader_id', leader.id)
+    .eq('ccb_event_id', eventId)
+    .eq('occurrence', occurrence)
+    .maybeSingle();
+  const isCCBResubmission = Boolean(
+    existingSummary?.ccb_submitted_at && existingSummary?.status === 'submitted'
+  );
+
   const finalNotes = formatNotesForCCB({
-    baseNotes: notes,
-    manualAttendees,
+    baseNotes: cleanNotes,
+    manualAttendees: manualAttendeesForSubmit,
     dynamicResponses,
     infoUpdates,
     didNotMeetReason: didNotMeet ? didNotMeetReason : undefined,
@@ -137,30 +155,45 @@ export async function POST(req: Request) {
     await getCCBRequestContext(req, { module: 'circle-summary', action: 'submit' })
   );
 
-  let ccbResponse: any = null;
+  let ccbResponse: unknown = null;
   let ccbError: string | null = null;
   let status: 'submitted' | 'failed' = 'submitted';
 
   try {
-    ccbResponse = await ccb.createEventAttendance({
+    const ccbAttendancePayload = {
       eventId,
       occurrence,
       didNotMeet,
-      attendeeIds: didNotMeet ? [] : attendeeCcbIds,
-      guestCount: didNotMeet ? 0 : manualAttendees.length,
+      attendeeIds: isCCBResubmission || didNotMeet ? [] : attendeeCcbIds,
+      headCount: isCCBResubmission ? undefined : didNotMeet ? 0 : manualAttendeesForSubmit.length,
       topic: didNotMeet ? '' : flattenForCCB(topic),
       notes: finalNotes,
-      prayerRequests: didNotMeet ? '' : flattenForCCB(prayerRequests),
-      info: didNotMeet ? '' : flattenForCCB(info),
+      prayerRequests: didNotMeet ? '' : flattenForCCB(cleanPrayerRequests),
+      info: didNotMeet ? '' : flattenForCCB(cleanInfo),
       emailNotification: 'leaders',
-    });
-  } catch (e: any) {
-    ccbError = e.message || String(e);
+    } as const;
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.info('[circle-summary] CCB attendance payload counts', {
+        eventId,
+        occurrence,
+        didNotMeet,
+        isCCBResubmission,
+        rosterAttendeeCount: ccbAttendancePayload.attendeeIds.length,
+        manualAttendeeCount: manualAttendeesForSubmit.length,
+        headCount: ccbAttendancePayload.headCount,
+        totalExpectedAttendance:
+          ccbAttendancePayload.attendeeIds.length + manualAttendeesForSubmit.length,
+      });
+    }
+
+    ccbResponse = await ccb.createEventAttendance(ccbAttendancePayload);
+  } catch (e: unknown) {
+    ccbError = e instanceof Error ? e.message : String(e);
     status = 'failed';
   }
 
   // Write audit row (whether CCB succeeded or not)
-  const supabase = createServiceSupabaseClient();
   const clientIp =
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     req.headers.get('x-real-ip') ||
@@ -180,15 +213,15 @@ export async function POST(req: Request) {
         // Store the user's raw notes so re-edits can repopulate cleanly.
         // The composed blob (finalNotes) is what we send to CCB but only
         // stored on the CCB side, not duplicated here.
-        notes: notes ?? '',
-        prayer_requests: didNotMeet ? null : prayerRequests,
-        info: didNotMeet ? null : info,
+        notes: cleanNotes,
+        prayer_requests: didNotMeet ? null : cleanPrayerRequests,
+        info: didNotMeet ? null : cleanInfo,
         attendee_ccb_ids: didNotMeet ? [] : attendeeCcbIds,
-        manual_attendees: manualAttendees,
+        manual_attendees: manualAttendeesForSubmit,
         dynamic_responses: dynamicResponses.reduce((acc, r) => {
           acc[r.questionId] = { label: r.label, value: r.value };
           return acc;
-        }, {} as Record<string, any>),
+        }, {} as Record<string, { label: string; value: string }>),
         info_update_requested: infoUpdate ?? null,
         ccb_submitted_at: status === 'submitted' ? new Date().toISOString() : null,
         ccb_response: ccbResponse,
@@ -217,10 +250,14 @@ export async function POST(req: Request) {
     );
   }
 
-  // Record manual roster + info update child rows
-  if (manualAttendees.length) {
+  // Record manual roster + info update child rows. Because the summary row
+  // is upserted by occurrence, clear old child rows before re-inserting.
+  await supabase.from('manual_roster_additions').delete().eq('summary_id', summaryRow.id);
+  await supabase.from('circle_info_update_requests').delete().eq('summary_id', summaryRow.id);
+
+  if (manualAttendeesForSubmit.length) {
     await supabase.from('manual_roster_additions').insert(
-      manualAttendees.map((m) => ({
+      manualAttendeesForSubmit.map((m) => ({
         summary_id: summaryRow.id,
         leader_id: leader.id,
         first_name: m.firstName,
