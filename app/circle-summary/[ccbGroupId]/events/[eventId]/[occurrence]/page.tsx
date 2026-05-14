@@ -97,6 +97,7 @@ export default function CircleSummaryFormPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [addOpen, setAddOpen] = useState(false);
+  const [editRoster, setEditRoster] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<CcbSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -551,14 +552,30 @@ export default function CircleSummaryFormPage() {
                   <span className="cs-step-num">2</span>
                   <span className="cs-step-title">Who came?</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => toggleAll(!allSelected)}
-                  className="text-sm font-semibold text-[color:var(--cs-green-dark)] hover:text-[color:var(--cs-green-darker)] shrink-0"
-                >
-                  {allSelected ? 'Clear all' : 'Select all'}
-                </button>
+                <div className="flex items-center gap-3 shrink-0">
+                  {!editRoster && (
+                    <button
+                      type="button"
+                      onClick={() => toggleAll(!allSelected)}
+                      className="text-sm font-semibold text-[color:var(--cs-green-dark)] hover:text-[color:var(--cs-green-darker)]"
+                    >
+                      {allSelected ? 'Clear all' : 'Select all'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setEditRoster((v) => !v)}
+                    className="text-sm font-semibold text-[color:var(--cs-green-dark)] hover:text-[color:var(--cs-green-darker)]"
+                  >
+                    {editRoster ? 'Done' : 'Edit'}
+                  </button>
+                </div>
               </div>
+              {editRoster && (
+                <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+                  Tap the red minus next to a name to remove them from your Circle's roster. This only removes them from your Circle — their profile isn't deleted.
+                </div>
+              )}
               <div className="space-y-1 mb-4">
                 {participants.length === 0 && (
                   <p className="text-sm text-neutral-500 py-2">No one on your roster yet.</p>
@@ -567,30 +584,49 @@ export default function CircleSummaryFormPage() {
                   const fullName = p.fullName || `${p.firstName} ${p.lastName}`;
                   const checked = selectedCcbIds.has(p.id);
                   return (
-                    <div key={p.id} className="flex items-center gap-2.5 py-0.5 group">
-                      <label className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0">
+                    <div key={p.id} className="flex items-center gap-2.5 py-0.5">
+                      {editRoster ? (
+                        <button
+                          type="button"
+                          onClick={() => removeFromCcb(p)}
+                          className="w-6 h-6 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shrink-0 transition-colors"
+                          aria-label={`Remove ${fullName} from Circle`}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                            <path fillRule="evenodd" d="M4 10a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      ) : (
                         <input
                           type="checkbox"
                           className="cs-check"
                           checked={checked}
                           onChange={() => toggleOne(p.id)}
+                          aria-label={fullName}
                         />
+                      )}
+                      <label className="flex-1 min-w-0 cursor-pointer" onClick={() => !editRoster && toggleOne(p.id)}>
                         <span className="truncate text-sm font-medium">{fullName}</span>
                       </label>
-                      <button
-                        type="button"
-                        onClick={() => removeFromCcb(p)}
-                        className="text-xs text-neutral-300 hover:text-red-500 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                        aria-label={`Remove ${fullName} from Circle`}
-                      >
-                        Remove
-                      </button>
                     </div>
                   );
                 })}
                 {manualAttendees.map((m, i) => (
                   <div key={`m-${i}`} className="flex items-center gap-2.5 py-0.5">
-                    <div className="cs-check" style={{ visibility: 'hidden' }} aria-hidden="true" />
+                    {editRoster ? (
+                      <button
+                        type="button"
+                        onClick={() => removeManual(i)}
+                        className="w-6 h-6 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shrink-0 transition-colors"
+                        aria-label={`Remove ${m.firstName} ${m.lastName}`}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                          <path fillRule="evenodd" d="M4 10a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    ) : (
+                      <div className="cs-check" style={{ visibility: 'hidden' }} aria-hidden="true" />
+                    )}
                     <span className="flex-1 min-w-0 text-sm font-medium truncate">
                       {m.firstName} {m.lastName}
                       {(m.phone || m.email) && (
@@ -600,13 +636,6 @@ export default function CircleSummaryFormPage() {
                       )}
                     </span>
                     <span className="cs-badge cs-badge-new text-xs shrink-0">New</span>
-                    <button
-                      type="button"
-                      onClick={() => removeManual(i)}
-                      className="text-xs text-neutral-400 hover:text-red-500 shrink-0"
-                    >
-                      Remove
-                    </button>
                   </div>
                 ))}
               </div>

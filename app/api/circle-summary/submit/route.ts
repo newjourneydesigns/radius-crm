@@ -35,6 +35,7 @@ import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
 import {
+  flattenForCCB,
   formatNotesForCCB,
   type DynamicResponse,
   type InfoUpdate,
@@ -146,10 +147,10 @@ export async function POST(req: Request) {
       occurrence,
       didNotMeet,
       attendeeIds: didNotMeet ? [] : attendeeCcbIds,
-      topic: didNotMeet ? '' : topic,
+      topic: didNotMeet ? '' : flattenForCCB(topic),
       notes: finalNotes,
-      prayerRequests: didNotMeet ? '' : prayerRequests,
-      info: didNotMeet ? '' : info,
+      prayerRequests: didNotMeet ? '' : flattenForCCB(prayerRequests),
+      info: didNotMeet ? '' : flattenForCCB(info),
       emailNotification: 'leaders',
     });
   } catch (e: any) {

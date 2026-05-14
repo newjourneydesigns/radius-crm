@@ -1,6 +1,30 @@
 [
   {
     "date": "2026-05-14",
+    "type": "fix",
+    "description": "Circle Summary → CCB push: literal \\n\\n characters no longer appear in Event Notes when the leader includes line breaks in dynamic question responses, the topic, prayer requests, or info fields. All text headed to CCB is now flattened to a single line with \" || \" between paragraph breaks.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-14",
+    "type": "improvement",
+    "description": "Settings → Circle Summary: removed the Submission Log and Info Update Requests tiles. Those admin pages have been retired.",
+    "page": "/settings"
+  },
+  {
+    "date": "2026-05-14",
+    "type": "improvement",
+    "description": "Circle Summary attendance: roster removal is now behind an Edit toggle — tap Edit to reveal a red minus on each removable person, with a clear instruction line warning that the action removes them from the Circle's roster. Tap Done to return to taking attendance.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-14",
+    "type": "improvement",
+    "description": "Circle Summary Thank You page now uses leader-friendly language (\"Your Circle summary has been submitted.\") and no longer shows an internal reference code.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-14",
     "type": "improvement",
     "description": "Circle Summary sign-in now asks for email only — phone number is no longer offered as an identifier, simplifying the leader login flow.",
     "page": "/circle-summary"

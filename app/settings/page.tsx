@@ -1351,30 +1351,6 @@ export default function SettingsPage() {
                     Add, edit, and schedule the questions leaders see on the Circle Summary submission form.
                   </p>
                 </a>
-                <a
-                  href="/admin/submission-log"
-                  className="group flex flex-col gap-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-5 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                >
-                  <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                    <ClipboardList className="h-5 w-5" />
-                    <span className="font-semibold text-sm">Submission Log</span>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Review all Circle Summary submissions from leaders across every circle.
-                  </p>
-                </a>
-                <a
-                  href="/admin/info-update-requests"
-                  className="group flex flex-col gap-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-5 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                >
-                  <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                    <Settings className="h-5 w-5" />
-                    <span className="font-semibold text-sm">Info Update Requests</span>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Review leader-submitted requests to change their circle's day, time, or location.
-                  </p>
-                </a>
               </div>
             </div>
           )}

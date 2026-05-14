@@ -34,6 +34,17 @@ export type InfoUpdate = {
  * Apostrophes are replaced with U+2019 (right single quotation mark) which
  * isn't escaped by CCB's display layer.
  */
+// CCB's display layer renders real newlines as the literal characters "\n".
+// Flatten any string heading into the notes blob: paragraph breaks become a
+// visible separator, lone newlines become a single space.
+export function flattenForCCB(value: string): string {
+  return value
+    .replace(/\r\n/g, '\n')
+    .replace(/\n{2,}/g, '  ||  ')
+    .replace(/\n/g, ' ')
+    .trim();
+}
+
 export function formatNotesForCCB(input: {
   baseNotes: string;
   manualAttendees?: ManualAttendee[];
@@ -44,35 +55,30 @@ export function formatNotesForCCB(input: {
   const sections: string[] = [];
 
   if (input.didNotMeetReason) {
-    sections.push(`Reason we didn’t meet: ${input.didNotMeetReason.trim()}`);
+    sections.push(`Reason we didn’t meet: ${flattenForCCB(input.didNotMeetReason)}`);
   }
 
   if (input.baseNotes?.trim()) {
-    // CCB displays actual newlines as literal "\n" — collapse paragraph breaks
-    // to a visual separator and strip lone newlines.
-    const flatNotes = input.baseNotes
-      .trim()
-      .replace(/\n{2,}/g, '  ||  ')
-      .replace(/\n/g, ' ');
-    sections.push(flatNotes);
+    sections.push(flattenForCCB(input.baseNotes));
   }
 
   if (input.dynamicResponses?.length) {
     const items = input.dynamicResponses.map((r) => {
       const v = Array.isArray(r.value)
-        ? r.value.join(', ')
+        ? r.value.map((x) => flattenForCCB(String(x))).join(', ')
         : typeof r.value === 'boolean'
           ? (r.value ? 'Yes' : 'No')
-          : String(r.value ?? '');
-      return `${r.label}: ${v}`;
+          : flattenForCCB(String(r.value ?? ''));
+      return `${flattenForCCB(r.label)}: ${v}`;
     });
     sections.push(`Additional questions — ${items.join(' · ')}`);
   }
 
   if (input.manualAttendees?.length) {
     const items = input.manualAttendees.map((p) => {
-      const contact = [p.phone, p.email].filter(Boolean).join(' / ');
-      return `${p.firstName} ${p.lastName}${contact ? ` (${contact})` : ''}`;
+      const contact = [p.phone, p.email].filter(Boolean).map((x) => flattenForCCB(String(x))).join(' / ');
+      const name = `${flattenForCCB(p.firstName)} ${flattenForCCB(p.lastName)}`.trim();
+      return `${name}${contact ? ` (${contact})` : ''}`;
     });
     sections.push(`New people to add to roster (action needed) — ${items.join(' · ')}`);
   }
