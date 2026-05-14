@@ -2,6 +2,24 @@
   {
     "date": "2026-05-14",
     "type": "improvement",
+    "description": "Circle Summary sign-in now asks for email only — phone number is no longer offered as an identifier, simplifying the leader login flow.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-14",
+    "type": "improvement",
+    "description": "Circle Summary: removed the \"VC\" emblem from the sign-in hero for a cleaner header.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-14",
+    "type": "improvement",
+    "description": "Circle Summary: the SMS sent from the admin magic-link tool now reads as friendly end-user copy — \"here's your link to report your Circle event summary\" — instead of the technical sign-in phrasing.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-14",
+    "type": "improvement",
     "description": "Boards: hover a card and press F to toggle its focus state — same as clicking 'Set as Focus' in the card detail, but without opening the card.",
     "page": "/boards"
   },

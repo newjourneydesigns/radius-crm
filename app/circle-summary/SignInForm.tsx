@@ -8,7 +8,7 @@ type Stage = 'identifier' | 'code';
 export default function SignInForm() {
   const router = useRouter();
   const [stage, setStage] = useState<Stage>('identifier');
-  const [identifier, setIdentifier] = useState('');
+  const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [info, setInfo] = useState<string | null>(null);
@@ -23,7 +23,7 @@ export default function SignInForm() {
       const res = await fetch('/api/circle-summary/auth/request-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: identifier.trim() }),
+        body: JSON.stringify({ identifier: email.trim() }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -47,7 +47,7 @@ export default function SignInForm() {
       const res = await fetch('/api/circle-summary/auth/verify-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: identifier.trim(), code: code.trim() }),
+        body: JSON.stringify({ identifier: email.trim(), code: code.trim() }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -70,33 +70,33 @@ export default function SignInForm() {
             Let's get you in
           </h2>
           <p className="text-sm text-neutral-600 mb-5">
-            Enter the email or phone on your Circle profile.
+            Enter the email on your Circle profile.
           </p>
 
           {error && <div className="cs-alert cs-alert-error mb-4">{error}</div>}
 
           <form onSubmit={requestCode} className="space-y-4">
             <div>
-              <label className="cs-label" htmlFor="identifier">
-                Email or phone
+              <label className="cs-label" htmlFor="email">
+                Email
               </label>
               <input
-                id="identifier"
-                type="text"
+                id="email"
+                type="email"
                 inputMode="email"
                 autoComplete="email"
                 autoFocus
                 required
-                placeholder="you@example.com  or  (555) 123-4567"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="cs-input"
               />
             </div>
             <button
               type="submit"
               className="cs-btn cs-btn-primary w-full"
-              disabled={submitting || !identifier.trim()}
+              disabled={submitting || !email.trim()}
             >
               {submitting ? 'Sending code…' : 'Send me a code'}
             </button>
@@ -151,7 +151,7 @@ export default function SignInForm() {
               }}
               className="cs-btn cs-btn-ghost w-full"
             >
-              Use a different email or phone
+              Use a different email
             </button>
           </form>
         </>

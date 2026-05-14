@@ -33,7 +33,6 @@ export default function CircleSummarySignInPage() {
   return (
     <>
       <header className="cs-hero py-14 sm:py-20 px-6 text-center">
-        <div className="cs-vc-mark mx-auto">VC</div>
         <h1 className="cs-display text-5xl sm:text-7xl">Circle Summary</h1>
         <p className="mt-3 text-white/85 text-sm sm:text-base font-medium tracking-wide">
           For Circle Leaders at Valley Creek

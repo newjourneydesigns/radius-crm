@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     url.searchParams.set('t', token);
     url.searchParams.set('next', '/circle-summary/events');
 
-    const messageBody = `Hi ${leader.name?.split(' ')[0] || 'there'}, here's your Circle Summary link (signs you in automatically, no password): ${url.toString()}`;
+    const messageBody = `Hi ${leader.name?.split(' ')[0] || 'there'}, here's your link to report your Circle event summary: ${url.toString()}`;
 
     return NextResponse.json({
       ok: true,
