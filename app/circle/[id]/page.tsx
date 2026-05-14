@@ -1809,6 +1809,27 @@ export default function CircleLeaderProfilePage() {
                       </svg>
                       {isSendingMagicLink ? 'Generating link…' : 'Text Circle Summary link'}
                     </button>
+
+                    <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-900/30 px-3 py-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <svg className={`w-4 h-4 shrink-0 ${leader.email_reminders_enabled ? 'text-emerald-400' : 'text-slate-400'}`} fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                          <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                        </svg>
+                        <span className="text-xs font-medium text-slate-300 whitespace-nowrap">Email Reminders</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleToggleEmailReminders}
+                        className={`shrink-0 min-w-[72px] text-xs px-2.5 py-1.5 rounded-md border transition-colors ${
+                          leader.email_reminders_enabled
+                            ? 'text-emerald-300 hover:text-emerald-200 bg-emerald-900/30 hover:bg-emerald-900/45 border-emerald-800/40'
+                            : 'text-slate-300 hover:text-white bg-slate-700/30 hover:bg-slate-700/60 border-slate-700'
+                        }`}
+                      >
+                        {leader.email_reminders_enabled ? 'Enabled' : 'Disabled'}
+                      </button>
+                    </div>
                   </div>
                 );
               })()}
@@ -1843,33 +1864,6 @@ export default function CircleLeaderProfilePage() {
                 </button>
               </div>
 
-              {/* Email Reminders (Circle Summary) */}
-              <div className="w-full flex items-center justify-between px-4 py-3 text-slate-200 text-sm border-t border-slate-700/50">
-                <div className="flex items-center gap-2.5">
-                  <svg className={`w-4 h-4 ${leader.email_reminders_enabled ? 'text-emerald-400' : 'text-slate-400'}`} fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-                  </svg>
-                  <div className="flex flex-col">
-                    <span>Email Reminders</span>
-                    <span className="text-[11px] text-slate-500">
-                      {leader.email_reminders_enabled
-                        ? 'On — gets reminders to submit Circle Summary'
-                        : 'Off'}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={handleToggleEmailReminders}
-                  className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
-                    leader.email_reminders_enabled
-                      ? 'text-emerald-300 hover:text-emerald-200 bg-emerald-900/30 hover:bg-emerald-900/45 border-emerald-800/40'
-                      : 'text-slate-300 hover:text-white bg-slate-700/40 hover:bg-slate-700/70 border-slate-700'
-                  }`}
-                >
-                  {leader.email_reminders_enabled ? 'Turn Off' : 'Turn On'}
-                </button>
-              </div>
               {leader.follow_up_required && (leader.follow_up_date || leader.follow_up_note?.trim()) && (
                 <div className="px-4 py-3 bg-slate-700/20 border-t border-slate-700/50 space-y-2.5">
                   <div className="flex items-start justify-between gap-3">
@@ -2604,6 +2598,27 @@ export default function CircleLeaderProfilePage() {
                         </svg>
                         {isSendingMagicLink ? 'Generating link…' : 'Text Circle Summary link'}
                       </button>
+
+                      <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-900/30 px-3 py-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <svg className={`w-4 h-4 shrink-0 ${leader.email_reminders_enabled ? 'text-emerald-400' : 'text-slate-400'}`} fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                            <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                          </svg>
+                          <span className="text-xs font-medium text-slate-300 whitespace-nowrap">Email Reminders</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleToggleEmailReminders}
+                          className={`shrink-0 min-w-[72px] text-xs px-2.5 py-1.5 rounded-md border transition-colors ${
+                            leader.email_reminders_enabled
+                              ? 'text-emerald-300 hover:text-emerald-200 bg-emerald-900/30 hover:bg-emerald-900/45 border-emerald-800/40'
+                              : 'text-slate-300 hover:text-white bg-slate-700/30 hover:bg-slate-700/60 border-slate-700'
+                          }`}
+                        >
+                          {leader.email_reminders_enabled ? 'Enabled' : 'Disabled'}
+                        </button>
+                      </div>
                     </div>
                   );
                 })()}
