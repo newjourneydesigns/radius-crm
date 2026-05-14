@@ -1,6 +1,24 @@
 [
   {
     "date": "2026-05-14",
+    "type": "improvement",
+    "description": "Circle Summary → CCB: the notes pushed to CCB now preserve the line breaks leaders type (paragraph breaks, lists) instead of being flattened into one line. Dynamic question answers each appear on their own block with the question as a heading; the \"Additional questions —\" prefix is gone.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-14",
+    "type": "improvement",
+    "description": "Circle Summary: \"Add someone to my Circle\" requests are now appended to the bottom of the notes pushed to CCB (one blank line before each block, format: \"Add New Person to Roster:\" then name, phone, email on their own lines) — making it easy for ACPDs to spot and process them. The pending entries no longer go through a separate roster-request flow.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-14",
+    "type": "improvement",
+    "description": "Circle Summary attendance: pending \"add to roster\" requests now have always-visible Edit and Remove actions on each row, so leaders can fix a typo or remove someone they added by mistake before submitting.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-14",
     "type": "fix",
     "description": "Circle Summary → CCB push: literal \\n\\n characters no longer appear in Event Notes when the leader includes line breaks in dynamic question responses, the topic, prayer requests, or info fields. All text headed to CCB is now flattened to a single line with \" || \" between paragraph breaks.",
     "page": "/circle-summary"

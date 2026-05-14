@@ -102,6 +102,7 @@ export default function CircleSummaryFormPage() {
   const [searchResults, setSearchResults] = useState<CcbSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [manualForm, setManualForm] = useState<ManualAttendee>({ firstName: '', lastName: '', phone: '', email: '' });
+  const [editingManualIdx, setEditingManualIdx] = useState<number | null>(null);
 
   const [showInfoUpdate, setShowInfoUpdate] = useState(false);
   const [loadedFromSubmission, setLoadedFromSubmission] = useState<string | null>(null);
@@ -318,13 +319,43 @@ export default function CircleSummaryFormPage() {
       alert('First name, last name, and cell phone are required.');
       return;
     }
-    setManualAttendees((prev) => [...prev, trimmed]);
+    if (editingManualIdx !== null) {
+      const idx = editingManualIdx;
+      setManualAttendees((prev) => prev.map((m, i) => (i === idx ? trimmed : m)));
+    } else {
+      setManualAttendees((prev) => [...prev, trimmed]);
+    }
     setManualForm({ firstName: '', lastName: '', phone: '', email: '' });
+    setEditingManualIdx(null);
     setAddOpen(false);
   }
 
   function removeManual(idx: number) {
     setManualAttendees((prev) => prev.filter((_, i) => i !== idx));
+    if (editingManualIdx === idx) {
+      setEditingManualIdx(null);
+      setManualForm({ firstName: '', lastName: '', phone: '', email: '' });
+      setAddOpen(false);
+    }
+  }
+
+  function startEditManual(idx: number) {
+    const m = manualAttendees[idx];
+    if (!m) return;
+    setManualForm({
+      firstName: m.firstName ?? '',
+      lastName: m.lastName ?? '',
+      phone: m.phone ?? '',
+      email: m.email ?? '',
+    });
+    setEditingManualIdx(idx);
+    setAddOpen(true);
+  }
+
+  function cancelManualForm() {
+    setManualForm({ firstName: '', lastName: '', phone: '', email: '' });
+    setEditingManualIdx(null);
+    setAddOpen(false);
   }
 
   async function handleSubmit() {
@@ -374,6 +405,19 @@ export default function CircleSummaryFormPage() {
       const finalReason =
         didNotMeetReason === 'Other' ? didNotMeetReasonOther.trim() : didNotMeetReason;
 
+      const rosterRequestBlocks = didNotMeet
+        ? []
+        : manualAttendees.map((m) => {
+            const name = `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim();
+            return ['Add New Person to Roster:', name, m.phone ?? '', m.email ?? '']
+              .filter((line) => line && line.length > 0)
+              .join('\n');
+          });
+      const notesWithRosterRequests =
+        rosterRequestBlocks.length > 0
+          ? [notes.trimEnd(), ...rosterRequestBlocks].filter(Boolean).join('\n\n')
+          : notes;
+
       const res = await fetch('/api/circle-summary/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -383,11 +427,11 @@ export default function CircleSummaryFormPage() {
           didNotMeet,
           didNotMeetReason: didNotMeet ? finalReason : '',
           topic: didNotMeet ? '' : topic,
-          notes,
+          notes: notesWithRosterRequests,
           prayerRequests: didNotMeet ? '' : prayerRequests,
           info: didNotMeet ? '' : info,
           attendeeCcbIds: didNotMeet ? [] : Array.from(selectedCcbIds),
-          manualAttendees: didNotMeet ? [] : manualAttendees,
+          manualAttendees: [],
           dynamicResponses,
           infoUpdate: infoUpdateChanged
             ? {
@@ -613,20 +657,7 @@ export default function CircleSummaryFormPage() {
                 })}
                 {manualAttendees.map((m, i) => (
                   <div key={`m-${i}`} className="flex items-center gap-2.5 py-0.5">
-                    {editRoster ? (
-                      <button
-                        type="button"
-                        onClick={() => removeManual(i)}
-                        className="w-6 h-6 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shrink-0 transition-colors"
-                        aria-label={`Remove ${m.firstName} ${m.lastName}`}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                          <path fillRule="evenodd" d="M4 10a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                    ) : (
-                      <div className="cs-check" style={{ visibility: 'hidden' }} aria-hidden="true" />
-                    )}
+                    <div className="cs-check" style={{ visibility: 'hidden' }} aria-hidden="true" />
                     <span className="flex-1 min-w-0 text-sm font-medium truncate">
                       {m.firstName} {m.lastName}
                       {(m.phone || m.email) && (
@@ -636,6 +667,22 @@ export default function CircleSummaryFormPage() {
                       )}
                     </span>
                     <span className="cs-badge cs-badge-new text-xs shrink-0">New</span>
+                    <button
+                      type="button"
+                      onClick={() => startEditManual(i)}
+                      className="text-xs font-semibold text-[color:var(--cs-green-dark)] hover:text-[color:var(--cs-green-darker)] shrink-0"
+                      aria-label={`Edit ${m.firstName} ${m.lastName}`}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeManual(i)}
+                      className="text-xs font-semibold text-red-500 hover:text-red-600 shrink-0"
+                      aria-label={`Remove ${m.firstName} ${m.lastName}`}
+                    >
+                      Remove
+                    </button>
                   </div>
                 ))}
               </div>
@@ -650,37 +697,43 @@ export default function CircleSummaryFormPage() {
                 </button>
               ) : (
                 <div className="rounded-lg border border-[color:var(--cs-border)] bg-[color:var(--cs-bg-soft)] p-4 space-y-3">
-                  <input
-                    type="text"
-                    placeholder="Search name or phone…"
-                    className="cs-input"
-                    value={searchQuery}
-                    onChange={(e) => runSearch(e.target.value)}
-                  />
-                  {searching && <div className="text-xs text-neutral-500">Searching…</div>}
-                  {searchResults.length > 0 && (
-                    <div className="space-y-1 max-h-56 overflow-y-auto">
-                      {searchResults.slice(0, 8).map((r) => (
-                        <button
-                          key={r.id}
-                          type="button"
-                          onClick={() => addFromCcb(r)}
-                          className="w-full text-left px-3 py-2 rounded hover:bg-white border border-transparent hover:border-[color:var(--cs-border)] text-sm transition-colors"
-                        >
-                          <div className="font-semibold text-neutral-900">
-                            {r.fullName || `${r.firstName || ''} ${r.lastName || ''}`.trim()}
-                          </div>
-                          {(r.email || r.phone) && (
-                            <div className="text-xs text-neutral-500">
-                              {[r.phone, r.email].filter(Boolean).join(' • ')}
-                            </div>
-                          )}
-                        </button>
-                      ))}
-                    </div>
+                  {editingManualIdx !== null ? (
+                    <p className="text-sm font-semibold text-neutral-700">Edit pending roster request</p>
+                  ) : (
+                    <>
+                      <input
+                        type="text"
+                        placeholder="Search name or phone…"
+                        className="cs-input"
+                        value={searchQuery}
+                        onChange={(e) => runSearch(e.target.value)}
+                      />
+                      {searching && <div className="text-xs text-neutral-500">Searching…</div>}
+                      {searchResults.length > 0 && (
+                        <div className="space-y-1 max-h-56 overflow-y-auto">
+                          {searchResults.slice(0, 8).map((r) => (
+                            <button
+                              key={r.id}
+                              type="button"
+                              onClick={() => addFromCcb(r)}
+                              className="w-full text-left px-3 py-2 rounded hover:bg-white border border-transparent hover:border-[color:var(--cs-border)] text-sm transition-colors"
+                            >
+                              <div className="font-semibold text-neutral-900">
+                                {r.fullName || `${r.firstName || ''} ${r.lastName || ''}`.trim()}
+                              </div>
+                              {(r.email || r.phone) && (
+                                <div className="text-xs text-neutral-500">
+                                  {[r.phone, r.email].filter(Boolean).join(' • ')}
+                                </div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <div className="cs-divider">Person not in our system?</div>
+                      <p className="text-xs text-neutral-500 -mt-1">Fill in their info and we'll request they be added to your roster.</p>
+                    </>
                   )}
-                  <div className="cs-divider">Person not in our system?</div>
-                  <p className="text-xs text-neutral-500 -mt-1">Fill in their info and we'll request they be added to your roster.</p>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="flex flex-col gap-1">
                       <label className="text-xs font-medium text-neutral-600">First name <span className="text-red-500">*</span></label>
@@ -725,11 +778,11 @@ export default function CircleSummaryFormPage() {
                       onClick={addManual}
                       className="cs-btn cs-btn-primary flex-1"
                     >
-                      Request to add to roster
+                      {editingManualIdx !== null ? 'Save changes' : 'Request to add to roster'}
                     </button>
                     <button
                       type="button"
-                      onClick={() => setAddOpen(false)}
+                      onClick={cancelManualForm}
                       className="cs-btn cs-btn-ghost"
                     >
                       Cancel
