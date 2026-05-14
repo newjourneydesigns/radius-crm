@@ -42,8 +42,15 @@ export async function POST(req: NextRequest) {
     }
 
     const token = createSessionToken(leader.id, TTL_MS);
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.URL || new URL(req.url).origin;
-    const url = new URL('/api/circle-summary/auth/link', appUrl);
+    // Use the host the admin is currently on. Avoids cross-domain cookie loss
+    // when NEXT_PUBLIC_APP_URL points at a custom domain that 301s to the
+    // netlify.app host (or vice versa) — cookies don't survive that hop.
+    const forwardedHost = req.headers.get('x-forwarded-host');
+    const forwardedProto = req.headers.get('x-forwarded-proto') || 'https';
+    const origin = forwardedHost
+      ? `${forwardedProto}://${forwardedHost}`
+      : new URL(req.url).origin;
+    const url = new URL('/api/circle-summary/auth/link', origin);
     url.searchParams.set('t', token);
     url.searchParams.set('next', '/circle-summary/events');
 

@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-05-14",
+    "type": "fix",
+    "description": "Admin \"send magic link\" now builds the link using the host you're currently on, so leaders aren't bounced through a cross-domain redirect that strips their session cookie. Tapping the link signs them straight into Circle Summary as intended.",
+    "page": "/circle"
+  },
+  {
     "date": "2026-05-13",
     "type": "fix",
     "description": "\"Send magic link\" on a Circle page now shows a clear error if the request fails (instead of crashing with \"Unexpected end of JSON input\"), and the server returns the actual error message instead of a bare 500.",
