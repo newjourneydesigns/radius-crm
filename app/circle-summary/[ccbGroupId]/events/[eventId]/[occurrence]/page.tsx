@@ -60,6 +60,12 @@ function dateLabel(occurrenceDateTime: string): string {
   });
 }
 
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
 export default function CircleSummaryFormPage() {
   const router = useRouter();
   const params = useParams<{ ccbGroupId: string; eventId: string; occurrence: string }>();
@@ -277,6 +283,29 @@ export default function CircleSummaryFormPage() {
     setSearchResults([]);
   }
 
+  async function removeFromCcb(p: Participant) {
+    const name = p.fullName || `${p.firstName} ${p.lastName}`.trim();
+    if (!confirm(`Remove ${name} from your Circle's roster?\n\nThis only removes them from this group. Their profile is not changed.`)) {
+      return;
+    }
+    const res = await fetch('/api/circle-summary/roster/remove', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ individualId: p.id }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      alert(data.error || 'Could not remove from your Circle.');
+      return;
+    }
+    setParticipants((prev) => prev.filter((x) => x.id !== p.id));
+    setSelectedCcbIds((prev) => {
+      const next = new Set(prev);
+      next.delete(p.id);
+      return next;
+    });
+  }
+
   function addManual() {
     const trimmed = {
       firstName: manualForm.firstName.trim(),
@@ -284,8 +313,8 @@ export default function CircleSummaryFormPage() {
       phone: manualForm.phone?.trim(),
       email: manualForm.email?.trim(),
     };
-    if (!trimmed.firstName || !trimmed.lastName) {
-      alert('First and last name are required.');
+    if (!trimmed.firstName || !trimmed.lastName || !trimmed.phone) {
+      alert('First name, last name, and cell phone are required.');
       return;
     }
     setManualAttendees((prev) => [...prev, trimmed]);
@@ -418,12 +447,15 @@ export default function CircleSummaryFormPage() {
           <button
             type="button"
             onClick={() => router.push(`/circle-summary/${urlGroupId}/events`)}
-            className="text-white/85 hover:text-white text-sm mb-3"
+            className="inline-flex items-center gap-1 text-white/75 hover:text-white text-sm mb-4 transition-colors"
           >
-            ← Back to events
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to events
           </button>
           <h1 className="cs-display text-4xl sm:text-5xl">Circle Summary</h1>
-          <p className="mt-2 text-white/90 font-medium">{dateLabel(occurrence)}</p>
+          <p className="mt-2 text-white/85 font-medium text-base">{dateLabel(occurrence)}</p>
         </div>
       </header>
 
@@ -438,22 +470,25 @@ export default function CircleSummaryFormPage() {
               hour: 'numeric',
               minute: '2-digit',
             })}
-            . Saving again will update CCB.
+            . Saving again will update your records.
           </div>
         )}
         {loadedFromCcb && (
           <div className="cs-alert cs-alert-info">
-            Pre-filled with the summary already on file in CCB. Edit anything
+            Pre-filled with the summary already on file. Edit anything
             below and save to update.
           </div>
         )}
-        {/* Did your Circle meet? */}
+        {/* Step 1 — Did your Circle meet? */}
         <div className="cs-card">
           <label className="flex items-center justify-between gap-4 cursor-pointer">
-            <div>
-              <div className="font-semibold text-neutral-900">Did your Circle meet?</div>
-              <div className="text-xs text-neutral-500 mt-0.5">
-                Toggle off if you didn't gather this time.
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="cs-step-num shrink-0">1</span>
+              <div>
+                <div className="font-semibold text-neutral-900">Did your Circle meet?</div>
+                <div className="text-xs text-neutral-500 mt-0.5">
+                  Toggle off if you didn't gather this time.
+                </div>
               </div>
             </div>
             <input
@@ -467,7 +502,10 @@ export default function CircleSummaryFormPage() {
 
         {didNotMeet ? (
           <div className="cs-card">
-            <h2 className="cs-display text-2xl text-neutral-900 mb-3">What kept you from meeting?</h2>
+            <div className="cs-step">
+              <span className="cs-step-num">!</span>
+              <span className="cs-step-title">What kept you from meeting?</span>
+            </div>
             <div className="space-y-2">
               {DID_NOT_MEET_REASONS.map((r) => (
                 <label key={r} className="flex items-center gap-3 cursor-pointer">
@@ -506,48 +544,66 @@ export default function CircleSummaryFormPage() {
           </div>
         ) : (
           <>
-            {/* Roster */}
+            {/* Step 2 — Roster */}
             <div className="cs-card">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="cs-display text-2xl text-neutral-900">Who came?</h2>
+                <div className="cs-step mb-0">
+                  <span className="cs-step-num">2</span>
+                  <span className="cs-step-title">Who came?</span>
+                </div>
                 <button
                   type="button"
                   onClick={() => toggleAll(!allSelected)}
-                  className="text-sm font-semibold text-[color:var(--cs-green-dark)] hover:text-[color:var(--cs-green-darker)]"
+                  className="text-sm font-semibold text-[color:var(--cs-green-dark)] hover:text-[color:var(--cs-green-darker)] shrink-0"
                 >
                   {allSelected ? 'Clear all' : 'Select all'}
                 </button>
               </div>
-              <div className="space-y-2 mb-4">
+              <div className="space-y-1 mb-4">
                 {participants.length === 0 && (
-                  <p className="text-sm text-neutral-500">No one on your roster yet.</p>
+                  <p className="text-sm text-neutral-500 py-2">No one on your roster yet.</p>
                 )}
-                {participants.map((p) => (
-                  <label key={p.id} className="flex items-center gap-3 cursor-pointer py-1.5">
-                    <input
-                      type="checkbox"
-                      className="cs-check"
-                      checked={selectedCcbIds.has(p.id)}
-                      onChange={() => toggleOne(p.id)}
-                    />
-                    <span>{p.fullName || `${p.firstName} ${p.lastName}`}</span>
-                  </label>
-                ))}
+                {participants.map((p) => {
+                  const fullName = p.fullName || `${p.firstName} ${p.lastName}`;
+                  const checked = selectedCcbIds.has(p.id);
+                  return (
+                    <div key={p.id} className="flex items-center gap-2.5 py-0.5 group">
+                      <label className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0">
+                        <input
+                          type="checkbox"
+                          className="cs-check"
+                          checked={checked}
+                          onChange={() => toggleOne(p.id)}
+                        />
+                        <span className="truncate text-sm font-medium">{fullName}</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => removeFromCcb(p)}
+                        className="text-xs text-neutral-300 hover:text-red-500 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label={`Remove ${fullName} from Circle`}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  );
+                })}
                 {manualAttendees.map((m, i) => (
-                  <div key={`m-${i}`} className="flex items-center gap-3 py-1.5">
-                    <span className="cs-badge cs-badge-new shrink-0">New</span>
-                    <span className="flex-1">
+                  <div key={`m-${i}`} className="flex items-center gap-2.5 py-0.5">
+                    <div className="cs-check" style={{ visibility: 'hidden' }} aria-hidden="true" />
+                    <span className="flex-1 min-w-0 text-sm font-medium truncate">
                       {m.firstName} {m.lastName}
-                      {m.phone || m.email ? (
-                        <span className="text-xs text-neutral-500 ml-2">
-                          {[m.phone, m.email].filter(Boolean).join(' • ')}
+                      {(m.phone || m.email) && (
+                        <span className="text-xs text-neutral-400 ml-1.5 font-normal">
+                          {[m.phone, m.email].filter(Boolean).join(' · ')}
                         </span>
-                      ) : null}
+                      )}
                     </span>
+                    <span className="cs-badge cs-badge-new text-xs shrink-0">New</span>
                     <button
                       type="button"
                       onClick={() => removeManual(i)}
-                      className="text-xs text-neutral-500 hover:text-red-600"
+                      className="text-xs text-neutral-400 hover:text-red-500 shrink-0"
                     >
                       Remove
                     </button>
@@ -594,36 +650,45 @@ export default function CircleSummaryFormPage() {
                       ))}
                     </div>
                   )}
-                  <div className="cs-divider">Not finding them?</div>
+                  <div className="cs-divider">Person not in our system?</div>
+                  <p className="text-xs text-neutral-500 -mt-1">Fill in their info and we'll request they be added to your roster.</p>
                   <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="text"
-                      placeholder="First name *"
-                      className="cs-input"
-                      value={manualForm.firstName}
-                      onChange={(e) => setManualForm((m) => ({ ...m, firstName: e.target.value }))}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Last name *"
-                      className="cs-input"
-                      value={manualForm.lastName}
-                      onChange={(e) => setManualForm((m) => ({ ...m, lastName: e.target.value }))}
-                    />
-                    <input
-                      type="tel"
-                      placeholder="Phone (optional)"
-                      className="cs-input"
-                      value={manualForm.phone}
-                      onChange={(e) => setManualForm((m) => ({ ...m, phone: e.target.value }))}
-                    />
-                    <input
-                      type="email"
-                      placeholder="Email (optional)"
-                      className="cs-input"
-                      value={manualForm.email}
-                      onChange={(e) => setManualForm((m) => ({ ...m, email: e.target.value }))}
-                    />
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-medium text-neutral-600">First name <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        className="cs-input"
+                        value={manualForm.firstName}
+                        onChange={(e) => setManualForm((m) => ({ ...m, firstName: e.target.value }))}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-medium text-neutral-600">Last name <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        className="cs-input"
+                        value={manualForm.lastName}
+                        onChange={(e) => setManualForm((m) => ({ ...m, lastName: e.target.value }))}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-medium text-neutral-600">Cell phone <span className="text-red-500">*</span></label>
+                      <input
+                        type="tel"
+                        className="cs-input"
+                        value={manualForm.phone}
+                        onChange={(e) => setManualForm((m) => ({ ...m, phone: e.target.value }))}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-medium text-neutral-600">Email <span className="text-neutral-400 font-normal">(optional)</span></label>
+                      <input
+                        type="email"
+                        className="cs-input"
+                        value={manualForm.email}
+                        onChange={(e) => setManualForm((m) => ({ ...m, email: e.target.value }))}
+                      />
+                    </div>
                   </div>
                   <div className="flex gap-2 pt-1">
                     <button
@@ -631,7 +696,7 @@ export default function CircleSummaryFormPage() {
                       onClick={addManual}
                       className="cs-btn cs-btn-primary flex-1"
                     >
-                      Add to this meeting
+                      Request to add to roster
                     </button>
                     <button
                       type="button"
@@ -650,28 +715,16 @@ export default function CircleSummaryFormPage() {
               )}
             </div>
 
-            {/* Reflection */}
-            <div className="cs-card space-y-5">
-              <div>
-                <label className="cs-label" htmlFor="notes">
-                  Tell us about your Circle
-                </label>
-                <textarea
-                  id="notes"
-                  rows={8}
-                  className="cs-textarea"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
-              </div>
-            </div>
           </>
         )}
 
-        {/* Dynamic questions */}
+        {/* Dynamic questions — numbered step relative to whether roster is shown */}
         {visibleQuestions.length > 0 && (
           <div className="cs-card space-y-5">
-            <h2 className="cs-display text-2xl text-neutral-900">A few more things</h2>
+            <div className="cs-step">
+              <span className="cs-step-num">{didNotMeet ? '2' : '3'}</span>
+              <span className="cs-step-title">A few more things</span>
+            </div>
             {visibleQuestions.map((q) => (
               <DynamicQuestionField
                 key={q.id}
@@ -702,7 +755,10 @@ export default function CircleSummaryFormPage() {
             ) : (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h2 className="cs-display text-xl text-neutral-900">Requested changes</h2>
+                  <div className="cs-step mb-0">
+                    <span className="cs-step-num">✎</span>
+                    <span className="cs-step-title">Requested changes</span>
+                  </div>
                   <button
                     type="button"
                     onClick={() => {

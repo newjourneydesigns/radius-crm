@@ -6,7 +6,7 @@
  * "needs submission" vs "submitted").
  *
  * Sources:
- *   - CCB: attendance_profile / event occurrences via existing client
+ *   - CCB: group iCal for event occurrences + bulk attendance_profiles for status
  *   - Supabase: circle_event_summaries audit log
  */
 
@@ -18,6 +18,29 @@ import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
 
 export const dynamic = 'force-dynamic';
+
+// In-memory TTL cache for CCB calls. The same (groupId, start, end) tuple is
+// requested repeatedly as leaders bounce between the events list and a detail
+// page, so a short cache lets us avoid a 1–3s round trip to CCB on every hit.
+// Process-local; serverless cold starts will repopulate it on first request.
+type CacheEntry<T> = { value: T; expiresAt: number };
+const CCB_CACHE_TTL_MS = 60_000;
+const ccbCalCache = new Map<string, CacheEntry<any[]>>();
+const ccbAttendanceCache = new Map<string, CacheEntry<any>>();
+
+function cacheGet<T>(map: Map<string, CacheEntry<T>>, key: string): T | undefined {
+  const hit = map.get(key);
+  if (!hit) return undefined;
+  if (hit.expiresAt < Date.now()) {
+    map.delete(key);
+    return undefined;
+  }
+  return hit.value;
+}
+
+function cacheSet<T>(map: Map<string, CacheEntry<T>>, key: string, value: T) {
+  map.set(key, { value, expiresAt: Date.now() + CCB_CACHE_TTL_MS });
+}
 
 export async function GET(req: Request) {
   const leader = await getSessionLeader();
@@ -32,14 +55,16 @@ export async function GET(req: Request) {
 
   const end = DateTime.now().setZone('America/Chicago');
   const start = end.minus({ weeks: 8 });
+  const startStr = start.toFormat('yyyy-LL-dd');
+  const endStr = end.toFormat('yyyy-LL-dd');
+  const cacheKey = `${leader.ccb_group_id}|${startStr}|${endStr}`;
 
   const ccb = createCCBClient(
     await getCCBRequestContext(req, { module: 'circle-summary', action: 'list_events' })
   );
 
-  // Pull every scheduled occurrence in the window from the group's CCB iCal
-  // calendar. Then enrich with attendance_profile per event to flag which
-  // already have a summary.
+  const supabase = createServiceSupabaseClient();
+
   let events: Array<{
     eventId: string;
     occurrenceDate: string;
@@ -48,54 +73,88 @@ export async function GET(req: Request) {
     hasExistingAttendance: boolean;
     didNotMeet: boolean;
   }> = [];
+  let submissions: any[] | null = null;
+
   try {
-    const calEvents = await ccb.getGroupCalendarEvents(
-      String(leader.ccb_group_id),
-      start.toFormat('yyyy-LL-dd'),
-      end.toFormat('yyyy-LL-dd')
-    );
+    // Run CCB calls + Supabase audit log query all in parallel. The submissions
+    // query only depends on leader.id + start, both known up front, so there's
+    // no reason to wait for CCB before kicking it off.
+    const calCached = cacheGet(ccbCalCache, cacheKey);
+    const attCached = cacheGet(ccbAttendanceCache, cacheKey);
 
-    // Look up attendance per (eventId, occurrence) in parallel, capped.
-    const attendanceLookups = await Promise.all(
-      calEvents.map(async (e) => {
-        try {
-          const occurYYYYMMDD = e.startDate.replace(/-/g, '');
-          const xml: any = await (ccb as any).getXml({
-            srv: 'attendance_profile',
-            id: e.eventId,
-            occurrence: `${e.startDate} ${e.startTime}`,
-          });
-          const a = xml?.ccb_api?.response?.attendance ?? null;
-          const has =
-            !!(a?.notes || a?.topic || (a?.attendees?.attendee && (Array.isArray(a.attendees.attendee) ? a.attendees.attendee.length : 1)));
-          const dnm = String(a?.did_not_meet ?? '').toLowerCase() === 'true';
-          return { hasExistingAttendance: has, didNotMeet: dnm };
-        } catch {
-          return { hasExistingAttendance: false, didNotMeet: false };
-        }
-      })
-    );
+    const [calEvents, bulkXml, submissionsRes] = await Promise.all([
+      calCached
+        ? Promise.resolve(calCached)
+        : ccb
+            .getGroupCalendarEvents(String(leader.ccb_group_id), startStr, endStr)
+            .then((v) => {
+              cacheSet(ccbCalCache, cacheKey, v);
+              return v;
+            }),
+      attCached !== undefined
+        ? Promise.resolve(attCached)
+        : (ccb as any)
+            .getXml({ srv: 'attendance_profiles', start_date: startStr, end_date: endStr })
+            .then((v: any) => {
+              cacheSet(ccbAttendanceCache, cacheKey, v);
+              return v;
+            })
+            .catch(() => null),
+      supabase
+        .from('circle_event_summaries')
+        .select('ccb_event_id, occurrence, status, did_not_meet, submitted_via, created_at')
+        .eq('leader_id', leader.id)
+        .gte('occurrence', start.toISO()!),
+    ]);
 
-    events = calEvents.map((e, i) => ({
-      eventId: e.eventId,
-      occurrenceDate: e.startDate,
-      occurrenceDateTime: e.startDateTime,
-      title: e.title,
-      hasExistingAttendance: attendanceLookups[i].hasExistingAttendance,
-      didNotMeet: attendanceLookups[i].didNotMeet,
-    }));
+    submissions = submissionsRes.data ?? [];
+
+    // Build a lookup map: "eventId|YYYY-MM-DD" → { has, dnm }
+    const textVal = (v: any) =>
+      v == null ? '' : typeof v === 'string' ? v : String(v?.['#text'] ?? '');
+
+    const attendanceMap = new Map<string, { has: boolean; dnm: boolean }>();
+    if (bulkXml) {
+      const eventsRoot = bulkXml?.ccb_api?.response?.events ?? null;
+      const rawEvents: any[] = Array.isArray(eventsRoot?.event)
+        ? eventsRoot.event
+        : eventsRoot?.event
+        ? [eventsRoot.event]
+        : [];
+
+      for (const ev of rawEvents) {
+        const evId = String(ev?.['@_id'] ?? ev?.id ?? '').trim();
+        const occurrence = String(ev?.['@_occurrence'] ?? ev?.occurrence ?? '').trim();
+        if (!evId || !occurrence) continue;
+
+        const occurDate = occurrence.slice(0, 10); // "YYYY-MM-DD"
+        const has =
+          !!textVal(ev?.notes) ||
+          !!textVal(ev?.topic) ||
+          Number(ev?.head_count) > 0 ||
+          !!(ev?.attendees?.attendee &&
+            (Array.isArray(ev.attendees.attendee) ? ev.attendees.attendee.length : 1));
+        const dnm = String(ev?.did_not_meet ?? '').toLowerCase() === 'true';
+
+        attendanceMap.set(`${evId}|${occurDate}`, { has, dnm });
+      }
+    }
+
+    events = calEvents.map((e) => {
+      const att = attendanceMap.get(`${e.eventId}|${e.startDate}`);
+      return {
+        eventId: e.eventId,
+        occurrenceDate: e.startDate,
+        occurrenceDateTime: e.startDateTime,
+        title: e.title,
+        hasExistingAttendance: att?.has ?? false,
+        didNotMeet: att?.dnm ?? false,
+      };
+    });
   } catch (e: any) {
     console.error('CCB fetch failed for circle-summary events:', e);
     return NextResponse.json({ leader, events: [], error: 'Could not load events from CCB.' });
   }
-
-  // Cross-check Supabase audit log
-  const supabase = createServiceSupabaseClient();
-  const { data: submissions } = await supabase
-    .from('circle_event_summaries')
-    .select('ccb_event_id, occurrence, status, did_not_meet, submitted_via, created_at')
-    .eq('leader_id', leader.id)
-    .gte('occurrence', start.toISO()!);
 
   const submittedSet = new Map<string, any>();
   for (const s of submissions || []) {

@@ -4,7 +4,7 @@
    theme applied by the root layout. Hero text re-overrides to white below. */
 html:has(.cs-root),
 body:has(.cs-root) {
-  background: #ffffff !important;
+  background: #f7f8f6 !important;
   color: #3E3E3E !important;
 }
 .cs-hero,
@@ -58,13 +58,14 @@ body:has(.cs-root) {
   --cs-ink-soft: #5a5a5a;
   --cs-muted: #7A7A7A;
   --cs-border: #e5e7eb;
-  --cs-bg-soft: #f5f5f3;
+  --cs-bg: #f7f8f6;
+  --cs-bg-soft: #f0f1ef;
   --cs-dark: #1c1c1c;
 
   font-family: var(--font-cs-body), 'Open Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
   font-weight: 400;
   color: var(--cs-ink);
-  background: #ffffff;
+  background: var(--cs-bg);
 }
 
 .cs-display {
@@ -77,9 +78,47 @@ body:has(.cs-root) {
   font-stretch: condensed;
 }
 
+/* Hero — diagonal stripe texture gives depth without competing with content */
 .cs-hero {
   background: var(--cs-green);
   color: #ffffff;
+  position: relative;
+  overflow: hidden;
+}
+.cs-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 14px,
+    rgba(0, 0, 0, 0.045) 14px,
+    rgba(0, 0, 0, 0.045) 15px
+  );
+  pointer-events: none;
+}
+.cs-hero > * {
+  position: relative;
+}
+
+/* "VC" emblem shown in hero on the sign-in page */
+.cs-vc-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  border: 2.5px solid rgba(255, 255, 255, 0.55);
+  font-family: var(--font-cs-body), 'Open Sans', sans-serif;
+  font-style: italic;
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  margin-bottom: 0.85rem;
 }
 
 .cs-dark {
@@ -146,14 +185,127 @@ body:has(.cs-root) {
   border: 1px solid var(--cs-border);
   border-radius: 0.75rem;
   padding: 1.25rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Event row cards — left border communicates status without relying solely on badge text */
+.cs-event-row {
+  background: #ffffff;
+  border: 1px solid var(--cs-border);
+  border-left-width: 3px;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  transition: box-shadow 150ms ease, border-color 150ms ease;
+  text-decoration: none;
+  color: inherit;
+}
+.cs-event-row:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+.cs-event-row.needs-summary { border-left-color: #f59e0b; }
+.cs-event-row.submitted     { border-left-color: var(--cs-green); }
+.cs-event-row.did-not-meet  { border-left-color: #d1d5db; }
+
+/* Date stamp column inside event rows */
+.cs-date-stamp {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.5rem;
+  padding: 0.75rem 0.5rem;
+  background: var(--cs-bg);
+  border-right: 1px solid var(--cs-border);
+  flex-shrink: 0;
+  gap: 0.05rem;
+}
+.cs-date-stamp .day-num {
+  font-family: var(--font-cs-body), 'Open Sans', sans-serif;
+  font-style: italic;
+  font-weight: 800;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--cs-ink);
+}
+.cs-date-stamp .day-name,
+.cs-date-stamp .month {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cs-muted);
+}
+
+/* Section step header used in the form */
+.cs-step {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+.cs-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: var(--cs-green);
+  font-family: var(--font-cs-body), 'Open Sans', sans-serif;
+  font-style: italic;
+  font-weight: 800;
+  font-size: 0.75rem;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+.cs-step-title {
+  font-family: var(--font-cs-body), 'Open Sans', sans-serif;
+  font-style: italic;
+  font-weight: 800;
+  font-size: 1.25rem;
+  text-transform: uppercase;
+  line-height: 1;
+  color: var(--cs-ink);
+}
+
+/* Attendee pill in the roster */
+.cs-attendee-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0;
+  cursor: pointer;
+}
+.cs-attendee-avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--cs-bg-soft);
+  border: 1.5px solid var(--cs-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--cs-muted);
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.cs-attendee-avatar.selected {
+  background: rgba(52, 178, 51, 0.12);
+  border-color: var(--cs-green);
+  color: var(--cs-green-dark);
 }
 
 .cs-input,
 .cs-textarea,
 .cs-select {
   width: 100%;
-  border: 1px solid var(--cs-border);
+  border: 1.5px solid #d1d5db !important;
   background: #ffffff;
   color: var(--cs-ink);
   border-radius: 0.5rem;
@@ -166,8 +318,8 @@ body:has(.cs-root) {
 .cs-textarea:focus,
 .cs-select:focus {
   outline: none;
-  border-color: var(--cs-green);
-  box-shadow: 0 0 0 3px rgba(101, 179, 45, 0.18);
+  border-color: var(--cs-green) !important;
+  box-shadow: 0 0 0 3px rgba(52, 178, 51, 0.15);
 }
 .cs-textarea {
   min-height: 4.5rem;
@@ -194,7 +346,7 @@ body:has(.cs-root) {
   height: 24px !important;
   min-width: 24px;
   min-height: 24px;
-  border: 2px solid #cbd5e1;
+  border: 2px solid #d1d5db !important;
   border-radius: 4px;
   background: #ffffff;
   display: inline-block;
@@ -207,7 +359,7 @@ body:has(.cs-root) {
   transition: border-color 100ms ease, background 100ms ease;
 }
 .cs-check:hover:not(:checked) {
-  border-color: var(--cs-green);
+  border-color: var(--cs-green) !important;
 }
 .cs-check:checked {
   background: var(--cs-green) !important;
@@ -233,7 +385,7 @@ body:has(.cs-root) {
   height: 22px !important;
   min-width: 22px;
   min-height: 22px;
-  border: 2px solid #cbd5e1;
+  border: 2px solid #d1d5db !important;
   border-radius: 50%;
   background: #ffffff;
   display: inline-block;
@@ -246,7 +398,7 @@ body:has(.cs-root) {
   transition: border-color 100ms ease;
 }
 .cs-radio:hover:not(:checked) {
-  border-color: var(--cs-green);
+  border-color: var(--cs-green) !important;
 }
 .cs-radio:checked {
   border-color: var(--cs-green) !important;
@@ -265,8 +417,8 @@ body:has(.cs-root) {
 .cs-toggle {
   appearance: none !important;
   -webkit-appearance: none !important;
-  width: 2.75rem !important;
-  height: 1.55rem !important;
+  width: 3.25rem !important;
+  height: 1.75rem !important;
   background: #d1d5db !important;
   border: none !important;
   border-radius: 999px !important;
@@ -281,30 +433,30 @@ body:has(.cs-root) {
 .cs-toggle::after {
   content: '';
   position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 1.15rem;
-  height: 1.15rem;
+  top: 3px;
+  left: 3px;
+  width: 1.25rem;
+  height: 1.25rem;
   background: #ffffff;
   border-radius: 50%;
   transition: transform 140ms ease;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 .cs-toggle:checked {
   background: var(--cs-green) !important;
 }
 .cs-toggle:checked::after {
-  transform: translateX(1.18rem);
+  transform: translateX(1.45rem);
 }
 
 .cs-badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.18rem 0.6rem;
-  font-size: 0.7rem;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   border-radius: 999px;
   white-space: nowrap;
 }
@@ -318,10 +470,10 @@ body:has(.cs-root) {
 }
 .cs-badge-muted {
   background: #f3f4f6;
-  color: #4b5563;
+  color: #6b7280;
 }
 .cs-badge-new {
-  background: rgba(101, 179, 45, 0.15);
+  background: rgba(52, 178, 51, 0.12);
   color: var(--cs-green-darker);
 }
 
@@ -366,7 +518,7 @@ body:has(.cs-root) {
 }
 
 .cs-skeleton {
-  background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%);
+  background: linear-gradient(90deg, #f0f1ef 0%, #e5e7e3 50%, #f0f1ef 100%);
   background-size: 200% 100%;
   animation: cs-shimmer 1.2s ease-in-out infinite;
   border-radius: 0.5rem;

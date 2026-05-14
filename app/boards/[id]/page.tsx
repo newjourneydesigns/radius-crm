@@ -3121,6 +3121,9 @@ function BoardPage() {
       } else if (e.key === 'd' || e.key === 'D') {
         e.preventDefault();
         setDueDateCardId(card.id);
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        updateCard(boardId, card.id, { is_focused: !card.is_focused });
       } else if (/^[0-9]$/.test(e.key)) {
         e.preventDefault();
         const sortedLabels = [...(board.labels || [])].sort((a, b) => a.name.localeCompare(b.name));
@@ -4261,6 +4264,7 @@ function BoardPage() {
         <span className="kb-shortcut-key"><kbd>D</kbd> Due date</span>
         <span className="kb-shortcut-key"><kbd>M</kbd> Assign to me</span>
         <span className="kb-shortcut-key"><kbd>C</kbd> Complete</span>
+        <span className="kb-shortcut-key"><kbd>F</kbd> Focus</span>
         <span className="kb-shortcut-key"><kbd>Del</kbd> Delete</span>
       </div>
 

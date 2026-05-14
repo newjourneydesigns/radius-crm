@@ -24,6 +24,8 @@ type Question = {
   show_when_attended: boolean;
 };
 
+type VisibilityMode = 'always' | 'range';
+
 const FIELD_TYPES: FieldType[] = ['text', 'textarea', 'dropdown', 'multiselect', 'checkbox', 'radio'];
 
 function emptyDraft(): Partial<Question> {
@@ -41,12 +43,28 @@ function emptyDraft(): Partial<Question> {
   };
 }
 
+function questionStatus(q: Question): 'always' | 'active' | 'upcoming' | 'expired' {
+  if (!q.active_from && !q.active_to) return 'always';
+  const today = new Date().toISOString().slice(0, 10);
+  if (q.active_to && q.active_to < today) return 'expired';
+  if (q.active_from && q.active_from > today) return 'upcoming';
+  return 'active';
+}
+
+const STATUS_STYLES = {
+  always: 'bg-emerald-500/20 text-emerald-300',
+  active: 'bg-sky-500/20 text-sky-300',
+  upcoming: 'bg-violet-500/20 text-violet-300',
+  expired: 'bg-slate-600/50 text-slate-400',
+};
+
 export default function DynamicQuestionsAdminPage() {
   const [token, setToken] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Partial<Question> | null>(null);
+  const [visibilityMode, setVisibilityMode] = useState<VisibilityMode>('always');
   const [optionsText, setOptionsText] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -78,19 +96,30 @@ export default function DynamicQuestionsAdminPage() {
 
   function startNew() {
     setDraft(emptyDraft());
+    setVisibilityMode('always');
     setOptionsText('');
   }
+
   function startEdit(q: Question) {
     setDraft({ ...q });
+    setVisibilityMode(q.active_from || q.active_to ? 'range' : 'always');
     setOptionsText(
       (q.options || [])
         .map((o) => (typeof o === 'string' ? o : `${o.label}|${o.value}`))
         .join('\n')
     );
   }
+
   function cancelEdit() {
     setDraft(null);
     setOptionsText('');
+  }
+
+  function setMode(mode: VisibilityMode) {
+    setVisibilityMode(mode);
+    if (mode === 'always') {
+      setDraft((d) => d ? { ...d, active_from: null, active_to: null } : d);
+    }
   }
 
   async function save() {
@@ -114,8 +143,8 @@ export default function DynamicQuestionsAdminPage() {
     const payload = {
       ...draft,
       options: opts,
-      active_from: draft.active_from || null,
-      active_to: draft.active_to || null,
+      active_from: visibilityMode === 'always' ? null : (draft.active_from || null),
+      active_to: visibilityMode === 'always' ? null : (draft.active_to || null),
     };
 
     try {
@@ -155,6 +184,11 @@ export default function DynamicQuestionsAdminPage() {
     draft?.field_type === 'multiselect' ||
     draft?.field_type === 'radio';
 
+  const activeCount = questions.filter((q) => {
+    const s = questionStatus(q);
+    return s === 'always' || s === 'active';
+  }).length;
+
   return (
     <div className="min-h-screen bg-slate-900 p-4 sm:p-6 lg:p-8">
       <div className="max-w-4xl mx-auto">
@@ -178,6 +212,19 @@ export default function DynamicQuestionsAdminPage() {
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 text-red-300 text-sm rounded-lg p-3 mb-4">
             {error}
+          </div>
+        )}
+
+        {!loading && !draft && activeCount === 0 && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6 flex items-start gap-3">
+            <span className="text-amber-400 text-lg leading-none mt-0.5">⚠</span>
+            <div>
+              <p className="text-amber-300 text-sm font-medium">No active questions</p>
+              <p className="text-amber-400/80 text-xs mt-0.5">
+                Leaders will see a blank form with nothing to fill out. Add at least one question to
+                make the Circle Summary form useful.
+              </p>
+            </div>
           </div>
         )}
 
@@ -242,24 +289,57 @@ export default function DynamicQuestionsAdminPage() {
                   />
                 </Field>
               )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="Active from">
-                  <input
-                    type="date"
-                    className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={draft.active_from || ''}
-                    onChange={(e) => setDraft({ ...draft, active_from: e.target.value || null })}
-                  />
-                </Field>
-                <Field label="Active to">
-                  <input
-                    type="date"
-                    className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={draft.active_to || ''}
-                    onChange={(e) => setDraft({ ...draft, active_to: e.target.value || null })}
-                  />
-                </Field>
-              </div>
+
+              {/* Visibility mode */}
+              <Field label="Visibility">
+                <div className="flex gap-4 text-sm text-slate-300 mb-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="visibilityMode"
+                      checked={visibilityMode === 'always'}
+                      onChange={() => setMode('always')}
+                    />
+                    Always show
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="visibilityMode"
+                      checked={visibilityMode === 'range'}
+                      onChange={() => setMode('range')}
+                    />
+                    Active between dates
+                  </label>
+                </div>
+                {visibilityMode === 'range' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-slate-500 mb-1">Start date (required)</p>
+                      <input
+                        type="date"
+                        className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        value={draft.active_from || ''}
+                        onChange={(e) =>
+                          setDraft({ ...draft, active_from: e.target.value || null })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500 mb-1">End date (optional — leave blank for no end)</p>
+                      <input
+                        type="date"
+                        className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        value={draft.active_to || ''}
+                        onChange={(e) =>
+                          setDraft({ ...draft, active_to: e.target.value || null })
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
+              </Field>
+
               <div className="flex flex-wrap gap-4 text-sm text-slate-300">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -321,53 +401,59 @@ export default function DynamicQuestionsAdminPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {questions.map((q) => (
-              <div
-                key={q.id}
-                className="bg-slate-800 border border-slate-700 rounded-xl p-4 flex items-start justify-between gap-4"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-white">{q.label}</span>
-                    <span className="bg-indigo-500/20 text-indigo-300 text-xs font-medium px-2 py-0.5 rounded-full">
-                      {q.field_type}
-                    </span>
-                    {q.required && (
-                      <span className="bg-amber-500/20 text-amber-300 text-xs font-medium px-2 py-0.5 rounded-full">
-                        required
+            {questions.map((q) => {
+              const status = questionStatus(q);
+              return (
+                <div
+                  key={q.id}
+                  className="bg-slate-800 border border-slate-700 rounded-xl p-4 flex items-start justify-between gap-4"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-white">{q.label}</span>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_STYLES[status]}`}>
+                        {status}
                       </span>
-                    )}
-                    {!q.show_when_attended && (
-                      <span className="bg-slate-700 text-slate-300 text-xs px-2 py-0.5 rounded-full">
-                        DNM only
+                      <span className="bg-indigo-500/20 text-indigo-300 text-xs font-medium px-2 py-0.5 rounded-full">
+                        {q.field_type}
                       </span>
+                      {q.required && (
+                        <span className="bg-amber-500/20 text-amber-300 text-xs font-medium px-2 py-0.5 rounded-full">
+                          required
+                        </span>
+                      )}
+                      {!q.show_when_attended && (
+                        <span className="bg-slate-700 text-slate-300 text-xs px-2 py-0.5 rounded-full">
+                          DNM only
+                        </span>
+                      )}
+                    </div>
+                    {q.help_text && (
+                      <p className="text-xs text-slate-400 mt-1">{q.help_text}</p>
                     )}
+                    <p className="text-xs text-slate-500 mt-2">
+                      sort #{q.sort_order}
+                      {q.active_from && ` · from ${q.active_from}`}
+                      {q.active_to && ` · to ${q.active_to}`}
+                    </p>
                   </div>
-                  {q.help_text && (
-                    <p className="text-xs text-slate-400 mt-1">{q.help_text}</p>
-                  )}
-                  <p className="text-xs text-slate-500 mt-2">
-                    sort #{q.sort_order}
-                    {q.active_from && ` • from ${q.active_from}`}
-                    {q.active_to && ` • to ${q.active_to}`}
-                  </p>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      onClick={() => startEdit(q)}
+                      className="text-slate-300 hover:text-white text-sm"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => remove(q.id)}
+                      className="text-red-400 hover:text-red-300 text-sm"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-2 shrink-0">
-                  <button
-                    onClick={() => startEdit(q)}
-                    className="text-slate-300 hover:text-white text-sm"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => remove(q.id)}
-                    className="text-red-400 hover:text-red-300 text-sm"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

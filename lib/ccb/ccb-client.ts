@@ -417,6 +417,17 @@ export class CCBClient {
     });
   }
 
+  async removeIndividualFromGroup(
+    individualId: string | number,
+    groupId: string | number
+  ): Promise<any> {
+    return this.getXml({
+      srv: 'remove_individual_from_group',
+      id: individualId,
+      group_id: groupId,
+    });
+  }
+
   async createEventAttendance(payload: {
     eventId: string | number;
     occurrence: string; // "YYYY-MM-DD HH:MM:SS"

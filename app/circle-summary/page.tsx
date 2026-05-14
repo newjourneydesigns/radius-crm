@@ -2,17 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-
-type Stage = 'identifier' | 'code';
+import SignInForm from './SignInForm';
 
 export default function CircleSummarySignInPage() {
   const router = useRouter();
-  const [stage, setStage] = useState<Stage>('identifier');
-  const [identifier, setIdentifier] = useState('');
-  const [code, setCode] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [info, setInfo] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Hide the sign-in form until we know whether the leader is already logged
+  // in — otherwise it flashes for a moment before the redirect kicks in.
+  const [checkedAuth, setCheckedAuth] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -20,72 +16,24 @@ export default function CircleSummarySignInPage() {
       try {
         const res = await fetch('/api/circle-summary/me');
         const data = await res.json();
-        if (cancelled || !data.leader) return;
-        const groupId = data.leader.ccb_group_id;
+        if (cancelled) return;
+        const groupId = data?.leader?.ccb_group_id;
         if (groupId != null) {
           router.replace(`/circle-summary/${groupId}/events`);
+          return;
         }
-        // If logged in but no ccb_group_id, stay here — the leader has
-        // nowhere to go yet. (A future "no circle linked" state could be
-        // surfaced on this page.)
       } catch {}
+      if (!cancelled) setCheckedAuth(true);
     })();
     return () => {
       cancelled = true;
     };
   }, [router]);
 
-  async function requestCode(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setInfo(null);
-    setSubmitting(true);
-    try {
-      const res = await fetch('/api/circle-summary/auth/request-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: identifier.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || data.message || 'Something went wrong.');
-        return;
-      }
-      setInfo(data.message || 'Check your email for a 6-digit code.');
-      setStage('code');
-    } catch {
-      setError('Network error — please try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function verifyCode(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setSubmitting(true);
-    try {
-      const res = await fetch('/api/circle-summary/auth/verify-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: identifier.trim(), code: code.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Invalid code.');
-        return;
-      }
-      router.replace('/circle-summary/events');
-    } catch {
-      setError('Network error — please try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
   return (
     <>
       <header className="cs-hero py-14 sm:py-20 px-6 text-center">
+        <div className="cs-vc-mark mx-auto">VC</div>
         <h1 className="cs-display text-5xl sm:text-7xl">Circle Summary</h1>
         <p className="mt-3 text-white/85 text-sm sm:text-base font-medium tracking-wide">
           For Circle Leaders at Valley Creek
@@ -93,100 +41,7 @@ export default function CircleSummarySignInPage() {
       </header>
 
       <main className="px-4 py-10 max-w-md mx-auto">
-        <div className="cs-card">
-          {stage === 'identifier' && (
-            <>
-              <h2 className="cs-display text-2xl sm:text-3xl text-neutral-900 mb-2">
-                Let's get you in
-              </h2>
-              <p className="text-sm text-neutral-600 mb-5">
-                Enter the email or phone on your Circle profile.
-              </p>
-
-              {error && <div className="cs-alert cs-alert-error mb-4">{error}</div>}
-
-              <form onSubmit={requestCode} className="space-y-4">
-                <div>
-                  <label className="cs-label" htmlFor="identifier">
-                    Email or phone
-                  </label>
-                  <input
-                    id="identifier"
-                    type="text"
-                    inputMode="email"
-                    autoComplete="email"
-                    autoFocus
-                    required
-                    placeholder="you@example.com  or  (555) 123-4567"
-                    value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
-                    className="cs-input"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="cs-btn cs-btn-primary w-full"
-                  disabled={submitting || !identifier.trim()}
-                >
-                  {submitting ? 'Sending code…' : 'Send me a code'}
-                </button>
-                <p className="text-xs text-neutral-500 text-center pt-1">
-                  Need help? Contact your ACPD.
-                </p>
-              </form>
-            </>
-          )}
-
-          {stage === 'code' && (
-            <>
-              <h2 className="cs-display text-2xl sm:text-3xl text-neutral-900 mb-2">
-                Check your email
-              </h2>
-              {info && <div className="cs-alert cs-alert-info mb-4">{info}</div>}
-              {error && <div className="cs-alert cs-alert-error mb-4">{error}</div>}
-
-              <form onSubmit={verifyCode} className="space-y-4">
-                <div>
-                  <label className="cs-label" htmlFor="code">
-                    6-digit code
-                  </label>
-                  <input
-                    id="code"
-                    type="text"
-                    inputMode="numeric"
-                    pattern="\d{6}"
-                    maxLength={6}
-                    autoFocus
-                    required
-                    placeholder="000000"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                    className="cs-input text-center text-2xl tracking-[0.5em] font-mono"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="cs-btn cs-btn-primary w-full"
-                  disabled={submitting || code.length !== 6}
-                >
-                  {submitting ? 'Verifying…' : 'Continue'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStage('identifier');
-                    setCode('');
-                    setError(null);
-                    setInfo(null);
-                  }}
-                  className="cs-btn cs-btn-ghost w-full"
-                >
-                  Use a different email or phone
-                </button>
-              </form>
-            </>
-          )}
-        </div>
+        {checkedAuth && <SignInForm />}
       </main>
     </>
   );

@@ -96,10 +96,13 @@ export async function GET(req: Request) {
     const ccb = createCCBClient(
       await getCCBRequestContext(req, { module: 'circle-summary', action: 'draft_ccb_prefill' })
     );
+    // Use date-only occurrence so we find summaries submitted directly in CCB
+    // (CCB's UI stores them by date; passing a datetime would miss them).
+    const occurrenceDateOnly = occurrence.slice(0, 10);
     const xml: any = await (ccb as any).getXml({
       srv: 'attendance_profile',
       id: eventId,
-      occurrence,
+      occurrence: occurrenceDateOnly,
     });
     const a = xml?.ccb_api?.response?.attendance ?? null;
     if (a) {

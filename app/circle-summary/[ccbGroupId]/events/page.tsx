@@ -23,13 +23,16 @@ type Leader = {
   ccb_group_id: string | number | null;
 } | null;
 
-function formatDate(iso: string): string {
-  return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function parseDateStamp(iso: string) {
+  const d = new Date(iso + 'T00:00:00');
+  return {
+    dayNum: d.getDate(),
+    month: MONTHS[d.getMonth()],
+    dayName: DAYS[d.getDay()],
+  };
 }
 
 export default function CircleSummaryEventsPage() {
@@ -43,7 +46,32 @@ export default function CircleSummaryEventsPage() {
 
   useEffect(() => {
     let cancelled = false;
+    const cacheKey = `cs:events:${urlGroupId}`;
+
+    // Stale-while-revalidate: paint cached list immediately, then refresh.
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.leader) setLeader(parsed.leader);
+        if (Array.isArray(parsed?.events)) setEvents(parsed.events);
+        setLoading(false);
+      }
+    } catch {}
+
     (async () => {
+      // Fire /me alongside /events so the header (leader name/campus) and
+      // stats pill can paint as soon as the cheap query returns — even while
+      // the slower CCB-backed events list is still loading.
+      const mePromise = fetch('/api/circle-summary/me')
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
+
+      mePromise.then((meData) => {
+        if (cancelled || !meData?.leader) return;
+        setLeader((prev) => prev ?? meData.leader);
+      });
+
       try {
         const res = await fetch('/api/circle-summary/events');
         if (res.status === 401) {
@@ -53,10 +81,6 @@ export default function CircleSummaryEventsPage() {
         const data = await res.json();
         if (cancelled) return;
 
-        // Guard: if the URL's groupId doesn't match the logged-in leader's
-        // ccb_group_id, silently redirect to their own circle. The API already
-        // refuses to serve another circle's data — this just keeps the URL
-        // honest.
         const leaderGroupId = data.leader?.ccb_group_id != null ? String(data.leader.ccb_group_id) : null;
         if (leaderGroupId && leaderGroupId !== urlGroupId) {
           router.replace(`/circle-summary/${leaderGroupId}/events`);
@@ -66,16 +90,22 @@ export default function CircleSummaryEventsPage() {
         setLeader(data.leader || null);
         setEvents(data.events || []);
         if (data.error) setError(data.error);
+        else setError(null);
         if (data.message && !data.events?.length) setError(data.message);
+
+        try {
+          sessionStorage.setItem(
+            cacheKey,
+            JSON.stringify({ leader: data.leader, events: data.events || [] })
+          );
+        } catch {}
       } catch (e: any) {
         if (!cancelled) setError(e?.message || 'Could not load events.');
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [router, urlGroupId]);
 
   async function signOut() {
@@ -83,86 +113,151 @@ export default function CircleSummaryEventsPage() {
     router.replace('/circle-summary');
   }
 
+  const submitted = events.filter((e) => !!e.submittedAt || e.hasExistingAttendance).length;
+  const pending = events.filter((e) => !e.submittedAt && !e.hasExistingAttendance).length;
+
   return (
     <>
-      <header className="cs-hero py-10 sm:py-14 px-6">
-        <div className="max-w-2xl mx-auto flex items-start justify-between gap-4">
-          <div>
-            <h1 className="cs-display text-4xl sm:text-5xl">Your Circle</h1>
-            {leader && (
-              <p className="mt-2 text-white/90 font-medium">
-                {leader.name}
-                {leader.campus ? ` • ${leader.campus}` : ''}
+      <header className="cs-hero px-6 pt-10 pb-8 sm:pt-14 sm:pb-10">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-white/65 text-xs font-semibold uppercase tracking-[0.14em] mb-1">
+                Valley Creek Church
               </p>
-            )}
+              <h1 className="cs-display text-4xl sm:text-5xl">Your Circle</h1>
+              {leader && (
+                <p className="mt-1.5 text-white/90 font-semibold text-base">
+                  {leader.name}
+                  {leader.campus ? <span className="font-normal text-white/70"> · {leader.campus}</span> : ''}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={signOut}
+              className="text-white/70 hover:text-white text-xs font-semibold uppercase tracking-wide mt-1 shrink-0"
+            >
+              Sign out
+            </button>
           </div>
-          <button onClick={signOut} className="text-white/80 hover:text-white text-sm underline underline-offset-4">
-            Sign out
-          </button>
+
+          {/* Stats pill — give leaders a quick sense of their status at a glance */}
+          {!loading && events.length > 0 && (
+            <div className="mt-4 flex items-center gap-3">
+              <div className="flex items-center gap-1.5 bg-white/15 rounded-full px-3 py-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-300 inline-block" />
+                <span className="text-white/90 text-xs font-semibold">{submitted} submitted</span>
+              </div>
+              {pending > 0 && (
+                <div className="flex items-center gap-1.5 bg-white/15 rounded-full px-3 py-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-300 inline-block" />
+                  <span className="text-white/90 text-xs font-semibold">{pending} need{pending === 1 ? 's' : ''} summary</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-8">
+      <main className="max-w-2xl mx-auto px-4 py-6">
         {loading && (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="cs-card">
-                <div className="cs-skeleton h-5 w-2/3 mb-2" />
-                <div className="cs-skeleton h-4 w-1/3" />
+              <div key={i} className="cs-card flex items-center gap-4 p-0 overflow-hidden">
+                <div className="w-14 h-16 cs-skeleton rounded-none" />
+                <div className="flex-1 py-4 pr-4 space-y-2">
+                  <div className="cs-skeleton h-4 w-1/3" />
+                  <div className="cs-skeleton h-3 w-2/3" />
+                </div>
               </div>
             ))}
           </div>
         )}
 
-        {!loading && error && <div className="cs-alert cs-alert-warning">{error}</div>}
+        {!loading && error && (
+          <div className="cs-alert cs-alert-warning mt-2">{error}</div>
+        )}
 
         {!loading && !error && events.length === 0 && (
-          <div className="cs-card text-center py-10">
-            <p className="text-neutral-600">No Circle events found in the last 8 weeks.</p>
+          <div className="cs-card text-center py-14">
+            <svg className="w-10 h-10 mx-auto mb-3 text-neutral-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <rect x="3" y="4" width="18" height="18" rx="2" />
+              <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
+            </svg>
+            <p className="text-neutral-500 font-medium">No events in the last 8 weeks</p>
+            <p className="text-neutral-400 text-sm mt-1">Check back after your next meeting.</p>
           </div>
         )}
 
         {!loading && events.length > 0 && (
-          <div className="space-y-3">
-            <h2 className="text-xs uppercase tracking-[0.18em] text-neutral-500 font-semibold mb-3">
+          <div className="space-y-2.5">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-400 mb-3 px-0.5">
               Last 8 weeks
-            </h2>
+            </p>
             {events.map((e) => {
               const occurEncoded = encodeURIComponent(e.occurrenceDateTime);
-              // "Submitted" if EITHER we have an audit row in Supabase OR CCB
-              // already has notes/topic/attendees on the attendance_profile.
-              // The latter catches summaries entered directly in CCB.
-              const submitted = !!e.submittedAt || e.hasExistingAttendance;
+              const isSubmitted = !!e.submittedAt || e.hasExistingAttendance;
+              const statusClass = isSubmitted && e.didNotMeet
+                ? 'did-not-meet'
+                : isSubmitted
+                ? 'submitted'
+                : 'needs-summary';
+              const { dayNum, month, dayName } = parseDateStamp(e.occurrenceDate);
+
               return (
                 <Link
                   key={`${e.eventId}-${e.occurrenceDate}`}
                   href={`/circle-summary/${urlGroupId}/events/${e.eventId}/${occurEncoded}`}
-                  className="cs-card flex items-center gap-3 hover:border-[color:var(--cs-green)] hover:shadow-md transition-all active:translate-y-[1px]"
+                  className={`cs-event-row ${statusClass} active:translate-y-[1px]`}
                   style={{ textDecoration: 'none' }}
                 >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-neutral-900 truncate">
-                      {formatDate(e.occurrenceDate)}
-                    </p>
-                    <p className="text-xs text-neutral-500 truncate mt-0.5">{e.title}</p>
+                  {/* Date stamp */}
+                  <div className="cs-date-stamp">
+                    <span className="day-name">{dayName}</span>
+                    <span className="day-num">{dayNum}</span>
+                    <span className="month">{month}</span>
                   </div>
-                  <div className="shrink-0">
-                    {submitted && e.didNotMeet && (
-                      <span className="cs-badge cs-badge-muted">Didn't meet</span>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0 px-3.5 py-3.5 flex flex-col justify-center gap-0.5">
+                    <p className="text-xs text-neutral-400 truncate">{e.title}</p>
+                    {!isSubmitted && (
+                      <p className="text-xs text-amber-700 font-semibold">Tap to submit your summary →</p>
                     )}
-                    {submitted && !e.didNotMeet && (
-                      <span className="cs-badge cs-badge-success">Submitted</span>
+                    {isSubmitted && !e.didNotMeet && (
+                      <p className="text-xs text-green-700 font-semibold">Summary on file</p>
                     )}
-                    {!submitted && <span className="cs-badge cs-badge-warning">Needs summary</span>}
+                    {isSubmitted && e.didNotMeet && (
+                      <p className="text-xs text-neutral-500 font-semibold">Did not meet</p>
+                    )}
                   </div>
-                  <svg className="w-4 h-4 text-neutral-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
+
+                  {/* Badge + chevron */}
+                  <div className="pr-3 flex items-center gap-2 shrink-0">
+                    <div className="shrink-0">
+                      {isSubmitted && e.didNotMeet && (
+                        <span className="cs-badge cs-badge-muted">Skipped</span>
+                      )}
+                      {isSubmitted && !e.didNotMeet && (
+                        <span className="cs-badge cs-badge-success">Done</span>
+                      )}
+                      {!isSubmitted && (
+                        <span className="cs-badge cs-badge-warning">Pending</span>
+                      )}
+                    </div>
+                    <svg className="w-4 h-4 text-neutral-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
                 </Link>
               );
             })}
           </div>
         )}
+
+        <p className="text-center text-xs text-neutral-400 mt-8">
+          Questions? Email us at <a href="mailto:nextsteps@valleycreek.org" className="underline text-neutral-400 hover:text-white">nextsteps@valleycreek.org</a>.
+        </p>
       </main>
     </>
   );

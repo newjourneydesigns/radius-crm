@@ -1,6 +1,48 @@
 [
   {
     "date": "2026-05-14",
+    "type": "improvement",
+    "description": "Boards: hover a card and press F to toggle its focus state — same as clicking 'Set as Focus' in the card detail, but without opening the card.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-05-14",
+    "type": "improvement",
+    "description": "Circle Summary loads noticeably faster: the events page paints the header instantly while CCB data loads in the background, CCB results are cached for 60 seconds, and the events list is remembered so navigating back from an event is near-instant. The sign-in page no longer flashes for already-signed-in leaders.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-14",
+    "type": "fix",
+    "description": "Fixed odd characters (literal \\n\\n) appearing in CCB Event Notes when a Circle Summary included line breaks. Paragraph breaks are now displayed cleanly as \" || \" separators.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-14",
+    "type": "improvement",
+    "description": "Circle Summary form now shows only dynamic questions with no extra static fields. Inputs and radio buttons have a more visible border for easier tapping and typing.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-14",
+    "type": "feature",
+    "description": "Circle Leaders can now remove someone from their roster on the Circle Summary attendance page. The Remove action only takes the person out of the Circle's CCB group — their CCB profile is not changed.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-14",
+    "type": "improvement",
+    "description": "Circle Summary admin pages (Dynamic Questions, Submission Log, Info Update Requests) are now linked from a dedicated Circle Summary tab in Settings.",
+    "page": "/settings"
+  },
+  {
+    "date": "2026-05-14",
+    "type": "improvement",
+    "description": "Circle Summary form now shows only the questions configured in Dynamic Questions — no default fields. The admin page shows a warning when no active questions are configured, status badges (Always / Active / Upcoming / Expired) on each question, and a clear Visibility toggle when creating or editing a question.",
+    "page": "/admin/dynamic-questions"
+  },
+  {
+    "date": "2026-05-14",
     "type": "fix",
     "description": "Circle Summary magic links now reliably sign leaders in. The auth handler sets the session cookie on a 200 page and then navigates, avoiding a hosting quirk that was dropping the cookie on the redirect and bouncing leaders back to the sign-in screen.",
     "page": "/circle-summary"

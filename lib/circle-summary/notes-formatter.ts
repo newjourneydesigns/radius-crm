@@ -48,7 +48,13 @@ export function formatNotesForCCB(input: {
   }
 
   if (input.baseNotes?.trim()) {
-    sections.push(input.baseNotes.trim());
+    // CCB displays actual newlines as literal "\n" — collapse paragraph breaks
+    // to a visual separator and strip lone newlines.
+    const flatNotes = input.baseNotes
+      .trim()
+      .replace(/\n{2,}/g, '  ||  ')
+      .replace(/\n/g, ' ');
+    sections.push(flatNotes);
   }
 
   if (input.dynamicResponses?.length) {
@@ -68,7 +74,7 @@ export function formatNotesForCCB(input: {
       const contact = [p.phone, p.email].filter(Boolean).join(' / ');
       return `${p.firstName} ${p.lastName}${contact ? ` (${contact})` : ''}`;
     });
-    sections.push(`Roster additions for follow-up — ${items.join(' · ')}`);
+    sections.push(`New people to add to roster (action needed) — ${items.join(' · ')}`);
   }
 
   if (input.infoUpdates?.length) {
