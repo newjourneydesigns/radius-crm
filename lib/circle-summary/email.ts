@@ -145,21 +145,21 @@ export async function sendReminderEmail(opts: {
   const heroSubtitle =
     kind === 'pre_meeting'
       ? `Coming up: ${meetingDateLabel}`
-      : `Still waiting on a summary for ${meetingDateLabel}`;
+      : `How did your Circle go on ${meetingDateLabel}?`;
   const subject =
     kind === 'pre_meeting'
       ? `Your Circle meets soon — submit your summary here`
-      : `Quick reminder: your Circle summary for ${meetingDateLabel}`;
+      : `We'd love to hear about your Circle — ${meetingDateLabel}`;
   const preheader =
     kind === 'pre_meeting'
       ? `One tap to submit your Circle summary after tonight.`
-      : `One tap to submit your Circle summary.`;
+      : `Tell us how your Circle gathering went.`;
 
   const greeting = `<p style="margin:0 0 12px 0;">Hi ${escapeHtml(leaderName.split(' ')[0] || 'there')},</p>`;
   const lead =
     kind === 'pre_meeting'
       ? `<p style="margin:0 0 12px 0;">Your Circle is meeting <strong>${escapeHtml(meetingDateLabel)}</strong>. After you gather, tap below to send your summary in under a minute — attendance, what stood out, and any prayer requests.</p>`
-      : `<p style="margin:0 0 12px 0;">We're still missing your Circle Summary for <strong>${escapeHtml(meetingDateLabel)}</strong>. It only takes a minute — tap below to share what God did in your gathering.</p>`;
+      : `<p style="margin:0 0 12px 0;">We'd love to hear about your Circle from <strong>${escapeHtml(meetingDateLabel)}</strong>. It only takes a minute — tap below to share what God did in your gathering.</p>`;
   const note = `<p style="margin:12px 0 0 0;color:#7A7A7A;font-size:14px;">Tapping the button signs you in automatically — no password needed.</p>`;
 
   const html = emailShell({
@@ -169,7 +169,7 @@ export async function sendReminderEmail(opts: {
     bodyHtml: `${greeting}${lead}${note}`,
     ctaUrl: magicLinkUrl,
     ctaLabel: 'Submit my Circle Summary',
-    footer: `You're getting this because reminders are turned on for your Circle Leader profile. To stop, ask your ACPD to disable email reminders.`,
+    footer: `You're getting this because reminders are turned on for your Circle Leader profile. To stop, contact your staff contact.`,
   });
 
   return sendBrandedEmail({ to, subject, html });

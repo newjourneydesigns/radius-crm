@@ -31,7 +31,7 @@ const FOLLOW_UP_HOUR_END = 10;   // up to 10am local
 const FOLLOW_UP_LOOKBACK_DAYS = 7;
 
 function buildMagicLinkUrl(leaderId: number | string, next: string): string {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.URL || 'http://localhost:3000';
+  const appUrl = process.env.URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   const token = createSessionToken(leaderId, MAGIC_LINK_TTL_MS);
   const url = new URL('/api/circle-summary/auth/link', appUrl);
   url.searchParams.set('t', token);
@@ -100,10 +100,7 @@ export async function POST(req: Request) {
           .maybeSingle();
         if (already) continue;
 
-        const magicUrl = buildMagicLinkUrl(
-          leader.id,
-          `/circle-summary/events/${encodeURIComponent(e.eventId)}/${encodeURIComponent(e.startDateTime)}`
-        );
+        const magicUrl = buildMagicLinkUrl(leader.id, '/circle-summary/events');
         const result = await sendReminderEmail({
           to: leader.email!,
           leaderName: leader.name,
@@ -160,10 +157,7 @@ export async function POST(req: Request) {
           .maybeSingle();
         if (sentToday) continue;
 
-        const magicUrl = buildMagicLinkUrl(
-          leader.id,
-          `/circle-summary/events/${encodeURIComponent(e.eventId)}/${encodeURIComponent(e.startDateTime)}`
-        );
+        const magicUrl = buildMagicLinkUrl(leader.id, '/circle-summary/events');
         const result = await sendReminderEmail({
           to: leader.email!,
           leaderName: leader.name,

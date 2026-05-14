@@ -2,6 +2,12 @@
   {
     "date": "2026-05-14",
     "type": "improvement",
+    "description": "Circle Summary reminder emails: follow-up emails now use warm, inviting language ("we'd love to hear about your Circle") instead of deficit framing. Magic link now lands on the events list page so leaders always land on a working screen. Footer now says \"staff contact\" instead of referencing ACPDs.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-14",
+    "type": "improvement",
     "description": "Circle Summary → CCB: when a leader adds new people via \"Add to roster\", those pending names are now also counted as guests on the CCB event summary. So 7 checked roster attendees + 2 pending adds shows as 9 total attendance in CCB (7 attendees + 2 guests).",
     "page": "/circle-summary"
   },
