@@ -1871,6 +1871,7 @@ ${attendeesXml}
     email: string;
     phone: string;
     mobilePhone: string;
+    profileLink: string;
   }>> {
     const trimmed = query.trim();
     if (!trimmed) return [];
@@ -1953,6 +1954,7 @@ ${attendeesXml}
           email,
           phone,
           mobilePhone,
+          profileLink: `https://valleycreekchurch.ccbchurch.com/goto/individuals/${String(ind['@_id'] || ind.id || '').trim()}`,
         };
       }).filter((p: any) => p.id && p.fullName);
     } catch (error) {

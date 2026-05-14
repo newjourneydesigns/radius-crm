@@ -10,6 +10,7 @@ export interface CCBPerson {
   email: string;
   phone: string;
   mobilePhone: string;
+  profileLink: string;
 }
 
 interface CCBPersonLookupProps {

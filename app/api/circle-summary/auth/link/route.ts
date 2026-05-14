@@ -1,12 +1,15 @@
 /**
  * GET /api/circle-summary/auth/link?t=TOKEN
  *
- * Sign-in via HMAC-signed magic link. Used by reminder emails. The token has
- * a 7-day TTL embedded; on click we verify and issue a fresh 30-day session
- * cookie, then redirect to the events list.
+ * Sign-in via HMAC-signed magic link. Used by reminder emails and the admin
+ * "Text Circle Summary link" button. The token has a 7-day TTL embedded.
  *
- * The link token uses the same `createSessionToken` format used for the
- * session cookie itself, so any token issued for the leader works here.
+ * Implementation note: we used to do `NextResponse.redirect(...)` while
+ * attaching the session cookie in the same response. Some Netlify / edge
+ * setups dropped the Set-Cookie on the redirect, dumping the leader back at
+ * the sign-in screen. We now respond with a 200 HTML page that sets the
+ * cookie via Set-Cookie and then does the navigation client-side. Cookie is
+ * reliably committed before the next request fires.
  */
 
 import { NextResponse } from 'next/server';
@@ -15,22 +18,56 @@ import { attachSessionCookie } from '../../../../../lib/circle-summary/session';
 
 export const dynamic = 'force-dynamic';
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const token = url.searchParams.get('t') || '';
-  const next = url.searchParams.get('next') || '/circle-summary/events';
+  const rawNext = url.searchParams.get('next') || '/circle-summary/events';
+  // Only allow same-origin paths
+  const next = rawNext.startsWith('/') ? rawNext : '/circle-summary/events';
 
   const verified = verifySessionToken(token);
   if (!verified?.leaderId) {
-    // Token bad or expired — bounce to sign-in with a hint
     const signIn = new URL('/circle-summary', req.url);
     signIn.searchParams.set('reason', 'link_expired');
     return NextResponse.redirect(signIn);
   }
 
-  // Issue a fresh 30-day session cookie
-  return attachSessionCookie(
-    NextResponse.redirect(new URL(next, req.url)),
-    verified.leaderId
-  );
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Signing you in…</title>
+  <meta http-equiv="refresh" content="0;url=${escapeHtml(next)}" />
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #fff; color: #3E3E3E; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+    .box { text-align: center; padding: 2rem; }
+    .spinner { width: 32px; height: 32px; border: 3px solid #e5e7eb; border-top-color: #34B233; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 1rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="spinner"></div>
+    <p>Signing you in…</p>
+    <p style="margin-top:1rem;font-size:0.9rem;"><a href="${escapeHtml(next)}" style="color:#34B233;">Continue</a></p>
+  </div>
+  <script>window.location.replace(${JSON.stringify(next)});</script>
+</body>
+</html>`;
+
+  const res = new NextResponse(html, {
+    status: 200,
+    headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
+  });
+  return attachSessionCookie(res, verified.leaderId);
 }

@@ -2,6 +2,18 @@
   {
     "date": "2026-05-14",
     "type": "fix",
+    "description": "Circle Summary magic links now reliably sign leaders in. The auth handler sets the session cookie on a 200 page and then navigates, avoiding a hosting quirk that was dropping the cookie on the redirect and bouncing leaders back to the sign-in screen.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-14",
+    "type": "improvement",
+    "description": "Choosing a primary leader from CCB on Circle forms now also fills in that person's CCB profile link automatically, so you don't have to copy the individual URL by hand.",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-05-14",
+    "type": "fix",
     "description": "Admin \"send magic link\" now builds the link using the host you're currently on, so leaders aren't bounced through a cross-domain redirect that strips their session cookie. Tapping the link signs them straight into Circle Summary as intended.",
     "page": "/circle"
   },

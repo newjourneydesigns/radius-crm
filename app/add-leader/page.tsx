@@ -284,6 +284,7 @@ export default function AddLeaderPage() {
                       name: person.fullName,
                       phone: person.mobilePhone || person.phone || prev.phone,
                       email: person.email || prev.email,
+                      leaderCcbProfileLink: person.profileLink || prev.leaderCcbProfileLink,
                     }));
                   }}
                 />

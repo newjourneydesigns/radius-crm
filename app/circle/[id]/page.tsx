@@ -2259,6 +2259,9 @@ export default function CircleLeaderProfilePage() {
                         if (person.email) {
                           handleLeaderFieldChange('email', person.email);
                         }
+                        if (person.profileLink) {
+                          handleLeaderFieldChange('leader_ccb_profile_link', person.profileLink);
+                        }
                       }}
                     />
                   </div>
