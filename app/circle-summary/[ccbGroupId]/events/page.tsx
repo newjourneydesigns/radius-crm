@@ -42,6 +42,7 @@ export default function CircleSummaryEventsPage() {
   const [leader, setLeader] = useState<Leader>(null);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [slowLoad, setSlowLoad] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,8 +50,10 @@ export default function CircleSummaryEventsPage() {
     const cacheKey = `cs:events:${urlGroupId}`;
 
     // Stale-while-revalidate: paint cached list immediately, then refresh.
+    // localStorage (not sessionStorage) so the cache survives tab close,
+    // making repeat visits feel instant.
     try {
-      const cached = sessionStorage.getItem(cacheKey);
+      const cached = localStorage.getItem(cacheKey);
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed?.leader) setLeader(parsed.leader);
@@ -58,6 +61,10 @@ export default function CircleSummaryEventsPage() {
         setLoading(false);
       }
     } catch {}
+
+    const slowTimer = setTimeout(() => {
+      if (!cancelled) setSlowLoad(true);
+    }, 5000);
 
     (async () => {
       // Fire /me alongside /events so the header (leader name/campus) and
@@ -94,7 +101,7 @@ export default function CircleSummaryEventsPage() {
         if (data.message && !data.events?.length) setError(data.message);
 
         try {
-          sessionStorage.setItem(
+          localStorage.setItem(
             cacheKey,
             JSON.stringify({ leader: data.leader, events: data.events || [] })
           );
@@ -102,10 +109,17 @@ export default function CircleSummaryEventsPage() {
       } catch (e: any) {
         if (!cancelled) setError(e?.message || 'Could not load events.');
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setSlowLoad(false);
+          clearTimeout(slowTimer);
+        }
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      clearTimeout(slowTimer);
+    };
   }, [router, urlGroupId]);
 
   async function signOut() {
@@ -171,6 +185,15 @@ export default function CircleSummaryEventsPage() {
                 </div>
               </div>
             ))}
+            <p
+              className="text-center text-xs text-neutral-500 pt-3"
+              role="status"
+              aria-live="polite"
+            >
+              {slowLoad
+                ? 'Still loading — pulling the latest from Church Community Builder. Hang tight.'
+                : 'Loading your Circle events…'}
+            </p>
           </div>
         )}
 

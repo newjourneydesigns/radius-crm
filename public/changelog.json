@@ -2,6 +2,12 @@
   {
     "date": "2026-05-14",
     "type": "improvement",
+    "description": "Circle Summary events page: cached events list now persists across browser sessions so repeat visits paint instantly, and the loading state shows \"Loading your Circle events…\" — escalating to \"Still loading — pulling the latest from Church Community Builder\" after 5 seconds so leaders know the page isn't stuck.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-14",
+    "type": "improvement",
     "description": "Circle Summary → CCB: the notes pushed to CCB now preserve the line breaks leaders type (paragraph breaks, lists) instead of being flattened into one line. Dynamic question answers each appear on their own block with the question as a heading; the \"Additional questions —\" prefix is gone.",
     "page": "/circle-summary"
   },
