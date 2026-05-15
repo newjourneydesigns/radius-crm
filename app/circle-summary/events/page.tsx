@@ -17,7 +17,7 @@ export default function CircleSummaryEventsRedirect() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/circle-summary/me');
+        const res = await fetch('/api/circle-summary/me/');
         if (cancelled) return;
         if (res.status !== 200) {
           router.replace('/circle-summary');

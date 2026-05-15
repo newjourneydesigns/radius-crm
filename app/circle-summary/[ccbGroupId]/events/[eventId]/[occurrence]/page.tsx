@@ -617,21 +617,12 @@ export default function CircleSummaryFormPage() {
                   <span className="cs-step-title">Who came?</span>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  {!editRoster && (
-                    <button
-                      type="button"
-                      onClick={() => toggleAll(!allSelected)}
-                      className="text-sm font-semibold text-[color:var(--cs-green-dark)] hover:text-[color:var(--cs-green-darker)]"
-                    >
-                      {allSelected ? 'Clear all' : 'Select all'}
-                    </button>
-                  )}
                   <button
                     type="button"
                     onClick={() => setEditRoster((v) => !v)}
-                    className="text-sm font-semibold text-[color:var(--cs-green-dark)] hover:text-[color:var(--cs-green-darker)]"
+                    className="cs-btn-outline text-xs px-3 py-1.5"
                   >
-                    {editRoster ? 'Done' : 'Edit'}
+                    {editRoster ? 'Done' : 'Update Roster'}
                   </button>
                 </div>
               </div>
@@ -643,6 +634,23 @@ export default function CircleSummaryFormPage() {
               <div className="space-y-1 mb-4">
                 {participants.length === 0 && (
                   <p className="text-sm text-neutral-500 py-2">No one on your roster yet.</p>
+                )}
+                {!editRoster && participants.length > 0 && (
+                  <div className="flex items-center gap-2.5 py-0.5 border-b border-neutral-200 mb-1 pb-2">
+                    <input
+                      type="checkbox"
+                      className="cs-check"
+                      checked={allSelected}
+                      onChange={() => toggleAll(!allSelected)}
+                      aria-label="Select all"
+                    />
+                    <label
+                      className="flex-1 min-w-0 cursor-pointer"
+                      onClick={() => toggleAll(!allSelected)}
+                    >
+                      <span className="text-sm font-semibold text-neutral-600">Select all</span>
+                    </label>
+                  </div>
                 )}
                 {participants.map((p) => {
                   const fullName = p.fullName || `${p.firstName} ${p.lastName}`;

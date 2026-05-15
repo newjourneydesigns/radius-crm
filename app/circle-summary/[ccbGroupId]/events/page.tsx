@@ -70,7 +70,7 @@ export default function CircleSummaryEventsPage() {
       // Fire /me alongside /events so the header (leader name/campus) and
       // stats pill can paint as soon as the cheap query returns — even while
       // the slower CCB-backed events list is still loading.
-      const mePromise = fetch('/api/circle-summary/me')
+      const mePromise = fetch('/api/circle-summary/me/')
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null);
 
@@ -80,7 +80,7 @@ export default function CircleSummaryEventsPage() {
       });
 
       try {
-        const res = await fetch('/api/circle-summary/events');
+        const res = await fetch('/api/circle-summary/events/');
         if (res.status === 401) {
           router.replace('/circle-summary');
           return;
@@ -123,7 +123,7 @@ export default function CircleSummaryEventsPage() {
   }, [router, urlGroupId]);
 
   async function signOut() {
-    await fetch('/api/circle-summary/auth/logout', { method: 'POST' });
+    await fetch('/api/circle-summary/auth/logout/', { method: 'POST' });
     router.replace('/circle-summary');
   }
 

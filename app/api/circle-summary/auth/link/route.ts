@@ -15,6 +15,7 @@
 import { NextResponse } from 'next/server';
 import { verifySessionToken } from '../../../../../lib/leader-tokens';
 import { attachSessionCookie } from '../../../../../lib/circle-summary/session';
+import { createServiceSupabaseClient } from '../../../../../lib/server-supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,13 +42,32 @@ export async function GET(req: Request) {
     return NextResponse.redirect(signIn);
   }
 
+  // Resolve ccb_group_id so we can skip the /events redirector and land
+  // directly on the canonical /circle-summary/[groupId]/events page.
+  let resolvedNext = next;
+  if (next === '/circle-summary/events' || next === '/circle-summary/events/') {
+    try {
+      const supabase = createServiceSupabaseClient();
+      const { data: leader } = await supabase
+        .from('circle_leaders')
+        .select('ccb_group_id')
+        .eq('id', verified.leaderId)
+        .single();
+      if (leader?.ccb_group_id) {
+        resolvedNext = `/circle-summary/${leader.ccb_group_id}/events`;
+      }
+    } catch {
+      // Fall through to original next on DB error
+    }
+  }
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Signing you in…</title>
-  <meta http-equiv="refresh" content="0;url=${escapeHtml(next)}" />
+  <meta http-equiv="refresh" content="0;url=${escapeHtml(resolvedNext)}" />
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #fff; color: #3E3E3E; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
     .box { text-align: center; padding: 2rem; }
@@ -59,9 +79,9 @@ export async function GET(req: Request) {
   <div class="box">
     <div class="spinner"></div>
     <p>Signing you in…</p>
-    <p style="margin-top:1rem;font-size:0.9rem;"><a href="${escapeHtml(next)}" style="color:#34B233;">Continue</a></p>
+    <p style="margin-top:1rem;font-size:0.9rem;"><a href="${escapeHtml(resolvedNext)}" style="color:#34B233;">Continue</a></p>
   </div>
-  <script>window.location.replace(${JSON.stringify(next)});</script>
+  <script>window.location.replace(${JSON.stringify(resolvedNext)});</script>
 </body>
 </html>`;
 
