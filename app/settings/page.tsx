@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BellOff, Building2, CalendarDays, ClipboardList, FileText, LayoutList, Mail, Settings, Shapes, Users } from 'lucide-react';
+import { BellOff, Building2, CalendarDays, ClipboardList, FileText, Mail, Settings, Shapes, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import NoteTemplatesManager from '../../components/settings/NoteTemplatesManager';
 import ScorecardQuestionsManager from '../../components/settings/ScorecardQuestionsManager';
@@ -59,7 +59,7 @@ export default function SettingsPage() {
 
   // UI state
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'directors' | 'host_team_directors' | 'circles' | 'statuses' | 'frequencies' | 'campuses' | 'templates' | 'scorecard' | 'circle_summary' | 'app'>('directors');
+  const [activeTab, setActiveTab] = useState<'directors' | 'host_team_directors' | 'circles' | 'statuses' | 'frequencies' | 'campuses' | 'templates' | 'scorecard' | 'app'>('directors');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{isOpen: boolean, type: string, id: number, name: string}>({
     isOpen: false, type: '', id: 0, name: ''
   });
@@ -583,7 +583,6 @@ export default function SettingsPage() {
     { id: 'campuses', label: 'Campuses', icon: Building2 },
     { id: 'templates', label: 'Note Templates', icon: FileText },
     { id: 'scorecard', label: 'Scorecard Questions', icon: ClipboardList },
-    { id: 'circle_summary', label: 'Circle Summary', icon: LayoutList },
     { id: 'app', label: 'App Management', icon: Settings }
   ];
 
@@ -1326,31 +1325,6 @@ export default function SettingsPage() {
 
               <div className="p-6">
                 <ScorecardQuestionsManager />
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'circle_summary' && (
-            <div className="p-6">
-              <div className="mb-6">
-                <h2 className="text-lg font-medium text-gray-900 dark:text-white">Circle Summary Admin</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Configure the Circle Summary form and review leader submissions.
-                </p>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <a
-                  href="/admin/dynamic-questions"
-                  className="group flex flex-col gap-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-5 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                >
-                  <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                    <LayoutList className="h-5 w-5" />
-                    <span className="font-semibold text-sm">Dynamic Questions</span>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Add, edit, and schedule the questions leaders see on the Circle Summary submission form.
-                  </p>
-                </a>
               </div>
             </div>
           )}

@@ -107,6 +107,7 @@ export default function CircleSummaryFormPage() {
   const [showInfoUpdate, setShowInfoUpdate] = useState(false);
   const [loadedFromSubmission, setLoadedFromSubmission] = useState<string | null>(null);
   const [loadedFromCcb, setLoadedFromCcb] = useState(false);
+  const [previousNotes, setPreviousNotes] = useState<string>('');
 
   useEffect(() => {
     let cancelled = false;
@@ -163,6 +164,7 @@ export default function CircleSummaryFormPage() {
           if (Array.isArray(d.attendeeCcbIds)) setSelectedCcbIds(new Set(d.attendeeCcbIds));
           setTopic(d.topic ?? '');
           setNotes(d.notes ?? '');
+          setPreviousNotes(d.referenceNotes ?? '');
           setPrayerRequests(d.prayerRequests ?? '');
           setInfo(d.info ?? '');
           setDynamicValues(d.dynamicValues ?? {});
@@ -468,6 +470,14 @@ export default function CircleSummaryFormPage() {
       } catch {
         // The success page can still load the stored submission by id.
       }
+      // Tell the events page its cached list is stale: when the leader
+      // navigates back, it will skip the cached paint and force-refresh
+      // straight from CCB instead of risking a "Pending" badge for an
+      // event they just submitted.
+      try {
+        sessionStorage.setItem(`cs:events:${urlGroupId}:invalidated`, '1');
+        localStorage.removeItem(`cs:events:${urlGroupId}`);
+      } catch {}
       router.replace(`/circle-summary/success?id=${data.summaryId}`);
     } catch (e: any) {
       setSubmitError(e?.message || 'Submission failed.');
@@ -598,12 +608,10 @@ export default function CircleSummaryFormPage() {
               <label className="cs-label" htmlFor="dnm-notes">
                 Anything else worth noting? (optional)
               </label>
-              <textarea
+              <AutoGrowTextarea
                 id="dnm-notes"
-                rows={3}
-                className="cs-textarea"
                 value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                onChange={(v) => setNotes(v)}
               />
             </div>
           </div>
@@ -819,21 +827,50 @@ export default function CircleSummaryFormPage() {
                 </div>
               )}
               {totalAttendees > 0 && (
-                <p className="text-xs text-neutral-500 mt-3">
-                  {totalAttendees} {totalAttendees === 1 ? 'person' : 'people'} marked present
-                </p>
+                <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-green-100 px-4 py-2 text-base font-semibold text-green-800 ring-1 ring-green-200">
+                  <span className="text-lg">{totalAttendees}</span>
+                  <span>{totalAttendees === 1 ? 'person' : 'people'} marked present</span>
+                </div>
               )}
             </div>
 
           </>
         )}
 
+        {previousNotes && !didNotMeet && (() => {
+          const targetQuestion = visibleQuestions.find((q) => q.field_type === 'textarea');
+          return (
+            <div className="cs-card bg-amber-50 border-amber-200">
+              <div className="text-xs font-bold uppercase tracking-wide text-amber-800 mb-1.5">
+                Notes from your last summary
+              </div>
+              <p className="text-sm text-neutral-800 whitespace-pre-wrap leading-relaxed">
+                {previousNotes}
+              </p>
+              {targetQuestion && (
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDynamicValues((prev) => ({ ...prev, [targetQuestion.id]: previousNotes }));
+                      setPreviousNotes('');
+                    }}
+                    className="cs-btn-outline text-xs px-3 py-1.5"
+                  >
+                    Edit these notes
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Dynamic questions — numbered step relative to whether roster is shown */}
         {visibleQuestions.length > 0 && (
           <div className="cs-card space-y-5">
             <div className="cs-step">
               <span className="cs-step-num">{didNotMeet ? '2' : '3'}</span>
-              <span className="cs-step-title">A few more things</span>
+              <span className="cs-step-title">Tell us more</span>
             </div>
             {visibleQuestions.map((q) => (
               <DynamicQuestionField
@@ -940,6 +977,39 @@ export default function CircleSummaryFormPage() {
   );
 }
 
+function AutoGrowTextarea({
+  value,
+  onChange,
+  rows = 3,
+  className = 'cs-textarea',
+  id,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  rows?: number;
+  className?: string;
+  id?: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+  return (
+    <textarea
+      id={id}
+      ref={ref}
+      rows={rows}
+      className={className}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      style={{ overflow: 'hidden', resize: 'none' }}
+    />
+  );
+}
+
 function DynamicQuestionField({
   question,
   value,
@@ -970,11 +1040,9 @@ function DynamicQuestionField({
         />
       )}
       {question.field_type === 'textarea' && (
-        <textarea
-          rows={3}
-          className="cs-textarea"
+        <AutoGrowTextarea
           value={value ?? ''}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(v) => onChange(v)}
         />
       )}
       {question.field_type === 'dropdown' && (

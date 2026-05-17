@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 
@@ -23,6 +23,14 @@ type Leader = {
   ccb_group_id: string | number | null;
 } | null;
 
+type CenterMessage = {
+  id: string;
+  header: string;
+  body_html: string;
+  url: string | null;
+  url_label: string | null;
+};
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -41,46 +49,48 @@ export default function CircleSummaryEventsPage() {
   const urlGroupId = params.ccbGroupId;
   const [leader, setLeader] = useState<Leader>(null);
   const [events, setEvents] = useState<EventRow[]>([]);
+  const [messages, setMessages] = useState<CenterMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [slowLoad, setSlowLoad] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inFlightRef = useRef(false);
+  const lastLoadAtRef = useRef(0);
 
-  useEffect(() => {
-    let cancelled = false;
-    const cacheKey = `cs:events:${urlGroupId}`;
+  const cacheKey = `cs:events:${urlGroupId}`;
+  const invalidationKey = `cs:events:${urlGroupId}:invalidated`;
 
-    // Stale-while-revalidate: paint cached list immediately, then refresh.
-    // localStorage (not sessionStorage) so the cache survives tab close,
-    // making repeat visits feel instant.
-    try {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed?.leader) setLeader(parsed.leader);
-        if (Array.isArray(parsed?.events)) setEvents(parsed.events);
-        setLoading(false);
+  const loadEvents = useCallback(
+    async (opts: { force?: boolean; paintCached?: boolean } = {}) => {
+      if (inFlightRef.current) return;
+      inFlightRef.current = true;
+
+      const { force = false, paintCached = false } = opts;
+      let cancelled = false;
+
+      // Stale-while-revalidate: optionally paint cached list immediately, then refresh.
+      if (paintCached) {
+        try {
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed?.leader) setLeader(parsed.leader);
+            if (Array.isArray(parsed?.events)) setEvents(parsed.events);
+            setLoading(false);
+            setRefreshing(true);
+          }
+        } catch {}
       }
-    } catch {}
 
-    const slowTimer = setTimeout(() => {
-      if (!cancelled) setSlowLoad(true);
-    }, 5000);
-
-    (async () => {
-      // Fire /me alongside /events so the header (leader name/campus) and
-      // stats pill can paint as soon as the cheap query returns — even while
-      // the slower CCB-backed events list is still loading.
-      const mePromise = fetch('/api/circle-summary/me/')
-        .then((r) => (r.ok ? r.json() : null))
-        .catch(() => null);
-
-      mePromise.then((meData) => {
-        if (cancelled || !meData?.leader) return;
-        setLeader((prev) => prev ?? meData.leader);
-      });
+      const slowTimer = setTimeout(() => {
+        if (!cancelled) setSlowLoad(true);
+      }, 5000);
 
       try {
-        const res = await fetch('/api/circle-summary/events/');
+        const qs = force ? '?refresh=1' : '';
+        const res = await fetch(`/api/circle-summary/events/${qs}`, {
+          cache: 'no-store',
+        });
         if (res.status === 401) {
           router.replace('/circle-summary');
           return;
@@ -88,7 +98,8 @@ export default function CircleSummaryEventsPage() {
         const data = await res.json();
         if (cancelled) return;
 
-        const leaderGroupId = data.leader?.ccb_group_id != null ? String(data.leader.ccb_group_id) : null;
+        const leaderGroupId =
+          data.leader?.ccb_group_id != null ? String(data.leader.ccb_group_id) : null;
         if (leaderGroupId && leaderGroupId !== urlGroupId) {
           router.replace(`/circle-summary/${leaderGroupId}/events`);
           return;
@@ -99,28 +110,73 @@ export default function CircleSummaryEventsPage() {
         if (data.error) setError(data.error);
         else setError(null);
         if (data.message && !data.events?.length) setError(data.message);
-
         try {
           localStorage.setItem(
             cacheKey,
             JSON.stringify({ leader: data.leader, events: data.events || [] })
           );
         } catch {}
+        lastLoadAtRef.current = Date.now();
       } catch (e: any) {
         if (!cancelled) setError(e?.message || 'Could not load events.');
       } finally {
         if (!cancelled) {
           setLoading(false);
+          setRefreshing(false);
           setSlowLoad(false);
           clearTimeout(slowTimer);
         }
+        inFlightRef.current = false;
       }
-    })();
-    return () => {
-      cancelled = true;
-      clearTimeout(slowTimer);
+    },
+    [cacheKey, router, urlGroupId]
+  );
+
+  useEffect(() => {
+    // If we just submitted (or otherwise know the cache is stale), skip the
+    // cached paint and force a fresh server fetch — accuracy beats speed here.
+    let invalidated = false;
+    try {
+      invalidated = sessionStorage.getItem(invalidationKey) === '1';
+      if (invalidated) sessionStorage.removeItem(invalidationKey);
+    } catch {}
+
+    // Fire /me + messages alongside /events so the header and message center
+    // paint as soon as their cheap queries return.
+    fetch('/api/circle-summary/me/')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((meData) => {
+        if (!meData?.leader) return;
+        setLeader((prev) => prev ?? meData.leader);
+      })
+      .catch(() => {});
+
+    fetch('/api/circle-summary/messages/')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d?.messages) return;
+        setMessages(d.messages);
+      })
+      .catch(() => {});
+
+    loadEvents({ force: invalidated, paintCached: !invalidated });
+
+    // Re-fetch when the tab returns to focus — leaders often submit, switch
+    // apps, then come back; keep the list current without a manual reload.
+    // Skip if we just loaded (< 15s ago) so rapid tab switching doesn't
+    // pound CCB on every focus event.
+    const onFocus = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastLoadAtRef.current < 15_000) return;
+      loadEvents({ force: true });
     };
-  }, [router, urlGroupId]);
+    document.addEventListener('visibilitychange', onFocus);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', onFocus);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [invalidationKey, loadEvents]);
 
   async function signOut() {
     await fetch('/api/circle-summary/auth/logout/', { method: 'POST' });
@@ -157,7 +213,7 @@ export default function CircleSummaryEventsPage() {
 
           {/* Stats pill — give leaders a quick sense of their status at a glance */}
           {!loading && events.length > 0 && (
-            <div className="mt-4 flex items-center gap-3">
+            <div className="mt-4 flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-1.5 bg-white/15 rounded-full px-3 py-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-300 inline-block" />
                 <span className="text-white/90 text-xs font-semibold">{submitted} submitted</span>
@@ -168,10 +224,65 @@ export default function CircleSummaryEventsPage() {
                   <span className="text-white/90 text-xs font-semibold">{pending} need{pending === 1 ? 's' : ''} summary</span>
                 </div>
               )}
+              <button
+                type="button"
+                onClick={() => loadEvents({ force: true })}
+                disabled={refreshing}
+                aria-label="Refresh events"
+                className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 disabled:opacity-70 rounded-full px-3 py-1 transition-colors"
+              >
+                <svg
+                  className={`w-3 h-3 text-white/90 ${refreshing ? 'animate-spin' : ''}`}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v6h6M20 20v-6h-6" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20 10A8 8 0 006.34 6.34M4 14a8 8 0 0013.66 3.66" />
+                </svg>
+                <span className="text-white/90 text-xs font-semibold">
+                  {refreshing ? 'Refreshing…' : 'Refresh'}
+                </span>
+              </button>
             </div>
           )}
         </div>
       </header>
+
+      {messages.length > 0 && (
+        <section className="max-w-2xl mx-auto px-4 pt-5 -mb-1 space-y-2.5">
+          {messages.map((m) => (
+            <article
+              key={m.id}
+              className="bg-white border border-neutral-200 rounded-2xl p-4 shadow-sm"
+            >
+              <h2 className="text-sm font-bold text-neutral-900 tracking-tight">
+                {m.header}
+              </h2>
+              {m.body_html && (
+                <div
+                  className="cs-message-body text-sm text-neutral-700 mt-1.5 leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: m.body_html }}
+                />
+              )}
+              {m.url && (
+                <a
+                  href={m.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="cs-message-cta"
+                >
+                  <span>{m.url_label || 'Learn more'}</span>
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </a>
+              )}
+            </article>
+          ))}
+        </section>
+      )}
 
       <main className="max-w-2xl mx-auto px-4 py-6">
         {loading && (
@@ -279,7 +390,7 @@ export default function CircleSummaryEventsPage() {
         )}
 
         <p className="text-center text-xs text-neutral-400 mt-8">
-          Questions? Email us at <a href="mailto:nextsteps@valleycreek.org" className="underline text-neutral-400 hover:text-white">nextsteps@valleycreek.org</a>.
+          Questions? Email us at <a href="mailto:nextsteps@valleycreek.org" className="cs-footer-link">nextsteps@valleycreek.org</a>.
         </p>
       </main>
     </>

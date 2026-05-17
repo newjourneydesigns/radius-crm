@@ -256,7 +256,7 @@ function CardDetailModal({
   const [movingToBoard, setMovingToBoard] = useState(false);
   const [linkedLeaderId, setLinkedLeaderId] = useState<number | null>(card.linked_leader_id ?? null);
   const [isFocused, setIsFocused] = useState(card.is_focused ?? false);
-  const [allLeaders, setAllLeaders] = useState<{ id: number; name: string }[]>([]);
+  const [allLeaders, setAllLeaders] = useState<{ id: number; name: string; ccb_group_id?: string | null }[]>([]);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [suggestionError, setSuggestionError] = useState('');
   const [suggestions, setSuggestions] = useState<{ text: string; kind: string; sourceLine: number; sourceQuote: string }[]>([]);
@@ -272,8 +272,8 @@ function CardDetailModal({
       .then(({ data }) => { if (data) setAllBoards(data as ProjectBoard[]); });
   }, []);
   useEffect(() => {
-    supabase.from('circle_leaders').select('id, name').order('name')
-      .then(({ data }) => { if (data) setAllLeaders(data as { id: number; name: string }[]); });
+    supabase.from('circle_leaders').select('id, name, ccb_group_id').order('name')
+      .then(({ data }) => { if (data) setAllLeaders(data as { id: number; name: string; ccb_group_id?: string | null }[]); });
   }, []);
 
   // Auto-save: debounce 600ms after any field change
@@ -341,6 +341,53 @@ function CardDetailModal({
   const toggleLabel = (labelId: string) => {
     setEditLabels(prev => prev.includes(labelId) ? prev.filter(id => id !== labelId) : [...prev, labelId]);
   };
+
+  // ── Keyboard shortcuts inside modal (mirrors board shortcuts but uses local edit state) ──
+  const { user: modalUser } = useAuth();
+  useEffect(() => {
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
+    if (isMobile) return;
+
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const tag = target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        if (confirm(`Delete "${card.title}"?`)) {
+          onDelete();
+        }
+      } else if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault();
+        onUpdate({ is_complete: !card.is_complete });
+      } else if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        if (!modalUser) return;
+        const alreadyAssigned = (card.assignments || []).some(a => a.user_id === modalUser.id);
+        if (alreadyAssigned) {
+          onUnassignCard(modalUser.id);
+        } else {
+          onAssignCard(modalUser.id);
+        }
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        handleToggleFocus();
+      } else if (/^[0-9]$/.test(e.key)) {
+        e.preventDefault();
+        const sortedLabels = [...(board.labels || [])].sort((a, b) => a.name.localeCompare(b.name));
+        const idx = e.key === '0' ? 9 : parseInt(e.key, 10) - 1;
+        if (idx < sortedLabels.length) {
+          toggleLabel(sortedLabels[idx].id);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [card.id, card.is_complete, card.assignments, board.labels, modalUser, isFocused]);
 
   const handleTargetBoardChange = async (boardId: string) => {
     setTargetBoardId(boardId);
@@ -1366,20 +1413,46 @@ function CardDetailModal({
               {linkedLeaderId ? (() => {
                 const leader = allLeaders.find(l => l.id === linkedLeaderId);
                 return (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Link
-                      href={`/circle/${linkedLeaderId}`}
-                      style={{ flex: 1, color: '#818cf8', fontSize: 13, fontWeight: 500, textDecoration: 'none' }}
-                      onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
-                      onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
-                    >
-                      {leader?.name ?? `Leader #${linkedLeaderId}`}
-                    </Link>
-                    <button
-                      className="kb-btn-icon-sm"
-                      onClick={() => setLinkedLeaderId(null)}
-                      title="Remove link"
-                    ><X size={12} /></button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Link
+                        href={`/circle/${linkedLeaderId}`}
+                        style={{ flex: 1, color: '#818cf8', fontSize: 13, fontWeight: 500, textDecoration: 'none' }}
+                        onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+                        onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
+                      >
+                        {leader?.name ?? `Leader #${linkedLeaderId}`}
+                      </Link>
+                      <button
+                        className="kb-btn-icon-sm"
+                        onClick={() => setLinkedLeaderId(null)}
+                        title="Remove link"
+                      ><X size={12} /></button>
+                    </div>
+                    {leader?.ccb_group_id && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <a
+                          href={`https://valleycreekchurch.ccbchurch.com/goto/groups/${leader.ccb_group_id}/events`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="kb-btn kb-btn-ghost"
+                          style={{ width: '100%', justifyContent: 'center', gap: 6 }}
+                        >
+                          <CalendarDays size={13} />
+                          View CCB Calendar
+                        </a>
+                        <a
+                          href={`https://valleycreekchurch.ccbchurch.com/group_edit.php?ax=edit&group_id=${leader.ccb_group_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="kb-btn kb-btn-ghost"
+                          style={{ width: '100%', justifyContent: 'center', gap: 6 }}
+                        >
+                          <ExternalLink size={13} />
+                          Edit Group in CCB
+                        </a>
+                      </div>
+                    )}
                   </div>
                 );
               })() : (
@@ -3091,7 +3164,7 @@ function BoardPage() {
       // Ignore when typing in inputs, textareas, or contentEditable
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement).isContentEditable) return;
-      // Ignore when a modal is open
+      // Ignore when a modal is open — the modal owns its own keyboard shortcuts
       if (selectedCard) return;
 
       if (!hoveredCardId || !board) return;

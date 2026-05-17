@@ -23,8 +23,10 @@ export const dynamic = 'force-dynamic';
 // requested repeatedly as leaders bounce between the events list and a detail
 // page, so a short cache lets us avoid a 1–3s round trip to CCB on every hit.
 // Process-local; serverless cold starts will repopulate it on first request.
+// Kept short (20s) so CCB-direct edits surface quickly; clients can force a
+// hard bypass with `?refresh=1` (used after a submit and on manual refresh).
 type CacheEntry<T> = { value: T; expiresAt: number };
-const CCB_CACHE_TTL_MS = 60_000;
+const CCB_CACHE_TTL_MS = 20_000;
 const ccbCalCache = new Map<string, CacheEntry<any[]>>();
 const ccbAttendanceCache = new Map<string, CacheEntry<any>>();
 
@@ -53,11 +55,18 @@ export async function GET(req: Request) {
     });
   }
 
+  const url = new URL(req.url);
+  const forceRefresh = url.searchParams.get('refresh') === '1';
+
   const end = DateTime.now().setZone('America/Chicago');
   const start = end.minus({ weeks: 8 });
   const startStr = start.toFormat('yyyy-LL-dd');
   const endStr = end.toFormat('yyyy-LL-dd');
   const cacheKey = `${leader.ccb_group_id}|${startStr}|${endStr}`;
+  if (forceRefresh) {
+    ccbCalCache.delete(cacheKey);
+    ccbAttendanceCache.delete(cacheKey);
+  }
 
   const ccb = createCCBClient(
     await getCCBRequestContext(req, { module: 'circle-summary', action: 'list_events' })

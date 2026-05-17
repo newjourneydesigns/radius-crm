@@ -1,5 +1,101 @@
 [
   {
+    "date": "2026-05-17",
+    "type": "fix",
+    "description": "Circle Summary now shows CCB notes consistently even when a local draft exists for that event; CCB notes are returned as dedicated reference notes instead of being hidden by draft source handling.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-17",
+    "type": "fix",
+    "description": "Circle Summary now also checks CCB for the composed previous notes when a submitted RADIUS summary has its answer stored in dynamic responses instead of the legacy notes field.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-17",
+    "type": "feature",
+    "description": "The \"Notes from your last summary\" card on Circle Summary now has an \"Edit these notes\" button that drops the previous notes into the gathering textarea so you can update them in place.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-17",
+    "type": "improvement",
+    "description": "Clearer wording on the \"previously saved notes\" reference card in Circle Summary — now explains the notes are just for reference and don't need to be retyped.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-17",
+    "type": "fix",
+    "description": "Circle Summary now reliably pulls in notes and attendees that were entered directly in CCB — an empty auto-saved draft from a previous visit no longer hides the prefilled data.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-17",
+    "type": "improvement",
+    "description": "Notes fields on the Circle Summary form now auto-expand as you type, so longer reflections are easy to read without scrolling inside a tiny box.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-17",
+    "type": "improvement",
+    "description": "Message Center announcements now only appear on the Circle Summary events list — they no longer clutter the individual summary submission page.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-17",
+    "type": "improvement",
+    "description": "Renamed the third step of the Circle Summary form from \"A few more things\" to \"Tell us more\" — a friendlier prompt for sharing notes about the gathering.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-17",
+    "type": "improvement",
+    "description": "The \"Circle Summary Page\" button on a Circle Leader profile now auto-signs you in as that leader and opens their events page in a new tab — no more sign-in screen for admins.",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-05-17",
+    "type": "improvement",
+    "description": "Circle Summary events list is now bulletproof on accuracy: after you submit a summary, the list force-refreshes from CCB instead of showing a cached \"Pending\" badge. Added a Refresh button in the header with a live \"Refreshing…\" indicator, automatic refresh when you switch back to the tab, and a shorter server-side cache so CCB-direct edits surface within seconds.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-17",
+    "type": "improvement",
+    "description": "Moved Dynamic Questions admin into the Tools menu and renamed it to \"Circle Summary Questions\" for easier access. The standalone Circle Summary tab in Organization Settings has been removed.",
+    "page": "/admin/dynamic-questions"
+  },
+  {
+    "date": "2026-05-17",
+    "type": "feature",
+    "description": "New Message Center on the Circle Summary events page: admins can post rich-text announcements (with optional link button) that appear as a banner below the green hero. Manage messages under the new \"Message Center\" tab on /admin/dynamic-questions — supports campus targeting, start/end dates, and priority ordering.",
+    "page": "/admin/dynamic-questions"
+  },
+  {
+    "date": "2026-05-17",
+    "type": "improvement",
+    "description": "Added a \"View leader's Circle Summary page\" link in the Event Summary section of each Circle Leader profile, so you can open the leader-facing summary page directly in a new tab (requires CCB Group ID).",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-05-17",
+    "type": "improvement",
+    "description": "Board keyboard shortcuts now work while a card is open: 0–9 toggle labels, C completes, M assigns/unassigns you, F toggles focus, Del/Backspace deletes (with confirm). Typing inside the title, description, comments, or checklist inputs still behaves normally.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-05-17",
+    "type": "improvement",
+    "description": "Board cards with a linked Circle Leader now show \"View CCB Calendar\" and \"Edit Group in CCB\" buttons in the card detail panel (when the leader has a CCB Group ID set).",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-05-17",
+    "type": "improvement",
+    "description": "Circle profile → CCB Circle Link section now shows two buttons when a CCB Group ID is set: \"View CCB Calendar\" (jumps to the group's events) and \"Edit Group in CCB\" (opens the group edit page in CCB).",
+    "page": "/circle"
+  },
+  {
     "date": "2026-05-14",
     "type": "improvement",
     "description": "Circle Summary reminder emails: follow-up emails now use warm, inviting language ("we'd love to hear about your Circle") instead of deficit framing. Magic link now lands on the events list page so leaders always land on a working screen. Footer now says \"staff contact\" instead of referencing ACPDs.",

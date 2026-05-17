@@ -193,6 +193,7 @@ export default function CircleLeaderProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isUpdatingEventSummary, setIsUpdatingEventSummary] = useState(false);
   const [isSendingMagicLink, setIsSendingMagicLink] = useState(false);
+  const [isOpeningCircleSummary, setIsOpeningCircleSummary] = useState(false);
   const [isUpdatingFollowUp, setIsUpdatingFollowUp] = useState(false);
   const [showFollowUpDateModal, setShowFollowUpDateModal] = useState(false);
   const [followUpDateValue, setFollowUpDateValue] = useState('');
@@ -1074,6 +1075,53 @@ export default function CircleLeaderProfilePage() {
     }
   };
 
+  const handleOpenCircleSummaryPage = async () => {
+    if (!leader) return;
+    // Open the tab synchronously so popup blockers don't kill it after the fetch.
+    const pending = window.open('about:blank', '_blank');
+    setIsOpeningCircleSummary(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess?.session?.access_token;
+      if (!token) {
+        if (pending) pending.close();
+        setShowAlert({ isOpen: true, type: 'error', title: 'Not signed in', message: 'Please sign in again.' });
+        return;
+      }
+      const res = await fetch('/api/circle-summary/admin-magic-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ leader_id: leader.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.url) {
+        if (pending) pending.close();
+        setShowAlert({
+          isOpen: true,
+          type: 'error',
+          title: 'Could not open Circle Summary',
+          message: data?.error || `Request failed (${res.status}). Try again.`,
+        });
+        return;
+      }
+      if (pending) {
+        pending.location.href = data.url;
+      } else {
+        window.location.href = data.url;
+      }
+    } catch (e: any) {
+      if (pending) pending.close();
+      setShowAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Open failed',
+        message: e?.message || 'Try again.',
+      });
+    } finally {
+      setIsOpeningCircleSummary(false);
+    }
+  };
+
   // Follow-up handlers
   const handleFollowUpClick = () => {
     if (!leader) return;
@@ -1796,6 +1844,8 @@ export default function CircleLeaderProfilePage() {
                       ))}
                     </div>
 
+                    <div className="border-t border-slate-700/80 pt-2" />
+
                     <button
                       type="button"
                       onClick={handleSendMagicLink}
@@ -1809,6 +1859,22 @@ export default function CircleLeaderProfilePage() {
                       </svg>
                       {isSendingMagicLink ? 'Generating link…' : 'Text Circle Summary link'}
                     </button>
+
+                    {leader.ccb_group_id && (
+                      <button
+                        type="button"
+                        onClick={handleOpenCircleSummaryPage}
+                        disabled={isOpeningCircleSummary}
+                        className="w-full h-9 flex items-center justify-center gap-2 rounded-lg border border-slate-600 bg-slate-700 text-slate-100 text-sm font-medium shadow-sm hover:bg-slate-600 hover:border-slate-500 transition-colors disabled:opacity-50"
+                        title="Open the leader's Circle Summary page in a new tab (auto sign-in)"
+                      >
+                        <svg className="w-3 h-3 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
+                          <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
+                        </svg>
+                        {isOpeningCircleSummary ? 'Opening…' : 'Circle Summary Page'}
+                      </button>
+                    )}
 
                     <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-900/30 px-3 py-2">
                       <div className="flex items-center gap-2.5 min-w-0">
@@ -2210,7 +2276,32 @@ export default function CircleLeaderProfilePage() {
                         />
                       ) : (
                         <span className="text-sm text-slate-200">
-                          {leader.ccb_profile_link ? (
+                          {leader.ccb_group_id ? (
+                            <div className="flex flex-wrap gap-2">
+                              <a
+                                href={`https://valleycreekchurch.ccbchurch.com/goto/groups/${leader.ccb_group_id}/events`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center px-3 py-2 bg-gray-100/80 dark:bg-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-gray-200/80 dark:hover:bg-gray-600/60 rounded-xl transition-all duration-200 text-sm font-medium hover:scale-[1.02] active:scale-[0.98] backdrop-blur-sm"
+                              >
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                View CCB Calendar
+                              </a>
+                              <a
+                                href={`https://valleycreekchurch.ccbchurch.com/group_edit.php?ax=edit&group_id=${leader.ccb_group_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center px-3 py-2 bg-gray-100/80 dark:bg-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-gray-200/80 dark:hover:bg-gray-600/60 rounded-xl transition-all duration-200 text-sm font-medium hover:scale-[1.02] active:scale-[0.98] backdrop-blur-sm"
+                              >
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                                Edit Group in CCB
+                              </a>
+                            </div>
+                          ) : leader.ccb_profile_link ? (
                             <a
                               href={leader.ccb_profile_link}
                               target="_blank"
@@ -2585,11 +2676,13 @@ export default function CircleLeaderProfilePage() {
                         ))}
                       </div>
 
+                      <div className="border-t border-slate-700/80 pt-2" />
+
                       <button
                         type="button"
                         onClick={handleSendMagicLink}
                         disabled={isSendingMagicLink}
-                        className="w-full h-9 mt-2 flex items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 text-sm font-medium hover:bg-emerald-500/20 hover:text-emerald-200 transition-colors disabled:opacity-50"
+                        className="w-full h-9 flex items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 text-sm font-medium hover:bg-emerald-500/20 hover:text-emerald-200 transition-colors disabled:opacity-50"
                         title="Open your texting app with a pre-filled Circle Summary sign-in link"
                       >
                         <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
@@ -2598,6 +2691,22 @@ export default function CircleLeaderProfilePage() {
                         </svg>
                         {isSendingMagicLink ? 'Generating link…' : 'Text Circle Summary link'}
                       </button>
+
+                      {leader.ccb_group_id && (
+                        <button
+                          type="button"
+                          onClick={handleOpenCircleSummaryPage}
+                          disabled={isOpeningCircleSummary}
+                          className="w-full h-9 flex items-center justify-center gap-2 rounded-lg border border-slate-500 bg-slate-700 text-slate-100 text-sm font-medium shadow-sm hover:bg-slate-600 hover:border-slate-400 transition-colors disabled:opacity-50"
+                          title="Open the leader's Circle Summary page in a new tab (auto sign-in)"
+                        >
+                          <svg className="w-3 h-3 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
+                            <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
+                          </svg>
+                          {isOpeningCircleSummary ? 'Opening…' : 'Circle Summary Page'}
+                        </button>
+                      )}
 
                       <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-900/30 px-3 py-2">
                         <div className="flex items-center gap-2.5 min-w-0">
