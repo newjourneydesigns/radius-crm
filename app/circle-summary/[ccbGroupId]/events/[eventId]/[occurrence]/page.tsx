@@ -840,11 +840,14 @@ export default function CircleSummaryFormPage() {
         {previousNotes && !didNotMeet && (() => {
           const targetQuestion = visibleQuestions.find((q) => q.field_type === 'textarea');
           return (
-            <div className="cs-card bg-amber-50 border-amber-200">
-              <div className="text-xs font-bold uppercase tracking-wide text-amber-800 mb-1.5">
-                Notes from your last summary
+            <div className="cs-card cs-previous-notes">
+              <div className="cs-previous-notes-label">
+                Saved Notes
               </div>
-              <p className="text-sm text-neutral-800 whitespace-pre-wrap leading-relaxed">
+              <p className="cs-previous-notes-help">
+                Here&apos;s what you shared last time, in case it helps with this summary.
+              </p>
+              <p className="cs-previous-notes-body">
                 {previousNotes}
               </p>
               {targetQuestion && (
@@ -857,7 +860,7 @@ export default function CircleSummaryFormPage() {
                     }}
                     className="cs-btn-outline text-xs px-3 py-1.5"
                   >
-                    Edit these notes
+                    Start with these notes
                   </button>
                 </div>
               )}

@@ -188,6 +188,36 @@ body:has(.cs-root) {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
+.cs-previous-notes {
+  background: linear-gradient(180deg, #ffffff 0%, #f5fbf5 100%);
+  border-color: #cbe7cb;
+  border-left: 4px solid var(--cs-green);
+}
+
+.cs-previous-notes-label {
+  color: var(--cs-green-darker) !important;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.cs-previous-notes-help {
+  color: var(--cs-ink-soft) !important;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  margin-top: 0.35rem;
+}
+
+.cs-previous-notes-body {
+  color: var(--cs-ink) !important;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  margin-top: 1rem;
+  white-space: pre-wrap;
+}
+
 /* Event row cards — left border communicates status without relying solely on badge text */
 .cs-event-row {
   background: #ffffff;
