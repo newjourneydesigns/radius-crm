@@ -81,7 +81,7 @@ function emailShell(opts: {
           ${
             footer
               ? `<tr>
-                <td style="padding:18px 28px 28px 28px;border-top:1px solid #eeeeee;color:#7A7A7A;font-size:12px;line-height:1.5;">
+                <td style="padding:18px 28px 28px 28px;border-top:1px solid #eeeeee;color:#7A7A7A;font-size:12px;line-height:1.5;text-align:center;">
                   ${footer}
                 </td>
               </tr>`
@@ -141,7 +141,7 @@ export async function sendReminderEmail(opts: {
 }): Promise<{ success: boolean; error?: string }> {
   const { to, leaderName, kind, meetingDateLabel, magicLinkUrl } = opts;
 
-  const heroTitle = kind === 'pre_meeting' ? 'Circle Tonight' : 'Circle Summary';
+  const heroTitle = 'Circle Summary';
   const heroSubtitle =
     kind === 'pre_meeting'
       ? `Coming up: ${meetingDateLabel}`
@@ -152,13 +152,13 @@ export async function sendReminderEmail(opts: {
       : `We'd love to hear about your Circle — ${meetingDateLabel}`;
   const preheader =
     kind === 'pre_meeting'
-      ? `One tap to submit your Circle summary after tonight.`
+      ? `One tap to submit your Circle summary.`
       : `Tell us how your Circle gathering went.`;
 
   const greeting = `<p style="margin:0 0 12px 0;">Hi ${escapeHtml(leaderName.split(' ')[0] || 'there')},</p>`;
   const lead =
     kind === 'pre_meeting'
-      ? `<p style="margin:0 0 12px 0;">Your Circle is meeting <strong>${escapeHtml(meetingDateLabel)}</strong>. After you gather, tap below to send your summary in under a minute — attendance, what stood out, and any prayer requests.</p>`
+      ? `<p style="margin:0 0 12px 0;">Your Circle is meeting <strong>${escapeHtml(meetingDateLabel)}</strong>. After you gather, tap below to send your summary in under a minute — attendance and what stood out.</p>`
       : `<p style="margin:0 0 12px 0;">We'd love to hear about your Circle from <strong>${escapeHtml(meetingDateLabel)}</strong>. It only takes a minute — tap below to share what God did in your gathering.</p>`;
   const note = `<p style="margin:12px 0 0 0;color:#7A7A7A;font-size:14px;">Tapping the button signs you in automatically — no password needed.</p>`;
 
@@ -169,7 +169,7 @@ export async function sendReminderEmail(opts: {
     bodyHtml: `${greeting}${lead}${note}`,
     ctaUrl: magicLinkUrl,
     ctaLabel: 'Submit my Circle Summary',
-    footer: `You're getting this because reminders are turned on for your Circle Leader profile. To stop, contact your staff contact.`,
+    footer: `To stop the reminders, please contact your Valley Creek staff contact or email <a href="mailto:nextsteps@valleycreek.org" style="color:${VCC_GREEN_DARK};">nextsteps@valleycreek.org</a>.`,
   });
 
   return sendBrandedEmail({ to, subject, html });
