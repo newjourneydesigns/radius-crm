@@ -1,5 +1,23 @@
 [
   {
+    "date": "2026-05-18",
+    "type": "feature",
+    "description": "Redesigned Help Center — fuzzy search, category chips, expandable knowledge-base articles, real-world workflows, glossary, FAQ, and a What's New strip pulled from the update log.",
+    "page": "/help"
+  },
+  {
+    "date": "2026-05-18",
+    "type": "improvement",
+    "description": "Find Leaders search now shows only Active leaders, hiding invited, on-boarding, paused, off-boarding, and archived statuses.",
+    "page": "/search"
+  },
+  {
+    "date": "2026-05-18",
+    "type": "improvement",
+    "description": "Roster column on Find Leaders is now hidden for signed-out visitors and only shown to authenticated users.",
+    "page": "/search"
+  },
+  {
     "date": "2026-05-17",
     "type": "fix",
     "description": "Circle Summary now shows CCB notes consistently even when a local draft exists for that event; CCB notes are returned as dedicated reference notes instead of being hidden by draft source handling.",

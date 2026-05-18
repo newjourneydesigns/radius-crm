@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { CircleLeader } from '../../lib/supabase';
 import DashboardFilterAdapter from '../../components/dashboard/DashboardFilterAdapter';
 import ExportModal from '../../components/dashboard/ExportModal';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface CircleSearchResult {
   id: number;
@@ -32,6 +33,9 @@ interface DashboardFilters {
 }
 
 export default function SearchPage() {
+  const { isAuthenticated } = useAuth();
+  const signedIn = isAuthenticated();
+
   // localStorage key for persisting filters
   const STORAGE_KEY = 'radius-find-circle-filters';
   const SORT_STORAGE_KEY = 'radius-find-circle-sort';
@@ -104,9 +108,9 @@ export default function SearchPage() {
           throw allError;
         }
 
-        // Filter for circles excluding archived ones
-        const visibleCircles = allData?.filter(circle => 
-          circle.status !== 'archive'
+        // Only show active leaders
+        const visibleCircles = allData?.filter(circle =>
+          (circle.status || '').toLowerCase() === 'active'
         ) || [];
 
         setCircles(visibleCircles);
@@ -358,6 +362,7 @@ export default function SearchPage() {
                 </span>
               )}
               {(() => {
+                if (!signedIn) return null;
                 const totalRoster = filteredCircles.reduce((sum, c) => sum + (rosterCounts[c.id] || 0), 0);
                 return totalRoster > 0 ? (
                   <span className="ml-3 text-gray-400 dark:text-gray-500">
@@ -462,14 +467,16 @@ export default function SearchPage() {
                       </div>
                     </th>
 
-                    <th 
-                      scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
-                    >
-                      <div className="flex items-center space-x-1">
-                        <span>Roster</span>
-                      </div>
-                    </th>
+                    {signedIn && (
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span>Roster</span>
+                        </div>
+                      </th>
+                    )}
 
                   </tr>
                 </thead>
@@ -505,6 +512,7 @@ export default function SearchPage() {
                         </div>
                       </td>
 
+                      {signedIn && (
                       <td className="px-6 py-4 whitespace-nowrap">
                         {rosterCounts[circle.id] ? (
                           <Link
@@ -527,6 +535,7 @@ export default function SearchPage() {
                           <span className="text-xs text-gray-300 dark:text-gray-600">—</span>
                         )}
                       </td>
+                      )}
 
                     </tr>
                   ))}

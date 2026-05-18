@@ -1,649 +1,1254 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef, ReactNode } from 'react';
 import Link from 'next/link';
+import Fuse from 'fuse.js';
 import ProtectedRoute from '../../components/ProtectedRoute';
 
-const sections = [
-  { id: 'overview',         title: 'Overview' },
-  { id: 'dashboard',        title: 'Dashboard' },
-  { id: 'progress',         title: 'Progress Page' },
-  { id: 'calendar',         title: 'Calendar' },
-  { id: 'prayer',           title: 'Prayer List' },
-  { id: 'leaders',          title: 'Circle Leaders' },
-  { id: 'circle-profiles',  title: 'Leader Profiles' },
-  { id: 'circle-visits',    title: 'Circle Visits' },
-  { id: 'todos',            title: 'To-Do Items' },
-  { id: 'notes',            title: 'Notes & Templates' },
-  { id: 'encourage',        title: 'Encourage Feature' },
-  { id: 'filters',          title: 'Filtering & Search' },
-  { id: 'contact',          title: 'Contact Features' },
-  { id: 'person-lookup',    title: 'Person Lookup' },
-  { id: 'circle-roster',    title: 'Circle Roster' },
-  { id: 'ccb',              title: 'CCB Explorer' },
-  { id: 'settings',         title: 'Settings' },
-  { id: 'pwa',              title: 'Mobile App (PWA)' },
-  { id: 'admin',            title: 'Admin Tools' },
+type Level = 'beginner' | 'intermediate' | 'power';
+type Category =
+  | 'Getting Started'
+  | 'Daily Workflow'
+  | 'Leaders'
+  | 'Notes & To-Dos'
+  | 'Boards & Projects'
+  | 'Circle Summary'
+  | 'Scorecards'
+  | 'CCB & Lookup'
+  | 'Communication'
+  | 'AI Tools'
+  | 'Mobile & PWA'
+  | 'Admin'
+  | 'FAQ';
+
+type Article = {
+  id: string;
+  title: string;
+  category: Category;
+  level: Level;
+  tags: string[];
+  snippet: string;
+  body: ReactNode;
+  tryIt?: { label: string; href: string };
+};
+
+type ChangelogEntry = {
+  date: string;
+  type: 'feature' | 'improvement' | 'fix';
+  description: string;
+  page?: string;
+};
+
+const CATEGORIES: Category[] = [
+  'Getting Started',
+  'Daily Workflow',
+  'Leaders',
+  'Notes & To-Dos',
+  'Boards & Projects',
+  'Circle Summary',
+  'Scorecards',
+  'CCB & Lookup',
+  'Communication',
+  'AI Tools',
+  'Mobile & PWA',
+  'Admin',
+  'FAQ',
 ];
 
+const LEVEL_STYLES: Record<Level, string> = {
+  beginner: 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30',
+  intermediate: 'bg-sky-500/15 text-sky-300 ring-1 ring-sky-500/30',
+  power: 'bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30',
+};
+
+const LEVEL_LABEL: Record<Level, string> = {
+  beginner: 'Newcomer',
+  intermediate: 'Regular',
+  power: 'Power user',
+};
+
+// ────────────────────────────────────────────────────────────────────
+// Article content
+// ────────────────────────────────────────────────────────────────────
+
+const Para = ({ children }: { children: ReactNode }) => (
+  <p className="text-sm leading-relaxed text-slate-300 mb-3">{children}</p>
+);
+const H = ({ children }: { children: ReactNode }) => (
+  <h4 className="text-sm font-semibold text-white mt-4 mb-2 tracking-tight">{children}</h4>
+);
+const UL = ({ children }: { children: ReactNode }) => (
+  <ul className="list-disc list-outside pl-5 space-y-1 text-sm text-slate-300 mb-3 marker:text-slate-500">{children}</ul>
+);
+const OL = ({ children }: { children: ReactNode }) => (
+  <ol className="list-decimal list-outside pl-5 space-y-1 text-sm text-slate-300 mb-3 marker:text-slate-500">{children}</ol>
+);
+const Kbd = ({ children }: { children: ReactNode }) => (
+  <kbd className="px-1.5 py-0.5 rounded bg-slate-700/80 text-slate-100 border border-slate-600/80 text-[11px] font-mono">{children}</kbd>
+);
+const Callout = ({ tone = 'tip', title, children }: { tone?: 'tip' | 'warn' | 'pro'; title: string; children: ReactNode }) => {
+  const styles =
+    tone === 'warn'
+      ? 'bg-amber-500/10 border-amber-500/30 text-amber-200'
+      : tone === 'pro'
+      ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-100'
+      : 'bg-sky-500/10 border-sky-500/30 text-sky-100';
+  return (
+    <div className={`rounded-lg border px-3 py-2.5 text-xs my-3 ${styles}`}>
+      <div className="font-semibold mb-0.5">{title}</div>
+      <div className="text-[12px] leading-relaxed opacity-90">{children}</div>
+    </div>
+  );
+};
+
+const ARTICLES: Article[] = [
+  // ─── Getting Started ───
+  {
+    id: 'what-is-radius',
+    title: 'What is RADIUS?',
+    category: 'Getting Started',
+    level: 'beginner',
+    tags: ['intro', 'overview', 'first time'],
+    snippet: "The pastoral CRM for tracking circle leaders, conversations, prayers, and circle health across campuses.",
+    body: (
+      <>
+        <Para>
+          RADIUS is Valley Creek&apos;s internal tool for caring for <strong>Circle Leaders</strong> — the people running our
+          small groups. It pulls roster and event data from <strong>CCB</strong>, layers on pastoral context (notes,
+          prayers, to-dos, encouragements, scorecards), and surfaces what needs your attention this week.
+        </Para>
+        <H>What you can do here</H>
+        <UL>
+          <li>See every leader on your campus and where they stand right now</li>
+          <li>Log calls, texts, emails, in-person, and encouragements in one tap</li>
+          <li>Pull live CCB rosters and event summaries without leaving the app</li>
+          <li>Run scorecard evaluations to track leader development</li>
+          <li>Plan visits and follow-ups on a shared calendar</li>
+          <li>Use AI to summarize circle notes, prep for meetings, and dictate updates</li>
+        </UL>
+        <Callout tone="tip" title="One-minute tour">
+          Open the <strong>Dashboard</strong> → pick your campus → tap any leader card. Everything flows from there.
+        </Callout>
+      </>
+    ),
+    tryIt: { label: 'Open Dashboard', href: '/dashboard' },
+  },
+  {
+    id: 'first-login',
+    title: 'Logging in for the first time',
+    category: 'Getting Started',
+    level: 'beginner',
+    tags: ['login', 'magic link', 'auth', 'sign in', 'password'],
+    snippet: 'RADIUS uses passwordless magic-link login. Enter your email, click the link, you’re in.',
+    body: (
+      <>
+        <OL>
+          <li>Go to the login page and enter the email your admin added you with.</li>
+          <li>Check your inbox — you&apos;ll get a one-time magic link from RADIUS.</li>
+          <li>Click the link on the device you want to be signed in on. Done.</li>
+        </OL>
+        <Callout tone="warn" title="No link arriving?">
+          Check spam, then make sure your email matches exactly what your admin set up. If you have multiple Google
+          accounts, open the link in the same browser profile you requested it from.
+        </Callout>
+      </>
+    ),
+    tryIt: { label: 'Go to login', href: '/login' },
+  },
+  {
+    id: 'navigation',
+    title: 'Finding your way around',
+    category: 'Getting Started',
+    level: 'beginner',
+    tags: ['navigation', 'menu', 'sidebar', 'layout'],
+    snippet: 'The left sidebar covers the daily tools. The avatar menu (top right) holds settings and admin tools.',
+    body: (
+      <>
+        <H>Left sidebar (everyday)</H>
+        <UL>
+          <li><strong>Dashboard</strong> — campus-filtered list of leaders, your home base</li>
+          <li><strong>Today</strong> — what needs you today: follow-ups, due to-dos, upcoming visits</li>
+          <li><strong>Progress</strong> — aggregate engagement stats and your scorecard</li>
+          <li><strong>Calendar</strong> — month/week/day view of visits, to-dos, meeting days</li>
+          <li><strong>Prayer</strong> — general + per-leader prayer points</li>
+          <li><strong>Boards</strong> — kanban projects for cross-leader work</li>
+          <li><strong>Notebook</strong> — your private notes scratchpad</li>
+          <li><strong>Search</strong> / <Kbd>⌘K</Kbd> — find any leader instantly</li>
+        </UL>
+        <H>Avatar menu (top right)</H>
+        <UL>
+          <li>Profile, Settings, Logout</li>
+          <li>Person Lookup, CCB Explorer, Manage Users, Add Leader (Admin only)</li>
+        </UL>
+      </>
+    ),
+  },
+
+  // ─── Daily Workflow ───
+  {
+    id: 'workflow-monday-morning',
+    title: 'Workflow — Monday morning triage',
+    category: 'Daily Workflow',
+    level: 'power',
+    tags: ['workflow', 'weekly', 'monday', 'triage', 'routine'],
+    snippet: "The fifteen-minute routine that keeps every leader on your campus from slipping through the cracks.",
+    body: (
+      <>
+        <OL>
+          <li>Open <strong>Today</strong>. Knock out any follow-ups whose date already passed.</li>
+          <li>Go to <strong>Progress</strong>. Look at the &quot;Event Summary&quot; chart — anyone red?</li>
+          <li>On <strong>Leaders</strong>, filter <em>Status = Follow-Up Required</em> + your campus. Work the list.</li>
+          <li>Filter <em>Event Summary = Not Received</em>. Text those leaders a quick check-in.</li>
+          <li>Open <strong>Calendar</strong> to see visits scheduled this week. Confirm them.</li>
+        </OL>
+        <Callout tone="pro" title="Bookmark this view">
+          Filter state lives in the URL. After you set up the Follow-Up + Campus filter, bookmark the page — that&apos;s
+          your one-click Monday view forever.
+        </Callout>
+      </>
+    ),
+    tryIt: { label: 'Open Today', href: '/today' },
+  },
+  {
+    id: 'workflow-after-circle',
+    title: 'Workflow — After a circle meets',
+    category: 'Daily Workflow',
+    level: 'intermediate',
+    tags: ['workflow', 'circle summary', 'event', 'after meeting'],
+    snippet: 'Within 24 hours of a circle meeting, capture the summary so trends stay accurate.',
+    body: (
+      <>
+        <OL>
+          <li>Open <strong>Circle Summary</strong> from the leader profile or the Circle Summary page.</li>
+          <li>Pick the event date — RADIUS pulls attendees and any CCB notes automatically.</li>
+          <li>Answer the dynamic questions. The form auto-saves a draft as you type.</li>
+          <li>Submit — the event marks as &quot;Received&quot; and updates the Progress charts.</li>
+        </OL>
+        <Callout tone="tip" title="Notes from your last summary">
+          The reference card at the top is read-only — it&apos;s context, not something to retype. Click
+          &quot;Edit these notes&quot; only if you actually want to update what was said last time.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'workflow-1on1',
+    title: 'Workflow — Prepping a 1:1 with a leader',
+    category: 'Daily Workflow',
+    level: 'power',
+    tags: ['1:1', 'meeting prep', 'workflow', 'ai'],
+    snippet: 'Open the profile, hit AI Meeting Prep, and walk in knowing every recent thread.',
+    body: (
+      <>
+        <OL>
+          <li>Open the leader&apos;s profile.</li>
+          <li>Skim pinned notes — they&apos;re the &quot;don&apos;t forget this&quot; surface.</li>
+          <li>Click <strong>AI Meeting Prep</strong>. It summarizes recent notes, encouragements, and circle health into talking points.</li>
+          <li>Check the <strong>Circle Visits</strong> tab — anything you promised follow-up on?</li>
+          <li>After the meeting, log a connection + add a note. Add a follow-up date if needed.</li>
+        </OL>
+        <Callout tone="warn" title="AI uses quota">
+          Meeting Prep calls Gemini. It&apos;s cheap but not free — use it for actual prep, not curiosity.
+        </Callout>
+      </>
+    ),
+  },
+
+  // ─── Leaders ───
+  {
+    id: 'leader-profile',
+    title: 'The leader profile, end to end',
+    category: 'Leaders',
+    level: 'intermediate',
+    tags: ['profile', 'leader', 'tabs'],
+    snippet: 'Everything about a leader lives on the profile: contact, notes, to-dos, visits, connections, prayers.',
+    body: (
+      <>
+        <H>Header strip</H>
+        <UL>
+          <li>Tap-to-call / text / email buttons next to the contact details</li>
+          <li>Status pill — click to change (Invited → On-boarding → Active → Paused → Off-boarding)</li>
+          <li>Follow-up toggle, Event Summary toggle, Encourage button</li>
+          <li>CCB profile link opens their record in CCB in a new tab</li>
+        </UL>
+        <H>Tabs</H>
+        <UL>
+          <li><strong>Notes</strong> — full history, pinned notes float to top, templates and follow-up dates supported</li>
+          <li><strong>To-Do</strong> — leader-scoped tasks with optional repeat cadence</li>
+          <li><strong>Circle Visits</strong> — schedule, log, and review in-circle visits</li>
+          <li><strong>Connections</strong> — chronological log of every interaction</li>
+          <li><strong>Prayers</strong> — prayer points specific to this leader</li>
+          <li><strong>Roster</strong> — CCB group members with one-tap text/call/email (if a CCB Group ID is set)</li>
+        </UL>
+      </>
+    ),
+  },
+  {
+    id: 'statuses-explained',
+    title: 'Leader statuses, explained',
+    category: 'Leaders',
+    level: 'beginner',
+    tags: ['status', 'invited', 'active', 'paused', 'offboarding'],
+    snippet: 'Six statuses describe where a leader is in the lifecycle. Use them as filters, not labels.',
+    body: (
+      <>
+        <UL>
+          <li><strong>Invited</strong> — someone we&apos;ve asked to lead but haven&apos;t fully onboarded</li>
+          <li><strong>On-boarding</strong> — in training/setup, not yet running a circle</li>
+          <li><strong>Active</strong> — running a circle right now</li>
+          <li><strong>Paused</strong> — temporarily not meeting (vacation, life season)</li>
+          <li><strong>Off-boarding</strong> — winding down, exit conversations in progress</li>
+          <li><strong>Archived</strong> — no longer leading; kept for history</li>
+        </UL>
+        <Callout tone="tip" title="Find Leaders shows Active only">
+          The public-facing leader search hides everything but Active so visitors don&apos;t see in-flight statuses.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'filters-and-search',
+    title: 'Filtering and search across the app',
+    category: 'Leaders',
+    level: 'intermediate',
+    tags: ['filter', 'search', 'fuse', 'cmd k', 'find'],
+    snippet: 'Filters are URL-stateful. Search is fuzzy. Combine them aggressively.',
+    body: (
+      <>
+        <H>Global search</H>
+        <Para>
+          <Kbd>⌘K</Kbd> on Mac, <Kbd>Ctrl K</Kbd> on Windows. Fuzzy-matches name, email, campus, circle type — no exact
+          spelling needed.
+        </Para>
+        <H>Leaders page filters</H>
+        <UL>
+          <li>Status (incl. &quot;Follow-Up Required&quot;), Campus, Circle Type, Meeting Day, AM/PM</li>
+          <li>Connected recently (yes/no), Event Summary (received/not received)</li>
+          <li>Active chips show what&apos;s applied — ✕ to drop one, Clear All to reset</li>
+        </UL>
+        <Callout tone="pro" title="URL is the truth">
+          Every filter is encoded in the URL. Bookmark the &quot;needs attention&quot; view, share a link in Slack, or
+          paste it into a doc — it all works.
+        </Callout>
+      </>
+    ),
+  },
+
+  // ─── Notes & To-Dos ───
+  {
+    id: 'notes-deep-dive',
+    title: 'Notes, pinning, and templates',
+    category: 'Notes & To-Dos',
+    level: 'intermediate',
+    tags: ['notes', 'template', 'pin', 'follow up'],
+    snippet: "Notes are the soul of the system. Pin what matters, template what repeats, follow-up what's pending.",
+    body: (
+      <>
+        <H>Three ways to add a note</H>
+        <UL>
+          <li>Quick add from any leader card on Dashboard / Leaders</li>
+          <li>From the leader profile → Notes tab → New Note</li>
+          <li>Auto-generated when you complete a to-do (optional)</li>
+        </UL>
+        <H>Pin sparingly</H>
+        <Para>
+          Pinned notes always stay at the top. Use it for context that should hit your eyes <em>every time</em> you open
+          the profile — health concerns, ongoing prayer needs, key relational background.
+        </Para>
+        <H>Templates</H>
+        <UL>
+          <li>Manage at <strong>Settings → Note Templates</strong></li>
+          <li>While writing a note: <strong>Save as Template</strong> turns it into one for future use</li>
+          <li>Good templates: &quot;Initial Contact&quot;, &quot;Monthly Check-In&quot;, &quot;Difficult Conversation Recap&quot;</li>
+        </UL>
+        <Callout tone="tip" title="Follow-up dates are smart">
+          Attach a date to any note and it shows up on the Calendar AND the Today page when due.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'todos-power',
+    title: 'To-Dos: repeating tasks, calendar sync, note links',
+    category: 'Notes & To-Dos',
+    level: 'power',
+    tags: ['todo', 'task', 'repeat', 'recurring'],
+    snippet: 'Repeating to-dos auto-reset. Due dates land on the calendar. Completion can auto-generate a note.',
+    body: (
+      <>
+        <UL>
+          <li>Create on leader profile or via global to-do widget</li>
+          <li>Daily, weekly, biweekly, monthly, quarterly cadences supported</li>
+          <li>Toggle the &quot;show completed&quot; switch at the top of any to-do list</li>
+          <li>Linking a to-do to a note keeps the action and the record together</li>
+        </UL>
+        <Callout tone="pro" title="Standing rituals">
+          Create a monthly-repeating to-do called &quot;Check in&quot; on each Active leader. The first of the month becomes
+          a clean, ready-made worklist.
+        </Callout>
+      </>
+    ),
+  },
+
+  // ─── Boards & Projects ───
+  {
+    id: 'boards-intro',
+    title: 'Boards & Projects (kanban)',
+    category: 'Boards & Projects',
+    level: 'intermediate',
+    tags: ['boards', 'projects', 'kanban', 'cards'],
+    snippet: 'Drag-and-drop kanban for work that spans leaders or campuses — onboarding, events, initiatives.',
+    body: (
+      <>
+        <UL>
+          <li>Columns are customizable (To do / Doing / Done is the default)</li>
+          <li>Cards support checklists, due dates, linked leaders, and assignees</li>
+          <li>Drag between columns; reorder within a column</li>
+          <li>Each board is its own project — keep them focused (one initiative each)</li>
+        </UL>
+      </>
+    ),
+    tryIt: { label: 'Open Boards', href: '/boards' },
+  },
+
+  // ─── Circle Summary ───
+  {
+    id: 'circle-summary-flow',
+    title: 'Circle Summary — the full picture',
+    category: 'Circle Summary',
+    level: 'intermediate',
+    tags: ['circle summary', 'event summary', 'attendance', 'submit'],
+    snippet: 'Submit what happened at a circle meeting so leadership has rolled-up data and the leader has a record.',
+    body: (
+      <>
+        <OL>
+          <li>Pick the event date — RADIUS pulls attendees and CCB notes automatically.</li>
+          <li>The dynamic questions adapt to your campus configuration.</li>
+          <li>The form auto-saves a draft every few seconds.</li>
+          <li>Submit to mark the summary received — Progress page updates immediately.</li>
+        </OL>
+        <H>Previous notes card</H>
+        <Para>
+          A reference card shows notes from the last summary so you have context. You don&apos;t need to retype them —
+          they live forever in history. If you want to edit and reuse them, the &quot;Edit these notes&quot; button drops
+          them into the form for revision.
+        </Para>
+        <H>Persistent sessions</H>
+        <Para>
+          Circle Summary keeps you signed in across visits so you can step away and finish later. Drafts are
+          per-event, per-device.
+        </Para>
+      </>
+    ),
+    tryIt: { label: 'Open Circle Summary', href: '/circle-summary' },
+  },
+
+  // ─── Scorecards ───
+  {
+    id: 'scorecards-overview',
+    title: 'Scorecards — evaluating leader development',
+    category: 'Scorecards',
+    level: 'power',
+    tags: ['scorecard', 'evaluation', 'rubric'],
+    snippet: 'A multi-dimension rubric for assessing where a leader is — and where they have room to grow.',
+    body: (
+      <>
+        <UL>
+          <li>Open a leader profile → Scorecard tab to start an evaluation</li>
+          <li>Each dimension scores 1–5; overall is averaged automatically</li>
+          <li>Color-coded cells make low scores immediately visible</li>
+          <li>Historical evaluations are retained so you can see growth over time</li>
+        </UL>
+        <Callout tone="tip" title="When to score">
+          Quarterly is a good cadence for Active leaders. After every major conversation for On-boarding leaders.
+        </Callout>
+      </>
+    ),
+  },
+
+  // ─── CCB & Lookup ───
+  {
+    id: 'ccb-explorer',
+    title: 'CCB Explorer (admin)',
+    category: 'CCB & Lookup',
+    level: 'power',
+    tags: ['ccb', 'church community builder', 'admin'],
+    snippet: 'Browse CCB profiles without leaving RADIUS. Admin-only.',
+    body: (
+      <>
+        <UL>
+          <li>Search CCB by name, group, or leader ID</li>
+          <li>Cross-reference CCB data when onboarding</li>
+          <li>Jump to the full CCB record in a new tab when you need the full view</li>
+        </UL>
+        <Callout tone="warn" title="Admin only">
+          Restricted to ACPD/Admin accounts. Ask your site admin if you need this.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'person-lookup',
+    title: 'Person Lookup — find anyone in CCB',
+    category: 'CCB & Lookup',
+    level: 'intermediate',
+    tags: ['lookup', 'person', 'phone', 'ccb', 'search'],
+    snippet: 'Search CCB by name or phone, then text/call/email in one tap. Great for spot-checks.',
+    body: (
+      <>
+        <UL>
+          <li>Avatar menu → Person Lookup (mobile: More menu)</li>
+          <li>Type a name OR a phone (7+ digits) — results auto-load</li>
+          <li>Selecting a person shows Text / Call / Email actions</li>
+          <li>Clear & Search Again to look up the next person</li>
+        </UL>
+      </>
+    ),
+    tryIt: { label: 'Open Person Lookup', href: '/person-lookup' },
+  },
+  {
+    id: 'circle-roster',
+    title: 'Circle Roster — the people in a circle',
+    category: 'CCB & Lookup',
+    level: 'intermediate',
+    tags: ['roster', 'circle', 'members', 'group'],
+    snippet: 'View and contact the members of a leader’s circle, cached so it works offline.',
+    body: (
+      <>
+        <UL>
+          <li>Open a leader profile (must have a CCB Group ID) → tap <strong>View Roster</strong></li>
+          <li>Members are pulled from CCB and cached locally</li>
+          <li>Search/filter members by name or email</li>
+          <li>Each member has Text / Call / Email buttons</li>
+          <li><strong>Refresh</strong> re-syncs from CCB; the page shows the last sync time</li>
+        </UL>
+      </>
+    ),
+  },
+
+  // ─── Communication ───
+  {
+    id: 'log-connection',
+    title: 'Logging connections',
+    category: 'Communication',
+    level: 'beginner',
+    tags: ['connection', 'log', 'call', 'text', 'email'],
+    snippet: "If it happened and it isn't logged, it didn't happen. Make this reflexive.",
+    body: (
+      <>
+        <OL>
+          <li>From any leader card or profile, tap <strong>Log Connection</strong>.</li>
+          <li>Pick type: Call, Text, Email, In-Person.</li>
+          <li>Add a short note about the conversation if it matters.</li>
+          <li>Save — it lands in the connection log and the scorecard counts it.</li>
+        </OL>
+      </>
+    ),
+  },
+  {
+    id: 'encourage',
+    title: 'Encourage — intentional pastoral touch',
+    category: 'Communication',
+    level: 'intermediate',
+    tags: ['encourage', 'scripture', 'pastoral'],
+    snippet: 'Log an encouragement with method and (optional) scripture. Feeds your scorecard.',
+    body: (
+      <>
+        <OL>
+          <li>Open the leader profile and tap <strong>Encourage</strong>.</li>
+          <li>Choose method: Text / Call / Email / In-Person.</li>
+          <li>Optionally add a scripture reference and a personal note.</li>
+          <li>Save — appears in the connection log and counts on the Progress scorecard.</li>
+        </OL>
+      </>
+    ),
+  },
+  {
+    id: 'bulk-message',
+    title: 'Bulk messaging',
+    category: 'Communication',
+    level: 'power',
+    tags: ['bulk', 'message', 'mass', 'sms', 'email'],
+    snippet: 'Send a message to many leaders at once — filtered by status, campus, or circle type.',
+    body: (
+      <>
+        <UL>
+          <li>Open <strong>Bulk Message</strong> from the sidebar</li>
+          <li>Apply filters to scope your audience (campus, status, etc.)</li>
+          <li>Compose once; RADIUS handles the send</li>
+          <li>Each send is logged as a connection on every recipient</li>
+        </UL>
+        <Callout tone="warn" title="Send carefully">
+          Bulk sends are not reversible. Preview the recipient count and contents before hitting send.
+        </Callout>
+      </>
+    ),
+    tryIt: { label: 'Open Bulk Message', href: '/bulk-message' },
+  },
+
+  // ─── AI Tools ───
+  {
+    id: 'ai-summary',
+    title: 'AI note summarization',
+    category: 'AI Tools',
+    level: 'intermediate',
+    tags: ['ai', 'summary', 'gemini', 'groq'],
+    snippet: 'Long thread of notes? Turn it into a clean briefing in one click.',
+    body: (
+      <>
+        <UL>
+          <li>Available on leader profiles and the Circle Summary form</li>
+          <li>Primary model: Google Gemini 2.0 Flash. Fallback: Groq Llama 3.3</li>
+          <li>Summaries are advisory — always review before passing along</li>
+        </UL>
+        <Callout tone="warn" title="AI uses quota">
+          Free tier on Gemini is generous but finite. Don&apos;t batch-summarize for fun — use it where it earns its keep.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'ai-meeting-prep',
+    title: 'AI meeting prep',
+    category: 'AI Tools',
+    level: 'power',
+    tags: ['ai', 'meeting prep', '1:1'],
+    snippet: 'Aggregates recent notes, encouragements, and visits into a talking-point briefing for your 1:1.',
+    body: (
+      <>
+        <Para>
+          Open a leader profile and click <strong>AI Meeting Prep</strong>. RADIUS pulls the last several months of
+          notes, recent connections, open to-dos, and pending follow-ups, then drafts a structured prep doc you can
+          skim in two minutes.
+        </Para>
+        <Callout tone="tip" title="Edit before you trust">
+          The model is good, not infallible. Re-read it against the source before walking in.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'ai-dictation',
+    title: 'Dictating notes',
+    category: 'AI Tools',
+    level: 'intermediate',
+    tags: ['ai', 'dictation', 'voice', 'transcribe'],
+    snippet: 'Talk; RADIUS transcribes. Faster than typing on a phone after a circle visit.',
+    body: (
+      <>
+        <UL>
+          <li>Look for the microphone icon on note fields</li>
+          <li>Speak naturally; the result is editable before save</li>
+          <li>Works best in a quiet environment with a single speaker</li>
+        </UL>
+      </>
+    ),
+  },
+
+  // ─── Mobile & PWA ───
+  {
+    id: 'pwa-install',
+    title: 'Install RADIUS on your phone or desktop',
+    category: 'Mobile & PWA',
+    level: 'beginner',
+    tags: ['pwa', 'install', 'iphone', 'android', 'home screen'],
+    snippet: 'RADIUS is a Progressive Web App — install it for a native-feeling experience and offline basics.',
+    body: (
+      <>
+        <H>iPhone (Safari)</H>
+        <OL>
+          <li>Open <strong>myradiuscrm.com</strong> in Safari</li>
+          <li>Tap <strong>Share</strong> → <strong>Add to Home Screen</strong></li>
+          <li>Tap <strong>Add</strong></li>
+        </OL>
+        <H>Android (Chrome)</H>
+        <OL>
+          <li>Open the site in Chrome</li>
+          <li>Tap ⋮ → <strong>Add to Home Screen</strong> (or accept the install banner)</li>
+        </OL>
+        <H>Desktop (Chrome / Edge)</H>
+        <OL>
+          <li>Open the site</li>
+          <li>Click the install icon in the address bar → <strong>Install</strong></li>
+        </OL>
+      </>
+    ),
+  },
+  {
+    id: 'offline-behavior',
+    title: 'What works offline',
+    category: 'Mobile & PWA',
+    level: 'intermediate',
+    tags: ['offline', 'pwa', 'service worker'],
+    snippet: 'Read works mostly offline. Writes queue and sync when you reconnect.',
+    body: (
+      <>
+        <UL>
+          <li>Previously viewed leaders and rosters are cached — view them anywhere</li>
+          <li>New notes / to-dos created offline sync when connection returns</li>
+          <li>CCB-backed searches require a live connection</li>
+        </UL>
+      </>
+    ),
+  },
+
+  // ─── Admin ───
+  {
+    id: 'add-leader',
+    title: 'Adding a new leader (admin)',
+    category: 'Admin',
+    level: 'power',
+    tags: ['add leader', 'create', 'new', 'admin', 'onboarding'],
+    snippet: 'Create a leader from scratch or pull from CCB — Add Leader handles both.',
+    body: (
+      <>
+        <OL>
+          <li>Avatar menu → <strong>Add Leader</strong></li>
+          <li>Search CCB to auto-fill contact info, or enter manually</li>
+          <li>Set campus, circle type, meeting day/time, and initial status</li>
+          <li>Save — the profile is live and shows up in everyone&apos;s filtered views</li>
+        </OL>
+      </>
+    ),
+    tryIt: { label: 'Add Leader', href: '/add-leader' },
+  },
+  {
+    id: 'manage-users',
+    title: 'Managing RADIUS users (admin)',
+    category: 'Admin',
+    level: 'power',
+    tags: ['users', 'admin', 'roles', 'acpd'],
+    snippet: 'Create accounts, assign roles, audit logins. Only the ACPD role gets admin power.',
+    body: (
+      <>
+        <UL>
+          <li>Avatar menu → <strong>Manage Users</strong></li>
+          <li>Roles: <strong>ACPD</strong> (admin) vs. anything else (viewer/standard)</li>
+          <li>Create, edit, or delete user accounts</li>
+          <li>Last-login column helps spot stale accounts</li>
+        </UL>
+      </>
+    ),
+  },
+  {
+    id: 'daily-digest',
+    title: 'Daily digest email',
+    category: 'Admin',
+    level: 'intermediate',
+    tags: ['email', 'digest', 'daily', 'summary'],
+    snippet: 'A morning email summarizing follow-ups, due to-dos, and upcoming visits.',
+    body: (
+      <>
+        <UL>
+          <li>Opt in via <strong>Settings → Email Preferences</strong></li>
+          <li>Sent each morning by a scheduled job</li>
+          <li>Scoped to your campus + assignments</li>
+        </UL>
+      </>
+    ),
+  },
+  {
+    id: 'export-data',
+    title: 'Exporting leader data',
+    category: 'Admin',
+    level: 'power',
+    tags: ['export', 'csv', 'download'],
+    snippet: 'Export the current filtered Leaders view as CSV for spreadsheets or reporting.',
+    body: (
+      <>
+        <OL>
+          <li>Go to <strong>Leaders</strong>, apply your filters</li>
+          <li>Click <strong>Export</strong> in the top-right</li>
+          <li>CSV downloads — exactly the rows you saw, with all profile fields</li>
+        </OL>
+      </>
+    ),
+  },
+
+  // ─── FAQ ───
+  {
+    id: 'faq-no-magic-link',
+    title: "I'm not getting my magic link email",
+    category: 'FAQ',
+    level: 'beginner',
+    tags: ['login', 'magic link', 'email', 'troubleshoot'],
+    snippet: 'Check spam, confirm the email matches what your admin set up, open the link in the same browser.',
+    body: (
+      <>
+        <OL>
+          <li>Check your spam / junk folder — Resend sometimes lands there first time</li>
+          <li>Confirm the email you typed exactly matches what your admin added</li>
+          <li>Open the link in the same browser profile that requested it</li>
+          <li>Request a new link if it&apos;s older than ~15 minutes</li>
+        </OL>
+      </>
+    ),
+  },
+  {
+    id: 'faq-cant-see-page',
+    title: "Why can't I see [page] / [feature]?",
+    category: 'FAQ',
+    level: 'beginner',
+    tags: ['permissions', 'access', 'hidden', 'admin'],
+    snippet: 'Most likely you need the ACPD/Admin role. CCB Explorer, Manage Users, and Add Leader are admin-only.',
+    body: (
+      <>
+        <Para>
+          If a menu item shows up for your colleague but not you, you&apos;re probably not in the ACPD role. Ask a site
+          admin to update your account under <strong>Manage Users</strong>.
+        </Para>
+      </>
+    ),
+  },
+  {
+    id: 'faq-ccb-data-stale',
+    title: 'A roster or CCB profile looks out of date',
+    category: 'FAQ',
+    level: 'intermediate',
+    tags: ['ccb', 'sync', 'stale', 'roster', 'refresh'],
+    snippet: 'Hit Refresh on the roster page. CCB Explorer fetches live every time.',
+    body: (
+      <>
+        <UL>
+          <li>Roster: tap <strong>Refresh</strong> on the Circle Roster page — it re-pulls from CCB and updates the sync time</li>
+          <li>CCB Explorer always fetches live; nothing is cached there</li>
+          <li>If a person genuinely missing from CCB, fix it in CCB first — RADIUS will sync next time</li>
+        </UL>
+      </>
+    ),
+  },
+  {
+    id: 'faq-wrong-data',
+    title: "A leader's contact info is wrong",
+    category: 'FAQ',
+    level: 'beginner',
+    tags: ['contact', 'phone', 'email', 'edit', 'update'],
+    snippet: 'Edit on the leader profile. If they exist in CCB, update CCB too so the source of truth stays clean.',
+    body: (
+      <>
+        <Para>
+          Open the leader profile and edit directly. If the leader is in CCB, also update them in CCB — RADIUS treats
+          CCB as the long-term source of truth for contact info.
+        </Para>
+      </>
+    ),
+  },
+  {
+    id: 'faq-feedback',
+    title: 'How do I request a feature or report a bug?',
+    category: 'FAQ',
+    level: 'beginner',
+    tags: ['feedback', 'bug', 'request', 'feature'],
+    snippet: "Send a note to your site admin — they're the channel into the dev side.",
+    body: (
+      <Para>
+        For now, message your site admin directly with the request or bug. Include what you expected, what you saw,
+        and (if possible) the URL you were on.
+      </Para>
+    ),
+  },
+];
+
+// ────────────────────────────────────────────────────────────────────
+// Glossary
+// ────────────────────────────────────────────────────────────────────
+
+const GLOSSARY: { term: string; def: string }[] = [
+  { term: 'ACPD', def: 'Associate Campus Pastor / Director — the staff member assigned to coach a circle leader. In RADIUS, the ACPD role is the admin role.' },
+  { term: 'Active', def: 'A leader currently running a circle. The default audience for most filtered views.' },
+  { term: 'Archived', def: 'A leader who is no longer leading but is kept in the system for historical record.' },
+  { term: 'Board', def: 'A kanban project — columns of cards used for tracking cross-leader work like onboarding or events.' },
+  { term: 'Bulk Message', def: 'A message sent to a filtered group of leaders at once. Each recipient gets it logged as a connection.' },
+  { term: 'Campus', def: 'A physical Valley Creek location used as the primary geographic filter.' },
+  { term: 'CCB', def: 'Church Community Builder — the church management system. RADIUS reads roster, attendance, and event data from CCB via XML API.' },
+  { term: 'Circle', def: 'A small group. Has a leader, members, a meeting day/time, and (usually) a CCB group ID.' },
+  { term: 'Circle Leader', def: 'The person running a circle. The primary entity in RADIUS.' },
+  { term: 'Circle Summary', def: 'A submitted summary of what happened at a specific circle meeting — attendees, notes, dynamic question answers.' },
+  { term: 'Circle Visit', def: 'A pastoral visit to a circle while it&apos;s meeting. Scheduled and logged in RADIUS.' },
+  { term: 'Connection', def: 'Any logged interaction with a leader — call, text, email, or in-person.' },
+  { term: 'Encouragement', def: 'A specific kind of intentional pastoral touch, optionally including scripture. Tracked separately on the scorecard.' },
+  { term: 'Event Summary', def: 'The CCB-side concept that maps to a Circle Summary — &quot;Received&quot;, &quot;Skipped&quot;, or &quot;Did Not Meet&quot;.' },
+  { term: 'Follow-Up Required', def: 'A flag on a leader (or a note&apos;s follow-up date) marking them as needing pastoral attention.' },
+  { term: 'Invited', def: 'Status for someone who has been asked to lead but hasn&apos;t fully onboarded yet.' },
+  { term: 'Magic Link', def: 'The passwordless email link used to sign in to RADIUS. Single use, time-limited.' },
+  { term: 'Off-boarding', def: 'Status for a leader who is winding down — exit conversations in progress.' },
+  { term: 'On-boarding', def: 'Status for a leader in training/setup, not yet leading.' },
+  { term: 'Paused', def: 'Status for a leader temporarily not meeting (sabbatical, vacation, life season).' },
+  { term: 'PWA', def: 'Progressive Web App — install RADIUS on your phone or desktop for a native-feeling experience.' },
+  { term: 'Roster', def: 'The list of members in a circle, pulled from CCB.' },
+  { term: 'Scorecard', def: 'A rubric-based evaluation of a leader&apos;s development across multiple dimensions.' },
+  { term: 'Status', def: 'Where a leader is in their lifecycle: Invited, On-boarding, Active, Paused, Off-boarding, Archived.' },
+];
+
+// ────────────────────────────────────────────────────────────────────
+// Component
+// ────────────────────────────────────────────────────────────────────
+
 export default function HelpPage() {
-  const [activeSection, setActiveSection] = useState<string>('overview');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [query, setQuery] = useState('');
+  const [activeCategory, setActiveCategory] = useState<Category | 'All'>('All');
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [changelog, setChangelog] = useState<ChangelogEntry[]>([]);
+  const searchRef = useRef<HTMLInputElement>(null);
 
-  const filteredSections = useMemo(() => {
-    if (!searchQuery.trim()) return sections;
-    const q = searchQuery.toLowerCase();
-    return sections.filter(s => s.title.toLowerCase().includes(q));
-  }, [searchQuery]);
+  // Load changelog teaser
+  useEffect(() => {
+    fetch('/changelog.json')
+      .then(r => r.json())
+      .then((entries: ChangelogEntry[]) => setChangelog(entries.slice(0, 4)))
+      .catch(() => setChangelog([]));
+  }, []);
 
-  const scrollToSection = (sectionId: string) => {
-    setActiveSection(sectionId);
-    const element = document.getElementById(sectionId);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+  // Keyboard shortcut for search focus
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  const fuse = useMemo(
+    () =>
+      new Fuse(ARTICLES, {
+        keys: [
+          { name: 'title', weight: 3 },
+          { name: 'snippet', weight: 2 },
+          { name: 'tags', weight: 2 },
+          { name: 'category', weight: 1 },
+        ],
+        threshold: 0.35,
+        ignoreLocation: true,
+      }),
+    []
+  );
+
+  const filtered = useMemo(() => {
+    let list: Article[] = ARTICLES;
+    if (query.trim()) {
+      list = fuse.search(query.trim()).map(r => r.item);
     }
+    if (activeCategory !== 'All') {
+      list = list.filter(a => a.category === activeCategory);
+    }
+    return list;
+  }, [query, activeCategory, fuse]);
+
+  const toggle = (id: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
+
+  const expandAll = () => setExpanded(new Set(filtered.map(a => a.id)));
+  const collapseAll = () => setExpanded(new Set());
+
+  const articleCount = filtered.length;
+  const totalCount = ARTICLES.length;
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
+      <div className="min-h-screen bg-slate-900">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
 
-          {/* Header */}
-          <div className="mb-6 sm:mb-8">
-            <div className="flex items-center space-x-3 mb-4">
-              <Link href="/boards" className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          {/* ─── Header ─── */}
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-2">
+              <Link
+                href="/dashboard"
+                className="text-slate-400 hover:text-white transition-colors"
+                aria-label="Back to dashboard"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                 </svg>
               </Link>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">RADIUS Help Center</h1>
+              <h1 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">Help Center</h1>
             </div>
-            <p className="text-gray-600 dark:text-gray-400 mb-5">Complete guide to using RADIUS Circle Leader Management System.</p>
-
-            {/* Search */}
-            <div className="relative max-w-lg">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search help topics…"
-                className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-              />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
+            <p className="text-sm text-slate-400">
+              Everything you need to use RADIUS — from the first login to the deep-cut power moves.
+              <span className="hidden sm:inline"> Press <Kbd>/</Kbd> to jump to search.</span>
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
-
-            {/* Sidebar */}
-            <div className="lg:col-span-1">
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 sticky top-4">
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-3 text-sm uppercase tracking-wide">Contents</h3>
-                {filteredSections.length === 0 ? (
-                  <p className="text-sm text-gray-400 px-2 py-1">No topics match.</p>
-                ) : (
-                  <nav className="space-y-0.5">
-                    {filteredSections.map((section) => (
-                      <button
-                        key={section.id}
-                        onClick={() => scrollToSection(section.id)}
-                        className={`w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-                          activeSection === section.id
-                            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium'
-                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/60'
-                        }`}
-                      >
-                        <span>{section.title}</span>
-                      </button>
-                    ))}
-                  </nav>
-                )}
-              </div>
-            </div>
-
-            {/* Main Content */}
-            <div className="lg:col-span-3">
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow divide-y divide-gray-200 dark:divide-gray-700">
-
-                {/* ── Overview ── */}
-                <section id="overview" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Overview</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">RADIUS is a comprehensive Circle Leader Management System designed to help pastoral staff track, manage, and communicate with circle leaders effectively.</p>
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Key Features</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-5">
-                    <li>Circle leader profile management with detailed contact information</li>
-                    <li>Event summary tracking and real-time progress monitoring</li>
-                    <li>To-Do items with due dates, repeating tasks, and calendar sync</li>
-                    <li>Circle Visits — schedule and track in-home/group visits</li>
-                    <li>Note-taking with templates for consistent communication</li>
-                    <li>Encourage feature — log encouragements with scripture and method</li>
-                    <li>Connection logging to track all interactions and engagement</li>
-                    <li>Advanced filtering and search across all leaders</li>
-                    <li>Direct contact integration (phone, text, email)</li>
-                    <li>Calendar view of scheduled meetings and events</li>
-                    <li>Progress page with aggregate stats and scorecard</li>
-                    <li>CCB Explorer for browsing church database profiles</li>
-                    <li>Person Lookup — search CCB by name or phone, then text, call, or email</li>
-                    <li>Circle Roster — view and cache CCB group members with contact actions</li>
-                    <li>PWA — installable on iPhone, Android, and desktop</li>
-                  </ul>
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">Getting Started</h4>
-                    <p className="text-blue-700 dark:text-blue-300 text-sm">Start on the Dashboard for a campus-filtered view of your leaders. Use the top navigation to access Progress, Calendar, and more. Tap your avatar in the top-right to reach Settings, Profile, and admin tools.</p>
-                  </div>
-                </section>
-
-                {/* ── Dashboard ── */}
-                <section id="dashboard" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Dashboard</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">The Dashboard is the default landing page after login. It offers a campus-filtered bird's-eye view of your circle leaders and their current status.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Campus Filter</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Select one or more campuses to narrow leaders shown. Click <strong>Show Filter</strong> to reveal the panel, toggle campuses, or hit <strong>Clear All</strong> to reset.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Dashboard Cards</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>Leader name (links to full profile), campus, meeting day/time</li>
-                    <li>Current status with color-coded badge and follow-up flag</li>
-                    <li>Last note preview and event summary status</li>
-                    <li>Quick action buttons: Contact, Log Connection, Add Note, Status toggle</li>
-                  </ul>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Summary Stats Bar</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">The top of the dashboard shows aggregate counts: total leaders, event summaries received, leaders needing follow-up, and recent connections — all filtered by your campus selection.</p>
-
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">Tip</h4>
-                    <p className="text-blue-700 dark:text-blue-300 text-sm">For deep filtering (status, circle type, meeting day, etc.) go to the <strong>Leaders</strong> page via the navigation.</p>
-                  </div>
-                </section>
-
-                {/* ── Progress ── */}
-                <section id="progress" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Progress Page</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">The Progress page (nav bar → <strong>Progress</strong>) gives a high-level view of pastoral engagement across all leaders and campuses.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">What You'll See</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li><strong>Event Summary Progress:</strong> How many leaders have submitted event summaries vs the total active</li>
-                    <li><strong>Connection Rates:</strong> Leaders contacted recently, broken down by campus</li>
-                    <li><strong>Status Breakdown:</strong> Count of leaders in each status category</li>
-                    <li><strong>Follow-Up Queue:</strong> Leaders flagged for follow-up attention</li>
-                    <li><strong>Scorecard:</strong> Personal engagement scorecard with encouragement metrics</li>
-                  </ul>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Scorecard</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">The scorecard tracks your personal pastoral activity: notes added, connections logged, encouragements sent, and circle visits completed. Use it to monitor your own engagement rhythm.</p>
-
-                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
-                    <h4 className="font-semibold text-green-800 dark:text-green-200 mb-1">Pro Tip</h4>
-                    <p className="text-green-700 dark:text-green-300 text-sm">Use the Progress page at the start of each week to identify leaders who haven't been contacted recently and prioritize your outreach.</p>
-                  </div>
-                </section>
-
-                {/* ── Calendar ── */}
-                <section id="calendar" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Calendar</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">The Calendar page (nav bar → <strong>Calendar</strong>) shows a monthly/weekly/daily view of all scheduled events and tasks associated with your leaders.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">What Appears on the Calendar</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>Circle leader meeting days (recurring, based on profile data)</li>
-                    <li>To-Do items with due dates</li>
-                    <li>Scheduled circle visits</li>
-                    <li>Follow-up reminders tied to notes</li>
-                  </ul>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Navigation</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Use the arrows to move between months/weeks. Switch between month, week, and day views using the view selector. Click any event to see details or navigate to the associated leader profile.</p>
-                </section>
-
-                {/* ── Prayer List ── */}
-                <section id="prayer" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Prayer List</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">The Prayer page lets you track prayer points for your circle leaders and manage a personal general prayer list.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">General Prayer Points</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-2">At the top of the page is a collapsible Prayer Points section for general prayers not tied to any specific leader.</p>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>Add a new prayer point using the text field and <strong>Add</strong> button</li>
-                    <li>Mark prayers as answered by clicking the checkbox</li>
-                    <li>Edit or delete any prayer inline</li>
-                    <li>The badge shows total count of active prayer points</li>
-                    <li>Collapse or expand the section using the arrow toggle</li>
-                  </ul>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Circle Leader Prayers</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-2">Below the general section is the Circle Leader Prayers area showing all your leaders with their associated prayer points.</p>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>Each leader appears as a collapsible card with their name, campus, and ACPD</li>
-                    <li>A count badge shows how many prayers each leader has</li>
-                    <li>Expand a leader to see, add, edit, or delete their prayers</li>
-                    <li>Mark individual prayers as answered</li>
-                  </ul>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Toolbar</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li><strong>Search:</strong> Filter prayers and leaders by name or content</li>
-                    <li><strong>Campus &amp; ACPD filters:</strong> Narrow to specific campuses or ACPDs</li>
-                    <li><strong>Sort:</strong> Toggle alphabetical order (A–Z / Z–A)</li>
-                    <li><strong>Expand / Collapse All:</strong> Quickly open or close all leader cards</li>
-                  </ul>
-
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">Tip</h4>
-                    <p className="text-blue-700 dark:text-blue-300 text-sm">Use general Prayer Points for church-wide or personal prayers. Use Circle Leader Prayers to keep specific prayer needs tied to each leader for easy reference during your devotional time.</p>
-                  </div>
-                </section>
-
-                {/* ── Circle Leaders ── */}
-                <section id="leaders" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Circle Leaders</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">The dedicated Circle Leaders page offers comprehensive filtering and management with detailed leader cards and extensive quick actions.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Leader Cards</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>Name linking to full profile, campus, meeting day/time/type</li>
-                    <li>Status badge (color-coded) and follow-up flag</li>
-                    <li>Last note preview, event summary status</li>
-                    <li>Quick-action buttons: Contact, Log Connection, Add Note, Status, Follow-Up, Event Summary toggle</li>
-                  </ul>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Advanced Filters</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li><strong>Status</strong> — filter by any status, or use the special "Follow-Up Required" filter</li>
-                    <li><strong>Campus</strong> — single or multi-campus selection</li>
-                    <li><strong>Circle Type</strong> — Men's, Women's, Young Adult, Couples, etc.</li>
-                    <li><strong>Meeting Day</strong> — Mon–Sun</li>
-                    <li><strong>Time of Day</strong> — AM or PM</li>
-                    <li><strong>Connected</strong> — leaders with or without recent connections</li>
-                    <li><strong>Event Summary</strong> — received vs not received</li>
-                  </ul>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Active filters appear as removable chips above results. Click the ✕ on any chip to remove that filter individually, or click <strong>Clear All</strong>.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Pagination & Export</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>Show 25 / 50 / 100 / All leaders per page</li>
-                    <li>Pagination controls at the bottom of the list</li>
-                    <li><strong>Export</strong> button (top-right) downloads current filtered results as CSV</li>
-                  </ul>
-
-                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
-                    <h4 className="font-semibold text-green-800 dark:text-green-200 mb-1">Pro Tip</h4>
-                    <p className="text-green-700 dark:text-green-300 text-sm">Use <strong>Status → Follow-Up Required</strong> alongside a campus filter to see exactly who needs attention today.</p>
-                  </div>
-                </section>
-
-                {/* ── Leader Profiles ── */}
-                <section id="circle-profiles" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Leader Profiles</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Click any leader's name to open their full profile. This is the central hub for everything related to that leader.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Profile Information Panel</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>Contact details — email, phone (tap to call/text/email)</li>
-                    <li>Campus, circle type, meeting day and time</li>
-                    <li>Current status and follow-up flag</li>
-                    <li>CCB profile link (opens external church database)</li>
-                    <li>Event summary received toggle</li>
-                    <li>Encourage button — log an encouragement interaction</li>
-                  </ul>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Notes Tab</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>Full note history with timestamps and author attribution</li>
-                    <li>Pin important notes so they appear at the top</li>
-                    <li>Add notes inline or via templates</li>
-                    <li>Attach follow-up dates to any note</li>
-                    <li>Save any note as a reusable template</li>
-                  </ul>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">To-Do Tab</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">View, add, and complete to-do items scoped to this specific leader. See <strong>To-Do Items</strong> section below for full details.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Circle Visits Tab</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Log and review scheduled visits to this leader's circle. See <strong>Circle Visits</strong> below.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Connection Log</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">A chronological record of all logged interactions with this leader — calls, texts, emails, and in-person connections.</p>
-                </section>
-
-                {/* ── Circle Visits ── */}
-                <section id="circle-visits" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Circle Visits</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Circle Visits let you schedule and record visits to a leader's circle meeting — in-home, hosted, or otherwise. This helps track your pastoral presence in each group.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Scheduling a Visit</h3>
-                  <ol className="list-decimal list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>Open a leader's profile and select the <strong>Circle Visits</strong> tab.</li>
-                    <li>Click <strong>Schedule Visit</strong>.</li>
-                    <li>Choose a date and add any notes about the planned visit.</li>
-                    <li>Save — the visit appears on your Calendar automatically.</li>
-                  </ol>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Completing a Visit</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">After the visit, mark it as <strong>Completed</strong> and answer any visit questions (attendance, health of the group, topics discussed). This data feeds into your Progress scorecard.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Visit History</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">All past visits for a leader are listed chronologically with their status, date, and your notes — giving you a full pastoral visit record.</p>
-                </section>
-
-                {/* ── To-Do Items ── */}
-                <section id="todos" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">To-Do Items</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">To-Do items help you stay on top of tasks related to your circle leaders. They can be one-off or repeating, and optionally synced to notes.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Creating a To-Do</h3>
-                  <ol className="list-decimal list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>Open a leader's profile (or use the global To-Do widget on the dashboard).</li>
-                    <li>Click <strong>+ Add</strong> in the To-Do panel.</li>
-                    <li>Enter a title, optional due date, and optional notes.</li>
-                    <li>Choose a <strong>Repeat</strong> cadence if needed (daily, weekly, monthly, etc.).</li>
-                    <li>Save — the to-do appears in the list and on the Calendar if a due date was set.</li>
-                  </ol>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Completing & Managing</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>Check the box to mark complete. Repeating tasks auto-reset for the next occurrence.</li>
-                    <li>Edit by clicking the pencil icon; delete with the trash icon.</li>
-                    <li>Completed tasks can be hidden or shown with the toggle at the top of the list.</li>
-                  </ul>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Note Sync</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">When a to-do is completed you can optionally auto-generate a note in the leader's profile, keeping your interaction history up to date without extra steps.</p>
-
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">Calendar Integration</h4>
-                    <p className="text-blue-700 dark:text-blue-300 text-sm">Any to-do with a due date automatically shows up on the Calendar page so you can plan your week visually.</p>
-                  </div>
-                </section>
-
-                {/* ── Notes & Templates ── */}
-                <section id="notes" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Notes & Templates</h2>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Adding Notes</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>From Dashboard or Leaders page cards via the <strong>Add Note</strong> button</li>
-                    <li>From a leader's profile → Notes tab → <strong>New Note</strong></li>
-                    <li>Notes include timestamp and your name automatically</li>
-                    <li>Attach a follow-up date or mark follow-up required</li>
-                  </ul>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Pinning Notes</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Pin any note so it stays at the top of the note list — great for keeping key context always visible. Click the pin icon on any note to toggle. Pinned notes are marked with a visual indicator.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Using Templates</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>When adding a note, click <strong>Use Template</strong> to pick from your saved templates</li>
-                    <li>The template content pre-fills the note — edit as needed before saving</li>
-                  </ul>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Managing Templates</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>Go to <strong>Settings → Note Templates</strong> to create, edit, or delete templates</li>
-                    <li>When writing a note, click <strong>Save as Template</strong> to turn it into a reusable template</li>
-                  </ul>
-
-                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
-                    <h4 className="font-semibold text-green-800 dark:text-green-200 mb-1">Pro Tip</h4>
-                    <p className="text-green-700 dark:text-green-300 text-sm">Create templates for common scenarios like "Initial Contact," "Monthly Check-In," or "Needs Encouragement" to speed up your workflow.</p>
-                  </div>
-                </section>
-
-                {/* ── Encourage ── */}
-                <section id="encourage" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Encourage Feature</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">The Encourage feature lets you log intentional encouragements to your circle leaders — tracking what you sent, how you sent it, and what scripture you used.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Logging an Encouragement</h3>
-                  <ol className="list-decimal list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>Open a leader's profile and click the <strong>Encourage</strong> button.</li>
-                    <li>Choose the method: Text, Call, Email, or In-Person.</li>
-                    <li>Optionally add a scripture reference and personal note.</li>
-                    <li>Save — it's logged in the leader's connection history and counts toward your scorecard.</li>
-                  </ol>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Encourage History</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">All encouragements appear in the leader's connection log with the method, scripture, and date. Your total encouragement count is visible on the Progress scorecard.</p>
-                </section>
-
-                {/* ── Filtering & Search ── */}
-                <section id="filters" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Filtering & Search</h2>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Global Search (⌘K / Ctrl K)</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Press <kbd className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-xs font-mono">⌘K</kbd> (Mac) or <kbd className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-xs font-mono">Ctrl K</kbd> (Windows) anywhere in the app, or click the <strong>Search</strong> button in the top navigation. Search returns leaders by name, email, campus, and circle type.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Dashboard Filters</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li><strong>Campus</strong> — toggle campuses to narrow your view</li>
-                  </ul>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Leaders Page Filters</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li><strong>Status</strong> — any status or "Follow-Up Required"</li>
-                    <li><strong>Campus, Circle Type, Meeting Day, Time of Day</strong></li>
-                    <li><strong>Connected</strong> — recently contacted or not</li>
-                    <li><strong>Event Summary</strong> — received or not</li>
-                  </ul>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Tips</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400">
-                    <li>Combine multiple filters for precise results</li>
-                    <li>Filter state is preserved in the URL — bookmark filtered views</li>
-                    <li>Active filter chips let you remove one filter at a time</li>
-                  </ul>
-                </section>
-
-                {/* ── Contact Features ── */}
-                <section id="contact" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Contact Features</h2>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Contact Modal</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-2">Tap <strong>Contact</strong> on any leader card or profile to open the contact modal:</p>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li><strong>Call</strong> — opens your device's phone app with the number pre-filled</li>
-                    <li><strong>Text</strong> — opens SMS with the leader's number</li>
-                    <li><strong>Email</strong> — opens your email client addressed to the leader</li>
-                  </ul>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Log Connection</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-2">Track every interaction with the <strong>Log Connection</strong> button:</p>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>Choose a connection type: Call, Text, Email, In-Person</li>
-                    <li>Add optional notes about the conversation</li>
-                    <li>Automatically timestamped and attributed to your user account</li>
-                    <li>Appears in the leader's connection log history</li>
-                  </ul>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Contact Info Handling</h3>
-                  <p className="text-gray-600 dark:text-gray-400">Contact buttons only appear when a phone number or email is on file. Missing contact info is clearly indicated so you can update the leader's profile.</p>
-                </section>
-
-                {/* ── Person Lookup ── */}
-                <section id="person-lookup" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Person Lookup</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">The Person Lookup page lets you search CCB (Church Community Builder) for any individual by name or phone number and quickly reach out to them via text, call, or email.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Accessing Person Lookup</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Click your avatar/name in the top-right navigation and select <strong>Person Lookup</strong> (admin only). On mobile, open the <strong>More</strong> menu and tap <strong>Person Lookup</strong> at the top of the quick links.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Searching</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>Type a person's name (first, last, or both) to search CCB</li>
-                    <li>Enter a phone number (7+ digits) to search by phone instead</li>
-                    <li>Results appear automatically after a brief delay — no need to press Enter</li>
-                    <li>Select a person from the dropdown to view their details</li>
-                  </ul>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Contact Actions</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-2">Once you select a person, a contact card appears with their name, phone, and email. Three action buttons are available:</p>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li><strong>Text</strong> — opens your device's messaging app with their number</li>
-                    <li><strong>Call</strong> — opens your phone dialer with their number</li>
-                    <li><strong>Email</strong> — opens your email client addressed to them</li>
-                  </ul>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Click <strong>Clear &amp; Search Again</strong> to reset and look up another person.</p>
-
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">Tip</h4>
-                    <p className="text-blue-700 dark:text-blue-300 text-sm">Person Lookup uses the same CCB search available on the Add Leader and Circle Profile edit pages. Use it when you need to quickly find someone&apos;s contact info without navigating to a specific leader profile.</p>
-                  </div>
-                </section>
-
-                {/* ── Circle Roster ── */}
-                <section id="circle-roster" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Circle Roster</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">The Circle Roster page displays the CCB group members for a leader&apos;s circle. It caches the roster locally so you can view it offline and provides a one-tap refresh to sync the latest data from CCB.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Accessing the Roster</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Open any Circle Leader Profile that has a CCB Group ID configured. A <strong>View Roster</strong> button appears in the quick actions area. Tap it to open the roster page.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Roster Features</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>Group members are fetched from CCB and cached in the database</li>
-                    <li>Use the <strong>Refresh</strong> button to re-fetch the latest roster from CCB</li>
-                    <li>Search/filter members by name or email</li>
-                    <li>Each member shows <strong>Text</strong>, <strong>Call</strong>, and <strong>Email</strong> action buttons</li>
-                    <li>The page shows when the roster was last synced</li>
-                  </ul>
-
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">Note</h4>
-                    <p className="text-blue-700 dark:text-blue-300 text-sm">The roster requires a CCB Group ID on the leader profile. If you don&apos;t see the View Roster button, edit the leader and add their CCB Group ID first.</p>
-                  </div>
-                </section>
-
-                {/* ── CCB Explorer ── */}
-                <section id="ccb" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">CCB Explorer</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">CCB Explorer is an admin-only tool that lets you browse and search leader profiles directly from the church's CCB (Church Community Builder) database without leaving RADIUS.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Accessing CCB Explorer</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Click your avatar/name in the top-right → <strong>CCB Explorer</strong> (only visible to Admin users).</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">What You Can Do</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>Search CCB by name, group, or leader ID</li>
-                    <li>View CCB profile details alongside RADIUS data</li>
-                    <li>Open the full CCB profile in a new tab via the external link button</li>
-                    <li>Cross-reference CCB data when onboarding new leaders</li>
-                  </ul>
-
-                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4">
-                    <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-1">Admin Only</h4>
-                    <p className="text-yellow-700 dark:text-yellow-300 text-sm">CCB Explorer is restricted to Administrator accounts. Contact your site admin if you need access.</p>
-                  </div>
-                </section>
-
-                {/* ── Settings ── */}
-                <section id="settings" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Settings</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Access Settings via your avatar → <strong>Settings</strong>.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Note Templates</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Create, edit, and delete note templates here. Templates are available when adding any note across the app.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Email Preferences</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Manage your daily summary email subscription — opt in to receive a daily digest of leaders needing follow-up, pending to-dos, and upcoming circle visits.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Profile Settings</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Update your display name and other account preferences via your avatar → <strong>Profile</strong>.</p>
-                </section>
-
-                {/* ── PWA ── */}
-                <section id="pwa" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Mobile App (PWA)</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">RADIUS is a Progressive Web App (PWA) — you can install it on your phone or desktop and use it like a native app, including offline basic functionality.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Installing on iPhone (Safari)</h3>
-                  <ol className="list-decimal list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>Open <strong>myradiuscrm.com</strong> in Safari.</li>
-                    <li>Tap the <strong>Share</strong> button (box with arrow).</li>
-                    <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
-                    <li>Tap <strong>Add</strong> — the RADIUS icon appears on your home screen.</li>
-                  </ol>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Installing on Android (Chrome)</h3>
-                  <ol className="list-decimal list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>Open <strong>myradiuscrm.com</strong> in Chrome.</li>
-                    <li>Tap the <strong>⋮</strong> menu → <strong>Add to Home Screen</strong> (or an install banner may appear automatically).</li>
-                    <li>Tap <strong>Add</strong>.</li>
-                  </ol>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Installing on Desktop (Chrome/Edge)</h3>
-                  <ol className="list-decimal list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>Open <strong>myradiuscrm.com</strong> in Chrome or Edge.</li>
-                    <li>Click the install icon in the address bar (or via the browser menu).</li>
-                    <li>Click <strong>Install</strong> — RADIUS opens as a standalone window.</li>
-                  </ol>
-
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">Tip</h4>
-                    <p className="text-blue-700 dark:text-blue-300 text-sm">Once installed, RADIUS launches full-screen without browser chrome, making it feel just like a native app.</p>
-                  </div>
-                </section>
-
-                {/* ── Admin Tools ── */}
-                <section id="admin" className="p-6 sm:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Admin Tools</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Admin accounts have access to additional tools for managing the system and its users.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Manage Users</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Access via your avatar → <strong>Manage Users</strong>. Here you can:</p>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
-                    <li>View all RADIUS user accounts with their roles and last login</li>
-                    <li>Create new users (email, password, name, role)</li>
-                    <li>Edit existing user details and roles</li>
-                    <li>Delete user accounts</li>
-                  </ul>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Add Leader</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Access via your avatar → <strong>Add Leader</strong>. Fill in the leader's contact info, campus, circle type, meeting details, and initial status to create their profile.</p>
-
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Scorecards & Evaluations</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Admins can view and configure the leader scorecard questions used in the Progress page to ensure they align with your pastoral goals.</p>
-
-                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4">
-                    <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-1">Admin Only</h4>
-                    <p className="text-yellow-700 dark:text-yellow-300 text-sm">Admin tools are only visible to users with the Admin role. Standard users will not see these menu items.</p>
-                  </div>
-
-                  <div className="mt-5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">Need More Help?</h4>
-                    <p className="text-blue-700 dark:text-blue-300 text-sm">If you have questions not covered here, contact your system administrator or reach out via the email on your account profile.</p>
-                  </div>
-                </section>
-
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Back to Top */}
-        <div className="fixed bottom-6 right-6">
-          <button
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="btn-primary rounded-full p-3"
-            aria-label="Back to top"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+          {/* ─── Search ─── */}
+          <div className="relative mb-5">
+            <svg
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.8}
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-          </button>
+            <input
+              ref={searchRef}
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search help — try “follow-up”, “bulk”, “magic link”, “scorecard”…"
+              className="w-full pl-12 pr-12 py-3.5 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors shadow-card-glass"
+            />
+            {query && (
+              <button
+                onClick={() => setQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white p-1.5 rounded-md hover:bg-slate-700 transition-colors"
+                aria-label="Clear search"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {/* ─── Category chips ─── */}
+          <div className="flex flex-wrap gap-2 mb-6">
+            <CategoryChip
+              label="All"
+              count={ARTICLES.length}
+              active={activeCategory === 'All'}
+              onClick={() => setActiveCategory('All')}
+            />
+            {CATEGORIES.map(cat => {
+              const c = ARTICLES.filter(a => a.category === cat).length;
+              if (!c) return null;
+              return (
+                <CategoryChip
+                  key={cat}
+                  label={cat}
+                  count={c}
+                  active={activeCategory === cat}
+                  onClick={() => setActiveCategory(cat)}
+                />
+              );
+            })}
+          </div>
+
+          {/* ─── What's New ─── */}
+          {changelog.length > 0 && (
+            <div className="mb-8 bg-gradient-to-br from-indigo-500/10 via-slate-800 to-slate-800 border border-indigo-500/20 rounded-xl p-5 shadow-card-glass">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500" />
+                  </span>
+                  <h2 className="text-sm font-semibold text-white uppercase tracking-wide">What&apos;s new</h2>
+                </div>
+                <Link href="/update-log" className="text-xs text-indigo-300 hover:text-indigo-200">
+                  Full update log →
+                </Link>
+              </div>
+              <ul className="space-y-2.5">
+                {changelog.map((entry, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm">
+                    <span
+                      className={`mt-0.5 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                        entry.type === 'feature'
+                          ? 'bg-emerald-500/15 text-emerald-300'
+                          : entry.type === 'improvement'
+                          ? 'bg-sky-500/15 text-sky-300'
+                          : 'bg-amber-500/15 text-amber-300'
+                      }`}
+                    >
+                      {entry.type}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-slate-200">{entry.description}</p>
+                      <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500">
+                        <span>{entry.date}</span>
+                        {entry.page && (
+                          <>
+                            <span>·</span>
+                            <Link href={entry.page} className="text-indigo-400 hover:text-indigo-300">
+                              View page
+                            </Link>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* ─── Result count + expand/collapse ─── */}
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs text-slate-500 uppercase tracking-wide">
+              {articleCount === totalCount
+                ? `${totalCount} articles`
+                : `${articleCount} of ${totalCount} articles`}
+            </p>
+            {filtered.length > 0 && (
+              <div className="flex items-center gap-2 text-xs">
+                <button
+                  onClick={expandAll}
+                  className="text-slate-400 hover:text-white px-2 py-1 rounded-md hover:bg-slate-800 transition-colors"
+                >
+                  Expand all
+                </button>
+                <span className="text-slate-700">·</span>
+                <button
+                  onClick={collapseAll}
+                  className="text-slate-400 hover:text-white px-2 py-1 rounded-md hover:bg-slate-800 transition-colors"
+                >
+                  Collapse all
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* ─── Articles ─── */}
+          {filtered.length === 0 ? (
+            <div className="text-center py-16 bg-slate-800/40 border border-slate-700/60 rounded-xl">
+              <svg className="w-10 h-10 text-slate-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+              </svg>
+              <p className="text-slate-400 text-sm">No articles match that search.</p>
+              <p className="text-slate-500 text-xs mt-1">Try a different keyword or clear the filter.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filtered.map(article => {
+                const isOpen = expanded.has(article.id);
+                return (
+                  <article
+                    key={article.id}
+                    id={article.id}
+                    className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-card-glass transition-colors hover:border-slate-600"
+                  >
+                    <button
+                      onClick={() => toggle(article.id)}
+                      className="w-full text-left p-5 flex items-start gap-4 group"
+                      aria-expanded={isOpen}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                            {article.category}
+                          </span>
+                          <span className="text-slate-700">·</span>
+                          <span
+                            className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${LEVEL_STYLES[article.level]}`}
+                          >
+                            {LEVEL_LABEL[article.level]}
+                          </span>
+                        </div>
+                        <h3 className="text-base font-semibold text-white group-hover:text-indigo-200 transition-colors">
+                          {article.title}
+                        </h3>
+                        <p className="text-sm text-slate-400 mt-1">{article.snippet}</p>
+                      </div>
+                      <svg
+                        className={`w-5 h-5 text-slate-500 flex-shrink-0 mt-1 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.8}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {isOpen && (
+                      <div className="px-5 pb-5 -mt-1 border-t border-slate-700/60 pt-4">
+                        {article.body}
+                        {article.tryIt && (
+                          <Link
+                            href={article.tryIt.href}
+                            className="inline-flex items-center gap-1.5 mt-2 text-sm font-medium text-indigo-300 hover:text-indigo-200 transition-colors"
+                          >
+                            {article.tryIt.label}
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                            </svg>
+                          </Link>
+                        )}
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ─── Glossary ─── */}
+          <section id="glossary" className="mt-12">
+            <div className="flex items-baseline justify-between mb-4">
+              <h2 className="text-xl font-semibold text-white tracking-tight">Glossary</h2>
+              <span className="text-xs text-slate-500">{GLOSSARY.length} terms</span>
+            </div>
+            <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
+              <dl className="divide-y divide-slate-700/60">
+                {GLOSSARY.map(({ term, def }) => (
+                  <div key={term} className="grid grid-cols-1 sm:grid-cols-4 gap-2 sm:gap-4 px-5 py-3.5 hover:bg-slate-700/20 transition-colors">
+                    <dt className="text-sm font-semibold text-white">{term}</dt>
+                    <dd className="text-sm text-slate-300 sm:col-span-3 leading-relaxed">{def}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </section>
+
+          {/* ─── Footer / contact ─── */}
+          <div className="mt-10 mb-6 bg-slate-800/50 border border-slate-700/60 rounded-xl p-5">
+            <h3 className="text-base font-semibold text-white mb-1">Still stuck?</h3>
+            <p className="text-sm text-slate-400">
+              Message your site admin with the URL you were on, what you expected, and what happened. That&apos;s the
+              fastest path to a fix.
+            </p>
+          </div>
         </div>
+
+        {/* Back to top */}
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="fixed bottom-6 right-6 bg-btn-primary text-white rounded-full p-3 shadow-glow-brand hover:opacity-90 transition-opacity"
+          aria-label="Back to top"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+          </svg>
+        </button>
       </div>
     </ProtectedRoute>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Sub-components
+// ────────────────────────────────────────────────────────────────────
+
+function CategoryChip({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`text-xs font-medium px-3 py-1.5 rounded-full transition-colors flex items-center gap-1.5 ${
+        active
+          ? 'bg-indigo-500 text-white'
+          : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
+      }`}
+    >
+      <span>{label}</span>
+      <span className={`text-[10px] ${active ? 'text-indigo-100' : 'text-slate-500'}`}>{count}</span>
+    </button>
   );
 }
