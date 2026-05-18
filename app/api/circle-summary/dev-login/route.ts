@@ -41,8 +41,9 @@ export async function GET(req: Request) {
 
   console.log('[circle-summary] DEV bypass login as leader', leader.id, leader.name);
 
-  return attachSessionCookie(
+  return await attachSessionCookie(
     NextResponse.redirect(new URL(redirectTo, req.url)),
-    leader.id
+    leader.id,
+    req
   );
 }

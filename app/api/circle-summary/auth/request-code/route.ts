@@ -8,6 +8,7 @@ import {
   OTP_TTL_MS,
 } from '../../../../../lib/leader-tokens';
 import { sendOtpEmail } from '../../../../../lib/circle-summary/email';
+import { isCircleSummaryAccessEnabled } from '../../../../../lib/circle-summary/session';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
 
   let leaderQuery = supabase
     .from('circle_leaders')
-    .select('id, name, email, phone')
+    .select('id, name, email, phone, status, circle_summary_access_enabled')
     .order('id', { ascending: true })
     .limit(10);
 
@@ -61,7 +62,10 @@ export async function POST(req: Request) {
   if (!leaders || leaders.length === 0) return genericOk;
 
   // If multiple leaders match (e.g. shared family phone), prefer one with an email
-  const leader = leaders.find((l) => l.email) || leaders[0];
+  const leader = leaders.find((l) => l.email && isCircleSummaryAccessEnabled(l)) ||
+    leaders.find((l) => isCircleSummaryAccessEnabled(l));
+
+  if (!leader) return genericOk;
 
   if (!leader.email) {
     return NextResponse.json(

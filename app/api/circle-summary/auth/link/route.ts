@@ -14,7 +14,7 @@
 
 import { NextResponse } from 'next/server';
 import { verifySessionToken } from '../../../../../lib/leader-tokens';
-import { attachSessionCookie } from '../../../../../lib/circle-summary/session';
+import { attachSessionCookie, isCircleSummaryAccessEnabled } from '../../../../../lib/circle-summary/session';
 import { createServiceSupabaseClient } from '../../../../../lib/server-supabase';
 
 export const dynamic = 'force-dynamic';
@@ -33,7 +33,8 @@ export async function GET(req: Request) {
   const token = url.searchParams.get('t') || '';
   const rawNext = url.searchParams.get('next') || '/circle-summary/events';
   // Only allow same-origin paths
-  const next = rawNext.startsWith('/') ? rawNext : '/circle-summary/events';
+  const next =
+    rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/circle-summary/events';
 
   const verified = verifySessionToken(token);
   if (!verified?.leaderId) {
@@ -42,22 +43,25 @@ export async function GET(req: Request) {
     return NextResponse.redirect(signIn);
   }
 
+  const supabase = createServiceSupabaseClient();
+  const { data: leader } = await supabase
+    .from('circle_leaders')
+    .select('ccb_group_id, status, circle_summary_access_enabled')
+    .eq('id', verified.leaderId)
+    .maybeSingle();
+
+  if (!isCircleSummaryAccessEnabled(leader)) {
+    const signIn = new URL('/circle-summary', req.url);
+    signIn.searchParams.set('reason', 'not_available');
+    return NextResponse.redirect(signIn);
+  }
+
   // Resolve ccb_group_id so we can skip the /events redirector and land
   // directly on the canonical /circle-summary/[groupId]/events page.
   let resolvedNext = next;
   if (next === '/circle-summary/events' || next === '/circle-summary/events/') {
-    try {
-      const supabase = createServiceSupabaseClient();
-      const { data: leader } = await supabase
-        .from('circle_leaders')
-        .select('ccb_group_id')
-        .eq('id', verified.leaderId)
-        .single();
-      if (leader?.ccb_group_id) {
-        resolvedNext = `/circle-summary/${leader.ccb_group_id}/events`;
-      }
-    } catch {
-      // Fall through to original next on DB error
+    if (leader?.ccb_group_id) {
+      resolvedNext = `/circle-summary/${leader.ccb_group_id}/events`;
     }
   }
 
@@ -89,5 +93,5 @@ export async function GET(req: Request) {
     status: 200,
     headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
   });
-  return attachSessionCookie(res, verified.leaderId);
+  return await attachSessionCookie(res, verified.leaderId, req);
 }

@@ -182,6 +182,17 @@ const normalizeCircleTypeValue = (value: string | undefined | null): string => {
   return raw;
 };
 
+type CircleSummaryAccessStatus = {
+  enabled: boolean;
+  blockedByStatus: boolean;
+  migrationRequired?: boolean;
+  activeSessions: number;
+  lastSeenAt: string | null;
+};
+
+const errorMessage = (error: unknown, fallback: string): string =>
+  error instanceof Error ? error.message : fallback;
+
 export default function CircleLeaderProfilePage() {
   const params = useParams();
   const leaderId = params?.id ? parseInt(params.id as string) : 0;
@@ -194,6 +205,9 @@ export default function CircleLeaderProfilePage() {
   const [isUpdatingEventSummary, setIsUpdatingEventSummary] = useState(false);
   const [isSendingMagicLink, setIsSendingMagicLink] = useState(false);
   const [isOpeningCircleSummary, setIsOpeningCircleSummary] = useState(false);
+  const [circleSummaryAccess, setCircleSummaryAccess] = useState<CircleSummaryAccessStatus | null>(null);
+  const [isLoadingCircleSummaryAccess, setIsLoadingCircleSummaryAccess] = useState(false);
+  const [isUpdatingCircleSummaryAccess, setIsUpdatingCircleSummaryAccess] = useState(false);
   const [isUpdatingFollowUp, setIsUpdatingFollowUp] = useState(false);
   const [showFollowUpDateModal, setShowFollowUpDateModal] = useState(false);
   const [followUpDateValue, setFollowUpDateValue] = useState('');
@@ -1002,6 +1016,117 @@ export default function CircleLeaderProfilePage() {
     setLeader((prev) => (prev ? { ...prev, email_reminders_enabled: next } : prev));
   };
 
+  const getAdminToken = async (): Promise<string | null> => {
+    const { data: sess } = await supabase.auth.getSession();
+    return sess?.session?.access_token ?? null;
+  };
+
+  const loadCircleSummaryAccess = useCallback(async () => {
+    if (!leaderId || !isAdmin) return;
+    setIsLoadingCircleSummaryAccess(true);
+    try {
+      const token = await getAdminToken();
+      if (!token) return;
+
+      const res = await fetch(`/api/circle-summary/sessions?leader_id=${leaderId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (data?.code === 'MIGRATION_REQUIRED') {
+          setCircleSummaryAccess({
+            enabled: false,
+            blockedByStatus: false,
+            migrationRequired: true,
+            activeSessions: 0,
+            lastSeenAt: null,
+          });
+          return;
+        }
+        throw new Error(data?.error || `Request failed (${res.status}).`);
+      }
+      setCircleSummaryAccess({
+        enabled: !!data.enabled,
+        blockedByStatus: !!data.blockedByStatus,
+        migrationRequired: false,
+        activeSessions: Number(data.activeSessions || 0),
+        lastSeenAt: data.lastSeenAt || null,
+      });
+      setLeader((prev) =>
+        prev ? { ...prev, circle_summary_access_enabled: !!data.enabled } : prev
+      );
+    } catch (e: unknown) {
+      console.error('Failed to load Circle Summary access:', e);
+    } finally {
+      setIsLoadingCircleSummaryAccess(false);
+    }
+  }, [isAdmin, leaderId]);
+
+  useEffect(() => {
+    if (!leader?.id || !isAdmin) return;
+    loadCircleSummaryAccess();
+  }, [isAdmin, leader?.id, loadCircleSummaryAccess]);
+
+  const handleToggleCircleSummaryAccess = async () => {
+    if (!leader) return;
+    const currentlyEnabled = circleSummaryAccess?.enabled ?? leader.circle_summary_access_enabled !== false;
+    const next = !currentlyEnabled;
+    setIsUpdatingCircleSummaryAccess(true);
+    try {
+      const token = await getAdminToken();
+      if (!token) {
+        setShowAlert({ isOpen: true, type: 'error', title: 'Not signed in', message: 'Please sign in again.' });
+        return;
+      }
+
+      const res = await fetch('/api/circle-summary/sessions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ leader_id: leader.id, enabled: next }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (data?.code === 'MIGRATION_REQUIRED') {
+          setCircleSummaryAccess({
+            enabled: false,
+            blockedByStatus: false,
+            migrationRequired: true,
+            activeSessions: 0,
+            lastSeenAt: null,
+          });
+        }
+        throw new Error(data?.error || `Request failed (${res.status}).`);
+      }
+
+      setCircleSummaryAccess({
+        enabled: !!data.enabled,
+        blockedByStatus: !!data.blockedByStatus,
+        migrationRequired: false,
+        activeSessions: Number(data.activeSessions || 0),
+        lastSeenAt: data.lastSeenAt || null,
+      });
+      setLeader((prev) => (prev ? { ...prev, circle_summary_access_enabled: !!data.enabled } : prev));
+      setShowAlert({
+        isOpen: true,
+        type: 'success',
+        title: next ? 'Circle Summary Enabled' : 'Circle Summary Disabled',
+        message: next
+          ? `${leader.name} can sign in to Circle Summary again.`
+          : `${leader.name}'s Circle Summary access is disabled. ${Number(data.revokedCount || 0)} active session${Number(data.revokedCount || 0) === 1 ? '' : 's'} revoked.`,
+      });
+    } catch (e: unknown) {
+      setShowAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Update failed',
+        message: errorMessage(e, 'Failed to update Circle Summary access.'),
+      });
+    } finally {
+      setIsUpdatingCircleSummaryAccess(false);
+    }
+  };
+
   const handleSendMagicLink = async () => {
     if (!leader) return;
     setIsSendingMagicLink(true);
@@ -1605,6 +1730,57 @@ export default function CircleLeaderProfilePage() {
   }
 
   const isHostTeam = leader?.leader_type === 'host_team';
+  const circleSummaryBlockedByStatus =
+    circleSummaryAccess?.blockedByStatus ?? ['archive', 'archived'].includes((leader.status || '').toLowerCase());
+  const circleSummaryMigrationRequired = circleSummaryAccess?.migrationRequired === true;
+  const circleSummaryEnabled =
+    !circleSummaryMigrationRequired &&
+    !circleSummaryBlockedByStatus &&
+    (circleSummaryAccess?.enabled ?? leader.circle_summary_access_enabled !== false);
+  const circleSummaryActiveSessions = circleSummaryAccess?.activeSessions ?? 0;
+  const circleSummaryLastSeen = circleSummaryAccess?.lastSeenAt
+    ? formatDateTime(circleSummaryAccess.lastSeenAt)
+    : null;
+
+  const renderCircleSummaryAccessControl = () => (
+    <div className="mt-3 rounded-lg border border-slate-700 bg-slate-900/30 px-3 py-2.5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-2 h-2 rounded-full shrink-0 ${
+                circleSummaryEnabled ? 'bg-emerald-400' : 'bg-rose-400'
+              }`}
+            />
+            <span className="text-xs font-semibold text-slate-200">Leader Access</span>
+          </div>
+          <p className="mt-1 text-[11px] leading-snug text-slate-400">
+            {isLoadingCircleSummaryAccess
+              ? 'Loading session status...'
+              : circleSummaryEnabled
+                ? `${circleSummaryActiveSessions} active session${circleSummaryActiveSessions === 1 ? '' : 's'}${circleSummaryLastSeen ? `, last seen ${circleSummaryLastSeen}` : ''}`
+                : circleSummaryMigrationRequired
+                  ? 'Migration needed before this can be managed.'
+                  : circleSummaryBlockedByStatus
+                    ? 'Archived leaders cannot use Circle Summary.'
+                    : 'Disabled. Leader cannot sign in.'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleToggleCircleSummaryAccess}
+          disabled={isUpdatingCircleSummaryAccess || isLoadingCircleSummaryAccess || circleSummaryBlockedByStatus || circleSummaryMigrationRequired}
+          className={`shrink-0 min-w-[72px] text-xs px-2.5 py-1.5 rounded-md border transition-colors disabled:opacity-50 ${
+            circleSummaryEnabled
+              ? 'text-emerald-300 hover:text-emerald-200 bg-emerald-900/30 hover:bg-emerald-900/45 border-emerald-800/40'
+              : 'text-slate-300 hover:text-white bg-slate-700/30 hover:bg-slate-700/60 border-slate-700'
+          }`}
+        >
+          {isUpdatingCircleSummaryAccess ? 'Saving...' : circleSummaryMigrationRequired ? 'Migration' : circleSummaryEnabled ? 'Enabled' : 'Disabled'}
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <ProtectedRoute>
@@ -1849,7 +2025,7 @@ export default function CircleLeaderProfilePage() {
                     <button
                       type="button"
                       onClick={handleSendMagicLink}
-                      disabled={isSendingMagicLink}
+                      disabled={isSendingMagicLink || !circleSummaryEnabled}
                       className="w-full h-9 flex items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 text-sm font-medium hover:bg-emerald-500/20 hover:text-emerald-200 transition-colors disabled:opacity-50"
                       title="Open your texting app with a pre-filled Circle Summary sign-in link"
                     >
@@ -1864,7 +2040,7 @@ export default function CircleLeaderProfilePage() {
                       <button
                         type="button"
                         onClick={handleOpenCircleSummaryPage}
-                        disabled={isOpeningCircleSummary}
+                        disabled={isOpeningCircleSummary || !circleSummaryEnabled}
                         className="w-full h-9 flex items-center justify-center gap-2 rounded-lg border border-slate-600 bg-slate-700 text-slate-100 text-sm font-medium shadow-sm hover:bg-slate-600 hover:border-slate-500 transition-colors disabled:opacity-50"
                         title="Open the leader's Circle Summary page in a new tab (auto sign-in)"
                       >
@@ -1875,6 +2051,8 @@ export default function CircleLeaderProfilePage() {
                         {isOpeningCircleSummary ? 'Opening…' : 'Circle Summary Page'}
                       </button>
                     )}
+
+                    {renderCircleSummaryAccessControl()}
 
                     <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-900/30 px-3 py-2">
                       <div className="flex items-center gap-2.5 min-w-0">
@@ -2681,7 +2859,7 @@ export default function CircleLeaderProfilePage() {
                       <button
                         type="button"
                         onClick={handleSendMagicLink}
-                        disabled={isSendingMagicLink}
+                        disabled={isSendingMagicLink || !circleSummaryEnabled}
                         className="w-full h-9 flex items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 text-sm font-medium hover:bg-emerald-500/20 hover:text-emerald-200 transition-colors disabled:opacity-50"
                         title="Open your texting app with a pre-filled Circle Summary sign-in link"
                       >
@@ -2696,7 +2874,7 @@ export default function CircleLeaderProfilePage() {
                         <button
                           type="button"
                           onClick={handleOpenCircleSummaryPage}
-                          disabled={isOpeningCircleSummary}
+                          disabled={isOpeningCircleSummary || !circleSummaryEnabled}
                           className="w-full h-9 flex items-center justify-center gap-2 rounded-lg border border-slate-500 bg-slate-700 text-slate-100 text-sm font-medium shadow-sm hover:bg-slate-600 hover:border-slate-400 transition-colors disabled:opacity-50"
                           title="Open the leader's Circle Summary page in a new tab (auto sign-in)"
                         >
@@ -2707,6 +2885,8 @@ export default function CircleLeaderProfilePage() {
                           {isOpeningCircleSummary ? 'Opening…' : 'Circle Summary Page'}
                         </button>
                       )}
+
+                      {renderCircleSummaryAccessControl()}
 
                       <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-900/30 px-3 py-2">
                         <div className="flex items-center gap-2.5 min-w-0">

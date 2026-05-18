@@ -1,23 +1,25 @@
 /**
- * Leader Auth — Email OTP + Signed Session Cookie
+ * Leader Auth — Email OTP + signed magic links + persistent session cookies
  *
  * Flow:
  *  1. Leader enters email or phone → we lookup circle_leaders → email on file
  *  2. Generate 6-digit code, store SHA-256 hash + 10min TTL in leader_otp_codes
  *  3. Resend delivers the code to the leader's email
  *  4. Leader enters code → server hashes, compares, marks consumed
- *  5. Server issues a signed session cookie (24h) — used as auth on all
- *     /api/circle-summary/* routes
+ *  5. Server issues an opaque persistent session cookie backed by the
+ *     leader_sessions table — used as auth on all /api/circle-summary/* routes
  *
- * Cookie format: <leader_id_b64>.<expires_ms>.<hmac_sha256_b64>
+ * Magic-link token format: <leader_id_b64>.<expires_ms>.<hmac_sha256_b64>
  * HMAC is over `<leader_id>:<expires_ms>` using LEADER_SESSION_SECRET.
  */
 
-import { createHmac, createHash, randomInt, timingSafeEqual } from 'crypto';
+import { createHmac, createHash, randomBytes, randomInt, timingSafeEqual } from 'crypto';
 
 const SESSION_SECRET_ENV = 'LEADER_SESSION_SECRET';
 export const SESSION_COOKIE_NAME = 'radius_leader_session';
-export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+// Browsers may cap persistent cookies, so this is refreshed on /circle-summary page loads.
+export const SESSION_COOKIE_MAX_AGE_SECONDS = 400 * 24 * 60 * 60;
+export const MAGIC_LINK_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 export const OTP_TTL_MS = 10 * 60 * 1000; // 10min
 export const OTP_MAX_ATTEMPTS = 5;
 
@@ -63,7 +65,7 @@ function signSession(leaderId: string, expiresMs: number): string {
   );
 }
 
-export function createSessionToken(leaderId: string | number, ttlMs = SESSION_TTL_MS): string {
+export function createSessionToken(leaderId: string | number, ttlMs = MAGIC_LINK_TTL_MS): string {
   const id = String(leaderId);
   const expiresMs = Date.now() + ttlMs;
   return `${b64urlEncode(id)}.${expiresMs}.${signSession(id, expiresMs)}`;
@@ -102,4 +104,12 @@ export function normalizePhone(input: string): string {
 /** Normalize an email for comparison: lowercase, trim. */
 export function normalizeEmail(input: string): string {
   return (input || '').trim().toLowerCase();
+}
+
+export function createOpaqueSessionToken(): string {
+  return b64urlEncode(randomBytes(32));
+}
+
+export function hashSessionToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
 }

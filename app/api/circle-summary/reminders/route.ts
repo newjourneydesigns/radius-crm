@@ -18,6 +18,7 @@ import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { createSessionToken } from '../../../../lib/leader-tokens';
 import { sendReminderEmail } from '../../../../lib/circle-summary/email';
+import { getCircleSummaryBaseUrl } from '../../../../lib/circle-summary/links';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -31,7 +32,7 @@ const FOLLOW_UP_HOUR_END = 10;   // up to 10am local
 const FOLLOW_UP_LOOKBACK_DAYS = 7;
 
 function buildMagicLinkUrl(leaderId: number | string, next: string): string {
-  const appUrl = process.env.URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const appUrl = getCircleSummaryBaseUrl();
   const token = createSessionToken(leaderId, MAGIC_LINK_TTL_MS);
   const url = new URL('/api/circle-summary/auth/link', appUrl);
   url.searchParams.set('t', token);
@@ -61,6 +62,7 @@ export async function POST(req: Request) {
     .from('circle_leaders')
     .select('id, name, email, ccb_group_id')
     .eq('email_reminders_enabled', true)
+    .eq('circle_summary_access_enabled', true)
     .not('email', 'is', null)
     .not('ccb_group_id', 'is', null);
 
@@ -179,8 +181,8 @@ export async function POST(req: Request) {
         // Only one follow-up per leader per run
         break;
       }
-    } catch (e: any) {
-      errors.push({ leaderId: leader.id, error: e?.message || 'CCB fetch failed' });
+    } catch (e: unknown) {
+      errors.push({ leaderId: leader.id, error: e instanceof Error ? e.message : 'CCB fetch failed' });
     }
   }
 

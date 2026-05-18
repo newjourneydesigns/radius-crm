@@ -13,6 +13,8 @@ import { createServiceSupabaseClient } from '../../../../../lib/server-supabase'
 import { createCCBClient } from '../../../../../lib/ccb/ccb-client';
 import { createSessionToken } from '../../../../../lib/leader-tokens';
 import { sendReminderEmail } from '../../../../../lib/circle-summary/email';
+import { isCircleSummaryAccessEnabled } from '../../../../../lib/circle-summary/session';
+import { getCircleSummaryBaseUrl } from '../../../../../lib/circle-summary/links';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,12 +47,15 @@ export async function POST(req: NextRequest) {
   const supabase = createServiceSupabaseClient();
   const { data: leader, error: lookupError } = await supabase
     .from('circle_leaders')
-    .select('id, name, email, ccb_group_id')
+    .select('id, name, email, ccb_group_id, status, circle_summary_access_enabled')
     .eq('id', body.leader_id)
     .single();
 
   if (lookupError || !leader) {
     return NextResponse.json({ error: lookupError?.message || 'Leader not found' }, { status: 404 });
+  }
+  if (!isCircleSummaryAccessEnabled(leader)) {
+    return NextResponse.json({ error: 'Circle Summary access is disabled for this leader.' }, { status: 403 });
   }
   if (!leader.email) {
     return NextResponse.json({ error: 'Leader has no email address.' }, { status: 400 });
@@ -90,14 +95,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const forwardedHost = req.headers.get('x-forwarded-host');
-  const forwardedProto = req.headers.get('x-forwarded-proto') || 'https';
-  const origin = forwardedHost
-    ? `${forwardedProto}://${forwardedHost}`
-    : new URL(req.url).origin;
-
   const token = createSessionToken(leader.id, MAGIC_LINK_TTL_MS);
-  const magicUrl = new URL('/api/circle-summary/auth/link', origin);
+  const magicUrl = new URL('/api/circle-summary/auth/link', getCircleSummaryBaseUrl(req));
   magicUrl.searchParams.set('t', token);
   magicUrl.searchParams.set('next', '/circle-summary/events');
 

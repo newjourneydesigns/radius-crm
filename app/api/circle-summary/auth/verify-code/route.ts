@@ -6,7 +6,7 @@ import {
   normalizePhone,
   OTP_MAX_ATTEMPTS,
 } from '../../../../../lib/leader-tokens';
-import { attachSessionCookie } from '../../../../../lib/circle-summary/session';
+import { attachSessionCookie, isCircleSummaryAccessEnabled } from '../../../../../lib/circle-summary/session';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
   // Deterministic ordering so request-code and verify-code pick the same leader
   let leaderQuery = supabase
     .from('circle_leaders')
-    .select('id, name, email, phone')
+    .select('id, name, email, phone, status, circle_summary_access_enabled')
     .order('id', { ascending: true })
     .limit(10);
   if (isEmail) {
@@ -40,7 +40,8 @@ export async function POST(req: Request) {
     leaderQuery = leaderQuery.like('phone', `%${normalizePhone(identifier)}%`);
   }
   const { data: leaders } = await leaderQuery;
-  if (!leaders || leaders.length === 0) {
+  const eligibleLeaders = (leaders || []).filter((l) => isCircleSummaryAccessEnabled(l));
+  if (eligibleLeaders.length === 0) {
     return NextResponse.json({ error: 'Code is invalid or expired.' }, { status: 401 });
   }
 
@@ -48,7 +49,7 @@ export async function POST(req: Request) {
   // it matches an outstanding OTP for ANY of them. This handles two real cases:
   //   1. Multiple leaders share a phone number (family)
   //   2. The user requested multiple codes (older code still unconsumed)
-  const candidateIds = leaders.map((l) => l.id);
+  const candidateIds = eligibleLeaders.map((l) => l.id);
 
   const nowIso = new Date().toISOString();
   const { data: otps } = await supabase
@@ -88,9 +89,10 @@ export async function POST(req: Request) {
     .eq('leader_id', match.leader_id)
     .is('consumed_at', null);
 
-  const leader = leaders.find((l) => l.id === match.leader_id) || leaders[0];
-  return attachSessionCookie(
+  const leader = eligibleLeaders.find((l) => l.id === match.leader_id) || eligibleLeaders[0];
+  return await attachSessionCookie(
     NextResponse.json({ ok: true, leaderId: leader.id, name: leader.name }),
-    leader.id
+    leader.id,
+    req
   );
 }
