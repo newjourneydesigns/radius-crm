@@ -2,6 +2,12 @@
   {
     "date": "2026-05-18",
     "type": "fix",
+    "description": "Adding the Circle Summary to your home screen now opens directly into Circle Summary instead of the main RADIUS login. The Circle Summary now ships its own web-app manifest so iOS treats it as a standalone leader app.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-18",
+    "type": "fix",
     "description": "Bookmarking your Circle Summary magic link now keeps you signed in. The link route checks for an active leader session before re-verifying the token, so the bookmark works even after the 7-day token has expired.",
     "page": "/circle-summary"
   },

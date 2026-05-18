@@ -4,6 +4,7 @@ import ClientLayout from "./ClientLayout";
 export const metadata = {
   title: 'RADIUS Circle Leader Management',
   description: 'Circle Leader Management System for RADIUS',
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({ 
@@ -81,7 +82,6 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
-        <link rel="manifest" href="/manifest.json" />
         <meta name="color-scheme" content="dark" />
 
         {/* FullCalendar */}

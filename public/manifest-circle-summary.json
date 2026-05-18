@@ -1,0 +1,40 @@
+{
+  "id": "/circle-summary",
+  "name": "Circle Summary — Valley Creek",
+  "short_name": "Circle Summary",
+  "description": "Report your Circle event summaries — for Circle Leaders at Valley Creek.",
+  "start_url": "/circle-summary",
+  "display": "standalone",
+  "display_override": ["standalone"],
+  "background_color": "#ffffff",
+  "theme_color": "#34B233",
+  "orientation": "portrait-primary",
+  "scope": "/circle-summary",
+  "lang": "en-US",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
