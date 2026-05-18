@@ -14,7 +14,11 @@
 
 import { NextResponse } from 'next/server';
 import { verifySessionToken } from '../../../../../lib/leader-tokens';
-import { attachSessionCookie, isCircleSummaryAccessEnabled } from '../../../../../lib/circle-summary/session';
+import {
+  attachSessionCookie,
+  getSessionLeaderId,
+  isCircleSummaryAccessEnabled,
+} from '../../../../../lib/circle-summary/session';
 import { createServiceSupabaseClient } from '../../../../../lib/server-supabase';
 
 export const dynamic = 'force-dynamic';
@@ -36,6 +40,30 @@ export async function GET(req: Request) {
   const next =
     rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/circle-summary/events';
 
+  // If the visitor already has a valid leader session cookie, honor it.
+  // The magic-link token TTL is only 7 days while session cookies persist
+  // far longer — bookmarking the link URL shouldn't force a re-auth as long
+  // as the cookie is still valid.
+  const supabase = createServiceSupabaseClient();
+  const existingLeaderId = await getSessionLeaderId();
+  if (existingLeaderId) {
+    const { data: existingLeader } = await supabase
+      .from('circle_leaders')
+      .select('ccb_group_id, status, circle_summary_access_enabled')
+      .eq('id', existingLeaderId)
+      .maybeSingle();
+    if (isCircleSummaryAccessEnabled(existingLeader)) {
+      let dest = next;
+      if (
+        (next === '/circle-summary/events' || next === '/circle-summary/events/') &&
+        existingLeader?.ccb_group_id
+      ) {
+        dest = `/circle-summary/${existingLeader.ccb_group_id}/events`;
+      }
+      return NextResponse.redirect(new URL(dest, req.url));
+    }
+  }
+
   const verified = verifySessionToken(token);
   if (!verified?.leaderId) {
     const signIn = new URL('/circle-summary', req.url);
@@ -43,7 +71,6 @@ export async function GET(req: Request) {
     return NextResponse.redirect(signIn);
   }
 
-  const supabase = createServiceSupabaseClient();
   const { data: leader } = await supabase
     .from('circle_leaders')
     .select('ccb_group_id, status, circle_summary_access_enabled')

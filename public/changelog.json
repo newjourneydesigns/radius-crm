@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-05-18",
+    "type": "fix",
+    "description": "Bookmarking your Circle Summary magic link now keeps you signed in. The link route checks for an active leader session before re-verifying the token, so the bookmark works even after the 7-day token has expired.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-18",
+    "type": "improvement",
+    "description": "Polished the Update Roster UI on the Circle Summary — clearer Edit/Done toggle with icons, softer warning banner, restyled remove buttons with hover states, and cleaner alignment for newly added attendees.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-18",
     "type": "feature",
     "description": "Redesigned Help Center — fuzzy search, category chips, expandable knowledge-base articles, real-world workflows, glossary, FAQ, and a What's New strip pulled from the update log.",
     "page": "/help"
