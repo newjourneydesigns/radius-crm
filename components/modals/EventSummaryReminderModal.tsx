@@ -10,6 +10,9 @@ interface EventSummaryReminderModalProps {
   leaderName: string;
   sentMessages: number[]; // Array of message numbers already sent this week (e.g., [1, 2])
   onSend: (messageNumber: number, messageText: string) => Promise<void>;
+  canIncludeCircleSummaryLink?: boolean;
+  circleSummaryLinkUnavailableReason?: string;
+  onGenerateCircleSummaryLink?: () => Promise<string>;
 }
 
 const DEFAULT_TEMPLATES: Record<number, (firstName: string) => string> = {
@@ -30,6 +33,9 @@ export default function EventSummaryReminderModal({
   leaderName,
   sentMessages,
   onSend,
+  canIncludeCircleSummaryLink = false,
+  circleSummaryLinkUnavailableReason,
+  onGenerateCircleSummaryLink,
 }: EventSummaryReminderModalProps) {
   const [mounted, setMounted] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<number | null>(null);
@@ -37,6 +43,7 @@ export default function EventSummaryReminderModal({
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
+  const [includeCircleSummaryLink, setIncludeCircleSummaryLink] = useState(false);
 
   // Per-user saved templates (null = use default)
   const [userTemplates, setUserTemplates] = useState<Record<number, string | null>>({ 1: null, 2: null, 3: null });
@@ -144,6 +151,17 @@ export default function EventSummaryReminderModal({
     }
   };
 
+  const buildMessageToSend = async () => {
+    const message = editedMessage.trim();
+    if (!includeCircleSummaryLink) return message;
+    if (!onGenerateCircleSummaryLink) {
+      throw new Error(circleSummaryLinkUnavailableReason || 'Circle Summary link is not available.');
+    }
+
+    const url = await onGenerateCircleSummaryLink();
+    return `${message}\n\n${url}`;
+  };
+
   const handleSend = async () => {
     if (!selectedMessage || !editedMessage.trim()) {
       setError('Please select a message');
@@ -152,12 +170,14 @@ export default function EventSummaryReminderModal({
     setError('');
     setIsSending(true);
     try {
-      await onSend(selectedMessage, editedMessage);
+      const messageToSend = await buildMessageToSend();
+      await onSend(selectedMessage, messageToSend);
       setSelectedMessage(null);
       setEditedMessage('');
+      setIncludeCircleSummaryLink(false);
       onClose();
-    } catch {
-      setError('Failed to send. Please try again.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send. Please try again.');
     } finally {
       setIsSending(false);
     }
@@ -169,17 +189,22 @@ export default function EventSummaryReminderModal({
       return;
     }
     try {
-      await navigator.clipboard.writeText(editedMessage);
+      setIsSending(true);
+      const messageToSend = await buildMessageToSend();
+      await navigator.clipboard.writeText(messageToSend);
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
       if (selectedMessage) {
-        await onSend(selectedMessage, editedMessage);
+        await onSend(selectedMessage, messageToSend);
         setSelectedMessage(null);
         setEditedMessage('');
+        setIncludeCircleSummaryLink(false);
         onClose();
       }
-    } catch {
-      setError('Failed to copy message');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to copy message');
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -189,6 +214,7 @@ export default function EventSummaryReminderModal({
     setError('');
     setCopySuccess(false);
     setSaveSuccess(false);
+    setIncludeCircleSummaryLink(false);
     onClose();
   };
 
@@ -202,6 +228,11 @@ export default function EventSummaryReminderModal({
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Choose a message template:
           </label>
+          {loadingTemplates && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Loading saved templates...
+            </p>
+          )}
 
           {[1, 2, 3].map((num) => {
             const isSent = sentMessages.includes(num);
@@ -294,6 +325,30 @@ export default function EventSummaryReminderModal({
           </div>
         )}
 
+        {selectedMessage && (
+          <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-3 py-3">
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                checked={includeCircleSummaryLink}
+                onChange={(e) => setIncludeCircleSummaryLink(e.target.checked)}
+                disabled={!canIncludeCircleSummaryLink || isSending}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+              />
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-gray-900 dark:text-white">
+                  Include Circle Summary page link
+                </span>
+                <span className="block text-xs text-gray-500 dark:text-gray-400">
+                  {canIncludeCircleSummaryLink
+                    ? 'Adds a fresh sign-in link below the reminder message.'
+                    : circleSummaryLinkUnavailableReason || 'Circle Summary link is not available for this leader.'}
+                </span>
+              </span>
+            </label>
+          </div>
+        )}
+
         {/* Error */}
         {error && (
           <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-md">
@@ -337,7 +392,7 @@ export default function EventSummaryReminderModal({
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  Sending...
+                  {includeCircleSummaryLink ? 'Generating link...' : 'Sending...'}
                 </>
               ) : (
                 'Send Message'

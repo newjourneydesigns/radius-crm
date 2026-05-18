@@ -1127,46 +1127,58 @@ export default function CircleLeaderProfilePage() {
     }
   };
 
+  const requestCircleSummaryMagicLink = async () => {
+    if (!leader) return;
+    const { data: sess } = await supabase.auth.getSession();
+    const token = sess?.session?.access_token;
+    if (!token) throw new Error('Please sign in again.');
+
+    const res = await fetch('/api/circle-summary/admin-magic-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ leader_id: leader.id }),
+    });
+    const raw = await res.text();
+    let data: {
+      error?: string;
+      url?: string;
+      phone?: string | null;
+      email?: string | null;
+      smsBody?: string;
+      expiresInDays?: number;
+    } = {};
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch {
+      // Non-JSON response (e.g. 404/502 HTML from Netlify mid-deploy)
+    }
+    if (!res.ok) {
+      throw new Error(
+        data.error ||
+          (res.status === 404
+            ? 'Endpoint not found — the latest version may still be deploying. Try again in a minute.'
+            : `Request failed (${res.status}). Try again.`)
+      );
+    }
+    if (!data.url) throw new Error('Could not generate Circle Summary link.');
+
+    return {
+      ...data,
+      url: data.url,
+    };
+  };
+
   const handleSendMagicLink = async () => {
     if (!leader) return;
     setIsSendingMagicLink(true);
     try {
-      const { data: sess } = await supabase.auth.getSession();
-      const token = sess?.session?.access_token;
-      if (!token) {
-        setShowAlert({ isOpen: true, type: 'error', title: 'Not signed in', message: 'Please sign in again.' });
-        return;
-      }
-      const res = await fetch('/api/circle-summary/admin-magic-link', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ leader_id: leader.id }),
-      });
-      const raw = await res.text();
-      let data: any = {};
-      try {
-        data = raw ? JSON.parse(raw) : {};
-      } catch {
-        // Non-JSON response (e.g. 404/502 HTML from Netlify mid-deploy)
-      }
-      if (!res.ok) {
-        setShowAlert({
-          isOpen: true,
-          type: 'error',
-          title: 'Could not generate link',
-          message:
-            data.error ||
-            (res.status === 404
-              ? 'Endpoint not found — the latest version may still be deploying. Try again in a minute.'
-              : `Request failed (${res.status}). Try again.`),
-        });
-        return;
-      }
+      const data = await requestCircleSummaryMagicLink();
+      if (!data) return;
 
       const cleanPhone = (data.phone || '').replace(/\D/g, '');
       if (cleanPhone) {
         // Opens the user's SMS app pre-filled with the magic link
-        const smsUrl = `sms:${cleanPhone}?body=${encodeURIComponent(data.smsBody)}`;
+        const smsUrl = `sms:${cleanPhone}?body=${encodeURIComponent(data.smsBody || data.url)}`;
         window.location.href = smsUrl;
       } else {
         // No phone on file — copy to clipboard so the admin can paste it anywhere
@@ -1188,12 +1200,13 @@ export default function CircleLeaderProfilePage() {
           });
         }
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Try again.';
       setShowAlert({
         isOpen: true,
         type: 'error',
-        title: 'Send failed',
-        message: e?.message || 'Try again.',
+        title: message === 'Please sign in again.' ? 'Not signed in' : 'Send failed',
+        message,
       });
     } finally {
       setIsSendingMagicLink(false);
@@ -3278,6 +3291,19 @@ export default function CircleLeaderProfilePage() {
         leaderName={leader?.name || ''}
         sentMessages={sentReminderMessages}
         onSend={handleSendEventSummaryReminder}
+        canIncludeCircleSummaryLink={circleSummaryEnabled}
+        circleSummaryLinkUnavailableReason={
+          circleSummaryMigrationRequired
+            ? 'Circle Summary link requires the latest access migration.'
+            : circleSummaryBlockedByStatus
+              ? 'Circle Summary access is disabled for archived leaders.'
+              : 'Circle Summary access is disabled for this leader.'
+        }
+        onGenerateCircleSummaryLink={async () => {
+          const data = await requestCircleSummaryMagicLink();
+          if (!data?.url) throw new Error('Could not generate Circle Summary link.');
+          return data.url;
+        }}
       />
 
       {/* CCB Event Explorer Modal (re-used from Calendar page) */}

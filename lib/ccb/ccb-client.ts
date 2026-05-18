@@ -2310,10 +2310,14 @@ function parseGroupICal(
     const baseDt = parseIcalDateTime(dtstartRaw);
     if (!baseDt?.isValid) return;
 
+    const exdates = parseIcalExdates(cur.EXDATE);
+    const shouldEmit = (dt: DateTime) =>
+      dt >= start && dt <= end && !exdates.has(dt.toFormat('yyyy-LL-dd HH:mm:ss'));
+
     const rrule = cur.RRULE;
     if (!rrule) {
       // Single occurrence
-      if (baseDt >= start && baseDt <= end) {
+      if (shouldEmit(baseDt)) {
         events.push(emitOccurrence(eventId, title, baseDt));
       }
       return;
@@ -2338,16 +2342,41 @@ function parseGroupICal(
     const until = parts.UNTIL ? parseIcalDateTime(parts.UNTIL) : null;
     const count = parts.COUNT ? Number(parts.COUNT) : Infinity;
 
+    if (freq === 'MONTHLY' && parts.BYDAY) {
+      let month = baseDt.startOf('month');
+      let generated = 0;
+
+      // Hard upper bound to avoid runaway loops on weird recurrences.
+      for (let i = 0; i < 500; i++) {
+        const candidates = expandMonthlyByDay(month, parts.BYDAY, baseDt)
+          .filter((dt) => dt >= baseDt)
+          .sort((a, b) => a.toMillis() - b.toMillis());
+
+        for (const occ of candidates) {
+          if (until && occ > until) return;
+          if (generated >= count) return;
+          generated++;
+          if (shouldEmit(occ)) {
+            events.push(emitOccurrence(eventId, title, occ));
+          }
+        }
+
+        month = month.plus({ months: interval });
+        if (month > end.endOf('month')) break;
+      }
+      return;
+    }
+
     let occ = baseDt;
-    let emitted = 0;
+    let generated = 0;
     // Hard upper bound to avoid runaway loops on weird recurrences
     for (let i = 0; i < 500; i++) {
       if (until && occ > until) break;
-      if (emitted >= count) break;
+      if (generated >= count) break;
+      generated++;
       if (occ > end) break;
-      if (occ >= start) {
+      if (shouldEmit(occ)) {
         events.push(emitOccurrence(eventId, title, occ));
-        emitted++;
       }
       switch (freq) {
         case 'DAILY':
@@ -2384,10 +2413,94 @@ function parseGroupICal(
     const keyAndParams = line.slice(0, colonIdx);
     const value = line.slice(colonIdx + 1);
     const key = keyAndParams.split(';')[0];
-    cur[key] = value;
+    cur[key] = key === 'EXDATE' && cur[key] ? `${cur[key]},${value}` : value;
   }
 
   return events;
+}
+
+function parseIcalExdates(raw: string | undefined): Set<string> {
+  const out = new Set<string>();
+  if (!raw) return out;
+
+  for (const part of raw.split(',')) {
+    const dt = parseIcalDateTime(part.trim());
+    if (dt?.isValid) out.add(dt.toFormat('yyyy-LL-dd HH:mm:ss'));
+  }
+  return out;
+}
+
+function expandMonthlyByDay(month: DateTime, byday: string, baseDt: DateTime): DateTime[] {
+  const time = {
+    hour: baseDt.hour,
+    minute: baseDt.minute,
+    second: baseDt.second,
+    millisecond: baseDt.millisecond,
+  };
+
+  const candidates: DateTime[] = [];
+  for (const rule of byday.split(',').map((p) => p.trim()).filter(Boolean)) {
+    const match = rule.match(/^([+-]?\d+)?(MO|TU|WE|TH|FR|SA|SU)$/);
+    if (!match) continue;
+
+    const ordinal = match[1] ? Number(match[1]) : null;
+    const weekday = weekdayFromIcal(match[2]);
+    if (!weekday) continue;
+
+    if (ordinal == null) {
+      let dt = month.set({ day: 1, ...time });
+      while (dt.month === month.month) {
+        if (dt.weekday === weekday) candidates.push(dt);
+        dt = dt.plus({ days: 1 });
+      }
+      continue;
+    }
+
+    const dt = nthWeekdayOfMonth(month, weekday, ordinal, time);
+    if (dt) candidates.push(dt);
+  }
+
+  const seen = new Set<string>();
+  return candidates.filter((dt) => {
+    const key = dt.toISO();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function weekdayFromIcal(day: string): number | null {
+  const map: Record<string, number> = {
+    MO: 1,
+    TU: 2,
+    WE: 3,
+    TH: 4,
+    FR: 5,
+    SA: 6,
+    SU: 7,
+  };
+  return map[day] ?? null;
+}
+
+function nthWeekdayOfMonth(
+  month: DateTime,
+  weekday: number,
+  ordinal: number,
+  time: { hour: number; minute: number; second: number; millisecond: number }
+): DateTime | null {
+  if (ordinal === 0) return null;
+
+  if (ordinal > 0) {
+    let dt = month.set({ day: 1, ...time });
+    const offset = (weekday - dt.weekday + 7) % 7;
+    dt = dt.plus({ days: offset + (ordinal - 1) * 7 });
+    return dt.month === month.month ? dt : null;
+  }
+
+  let dt = month.endOf('month').set(time);
+  const offset = (dt.weekday - weekday + 7) % 7;
+  dt = dt.minus({ days: offset + (Math.abs(ordinal) - 1) * 7 });
+  return dt.month === month.month ? dt : null;
 }
 
 function parseIcalDateTime(raw: string): DateTime | null {

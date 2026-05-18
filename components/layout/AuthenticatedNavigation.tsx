@@ -111,6 +111,12 @@ const ImportCirclesIcon = () => (
   </svg>
 );
 
+const MassUpdateIcon = () => (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+  </svg>
+);
+
 const LayoutListIcon = () => (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6h.008v.008H3.75V6zM3.75 12h.008v.008H3.75V12zm0 6h.008v.008H3.75V18zM8.25 6h12M8.25 12h12m-12 6h12" />
@@ -164,6 +170,7 @@ const adminToolsNavItems = [
   { href: '/bulk-message',           label: 'Bulk Message',             Icon: MessageBulkIcon },
   { href: '/add-leader',             label: 'Add Leader',               Icon: UserPlusIcon },
   { href: '/import-circles',         label: 'Import Circles',           Icon: ImportCirclesIcon },
+  { href: '/import-circles/#mass-update', label: 'Mass Update',          Icon: MassUpdateIcon },
   { href: '/admin/dynamic-questions', label: 'Circle Summary Questions', Icon: LayoutListIcon },
   { href: '/users',                  label: 'Manage Users',             Icon: UsersIcon },
 ];
@@ -175,7 +182,7 @@ export default function AuthenticatedNavigation() {
   const [showUpdateLogBadge, setShowUpdateLogBadge] = useState(false);
   const toolsMenuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
-  const pathname = usePathname();
+  const pathname = usePathname() ?? '';
 
   const closeAll = useCallback(() => {
     setToolsMenuOpen(false);
@@ -233,12 +240,14 @@ export default function AuthenticatedNavigation() {
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
 
-  const dropdownLinkClass = (href: string) =>
-    `flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
-      isActive(href)
+  const dropdownLinkClass = (href: string) => {
+    const activeHref = href.split(/[?#]/)[0];
+    return `flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
+      isActive(activeHref)
         ? 'text-slate-300 bg-white/[0.06] border-l-2 border-slate-400/50'
         : 'text-gray-300 hover:text-white hover:bg-white/[0.06]'
     }`;
+  };
 
   return (
     <nav className="nav-premium hidden md:block bg-[#1a1c22]/97 backdrop-blur-md border-b border-white/[0.06] relative z-[10000]">

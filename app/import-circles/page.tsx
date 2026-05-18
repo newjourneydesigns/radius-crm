@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import Link from 'next/link';
@@ -81,13 +80,23 @@ export default function ImportCirclesPage() {
   const [hasSearched, setHasSearched] = useState(false);
   const [linkingGroupIds, setLinkingGroupIds] = useState<Set<string>>(new Set());
   const [linkedGroupIds, setLinkedGroupIds] = useState<Set<string>>(new Set());
-  const router = useRouter();
-
   const [accessToken, setAccessToken] = useState<string | null>(null);
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setAccessToken(data.session?.access_token || null);
     });
+  }, []);
+
+  useEffect(() => {
+    const syncTabFromHash = () => {
+      if (window.location.hash === '#mass-update') {
+        setActiveTab('mass-update');
+      }
+    };
+
+    syncTabFromHash();
+    window.addEventListener('hashchange', syncTabFromHash);
+    return () => window.removeEventListener('hashchange', syncTabFromHash);
   }, []);
 
   // Mass Update state

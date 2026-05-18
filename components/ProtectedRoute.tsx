@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
+import { getRandomLoadingMessage } from '../lib/loadingMessages';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -14,6 +15,7 @@ export default function ProtectedRoute({ children, requireAuth = true }: Protect
   const router = useRouter();
   const pathname = usePathname();
   const [timeoutReached, setTimeoutReached] = useState(false);
+  const [loadingMessage] = useState(getRandomLoadingMessage);
 
   const handleClearData = async () => {
     console.log('🔄 ProtectedRoute: Clearing data and refreshing...');
@@ -68,7 +70,12 @@ export default function ProtectedRoute({ children, requireAuth = true }: Protect
   if (loading && !timeoutReached) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-gray-300/30 border-t-blue-600"></div>
+          <p suppressHydrationWarning className="text-sm text-gray-600 dark:text-gray-300">
+            {loadingMessage}
+          </p>
+        </div>
       </div>
     );
   }
@@ -109,7 +116,12 @@ export default function ProtectedRoute({ children, requireAuth = true }: Protect
   if (requireAuth && !isAuthenticated()) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-gray-300/30 border-t-blue-600"></div>
+          <p suppressHydrationWarning className="text-sm text-gray-600 dark:text-gray-300">
+            {loadingMessage}
+          </p>
+        </div>
       </div>
     );
   }
@@ -120,7 +132,12 @@ export default function ProtectedRoute({ children, requireAuth = true }: Protect
   if (!requireAuth && isAuthenticated()) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-600/20 border-t-blue-600"></div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-600/20 border-t-blue-600"></div>
+          <p suppressHydrationWarning className="text-sm text-gray-600 dark:text-gray-300">
+            {loadingMessage}
+          </p>
+        </div>
       </div>
     );
   }

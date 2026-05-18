@@ -882,9 +882,6 @@ export default function CircleSummaryFormPage() {
               <div className="cs-previous-notes-label">
                 Saved Notes
               </div>
-              <p className="cs-previous-notes-help">
-                Here&apos;s what you shared last time, in case it helps with this summary.
-              </p>
               <p className="cs-previous-notes-body">
                 {previousNotes}
               </p>
@@ -960,9 +957,6 @@ export default function CircleSummaryFormPage() {
                     Cancel
                   </button>
                 </div>
-                <p className="text-xs text-neutral-500">
-                  Currently: {leader?.day || 'no day'} at {leader?.time || 'no time'}
-                </p>
                 <div>
                   <label className="cs-label">New meeting day</label>
                   <input
