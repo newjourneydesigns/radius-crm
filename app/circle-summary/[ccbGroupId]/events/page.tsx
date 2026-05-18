@@ -232,7 +232,7 @@ export default function CircleSummaryEventsPage() {
                 className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 disabled:opacity-70 rounded-full px-3 py-1 transition-colors"
               >
                 <svg
-                  className={`w-3 h-3 text-white/90 ${refreshing ? 'animate-spin' : ''}`}
+                  className={`w-3 h-3 text-white/90 ${refreshing ? 'cs-spin-reverse' : ''}`}
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"

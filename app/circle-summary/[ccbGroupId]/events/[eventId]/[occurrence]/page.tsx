@@ -66,6 +66,10 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
+function normalizeNoteText(value: unknown): string {
+  return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
+}
+
 export default function CircleSummaryFormPage() {
   const router = useRouter();
   const params = useParams<{ ccbGroupId: string; eventId: string; occurrence: string }>();
@@ -103,6 +107,7 @@ export default function CircleSummaryFormPage() {
   const [searching, setSearching] = useState(false);
   const [manualForm, setManualForm] = useState<ManualAttendee>({ firstName: '', lastName: '', phone: '', email: '' });
   const [editingManualIdx, setEditingManualIdx] = useState<number | null>(null);
+  const searchRequestId = useRef(0);
 
   const [showInfoUpdate, setShowInfoUpdate] = useState(false);
   const [loadedFromSubmission, setLoadedFromSubmission] = useState<string | null>(null);
@@ -246,25 +251,40 @@ export default function CircleSummaryFormPage() {
     });
   }
 
-  async function runSearch(q: string) {
-    setSearchQuery(q);
-    if (q.trim().length < 2) {
+  useEffect(() => {
+    if (!addOpen || editingManualIdx !== null) return;
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      searchRequestId.current += 1;
       setSearchResults([]);
+      setSearching(false);
       return;
     }
+
+    const requestId = searchRequestId.current + 1;
+    searchRequestId.current = requestId;
     setSearching(true);
-    try {
-      const res = await fetch('/api/circle-summary/roster/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: q }),
-      });
-      const data = await res.json();
-      setSearchResults(data.results || []);
-    } finally {
-      setSearching(false);
-    }
-  }
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/circle-summary/roster/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: q }),
+        });
+        const data = await res.json();
+        if (searchRequestId.current === requestId) {
+          setSearchResults(data.results || []);
+        }
+      } catch {
+        if (searchRequestId.current === requestId) setSearchResults([]);
+      } finally {
+        if (searchRequestId.current === requestId) setSearching(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [addOpen, editingManualIdx, searchQuery]);
 
   async function addFromCcb(individual: CcbSearchResult) {
     if (!individual.id) return;
@@ -514,6 +534,9 @@ export default function CircleSummaryFormPage() {
     (q) => (didNotMeet && q.show_when_did_not_meet) || (!didNotMeet && q.show_when_attended)
   );
   const totalAttendees = selectedCcbIds.size + manualAttendees.length;
+  const previousNotesTargetQuestion = visibleQuestions.find((q) => q.field_type === 'textarea');
+  const previousNotesAlreadyLoaded =
+    !!previousNotesTargetQuestion && !!normalizeNoteText(dynamicValues[previousNotesTargetQuestion.id]);
 
   return (
     <>
@@ -737,37 +760,53 @@ export default function CircleSummaryFormPage() {
                     <p className="text-sm font-semibold text-neutral-700">Edit pending roster request</p>
                   ) : (
                     <>
-                      <input
-                        type="text"
-                        placeholder="Search name or phone…"
-                        className="cs-input"
-                        value={searchQuery}
-                        onChange={(e) => runSearch(e.target.value)}
-                      />
-                      {searching && <div className="text-xs text-neutral-500">Searching…</div>}
-                      {searchResults.length > 0 && (
-                        <div className="space-y-1 max-h-56 overflow-y-auto">
-                          {searchResults.slice(0, 8).map((r) => (
-                            <button
-                              key={r.id}
-                              type="button"
-                              onClick={() => addFromCcb(r)}
-                              className="w-full text-left px-3 py-2 rounded hover:bg-white border border-transparent hover:border-[color:var(--cs-border)] text-sm transition-colors"
-                            >
-                              <div className="font-semibold text-neutral-900">
-                                {r.fullName || `${r.firstName || ''} ${r.lastName || ''}`.trim()}
-                              </div>
-                              {(r.email || r.phone) && (
-                                <div className="text-xs text-neutral-500">
-                                  {[r.phone, r.email].filter(Boolean).join(' • ')}
-                                </div>
-                              )}
-                            </button>
-                          ))}
+                      <div className="cs-search-field">
+                        <label className="cs-search-field-label" htmlFor="cs-roster-search">
+                          Search by full or partial name
+                        </label>
+                        <input
+                          id="cs-roster-search"
+                          type="text"
+                          placeholder="Start typing a name..."
+                          className="cs-input"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                      </div>
+                      {searchQuery.trim().length >= 2 && (
+                        <div className={`cs-search-results-shell${searching ? ' is-searching' : ''}`}>
+                          {searchResults.length > 0 ? (
+                            <div className="cs-search-results-list">
+                              {searchResults.slice(0, 8).map((r) => (
+                                <button
+                                  key={r.id}
+                                  type="button"
+                                  onClick={() => addFromCcb(r)}
+                                  className="cs-search-result-item"
+                                >
+                                  <div className="font-semibold text-neutral-900">
+                                    {r.fullName || `${r.firstName || ''} ${r.lastName || ''}`.trim()}
+                                  </div>
+                                  {(r.email || r.phone) && (
+                                    <div className="text-xs text-neutral-500">
+                                      {[r.phone, r.email].filter(Boolean).join(' • ')}
+                                    </div>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="cs-search-results-empty">
+                              {searching ? 'Searching...' : 'No matching people found'}
+                            </div>
+                          )}
+                          {searching && searchResults.length > 0 && (
+                            <div className="cs-search-results-status">Updating...</div>
+                          )}
                         </div>
                       )}
                       <div className="cs-divider">Person not in our system?</div>
-                      <p className="text-xs text-neutral-500 -mt-1">Fill in their info and we'll request they be added to your roster.</p>
+                      <p className="text-xs text-neutral-500 -mt-1">Fill in their info and we&apos;ll request they be added to your roster.</p>
                     </>
                   )}
                   <div className="grid grid-cols-2 gap-2">
@@ -837,8 +876,7 @@ export default function CircleSummaryFormPage() {
           </>
         )}
 
-        {previousNotes && !didNotMeet && (() => {
-          const targetQuestion = visibleQuestions.find((q) => q.field_type === 'textarea');
+        {previousNotes && !didNotMeet && !previousNotesAlreadyLoaded && (() => {
           return (
             <div className="cs-card cs-previous-notes">
               <div className="cs-previous-notes-label">
@@ -850,12 +888,12 @@ export default function CircleSummaryFormPage() {
               <p className="cs-previous-notes-body">
                 {previousNotes}
               </p>
-              {targetQuestion && (
+              {previousNotesTargetQuestion && (
                 <div className="mt-3">
                   <button
                     type="button"
                     onClick={() => {
-                      setDynamicValues((prev) => ({ ...prev, [targetQuestion.id]: previousNotes }));
+                      setDynamicValues((prev) => ({ ...prev, [previousNotesTargetQuestion.id]: previousNotes }));
                       setPreviousNotes('');
                     }}
                     className="cs-btn-outline text-xs px-3 py-1.5"

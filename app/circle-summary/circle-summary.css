@@ -68,6 +68,16 @@ body:has(.cs-root) {
   background: var(--cs-bg);
 }
 
+.cs-spin-reverse {
+  animation: cs-spin-reverse 1s linear infinite;
+}
+
+@keyframes cs-spin-reverse {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
 .cs-display {
   font-family: var(--font-cs-body), 'Open Sans', sans-serif;
   font-style: italic;
@@ -354,6 +364,87 @@ body:has(.cs-root) {
 .cs-textarea {
   min-height: 4.5rem;
   resize: vertical;
+}
+
+.cs-input::placeholder,
+.cs-textarea::placeholder {
+  color: #6b7280;
+  opacity: 1;
+}
+
+.cs-search-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.cs-search-field-label {
+  color: var(--cs-ink-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.cs-search-results-shell {
+  position: relative;
+  min-height: 4.75rem;
+  max-height: 14rem;
+  overflow-y: auto;
+  overflow-anchor: none;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  border: 1px solid var(--cs-border);
+  transition: min-height 160ms ease, opacity 160ms ease, border-color 160ms ease;
+}
+.cs-search-results-shell.is-searching {
+  border-color: rgba(52, 178, 51, 0.28);
+}
+.cs-search-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.35rem;
+  transition: opacity 140ms ease;
+}
+.cs-search-results-shell.is-searching .cs-search-results-list {
+  opacity: 0.72;
+}
+.cs-search-result-item {
+  width: 100%;
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid #e5e7eb;
+  background: #ffffff !important;
+  font-size: 0.875rem;
+  color: var(--cs-ink);
+  transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+.cs-search-result-item:hover,
+.cs-search-result-item:focus,
+.cs-search-result-item:active {
+  background: #f5fbf5 !important;
+  border-color: rgba(52, 178, 51, 0.35);
+  box-shadow: 0 0 0 2px rgba(52, 178, 51, 0.1);
+  outline: none;
+}
+.cs-search-results-empty {
+  min-height: 4.75rem;
+  display: flex;
+  align-items: center;
+  padding: 0 0.8rem;
+  color: var(--cs-muted) !important;
+  font-size: 0.78rem;
+}
+.cs-search-results-status {
+  position: sticky;
+  bottom: 0;
+  padding: 0.35rem 0.75rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0), #ffffff 38%);
+  color: var(--cs-muted) !important;
+  font-size: 0.72rem;
 }
 
 .cs-label {
