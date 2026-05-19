@@ -2,6 +2,12 @@
   {
     "date": "2026-05-19",
     "type": "improvement",
+    "description": "Personalized the Circle Summary header — the title now reads \"[Leader's first name]'s Circle\" (and \"…'s Roster\") instead of a generic \"Your Circle.\" Removed the small \"Valley Creek Church\" label above the title to clean up the hero.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-19",
+    "type": "improvement",
     "description": "Circle Summary events now serve from a shared cache that's refreshed every 10 minutes in the background. Leaders no longer wait for CCB on first visit, on cold starts, or after switching devices — the page loads with up-to-date events almost instantly.",
     "page": "/circle-summary"
   },

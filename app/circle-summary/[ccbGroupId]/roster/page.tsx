@@ -505,10 +505,9 @@ export default function CircleRosterPage() {
               className="h-16 sm:h-20 w-auto shrink-0"
             />
             <div className="min-w-0">
-              <p className="text-white/65 text-xs font-semibold uppercase tracking-[0.14em] mb-1">
-                Valley Creek Church
-              </p>
-              <h1 className="cs-display text-4xl sm:text-5xl">Your Roster</h1>
+              <h1 className="cs-display text-4xl sm:text-5xl">
+                {leader?.name ? `${leader.name.trim().split(/\s+/)[0]}'s` : 'Your'} Roster
+              </h1>
               {leader && (
                 <p className="mt-1.5 text-white/90 font-semibold text-base">{leader.name}</p>
               )}
