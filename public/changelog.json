@@ -2,7 +2,7 @@
   {
     "date": "2026-05-19",
     "type": "improvement",
-    "description": "Personalized the Circle Summary header — the title now reads \"[Leader's first name]'s Circle\" (and \"…'s Roster\") instead of a generic \"Your Circle.\" Removed the small \"Valley Creek Church\" label above the title to clean up the hero.",
+    "description": "Personalized the Circle Summary header — the title now reads \"[Leader's first name]'s Circle\" (and \"…'s Roster\") instead of a generic \"Your Circle.\" Removed the small \"Valley Creek Church\" label, lifted SIGN OUT into the top corner, and made the title font fluid so longer names stay on a single line.",
     "page": "/circle-summary"
   },
   {

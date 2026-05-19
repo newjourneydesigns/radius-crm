@@ -504,8 +504,8 @@ export default function CircleRosterPage() {
               alt="Circles"
               className="h-16 sm:h-20 w-auto shrink-0"
             />
-            <div className="min-w-0">
-              <h1 className="cs-display text-4xl sm:text-5xl">
+            <div className="min-w-0 flex-1">
+              <h1 className="cs-display whitespace-nowrap text-[clamp(1.75rem,8.5vw,3rem)] leading-tight">
                 {leader?.name ? `${leader.name.trim().split(/\s+/)[0]}'s` : 'Your'} Roster
               </h1>
               {leader && (

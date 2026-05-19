@@ -182,33 +182,31 @@ export default function CircleSummaryEventsPage() {
 
   return (
     <>
-      <header className="cs-hero px-6 pt-10 pb-8 sm:pt-14 sm:pb-10">
+      <header className="cs-hero relative px-6 pt-10 pb-8 sm:pt-14 sm:pb-10">
+        <button
+          onClick={signOut}
+          className="absolute top-4 right-4 sm:top-5 sm:right-6 text-white/70 hover:text-white text-xs font-semibold uppercase tracking-wide"
+        >
+          Sign out
+        </button>
         <div className="max-w-2xl mx-auto">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-4 min-w-0">
-              <img
-                src="/Circles Logo V2-White.png"
-                alt="Circles"
-                className="h-16 sm:h-20 w-auto shrink-0"
-              />
-              <div className="min-w-0">
-                <h1 className="cs-display text-4xl sm:text-5xl">
-                  {leader?.name ? `${leader.name.trim().split(/\s+/)[0]}'s` : 'Your'} Circle
-                </h1>
-                {leader && (
-                  <p className="mt-1.5 text-white/90 font-semibold text-base">
-                    {leader.name}
-                    {leader.campus ? <span className="font-normal text-white/70"> · {leader.campus}</span> : ''}
-                  </p>
-                )}
-              </div>
+          <div className="flex items-center gap-4 min-w-0">
+            <img
+              src="/Circles Logo V2-White.png"
+              alt="Circles"
+              className="h-16 sm:h-20 w-auto shrink-0"
+            />
+            <div className="min-w-0 flex-1">
+              <h1 className="cs-display whitespace-nowrap text-[clamp(1.75rem,8.5vw,3rem)] leading-tight">
+                {leader?.name ? `${leader.name.trim().split(/\s+/)[0]}'s` : 'Your'} Circle
+              </h1>
+              {leader && (
+                <p className="mt-1.5 text-white/90 font-semibold text-base">
+                  {leader.name}
+                  {leader.campus ? <span className="font-normal text-white/70"> · {leader.campus}</span> : ''}
+                </p>
+              )}
             </div>
-            <button
-              onClick={signOut}
-              className="text-white/70 hover:text-white text-xs font-semibold uppercase tracking-wide mt-1 shrink-0"
-            >
-              Sign out
-            </button>
           </div>
 
           {/* Stats pill — give leaders a quick sense of their status at a glance */}
