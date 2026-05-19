@@ -657,7 +657,7 @@ const ARTICLES: Article[] = [
       <>
         <H>iPhone (Safari)</H>
         <OL>
-          <li>Open <strong>myradiuscrm.com</strong> in Safari</li>
+          <li>Open <strong>vccradius.netlify.app</strong> in Safari</li>
           <li>Tap <strong>Share</strong> → <strong>Add to Home Screen</strong></li>
           <li>Tap <strong>Add</strong></li>
         </OL>

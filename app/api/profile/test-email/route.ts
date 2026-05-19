@@ -84,7 +84,7 @@ export async function GET(_request: NextRequest) {
       RESEND_API_KEY: process.env.RESEND_API_KEY ? 'SET ✓' : 'MISSING ✗',
       EMAIL_FROM: process.env.EMAIL_FROM ? `SET ✓ (${process.env.EMAIL_FROM})` : 'MISSING ✗ (will use onboarding@resend.dev)',
       EMAIL_FROM_NAME: process.env.EMAIL_FROM_NAME ? `SET ✓ (${process.env.EMAIL_FROM_NAME})` : 'MISSING ✗',
-      NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL ? `SET ✓ (${process.env.NEXT_PUBLIC_APP_URL})` : 'MISSING ✗ (will default to https://myradiuscrm.com)',
+      NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL ? `SET ✓ (${process.env.NEXT_PUBLIC_APP_URL})` : 'MISSING ✗ (will default to https://vccradius.netlify.app)',
       SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET ✓' : 'MISSING ✗',
       CRON_SECRET: process.env.CRON_SECRET ? 'SET ✓' : 'MISSING ✗',
     }

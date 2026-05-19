@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       type: 'magiclink',
       email: normalizedEmail,
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'https://myradiuscrm.com'}/boards`,
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'https://vccradius.netlify.app'}/boards`,
       },
     });
 

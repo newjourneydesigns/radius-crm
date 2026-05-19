@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-05-18",
+    "type": "improvement",
+    "description": "RADIUS now lives at vccradius.netlify.app. Magic links, email links, and PWA install instructions all point to the new home. Email is still sent from noreply@myradiuscrm.com.",
+    "page": "/help"
+  },
+  {
+    "date": "2026-05-18",
     "type": "fix",
     "description": "Restored the Circle Summary Page admin button so it auto-signs the leader in again. The magic-link route now verifies the fresh token first and only falls back to an existing session when the token is missing or expired (the bookmark case).",
     "page": "/circle-summary"

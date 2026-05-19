@@ -213,7 +213,7 @@ function checklistRow(item: ChecklistDigestItem, appUrl: string, today: string):
 }
 
 export function generatePersonalDigestHTML(data: PersonalDigestData): string {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://myradiuscrm.com';
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vccradius.netlify.app';
   const { user, date, birthdays, cards, checklistItems, circleVisits, upcomingVisits, recentNotes, upcomingCircles, encouragements, followUps, prayerRequests } = data;
 
   const totalItems =
