@@ -182,14 +182,14 @@ export default function CircleSummaryEventsPage() {
 
   return (
     <>
-      <header className="cs-hero relative px-6 pt-10 pb-8 sm:pt-14 sm:pb-10">
-        <button
-          onClick={signOut}
-          className="absolute top-4 right-4 sm:top-5 sm:right-6 text-white/70 hover:text-white text-xs font-semibold uppercase tracking-wide"
-        >
-          Sign out
-        </button>
-        <div className="max-w-2xl mx-auto">
+      <header className="cs-hero px-6 pt-10 pb-8 sm:pt-14 sm:pb-10">
+        <div className="max-w-2xl mx-auto relative">
+          <button
+            onClick={signOut}
+            className="absolute -top-4 right-0 sm:-top-6 text-white/70 hover:text-white text-xs font-semibold uppercase tracking-wide"
+          >
+            Sign out
+          </button>
           <div className="flex items-center gap-4 min-w-0">
             <img
               src="/Circles Logo V2-White.png"
