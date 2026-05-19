@@ -651,15 +651,36 @@ export default function CircleSummaryFormPage() {
                   <button
                     type="button"
                     onClick={() => setEditRoster((v) => !v)}
-                    className="cs-btn-outline text-xs px-3 py-1.5"
+                    className={
+                      editRoster
+                        ? 'inline-flex items-center gap-1.5 rounded-full bg-[color:var(--cs-green)] hover:bg-[color:var(--cs-green-dark)] text-white text-xs font-semibold px-3.5 py-1.5 transition-colors'
+                        : 'inline-flex items-center gap-1.5 rounded-full border border-[color:var(--cs-border)] hover:border-[color:var(--cs-green)] hover:text-[color:var(--cs-green-darker)] text-[color:var(--cs-ink-soft)] text-xs font-semibold px-3.5 py-1.5 transition-colors'
+                    }
                   >
-                    {editRoster ? 'Done' : 'Update Roster'}
+                    {editRoster ? (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                          <path fillRule="evenodd" d="M16.704 5.29a1 1 0 010 1.42l-7.5 7.5a1 1 0 01-1.42 0l-3.5-3.5a1 1 0 011.42-1.42L8.5 12.08l6.79-6.79a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        Done
+                      </>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L4 13.172V16h2.828l7.379-7.379-2.828-2.828z" />
+                        </svg>
+                        Edit roster
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
               {editRoster && (
-                <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
-                  Tap the red minus next to a name to remove them from your Circle's roster. This only removes them from your Circle — their profile isn't deleted.
+                <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mt-0.5 shrink-0 text-amber-500">
+                    <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                  </svg>
+                  <span>Tap the minus button to remove someone from your Circle's roster. Their profile isn't deleted — they're just removed from this Circle.</span>
                 </div>
               )}
               <div className="space-y-1 mb-4">
@@ -687,15 +708,22 @@ export default function CircleSummaryFormPage() {
                   const fullName = p.fullName || `${p.firstName} ${p.lastName}`;
                   const checked = selectedCcbIds.has(p.id);
                   return (
-                    <div key={p.id} className="flex items-center gap-2.5 py-0.5">
+                    <div
+                      key={p.id}
+                      className={
+                        editRoster
+                          ? 'group flex items-center gap-2.5 py-1.5 px-2 -mx-2 rounded-md hover:bg-red-50/60 transition-colors'
+                          : 'flex items-center gap-2.5 py-0.5'
+                      }
+                    >
                       {editRoster ? (
                         <button
                           type="button"
                           onClick={() => removeFromCcb(p)}
-                          className="w-6 h-6 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shrink-0 transition-colors"
+                          className="w-6 h-6 rounded-full border-2 border-red-300 text-red-500 hover:bg-red-500 hover:border-red-500 hover:text-white group-hover:border-red-400 flex items-center justify-center shrink-0 transition-colors"
                           aria-label={`Remove ${fullName} from Circle`}
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
                             <path fillRule="evenodd" d="M4 10a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1z" clipRule="evenodd" />
                           </svg>
                         </button>
@@ -715,8 +743,7 @@ export default function CircleSummaryFormPage() {
                   );
                 })}
                 {manualAttendees.map((m, i) => (
-                  <div key={`m-${i}`} className="flex items-center gap-2.5 py-0.5">
-                    <div className="cs-check" style={{ visibility: 'hidden' }} aria-hidden="true" />
+                  <div key={`m-${i}`} className="flex items-center gap-2.5 py-1 pl-[34px]">
                     <span className="flex-1 min-w-0 text-sm font-medium truncate">
                       {m.firstName} {m.lastName}
                       {(m.phone || m.email) && (
@@ -725,22 +752,26 @@ export default function CircleSummaryFormPage() {
                         </span>
                       )}
                     </span>
-                    <span className="cs-badge cs-badge-new text-xs shrink-0">New</span>
+                    <span className="cs-badge cs-badge-new text-[10px] shrink-0">New</span>
                     <button
                       type="button"
                       onClick={() => startEditManual(i)}
-                      className="text-xs font-semibold text-[color:var(--cs-green-dark)] hover:text-[color:var(--cs-green-darker)] shrink-0"
+                      className="inline-flex items-center justify-center w-7 h-7 rounded-md text-[color:var(--cs-green-dark)] hover:bg-[color:var(--cs-bg-soft)] shrink-0 transition-colors"
                       aria-label={`Edit ${m.firstName} ${m.lastName}`}
                     >
-                      Edit
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L4 13.172V16h2.828l7.379-7.379-2.828-2.828z" />
+                      </svg>
                     </button>
                     <button
                       type="button"
                       onClick={() => removeManual(i)}
-                      className="text-xs font-semibold text-red-500 hover:text-red-600 shrink-0"
+                      className="inline-flex items-center justify-center w-7 h-7 rounded-md text-red-500 hover:bg-red-50 shrink-0 transition-colors"
                       aria-label={`Remove ${m.firstName} ${m.lastName}`}
                     >
-                      Remove
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                        <path fillRule="evenodd" d="M4 10a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1z" clipRule="evenodd" />
+                      </svg>
                     </button>
                   </div>
                 ))}

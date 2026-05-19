@@ -341,7 +341,7 @@ export default function MobileNavigation() {
     { href: '/ccb-explorer', label: 'CCB Explorer', Icon: CompassIcon },
     { href: '/birthday-list', label: 'Birthday List', Icon: BirthdayCakeIcon },
     { href: '/bulk-message', label: 'Bulk Message', Icon: MessageBulkIcon },
-    { href: '/add-leader', label: 'Add Leader', Icon: UserPlusIcon },
+    { href: '/add-leader', label: 'Add Circle/Leader', Icon: UserPlusIcon },
     { href: '/users', label: 'Manage Users', Icon: UsersIcon },
     { href: '/import-circles', label: 'Import Circles', Icon: CloudImportIcon },
   ];

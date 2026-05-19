@@ -168,7 +168,7 @@ const adminToolsNavItems = [
   { href: '/ccb-explorer',           label: 'CCB Explorer',             Icon: CompassIcon },
   { href: '/ccb-usage',              label: 'CCB Usage',                Icon: ChartIcon },
   { href: '/bulk-message',           label: 'Bulk Message',             Icon: MessageBulkIcon },
-  { href: '/add-leader',             label: 'Add Leader',               Icon: UserPlusIcon },
+  { href: '/add-leader',             label: 'Add Circle/Leader',        Icon: UserPlusIcon },
   { href: '/import-circles',         label: 'Import Circles',           Icon: ImportCirclesIcon },
   { href: '/import-circles/#mass-update', label: 'Mass Update',          Icon: MassUpdateIcon },
   { href: '/admin/dynamic-questions', label: 'Circle Summary Questions', Icon: LayoutListIcon },

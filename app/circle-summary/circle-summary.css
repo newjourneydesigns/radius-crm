@@ -48,6 +48,155 @@ body:has(.cs-root) {
 .cs-root .cs-btn-outline:hover:not(:disabled) {
   color: #ffffff !important;
 }
+.cs-root .cs-tab-active,
+.cs-root .cs-tab-active * {
+  color: #ffffff !important;
+  background: var(--cs-green);
+}
+.cs-root .cs-tab-inactive,
+.cs-root .cs-tab-inactive * {
+  color: #5a5a5a !important;
+  background: transparent;
+}
+.cs-root .cs-tab-inactive:hover,
+.cs-root .cs-tab-inactive:hover * {
+  color: #1c1c1c !important;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+/* ─── Phone action sheet ───────────────────────────────────────
+   Portaled to <body>, so we use literal brand colors instead of
+   the --cs-* variables (which are scoped to .cs-root). */
+.cs-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(15, 23, 18, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: cs-sheet-fade 160ms ease-out;
+}
+.cs-sheet {
+  width: 100%;
+  max-width: 28rem;
+  background: #ffffff;
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.25);
+  padding: 8px 16px max(20px, env(safe-area-inset-bottom)) 16px;
+  animation: cs-sheet-slide 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: 'Open Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+.cs-sheet-handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: #d4d4d8;
+  margin: 0 auto 12px;
+}
+.cs-sheet-header {
+  text-align: center;
+  padding: 4px 8px 18px;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 14px;
+}
+.cs-sheet-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #7A7A7A;
+  margin: 0 0 6px;
+}
+.cs-sheet-phone {
+  font-family: 'Anton', Impact, system-ui, sans-serif;
+  font-size: 30px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: #1c1c1c;
+  margin: 0;
+  line-height: 1.05;
+}
+.cs-sheet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.cs-sheet-action {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 600;
+  transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease, background-color 120ms ease, border-color 120ms ease;
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+.cs-sheet-action svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.cs-sheet-action:active {
+  transform: scale(0.985);
+}
+.cs-sheet-action-primary {
+  background: #34B233;
+  color: #ffffff;
+  box-shadow: 0 8px 18px -8px rgba(52, 178, 51, 0.7);
+}
+.cs-sheet-action-primary:hover {
+  background: #2a9329;
+}
+.cs-sheet-action-primary svg,
+.cs-sheet-action-primary span {
+  color: #ffffff;
+}
+.cs-sheet-action-secondary {
+  background: #f0f1ef;
+  color: #1c1c1c;
+  border-color: #e5e7eb;
+}
+.cs-sheet-action-secondary:hover {
+  border-color: #34B233;
+  background: #ffffff;
+}
+.cs-sheet-action-secondary svg {
+  color: #1f7320;
+}
+.cs-sheet-action-secondary span {
+  color: #1c1c1c;
+}
+.cs-sheet-cancel {
+  width: 100%;
+  padding: 14px;
+  border-radius: 16px;
+  background: transparent;
+  color: #7A7A7A;
+  font-size: 15px;
+  font-weight: 600;
+  border: 0;
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+.cs-sheet-cancel:hover {
+  color: #1c1c1c;
+  background: #f0f1ef;
+}
+@keyframes cs-sheet-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes cs-sheet-slide {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
 
 .cs-root {
   min-height: 100vh;

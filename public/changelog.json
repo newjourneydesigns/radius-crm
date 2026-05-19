@@ -2,6 +2,36 @@
   {
     "date": "2026-05-18",
     "type": "improvement",
+    "description": "The Refresh button on the Circle Summary events page now hides itself when it's not doing anything. It only appears as a 'Refreshing…' indicator while a background refresh is in flight, then disappears.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-18",
+    "type": "feature",
+    "description": "Added a Refresh button to the Circle Summary Roster. If someone's phone, email, or birthday changes in CCB, tap Refresh to pull the latest data right away instead of waiting for the daily background sync.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-18",
+    "type": "improvement",
+    "description": "The Circle Summary Roster now loads almost instantly. Member details (phone, email, birthday) are cached on the server and shown immediately from your last visit, then refreshed in the background. The previous one-by-one CCB lookups have been replaced with a single batched request, so even the first load is significantly faster.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-18",
+    "type": "improvement",
+    "description": "Polished the Circle Summary Roster experience: the Events/Roster tab switcher now uses a clear green active state that matches the hero, and the phone Call/Text action sheet was rebuilt with the Circle Summary design language — bold Anton-styled phone number, on-brand action buttons, and proper contrast that no longer washes out behind the dark theme.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-18",
+    "type": "feature",
+    "description": "Circle Summary now has a Roster tab. Leaders can view everyone on their Circle, tap a phone number to choose Call or Text, tap an email to send a message, and see upcoming birthdays. A friendly banner highlights any birthdays in the next 14 days (dismissable per-person until the birthday passes). Add/remove uses the same flow as the events form.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-18",
+    "type": "improvement",
     "description": "RADIUS now lives at vccradius.netlify.app. Magic links, email links, and PWA install instructions all point to the new home. Email is still sent from noreply@myradiuscrm.com.",
     "page": "/help"
   },

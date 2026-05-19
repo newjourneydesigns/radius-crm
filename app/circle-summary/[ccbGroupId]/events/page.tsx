@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import CircleTabs from '../CircleTabs';
 
 type EventRow = {
   eventId: string;
@@ -224,31 +225,32 @@ export default function CircleSummaryEventsPage() {
                   <span className="text-white/90 text-xs font-semibold">{pending} need{pending === 1 ? 's' : ''} summary</span>
                 </div>
               )}
-              <button
-                type="button"
-                onClick={() => loadEvents({ force: true })}
-                disabled={refreshing}
-                aria-label="Refresh events"
-                className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 disabled:opacity-70 rounded-full px-3 py-1 transition-colors"
-              >
-                <svg
-                  className={`w-3 h-3 text-white/90 ${refreshing ? 'cs-spin-reverse' : ''}`}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
+              {refreshing && (
+                <div
+                  aria-live="polite"
+                  className="flex items-center gap-1.5 bg-white/15 rounded-full px-3 py-1"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v6h6M20 20v-6h-6" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M20 10A8 8 0 006.34 6.34M4 14a8 8 0 0013.66 3.66" />
-                </svg>
-                <span className="text-white/90 text-xs font-semibold">
-                  {refreshing ? 'Refreshing…' : 'Refresh'}
-                </span>
-              </button>
+                  <svg
+                    className="w-3 h-3 text-white/90 cs-spin-reverse"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v6h6M20 20v-6h-6" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M20 10A8 8 0 006.34 6.34M4 14a8 8 0 0013.66 3.66" />
+                  </svg>
+                  <span className="text-white/90 text-xs font-semibold">Refreshing…</span>
+                </div>
+              )}
             </div>
           )}
         </div>
       </header>
+
+      <div className="max-w-2xl mx-auto px-4 pt-4">
+        <CircleTabs urlGroupId={urlGroupId} active="events" />
+      </div>
 
       {messages.length > 0 && (
         <section className="max-w-2xl mx-auto px-4 pt-5 -mb-1 space-y-2.5">
