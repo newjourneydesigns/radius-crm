@@ -21,12 +21,15 @@ export const dynamic = 'force-dynamic';
 
 // In-memory TTL cache for CCB calls. The same (groupId, start, end) tuple is
 // requested repeatedly as leaders bounce between the events list and a detail
-// page, so a short cache lets us avoid a 1–3s round trip to CCB on every hit.
-// Process-local; serverless cold starts will repopulate it on first request.
-// Kept short (20s) so CCB-direct edits surface quickly; clients can force a
-// hard bypass with `?refresh=1` (used after a submit and on manual refresh).
+// page, so caching avoids 1–3s round trips to CCB on every hit.
+// Process-local; serverless cold starts will repopulate on first request.
+// Calendar entries are cached longer than attendance because the calendar
+// itself rarely changes mid-week, while attendance/notes get edited often.
+// Clients can force a hard bypass with `?refresh=1` (used after a submit and
+// on manual refresh).
 type CacheEntry<T> = { value: T; expiresAt: number };
-const CCB_CACHE_TTL_MS = 20_000;
+const CCB_CAL_TTL_MS = 5 * 60_000;        // 5 minutes
+const CCB_ATTENDANCE_TTL_MS = 60_000;     // 1 minute
 const ccbCalCache = new Map<string, CacheEntry<any[]>>();
 const ccbAttendanceCache = new Map<string, CacheEntry<any>>();
 
@@ -40,8 +43,8 @@ function cacheGet<T>(map: Map<string, CacheEntry<T>>, key: string): T | undefine
   return hit.value;
 }
 
-function cacheSet<T>(map: Map<string, CacheEntry<T>>, key: string, value: T) {
-  map.set(key, { value, expiresAt: Date.now() + CCB_CACHE_TTL_MS });
+function cacheSet<T>(map: Map<string, CacheEntry<T>>, key: string, value: T, ttlMs: number) {
+  map.set(key, { value, expiresAt: Date.now() + ttlMs });
 }
 
 export async function GET(req: Request) {
@@ -85,27 +88,64 @@ export async function GET(req: Request) {
   let submissions: any[] | null = null;
 
   try {
-    // Run CCB calls + Supabase audit log query all in parallel. The submissions
-    // query only depends on leader.id + start, both known up front, so there's
-    // no reason to wait for CCB before kicking it off.
+    // Three-tier cache: in-memory (per instance) → Supabase ccb_group_events_cache
+    // (shared across all instances, populated by the prewarm cron) → CCB itself.
+    // Supabase rows older than this are considered stale and a fresh CCB pull
+    // is preferred. The prewarm runs every 10 min, so 15 min gives one cycle
+    // of slack before we fall back to CCB.
+    const SHARED_CACHE_FRESH_MS = 15 * 60_000;
+
     const calCached = cacheGet(ccbCalCache, cacheKey);
     const attCached = cacheGet(ccbAttendanceCache, cacheKey);
+
+    // Only consult shared cache when in-memory misses AND the client didn't
+    // ask for a forced refresh (post-submit invalidation must hit CCB).
+    let sharedCache: { calendar_events: any[]; attendance_xml: any } | null = null;
+    if (!forceRefresh && (calCached === undefined || attCached === undefined)) {
+      const { data: cacheRow } = await supabase
+        .from('ccb_group_events_cache')
+        .select('calendar_events, attendance_xml, synced_at')
+        .eq('group_id', String(leader.ccb_group_id))
+        .eq('start_date', startStr)
+        .eq('end_date', endStr)
+        .maybeSingle();
+
+      if (cacheRow?.synced_at) {
+        const ageMs = Date.now() - new Date(cacheRow.synced_at).getTime();
+        if (ageMs < SHARED_CACHE_FRESH_MS) {
+          sharedCache = {
+            calendar_events: Array.isArray(cacheRow.calendar_events) ? cacheRow.calendar_events : [],
+            attendance_xml: cacheRow.attendance_xml ?? null,
+          };
+        }
+      }
+    }
 
     const [calEvents, bulkXml, submissionsRes] = await Promise.all([
       calCached
         ? Promise.resolve(calCached)
+        : sharedCache
+        ? Promise.resolve(sharedCache.calendar_events).then((v) => {
+            cacheSet(ccbCalCache, cacheKey, v, CCB_CAL_TTL_MS);
+            return v;
+          })
         : ccb
             .getGroupCalendarEvents(String(leader.ccb_group_id), startStr, endStr)
             .then((v) => {
-              cacheSet(ccbCalCache, cacheKey, v);
+              cacheSet(ccbCalCache, cacheKey, v, CCB_CAL_TTL_MS);
               return v;
             }),
       attCached !== undefined
         ? Promise.resolve(attCached)
+        : sharedCache
+        ? Promise.resolve(sharedCache.attendance_xml).then((v) => {
+            cacheSet(ccbAttendanceCache, cacheKey, v, CCB_ATTENDANCE_TTL_MS);
+            return v;
+          })
         : (ccb as any)
             .getXml({ srv: 'attendance_profiles', start_date: startStr, end_date: endStr })
             .then((v: any) => {
-              cacheSet(ccbAttendanceCache, cacheKey, v);
+              cacheSet(ccbAttendanceCache, cacheKey, v, CCB_ATTENDANCE_TTL_MS);
               return v;
             })
             .catch(() => null),

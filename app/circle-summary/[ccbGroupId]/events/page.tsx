@@ -142,16 +142,9 @@ export default function CircleSummaryEventsPage() {
       if (invalidated) sessionStorage.removeItem(invalidationKey);
     } catch {}
 
-    // Fire /me + messages alongside /events so the header and message center
-    // paint as soon as their cheap queries return.
-    fetch('/api/circle-summary/me/')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((meData) => {
-        if (!meData?.leader) return;
-        setLeader((prev) => prev ?? meData.leader);
-      })
-      .catch(() => {});
-
+    // Fire messages alongside /events so the message center paints as soon
+    // as that cheap query returns. The leader profile is included in the
+    // /events response, so we don't need a separate /me round trip here.
     fetch('/api/circle-summary/messages/')
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
@@ -192,17 +185,24 @@ export default function CircleSummaryEventsPage() {
       <header className="cs-hero px-6 pt-10 pb-8 sm:pt-14 sm:pb-10">
         <div className="max-w-2xl mx-auto">
           <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-white/65 text-xs font-semibold uppercase tracking-[0.14em] mb-1">
-                Valley Creek Church
-              </p>
-              <h1 className="cs-display text-4xl sm:text-5xl">Your Circle</h1>
-              {leader && (
-                <p className="mt-1.5 text-white/90 font-semibold text-base">
-                  {leader.name}
-                  {leader.campus ? <span className="font-normal text-white/70"> · {leader.campus}</span> : ''}
+            <div className="flex items-center gap-4 min-w-0">
+              <img
+                src="/Circles Logo V2-White.png"
+                alt="Circles"
+                className="h-16 sm:h-20 w-auto shrink-0"
+              />
+              <div className="min-w-0">
+                <p className="text-white/65 text-xs font-semibold uppercase tracking-[0.14em] mb-1">
+                  Valley Creek Church
                 </p>
-              )}
+                <h1 className="cs-display text-4xl sm:text-5xl">Your Circle</h1>
+                {leader && (
+                  <p className="mt-1.5 text-white/90 font-semibold text-base">
+                    {leader.name}
+                    {leader.campus ? <span className="font-normal text-white/70"> · {leader.campus}</span> : ''}
+                  </p>
+                )}
+              </div>
             </div>
             <button
               onClick={signOut}

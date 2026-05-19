@@ -498,13 +498,22 @@ export default function CircleRosterPage() {
     <>
       <header className="cs-hero px-6 pt-10 pb-8 sm:pt-14 sm:pb-10">
         <div className="max-w-2xl mx-auto">
-          <p className="text-white/65 text-xs font-semibold uppercase tracking-[0.14em] mb-1">
-            Valley Creek Church
-          </p>
-          <h1 className="cs-display text-4xl sm:text-5xl">Your Roster</h1>
-          {leader && (
-            <p className="mt-1.5 text-white/90 font-semibold text-base">{leader.name}</p>
-          )}
+          <div className="flex items-center gap-4">
+            <img
+              src="/Circles Logo V2-White.png"
+              alt="Circles"
+              className="h-16 sm:h-20 w-auto shrink-0"
+            />
+            <div className="min-w-0">
+              <p className="text-white/65 text-xs font-semibold uppercase tracking-[0.14em] mb-1">
+                Valley Creek Church
+              </p>
+              <h1 className="cs-display text-4xl sm:text-5xl">Your Roster</h1>
+              {leader && (
+                <p className="mt-1.5 text-white/90 font-semibold text-base">{leader.name}</p>
+              )}
+            </div>
+          </div>
         </div>
       </header>
 

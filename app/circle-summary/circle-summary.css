@@ -1,5 +1,79 @@
 /* Valley Creek brand palette for the public Circle Summary section. */
 
+/* ─── Full-page green splash (loading.tsx) ─────────────────────
+   Lives outside .cs-root so we can't rely on the --cs-* vars. */
+.cs-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #34B233;
+  color: #ffffff;
+  overflow: hidden;
+  font-family: 'Open Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  padding: 24px;
+}
+.cs-splash::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 14px,
+    rgba(0, 0, 0, 0.045) 14px,
+    rgba(0, 0, 0, 0.045) 15px
+  );
+  pointer-events: none;
+}
+.cs-splash-inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  animation: cs-splash-fade-in 220ms ease-out;
+}
+.cs-splash-mark {
+  margin-bottom: 1rem;
+}
+.cs-splash-title {
+  font-style: italic;
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: clamp(2.5rem, 9vw, 4.5rem);
+  line-height: 1;
+  color: #ffffff;
+  margin: 0;
+  text-align: center;
+}
+.cs-splash-sub {
+  margin: 0.35rem 0 0;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+.cs-splash-spinner {
+  margin-top: 1.5rem;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  animation: cs-splash-spin 0.8s linear infinite;
+}
+@keyframes cs-splash-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes cs-splash-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* Force a clean white surface on /circle-summary regardless of the dark
    theme applied by the root layout. Hero text re-overrides to white below. */
 html:has(.cs-root),

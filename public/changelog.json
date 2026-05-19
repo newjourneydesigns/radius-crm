@@ -1,5 +1,23 @@
 [
   {
+    "date": "2026-05-19",
+    "type": "improvement",
+    "description": "Circle Summary events now serve from a shared cache that's refreshed every 10 minutes in the background. Leaders no longer wait for CCB on first visit, on cold starts, or after switching devices — the page loads with up-to-date events almost instantly.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-19",
+    "type": "improvement",
+    "description": "Made Circle Summary noticeably faster. Leaders who are already signed in now skip straight to their events page with no flash of the sign-in form, and the events list pulls less frequently from CCB so repeat navigations feel instant. A full-page green splash with the Circle Summary mark now shows during loading transitions instead of a half-rendered page.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-19",
+    "type": "improvement",
+    "description": "Added the Circles logo to the Circle Summary headers and made it the home-screen icon when leaders install Circle Summary as a PWA.",
+    "page": "/circle-summary"
+  },
+  {
     "date": "2026-05-18",
     "type": "improvement",
     "description": "The Refresh button on the Circle Summary events page now hides itself when it's not doing anything. It only appears as a 'Refreshing…' indicator while a background refresh is in flight, then disappears.",

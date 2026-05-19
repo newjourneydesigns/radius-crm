@@ -20,6 +20,9 @@ export const metadata: Metadata = {
     title: 'Circle Summary',
     statusBarStyle: 'default',
   },
+  icons: {
+    apple: '/circle-summary-apple-touch-icon.png',
+  },
 };
 
 export default function CircleSummaryLayout({ children }: { children: React.ReactNode }) {

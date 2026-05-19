@@ -166,6 +166,11 @@ function SuccessInner() {
   return (
     <>
       <header className="cs-hero py-14 sm:py-20 px-6 text-center">
+        <img
+          src="/Circles Logo V2-White.png"
+          alt="Circles"
+          className="mx-auto h-16 sm:h-20 w-auto mb-6"
+        />
         <div className="mx-auto w-16 h-16 rounded-full bg-white/15 flex items-center justify-center mb-5">
           <svg
             xmlns="http://www.w3.org/2000/svg"
