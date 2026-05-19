@@ -2,6 +2,12 @@
   {
     "date": "2026-05-18",
     "type": "fix",
+    "description": "Restored the Circle Summary Page admin button so it auto-signs the leader in again. The magic-link route now verifies the fresh token first and only falls back to an existing session when the token is missing or expired (the bookmark case).",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-18",
+    "type": "fix",
     "description": "Adding the Circle Summary to your home screen now opens directly into Circle Summary instead of the main RADIUS login. The Circle Summary now ships its own web-app manifest so iOS treats it as a standalone leader app.",
     "page": "/circle-summary"
   },

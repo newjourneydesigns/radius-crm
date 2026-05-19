@@ -40,32 +40,33 @@ export async function GET(req: Request) {
   const next =
     rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/circle-summary/events';
 
-  // If the visitor already has a valid leader session cookie, honor it.
-  // The magic-link token TTL is only 7 days while session cookies persist
-  // far longer — bookmarking the link URL shouldn't force a re-auth as long
-  // as the cookie is still valid.
   const supabase = createServiceSupabaseClient();
-  const existingLeaderId = await getSessionLeaderId();
-  if (existingLeaderId) {
-    const { data: existingLeader } = await supabase
-      .from('circle_leaders')
-      .select('ccb_group_id, status, circle_summary_access_enabled')
-      .eq('id', existingLeaderId)
-      .maybeSingle();
-    if (isCircleSummaryAccessEnabled(existingLeader)) {
-      let dest = next;
-      if (
-        (next === '/circle-summary/events' || next === '/circle-summary/events/') &&
-        existingLeader?.ccb_group_id
-      ) {
-        dest = `/circle-summary/${existingLeader.ccb_group_id}/events`;
-      }
-      return NextResponse.redirect(new URL(dest, req.url));
-    }
-  }
-
   const verified = verifySessionToken(token);
+
+  // Token expired/invalid: fall back to the existing leader session cookie
+  // if one is present. This covers the bookmark case — the magic-link token
+  // is only valid 7 days, but the session cookie persists much longer, so
+  // bookmarking the link URL shouldn't force a re-auth.
   if (!verified?.leaderId) {
+    const existingLeaderId = await getSessionLeaderId();
+    if (existingLeaderId) {
+      const { data: existingLeader } = await supabase
+        .from('circle_leaders')
+        .select('ccb_group_id, status, circle_summary_access_enabled')
+        .eq('id', existingLeaderId)
+        .maybeSingle();
+      if (isCircleSummaryAccessEnabled(existingLeader)) {
+        let dest = next;
+        if (
+          (next === '/circle-summary/events' || next === '/circle-summary/events/') &&
+          existingLeader?.ccb_group_id
+        ) {
+          dest = `/circle-summary/${existingLeader.ccb_group_id}/events`;
+        }
+        return NextResponse.redirect(new URL(dest, req.url));
+      }
+    }
+
     const signIn = new URL('/circle-summary', req.url);
     signIn.searchParams.set('reason', 'link_expired');
     return NextResponse.redirect(signIn);
