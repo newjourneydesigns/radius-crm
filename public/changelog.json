@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-05-20",
+    "type": "fix",
+    "description": "Cleaned up the 12 circles that had been incorrectly auto-marked as \"received\" by the old CCB matching logic. Added a /api/ccb/reset-false-received admin endpoint (CRON_SECRET-gated, dry-run by default) that re-checks every currently-received leader against fresh CCB attendance data and resets any that don't have actual evidence (notes, headcount, or explicit did-not-meet). Safe to re-run at any time.",
+    "page": "/calendar"
+  },
+  {
+    "date": "2026-05-20",
     "type": "improvement",
     "description": "Tuned the daily CCB sync to only refresh per-group calendars for circles that meet that day (~50-70 groups instead of all 312). Bulk attendance still refreshes for every group via a single global call, so the dashboard Auto-Update Summaries button stays fully current for everyone. A safety net also catches any group whose cache hasn't been touched in 7+ days. Cuts the daily sync runtime by ~75% and leaves even more headroom under CCB's rate limit.",
     "page": "/calendar"
