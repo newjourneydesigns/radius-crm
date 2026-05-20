@@ -1,5 +1,17 @@
 [
   {
+    "date": "2026-05-20",
+    "type": "fix",
+    "description": "Disabled the every-10-minute Circle Summary CCB prewarm job, which was burning through our CCB API rate limit (~200 requests every 10 minutes across all active groups). The scheduled function is now gated behind an env flag (CIRCLE_SUMMARY_PREWARM_ENABLED) and defaults to off. Circle Summary will fall back to its previous on-demand fetch path until we redesign the warmer to be lazy / scoped / off-peak.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-19",
+    "type": "fix",
+    "description": "Auto-update from CCB now matches every circle that has a CCB attendance record for the week. Two underlying bugs were fixed: (1) CCB returns occurrence dates as \"YYYY-MM-DD HH:mm:ss\" which Luxon's ISO parser rejected, leaving the occurrence date null and causing valid \"did not meet\" records to be skipped, and (2) leader-to-event matching now also tries cached CCB event IDs and bidirectional group-name substrings, so circles whose CCB title doesn't contain the leader's exact name still get pulled back. Added a /api/ccb/auto-update-summaries?debug=1 mode that returns per-leader match diagnostics for troubleshooting.",
+    "page": "/calendar"
+  },
+  {
     "date": "2026-05-19",
     "type": "improvement",
     "description": "Personalized the Circle Summary header — the title now reads \"[Leader's first name]'s Circle\" (and \"…'s Roster\") instead of a generic \"Your Circle.\" Removed the small \"Valley Creek Church\" label, lifted SIGN OUT into the top corner, and made the title font fluid so longer names stay on a single line.",

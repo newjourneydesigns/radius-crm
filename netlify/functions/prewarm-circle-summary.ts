@@ -9,6 +9,13 @@ import { schedule } from '@netlify/functions';
  * of paying a 1–3s CCB round trip, even on cold serverless instances.
  */
 const handler = schedule('*/10 * * * *', async () => {
+  // KILL SWITCH — prewarm was hammering CCB's rate limit (~200 calls / 10 min).
+  // Default OFF. To re-enable, set CIRCLE_SUMMARY_PREWARM_ENABLED=true in Netlify.
+  if (process.env.CIRCLE_SUMMARY_PREWARM_ENABLED !== 'true') {
+    console.log('Circle Summary prewarm disabled (CIRCLE_SUMMARY_PREWARM_ENABLED != "true"). Skipping.');
+    return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'disabled' }) };
+  }
+
   console.log('Running Circle Summary prewarm...');
 
   try {
