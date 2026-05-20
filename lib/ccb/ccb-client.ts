@@ -1256,7 +1256,7 @@ ${attendeesXml}
       end_date: endDate,
     });
 
-    return this.matchAttendanceXml(xml, leaders, debug);
+    return this.matchAttendanceXml(xml, leaders, debug, { startDate, endDate });
   }
 
   /**
@@ -1269,7 +1269,16 @@ ${attendeesXml}
   matchAttendanceXml(
     xml: any,
     leaders: Array<{ id: number; name: string; ccb_group_name?: string | null; ccb_group_id?: string | null; ccb_event_ids?: string[] | null }>,
-    debug?: { eventSample?: any[]; perLeader?: Array<{ leader_id: number; leader_name: string; matchedBy: string | null; matched_event_id: string | null; matched_group_id: string | null; matched_title: string | null }>; totalEvents?: number }
+    debug?: { eventSample?: any[]; perLeader?: Array<{ leader_id: number; leader_name: string; matchedBy: string | null; matched_event_id: string | null; matched_group_id: string | null; matched_title: string | null }>; totalEvents?: number },
+    /**
+     * Optional window: if provided, events whose occurrence date falls outside
+     * [startDate, endDate] (inclusive) are discarded before matching. REQUIRED
+     * whenever the XML payload covers more than the week you actually care
+     * about — e.g. the cache-first auto-update path passes the cached 8-week
+     * bulk XML, so without this filter a leader could match their own
+     * submission from 5 weeks ago and be marked received for the current week.
+     */
+    dateWindow?: { startDate: string; endDate: string }
   ): Map<number, { hasReport: boolean; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number }> {
     const eventsRoot = xml?.ccb_api?.response?.events ?? null;
     const rawEvents: any[] = Array.isArray(eventsRoot?.event)
@@ -1342,15 +1351,26 @@ ${attendeesXml}
       return { eventId, groupId, title, didNotMeet, headcount, occurrenceDate, hasNotes, guestCount };
     });
 
+    // Date-window filter. Without this, matching the cached 8-week bulk XML
+    // would let a leader's old submission count as evidence for the current
+    // week. An event with no occurrence date can never be confirmed against
+    // a window, so we drop it too.
+    const filteredEventData = dateWindow
+      ? eventData.filter((ev) =>
+          ev.occurrenceDate != null
+          && ev.occurrenceDate >= dateWindow.startDate
+          && ev.occurrenceDate <= dateWindow.endDate)
+      : eventData;
+
     if (debug) {
-      debug.totalEvents = eventData.length;
-      debug.eventSample = eventData.slice(0, 50).map(e => ({ eventId: e.eventId, groupId: e.groupId, title: e.title, occurrenceDate: e.occurrenceDate }));
+      debug.totalEvents = filteredEventData.length;
+      debug.eventSample = filteredEventData.slice(0, 50).map(e => ({ eventId: e.eventId, groupId: e.groupId, title: e.title, occurrenceDate: e.occurrenceDate }));
     }
 
     // Index by CCB group ID and event ID for O(1) exact lookup
     const byGroupId = new Map<string, EventEntry>();
     const byEventId = new Map<string, EventEntry>();
-    for (const ev of eventData) {
+    for (const ev of filteredEventData) {
       if (ev.groupId && !byGroupId.has(ev.groupId)) byGroupId.set(ev.groupId, ev);
       if (ev.eventId && !byEventId.has(ev.eventId)) byEventId.set(ev.eventId, ev);
     }
@@ -1380,7 +1400,7 @@ ${attendeesXml}
       if (!match && leader.ccb_group_name) {
         const key = leader.ccb_group_name.trim().toLowerCase();
         if (key) {
-          match = eventData.find(e => e.title.includes(key) || (e.title && key.includes(e.title.trim())));
+          match = filteredEventData.find(e => e.title.includes(key) || (e.title && key.includes(e.title.trim())));
           if (match) matchedBy = 'group_name_substring';
         }
       }
@@ -1389,7 +1409,7 @@ ${attendeesXml}
       if (!match) {
         const key = leader.name.trim().toLowerCase();
         if (key) {
-          match = eventData.find(e => e.title.includes(key));
+          match = filteredEventData.find(e => e.title.includes(key));
           if (match) matchedBy = 'leader_name_substring';
         }
       }
@@ -1401,7 +1421,7 @@ ${attendeesXml}
           const first = tokens[0];
           const last = tokens[tokens.length - 1];
           if (first !== last) {
-            match = eventData.find(e => e.title.includes(first) && e.title.includes(last));
+            match = filteredEventData.find(e => e.title.includes(first) && e.title.includes(last));
             if (match) matchedBy = 'name_tokens';
           }
         }

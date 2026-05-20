@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
       if (cacheRow?.synced_at && cacheRow.attendance_xml) {
         const ageMs = Date.now() - new Date(cacheRow.synced_at).getTime();
         if (ageMs < SHARED_CACHE_FRESH_MS) {
-          ccbMap = ccb.matchAttendanceXml(cacheRow.attendance_xml, leaderMatchInputs, debug);
+          ccbMap = ccb.matchAttendanceXml(cacheRow.attendance_xml, leaderMatchInputs, debug, { startDate: week_start_date, endDate: week_end_date });
           ccbSource = 'cache';
           cacheAgeMs = ageMs;
         }

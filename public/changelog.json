@@ -2,6 +2,12 @@
   {
     "date": "2026-05-20",
     "type": "fix",
+    "description": "Fixed a second auto-update bug: when reading from the cached 8-week CCB attendance payload, the matching logic wasn't filtering by date, so a leader's real submission from any prior week could match and incorrectly mark them \"received\" for the current week. Auto-update and the cleanup endpoint now pass an explicit week window to the matcher, and any event whose occurrence date falls outside that window is discarded before matching.",
+    "page": "/calendar"
+  },
+  {
+    "date": "2026-05-20",
+    "type": "fix",
     "description": "Cleaned up the 12 circles that had been incorrectly auto-marked as \"received\" by the old CCB matching logic. Added a /api/ccb/reset-false-received admin endpoint (CRON_SECRET-gated, dry-run by default) that re-checks every currently-received leader against fresh CCB attendance data and resets any that don't have actual evidence (notes, headcount, or explicit did-not-meet). Safe to re-run at any time.",
     "page": "/calendar"
   },

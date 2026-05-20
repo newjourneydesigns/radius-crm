@@ -132,7 +132,9 @@ export async function POST(req: Request) {
         ccb_group_name: l.ccb_group_name || l.circle_name || null,
         ccb_group_id: l.ccb_group_id || null,
         ccb_event_ids: l.ccb_event_ids || null,
-      }))
+      })),
+      undefined,
+      { startDate: stateWeek, endDate: weekEnd }
     );
 
     for (const leader of weekLeaders) {
