@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-05-20",
+    "type": "improvement",
+    "description": "Tuned the daily CCB sync to only refresh per-group calendars for circles that meet that day (~50-70 groups instead of all 312). Bulk attendance still refreshes for every group via a single global call, so the dashboard Auto-Update Summaries button stays fully current for everyone. A safety net also catches any group whose cache hasn't been touched in 7+ days. Cuts the daily sync runtime by ~75% and leaves even more headroom under CCB's rate limit.",
+    "page": "/calendar"
+  },
+  {
+    "date": "2026-05-20",
     "type": "fix",
     "description": "Fixed a long-standing bug where the Auto-Update Summaries button could mark a circle as \"received\" even when no summary had been submitted. CCB pre-creates an event record for every scheduled occurrence — those empty shells were matching as valid reports. Now a CCB event only counts as a report if there's actual evidence: an explicit \"did not meet\" flag, notes/topic/prayer entered, or a non-zero headcount. Existing leaders that were already marked \"received\" in error will need to be reset manually on the dashboard.",
     "page": "/calendar"

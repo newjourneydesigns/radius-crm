@@ -1,14 +1,23 @@
 /**
  * POST /api/circle-summary/prewarm
  *
- * Daily bulk sync (cron-triggered, ~4 AM CT) — pulls CCB attendance + per-group
- * calendar events for the last 8 weeks and writes them to
- * `ccb_group_events_cache`. Reads (Circle Summary, dashboard auto-update) serve
- * from that cache by default.
+ * Daily bulk sync (cron-triggered, ~4 AM CT). Two halves:
  *
- * Replaces the old every-10-min prewarm that bled CCB's rate limit. The big
- * efficiency win: `attendance_profiles` returns ALL events for the date window
- * in a single call — the old code was calling it once per group.
+ *   1. ONE global `attendance_profiles` call for the last 8 weeks — covers
+ *      every group at once. The dashboard "Auto-Update Summaries" button
+ *      reads any fresh cache row's `attendance_xml`, so all leaders' attendance
+ *      stays current daily.
+ *
+ *   2. Per-group calendar refresh ONLY for leaders whose meeting day == today
+ *      (in America/Chicago). These are the leaders likely to visit Circle
+ *      Summary today/tonight to submit their summary. Other days' groups
+ *      keep their existing cache row; the row's bulk attendance still gets
+ *      refreshed when their day rolls around. Reads for stale rows fall
+ *      through to live CCB, throttled by the circuit breaker.
+ *
+ *   3. Safety net: rotate in any groups whose cache row is missing or >7
+ *      days stale, so groups without a clean `day` value (or with rare
+ *      schedules) eventually get warmed too.
  *
  * Requires `Authorization: Bearer ${CRON_SECRET}`.
  */
@@ -24,12 +33,13 @@ export const maxDuration = 600;
 // Pace per-group calendar fetches so we stay UNDER the 40/min circuit breaker
 // in lib/ccb/ccb-client.ts. 1.6s gap → ~37 calls/min, safely below 40.
 const PER_GROUP_DELAY_MS = 1600;
-// Max groups to refresh per run. With 1.6s pacing and 300+ active groups, a
-// single run would exceed Netlify's serverless function timeout. We rotate
-// by oldest-cached-first so every group gets refreshed within a few days,
-// and reads fall through to live CCB (throttled by the breaker) for any
-// uncached groups in the meantime.
+// Hard upper bound on per-run groups (safety net cap). Today's-day filtering
+// keeps the actual count to ~50-70 in normal operation.
 const MAX_GROUPS_PER_RUN = 200;
+// Safety net: any group whose cache row hasn't been refreshed in this many
+// days gets pulled into the run regardless of its meeting day. Catches groups
+// without a `day` value set, or with rare/irregular schedules.
+const STALE_FALLBACK_DAYS = 7;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -55,7 +65,7 @@ export async function POST(req: Request) {
 
   const { data: leaders, error: leadersErr } = await supabase
     .from('circle_leaders')
-    .select('ccb_group_id, status, circle_summary_access_enabled')
+    .select('ccb_group_id, status, circle_summary_access_enabled, day')
     .not('ccb_group_id', 'is', null)
     .neq('status', 'archive')
     .neq('status', 'archived');
@@ -65,17 +75,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: leadersErr.message }, { status: 500 });
   }
 
+  const activeLeaders = (leaders || []).filter((l: any) => l.circle_summary_access_enabled !== false);
+
   const allGroupIds = Array.from(
-    new Set(
-      (leaders || [])
-        .filter((l: any) => l.circle_summary_access_enabled !== false)
-        .map((l: any) => String(l.ccb_group_id))
-        .filter(Boolean)
-    )
+    new Set(activeLeaders.map((l: any) => String(l.ccb_group_id)).filter(Boolean))
   );
 
-  // Rotation: refresh the groups whose cached row is oldest (or missing) first.
-  // Anything not refreshed in this run will be picked up by a subsequent run.
+  // Determine today's day-of-week in America/Chicago. Optional override:
+  // ?day=wednesday for testing.
+  const overrideDay = url.searchParams.get('day');
+  const todayDayName = (overrideDay
+    || DateTime.now().setZone('America/Chicago').toFormat('cccc')
+  ).toLowerCase();
+
+  // Groups whose leaders meet today.
+  const todayGroupIds = new Set(
+    activeLeaders
+      .filter((l: any) => typeof l.day === 'string' && l.day.trim().toLowerCase() === todayDayName)
+      .map((l: any) => String(l.ccb_group_id))
+      .filter(Boolean)
+  );
+
+  // Look up cache freshness so we can also pull in stale rows as a safety net.
   const { data: existingCacheRows } = await supabase
     .from('ccb_group_events_cache')
     .select('group_id, synced_at')
@@ -86,11 +107,23 @@ export async function POST(req: Request) {
     lastSyncByGroup.set(String(row.group_id), new Date(row.synced_at).getTime());
   }
 
-  const groupIds = allGroupIds
-    .map((id) => ({ id, lastSync: lastSyncByGroup.get(id) ?? 0 }))
-    .sort((a, b) => a.lastSync - b.lastSync)
-    .slice(0, limitOverride)
-    .map((g) => g.id);
+  const staleThreshold = Date.now() - STALE_FALLBACK_DAYS * 24 * 60 * 60_000;
+
+  // Final set to warm = today's-day groups ∪ stale-cache groups.
+  const groupsToWarm = new Set<string>(todayGroupIds);
+  for (const id of allGroupIds) {
+    const last = lastSyncByGroup.get(id);
+    if (last == null || last < staleThreshold) groupsToWarm.add(id);
+  }
+
+  // Apply the safety cap. Prefer today's groups; fill remaining slots with
+  // the stalest cache rows first.
+  const todayList = Array.from(groupsToWarm).filter((id) => todayGroupIds.has(id));
+  const staleList = Array.from(groupsToWarm)
+    .filter((id) => !todayGroupIds.has(id))
+    .sort((a, b) => (lastSyncByGroup.get(a) ?? 0) - (lastSyncByGroup.get(b) ?? 0));
+
+  const groupIds = [...todayList, ...staleList].slice(0, limitOverride);
 
   const end = DateTime.now().setZone('America/Chicago');
   const start = end.minus({ weeks: 8 });
@@ -164,7 +197,10 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     ok: true,
+    todayDayName,
     totalActiveGroups: allGroupIds.length,
+    groupsMeetingToday: todayGroupIds.size,
+    staleGroups: staleList.length,
     groupsThisRun: groupIds.length,
     warmed,
     bulkAttendanceFetched: !!bulkAttendanceXml,
