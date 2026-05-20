@@ -89,11 +89,11 @@ export async function GET(req: Request) {
 
   try {
     // Three-tier cache: in-memory (per instance) → Supabase ccb_group_events_cache
-    // (shared across all instances, populated by the prewarm cron) → CCB itself.
-    // Supabase rows older than this are considered stale and a fresh CCB pull
-    // is preferred. The prewarm runs every 10 min, so 15 min gives one cycle
-    // of slack before we fall back to CCB.
-    const SHARED_CACHE_FRESH_MS = 15 * 60_000;
+    // (shared across all instances, populated by the daily bulk sync) → CCB.
+    // The bulk sync runs once a day; 24h freshness gives the cache one full
+    // cycle before falling back to a live CCB pull. Post-submit invalidation
+    // (?refresh=1) still forces CCB.
+    const SHARED_CACHE_FRESH_MS = 24 * 60 * 60_000;
 
     const calCached = cacheGet(ccbCalCache, cacheKey);
     const attCached = cacheGet(ccbAttendanceCache, cacheKey);

@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-05-20",
+    "type": "improvement",
+    "description": "Redesigned how RADIUS talks to CCB so we can never bleed the API limit again. Bulk CCB attendance is now pulled once a day (4 AM CT) into Supabase, and both Circle Summary and the dashboard Auto-Update Summaries button read from that cache by default — cache-first, with live CCB only as a fallback. Added a hard circuit breaker in the CCB client (40 calls/min, 500/hr) so even a future code bug can't run away. The dashboard auto-update response now reports `ccb_source: cache | live` so we can see what each click hit. Net effect: ~99% fewer CCB calls per day compared to the broken 10-minute prewarm.",
+    "page": "/circle-dashboard"
+  },
+  {
+    "date": "2026-05-20",
     "type": "fix",
     "description": "Disabled the every-10-minute Circle Summary CCB prewarm job, which was burning through our CCB API rate limit (~200 requests every 10 minutes across all active groups). The scheduled function is now gated behind an env flag (CIRCLE_SUMMARY_PREWARM_ENABLED) and defaults to off. Circle Summary will fall back to its previous on-demand fetch path until we redesign the warmer to be lazy / scoped / off-peak.",
     "page": "/circle-summary"

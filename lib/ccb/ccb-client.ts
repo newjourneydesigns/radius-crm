@@ -12,6 +12,60 @@ import { recordCCBApiTelemetry, recordCCBDailyStatus, type CCBApiRequestContext 
 
 const IS_DEV = process.env.NODE_ENV === 'development';
 
+// ---- Hard rate-limit circuit breaker ----
+//
+// Module-level safety net. Tracks every outgoing CCB GET call and refuses new
+// calls once we cross either threshold. Exists because we shipped a bug on
+// 2026-05-20 that bled ~200 requests / 10 min into CCB's rate limit. This
+// makes sure no future code path can do that — even a runaway loop trips the
+// breaker within seconds.
+//
+// Per-serverless-instance (Netlify Functions don't share memory), which is an
+// under-cap by design.
+const CCB_BREAKER_MAX_PER_MINUTE = 40;
+const CCB_BREAKER_MAX_PER_HOUR = 500;
+const ccbCallTimestamps: number[] = [];
+
+export class CCBCircuitBreakerError extends Error {
+  constructor(message: string, public readonly stats: { lastMinute: number; lastHour: number }) {
+    super(message);
+    this.name = 'CCBCircuitBreakerError';
+  }
+}
+
+function ccbBreakerCheckAndRecord(): void {
+  const now = Date.now();
+  const oneMinAgo = now - 60_000;
+  const oneHourAgo = now - 3_600_000;
+
+  // Prune anything older than the hour window.
+  while (ccbCallTimestamps.length && ccbCallTimestamps[0] < oneHourAgo) {
+    ccbCallTimestamps.shift();
+  }
+
+  const lastHour = ccbCallTimestamps.length;
+  let lastMinute = 0;
+  for (let i = ccbCallTimestamps.length - 1; i >= 0; i--) {
+    if (ccbCallTimestamps[i] >= oneMinAgo) lastMinute++;
+    else break;
+  }
+
+  if (lastMinute >= CCB_BREAKER_MAX_PER_MINUTE) {
+    throw new CCBCircuitBreakerError(
+      `CCB circuit breaker tripped: ${lastMinute} calls in the last 60s (cap ${CCB_BREAKER_MAX_PER_MINUTE}).`,
+      { lastMinute, lastHour }
+    );
+  }
+  if (lastHour >= CCB_BREAKER_MAX_PER_HOUR) {
+    throw new CCBCircuitBreakerError(
+      `CCB circuit breaker tripped: ${lastHour} calls in the last 60 min (cap ${CCB_BREAKER_MAX_PER_HOUR}).`,
+      { lastMinute, lastHour }
+    );
+  }
+
+  ccbCallTimestamps.push(now);
+}
+
 // ---- Types ----
 
 export type EventOccurrence = {
@@ -133,10 +187,15 @@ export class CCBClient {
   // ---- HTTP helpers ----
 
   async getXml<T = any>(params: Record<string, string | number | boolean>, maxRetries = 3): Promise<T> {
+    // Hard circuit breaker — refuses outgoing calls once we cross the cap.
+    // Throws CCBCircuitBreakerError; callers should fall through to cache
+    // (or surface a "rate-limited, try again later" error to the user).
+    ccbBreakerCheckAndRecord();
+
     if (IS_DEV) {
       console.log(`🔍 CCB API Call: ${JSON.stringify(params)}`);
     }
-    
+
     // Use longer timeout for event_profiles without group filter since it returns all events
     const timeout = params.srv === 'event_profiles' && !params.group_id ? 60000 : 30000;
     
@@ -1180,9 +1239,10 @@ ${attendeesXml}
    * Single API call regardless of how many leaders are checked.
    */
   async checkReportsForLeaders(
-    leaders: Array<{ id: number; name: string; ccb_group_name?: string | null; ccb_group_id?: string | null }>,
+    leaders: Array<{ id: number; name: string; ccb_group_name?: string | null; ccb_group_id?: string | null; ccb_event_ids?: string[] | null }>,
     startDate: string,
-    endDate: string
+    endDate: string,
+    debug?: { eventSample?: any[]; perLeader?: Array<{ leader_id: number; leader_name: string; matchedBy: string | null; matched_event_id: string | null; matched_group_id: string | null; matched_title: string | null }>; totalEvents?: number }
   ): Promise<Map<number, { hasReport: boolean; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number }>> {
     for (const [label, val] of [['start', startDate], ['end', endDate]] as const) {
       if (!DateTime.fromFormat(val, 'yyyy-LL-dd').isValid) {
@@ -1196,18 +1256,75 @@ ${attendeesXml}
       end_date: endDate,
     });
 
+    return this.matchAttendanceXml(xml, leaders, debug);
+  }
+
+  /**
+   * Pure-ish helper: take an already-fetched (or cached) `attendance_profiles`
+   * XML payload and match it against the given leaders. Split out from
+   * `checkReportsForLeaders` so the dashboard auto-update flow can reuse the
+   * matching logic against cached XML in `ccb_group_events_cache` instead of
+   * paying for another live CCB call.
+   */
+  matchAttendanceXml(
+    xml: any,
+    leaders: Array<{ id: number; name: string; ccb_group_name?: string | null; ccb_group_id?: string | null; ccb_event_ids?: string[] | null }>,
+    debug?: { eventSample?: any[]; perLeader?: Array<{ leader_id: number; leader_name: string; matchedBy: string | null; matched_event_id: string | null; matched_group_id: string | null; matched_title: string | null }>; totalEvents?: number }
+  ): Map<number, { hasReport: boolean; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number }> {
     const eventsRoot = xml?.ccb_api?.response?.events ?? null;
     const rawEvents: any[] = Array.isArray(eventsRoot?.event)
       ? eventsRoot.event
       : eventsRoot?.event ? [eventsRoot.event] : [];
 
-    type EventEntry = { groupId: string; title: string; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number };
+    type EventEntry = { eventId: string; groupId: string; title: string; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number };
+
+    // Extract group_id from any of the XML shapes CCB has returned over time:
+    //   <event><group id="X"><name>…</name></group></event>      → e.group['@_id']
+    //   <event><group id="X">…name…</group></event>              → e.group['@_id'] + e.group['#text']
+    //   <event><group_id>X</group_id><group_name>…</group_name></event>
+    //   <event group_id="X">…</event>                            → e['@_group_id']
+    const extractGroupId = (e: any): string => {
+      const candidates = [
+        e?.group?.['@_id'],
+        e?.group?.id,
+        e?.group_id,
+        e?.['@_group_id'],
+        typeof e?.group === 'string' || typeof e?.group === 'number' ? e?.group : null,
+      ];
+      for (const c of candidates) {
+        const v = String(c ?? '').trim();
+        if (v) return v;
+      }
+      return '';
+    };
+    const extractGroupName = (e: any): string => {
+      const candidates = [
+        e?.group?.name,
+        e?.group?.['#text'],
+        e?.group?.['@_name'],
+        e?.group_name,
+      ];
+      for (const c of candidates) {
+        const v = String(c ?? '').trim();
+        if (v) return v;
+      }
+      return '';
+    };
 
     const eventData: EventEntry[] = rawEvents.map((e: any) => {
-      const groupId = String(e?.group?.['@_id'] ?? e?.group?.id ?? e?.group_id ?? '').trim();
-      const title = `${String(e?.name || e?.event_name || '')} ${String(e?.group?.name || '')}`.toLowerCase();
+      const eventId = String(e?.['@_id'] ?? e?.id ?? '').trim();
+      const groupId = extractGroupId(e);
+      const eventName = String(e?.name || e?.event_name || '');
+      const groupName = extractGroupName(e);
+      const title = `${eventName} ${groupName}`.toLowerCase();
       const occRaw = String(e?.['@_occurrence'] ?? e?.occurrence ?? '').trim();
-      const occurrenceDate = occRaw ? (DateTime.fromISO(occRaw).toISODate() ?? null) : null;
+      // CCB returns occurrences as "YYYY-MM-DD HH:mm:ss" (space, not "T"). Luxon's
+      // fromISO rejects the space, so try fromSQL as a fallback before giving up.
+      const occurrenceDate = occRaw
+        ? ((DateTime.fromISO(occRaw).toISODate()
+            ?? DateTime.fromSQL(occRaw).toISODate())
+           ?? null)
+        : null;
 
       // Use normalizeAttendance — same path as the Event Explorer — to reliably
       // parse head_count AND individual attendees from the bulk XML response.
@@ -1222,46 +1339,86 @@ ${attendeesXml}
       const hasNotes = !!(attendance?.topic || attendance?.notes || attendance?.prayerRequests);
       const guestCountNum = Number(e?.guest_count ?? e?.guest_cnt ?? 0);
       const guestCount = Number.isFinite(guestCountNum) && guestCountNum > 0 ? guestCountNum : 0;
-      return { groupId, title, didNotMeet, headcount, occurrenceDate, hasNotes, guestCount };
+      return { eventId, groupId, title, didNotMeet, headcount, occurrenceDate, hasNotes, guestCount };
     });
 
-    // Index by CCB group ID for O(1) exact lookup
+    if (debug) {
+      debug.totalEvents = eventData.length;
+      debug.eventSample = eventData.slice(0, 50).map(e => ({ eventId: e.eventId, groupId: e.groupId, title: e.title, occurrenceDate: e.occurrenceDate }));
+    }
+
+    // Index by CCB group ID and event ID for O(1) exact lookup
     const byGroupId = new Map<string, EventEntry>();
+    const byEventId = new Map<string, EventEntry>();
     for (const ev of eventData) {
       if (ev.groupId && !byGroupId.has(ev.groupId)) byGroupId.set(ev.groupId, ev);
+      if (ev.eventId && !byEventId.has(ev.eventId)) byEventId.set(ev.eventId, ev);
     }
 
     const result = new Map<number, { hasReport: boolean; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number }>();
     for (const leader of leaders) {
-      // Match priority: ccb_group_id (exact) → ccb_group_name / leader.name (substring)
       let match: EventEntry | undefined;
+      let matchedBy: string | null = null;
+
+      // 1. Exact match by CCB group ID (most reliable)
       if (leader.ccb_group_id) {
-        match = byGroupId.get(String(leader.ccb_group_id));
+        match = byGroupId.get(String(leader.ccb_group_id).trim());
+        if (match) matchedBy = 'group_id';
       }
-      // Match priority: ccb_group_name → leader.name (substring) → first+last
-      // name tokens both present in the title (handles co-leader titles like
-      // "FMT | S2 | Shannon and Sherrie Hawk" matching leader "Shannon Hawk").
+
+      // 2. Exact match by any of the leader's cached CCB event IDs
+      if (!match && leader.ccb_event_ids && leader.ccb_event_ids.length > 0) {
+        for (const eid of leader.ccb_event_ids) {
+          const key = String(eid ?? '').trim();
+          if (!key) continue;
+          const found = byEventId.get(key);
+          if (found) { match = found; matchedBy = 'event_id'; break; }
+        }
+      }
+
+      // 3. Substring on stored ccb_group_name (either direction — title contains stored, or stored contains title)
       if (!match && leader.ccb_group_name) {
         const key = leader.ccb_group_name.trim().toLowerCase();
-        if (key) match = eventData.find(e => e.title.includes(key));
+        if (key) {
+          match = eventData.find(e => e.title.includes(key) || (e.title && key.includes(e.title.trim())));
+          if (match) matchedBy = 'group_name_substring';
+        }
       }
+
+      // 4. Substring on leader full name
       if (!match) {
         const key = leader.name.trim().toLowerCase();
-        if (key) match = eventData.find(e => e.title.includes(key));
+        if (key) {
+          match = eventData.find(e => e.title.includes(key));
+          if (match) matchedBy = 'leader_name_substring';
+        }
       }
+
+      // 5. First + last name tokens both in title (handles "Shannon and Sherrie Hawk")
       if (!match) {
         const tokens = leader.name.trim().toLowerCase().split(/\s+/).filter(Boolean);
         if (tokens.length >= 2) {
           const first = tokens[0];
           const last = tokens[tokens.length - 1];
-          // Both first and last must appear in the event title. Avoid matching
-          // a different leader sharing the same surname (their first name won't
-          // be in the title).
           if (first !== last) {
             match = eventData.find(e => e.title.includes(first) && e.title.includes(last));
+            if (match) matchedBy = 'name_tokens';
           }
         }
       }
+
+      if (debug) {
+        debug.perLeader = debug.perLeader ?? [];
+        debug.perLeader.push({
+          leader_id: leader.id,
+          leader_name: leader.name,
+          matchedBy,
+          matched_event_id: match?.eventId ?? null,
+          matched_group_id: match?.groupId ?? null,
+          matched_title: match?.title ?? null,
+        });
+      }
+
       result.set(leader.id, {
         hasReport: !!match,
         didNotMeet: match?.didNotMeet ?? false,

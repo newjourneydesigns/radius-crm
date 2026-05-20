@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { DateTime } from 'luxon';
-import { createCCBClient } from '../../../../lib/ccb/ccb-client';
+import { createCCBClient, CCBCircuitBreakerError } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import type { EventSummaryState } from '../../../../lib/supabase';
 
@@ -62,34 +62,83 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getServiceClient();
+    const debugMode = new URL(request.url).searchParams.get('debug') === '1';
 
     // Load leader names (and optional CCB group name override)
     const { data: leaders, error: leaderError } = await supabase
       .from('circle_leaders')
-      .select('id, name, circle_name, ccb_group_name, ccb_group_id')
+      .select('id, name, circle_name, ccb_group_name, ccb_group_id, ccb_event_ids')
       .in('id', leader_ids);
 
     if (leaderError || !leaders || leaders.length === 0) {
       return NextResponse.json({ error: 'Failed to fetch leaders' }, { status: 500 });
     }
 
-    // Pull CCB data (single API call)
-    // Match priority: ccb_group_id (exact) → ccb_group_name → circle_name → leader.name
+    // Match priority: ccb_group_id → ccb_event_ids → ccb_group_name → leader.name
     const ccb = createCCBClient(await getCCBRequestContext(request, {
       module: 'Dashboard',
       action: 'Auto Update Summaries',
       direction: 'pull',
     }));
-    const ccbMap = await ccb.checkReportsForLeaders(
-      leaders.map(l => ({
-        id: l.id,
-        name: l.name,
-        ccb_group_name: l.ccb_group_name || l.circle_name || null,
-        ccb_group_id: l.ccb_group_id || null,
-      })),
-      week_start_date,
-      week_end_date
-    );
+    const debug: { eventSample?: any[]; perLeader?: any[]; totalEvents?: number } | undefined = debugMode ? {} : undefined;
+    const leaderMatchInputs = leaders.map(l => ({
+      id: l.id,
+      name: l.name,
+      ccb_group_name: l.ccb_group_name || l.circle_name || null,
+      ccb_group_id: l.ccb_group_id || null,
+      ccb_event_ids: (l as any).ccb_event_ids || null,
+    }));
+
+    // Cache-first read. Look for any fresh `ccb_group_events_cache` row whose
+    // window contains the requested (week_start, week_end). Daily bulk sync
+    // populates these rows for every active group; one row carries the bulk
+    // attendance XML for the whole 8-week window.
+    const SHARED_CACHE_FRESH_MS = 24 * 60 * 60_000;
+    let ccbSource: 'cache' | 'live' | 'live_fallback_after_breaker' = 'live';
+    let ccbMap: Awaited<ReturnType<typeof ccb.checkReportsForLeaders>> | null = null;
+    let cacheAgeMs: number | null = null;
+
+    {
+      const { data: cacheRow } = await supabase
+        .from('ccb_group_events_cache')
+        .select('attendance_xml, synced_at')
+        .lte('start_date', week_start_date)
+        .gte('end_date', week_end_date)
+        .not('attendance_xml', 'is', null)
+        .order('synced_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (cacheRow?.synced_at && cacheRow.attendance_xml) {
+        const ageMs = Date.now() - new Date(cacheRow.synced_at).getTime();
+        if (ageMs < SHARED_CACHE_FRESH_MS) {
+          ccbMap = ccb.matchAttendanceXml(cacheRow.attendance_xml, leaderMatchInputs, debug);
+          ccbSource = 'cache';
+          cacheAgeMs = ageMs;
+        }
+      }
+    }
+
+    // Cache miss / stale → live CCB pull. Circuit breaker may refuse this; if
+    // so, surface a clear 503 rather than partial updates.
+    if (!ccbMap) {
+      try {
+        ccbMap = await ccb.checkReportsForLeaders(
+          leaderMatchInputs,
+          week_start_date,
+          week_end_date,
+          debug
+        );
+      } catch (e: any) {
+        if (e instanceof CCBCircuitBreakerError) {
+          return NextResponse.json(
+            { error: 'Rate-limited by CCB safety net. Please try again in a minute.', breaker: e.stats },
+            { status: 503 }
+          );
+        }
+        throw e;
+      }
+    }
 
     // Load current states
     let currentStateMap = new Map<number, EventSummaryState>();
@@ -247,6 +296,9 @@ export async function POST(request: NextRequest) {
       skipped,
       conflicts,
       updated_leaders: toUpdate.map(u => ({ id: u.id, state: u.state })),
+      ccb_source: ccbSource,
+      ccb_cache_age_ms: cacheAgeMs,
+      ...(debug ? { debug } : {}),
     });
   } catch (err: any) {
     console.error('[auto-update-summaries POST]', err);
