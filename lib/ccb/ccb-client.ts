@@ -1419,8 +1419,19 @@ ${attendeesXml}
         });
       }
 
+      // A matching CCB event by itself is NOT a report — CCB pre-creates an
+      // event record for every scheduled occurrence whether or not the leader
+      // actually submits anything. Only count it as a report if there's
+      // evidence of submission: explicit did_not_meet, notes/topic/prayer
+      // entered, or a non-zero headcount.
+      const hasActualReport = !!match && (
+        match.didNotMeet === true ||
+        match.hasNotes ||
+        (match.headcount != null && match.headcount > 0)
+      );
+
       result.set(leader.id, {
-        hasReport: !!match,
+        hasReport: hasActualReport,
         didNotMeet: match?.didNotMeet ?? false,
         headcount: match?.headcount ?? null,
         occurrenceDate: match?.occurrenceDate ?? null,

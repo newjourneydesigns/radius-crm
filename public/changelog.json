@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-05-20",
+    "type": "fix",
+    "description": "Fixed a long-standing bug where the Auto-Update Summaries button could mark a circle as \"received\" even when no summary had been submitted. CCB pre-creates an event record for every scheduled occurrence — those empty shells were matching as valid reports. Now a CCB event only counts as a report if there's actual evidence: an explicit \"did not meet\" flag, notes/topic/prayer entered, or a non-zero headcount. Existing leaders that were already marked \"received\" in error will need to be reset manually on the dashboard.",
+    "page": "/calendar"
+  },
+  {
+    "date": "2026-05-20",
     "type": "improvement",
     "description": "Redesigned how RADIUS talks to CCB so we can never bleed the API limit again. Bulk CCB attendance is now pulled once a day (4 AM CT) into Supabase, and both Circle Summary and the dashboard Auto-Update Summaries button read from that cache by default — cache-first, with live CCB only as a fallback. Added a hard circuit breaker in the CCB client (40 calls/min, 500/hr) so even a future code bug can't run away. The dashboard auto-update response now reports `ccb_source: cache | live` so we can see what each click hit. Net effect: ~99% fewer CCB calls per day compared to the broken 10-minute prewarm.",
     "page": "/circle-dashboard"
