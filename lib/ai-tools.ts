@@ -581,6 +581,16 @@ export const AI_TOOLS: ToolDefinition[] = [
     },
   },
   {
+    name: 'get_daily_briefing',
+    description:
+      'Get a comprehensive daily briefing / status overview for the current user. Returns: today\'s date and circles meeting today, overdue todos, todos due today, upcoming scheduled circle visits (next 7 days), and leaders flagged for follow-up. Use this when the user asks "what do I do now?", "what\'s happening?", "give me an overview", "catch me up", "what should I focus on?", or any similar question about their current priorities.',
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
+  {
     name: 'navigate_to_page',
     description:
       'Navigate the user to a specific page in Radius CRM. Use when the user asks to "go to", "take me to", "open", or "show me" a page. Can also navigate to a specific leader\'s profile by name.',
@@ -1411,6 +1421,83 @@ export async function executeTool(
           leader_name: leader.name,
           coachingNotes: data || [],
           count: data?.length || 0,
+        },
+      };
+    }
+
+    // ---- GET DAILY BRIEFING ----
+    case 'get_daily_briefing': {
+      const today = getTodayCST();
+      const dayOfWeek = getDayOfWeekCST();
+
+      // Compute the date 7 days from now for upcoming visits window
+      // Parse today as YYYY-MM-DD parts to avoid UTC timezone issues
+      const [ty, tm, td] = today.split('-').map(Number);
+      const in7Days = new Date(ty, tm - 1, td + 7);
+      const in7DaysStr = `${in7Days.getFullYear()}-${String(in7Days.getMonth() + 1).padStart(2, '0')}-${String(in7Days.getDate()).padStart(2, '0')}`;
+
+      // 1. Circles meeting today
+      const { data: todayCircles } = await supabase
+        .from('circle_leaders')
+        .select('id, name, time, campus, circle_type')
+        .ilike('day', `%${dayOfWeek}%`)
+        .eq('status', 'active')
+        .order('time');
+
+      // 2. Overdue todos (due before today, not completed)
+      const { data: overdueTodos } = await supabase
+        .from('todo_items')
+        .select('id, text, due_date, notes, todo_type')
+        .eq('user_id', userId)
+        .eq('completed', false)
+        .lt('due_date', today)
+        .order('due_date', { ascending: true })
+        .limit(10);
+
+      // 3. Todos due today (not completed)
+      const { data: todayTodos } = await supabase
+        .from('todo_items')
+        .select('id, text, due_date, notes, todo_type')
+        .eq('user_id', userId)
+        .eq('completed', false)
+        .eq('due_date', today)
+        .order('created_at', { ascending: true })
+        .limit(10);
+
+      // 4. Upcoming circle visits in the next 7 days
+      const { data: upcomingVisits } = await supabase
+        .from('circle_visits')
+        .select('id, visit_date, status, previsit_note, leader_id, circle_leaders(name, campus, circle_type)')
+        .eq('scheduled_by', userId)
+        .eq('status', 'scheduled')
+        .gte('visit_date', today)
+        .lte('visit_date', in7DaysStr)
+        .order('visit_date', { ascending: true })
+        .limit(10);
+
+      // 5. Leaders flagged for follow-up
+      const { data: followUpLeaders } = await supabase
+        .from('circle_leaders')
+        .select('id, name, campus, circle_type, status, follow_up_date, follow_up_note')
+        .eq('follow_up_required', true)
+        .order('name')
+        .limit(20);
+
+      return {
+        toolName: name,
+        result: {
+          today,
+          dayOfWeek,
+          circlesMeetingToday: todayCircles || [],
+          circlesMeetingTodayCount: todayCircles?.length || 0,
+          overdueTodos: overdueTodos || [],
+          overdueTodosCount: overdueTodos?.length || 0,
+          todayTodos: todayTodos || [],
+          todayTodosCount: todayTodos?.length || 0,
+          upcomingVisits: upcomingVisits || [],
+          upcomingVisitsCount: upcomingVisits?.length || 0,
+          followUpLeaders: followUpLeaders || [],
+          followUpLeadersCount: followUpLeaders?.length || 0,
         },
       };
     }
