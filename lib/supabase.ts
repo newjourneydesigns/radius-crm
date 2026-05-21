@@ -299,9 +299,20 @@ export interface PrayerPoint {
   is_answered: boolean;
   is_shared: boolean;
   pray_date?: string | null;
-  prayed_on?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export type PrayerKind = 'leader' | 'general';
+
+export interface PrayerSessionLog {
+  id: number;
+  prayer_point_id: number;
+  prayer_kind: PrayerKind;
+  prayed_on: string;
+  note: string | null;
+  user_id: string;
+  created_at: string;
 }
 
 export type EncourageMethod = 'text' | 'email' | 'call' | 'in_person' | 'card' | 'other';

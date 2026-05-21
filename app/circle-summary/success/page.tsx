@@ -171,18 +171,6 @@ function SuccessInner() {
           alt="Circles"
           className="mx-auto h-16 sm:h-20 w-auto mb-6"
         />
-        <div className="mx-auto w-16 h-16 rounded-full bg-white/15 flex items-center justify-center mb-5">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-10 h-10 text-white"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2.5}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
         <h1 className="cs-display text-5xl sm:text-6xl text-white">Thank you</h1>
         <p className="mt-3 text-white/90 font-medium text-base sm:text-lg max-w-md mx-auto">
           Your Circle summary has been submitted.

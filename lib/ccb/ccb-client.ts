@@ -1243,7 +1243,7 @@ ${attendeesXml}
     startDate: string,
     endDate: string,
     debug?: { eventSample?: any[]; perLeader?: Array<{ leader_id: number; leader_name: string; matchedBy: string | null; matched_event_id: string | null; matched_group_id: string | null; matched_title: string | null }>; totalEvents?: number }
-  ): Promise<Map<number, { hasReport: boolean; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number }>> {
+  ): Promise<Map<number, { hasReport: boolean; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number; topic: string | null; notes: string | null; prayerRequests: string | null }>> {
     for (const [label, val] of [['start', startDate], ['end', endDate]] as const) {
       if (!DateTime.fromFormat(val, 'yyyy-LL-dd').isValid) {
         throw new Error(`Invalid ${label} date. Use YYYY-MM-DD format`);
@@ -1279,13 +1279,13 @@ ${attendeesXml}
      * submission from 5 weeks ago and be marked received for the current week.
      */
     dateWindow?: { startDate: string; endDate: string }
-  ): Map<number, { hasReport: boolean; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number }> {
+  ): Map<number, { hasReport: boolean; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number; topic: string | null; notes: string | null; prayerRequests: string | null }> {
     const eventsRoot = xml?.ccb_api?.response?.events ?? null;
     const rawEvents: any[] = Array.isArray(eventsRoot?.event)
       ? eventsRoot.event
       : eventsRoot?.event ? [eventsRoot.event] : [];
 
-    type EventEntry = { eventId: string; groupId: string; title: string; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number };
+    type EventEntry = { eventId: string; groupId: string; title: string; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number; topic: string | null; notes: string | null; prayerRequests: string | null };
 
     // Extract group_id from any of the XML shapes CCB has returned over time:
     //   <event><group id="X"><name>…</name></group></event>      → e.group['@_id']
@@ -1348,7 +1348,10 @@ ${attendeesXml}
       const hasNotes = !!(attendance?.topic || attendance?.notes || attendance?.prayerRequests);
       const guestCountNum = Number(e?.guest_count ?? e?.guest_cnt ?? 0);
       const guestCount = Number.isFinite(guestCountNum) && guestCountNum > 0 ? guestCountNum : 0;
-      return { eventId, groupId, title, didNotMeet, headcount, occurrenceDate, hasNotes, guestCount };
+      const topic = attendance?.topic ? String(attendance.topic).trim() || null : null;
+      const notes = attendance?.notes ? String(attendance.notes).trim() || null : null;
+      const prayerRequests = attendance?.prayerRequests ? String(attendance.prayerRequests).trim() || null : null;
+      return { eventId, groupId, title, didNotMeet, headcount, occurrenceDate, hasNotes, guestCount, topic, notes, prayerRequests };
     });
 
     // Date-window filter. Without this, matching the cached 8-week bulk XML
@@ -1375,7 +1378,7 @@ ${attendeesXml}
       if (ev.eventId && !byEventId.has(ev.eventId)) byEventId.set(ev.eventId, ev);
     }
 
-    const result = new Map<number, { hasReport: boolean; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number }>();
+    const result = new Map<number, { hasReport: boolean; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number; topic: string | null; notes: string | null; prayerRequests: string | null }>();
     for (const leader of leaders) {
       let match: EventEntry | undefined;
       let matchedBy: string | null = null;
@@ -1457,6 +1460,9 @@ ${attendeesXml}
         occurrenceDate: match?.occurrenceDate ?? null,
         hasNotes: match?.hasNotes ?? false,
         guestCount: match?.guestCount ?? 0,
+        topic: match?.topic ?? null,
+        notes: match?.notes ?? null,
+        prayerRequests: match?.prayerRequests ?? null,
       });
     }
     return result;

@@ -2,9 +2,12 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { SearchX } from 'lucide-react';
+import { SearchX, Plus, Calendar, X } from 'lucide-react';
 import ProtectedRoute from '../../components/ProtectedRoute';
-import { supabase, PrayerPoint } from '../../lib/supabase';
+import PrayerToolbar from '../../components/prayer/PrayerToolbar';
+import PrayerSectionHeader from '../../components/prayer/PrayerSectionHeader';
+import PrayerRow, { PrayerRowData } from '../../components/prayer/PrayerRow';
+import { supabase, PrayerPoint, PrayerSessionLog, PrayerKind } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 
 // ── Types ──────────────────────────────────────────────
@@ -37,51 +40,25 @@ interface GeneralPrayer {
   is_answered: boolean;
   is_shared: boolean;
   pray_date?: string | null;
-  prayed_on?: string | null;
   created_at: string;
   updated_at: string;
 }
 
-// ── Helpers ────────────────────────────────────────────
-
-function formatDate(ts: string) {
-  const d = new Date(ts);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-function timeAgo(ts: string) {
-  const now = new Date();
-  const d = new Date(ts);
-  const diffMs = now.getTime() - d.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays}d ago`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
-  if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`;
-  return `${Math.floor(diffDays / 365)}y ago`;
-}
-
-function formatPrayerDate(dateStr: string) {
-  return new Date(`${dateStr}T00:00:00`).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
-function getTodayDateInputValue() {
-  return new Date().toISOString().split('T')[0];
+function logKey(kind: PrayerKind, id: number) {
+  return `${kind}:${id}`;
 }
 
 // ── Main Component ─────────────────────────────────────
 
 function PrayerListContent() {
   const { user } = useAuth();
+  const currentUserId = user?.id ?? null;
 
   // Data
   const [allLeaders, setAllLeaders] = useState<SimpleLeader[]>([]);
   const [allPrayers, setAllPrayers] = useState<PrayerWithLeader[]>([]);
+  const [generalPrayers, setGeneralPrayers] = useState<GeneralPrayer[]>([]);
+  const [sessionLogs, setSessionLogs] = useState<PrayerSessionLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -106,8 +83,22 @@ function PrayerListContent() {
     if (typeof window !== 'undefined') return localStorage.getItem('prayer_acpd') || '';
     return '';
   });
+  const [generalExpanded, setGeneralExpanded] = useState(true);
+  const [leaderSectionExpanded, setLeaderSectionExpanded] = useState(true);
 
-  // Persist filters to localStorage
+  // Add-prayer state
+  const [addingToLeader, setAddingToLeader] = useState<number | null>(null);
+  const [newPrayerText, setNewPrayerText] = useState('');
+  const [newPrayerDate, setNewPrayerDate] = useState('');
+  const [showNewPrayerDate, setShowNewPrayerDate] = useState(false);
+  const [newGeneralText, setNewGeneralText] = useState('');
+  const [newGeneralDate, setNewGeneralDate] = useState('');
+  const [showNewGeneralDate, setShowNewGeneralDate] = useState(false);
+
+  // Draft log id (just-created) per prayer key — auto-opens history + note editor
+  const [draftLogIds, setDraftLogIds] = useState<Record<string, number | null>>({});
+
+  // Persist filters
   useEffect(() => {
     localStorage.setItem('prayer_sortDir', sortDir);
     localStorage.setItem('prayer_search', searchQuery);
@@ -115,34 +106,13 @@ function PrayerListContent() {
     localStorage.setItem('prayer_acpd', filterAcpd);
   }, [sortDir, searchQuery, filterCampus, filterAcpd]);
 
-  // CRUD state
-  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editText, setEditText] = useState('');
-  const [addingToLeader, setAddingToLeader] = useState<number | null>(null);
-  const [newPrayerText, setNewPrayerText] = useState('');
-  const [newPrayerDate, setNewPrayerDate] = useState('');
-
-  // General Prayer Points state
-  const [generalPrayers, setGeneralPrayers] = useState<GeneralPrayer[]>([]);
-  const [newGeneralText, setNewGeneralText] = useState('');
-  const [newGeneralDate, setNewGeneralDate] = useState('');
-  const [editingGeneralId, setEditingGeneralId] = useState<number | null>(null);
-  const [editGeneralText, setEditGeneralText] = useState('');
-  const [confirmDeleteGeneral, setConfirmDeleteGeneral] = useState<number | null>(null);
-  const [generalExpanded, setGeneralExpanded] = useState(true);
-  const [editingPrayerDateKey, setEditingPrayerDateKey] = useState<string | null>(null);
-  const [editPrayerDate, setEditPrayerDate] = useState('');
-  const [editingPrayedDateKey, setEditingPrayedDateKey] = useState<string | null>(null);
-  const [editPrayedDate, setEditPrayedDate] = useState('');
-
-  // ─── Load all leaders + prayers ───
+  // ─── Load data ───
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      const [leadersRes, prayersRes] = await Promise.all([
+      const [leadersRes, prayersRes, generalRes, logsRes] = await Promise.all([
         supabase
           .from('circle_leaders')
           .select('id, name, campus, acpd')
@@ -151,19 +121,25 @@ function PrayerListContent() {
           .from('acpd_prayer_points')
           .select(`
             *,
-            circle_leaders!inner (
-              id,
-              name,
-              campus,
-              acpd
-            )
+            circle_leaders!inner ( id, name, campus, acpd )
           `)
           .eq('is_answered', false)
           .order('created_at', { ascending: false }),
+        supabase
+          .from('general_prayer_points')
+          .select('*')
+          .eq('is_answered', false)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('prayer_session_logs')
+          .select('*')
+          .order('prayed_on', { ascending: false }),
       ]);
 
       if (leadersRes.error) throw leadersRes.error;
       if (prayersRes.error) throw prayersRes.error;
+      if (generalRes.error) throw generalRes.error;
+      if (logsRes.error) throw logsRes.error;
 
       const leaders: SimpleLeader[] = (leadersRes.data || []).map((l: any) => ({
         id: l.id,
@@ -181,11 +157,12 @@ function PrayerListContent() {
 
       setAllLeaders(leaders);
       setAllPrayers(mapped);
+      setGeneralPrayers(generalRes.data || []);
+      setSessionLogs(logsRes.data || []);
 
-      const leaderIdsWithPrayers = new Set(mapped.map(p => p.circle_leader_id));
-      setExpandedLeaders(leaderIdsWithPrayers);
+      setExpandedLeaders(new Set(mapped.map((p) => p.circle_leader_id)));
     } catch (err: any) {
-      console.error('Error loading data:', err);
+      console.error('Error loading prayer data:', err);
       setError(err.message);
     } finally {
       setIsLoading(false);
@@ -196,40 +173,29 @@ function PrayerListContent() {
     loadData();
   }, [loadData]);
 
-  // ─── Load general prayer points ───
-  const loadGeneralPrayers = useCallback(async () => {
-    try {
-      const { data, error: gpError } = await supabase
-        .from('general_prayer_points')
-        .select('*')
-        .eq('is_answered', false)
-        .order('created_at', { ascending: false });
-
-      if (gpError) throw gpError;
-      setGeneralPrayers(data || []);
-    } catch (err: any) {
-      console.error('Error loading general prayer points:', err);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadGeneralPrayers();
-  }, [loadGeneralPrayers]);
-
-  // ─── Derived filter option lists ───
+  // ─── Derived ───
   const campusList = useMemo(() => {
     const set = new Set<string>();
-    allLeaders.forEach(l => { if (l.campus) set.add(l.campus); });
+    allLeaders.forEach((l) => l.campus && set.add(l.campus));
     return Array.from(set).sort();
   }, [allLeaders]);
 
   const acpdList = useMemo(() => {
     const set = new Set<string>();
-    allLeaders.forEach(l => { if (l.acpd) set.add(l.acpd); });
+    allLeaders.forEach((l) => l.acpd && set.add(l.acpd));
     return Array.from(set).sort();
   }, [allLeaders]);
 
-  // ─── Group ALL leaders with their prayers ───
+  const logsByKey = useMemo(() => {
+    const map = new Map<string, PrayerSessionLog[]>();
+    for (const log of sessionLogs) {
+      const key = logKey(log.prayer_kind, log.prayer_point_id);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(log);
+    }
+    return map;
+  }, [sessionLogs]);
+
   const groupedPrayers = useMemo(() => {
     const prayersByLeader = new Map<number, PrayerWithLeader[]>();
     for (const prayer of allPrayers) {
@@ -240,10 +206,10 @@ function PrayerListContent() {
     }
 
     let leaders = allLeaders;
-    if (filterCampus) leaders = leaders.filter(l => l.campus === filterCampus);
-    if (filterAcpd) leaders = leaders.filter(l => l.acpd === filterAcpd);
+    if (filterCampus) leaders = leaders.filter((l) => l.campus === filterCampus);
+    if (filterAcpd) leaders = leaders.filter((l) => l.acpd === filterAcpd);
 
-    const groups: LeaderPrayerGroup[] = leaders.map(leader => ({
+    const groups: LeaderPrayerGroup[] = leaders.map((leader) => ({
       leaderId: leader.id,
       leaderName: leader.name,
       leaderCampus: leader.campus,
@@ -254,11 +220,12 @@ function PrayerListContent() {
     let filtered = groups;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      filtered = groups.filter(g =>
-        g.leaderName.toLowerCase().includes(q) ||
-        (g.leaderCampus && g.leaderCampus.toLowerCase().includes(q)) ||
-        (g.leaderAcpd && g.leaderAcpd.toLowerCase().includes(q)) ||
-        g.prayers.some(p => p.content.toLowerCase().includes(q))
+      filtered = groups.filter(
+        (g) =>
+          g.leaderName.toLowerCase().includes(q) ||
+          (g.leaderCampus && g.leaderCampus.toLowerCase().includes(q)) ||
+          (g.leaderAcpd && g.leaderAcpd.toLowerCase().includes(q)) ||
+          g.prayers.some((p) => p.content.toLowerCase().includes(q))
       );
     }
 
@@ -270,379 +237,269 @@ function PrayerListContent() {
     return filtered;
   }, [allLeaders, allPrayers, searchQuery, sortDir, filterCampus, filterAcpd]);
 
-  // ─── Filtered general prayers ───
   const filteredGeneralPrayers = useMemo(() => {
     if (!searchQuery.trim()) return generalPrayers;
     const q = searchQuery.toLowerCase();
-    return generalPrayers.filter(gp => gp.content.toLowerCase().includes(q));
+    return generalPrayers.filter((gp) => gp.content.toLowerCase().includes(q));
   }, [generalPrayers, searchQuery]);
-
-  // ─── Toggle prayer answered ───
-  const handleToggleAnswered = async (prayer: PrayerWithLeader) => {
-    try {
-      const { error: updateError } = await supabase
-        .from('acpd_prayer_points')
-        .update({ is_answered: true, updated_at: new Date().toISOString() })
-        .eq('id', prayer.id);
-
-      if (updateError) throw updateError;
-
-      const truncated = prayer.content.length > 100
-        ? prayer.content.substring(0, 100) + '...'
-        : prayer.content;
-      await supabase
-        .from('notes')
-        .insert([{
-          circle_leader_id: prayer.circle_leader_id,
-          content: `Prayer answered: "${truncated}"`,
-          created_by: 'System',
-        }]);
-
-      setAllPrayers(prev => prev.filter(p => p.id !== prayer.id));
-    } catch (err: any) {
-      console.error('Error marking prayer answered:', err);
-    }
-  };
-
-  // ─── Edit prayer ───
-  const startEditing = (prayer: PrayerWithLeader) => {
-    setEditingId(prayer.id);
-    setEditText(prayer.content);
-  };
-  const cancelEditing = () => { setEditingId(null); setEditText(''); };
-  const saveEdit = async () => {
-    if (!editingId || !editText.trim()) return;
-    try {
-      const { error: updateError } = await supabase
-        .from('acpd_prayer_points')
-        .update({ content: editText.trim(), updated_at: new Date().toISOString() })
-        .eq('id', editingId);
-      if (updateError) throw updateError;
-      setAllPrayers(prev =>
-        prev.map(p => p.id === editingId ? { ...p, content: editText.trim() } : p)
-      );
-      setEditingId(null);
-      setEditText('');
-    } catch (err: any) {
-      console.error('Error updating prayer:', err);
-    }
-  };
-
-  // ─── Delete prayer ───
-  const handleDelete = async (id: number) => {
-    if (confirmDelete !== id) {
-      setConfirmDelete(id);
-      setTimeout(() => setConfirmDelete(null), 3000);
-      return;
-    }
-    try {
-      const { error: deleteError } = await supabase
-        .from('acpd_prayer_points')
-        .delete()
-        .eq('id', id);
-      if (deleteError) throw deleteError;
-      setAllPrayers(prev => prev.filter(p => p.id !== id));
-      setConfirmDelete(null);
-    } catch (err: any) {
-      console.error('Error deleting prayer:', err);
-    }
-  };
-
-  // ─── Add prayer to leader ───
-  const handleAddPrayer = async (leaderId: number) => {
-    if (!newPrayerText.trim()) return;
-    try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) return;
-
-      const { data, error: insertError } = await supabase
-        .from('acpd_prayer_points')
-        .insert([{
-          circle_leader_id: leaderId,
-          user_id: authUser.id,
-          content: newPrayerText.trim(),
-          is_answered: false,
-          is_shared: false,
-          pray_date: newPrayerDate || null,
-        }])
-        .select(`
-          *,
-          circle_leaders!inner (
-            id,
-            name,
-            campus,
-            acpd
-          )
-        `)
-        .single();
-
-      if (insertError) throw insertError;
-
-      const mapped: PrayerWithLeader = {
-        ...data,
-        leader_name: (data as any).circle_leaders?.name || 'Unknown',
-        leader_campus: (data as any).circle_leaders?.campus || undefined,
-        leader_acpd: (data as any).circle_leaders?.acpd || undefined,
-      };
-
-      setAllPrayers(prev => [mapped, ...prev]);
-      setExpandedLeaders(prev => {
-        const next = new Set(prev);
-        next.add(leaderId);
-        return next;
-      });
-      setNewPrayerText('');
-      setNewPrayerDate('');
-      setAddingToLeader(null);
-    } catch (err: any) {
-      console.error('Error adding prayer:', err);
-    }
-  };
-
-  // ─── General prayer CRUD ───
-  const addGeneralPrayer = async () => {
-    if (!newGeneralText.trim()) return;
-    try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) return;
-      const { data, error: insertErr } = await supabase
-        .from('general_prayer_points')
-        .insert([{ user_id: authUser.id, content: newGeneralText.trim(), is_answered: false, is_shared: false, pray_date: newGeneralDate || null }])
-        .select('*')
-        .single();
-      if (insertErr) throw insertErr;
-      setGeneralPrayers(prev => [data, ...prev]);
-      setNewGeneralText('');
-      setNewGeneralDate('');
-    } catch (err: any) {
-      console.error('Error adding general prayer:', err);
-    }
-  };
-
-  const toggleGeneralAnswered = async (gp: GeneralPrayer) => {
-    try {
-      const { error: updateErr } = await supabase
-        .from('general_prayer_points')
-        .update({ is_answered: true, updated_at: new Date().toISOString() })
-        .eq('id', gp.id);
-      if (updateErr) throw updateErr;
-      setGeneralPrayers(prev => prev.filter(p => p.id !== gp.id));
-    } catch (err: any) {
-      console.error('Error toggling general prayer:', err);
-    }
-  };
-
-  const startEditingGeneral = (gp: GeneralPrayer) => {
-    setEditingGeneralId(gp.id);
-    setEditGeneralText(gp.content);
-  };
-  const cancelEditingGeneral = () => { setEditingGeneralId(null); setEditGeneralText(''); };
-  const startEditingPrayerDate = (key: string, currentDate?: string | null) => {
-    setEditingPrayedDateKey(null);
-    setEditPrayedDate('');
-    setEditingPrayerDateKey(key);
-    setEditPrayerDate(currentDate || '');
-  };
-  const cancelEditingPrayerDate = () => {
-    setEditingPrayerDateKey(null);
-    setEditPrayerDate('');
-  };
-  const startEditingPrayedDate = (key: string, currentDate?: string | null) => {
-    setEditingPrayerDateKey(null);
-    setEditPrayerDate('');
-    setEditingPrayedDateKey(key);
-    setEditPrayedDate(currentDate || getTodayDateInputValue());
-  };
-  const cancelEditingPrayedDate = () => {
-    setEditingPrayedDateKey(null);
-    setEditPrayedDate('');
-  };
-  const saveGeneralEdit = async () => {
-    if (!editingGeneralId || !editGeneralText.trim()) return;
-    try {
-      const { error: updateErr } = await supabase
-        .from('general_prayer_points')
-        .update({ content: editGeneralText.trim(), updated_at: new Date().toISOString() })
-        .eq('id', editingGeneralId);
-      if (updateErr) throw updateErr;
-      setGeneralPrayers(prev =>
-        prev.map(p => p.id === editingGeneralId ? { ...p, content: editGeneralText.trim() } : p)
-      );
-      setEditingGeneralId(null);
-      setEditGeneralText('');
-    } catch (err: any) {
-      console.error('Error updating general prayer:', err);
-    }
-  };
-
-  const savePrayerDate = async (prayerId: number) => {
-    try {
-      const { error: updateError } = await supabase
-        .from('acpd_prayer_points')
-        .update({ pray_date: editPrayerDate || null, updated_at: new Date().toISOString() })
-        .eq('id', prayerId);
-
-      if (updateError) throw updateError;
-
-      setAllPrayers(prev =>
-        prev.map(p => p.id === prayerId ? { ...p, pray_date: editPrayerDate || null } : p)
-      );
-      cancelEditingPrayerDate();
-    } catch (err: any) {
-      console.error('Error updating prayer date:', err);
-    }
-  };
-
-  const savePrayedDate = async (prayerId: number) => {
-    try {
-      const { error: updateError } = await supabase
-        .from('acpd_prayer_points')
-        .update({ prayed_on: editPrayedDate || null, updated_at: new Date().toISOString() })
-        .eq('id', prayerId);
-
-      if (updateError) throw updateError;
-
-      setAllPrayers(prev =>
-        prev.map(p => p.id === prayerId ? { ...p, prayed_on: editPrayedDate || null } : p)
-      );
-      cancelEditingPrayedDate();
-    } catch (err: any) {
-      console.error('Error updating prayed date:', err);
-    }
-  };
-
-  const saveGeneralPrayerDate = async (prayerId: number) => {
-    try {
-      const { error: updateErr } = await supabase
-        .from('general_prayer_points')
-        .update({ pray_date: editPrayerDate || null, updated_at: new Date().toISOString() })
-        .eq('id', prayerId);
-
-      if (updateErr) throw updateErr;
-
-      setGeneralPrayers(prev =>
-        prev.map(p => p.id === prayerId ? { ...p, pray_date: editPrayerDate || null } : p)
-      );
-      cancelEditingPrayerDate();
-    } catch (err: any) {
-      console.error('Error updating general prayer date:', err);
-    }
-  };
-
-  const saveGeneralPrayedDate = async (prayerId: number) => {
-    try {
-      const { error: updateErr } = await supabase
-        .from('general_prayer_points')
-        .update({ prayed_on: editPrayedDate || null, updated_at: new Date().toISOString() })
-        .eq('id', prayerId);
-
-      if (updateErr) throw updateErr;
-
-      setGeneralPrayers(prev =>
-        prev.map(p => p.id === prayerId ? { ...p, prayed_on: editPrayedDate || null } : p)
-      );
-      cancelEditingPrayedDate();
-    } catch (err: any) {
-      console.error('Error updating general prayed date:', err);
-    }
-  };
-
-  const deleteGeneralPrayer = async (id: number) => {
-    if (confirmDeleteGeneral !== id) {
-      setConfirmDeleteGeneral(id);
-      setTimeout(() => setConfirmDeleteGeneral(null), 3000);
-      return;
-    }
-    try {
-      const { error: delErr } = await supabase
-        .from('general_prayer_points')
-        .delete()
-        .eq('id', id);
-      if (delErr) throw delErr;
-      setGeneralPrayers(prev => prev.filter(p => p.id !== id));
-      setConfirmDeleteGeneral(null);
-    } catch (err: any) {
-      console.error('Error deleting general prayer:', err);
-    }
-  };
-
-  // ─── Toggle shared (leader prayer) ───
-  const togglePrayerShared = async (prayer: PrayerWithLeader) => {
-    try {
-      const newState = !prayer.is_shared;
-      const { error: updateError } = await supabase
-        .from('acpd_prayer_points')
-        .update({ is_shared: newState, updated_at: new Date().toISOString() })
-        .eq('id', prayer.id);
-      if (updateError) throw updateError;
-      setAllPrayers(prev =>
-        prev.map(p => p.id === prayer.id ? { ...p, is_shared: newState } : p)
-      );
-    } catch (err: any) {
-      console.error('Error toggling prayer shared:', err);
-    }
-  };
-
-  // ─── Toggle shared (general prayer) ───
-  const toggleGeneralShared = async (gp: GeneralPrayer) => {
-    try {
-      const newState = !gp.is_shared;
-      const { error: updateErr } = await supabase
-        .from('general_prayer_points')
-        .update({ is_shared: newState, updated_at: new Date().toISOString() })
-        .eq('id', gp.id);
-      if (updateErr) throw updateErr;
-      setGeneralPrayers(prev =>
-        prev.map(p => p.id === gp.id ? { ...p, is_shared: newState } : p)
-      );
-    } catch (err: any) {
-      console.error('Error toggling general prayer shared:', err);
-    }
-  };
-
-  // ─── Toggle leader expand/collapse ───
-  const toggleLeader = (leaderId: number) => {
-    setExpandedLeaders(prev => {
-      const next = new Set(prev);
-      if (next.has(leaderId)) {
-        next.delete(leaderId);
-      } else {
-        next.add(leaderId);
-      }
-      return next;
-    });
-  };
-
-  const expandAll = () => {
-    setExpandedLeaders(new Set(groupedPrayers.map(g => g.leaderId)));
-  };
-  const collapseAll = () => {
-    setExpandedLeaders(new Set());
-  };
 
   // ─── Stats ───
   const totalPrayers = allPrayers.length;
   const totalLeaders = allLeaders.length;
-  const leadersWithPrayers = new Set(allPrayers.map(p => p.circle_leader_id)).size;
+  const leadersWithPrayers = new Set(allPrayers.map((p) => p.circle_leader_id)).size;
 
-  // ─── Loading state ───
+  // ─── Mutations: leader prayers ───
+  const updateLeaderPrayer = (id: number, patch: Partial<PrayerWithLeader>) => {
+    setAllPrayers((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  };
+
+  const handleLeaderContentSave = async (id: number, content: string) => {
+    const { error: err } = await supabase
+      .from('acpd_prayer_points')
+      .update({ content, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (err) return console.error(err);
+    updateLeaderPrayer(id, { content });
+  };
+
+  const handleLeaderDelete = async (id: number) => {
+    const { error: err } = await supabase.from('acpd_prayer_points').delete().eq('id', id);
+    if (err) return console.error(err);
+    setAllPrayers((prev) => prev.filter((p) => p.id !== id));
+    setSessionLogs((prev) =>
+      prev.filter((l) => !(l.prayer_kind === 'leader' && l.prayer_point_id === id))
+    );
+  };
+
+  const handleLeaderShareToggle = async (id: number, next: boolean) => {
+    const { error: err } = await supabase
+      .from('acpd_prayer_points')
+      .update({ is_shared: next, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (err) return console.error(err);
+    updateLeaderPrayer(id, { is_shared: next });
+  };
+
+  const handleLeaderAnswered = async (id: number) => {
+    const prayer = allPrayers.find((p) => p.id === id);
+    const { error: err } = await supabase
+      .from('acpd_prayer_points')
+      .update({ is_answered: true, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (err) return console.error(err);
+    if (prayer) {
+      const truncated =
+        prayer.content.length > 100 ? prayer.content.substring(0, 100) + '...' : prayer.content;
+      await supabase.from('notes').insert([
+        {
+          circle_leader_id: prayer.circle_leader_id,
+          content: `Prayer answered: "${truncated}"`,
+          created_by: 'System',
+        },
+      ]);
+    }
+    setAllPrayers((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const handleLeaderDueDateSave = async (id: number, due: string | null) => {
+    const { error: err } = await supabase
+      .from('acpd_prayer_points')
+      .update({ pray_date: due, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (err) return console.error(err);
+    updateLeaderPrayer(id, { pray_date: due });
+  };
+
+  // ─── Mutations: general prayers ───
+  const updateGeneralPrayer = (id: number, patch: Partial<GeneralPrayer>) => {
+    setGeneralPrayers((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  };
+
+  const handleGeneralContentSave = async (id: number, content: string) => {
+    const { error: err } = await supabase
+      .from('general_prayer_points')
+      .update({ content, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (err) return console.error(err);
+    updateGeneralPrayer(id, { content });
+  };
+
+  const handleGeneralDelete = async (id: number) => {
+    const { error: err } = await supabase.from('general_prayer_points').delete().eq('id', id);
+    if (err) return console.error(err);
+    setGeneralPrayers((prev) => prev.filter((p) => p.id !== id));
+    setSessionLogs((prev) =>
+      prev.filter((l) => !(l.prayer_kind === 'general' && l.prayer_point_id === id))
+    );
+  };
+
+  const handleGeneralShareToggle = async (id: number, next: boolean) => {
+    const { error: err } = await supabase
+      .from('general_prayer_points')
+      .update({ is_shared: next, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (err) return console.error(err);
+    updateGeneralPrayer(id, { is_shared: next });
+  };
+
+  const handleGeneralAnswered = async (id: number) => {
+    const { error: err } = await supabase
+      .from('general_prayer_points')
+      .update({ is_answered: true, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (err) return console.error(err);
+    setGeneralPrayers((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const handleGeneralDueDateSave = async (id: number, due: string | null) => {
+    const { error: err } = await supabase
+      .from('general_prayer_points')
+      .update({ pray_date: due, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (err) return console.error(err);
+    updateGeneralPrayer(id, { pray_date: due });
+  };
+
+  // ─── Session logs ───
+  const handleLogPrayer = async (kind: PrayerKind, prayerId: number) => {
+    if (!currentUserId) return;
+    const today = new Date().toISOString().split('T')[0];
+    const { data, error: err } = await supabase
+      .from('prayer_session_logs')
+      .insert([
+        {
+          prayer_point_id: prayerId,
+          prayer_kind: kind,
+          prayed_on: today,
+          note: null,
+          user_id: currentUserId,
+        },
+      ])
+      .select('*')
+      .single();
+    if (err || !data) return console.error(err);
+    setSessionLogs((prev) => [data as PrayerSessionLog, ...prev]);
+    setDraftLogIds((prev) => ({ ...prev, [logKey(kind, prayerId)]: data.id }));
+  };
+
+  const handleLogNoteSave = async (logId: number, note: string) => {
+    const value = note.trim() === '' ? null : note;
+    const prev = sessionLogs;
+    setSessionLogs((cur) => cur.map((l) => (l.id === logId ? { ...l, note: value } : l)));
+    const { error: err } = await supabase
+      .from('prayer_session_logs')
+      .update({ note: value })
+      .eq('id', logId);
+    if (err) {
+      console.error(err);
+      setSessionLogs(prev);
+    }
+  };
+
+  const handleLogDelete = async (logId: number) => {
+    const prev = sessionLogs;
+    setSessionLogs((cur) => cur.filter((l) => l.id !== logId));
+    const { error: err } = await supabase.from('prayer_session_logs').delete().eq('id', logId);
+    if (err) {
+      console.error(err);
+      setSessionLogs(prev);
+    }
+  };
+
+  const clearDraft = (kind: PrayerKind, prayerId: number) => {
+    setDraftLogIds((prev) => {
+      const next = { ...prev };
+      delete next[logKey(kind, prayerId)];
+      return next;
+    });
+  };
+
+  // ─── Add new ───
+  const addLeaderPrayer = async (leaderId: number) => {
+    if (!newPrayerText.trim() || !currentUserId) return;
+    const { data, error: err } = await supabase
+      .from('acpd_prayer_points')
+      .insert([
+        {
+          circle_leader_id: leaderId,
+          user_id: currentUserId,
+          content: newPrayerText.trim(),
+          is_answered: false,
+          is_shared: false,
+          pray_date: newPrayerDate || null,
+        },
+      ])
+      .select(`*, circle_leaders!inner ( id, name, campus, acpd )`)
+      .single();
+    if (err || !data) return console.error(err);
+    const mapped: PrayerWithLeader = {
+      ...(data as any),
+      leader_name: (data as any).circle_leaders?.name || 'Unknown',
+      leader_campus: (data as any).circle_leaders?.campus || undefined,
+      leader_acpd: (data as any).circle_leaders?.acpd || undefined,
+    };
+    setAllPrayers((prev) => [mapped, ...prev]);
+    setNewPrayerText('');
+    setNewPrayerDate('');
+    setShowNewPrayerDate(false);
+    setAddingToLeader(null);
+  };
+
+  const addGeneralPrayer = async () => {
+    if (!newGeneralText.trim() || !currentUserId) return;
+    const { data, error: err } = await supabase
+      .from('general_prayer_points')
+      .insert([
+        {
+          user_id: currentUserId,
+          content: newGeneralText.trim(),
+          is_answered: false,
+          is_shared: false,
+          pray_date: newGeneralDate || null,
+        },
+      ])
+      .select('*')
+      .single();
+    if (err || !data) return console.error(err);
+    setGeneralPrayers((prev) => [data as GeneralPrayer, ...prev]);
+    setNewGeneralText('');
+    setNewGeneralDate('');
+    setShowNewGeneralDate(false);
+  };
+
+  // ─── Expand/collapse ───
+  const expandAll = () => {
+    setGeneralExpanded(true);
+    setLeaderSectionExpanded(true);
+    setExpandedLeaders(new Set(groupedPrayers.map((g) => g.leaderId)));
+  };
+  const collapseAll = () => {
+    setGeneralExpanded(false);
+    setLeaderSectionExpanded(false);
+    setExpandedLeaders(new Set());
+  };
+  const toggleLeader = (leaderId: number) => {
+    setExpandedLeaders((prev) => {
+      const next = new Set(prev);
+      if (next.has(leaderId)) next.delete(leaderId);
+      else next.add(leaderId);
+      return next;
+    });
+  };
+
+  // ─── Loading ───
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#111318]">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 rounded-lg bg-white/[0.07] animate-pulse" />
-            <div>
-              <div className="h-5 bg-white/[0.07] rounded w-28 mb-1.5 animate-pulse" />
-              <div className="h-3 bg-white/[0.07] rounded w-44 animate-pulse" />
-            </div>
-          </div>
-          <div className="bg-[#161820] rounded-xl border border-white/[0.08] p-5 space-y-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="bg-[#1a1c22] rounded-lg border border-white/[0.08] p-4 animate-pulse">
-                <div className="h-4 bg-white/[0.07] rounded w-1/3 mb-3" />
-                <div className="h-3 bg-white/[0.07] rounded w-full mb-2" />
-                <div className="h-3 bg-white/[0.07] rounded w-2/3" />
+        <div className="max-w-3xl mx-auto px-4 py-6">
+          <div className="h-5 bg-white/[0.07] rounded w-32 mb-2 animate-pulse" />
+          <div className="h-3 bg-white/[0.07] rounded w-48 mb-8 animate-pulse" />
+          <div className="space-y-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="py-3 space-y-2">
+                <div className="h-3 bg-white/[0.07] rounded w-40 animate-pulse" />
+                <div className="h-4 bg-white/[0.07] rounded w-3/4 animate-pulse" />
+                <div className="h-3 bg-white/[0.07] rounded w-32 animate-pulse" />
               </div>
             ))}
           </div>
@@ -651,685 +508,341 @@ function PrayerListContent() {
     );
   }
 
+  // ─── Render ───
   return (
     <div className="min-h-screen bg-[#111318]">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-32">
-
-        {/* ── Header ────────────────────────────────── */}
-        <div className="mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-amber-500/15 flex items-center justify-center flex-shrink-0">
-              <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-white">Prayer List</h1>
-              <p className="text-xs text-slate-500">
-                {totalPrayers} prayer{totalPrayers !== 1 ? 's' : ''} across {leadersWithPrayers} of {totalLeaders} circle{totalLeaders !== 1 ? 's' : ''}
-              </p>
-            </div>
-          </div>
+      <div className="max-w-3xl mx-auto px-4 py-6 pb-32">
+        {/* Header */}
+        <div className="mb-5">
+          <h1 className="text-base font-semibold text-white">Prayer List</h1>
+          <p className="text-xs text-slate-600 mt-0.5">
+            {totalPrayers} prayer{totalPrayers !== 1 ? 's' : ''} · {leadersWithPrayers} of{' '}
+            {totalLeaders} circle{totalLeaders !== 1 ? 's' : ''}
+          </p>
         </div>
 
-        {/* ── Toolbar ───────────────────────────────── */}
-        <div className="bg-[#161820] rounded-xl border border-white/[0.08] p-4 sm:p-5 mb-2 space-y-3">
-          {/* Search */}
-          <div className="relative">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search prayers or leaders..."
-              className="w-full pl-10 pr-4 py-2.5 bg-[#1a1c22] border border-white/[0.08] rounded-lg text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-            />
-          </div>
+        <PrayerToolbar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          filterCampus={filterCampus}
+          onFilterCampusChange={setFilterCampus}
+          filterAcpd={filterAcpd}
+          onFilterAcpdChange={setFilterAcpd}
+          campusList={campusList}
+          acpdList={acpdList}
+          sortDir={sortDir}
+          onSortToggle={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
+          onExpandAll={expandAll}
+          onCollapseAll={collapseAll}
+        />
 
-          {/* Filters row */}
-          <div className="flex items-center gap-2">
-            <select
-              value={filterCampus}
-              onChange={e => setFilterCampus(e.target.value)}
-              className="flex-1 min-w-0 px-3 py-2 bg-[#1a1c22] border border-white/[0.08] rounded-lg text-sm text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="">All Campuses</option>
-              {campusList.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <select
-              value={filterAcpd}
-              onChange={e => setFilterAcpd(e.target.value)}
-              className="flex-1 min-w-0 px-3 py-2 bg-[#1a1c22] border border-white/[0.08] rounded-lg text-sm text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="">All ACPDs</option>
-              {acpdList.map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
-            {(filterCampus || filterAcpd) && (
-              <button
-                onClick={() => { setFilterCampus(''); setFilterAcpd(''); }}
-                className="flex-shrink-0 p-2 text-slate-500 hover:text-amber-400 transition-colors"
-                title="Clear filters"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            )}
-          </div>
-
-          {/* Controls row */}
-          <div className="flex items-center gap-2">
-            {/* Sort */}
-            <button
-              onClick={() => setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-[#1a1c22] border border-white/[0.08] rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:border-white/[0.12] transition-colors"
-            >
-              {sortDir === 'asc' ? '↑ A–Z' : '↓ Z–A'}
-            </button>
-
-            {/* Expand */}
-            <button
-              onClick={expandAll}
-              className="flex-1 flex items-center justify-center px-3 py-2 bg-[#1a1c22] border border-white/[0.08] rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:border-white/[0.12] transition-colors"
-              title="Expand all"
-            >
-              Expand All
-            </button>
-
-            {/* Collapse */}
-            <button
-              onClick={collapseAll}
-              className="flex-1 flex items-center justify-center px-3 py-2 bg-[#1a1c22] border border-white/[0.08] rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:border-white/[0.12] transition-colors"
-              title="Collapse all"
-            >
-              Collapse All
-            </button>
-          </div>
-        </div>
-
-        {/* ── Error state ───────────────────────────── */}
         {error && (
-          <div className="mb-2 p-4 bg-red-900/20 border border-red-500/30 rounded-xl">
-            <p className="text-sm text-red-400">{error}</p>
-            <button onClick={loadData} className="mt-2 text-xs text-red-300 hover:text-red-200 underline transition-colors">
+          <div className="mb-5 py-3 border-y border-rose-500/20">
+            <p className="text-sm text-rose-400">{error}</p>
+            <button
+              onClick={loadData}
+              className="mt-1 text-xs text-rose-300 hover:text-rose-200 underline"
+            >
               Try again
             </button>
           </div>
         )}
 
-        {/* ── Main Content Area ─────────────────────── */}
-        <div className="bg-[#161820] rounded-xl border border-white/[0.08] p-5 sm:p-6">
+        {/* General Prayer Points */}
+        <section className="mb-8">
+          <PrayerSectionHeader
+            label="Prayer Points"
+            count={filteredGeneralPrayers.length}
+            expanded={generalExpanded}
+            onToggle={() => setGeneralExpanded((v) => !v)}
+          />
 
-          {/* ── Prayer Points (General) Section ──────── */}
-          <div className="mb-7 mt-4">
-            {/* Section header — email style */}
-            <button
-              onClick={() => setGeneralExpanded(prev => !prev)}
-              className="w-full"
-            >
-              <div className="border-b-2 border-violet-500 pb-3.5 pt-2 mb-0 flex items-center gap-2.5 pl-2">
-                <span className="bg-violet-500 text-white rounded-full min-w-[22px] h-[22px] flex items-center justify-center px-1.5 text-[11px] font-bold flex-shrink-0">
-                  {filteredGeneralPrayers.length}
-                </span>
-                <span className="text-base font-bold text-slate-200 flex-1 text-left">Prayer Points</span>
-                <svg
-                  className={`w-4 h-4 text-slate-500 transition-transform flex-shrink-0 mr-2 ${generalExpanded ? '' : '-rotate-90'}`}
-                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          {generalExpanded && (
+            <div>
+              {filteredGeneralPrayers.length === 0 ? (
+                <div className="py-8 text-center">
+                  <p className="text-sm text-slate-600">
+                    {searchQuery ? 'No matching prayer points' : 'No prayer points yet'}
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  {filteredGeneralPrayers.map((gp) => {
+                    const key = logKey('general', gp.id);
+                    const rowData: PrayerRowData = {
+                      id: gp.id,
+                      content: gp.content,
+                      user_id: gp.user_id,
+                      is_shared: gp.is_shared,
+                      pray_date: gp.pray_date,
+                      created_at: gp.created_at,
+                    };
+                    return (
+                      <PrayerRow
+                        key={gp.id}
+                        kind="general"
+                        data={rowData}
+                        isOwner={currentUserId === gp.user_id}
+                        currentUserId={currentUserId}
+                        logs={logsByKey.get(key) || []}
+                        draftLogId={draftLogIds[key] ?? null}
+                        onContentSave={handleGeneralContentSave}
+                        onDelete={handleGeneralDelete}
+                        onShareToggle={handleGeneralShareToggle}
+                        onAnswered={handleGeneralAnswered}
+                        onDueDateSave={handleGeneralDueDateSave}
+                        onLogPrayer={(id) => handleLogPrayer('general', id)}
+                        onLogNoteSave={handleLogNoteSave}
+                        onLogDelete={handleLogDelete}
+                        onDraftDismiss={() => clearDraft('general', gp.id)}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Inline add general prayer */}
+              <div className="mt-5 flex items-start gap-2">
+                <input
+                  type="text"
+                  value={newGeneralText}
+                  onChange={(e) => setNewGeneralText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') addGeneralPrayer();
+                  }}
+                  placeholder="Add a prayer point"
+                  className="flex-1 min-h-[44px] bg-transparent border-0 border-b border-white/[0.08] px-3 py-2 text-[15px] text-slate-100 placeholder-slate-600 focus:outline-none focus:border-white/30 transition-colors"
+                />
+                <button
+                  onClick={() => setShowNewGeneralDate((v) => !v)}
+                  className={`min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors ${
+                    showNewGeneralDate || newGeneralDate
+                      ? 'text-amber-300'
+                      : 'text-slate-500 hover:text-slate-200'
+                  }`}
+                  aria-label="Set due date"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                </svg>
+                  <Calendar strokeWidth={1.5} className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={addGeneralPrayer}
+                  disabled={!newGeneralText.trim()}
+                  className="min-h-[44px] px-3 text-sm font-medium text-slate-300 hover:text-white disabled:opacity-30 disabled:hover:text-slate-300 transition-colors"
+                >
+                  Add
+                </button>
               </div>
-            </button>
-
-            {generalExpanded && (
-              <div className="mt-5">
-                {/* Add new */}
-                <div className="flex items-center gap-2 mb-6 flex-wrap">
-                  <input
-                    type="text"
-                    value={newGeneralText}
-                    onChange={e => setNewGeneralText(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') addGeneralPrayer(); }}
-                    placeholder="Add a prayer point..."
-                    className="flex-1 px-3.5 py-2.5 bg-[#1a1c22] border border-white/[0.08] rounded-lg text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  />
+              {showNewGeneralDate && (
+                <div className="mt-2 flex items-center gap-2 text-xs">
+                  <span className="text-slate-500">Due</span>
                   <input
                     type="date"
                     value={newGeneralDate}
-                    onChange={e => setNewGeneralDate(e.target.value)}
-                    title="Pray on (optional)"
-                    className="px-2 py-2.5 bg-[#1a1c22] border border-white/[0.08] rounded-lg text-xs text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-36"
+                    onChange={(e) => setNewGeneralDate(e.target.value)}
+                    className="bg-transparent border-0 border-b border-white/[0.1] py-1 text-xs text-slate-200 focus:outline-none focus:border-white/30"
                   />
-                  <button
-                    onClick={addGeneralPrayer}
-                    disabled={!newGeneralText.trim()}
-                    className="btn-primary px-4 py-2.5 rounded-lg text-sm font-semibold"
-                  >
-                    Add
-                  </button>
+                  {newGeneralDate && (
+                    <button
+                      onClick={() => setNewGeneralDate('')}
+                      className="text-slate-500 hover:text-slate-200"
+                    >
+                      <X strokeWidth={1.5} className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
+              )}
+            </div>
+          )}
+        </section>
 
-                {filteredGeneralPrayers.length === 0 ? (
-                  <div className="text-center py-8 text-slate-500 text-sm">
-                    {searchQuery ? 'No matching prayer points' : 'No prayer points yet — add your first one above!'}
+        {/* Circle Leaders */}
+        <section>
+          <PrayerSectionHeader
+            label="Circle Leaders"
+            count={totalPrayers}
+            expanded={leaderSectionExpanded}
+            onToggle={() => setLeaderSectionExpanded((v) => !v)}
+          />
+
+          {leaderSectionExpanded && (
+            <div>
+              {groupedPrayers.length === 0 ? (
+                <div className="py-10 text-center">
+                  <div className="mb-3 flex justify-center">
+                    <SearchX strokeWidth={1.5} className="h-8 w-8 text-slate-700" />
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    {filteredGeneralPrayers.map(gp => {
-                      const isOwner = user?.id === gp.user_id;
-                      return (
-                      <div
-                        key={gp.id}
-                        className="bg-[#1a1c22] border border-white/[0.08] border-l-4 border-l-violet-500 rounded-md p-3 sm:p-3.5 group hover:border-white/[0.12] transition-all"
-                      >
-                        <div className="flex items-start gap-3">
-                          {isOwner && (
-                          <button
-                            onClick={() => toggleGeneralAnswered(gp)}
-                            className="mt-0.5 w-5 h-5 rounded border-2 border-white/[0.12] hover:border-violet-400 hover:bg-violet-500/10 flex-shrink-0 flex items-center justify-center transition-colors"
-                            title="Mark as answered"
-                          />
+                  <p className="text-sm text-slate-500">
+                    {searchQuery || filterCampus || filterAcpd
+                      ? 'No matching prayers'
+                      : 'No active circle leader prayers'}
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-1">
+                  {groupedPrayers.map((group) => {
+                    const isExpanded = expandedLeaders.has(group.leaderId);
+                    return (
+                      <div key={group.leaderId} className="py-2">
+                        <button
+                          onClick={() => toggleLeader(group.leaderId)}
+                          className="w-full min-h-[44px] flex items-center gap-2 py-2 text-left"
+                        >
+                          <span className="text-sm font-medium text-slate-200">
+                            {group.leaderName}
+                          </span>
+                          {group.leaderCampus && (
+                            <span className="text-xs text-slate-600 hidden sm:inline">
+                              · {group.leaderCampus}
+                            </span>
                           )}
-                          <div className="flex-1 min-w-0">
-                            {editingGeneralId === gp.id ? (
-                              <div className="space-y-2">
+                          <span className="ml-auto text-xs text-slate-600">
+                            {group.prayers.length}
+                          </span>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="pl-0">
+                            {group.prayers.map((prayer) => {
+                              const key = logKey('leader', prayer.id);
+                              const rowData: PrayerRowData = {
+                                id: prayer.id,
+                                content: prayer.content,
+                                user_id: prayer.user_id,
+                                is_shared: prayer.is_shared,
+                                pray_date: prayer.pray_date,
+                                created_at: prayer.created_at,
+                                leader_id: prayer.circle_leader_id,
+                                leader_name: prayer.leader_name,
+                                leader_campus: prayer.leader_campus,
+                                leader_acpd: prayer.leader_acpd,
+                              };
+                              return (
+                                <PrayerRow
+                                  key={prayer.id}
+                                  kind="leader"
+                                  data={rowData}
+                                  isOwner={currentUserId === prayer.user_id}
+                                  currentUserId={currentUserId}
+                                  logs={logsByKey.get(key) || []}
+                                  draftLogId={draftLogIds[key] ?? null}
+                                  onContentSave={handleLeaderContentSave}
+                                  onDelete={handleLeaderDelete}
+                                  onShareToggle={handleLeaderShareToggle}
+                                  onAnswered={handleLeaderAnswered}
+                                  onDueDateSave={handleLeaderDueDateSave}
+                                  onLogPrayer={(id) => handleLogPrayer('leader', id)}
+                                  onLogNoteSave={handleLogNoteSave}
+                                  onLogDelete={handleLogDelete}
+                                  onDraftDismiss={() => clearDraft('leader', prayer.id)}
+                                />
+                              );
+                            })}
+
+                            {/* Add prayer to this leader */}
+                            {addingToLeader === group.leaderId ? (
+                              <div className="py-3 space-y-2">
                                 <textarea
-                                  value={editGeneralText}
-                                  onChange={e => setEditGeneralText(e.target.value)}
-                                  onKeyDown={e => {
-                                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveGeneralEdit(); }
-                                    if (e.key === 'Escape') cancelEditingGeneral();
+                                  value={newPrayerText}
+                                  onChange={(e) => setNewPrayerText(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                      e.preventDefault();
+                                      addLeaderPrayer(group.leaderId);
+                                    }
+                                    if (e.key === 'Escape') {
+                                      setAddingToLeader(null);
+                                      setNewPrayerText('');
+                                      setNewPrayerDate('');
+                                      setShowNewPrayerDate(false);
+                                    }
                                   }}
                                   rows={2}
                                   autoFocus
-                                  className="w-full px-3 py-2 bg-[#1a1c22] border border-white/[0.12] rounded-md text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
+                                  placeholder={`Add a prayer for ${group.leaderName}`}
+                                  className="w-full bg-transparent border-0 border-b border-white/[0.15] px-3 py-2 text-[15px] text-slate-100 placeholder-slate-600 focus:outline-none focus:border-white/40 resize-none transition-colors"
                                 />
-                                <div className="flex items-center gap-2">
-                                  <button onClick={saveGeneralEdit} disabled={!editGeneralText.trim()} className="btn-primary px-3.5 py-1.5 rounded-lg text-xs font-semibold">Save</button>
-                                  <button onClick={cancelEditingGeneral} className="px-3 py-1.5 text-xs font-semibold text-slate-400 bg-white/[0.07] hover:bg-white/[0.1] rounded-md transition-colors">Cancel</button>
-                                  <span className="text-[10px] text-slate-600 ml-auto hidden sm:inline">Enter to save · Esc to cancel</span>
+                                <div className="flex flex-wrap items-center gap-3 text-xs">
+                                  <button
+                                    onClick={() => setShowNewPrayerDate((v) => !v)}
+                                    className={`inline-flex items-center gap-1.5 min-h-[44px] transition-colors ${
+                                      showNewPrayerDate || newPrayerDate
+                                        ? 'text-amber-300'
+                                        : 'text-slate-500 hover:text-slate-200'
+                                    }`}
+                                  >
+                                    <Calendar strokeWidth={1.5} className="w-3.5 h-3.5" />
+                                    {newPrayerDate ? newPrayerDate : 'Add due date'}
+                                  </button>
+                                  {showNewPrayerDate && (
+                                    <input
+                                      type="date"
+                                      value={newPrayerDate}
+                                      onChange={(e) => setNewPrayerDate(e.target.value)}
+                                      className="bg-transparent border-0 border-b border-white/[0.1] py-1 text-xs text-slate-200 focus:outline-none focus:border-white/30"
+                                    />
+                                  )}
+                                  <button
+                                    onClick={() => addLeaderPrayer(group.leaderId)}
+                                    disabled={!newPrayerText.trim()}
+                                    className="ml-auto min-h-[44px] px-2 text-slate-300 hover:text-white disabled:opacity-30 disabled:hover:text-slate-300 transition-colors font-medium"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setAddingToLeader(null);
+                                      setNewPrayerText('');
+                                      setNewPrayerDate('');
+                                      setShowNewPrayerDate(false);
+                                    }}
+                                    className="min-h-[44px] px-2 text-slate-500 hover:text-slate-200 transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
                                 </div>
                               </div>
                             ) : (
-                              <>
-                                <p className="text-sm text-slate-200 font-medium leading-relaxed whitespace-pre-wrap">{gp.content}</p>
-                                {editingPrayerDateKey === `general-${gp.id}` && isOwner && (
-                                  <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-white/[0.08] bg-[#111318] p-2.5">
-                                    <span className="text-[11px] font-medium text-slate-400">Pray on</span>
-                                    <input
-                                      type="date"
-                                      value={editPrayerDate}
-                                      onChange={e => setEditPrayerDate(e.target.value)}
-                                      className="px-2 py-1.5 bg-[#1a1c22] border border-white/[0.12] rounded-md text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                    />
-                                    <button
-                                      onClick={() => saveGeneralPrayerDate(gp.id)}
-                                      className="btn-primary px-3 py-1.5 rounded-lg text-xs font-semibold"
-                                    >
-                                      Save date
-                                    </button>
-                                    <button
-                                      onClick={cancelEditingPrayerDate}
-                                      className="px-3 py-1.5 text-xs font-semibold text-slate-400 bg-white/[0.07] hover:bg-white/[0.1] rounded-md transition-colors"
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                )}
-                                {editingPrayedDateKey === `general-${gp.id}` && isOwner && (
-                                  <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-white/[0.08] bg-[#111318] p-2.5">
-                                    <span className="text-[11px] font-medium text-slate-400">Prayed on</span>
-                                    <input
-                                      type="date"
-                                      value={editPrayedDate}
-                                      onChange={e => setEditPrayedDate(e.target.value)}
-                                      className="px-2 py-1.5 bg-[#1a1c22] border border-white/[0.12] rounded-md text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                    />
-                                    <button
-                                      onClick={() => saveGeneralPrayedDate(gp.id)}
-                                      className="btn-primary px-3 py-1.5 rounded-lg text-xs font-semibold"
-                                    >
-                                      Save prayed date
-                                    </button>
-                                    <button
-                                      onClick={cancelEditingPrayedDate}
-                                      className="px-3 py-1.5 text-xs font-semibold text-slate-400 bg-white/[0.07] hover:bg-white/[0.1] rounded-md transition-colors"
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                )}
-                                <div className="flex items-center justify-between mt-1.5">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-[11px] text-slate-600">{timeAgo(gp.created_at)} · {formatDate(gp.created_at)}</span>
-                                    {isOwner ? (
-                                      <button
-                                        onClick={() => startEditingPrayerDate(`general-${gp.id}`, gp.pray_date)}
-                                        className="inline-flex items-center gap-1 rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium text-violet-300 transition-colors hover:border-violet-400/40 hover:bg-violet-500/15"
-                                        title={gp.pray_date ? 'Edit prayer date' : 'Set prayer date'}
-                                      >
-                                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                        {gp.pray_date ? `Pray on ${formatPrayerDate(gp.pray_date)}` : 'Set pray date'}
-                                      </button>
-                                    ) : gp.pray_date ? (
-                                      <span className="inline-flex items-center gap-1 rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium text-violet-300">
-                                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                        {formatPrayerDate(gp.pray_date)}
-                                      </span>
-                                    ) : null}
-                                    {isOwner ? (
-                                      <button
-                                        onClick={() => startEditingPrayedDate(`general-${gp.id}`, gp.prayed_on)}
-                                        className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300 transition-colors hover:border-emerald-400/40 hover:bg-emerald-500/15"
-                                        title={gp.prayed_on ? 'Edit prayed date' : 'Log prayed date'}
-                                      >
-                                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                        {gp.prayed_on ? `Prayed on ${formatPrayerDate(gp.prayed_on)}` : 'Log prayed date'}
-                                      </button>
-                                    ) : gp.prayed_on ? (
-                                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
-                                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                        {formatPrayerDate(gp.prayed_on)}
-                                      </span>
-                                    ) : null}
-                                    {gp.is_shared && !isOwner && (
-                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-500/10 text-slate-400 border border-slate-500/20">
-                                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                        Shared
-                                      </span>
-                                    )}
-                                  </div>
-                                  {/* Mobile actions */}
-                                  {isOwner && (
-                                  <div className="flex items-center gap-1 sm:hidden">
-                                    <button onClick={() => toggleGeneralShared(gp)} className={`p-1.5 rounded transition-colors ${gp.is_shared ? 'text-slate-400' : 'text-slate-600 hover:text-slate-400'}`} title={gp.is_shared ? 'Make private' : 'Share with team'}>
-                                      <svg className="w-3.5 h-3.5" fill={gp.is_shared ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                    </button>
-                                    <button onClick={() => startEditingGeneral(gp)} className="p-1.5 rounded text-slate-600 hover:text-slate-400 transition-colors" title="Edit">
-                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                    </button>
-                                    <button onClick={() => deleteGeneralPrayer(gp.id)} className={`p-1 rounded transition-colors ${confirmDeleteGeneral === gp.id ? 'text-red-400' : 'text-slate-600 hover:text-red-400'}`} title={confirmDeleteGeneral === gp.id ? 'Click again to delete' : 'Delete'}>
-                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={confirmDeleteGeneral === gp.id ? "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" : "M6 18L18 6M6 6l12 12"} /></svg>
-                                    </button>
-                                  </div>
-                                  )}
-                                </div>
-                              </>
+                              <button
+                                onClick={() => {
+                                  setAddingToLeader(group.leaderId);
+                                  setNewPrayerText('');
+                                  setNewPrayerDate('');
+                                  setShowNewPrayerDate(false);
+                                }}
+                                className="inline-flex items-center gap-1.5 min-h-[44px] px-1 mt-1 mb-1 text-xs text-slate-600 hover:text-slate-300 transition-colors"
+                              >
+                                <Plus strokeWidth={1.5} className="w-3.5 h-3.5" />
+                                Add prayer
+                              </button>
                             )}
                           </div>
-                          {editingGeneralId !== gp.id && isOwner && (
-                            <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                              <button onClick={() => toggleGeneralShared(gp)} className={`p-2 rounded transition-colors ${gp.is_shared ? 'text-slate-400 hover:text-slate-300' : 'text-slate-600 hover:text-slate-400 hover:bg-white/[0.07]'}`} title={gp.is_shared ? 'Make private' : 'Share with team'}>
-                                <svg className="w-3.5 h-3.5" fill={gp.is_shared ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                              </button>
-                              <button onClick={() => startEditingGeneral(gp)} className="p-2 rounded text-slate-600 hover:text-slate-400 hover:bg-white/[0.07] transition-colors" title="Edit">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                              </button>
-                              <button onClick={() => deleteGeneralPrayer(gp.id)} className={`p-2 rounded transition-colors ${confirmDeleteGeneral === gp.id ? 'text-red-400' : 'text-slate-600 hover:text-red-400 hover:bg-white/[0.07]'}`} title="Delete">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={confirmDeleteGeneral === gp.id ? "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" : "M6 18L18 6M6 6l12 12"} /></svg>
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                        )}
                       </div>
                     );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* ── Circle Leader Prayers Section ────────── */}
-          <div>
-            {/* Section header — email style */}
-            <div className="border-b-2 border-amber-500 pb-2.5 mb-4 flex items-center gap-2.5">
-              <span className="bg-amber-500 text-white rounded-full min-w-[22px] h-[22px] flex items-center justify-center px-1.5 text-[11px] font-bold flex-shrink-0">
-                {totalPrayers}
-              </span>
-              <span className="text-base font-bold text-slate-200 flex-1">Circle Leader Prayers</span>
-            </div>
-
-            <div className="space-y-2.5">
-              {groupedPrayers.map(group => {
-                const isExpanded = expandedLeaders.has(group.leaderId);
-                const hasPrayers = group.prayers.length > 0;
-                const isAddingHere = addingToLeader === group.leaderId;
-
-                return (
-                  <div
-                    key={group.leaderId}
-                    className="bg-[#1a1c22] border border-white/[0.08] rounded-[10px] overflow-hidden hover:border-white/[0.12] transition-all"
-                  >
-                    {/* Leader header */}
-                    <button
-                      onClick={() => toggleLeader(group.leaderId)}
-                      className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-white/[0.04] transition-colors"
-                    >
-                      <svg
-                        className={`w-3.5 h-3.5 text-slate-600 transition-transform flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}`}
-                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                      </svg>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <Link
-                            href={`/circle/${group.leaderId}`}
-                            onClick={e => e.stopPropagation()}
-                            className="text-[15px] font-bold text-white hover:text-indigo-300 truncate transition-colors"
-                          >
-                            {group.leaderName}
-                          </Link>
-                          {group.leaderCampus && (
-                            <span className="hidden sm:inline text-xs text-slate-500">• {group.leaderCampus}</span>
-                          )}
-                          {group.leaderAcpd && (
-                            <span className="hidden sm:inline text-xs text-slate-600">{group.leaderAcpd}</span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Count badge */}
-                      <span className={`min-w-[22px] h-[22px] flex items-center justify-center px-1.5 text-[11px] font-bold rounded-full flex-shrink-0 ${
-                        hasPrayers
-                          ? 'bg-amber-500 text-white'
-                          : 'bg-white/[0.07] text-slate-600'
-                      }`}>
-                        {group.prayers.length}
-                      </span>
-                    </button>
-
-                    {/* Expanded content */}
-                    {isExpanded && (
-                      <div className="px-4 pb-4 border-t border-white/[0.08]">
-                        {/* Prayer items */}
-                        {group.prayers.length > 0 && (
-                          <div className="space-y-2 mt-3">
-                            {group.prayers.map(prayer => {
-                              const isPrayerOwner = user?.id === prayer.user_id;
-                              return (
-                              <div
-                                key={prayer.id}
-                                className="bg-[#111318] border border-white/[0.08] border-l-4 border-l-amber-500 rounded-md p-3 group hover:border-white/[0.12] transition-all"
-                              >
-                                <div className="flex items-start gap-3">
-                                  {isPrayerOwner && (
-                                  <button
-                                    onClick={() => handleToggleAnswered(prayer)}
-                                    className="mt-0.5 w-5 h-5 rounded border-2 border-white/[0.12] hover:border-amber-400 hover:bg-amber-500/10 flex-shrink-0 flex items-center justify-center transition-colors"
-                                    title="Mark as answered"
-                                  />
-                                  )}
-
-                                  <div className="flex-1 min-w-0">
-                                    {editingId === prayer.id ? (
-                                      <div className="space-y-2">
-                                        <textarea
-                                          value={editText}
-                                          onChange={e => setEditText(e.target.value)}
-                                          onKeyDown={e => {
-                                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(); }
-                                            if (e.key === 'Escape') cancelEditing();
-                                          }}
-                                          rows={2}
-                                          autoFocus
-                                          className="w-full px-3 py-2 bg-[#1a1c22] border border-white/[0.12] rounded-md text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
-                                        />
-                                        <div className="flex items-center gap-2">
-                                          <button onClick={saveEdit} disabled={!editText.trim()} className="btn-primary px-3.5 py-1.5 rounded-lg text-xs font-semibold">Save</button>
-                                          <button onClick={cancelEditing} className="px-3 py-1.5 text-xs font-semibold text-slate-400 bg-white/[0.07] hover:bg-white/[0.1] rounded-md transition-colors">Cancel</button>
-                                          <span className="text-[10px] text-slate-600 ml-auto hidden sm:inline">Enter to save · Esc to cancel</span>
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <>
-                                        <p className="text-sm text-slate-200 font-medium leading-relaxed whitespace-pre-wrap">{prayer.content}</p>
-                                        {editingPrayerDateKey === `leader-${prayer.id}` && isPrayerOwner && (
-                                          <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-white/[0.08] bg-[#1a1c22] p-2.5">
-                                            <span className="text-[11px] font-medium text-slate-400">Pray on</span>
-                                            <input
-                                              type="date"
-                                              value={editPrayerDate}
-                                              onChange={e => setEditPrayerDate(e.target.value)}
-                                              className="px-2 py-1.5 bg-[#111318] border border-white/[0.12] rounded-md text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                            />
-                                            <button
-                                              onClick={() => savePrayerDate(prayer.id)}
-                                              className="btn-primary px-3 py-1.5 rounded-lg text-xs font-semibold"
-                                            >
-                                              Save date
-                                            </button>
-                                            <button
-                                              onClick={cancelEditingPrayerDate}
-                                              className="px-3 py-1.5 text-xs font-semibold text-slate-400 bg-white/[0.07] hover:bg-white/[0.1] rounded-md transition-colors"
-                                            >
-                                              Cancel
-                                            </button>
-                                          </div>
-                                        )}
-                                        {editingPrayedDateKey === `leader-${prayer.id}` && isPrayerOwner && (
-                                          <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-white/[0.08] bg-[#1a1c22] p-2.5">
-                                            <span className="text-[11px] font-medium text-slate-400">Prayed on</span>
-                                            <input
-                                              type="date"
-                                              value={editPrayedDate}
-                                              onChange={e => setEditPrayedDate(e.target.value)}
-                                              className="px-2 py-1.5 bg-[#111318] border border-white/[0.12] rounded-md text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                            />
-                                            <button
-                                              onClick={() => savePrayedDate(prayer.id)}
-                                              className="btn-primary px-3 py-1.5 rounded-lg text-xs font-semibold"
-                                            >
-                                              Save prayed date
-                                            </button>
-                                            <button
-                                              onClick={cancelEditingPrayedDate}
-                                              className="px-3 py-1.5 text-xs font-semibold text-slate-400 bg-white/[0.07] hover:bg-white/[0.1] rounded-md transition-colors"
-                                            >
-                                              Cancel
-                                            </button>
-                                          </div>
-                                        )}
-                                        <div className="flex items-center justify-between mt-1.5">
-                                          <div className="flex items-center gap-2 flex-wrap">
-                                            <span className="text-[11px] text-slate-600">{timeAgo(prayer.created_at)} · {formatDate(prayer.created_at)}</span>
-                                            {isPrayerOwner ? (
-                                              <button
-                                                onClick={() => startEditingPrayerDate(`leader-${prayer.id}`, prayer.pray_date)}
-                                                className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300 transition-colors hover:border-amber-400/40 hover:bg-amber-500/15"
-                                                title={prayer.pray_date ? 'Edit prayer date' : 'Set prayer date'}
-                                              >
-                                                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                                {prayer.pray_date ? `Pray on ${formatPrayerDate(prayer.pray_date)}` : 'Set pray date'}
-                                              </button>
-                                            ) : prayer.pray_date ? (
-                                              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300">
-                                                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                                {formatPrayerDate(prayer.pray_date)}
-                                              </span>
-                                            ) : null}
-                                            {isPrayerOwner ? (
-                                              <button
-                                                onClick={() => startEditingPrayedDate(`leader-${prayer.id}`, prayer.prayed_on)}
-                                                className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300 transition-colors hover:border-emerald-400/40 hover:bg-emerald-500/15"
-                                                title={prayer.prayed_on ? 'Edit prayed date' : 'Log prayed date'}
-                                              >
-                                                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                                {prayer.prayed_on ? `Prayed on ${formatPrayerDate(prayer.prayed_on)}` : 'Log prayed date'}
-                                              </button>
-                                            ) : prayer.prayed_on ? (
-                                              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
-                                                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                                {formatPrayerDate(prayer.prayed_on)}
-                                              </span>
-                                            ) : null}
-                                            {prayer.is_shared && !isPrayerOwner && (
-                                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-500/10 text-slate-400 border border-slate-500/20">
-                                                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                                Shared
-                                              </span>
-                                            )}
-                                          </div>
-                                          {/* Mobile actions */}
-                                          <div className="flex items-center gap-1 sm:hidden">
-                                            {isPrayerOwner && (
-                                              <button onClick={() => togglePrayerShared(prayer)} className={`p-1.5 rounded transition-colors ${prayer.is_shared ? 'text-slate-400' : 'text-slate-600 hover:text-slate-400'}`} title={prayer.is_shared ? 'Make private' : 'Share with team'}>
-                                                <svg className="w-3.5 h-3.5" fill={prayer.is_shared ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                              </button>
-                                            )}
-                                            {isPrayerOwner && (
-                                              <button onClick={() => startEditing(prayer)} className="p-1.5 rounded text-slate-600 hover:text-slate-400 transition-colors" title="Edit">
-                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                              </button>
-                                            )}
-                                            <Link href={`/circle/${prayer.circle_leader_id}`} className="p-1.5 rounded text-slate-600 hover:text-slate-400 transition-colors" title={`Go to ${prayer.leader_name}`}>
-                                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                                            </Link>
-                                            {isPrayerOwner && (
-                                              <button onClick={() => handleDelete(prayer.id)} className={`p-1 rounded transition-colors ${confirmDelete === prayer.id ? 'text-red-400' : 'text-slate-600 hover:text-red-400'}`} title="Delete">
-                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={confirmDelete === prayer.id ? "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" : "M6 18L18 6M6 6l12 12"} /></svg>
-                                              </button>
-                                            )}
-                                          </div>
-                                        </div>
-                                      </>
-                                    )}
-                                  </div>
-
-                                  {/* Desktop actions */}
-                                  {editingId !== prayer.id && (
-                                    <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                      {isPrayerOwner && (
-                                        <button onClick={() => togglePrayerShared(prayer)} className={`p-2 rounded transition-colors ${prayer.is_shared ? 'text-slate-400 hover:text-slate-300' : 'text-slate-600 hover:text-slate-400 hover:bg-white/[0.07]'}`} title={prayer.is_shared ? 'Make private' : 'Share with team'}>
-                                          <svg className="w-3.5 h-3.5" fill={prayer.is_shared ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                        </button>
-                                      )}
-                                      {isPrayerOwner && (
-                                        <button onClick={() => startEditing(prayer)} className="p-2 rounded text-slate-600 hover:text-slate-400 hover:bg-white/[0.07] transition-colors" title="Edit">
-                                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                        </button>
-                                      )}
-                                      <Link href={`/circle/${prayer.circle_leader_id}`} className="p-2 rounded text-slate-600 hover:text-slate-400 hover:bg-white/[0.07] transition-colors" title={`Go to ${prayer.leader_name}`}>
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                                      </Link>
-                                      {isPrayerOwner && (
-                                        <button onClick={() => handleDelete(prayer.id)} className={`p-2 rounded transition-colors ${confirmDelete === prayer.id ? 'text-red-400' : 'text-slate-600 hover:text-red-400 hover:bg-white/[0.07]'}`} title="Delete">
-                                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={confirmDelete === prayer.id ? "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" : "M6 18L18 6M6 6l12 12"} /></svg>
-                                        </button>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        {/* Empty state */}
-                        {!hasPrayers && !isAddingHere && (
-                          <div className="text-center py-8">
-                            <p className="text-sm text-slate-600 mb-3">No active prayers</p>
-                            <button
-                              onClick={() => { setAddingToLeader(group.leaderId); setNewPrayerText(''); }}
-                              className="btn-ghost inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-                              Add a prayer
-                            </button>
-                          </div>
-                        )}
-
-                        {/* Inline add prayer form */}
-                        {isAddingHere && (
-                          <div className="mt-3 p-3 rounded-md bg-[#111318] border border-white/[0.08] space-y-2">
-                            <textarea
-                              value={newPrayerText}
-                              onChange={e => setNewPrayerText(e.target.value)}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddPrayer(group.leaderId); }
-                                if (e.key === 'Escape') { setAddingToLeader(null); setNewPrayerText(''); }
-                              }}
-                              rows={2}
-                              autoFocus
-                              placeholder={`Add a prayer for ${group.leaderName}...`}
-                              className="w-full px-3 py-2 bg-[#1a1c22] border border-white/[0.12] rounded-md text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
-                            />
-                            <div className="flex items-center gap-2">
-                              <label className="text-xs text-slate-500 shrink-0">Pray on:</label>
-                              <input
-                                type="date"
-                                value={newPrayerDate}
-                                onChange={e => setNewPrayerDate(e.target.value)}
-                                className="px-2 py-1 bg-[#1a1c22] border border-white/[0.12] rounded-md text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                              />
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => handleAddPrayer(group.leaderId)}
-                                disabled={!newPrayerText.trim()}
-                                className="btn-primary px-4 py-1.5 rounded-lg text-xs font-semibold"
-                              >
-                                Save
-                              </button>
-                              <button
-                                onClick={() => { setAddingToLeader(null); setNewPrayerText(''); }}
-                                className="px-3 py-1.5 text-xs font-semibold text-slate-400 bg-white/[0.07] hover:bg-white/[0.1] rounded-md transition-colors"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Footer: add + profile link */}
-                        <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/[0.08]/50">
-                          {!isAddingHere ? (
-                            <button
-                              onClick={() => { setAddingToLeader(group.leaderId); setNewPrayerText(''); }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-400 hover:bg-white/[0.07]/50 rounded-md transition-colors font-semibold"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-                              Add prayer
-                            </button>
-                          ) : <div />}
-                          <Link
-                            href={`/circle/${group.leaderId}`}
-                            className="btn-primary inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold"
-                          >
-                            View in Radius →
-                          </Link>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* ── Empty search state ───────────────────── */}
-          {!error && groupedPrayers.length === 0 && (
-            <div className="text-center py-12">
-              <div className="mb-3 flex justify-center">
-                <SearchX className="h-10 w-10 text-slate-600" />
-              </div>
-              <h3 className="text-base text-slate-400 font-semibold mb-1">No matching circles</h3>
-              <p className="text-sm text-slate-600">Try adjusting your search or filters.</p>
+                  })}
+                </div>
+              )}
             </div>
           )}
-        </div>
+        </section>
 
-        {/* ── Footer ────────────────────────────────── */}
-        <div className="text-center pt-6 pb-2">
+        {/* Footer */}
+        <div className="text-center pt-10">
           <p className="text-xs text-slate-700">
-            <Link href="/boards" className="text-slate-400 hover:text-white no-underline transition-colors">Boards</Link>
-            <span className="mx-2 text-white/[0.08]">•</span>
-            <Link href="/leaders" className="text-slate-400 hover:text-white no-underline transition-colors">All Leaders</Link>
-            <span className="mx-2 text-white/[0.08]">•</span>
-            <Link href="/settings" className="text-slate-400 hover:text-white no-underline transition-colors">Settings</Link>
+            <Link href="/boards" className="text-slate-500 hover:text-slate-200 transition-colors">
+              Boards
+            </Link>
+            <span className="mx-2 text-white/[0.06]">·</span>
+            <Link href="/leaders" className="text-slate-500 hover:text-slate-200 transition-colors">
+              All Leaders
+            </Link>
+            <span className="mx-2 text-white/[0.06]">·</span>
+            <Link
+              href="/settings"
+              className="text-slate-500 hover:text-slate-200 transition-colors"
+            >
+              Settings
+            </Link>
           </p>
         </div>
       </div>

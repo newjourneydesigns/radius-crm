@@ -1,0 +1,145 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Pencil, Trash2, Check, X } from 'lucide-react';
+import { PrayerSessionLog } from '../../lib/supabase';
+
+function formatLogDate(dateStr: string) {
+  return new Date(`${dateStr}T00:00:00`).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+interface PrayerSessionLogListProps {
+  logs: PrayerSessionLog[];
+  draftLogId: number | null;
+  isOwnerOf: (log: PrayerSessionLog) => boolean;
+  onNoteSave: (logId: number, note: string) => Promise<void> | void;
+  onDelete: (logId: number) => Promise<void> | void;
+  onDraftDismiss: () => void;
+}
+
+export default function PrayerSessionLogList({
+  logs,
+  draftLogId,
+  isOwnerOf,
+  onNoteSave,
+  onDelete,
+  onDraftDismiss,
+}: PrayerSessionLogListProps) {
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState('');
+
+  // Auto-edit any newly created draft log
+  useEffect(() => {
+    if (draftLogId && editingId !== draftLogId) {
+      setEditingId(draftLogId);
+      setEditValue('');
+    }
+  }, [draftLogId, editingId]);
+
+  const handleBlur = (log: PrayerSessionLog) => {
+    const trimmed = editValue.trim();
+    const original = log.note ?? '';
+    if (trimmed !== original.trim()) {
+      // Fire-and-forget — parent does optimistic update
+      void onNoteSave(log.id, trimmed);
+    }
+    setEditingId(null);
+    setEditValue('');
+    if (draftLogId === log.id) onDraftDismiss();
+  };
+
+  const handleDelete = (logId: number) => {
+    void onDelete(logId);
+  };
+
+  if (logs.length === 0) return null;
+
+  return (
+    <ul className="mt-2 pl-3 border-l border-white/[0.06] space-y-2.5">
+      {logs.map((log) => {
+        const owned = isOwnerOf(log);
+        const isEditing = editingId === log.id;
+
+        return (
+          <li key={log.id} className="text-sm">
+            <div className="flex items-baseline gap-2 text-xs text-slate-500">
+              <span>{formatLogDate(log.prayed_on)}</span>
+              {owned && !isEditing && (
+                <div className="ml-auto flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingId(log.id);
+                      setEditValue(log.note ?? '');
+                    }}
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-slate-200 active:text-white transition-colors"
+                    aria-label="Edit note"
+                  >
+                    <Pencil strokeWidth={1.5} className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(log.id)}
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-rose-400 active:text-rose-300 transition-colors"
+                    aria-label="Delete log"
+                  >
+                    <Trash2 strokeWidth={1.5} className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {isEditing ? (
+              <div className="mt-1">
+                <textarea
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={() => handleBlur(log)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setEditingId(null);
+                      setEditValue('');
+                      if (draftLogId === log.id) onDraftDismiss();
+                    }
+                  }}
+                  placeholder="Add a note about this prayer time (optional)"
+                  rows={2}
+                  autoFocus
+                  className="w-full bg-transparent border-0 border-b border-white/[0.1] py-1.5 text-[14px] text-slate-200 placeholder-slate-600 focus:outline-none focus:border-white/30 resize-none transition-colors"
+                />
+                <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-600">
+                  <button
+                    onClick={() => handleBlur(log)}
+                    className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-200 transition-colors min-h-[40px] px-2"
+                  >
+                    <Check strokeWidth={1.5} className="w-3.5 h-3.5" /> Save
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingId(null);
+                      setEditValue('');
+                      if (draftLogId === log.id) onDraftDismiss();
+                    }}
+                    className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-200 transition-colors min-h-[40px] px-2"
+                  >
+                    <X strokeWidth={1.5} className="w-3.5 h-3.5" /> Cancel
+                  </button>
+                </div>
+              </div>
+            ) : log.note ? (
+              <p className="mt-0.5 text-[14px] text-slate-300 whitespace-pre-wrap leading-relaxed">
+                {log.note}
+              </p>
+            ) : (
+              <p className="mt-0.5 text-[13px] text-slate-600 italic">No note</p>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}

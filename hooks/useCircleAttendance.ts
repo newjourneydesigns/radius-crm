@@ -22,6 +22,8 @@ export interface MeetingOccurrence {
   visitor_count: number | null;
   source: string;
   synced_at: string | null;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
 }
 
 export interface MonthlyAverage {

@@ -13,6 +13,7 @@ import { getEventSummaryState, getEventSummaryColors } from '../../lib/event-sum
 import EventExplorerModal from '../modals/EventExplorerModal';
 import EventSummaryReminderModal from '../modals/EventSummaryReminderModal';
 import WeeklySummaryChatModal from '../modals/WeeklySummaryChatModal';
+import EventSummaryModal from './EventSummaryModal';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -467,9 +468,33 @@ export default function CircleMeetingsCalendar({
   const [showNotReportedList, setShowNotReportedList] = useState(false);
   const [showOffScheduleList, setShowOffScheduleList] = useState(false);
   const [isPullingCCB, setIsPullingCCB] = useState(false);
-  const [isAutoUpdating, setIsAutoUpdating] = useState(false);
-  const [autoUpdateConflicts, setAutoUpdateConflicts] = useState<Array<{ leader_id: number; leader_name: string; current_state: EventSummaryState; ccb_state: EventSummaryState }> | null>(null);
-  const [autoUpdatedLeaderNames, setAutoUpdatedLeaderNames] = useState<string[] | null>(null);
+  // Silent background sync — replaces the old "Auto-Update" button.
+  type SyncConflict = {
+    leader_id: number;
+    leader_name: string;
+    current_state: EventSummaryState;
+    ccb_state: EventSummaryState;
+    ccb_evidence: { headcount: number | null; has_notes: boolean; did_not_meet: boolean; occurrence_date: string | null };
+  };
+  const [syncing, setSyncing] = useState(false);
+  const [syncMeta, setSyncMeta] = useState<{ synced_at: string | null; ccb_source: string | null } | null>(null);
+  const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
+  const [showConflictPanel, setShowConflictPanel] = useState(false);
+  const [resolvingConflictLeaderId, setResolvingConflictLeaderId] = useState<number | null>(null);
+  // Event summary modal — opens when user clicks Review/View on a leader row.
+  const [summaryModalLeader, setSummaryModalLeader] = useState<{ id: number; name: string; ccbGroupName: string } | null>(null);
+  /** Open the event-summary modal for a leader, resolving the CCB group name
+   *  the same way the Event Explorer does so we always look up the right group. */
+  const openSummaryModalForLeader = useCallback((leaderId: number, fallbackName?: string) => {
+    const leader = leaders.find(l => l.id === leaderId);
+    const name = leader?.name ?? fallbackName ?? 'Leader';
+    const ccbGroupName = leader?.ccb_group_name || leader?.circle_name || leader?.name || fallbackName || '';
+    setSummaryModalLeader({ id: leaderId, name, ccbGroupName });
+  }, [leaders]);
+  // Tracks leaders whose summary the admin has marked reviewed in this session.
+  const [reviewedLeaderIds, setReviewedLeaderIds] = useState<Set<number>>(new Set());
+  // Tracks leaders whose summary exists (so the row button shows Review/View vs disabled).
+  const [hasSummaryLeaderIds, setHasSummaryLeaderIds] = useState<Set<number>>(new Set());
   const [snapshotSavingLeaderIds, setSnapshotSavingLeaderIds] = useState<Set<number>>(new Set());
 
   // Attendance data — includes whether a met occurrence exists, plus headcount/roster details.
@@ -994,33 +1019,44 @@ export default function CircleMeetingsCalendar({
     }
   }, [visibleWeekSundayISO, leaders, ccbReportMap, snapshotMap, fetchAttendanceData]);
 
-  /** Auto-applies CCB states to leaders still marked not_received. Flags conflicts without overwriting. */
-  const handleAutoUpdate = useCallback(async () => {
+  /**
+   * Silent background sync — fires automatically when the week or leader list
+   * changes. Server-side throttled to 30 min per (week_start, leader set), so
+   * tab refocus / re-renders won't fan out CCB calls.
+   *
+   * Conflicts (current state ≠ CCB state) are surfaced in `syncConflicts`
+   * but never auto-applied. The admin resolves each conflict via the
+   * Conflict Review panel.
+   */
+  const triggerSync = useCallback(async (opts?: { force?: boolean }) => {
     if (!visibleWeekSundayISO || leaders.length === 0) return;
     const fullWeekEnd = DateTime.fromISO(visibleWeekSundayISO).plus({ days: 6 }).toISODate()!;
     const weekEnd = !isViewingSnapshot
       ? DateTime.min(DateTime.fromISO(fullWeekEnd), DateTime.now()).toISODate()!
       : fullWeekEnd;
-    setIsAutoUpdating(true);
-    setActionError(null);
-    setAutoUpdateConflicts(null);
+    setSyncing(true);
     try {
-      const res = await fetch('/api/ccb/auto-update-summaries', {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      const res = await fetch('/api/ccb/sync-week-summaries', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           week_start_date: visibleWeekSundayISO,
           week_end_date: weekEnd,
           leader_ids: leaders.map(l => l.id),
           is_current_week: !isViewingSnapshot,
+          force: opts?.force === true,
         }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Auto-update failed');
+      if (!res.ok) throw new Error(json.error || 'Sync failed');
 
-      if (json.conflicts?.length > 0) setAutoUpdateConflicts(json.conflicts);
+      setSyncMeta({ synced_at: json.synced_at ?? null, ccb_source: json.ccb_source ?? null });
+      setSyncConflicts((json.conflicts ?? []) as SyncConflict[]);
 
-      // Refresh snapshot map for past weeks
+      // Refresh snapshot map after applying updates for past weeks.
       if (isViewingSnapshot && json.updated > 0) {
         const refreshRes = await fetch(`/api/event-summary-snapshots?week_start_date=${encodeURIComponent(visibleWeekSundayISO)}`);
         const { snapshots } = await refreshRes.json();
@@ -1034,42 +1070,153 @@ export default function CircleMeetingsCalendar({
         setCcbReportMap(reportMap);
       }
 
-      // For current week: update local state immediately instead of relying on realtime.
-      // Run in parallel so per-leader CCB syncs don't serialize.
-      if (!isViewingSnapshot && json.updated_leaders?.length > 0) {
+      // For current week, propagate state changes immediately.
+      if (!isViewingSnapshot && Array.isArray(json.updated_leaders) && json.updated_leaders.length > 0) {
         await Promise.all(json.updated_leaders.map(({ id, state }: { id: number; state: EventSummaryState }) =>
           setLeaderEventSummaryState(id, state)
         ));
       }
 
-      // Always refetch attendance — occurrence rows are written even when no states change
       fetchAttendanceData();
-
-      const conflictCount = json.conflicts?.length ?? 0;
-      const msg = json.updated > 0
-        ? `${json.updated} leader${json.updated !== 1 ? 's' : ''} updated from CCB.${conflictCount > 0 ? ` ${conflictCount} conflict${conflictCount !== 1 ? 's' : ''} need review.` : ''}`
-        : conflictCount > 0
-          ? `No updates applied — ${conflictCount} conflict${conflictCount !== 1 ? 's' : ''} need review.`
-          : 'No changes needed — all leaders already have a status.';
-      setActionSuccess(msg);
-      if (json.updated > 0 && json.updated_leaders?.length > 0) {
-        const names = (json.updated_leaders as Array<{ id: number; state: EventSummaryState }>)
-          .map(({ id }) => leaders.find(l => l.id === id)?.name)
-          .filter((n): n is string => Boolean(n));
-        setAutoUpdatedLeaderNames(names);
-        setTimeout(() => setAutoUpdatedLeaderNames(null), 8000);
-      } else {
-        setAutoUpdatedLeaderNames(null);
-      }
-      setTimeout(() => setActionSuccess(null), 8000);
     } catch (err: any) {
-      console.error('Error auto-updating from CCB:', err);
-      setActionError(err.message || 'Failed to auto-update from CCB');
-      setTimeout(() => setActionError(null), 5000);
+      console.error('[triggerSync]', err);
+      // Quiet failure — sync is background. Only surface to UI if user explicitly forced.
+      if (opts?.force) {
+        setActionError(err.message || 'Sync failed');
+        setTimeout(() => setActionError(null), 5000);
+      }
     } finally {
-      setIsAutoUpdating(false);
+      setSyncing(false);
     }
   }, [visibleWeekSundayISO, leaders, isViewingSnapshot, setLeaderEventSummaryState, fetchAttendanceData]);
+
+  /**
+   * Stable, value-based key for the leader list (sorted IDs joined). The
+   * parent often re-creates the `leaders` array reference on every render,
+   * so we depend on this string instead to keep useEffects from looping.
+   */
+  const leaderIdsKey = useMemo(
+    () => leaders.map(l => l.id).sort((a, b) => a - b).join(','),
+    [leaders]
+  );
+  const syncedAtKey = syncMeta?.synced_at ?? null;
+
+  /**
+   * Clear stale sync meta when the visible week changes — the pill should
+   * not lie about a previous week's sync time. We do NOT auto-fire the
+   * sync; the daily cron keeps cache + snapshots fresh, and the admin can
+   * manually refresh via the SyncStatusPill button.
+   */
+  useEffect(() => {
+    setSyncMeta(null);
+    setSyncConflicts([]);
+    setShowConflictPanel(false);
+  }, [visibleWeekSundayISO]);
+
+  /**
+   * Pre-load review/has-summary state for visible leaders so the row buttons
+   * can show "Review" (highlighted, summary exists & unreviewed) vs
+   * "View Event Summary" (muted, summary exists & reviewed) vs disabled.
+   */
+  useEffect(() => {
+    if (!visibleWeekSundayISO || leaderIdsKey === '') return;
+    let cancelled = false;
+    const leaderIds = leaderIdsKey.split(',').map(s => parseInt(s, 10)).filter(Number.isFinite);
+    void (async () => {
+      const hasSummary = new Set<number>();
+      const reviewed = new Set<number>();
+      const fullWeekEnd = DateTime.fromISO(visibleWeekSundayISO).plus({ days: 6 }).toISODate()!;
+
+      // App submissions for the week.
+      const subsRes = await supabase
+        .from('circle_event_summaries')
+        .select('leader_id, reviewed_at')
+        .in('leader_id', leaderIds)
+        .gte('occurrence', `${visibleWeekSundayISO}T00:00:00`)
+        .lt('occurrence', `${DateTime.fromISO(fullWeekEnd).plus({ days: 1 }).toISODate()}T00:00:00`)
+        .eq('status', 'submitted');
+
+      if (subsRes.error) {
+        console.error('[review-prefetch] circle_event_summaries query failed:', subsRes.error);
+      }
+      for (const s of subsRes.data ?? []) {
+        hasSummary.add(s.leader_id as number);
+        if (s.reviewed_at) reviewed.add(s.leader_id as number);
+      }
+
+      // CCB-derived occurrences with evidence (status met or did_not_meet).
+      const occsRes = await supabase
+        .from('circle_meeting_occurrences')
+        .select('leader_id, status, reviewed_at')
+        .in('leader_id', leaderIds)
+        .gte('meeting_date', visibleWeekSundayISO)
+        .lte('meeting_date', fullWeekEnd)
+        .in('status', ['met', 'did_not_meet']);
+
+      if (occsRes.error) {
+        console.error('[review-prefetch] circle_meeting_occurrences query failed:', occsRes.error);
+      }
+      for (const o of occsRes.data ?? []) {
+        hasSummary.add(o.leader_id as number);
+        if ((o as any).reviewed_at) reviewed.add(o.leader_id as number);
+      }
+
+      if (!cancelled) {
+        setHasSummaryLeaderIds(hasSummary);
+        setReviewedLeaderIds(reviewed);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [visibleWeekSundayISO, leaderIdsKey, syncedAtKey]);
+  // Note: syncedAtKey is included so the Review button re-evaluates after a
+  // manual refresh writes new occurrences. It's null on initial load and only
+  // changes when the user clicks Refresh.
+
+  const handleResolveConflict = useCallback(async (conflict: SyncConflict, action: 'override_with_ccb' | 'dismiss_conflict') => {
+    if (!visibleWeekSundayISO) return;
+    setResolvingConflictLeaderId(conflict.leader_id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      const res = await fetch('/api/circle-summary/leader-week-summary', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          action,
+          leader_id: conflict.leader_id,
+          week_start_date: visibleWeekSundayISO,
+          ccb_state: conflict.ccb_state,
+          current_state: conflict.current_state,
+          is_current_week: !isViewingSnapshot,
+        }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || 'Failed to resolve conflict');
+      }
+      // Remove the conflict from the panel.
+      setSyncConflicts(prev => prev.filter(c => c.leader_id !== conflict.leader_id));
+      if (action === 'override_with_ccb') {
+        if (isViewingSnapshot) {
+          // Past week — update the snapshot map locally so the UI reflects the override.
+          setSnapshotMap(prev => {
+            const next = new Map(prev ?? new Map());
+            next.set(conflict.leader_id, conflict.ccb_state);
+            return next;
+          });
+        } else {
+          await setLeaderEventSummaryState(conflict.leader_id, conflict.ccb_state);
+        }
+      }
+    } catch (err: any) {
+      console.error('[handleResolveConflict]', err);
+      setActionError(err.message || 'Failed to resolve conflict');
+      setTimeout(() => setActionError(null), 5000);
+    } finally {
+      setResolvingConflictLeaderId(null);
+    }
+  }, [visibleWeekSundayISO, setLeaderEventSummaryState, isViewingSnapshot]);
 
   /** Routes a state-button click to either the live update or the snapshot update depending on the current view mode. */
   const handleEventSummaryButtonClick = useCallback(async (leaderId: number, state: EventSummaryState) => {
@@ -1263,11 +1410,6 @@ export default function CircleMeetingsCalendar({
           </svg>
           <div>
             <div>{actionSuccess}</div>
-            {autoUpdatedLeaderNames && autoUpdatedLeaderNames.length > 0 && (
-              <div className="mt-1 text-green-400/70 text-xs">
-                {autoUpdatedLeaderNames.join(', ')}
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -1294,13 +1436,19 @@ export default function CircleMeetingsCalendar({
       {/* Current week dashboard */}
       {!isViewingSnapshot && visibleWeekSundayISO && (() => {
         // Calculate status counts for the current week
-        const currentWeekCounts = { received: 0, did_not_meet: 0, skipped: 0, not_received: 0 };
+        const currentWeekCounts = { received: 0, did_not_meet: 0, skipped: 0, not_received: 0, needs_review: 0 };
         for (const leader of leaders) {
           const state = getEffectiveLeaderState(leader.id);
           if (state === 'received') currentWeekCounts.received++;
           else if (state === 'did_not_meet') currentWeekCounts.did_not_meet++;
           else if (state === 'skipped') currentWeekCounts.skipped++;
           else if (scheduledLeaderIds.has(leader.id)) currentWeekCounts.not_received++;
+          // "Needs review" = there's a submission (app or CCB) the admin hasn't
+          // confirmed yet. Independent of the state bucket — a row can be in
+          // not_received AND need review at the same time.
+          if (hasSummaryLeaderIds.has(leader.id) && !reviewedLeaderIds.has(leader.id)) {
+            currentWeekCounts.needs_review++;
+          }
         }
         // Only show the dashboard if there are scheduled leaders
         const hasScheduledLeaders = leadersWithSchedules.length > 0;
@@ -1323,7 +1471,11 @@ export default function CircleMeetingsCalendar({
             </div>
 
             {/* Status band */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-700/60 border-t border-slate-700/60 bg-slate-900/30">
+            <div className="grid grid-cols-2 sm:grid-cols-5 divide-x divide-slate-700/60 border-t border-slate-700/60 bg-slate-900/30">
+              <div className="px-3 sm:px-4 py-2.5 sm:py-3 text-center col-span-2 sm:col-span-1">
+                <p className="text-xl sm:text-2xl font-bold text-purple-400 leading-none">{currentWeekCounts.needs_review}</p>
+                <p className="text-xs text-purple-300/60 mt-1">Needs Review</p>
+              </div>
               <div className="px-3 sm:px-4 py-2.5 sm:py-3 text-center">
                 <p className="text-xl sm:text-2xl font-bold text-green-400 leading-none">{currentWeekCounts.received}</p>
                 <p className="text-xs text-green-300/60 mt-1">Received</p>
@@ -1367,49 +1519,17 @@ export default function CircleMeetingsCalendar({
                   )}
                 </div>
               ) : <div />}
-              <button
-                type="button"
-                onClick={handleAutoUpdate}
-                disabled={isAutoUpdating}
-                className="flex justify-center items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/80 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors w-full sm:w-auto"
-              >
-                {isAutoUpdating ? (
-                  <><svg className="animate-spin w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>Updating…</>
-                ) : (
-                  <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>Auto-update from CCB</>
-                )}
-              </button>
+              <SyncStatusPill syncing={syncing} syncMeta={syncMeta} onRefresh={() => triggerSync({ force: true })} conflictCount={syncConflicts.length} onShowConflicts={() => setShowConflictPanel(true)} />
             </div>
 
-            {/* Conflict list — current week */}
-            {autoUpdateConflicts && autoUpdateConflicts.length > 0 && (
-              <div className="border-t border-slate-700/60 px-4 py-3">
-                <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-orange-300 flex items-center gap-1.5">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                      {autoUpdateConflicts.length} conflict{autoUpdateConflicts.length !== 1 ? 's' : ''} — not overwritten
-                    </span>
-                    <button type="button" onClick={() => setAutoUpdateConflicts(null)} className="text-orange-400 hover:text-orange-200 transition-colors">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                  </div>
-                  <div className="space-y-1">
-                    {autoUpdateConflicts.map(c => {
-                      const stateLabel: Record<EventSummaryState, string> = { not_received: 'Not Reported', received: 'Received', did_not_meet: "Didn't Meet", skipped: 'Skipped' };
-                      return (
-                        <div key={c.leader_id} className="text-xs text-orange-200/90 flex flex-wrap items-center gap-1">
-                          <span className="font-medium">{c.leader_name}</span>
-                          <span className="text-orange-400/60">—</span>
-                          <span>marked <strong>{stateLabel[c.current_state]}</strong></span>
-                          <span className="text-orange-400/60">·</span>
-                          <span>CCB says <strong>{stateLabel[c.ccb_state]}</strong></span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
+            {/* Conflict review panel — current week */}
+            {showConflictPanel && syncConflicts.length > 0 && (
+              <ConflictReviewPanel
+                conflicts={syncConflicts}
+                resolvingLeaderId={resolvingConflictLeaderId}
+                onResolve={handleResolveConflict}
+                onClose={() => setShowConflictPanel(false)}
+              />
             )}
           </div>
         );
@@ -1509,7 +1629,7 @@ export default function CircleMeetingsCalendar({
 
               {/* Status band */}
               {(() => {
-                const counts = { received: 0, did_not_meet: 0, skipped: 0, not_received: 0 };
+                const counts = { received: 0, did_not_meet: 0, skipped: 0, not_received: 0, needs_review: 0 };
                 for (const [leaderId, state] of Array.from(snapshotMap.entries())) {
                   // Only count leaders that are in the current filtered set
                   if (!filteredLeaderIds.has(leaderId)) continue;
@@ -1523,8 +1643,18 @@ export default function CircleMeetingsCalendar({
                 for (const leaderId of filteredLeaderIds) {
                   if (scheduledLeaderIds.has(leaderId) && !snapshotMap.has(leaderId)) counts.not_received++;
                 }
+                // Needs Review = filtered leaders with an unreviewed submission
+                for (const leaderId of filteredLeaderIds) {
+                  if (hasSummaryLeaderIds.has(leaderId) && !reviewedLeaderIds.has(leaderId)) {
+                    counts.needs_review++;
+                  }
+                }
                 return (
-                  <div className="grid grid-cols-4 divide-x divide-slate-700/60 border-t border-slate-700/60 bg-slate-900/30">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 divide-x divide-slate-700/60 border-t border-slate-700/60 bg-slate-900/30">
+                    <div className="px-4 py-3 text-center col-span-2 sm:col-span-1">
+                      <p className="text-2xl font-bold text-purple-400 leading-none">{counts.needs_review}</p>
+                      <p className="text-xs text-purple-300/60 mt-1">Needs Review</p>
+                    </div>
                     <div className="px-4 py-3 text-center">
                       <p className="text-2xl font-bold text-green-400 leading-none">{counts.received}</p>
                       <p className="text-xs text-green-300/60 mt-1">Received</p>
@@ -1576,18 +1706,7 @@ export default function CircleMeetingsCalendar({
                     )}
                   </div>
                 ) : <div />}
-                <button
-                  type="button"
-                  onClick={handleAutoUpdate}
-                  disabled={isAutoUpdating}
-                  className="flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/80 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors w-full sm:w-auto"
-                >
-                  {isAutoUpdating ? (
-                    <><svg className="animate-spin w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>Updating…</>
-                  ) : (
-                    <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>Auto-update from CCB</>
-                  )}
-                </button>
+                <SyncStatusPill syncing={syncing} syncMeta={syncMeta} onRefresh={() => triggerSync({ force: true })} conflictCount={syncConflicts.length} onShowConflicts={() => setShowConflictPanel(true)} />
               </div>
 
               {/* Expandable lists */}
@@ -1659,35 +1778,14 @@ export default function CircleMeetingsCalendar({
                 </div>
               ) : null}
 
-              {/* Conflict list */}
-              {autoUpdateConflicts && autoUpdateConflicts.length > 0 && (
-                <div className="border-t border-slate-700/60 px-4 py-3">
-                  <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-semibold text-orange-300 flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                        {autoUpdateConflicts.length} conflict{autoUpdateConflicts.length !== 1 ? 's' : ''} — not overwritten
-                      </span>
-                      <button type="button" onClick={() => setAutoUpdateConflicts(null)} className="text-orange-400 hover:text-orange-200 transition-colors">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
-                    </div>
-                    <div className="space-y-1">
-                      {autoUpdateConflicts.map(c => {
-                        const stateLabel: Record<EventSummaryState, string> = { not_received: 'Not Reported', received: 'Received', did_not_meet: "Didn't Meet", skipped: 'Skipped' };
-                        return (
-                          <div key={c.leader_id} className="text-xs text-orange-200/90 flex flex-wrap items-center gap-1">
-                            <span className="font-medium">{c.leader_name}</span>
-                            <span className="text-orange-400/60">—</span>
-                            <span>marked <strong>{stateLabel[c.current_state]}</strong></span>
-                            <span className="text-orange-400/60">·</span>
-                            <span>CCB says <strong>{stateLabel[c.ccb_state]}</strong></span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
+              {/* Conflict review panel — snapshot week */}
+              {showConflictPanel && syncConflicts.length > 0 && (
+                <ConflictReviewPanel
+                  conflicts={syncConflicts}
+                  resolvingLeaderId={resolvingConflictLeaderId}
+                  onResolve={handleResolveConflict}
+                  onClose={() => setShowConflictPanel(false)}
+                />
               )}
             </>
           ) : (
@@ -1695,7 +1793,7 @@ export default function CircleMeetingsCalendar({
               <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span className="text-sm">No snapshot for this week. Use Auto-update from CCB below to fetch and apply reports.</span>
+              <span className="text-sm">No snapshot for this week. The sync runs automatically — check back in a moment, or use Refresh below to force it.</span>
             </div>
           )}
         </div>
@@ -1956,6 +2054,14 @@ export default function CircleMeetingsCalendar({
               not_received:  '#ef4444',
             };
 
+            // "Needs review" — there's a submission in CCB or via app, but admin
+            // hasn't reviewed it yet. Override the pill color to purple so the
+            // admin can scan the list and see at a glance which rows want attention.
+            const needsReview = leaderId != null
+              && hasSummaryLeaderIds.has(leaderId)
+              && !reviewedLeaderIds.has(leaderId);
+            const pillColor = needsReview ? '#a855f7' : dotColor[state];
+
             const toggleExpanded = (e: MouseEvent<HTMLButtonElement>) => {
               e.preventDefault();
               e.stopPropagation();
@@ -1981,16 +2087,34 @@ export default function CircleMeetingsCalendar({
                     className="flex items-center gap-2.5 w-full text-left py-2"
                     onClick={toggleExpanded}
                   >
-                    {/* Status pill */}
+                    {/* Status pill (purple when row needs review) */}
                     <div
                       className="status-pill w-2.5 h-10 rounded-full shrink-0"
-                      style={{ backgroundColor: dotColor[state], boxShadow: `0 0 8px ${dotColor[state]}50` }}
+                      style={{ backgroundColor: pillColor, boxShadow: `0 0 8px ${pillColor}50` }}
                     />
 
                     {/* Name + meta */}
                     <div className="flex-1 min-w-0">
-                      <div className="text-[15px] sm:text-base font-semibold text-white leading-snug">
-                        {arg.event.title}
+                      <div className="text-[15px] sm:text-base font-semibold text-white leading-snug flex items-center gap-2 flex-wrap">
+                        <span>{arg.event.title}</span>
+                        {needsReview && leaderId != null && (
+                          <span
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const leaderName = leaders.find(l => l.id === leaderId)?.name ?? arg.event.title;
+                              openSummaryModalForLeader(leaderId);
+                            }}
+                            role="button"
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-200 border border-purple-500/40 hover:bg-purple-500/30 transition-colors cursor-pointer"
+                            title="Open event summary to review"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Review
+                          </span>
+                        )}
                       </div>
                       <div className="text-[12px] sm:text-[13px] text-slate-400 mt-0.5 leading-snug">
                         {arg.event.start ? DateTime.fromJSDate(arg.event.start).toLocaleString(DateTime.TIME_SIMPLE) : ''}
@@ -2077,20 +2201,14 @@ export default function CircleMeetingsCalendar({
 
                         {/* Right: Action buttons */}
                         <div className="flex items-center gap-2 shrink-0">
-                          {/* Summary */}
+                          {/* Summary — opens the event-summary modal (full CCB data + Mark as reviewed). Always purple. */}
                           <button
                             type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              const eventDate = arg.event.start
-                                ? DateTime.fromJSDate(arg.event.start).toISODate()
-                                : DateTime.local().toISODate();
-                              openEventExplorerForLeader(leaderId, eventDate);
-                            }}
-                            className="h-9 px-3 rounded-lg text-xs font-semibold bg-white/8 border border-white/10 text-white hover:bg-white/15 active:scale-[0.97] transition-all inline-flex items-center gap-1.5"
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); openSummaryModalForLeader(leaderId); }}
+                            className="h-9 px-3 rounded-lg text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white active:scale-[0.97] transition-all inline-flex items-center gap-1.5"
+                            title="Open event summary"
                           >
-                            <svg className="w-4 h-4 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                             </svg>
                             Summary
@@ -2136,9 +2254,9 @@ export default function CircleMeetingsCalendar({
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className="h-9 px-3 rounded-lg text-xs font-semibold bg-white/8 border border-white/10 text-white hover:bg-white/15 active:scale-[0.97] transition-all inline-flex items-center gap-1.5"
+                              className="h-9 px-3 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white active:scale-[0.97] transition-all inline-flex items-center gap-1.5"
                             >
-                              <svg className="w-4 h-4 text-purple-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                               </svg>
                               CCB
@@ -2205,15 +2323,13 @@ export default function CircleMeetingsCalendar({
 
                         {/* ── Action buttons — 2×2 grid ── */}
                         <div className="grid grid-cols-2 gap-2">
+                          {/* Summary — opens the event-summary modal (full CCB data + Mark as reviewed). Always purple. */}
                           <button
                             type="button"
-                            onClick={(e) => {
-                              e.preventDefault(); e.stopPropagation();
-                              openEventExplorerForLeader(leaderId, arg.event.start ? DateTime.fromJSDate(arg.event.start).toISODate() : DateTime.local().toISODate());
-                            }}
-                            className="h-11 rounded-lg text-[13px] font-semibold bg-white/8 border border-white/10 text-white hover:bg-white/15 active:scale-[0.97] transition-all flex items-center justify-center gap-1.5"
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); openSummaryModalForLeader(leaderId); }}
+                            className="h-11 rounded-lg text-[13px] font-semibold bg-purple-600 hover:bg-purple-500 text-white active:scale-[0.97] transition-all flex items-center justify-center gap-1.5"
                           >
-                            <svg className="w-4 h-4 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                             </svg>
                             Summary
@@ -2245,9 +2361,9 @@ export default function CircleMeetingsCalendar({
                             <a
                               href={ccbHref} target="_blank" rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className="h-11 rounded-lg text-[13px] font-semibold bg-white/8 border border-white/10 text-white hover:bg-white/15 active:scale-[0.97] transition-all flex items-center justify-center gap-1.5"
+                              className="h-11 rounded-lg text-[13px] font-semibold bg-blue-600 hover:bg-blue-500 text-white active:scale-[0.97] transition-all flex items-center justify-center gap-1.5"
                             >
-                              <svg className="w-4 h-4 text-purple-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                               </svg>
                               CCB
@@ -2408,6 +2524,26 @@ export default function CircleMeetingsCalendar({
                           {renderEventSummaryButtons(leaderId, eventSummaryState, { compact: true })}
                         </div>
                       )}
+
+                      {leaderId && (() => {
+                        const hasSummary = hasSummaryLeaderIds.has(leaderId);
+                        const reviewed = reviewedLeaderIds.has(leaderId);
+                        const leaderName = leaders.find(l => l.id === leaderId)?.name ?? null;
+                        if (!hasSummary) return null;
+                        return (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); openSummaryModalForLeader(leaderId, ev.title); }}
+                            className={
+                              reviewed
+                                ? 'h-9 w-full rounded-lg text-xs font-medium border border-slate-600 text-slate-200 hover:bg-slate-600 transition-colors'
+                                : 'h-9 w-full rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors'
+                            }
+                          >
+                            {reviewed ? 'View Event Summary' : 'Review Event Summary'}
+                          </button>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -2444,6 +2580,39 @@ export default function CircleMeetingsCalendar({
 
                     {/* Right: action buttons */}
                     <div className="flex items-center gap-2 shrink-0">
+                      {/* Review / View Event Summary */}
+                      {leaderId && (() => {
+                        const hasSummary = hasSummaryLeaderIds.has(leaderId);
+                        const reviewed = reviewedLeaderIds.has(leaderId);
+                        const leaderName = leaders.find(l => l.id === leaderId)?.name ?? null;
+                        if (!hasSummary) {
+                          return (
+                            <button
+                              type="button"
+                              disabled
+                              className="h-8 px-3 text-xs font-medium rounded-lg border border-slate-700 text-slate-500 opacity-50 cursor-not-allowed"
+                              title="No event summary submitted yet"
+                            >
+                              No summary
+                            </button>
+                          );
+                        }
+                        return (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); openSummaryModalForLeader(leaderId, ev.title); }}
+                            className={
+                              reviewed
+                                ? 'h-8 px-3 text-xs font-medium rounded-lg border border-slate-600 text-slate-200 hover:bg-slate-600 transition-colors'
+                                : 'h-8 px-3 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors'
+                            }
+                            title={reviewed ? 'View event summary' : 'Review event summary'}
+                          >
+                            {reviewed ? 'View Summary' : 'Review'}
+                          </button>
+                        );
+                      })()}
+
                       {/* Summary */}
                       {leaderId && (
                         <button
@@ -2606,6 +2775,185 @@ export default function CircleMeetingsCalendar({
         </div>
       )}
 
+      {/* Event Summary Modal — opens from the Review/View button on each leader row */}
+      <EventSummaryModal
+        open={summaryModalLeader !== null}
+        onClose={() => setSummaryModalLeader(null)}
+        leaderId={summaryModalLeader?.id ?? null}
+        leaderName={summaryModalLeader?.name ?? null}
+        ccbGroupName={summaryModalLeader?.ccbGroupName ?? null}
+        weekStartDate={visibleWeekSundayISO ?? null}
+        onReviewed={(leaderId, newState) => {
+          setReviewedLeaderIds(prev => {
+            const next = new Set(prev);
+            next.add(leaderId);
+            return next;
+          });
+          // Marking reviewed also flips the leader's pill state to received /
+          // did_not_meet on the server — reflect that in the local UI without
+          // requiring a full reload.
+          if (newState) {
+            if (isViewingSnapshot) {
+              setSnapshotMap(prev => {
+                const next = new Map(prev ?? new Map());
+                next.set(leaderId, newState);
+                return next;
+              });
+            } else {
+              void setLeaderEventSummaryState(leaderId, newState);
+            }
+          }
+        }}
+      />
+
+    </div>
+  );
+}
+
+/** Compact pill that shows last-sync timestamp and a refresh action. Replaces the old Auto-Update button. */
+function SyncStatusPill({
+  syncing,
+  syncMeta,
+  onRefresh,
+  conflictCount,
+  onShowConflicts,
+}: {
+  syncing: boolean;
+  syncMeta: { synced_at: string | null; ccb_source: string | null } | null;
+  onRefresh: () => void;
+  conflictCount: number;
+  onShowConflicts: () => void;
+}) {
+  const relativeLabel = (() => {
+    if (syncing) return 'Syncing…';
+    if (!syncMeta?.synced_at) return 'Not synced yet';
+    return `Synced ${DateTime.fromISO(syncMeta.synced_at).toRelative() ?? 'just now'}`;
+  })();
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      {conflictCount > 0 && (
+        <button
+          type="button"
+          onClick={onShowConflicts}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-200 transition-colors"
+          title="Review CCB mismatches"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          {conflictCount} mismatch{conflictCount !== 1 ? 'es' : ''} with CCB
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={onRefresh}
+        disabled={syncing}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-700/60 hover:bg-slate-700 disabled:opacity-60 disabled:cursor-not-allowed text-slate-200 transition-colors"
+        title="Force a refresh from CCB"
+      >
+        {syncing ? (
+          <svg className="animate-spin w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+        ) : (
+          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        )}
+        <span>{relativeLabel}</span>
+      </button>
+    </div>
+  );
+}
+
+const STATE_LABEL: Record<EventSummaryState, string> = {
+  not_received: 'Not Reported',
+  received: 'Received',
+  did_not_meet: "Didn't Meet",
+  skipped: 'Skipped',
+};
+
+type ConflictItem = {
+  leader_id: number;
+  leader_name: string;
+  current_state: EventSummaryState;
+  ccb_state: EventSummaryState;
+  ccb_evidence: { headcount: number | null; has_notes: boolean; did_not_meet: boolean; occurrence_date: string | null };
+};
+
+function ConflictReviewPanel({
+  conflicts,
+  resolvingLeaderId,
+  onResolve,
+  onClose,
+}: {
+  conflicts: ConflictItem[];
+  resolvingLeaderId: number | null;
+  onResolve: (c: ConflictItem, action: 'override_with_ccb' | 'dismiss_conflict') => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="border-t border-slate-700/60 px-4 py-3">
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs font-semibold text-amber-200 flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            CCB shows different data for {conflicts.length} leader{conflicts.length !== 1 ? 's' : ''} — review &amp; choose
+          </span>
+          <button type="button" onClick={onClose} className="text-amber-400 hover:text-amber-200 transition-colors" aria-label="Close">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="space-y-2">
+          {conflicts.map(c => {
+            const busy = resolvingLeaderId === c.leader_id;
+            const evidenceBits: string[] = [];
+            if (c.ccb_evidence.did_not_meet) evidenceBits.push('reported did not meet');
+            if (c.ccb_evidence.headcount != null && c.ccb_evidence.headcount > 0) evidenceBits.push(`headcount ${c.ccb_evidence.headcount}`);
+            if (c.ccb_evidence.has_notes) evidenceBits.push('has notes');
+            const evidenceText = evidenceBits.length > 0 ? evidenceBits.join(' · ') : 'no submission evidence';
+            return (
+              <div key={c.leader_id} className="rounded-md bg-slate-900/40 border border-slate-700/60 p-2.5">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-white">{c.leader_name}</div>
+                    <div className="text-xs text-slate-300 mt-0.5">
+                      You have <span className="font-semibold text-white">{STATE_LABEL[c.current_state]}</span>
+                      <span className="text-slate-500 mx-1.5">·</span>
+                      CCB shows <span className="font-semibold text-white">{STATE_LABEL[c.ccb_state]}</span>
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">CCB evidence: {evidenceText}</div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => onResolve(c, 'dismiss_conflict')}
+                      disabled={busy}
+                      className="px-2.5 py-1 rounded-md text-xs font-medium border border-slate-600 text-slate-200 hover:bg-slate-700 transition-colors disabled:opacity-60"
+                    >
+                      Keep current
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onResolve(c, 'override_with_ccb')}
+                      disabled={busy}
+                      className="px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-slate-900 transition-colors disabled:opacity-60"
+                    >
+                      {busy ? '…' : 'Override with CCB'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

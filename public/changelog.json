@@ -1,5 +1,23 @@
 [
   {
+    "date": "2026-05-21",
+    "type": "improvement",
+    "page": "/circle-summary/success",
+    "description": "Cleaned up the Circle summary thank-you page by removing the redundant checkmark icon — the Circles logo and headline now stand on their own."
+  },
+  {
+    "date": "2026-05-21",
+    "type": "feature",
+    "page": "/calendar",
+    "description": "Reworked the Circle Meetings Calendar event-summary flow. Removed the flaky manual Auto-Update button — statuses now sync silently from CCB in the background whenever you open or change weeks (throttled to 30 minutes so it never hammers CCB). Each leader row now shows a Review button when an event summary exists but hasn't been reviewed yet, opening a modal with the submitted summary, did-not-meet, or 'not submitted' state. When CCB disagrees with what's in RADIUS, you get a Review Mismatches panel where you can keep the current value or override with CCB per leader — sync never silently overwrites human input. Every state change is now audited."
+  },
+  {
+    "date": "2026-05-21",
+    "type": "improvement",
+    "page": "/prayer",
+    "description": "Redesigned the Prayer List for a calmer, distraction-free read. Each prayer is now a clean row with no embedded boxes, due dates surface in plain text, and you can log a prayer time with its own note attached to that specific session — your past sessions stay in the history without changing the original request."
+  },
+  {
     "date": "2026-05-20",
     "type": "fix",
     "description": "Fixed a second auto-update bug: when reading from the cached 8-week CCB attendance payload, the matching logic wasn't filtering by date, so a leader's real submission from any prior week could match and incorrectly mark them \"received\" for the current week. Auto-update and the cleanup endpoint now pass an explicit week window to the matcher, and any event whose occurrence date falls outside that window is discarded before matching.",
