@@ -1100,7 +1100,7 @@ export default function EventSummaryTrackerPage() {
               <SmallStat label="AVG SIZE" value={stats.avgSize ?? '–'} />
               <SmallStat label="ROWS" value={rows.length} />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full items-center justify-center gap-2 sm:w-auto sm:justify-end">
               <button
                 onClick={bulkReview}
                 disabled={bulkBusy || needsReview.length === 0}

@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-05-22",
+    "type": "improvement",
+    "page": "/event-summary-tracker",
+    "description": "Centered the Mark all reviewed action in the Event Summary Tracker stats card on mobile so the button is easier to find and tap on small screens."
+  },
+  {
+    "date": "2026-05-22",
     "type": "feature",
     "page": "/event-summary-tracker",
     "description": "Added a new Event Summary Tracker page (beta). One screen to see, week by week, which Circles submitted an event summary through CCB and which still need attention. Three buckets — Needs Review, Awaiting Submission, and Complete — plus a Mark all reviewed button so you can clear a week of stale summaries in one click. The page also surfaces orphan alerts when CCB has a summary for a Circle that doesn't match your filter or isn't in Radius, and flags Circles that haven't met for 2+ scheduled weeks. AI Weekly Summaries are now saved per user, so Hunter's view and Trip's view don't overwrite each other."
