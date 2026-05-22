@@ -691,7 +691,7 @@ export default function EventSummaryTrackerPage() {
     const review     = needsReview.length;
     const notReport  = awaiting.length;
     const inCcb      = received + dnm + review;
-    let totalAtt = 0, totalGuest = 0, rosterSum = 0, rosterCount = 0;
+    let totalAtt = 0, totalGuest = 0;
     for (const r of rows) {
       if (r.status === 'received') {
         totalAtt += r.attendees ?? 0;
@@ -1095,10 +1095,10 @@ export default function EventSummaryTrackerPage() {
             <Stat value={stats.notReport} label="No Summary"    color="text-red-400" />
           </div>
           <div className="mt-5 pt-4 border-t border-slate-700/60 flex flex-wrap items-end justify-between gap-3 text-sm">
-            <div className="flex gap-6">
+            <div className="flex w-full justify-center gap-6 sm:w-auto sm:justify-start">
               <SmallStat label="ATTENDED" value={stats.totalAttended} />
               <SmallStat label="AVG SIZE" value={stats.avgSize ?? '–'} />
-              <SmallStat label="ROWS" value={rows.length} />
+              <SmallStat label="CIRCLES" value={rows.length} />
             </div>
             <div className="flex w-full items-center justify-center gap-2 sm:w-auto sm:justify-end">
               <button

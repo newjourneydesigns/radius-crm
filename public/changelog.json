@@ -3,6 +3,12 @@
     "date": "2026-05-22",
     "type": "improvement",
     "page": "/event-summary-tracker",
+    "description": "Renamed the \"Rows\" stat in the Event Summary Tracker to \"Circles\" for clearer labeling."
+  },
+  {
+    "date": "2026-05-22",
+    "type": "improvement",
+    "page": "/event-summary-tracker",
     "description": "Centered the Mark all reviewed action in the Event Summary Tracker stats card on mobile so the button is easier to find and tap on small screens."
   },
   {
