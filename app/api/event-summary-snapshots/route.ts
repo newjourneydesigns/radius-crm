@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     const db = getDB();
     let query = db
       .from('event_summary_snapshots')
-      .select('circle_leader_id, event_summary_state, captured_at, ccb_report_available, week_start_date');
+      .select('circle_leader_id, event_summary_state, captured_at, ccb_event_scheduled, ccb_report_available, week_start_date');
 
     if (fromDate) {
       query = query.gte('week_start_date', fromDate).lte('week_start_date', weekStartDate);

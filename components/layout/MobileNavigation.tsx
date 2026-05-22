@@ -328,7 +328,7 @@ export default function MobileNavigation() {
 
   /* Tab items — split into left/right groups around the raised center button */
   const leftTabs: TabItem[] = [
-    { id: 'events',   name: 'Events',   href: '/calendar',  Icon: CalendarIcon },
+    { id: 'events',   name: 'Events',   href: '/event-summary-tracker',  Icon: CalendarIcon },
     { id: 'today',    name: 'Today',    href: '/today',     Icon: TodayIcon },
   ];
   const rightTabs: TabItem[] = [
@@ -511,8 +511,8 @@ export default function MobileNavigation() {
               <span className="mobile-sheet-row-label">Progress</span>
               <ChevronRightIcon />
             </Link>
-            <Link href="/calendar"
-              className={`mobile-sheet-row bordered ${isActive('/calendar') ? 'active' : ''}`}>
+            <Link href="/event-summary-tracker"
+              className={`mobile-sheet-row bordered ${isActive('/event-summary-tracker') ? 'active' : ''}`}>
               <span className="mobile-sheet-row-icon"><CalendarIcon /></span>
               <span className="mobile-sheet-row-label">Events</span>
               <ChevronRightIcon />

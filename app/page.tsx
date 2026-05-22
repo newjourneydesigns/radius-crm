@@ -12,7 +12,7 @@ export default function Page() {
 
   useEffect(() => {
     if (loading) return;
-    router.replace(isAuthenticated() ? '/calendar' : '/login');
+    router.replace(isAuthenticated() ? '/event-summary-tracker' : '/login');
   }, [router, loading, isAuthenticated]);
 
   return (

@@ -186,6 +186,7 @@ export async function GET(request: NextRequest) {
     const leaderIdParam = url.searchParams.get('leader_id');
     const weekStart = url.searchParams.get('week_start');
     const peek = url.searchParams.get('peek') === '1';
+    const force = url.searchParams.get('force') === '1';
 
     if (!leaderIdParam || !weekStart || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
       return NextResponse.json({ error: 'leader_id and week_start (YYYY-MM-DD) required' }, { status: 400 });
@@ -222,7 +223,7 @@ export async function GET(request: NextRequest) {
         peekLog?.last_peeked_at &&
         Date.now() - new Date(peekLog.last_peeked_at).getTime() < LEADER_PEEK_THROTTLE_MS;
 
-      if (fresh) {
+      if (fresh && !force) {
         peekResult.throttled = true;
       } else {
         const { data: leader } = await supabase

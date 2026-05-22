@@ -1436,7 +1436,7 @@ export default function CircleMeetingsCalendar({
       {/* Current week dashboard */}
       {!isViewingSnapshot && visibleWeekSundayISO && (() => {
         // Calculate status counts for the current week
-        const currentWeekCounts = { received: 0, did_not_meet: 0, skipped: 0, not_received: 0, needs_review: 0 };
+        const currentWeekCounts = { received: 0, did_not_meet: 0, skipped: 0, not_received: 0, needs_review: 0, reviewable: 0 };
         for (const leader of leaders) {
           const state = getEffectiveLeaderState(leader.id);
           if (state === 'received') currentWeekCounts.received++;
@@ -1446,8 +1446,11 @@ export default function CircleMeetingsCalendar({
           // "Needs review" = there's a submission (app or CCB) the admin hasn't
           // confirmed yet. Independent of the state bucket — a row can be in
           // not_received AND need review at the same time.
-          if (hasSummaryLeaderIds.has(leader.id) && !reviewedLeaderIds.has(leader.id)) {
-            currentWeekCounts.needs_review++;
+          if (hasSummaryLeaderIds.has(leader.id)) {
+            currentWeekCounts.reviewable++;
+            if (!reviewedLeaderIds.has(leader.id)) {
+              currentWeekCounts.needs_review++;
+            }
           }
         }
         // Only show the dashboard if there are scheduled leaders
@@ -1473,8 +1476,17 @@ export default function CircleMeetingsCalendar({
             {/* Status band */}
             <div className="grid grid-cols-2 sm:grid-cols-5 divide-x divide-slate-700/60 border-t border-slate-700/60 bg-slate-900/30">
               <div className="px-3 sm:px-4 py-2.5 sm:py-3 text-center col-span-2 sm:col-span-1">
-                <p className="text-xl sm:text-2xl font-bold text-purple-400 leading-none">{currentWeekCounts.needs_review}</p>
-                <p className="text-xs text-purple-300/60 mt-1">Needs Review</p>
+                {currentWeekCounts.reviewable > 0 && currentWeekCounts.needs_review === 0 ? (
+                  <>
+                    <p className="text-sm sm:text-base font-semibold text-emerald-300 leading-none">All Reviewed</p>
+                    <p className="text-xs text-emerald-300/60 mt-1">{currentWeekCounts.reviewable} summar{currentWeekCounts.reviewable === 1 ? 'y' : 'ies'}</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xl sm:text-2xl font-bold text-purple-400 leading-none">{currentWeekCounts.needs_review}</p>
+                    <p className="text-xs text-purple-300/60 mt-1">Needs Review</p>
+                  </>
+                )}
               </div>
               <div className="px-3 sm:px-4 py-2.5 sm:py-3 text-center">
                 <p className="text-xl sm:text-2xl font-bold text-green-400 leading-none">{currentWeekCounts.received}</p>
@@ -1629,7 +1641,7 @@ export default function CircleMeetingsCalendar({
 
               {/* Status band */}
               {(() => {
-                const counts = { received: 0, did_not_meet: 0, skipped: 0, not_received: 0, needs_review: 0 };
+                const counts = { received: 0, did_not_meet: 0, skipped: 0, not_received: 0, needs_review: 0, reviewable: 0 };
                 for (const [leaderId, state] of Array.from(snapshotMap.entries())) {
                   // Only count leaders that are in the current filtered set
                   if (!filteredLeaderIds.has(leaderId)) continue;
@@ -1645,15 +1657,27 @@ export default function CircleMeetingsCalendar({
                 }
                 // Needs Review = filtered leaders with an unreviewed submission
                 for (const leaderId of filteredLeaderIds) {
-                  if (hasSummaryLeaderIds.has(leaderId) && !reviewedLeaderIds.has(leaderId)) {
-                    counts.needs_review++;
+                  if (hasSummaryLeaderIds.has(leaderId)) {
+                    counts.reviewable++;
+                    if (!reviewedLeaderIds.has(leaderId)) {
+                      counts.needs_review++;
+                    }
                   }
                 }
                 return (
                   <div className="grid grid-cols-2 sm:grid-cols-5 divide-x divide-slate-700/60 border-t border-slate-700/60 bg-slate-900/30">
                     <div className="px-4 py-3 text-center col-span-2 sm:col-span-1">
-                      <p className="text-2xl font-bold text-purple-400 leading-none">{counts.needs_review}</p>
-                      <p className="text-xs text-purple-300/60 mt-1">Needs Review</p>
+                      {counts.reviewable > 0 && counts.needs_review === 0 ? (
+                        <>
+                          <p className="text-base font-semibold text-emerald-300 leading-none">All Reviewed</p>
+                          <p className="text-xs text-emerald-300/60 mt-1">{counts.reviewable} summar{counts.reviewable === 1 ? 'y' : 'ies'}</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-2xl font-bold text-purple-400 leading-none">{counts.needs_review}</p>
+                          <p className="text-xs text-purple-300/60 mt-1">Needs Review</p>
+                        </>
+                      )}
                     </div>
                     <div className="px-4 py-3 text-center">
                       <p className="text-2xl font-bold text-green-400 leading-none">{counts.received}</p>

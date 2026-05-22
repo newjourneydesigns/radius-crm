@@ -59,9 +59,9 @@ export default function ProtectedRoute({ children, requireAuth = true }: Protect
       return;
     }
 
-    // If user is authenticated but trying to access login page, redirect to calendar
+    // If user is authenticated but trying to access login page, redirect to events
     if (!requireAuth && isAuthenticated()) {
-      router.replace('/calendar');
+      router.replace('/event-summary-tracker');
       return;
     }
   }, [user, loading, requireAuth, isAuthenticated, router, timeoutReached, pathname]);

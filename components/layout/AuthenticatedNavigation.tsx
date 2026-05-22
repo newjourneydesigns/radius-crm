@@ -150,7 +150,7 @@ const TodayIcon = () => (
 );
 
 const primaryNavItems = [
-  { name: 'Events',    href: '/calendar',  icon: CalendarIcon },
+  { name: 'Events',    href: '/event-summary-tracker',  icon: CalendarIcon },
   { name: 'Today',     href: '/today',     icon: TodayIcon },
   { name: 'Boards',    href: '/boards',    icon: BoardIcon },
   { name: 'Notebook',  href: '/notebook',  icon: NotebookIcon },
