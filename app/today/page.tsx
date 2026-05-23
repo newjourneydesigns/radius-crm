@@ -15,8 +15,13 @@ import {
   NotebookPen,
   PartyPopper,
   Pin,
+  Plus,
   Star,
+  Target,
+  X,
 } from 'lucide-react';
+import { useBigThree } from '../../hooks/useBigThree';
+import type { BigThreeBoard, BigThreeCard, BigThreeSlot } from '../../hooks/useBigThree';
 import { useTodayData } from '../../hooks/useTodayData';
 import type {
   EncouragementItem,
@@ -106,15 +111,6 @@ function formatDate(s: string) {
 function formatShort(s: string) {
   return s ? new Date(s + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
 }
-function formatTime(t: string) {
-  if (!t || t === 'TBD') return 'TBD';
-  const [h, m] = t.split(':').map(Number);
-  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
-}
-function formatPhone(p: string) {
-  const d = p.replace(/\D/g, '');
-  return d.length === 10 ? `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}` : p;
-}
 function methodLabel(m: string) {
   return ({ text:'Text', email:'Email', call:'Call', 'in-person':'In Person', card:'Card', other:'Other' })[m] || m;
 }
@@ -173,7 +169,7 @@ function Scoreboard({ rows }: {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <span style={{ fontSize: 11, fontWeight: 700, color: T.textFaint, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-          Today's Snapshot
+          Today&apos;s Snapshot
         </span>
         <span style={{ fontSize: 11, color: T.textFaint }}>{total} items</span>
       </div>
@@ -198,7 +194,7 @@ function Scoreboard({ rows }: {
 // ─── Section ─────────────────────────────────────────────────────────────────
 
 function Section({
-  id, title, icon, count, sectionKey, isOpen, onToggle, accentColor = T.neutral, headerExtra, children,
+  id, title, icon, count, isOpen, onToggle, accentColor = T.neutral, headerExtra, children,
 }: {
   id: string; title: string; icon: React.ReactNode; count: number; sectionKey: string;
   isOpen: boolean; onToggle: () => void; accentColor?: string;
@@ -307,7 +303,7 @@ const PRIORITY_META: Record<string, { label: string; color: string }> = {
   urgent: { label: 'Urgent', color: '#ef4444' },
 };
 
-function CardMeta({ card }: { card: CardDigestItem }) {
+function CardMeta({ card, inline = false }: { card: CardDigestItem; inline?: boolean }) {
   const pri = card.priority ? PRIORITY_META[card.priority] : null;
   const hasLabels = (card.labels?.length ?? 0) > 0;
   const hasChecklist = (card.checklist_total ?? 0) > 0;
@@ -318,7 +314,7 @@ function CardMeta({ card }: { card: CardDigestItem }) {
   if (!pri && !hasLabels && !hasChecklist && !hasAssignees) return null;
 
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5, marginTop: 5 }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5, marginTop: inline ? 0 : 5 }}>
       {/* Labels — colored dot for identity, neutral chip to reduce noise */}
       {hasLabels && card.labels!.map((l, i) => (
         <span key={i} style={{
@@ -382,6 +378,328 @@ function DateBadge({ date, color }: { date: string; color?: string }) {
     }}>
       {date}
     </span>
+  );
+}
+
+// ─── Big 3 ──────────────────────────────────────────────────────────────────
+
+const BIG_THREE_LAST_BOARD_KEY = 'today_big_three_last_board_id';
+
+function BigThreeSection({
+  slots,
+  boards,
+  isLoading,
+  isSaving,
+  error,
+  onCreate,
+  onSearch,
+  onAssignExisting,
+  onDone,
+  onClear,
+}: {
+  slots: BigThreeSlot[];
+  boards: BigThreeBoard[];
+  isLoading: boolean;
+  isSaving: boolean;
+  error: string | null;
+  onCreate: (slotNumber: 1 | 2 | 3, title: string, boardId: string) => Promise<boolean>;
+  onSearch: (query: string) => Promise<BigThreeCard[]>;
+  onAssignExisting: (slotNumber: 1 | 2 | 3, card: BigThreeCard) => Promise<boolean>;
+  onDone: (cardId: string) => Promise<void>;
+  onClear: (slotNumber: 1 | 2 | 3) => Promise<void>;
+}) {
+  const [drafts, setDrafts] = useState<Record<number, { title: string; boardId: string }>>({});
+  const [searches, setSearches] = useState<Record<number, { query: string; results: BigThreeCard[]; isSearching: boolean; hasSearched: boolean }>>({});
+  const searchTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+
+  useEffect(() => {
+    const timers = searchTimers.current;
+    return () => {
+      Object.values(timers).forEach(clearTimeout);
+    };
+  }, []);
+
+  const defaultBoardId = (() => {
+    if (boards.length === 0) return '';
+    try {
+      const saved = typeof window !== 'undefined' ? localStorage.getItem(BIG_THREE_LAST_BOARD_KEY) : null;
+      if (saved && boards.some(board => board.id === saved)) return saved;
+    } catch {}
+    return boards[0].id;
+  })();
+
+  const setDraft = (slotNumber: number, updates: Partial<{ title: string; boardId: string }>) => {
+    setDrafts(prev => ({
+      ...prev,
+      [slotNumber]: {
+        title: prev[slotNumber]?.title ?? '',
+        boardId: prev[slotNumber]?.boardId ?? defaultBoardId,
+        ...updates,
+      },
+    }));
+  };
+
+  const submit = async (slotNumber: 1 | 2 | 3) => {
+    const draft = drafts[slotNumber] ?? { title: '', boardId: defaultBoardId };
+    const ok = await onCreate(slotNumber, draft.title, draft.boardId || defaultBoardId);
+    if (ok) setDrafts(prev => ({ ...prev, [slotNumber]: { title: '', boardId: draft.boardId || defaultBoardId } }));
+  };
+
+  const setSearch = (slotNumber: number, updates: Partial<{ query: string; results: BigThreeCard[]; isSearching: boolean; hasSearched: boolean }>) => {
+    setSearches(prev => ({
+      ...prev,
+      [slotNumber]: {
+        query: prev[slotNumber]?.query ?? '',
+        results: prev[slotNumber]?.results ?? [],
+        isSearching: prev[slotNumber]?.isSearching ?? false,
+        hasSearched: prev[slotNumber]?.hasSearched ?? false,
+        ...updates,
+      },
+    }));
+  };
+
+  const runSearch = async (slotNumber: 1 | 2 | 3, rawQuery?: string) => {
+    const query = rawQuery ?? searches[slotNumber]?.query ?? '';
+    if (query.trim().length < 2) {
+      setSearch(slotNumber, { results: [], hasSearched: false });
+      return;
+    }
+
+    setSearch(slotNumber, { isSearching: true, hasSearched: true });
+    const results = await onSearch(query);
+    setSearches(prev => {
+      const current = prev[slotNumber];
+      if (!current || current.query.trim() !== query.trim()) return prev;
+      return {
+        ...prev,
+        [slotNumber]: { ...current, results, isSearching: false, hasSearched: true },
+      };
+    });
+  };
+
+  const updateSearchQuery = (slotNumber: 1 | 2 | 3, query: string) => {
+    setSearch(slotNumber, { query, hasSearched: false, results: [], isSearching: query.trim().length >= 2 });
+    if (searchTimers.current[slotNumber]) clearTimeout(searchTimers.current[slotNumber]);
+    if (query.trim().length < 2) return;
+    searchTimers.current[slotNumber] = setTimeout(() => {
+      runSearch(slotNumber, query);
+    }, 250);
+  };
+
+  const assignExisting = async (slotNumber: 1 | 2 | 3, card: BigThreeCard) => {
+    const ok = await onAssignExisting(slotNumber, card);
+    if (ok) setSearches(prev => ({ ...prev, [slotNumber]: { query: '', results: [], isSearching: false, hasSearched: false } }));
+  };
+
+  return (
+    <div id="big-three" style={{
+      background: T.cardBg, border: `1px solid ${T.cardBorder}`,
+      borderRadius: 14, overflow: 'hidden', marginBottom: 16,
+    }}>
+      <div style={{
+        padding: '13px 16px',
+        borderBottom: `1px solid ${T.cardBorder}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <span style={{ color: T.green, display: 'inline-flex' }}><Target className="h-4 w-4" /></span>
+          <div style={{ minWidth: 0 }}>
+            <h2 style={{ margin: 0, color: T.text, fontSize: 14, fontWeight: 700 }}>Big 3</h2>
+            <p style={{ margin: '2px 0 0', color: T.textMuted, fontSize: 11 }}>Weekly priorities</p>
+          </div>
+        </div>
+        <span style={{
+          fontSize: 11, fontWeight: 700, color: T.green,
+          padding: '2px 7px', borderRadius: 5,
+          background: `${T.green}18`, border: `1px solid ${T.green}30`,
+          whiteSpace: 'nowrap',
+        }}>
+          {slots.filter(slot => slot.card).length}/3
+        </span>
+      </div>
+
+      <div style={{ display: 'grid', gap: 0 }}>
+        {slots.map(slot => {
+          const draft = drafts[slot.slotNumber] ?? { title: '', boardId: defaultBoardId };
+          const search = searches[slot.slotNumber] ?? { query: '', results: [], isSearching: false, hasSearched: false };
+          const card = slot.card;
+          const slotLabel = `Big ${slot.slotNumber}`;
+
+          return (
+            <div key={slot.slotNumber} style={{
+              padding: '13px 16px',
+              borderBottom: slot.slotNumber < 3 ? `1px solid ${T.cardBorder}` : 'none',
+              borderLeft: `3px solid ${card ? T.green : 'transparent'}`,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                {card ? (
+                  <>
+                    <Link
+                      href={`/boards/${card.board_id}?card=${card.id}`}
+                      style={{ flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit' }}
+                      className="today-big3-card"
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                        <p style={{
+                          margin: 0, color: card.is_complete ? T.textMuted : T.text,
+                          fontSize: 13, fontWeight: 650,
+                          textDecoration: card.is_complete ? 'line-through' : 'none',
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}>
+                          {card.title}
+                        </p>
+                        {card.is_complete && <DateBadge date="Done" color={T.green} />}
+                      </div>
+                      <Sub>{card.board_name}{card.column_name ? ` · ${card.column_name}` : ''}</Sub>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5, marginTop: 5 }}>
+                        {card.due_date && <DateBadge date={formatShort(card.due_date)} color={card.is_complete ? T.green : T.amber} />}
+                        <CardMeta card={card} inline />
+                      </div>
+                    </Link>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                      {!card.is_complete && (
+                        <ActionBtn onClick={() => onDone(card.id)} color={T.green}>Done</ActionBtn>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => onClear(slot.slotNumber)}
+                        title={`Clear ${slotLabel}`}
+                        style={{
+                          width: 28, height: 28, borderRadius: 7,
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          border: `1px solid ${T.cardBorder}`, background: 'rgba(255,255,255,0.03)',
+                          color: T.textMuted, cursor: 'pointer',
+                        }}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="today-big3-empty-form" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) minmax(120px, 0.8fr) auto', gap: 8 }}>
+                      <input
+                        value={draft.title}
+                        onChange={e => setDraft(slot.slotNumber, { title: e.target.value })}
+                        onKeyDown={e => { if (e.key === 'Enter') submit(slot.slotNumber); }}
+                        placeholder={isLoading ? 'Loading...' : `Add ${slotLabel} priority`}
+                        disabled={isLoading || isSaving || boards.length === 0}
+                        style={{
+                          minWidth: 0, height: 32, borderRadius: 7,
+                          border: `1px solid ${T.cardBorder}`, background: 'rgba(255,255,255,0.04)',
+                          color: T.text, padding: '0 10px', fontSize: 12, outline: 'none',
+                        }}
+                      />
+                      <select
+                        value={draft.boardId || defaultBoardId}
+                        onChange={e => setDraft(slot.slotNumber, { boardId: e.target.value })}
+                        disabled={isLoading || isSaving || boards.length === 0}
+                        style={{
+                          minWidth: 0, height: 32, borderRadius: 7,
+                          border: `1px solid ${T.cardBorder}`, background: '#171a23',
+                          color: T.textMuted, padding: '0 8px', fontSize: 12, outline: 'none',
+                        }}
+                      >
+                        {boards.length === 0
+                          ? <option value="">No boards</option>
+                          : boards.map(board => <option key={board.id} value={board.id}>{board.title}</option>)}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => submit(slot.slotNumber)}
+                        disabled={isLoading || isSaving || !draft.title.trim() || !(draft.boardId || defaultBoardId)}
+                        style={{
+                          height: 32, borderRadius: 7,
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          border: `1px solid ${T.green}30`, background: `${T.green}12`,
+                          color: T.green, padding: '0 10px', fontSize: 11, fontWeight: 700,
+                          cursor: isLoading || isSaving || !draft.title.trim() ? 'default' : 'pointer',
+                          opacity: isLoading || isSaving || !draft.title.trim() ? 0.55 : 1,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Add
+                      </button>
+                    </div>
+                    <div style={{ marginTop: 8 }}>
+                      <div className="today-big3-empty-form" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 8 }}>
+                        <input
+                          value={search.query}
+                          onChange={e => updateSearchQuery(slot.slotNumber, e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') runSearch(slot.slotNumber); }}
+                          placeholder="Search existing cards"
+                          disabled={isLoading || isSaving || boards.length === 0}
+                          style={{
+                            minWidth: 0, height: 32, borderRadius: 7,
+                            border: `1px solid ${T.cardBorder}`, background: 'rgba(255,255,255,0.025)',
+                            color: T.text, padding: '0 10px', fontSize: 12, outline: 'none',
+                          }}
+                        />
+                      </div>
+                      {search.results.length > 0 && (
+                        <div style={{
+                          marginTop: 6, border: `1px solid ${T.cardBorder}`, borderRadius: 8,
+                          background: 'rgba(0,0,0,0.12)', overflow: 'hidden',
+                        }}>
+                          {search.results.map(result => (
+                            <button
+                              type="button"
+                              key={result.id}
+                              onClick={() => assignExisting(slot.slotNumber, result)}
+                              disabled={isSaving}
+                              style={{
+                                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                                padding: '8px 10px', border: 0, borderBottom: `1px solid ${T.cardBorder}`,
+                                background: 'transparent', color: T.text, cursor: isSaving ? 'default' : 'pointer',
+                                textAlign: 'left',
+                              }}
+                              className="today-big3-result"
+                            >
+                              <span style={{ minWidth: 0 }}>
+                                <span style={{
+                                  display: 'block', fontSize: 12, fontWeight: 650,
+                                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                  textDecoration: result.is_complete ? 'line-through' : 'none',
+                                  color: result.is_complete ? T.textMuted : T.text,
+                                }}>
+                                  {result.title}
+                                </span>
+                                <span style={{
+                                  display: 'block', marginTop: 1, fontSize: 10, color: T.textMuted,
+                                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                }}>
+                                  {result.board_name}{result.column_name ? ` · ${result.column_name}` : ''}{result.is_complete ? ' · Done' : ''}
+                                </span>
+                              </span>
+                              <span style={{ color: T.green, fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                Add
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {search.hasSearched && search.query.trim().length >= 2 && !search.isSearching && search.results.length === 0 && (
+                        <p style={{ margin: '6px 0 0', fontSize: 11, color: T.textFaint }}>No matching cards yet.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {error && (
+        <div style={{
+          padding: '9px 16px', borderTop: `1px solid ${T.cardBorder}`,
+          color: T.red, fontSize: 12, background: `${T.red}0f`,
+        }}>
+          {error}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -486,6 +804,7 @@ function TodaySkeleton() {
 
 export default function TodayPage() {
   const { data, isLoading, isFetching, isCardsLoading, error, fetchData, markEncouragementSent, clearFollowUp, markCardComplete, markChecklistDone } = useTodayData();
+  const bigThree = useBigThree();
   const { isOpen, toggle } = useVisibility();
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -513,6 +832,7 @@ export default function TodayPage() {
   const totalChecklists = data.checklistItems.dueToday.length + data.checklistItems.overdue.length;
   const totalOverdue   = data.cards.overdue.length + data.checklistItems.overdue.length + data.encouragements.overdue.length + data.followUps.overdue.length;
   const totalFocus     = (data.focusCards ?? []).length;
+  const totalBigThree  = bigThree.slots.filter(slot => slot.card).length;
   const hasAnything    = data.birthdays.length + data.circleVisits.today.length + totalEncs + totalFU + totalCards + totalChecklists + totalFocus + totalPrayers > 0 || isCardsLoading;
 
   return (
@@ -524,6 +844,10 @@ export default function TodayPage() {
         .today-leader-link:hover { color: ${T.textMuted} !important; }
         .today-action-btn:hover { filter: brightness(1.1); }
         .today-score-row:hover .today-score-inner { background: rgba(255,255,255,0.02); }
+        .today-big3-card:hover p { color: ${T.textMuted} !important; }
+        @media (max-width: 560px) {
+          .today-big3-empty-form { grid-template-columns: 1fr !important; }
+        }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
 
@@ -558,6 +882,7 @@ export default function TodayPage() {
         {/* ── Scoreboard ── */}
         <Scoreboard
           rows={[
+            { label: 'Big 3',           count: totalBigThree,                  color: T.green,   href: '#big-three' },
             { label: 'Focus Cards',     count: totalFocus,                     color: T.amber,   href: '#focus-cards' },
             { label: 'Birthdays',       count: data.birthdays.length,          color: T.violet,  href: '#birthdays' },
             { label: 'Overdue Items',   count: totalOverdue,                   color: T.red,     href: '#overdue-cards' },
@@ -568,6 +893,19 @@ export default function TodayPage() {
             { label: 'Checklist Tasks', count: totalChecklists,                color: T.amber,   href: '#checklists-today' },
             { label: 'Circle Visits',   count: data.circleVisits.today.length, color: T.neutral, href: '#visits-today' },
           ]}
+        />
+
+        <BigThreeSection
+          slots={bigThree.slots}
+          boards={bigThree.boards}
+          isLoading={bigThree.isLoading}
+          isSaving={bigThree.isSaving}
+          error={bigThree.error}
+          onCreate={bigThree.createCard}
+          onSearch={bigThree.searchExistingCards}
+          onAssignExisting={bigThree.assignExistingCard}
+          onDone={bigThree.markDone}
+          onClear={bigThree.clearSlot}
         />
 
         {/* ── All clear ── */}
