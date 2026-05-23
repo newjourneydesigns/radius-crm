@@ -531,7 +531,7 @@ function BigThreeSection({
               borderBottom: slot.slotNumber < 3 ? `1px solid ${T.cardBorder}` : 'none',
               borderLeft: `3px solid ${card ? T.green : 'transparent'}`,
             }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <div className="today-big3-row" style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                 {card ? (
                   <>
                     <Link
@@ -544,7 +544,7 @@ function BigThreeSection({
                           margin: 0, color: card.is_complete ? T.textMuted : T.text,
                           fontSize: 13, fontWeight: 650,
                           textDecoration: card.is_complete ? 'line-through' : 'none',
-                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                          overflowWrap: 'anywhere', wordBreak: 'break-word',
                         }}>
                           {card.title}
                         </p>
@@ -556,7 +556,7 @@ function BigThreeSection({
                         <CardMeta card={card} inline />
                       </div>
                     </Link>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                    <div className="today-big3-actions" style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                       {!card.is_complete && (
                         <ActionBtn onClick={() => onDone(card.id)} color={T.green}>Done</ActionBtn>
                       )}
@@ -848,6 +848,10 @@ export default function TodayPage() {
         @media (max-width: 560px) {
           .today-big3-empty-form { grid-template-columns: 1fr !important; }
         }
+        @media (max-width: 440px) {
+          .today-big3-row { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
+          .today-big3-actions { justify-content: flex-end !important; }
+        }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
 
@@ -927,7 +931,7 @@ export default function TodayPage() {
             <Item key={c.id} accentColor="#f59e0b">
               <div style={{ flex: 1, minWidth: 0 }}>
                 <Link href={`/boards/${c.board_id}?card=${c.id}`}
-                  style={{ fontSize: 13, fontWeight: 600, color: T.text, textDecoration: 'none', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                  style={{ fontSize: 13, fontWeight: 600, color: T.text, textDecoration: 'none', display: 'block', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
                   className="today-leader-link">
                   {c.title}
                 </Link>
@@ -1028,7 +1032,7 @@ export default function TodayPage() {
           {data.cards.dueToday.map((c: CardDigestItem) => (
             <Item key={c.id} accentColor={T.amber}>
               <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                <Link href={`/boards/${c.board_id}?card=${c.id}`} style={{ fontSize: 13, fontWeight: 600, color: T.text, textDecoration: 'none', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                <Link href={`/boards/${c.board_id}?card=${c.id}`} style={{ fontSize: 13, fontWeight: 600, color: T.text, textDecoration: 'none', display: 'block', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
                   className="today-leader-link">
                   {c.title}
                 </Link>
@@ -1046,7 +1050,7 @@ export default function TodayPage() {
           {data.cards.overdue.map((c: CardDigestItem) => (
             <Item key={c.id} accentColor={T.red}>
               <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                <Link href={`/boards/${c.board_id}?card=${c.id}`} style={{ fontSize: 13, fontWeight: 600, color: T.text, textDecoration: 'none', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                <Link href={`/boards/${c.board_id}?card=${c.id}`} style={{ fontSize: 13, fontWeight: 600, color: T.text, textDecoration: 'none', display: 'block', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
                   className="today-leader-link">
                   {c.title}
                 </Link>
@@ -1067,7 +1071,7 @@ export default function TodayPage() {
           {data.checklistItems.dueToday.map((cl: ChecklistDigestItem) => (
             <Item key={cl.id} accentColor={T.amber}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 13, fontWeight: 600, color: T.text, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cl.text}</p>
+                <p style={{ fontSize: 13, fontWeight: 600, color: T.text, margin: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{cl.text}</p>
                 <Sub>
                   <Link href={`/boards/${cl.board_id}?card=${cl.card_id}`} style={{ color: T.textMuted, textDecoration: 'none' }} className="today-leader-link">
                     {cl.card_title} · {cl.board_name}
@@ -1085,7 +1089,7 @@ export default function TodayPage() {
           {data.checklistItems.overdue.map((cl: ChecklistDigestItem) => (
             <Item key={cl.id} accentColor={T.red}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 13, fontWeight: 600, color: T.text, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cl.text}</p>
+                <p style={{ fontSize: 13, fontWeight: 600, color: T.text, margin: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{cl.text}</p>
                 <Sub><Link href={`/boards/${cl.board_id}?card=${cl.card_id}`} style={{ color: 'inherit', textDecoration: 'none' }} className="today-leader-link">{cl.card_title} · {cl.board_name}</Link></Sub>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

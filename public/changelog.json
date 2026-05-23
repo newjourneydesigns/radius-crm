@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-05-23",
+    "type": "fix",
+    "page": "/today",
+    "description": "Today page now handles narrow screens better: Big 3 'Done' and clear buttons stack below the card on small widths, and long card/checklist titles wrap onto multiple lines instead of being truncated."
+  },
+  {
+    "date": "2026-05-23",
     "type": "feature",
     "page": "/boards",
     "description": "Checklist items in board cards can now be reordered by dragging and dropping. Items stay within their section (ungrouped or a named group) and the new order is saved immediately."
