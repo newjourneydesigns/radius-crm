@@ -62,6 +62,7 @@ type Orphan = {
 type TrackerData = {
   week_start_date: string;
   week_end_date: string;
+  snapshots: SnapshotRow[];
   orphans: { inactive: Orphan[]; unknown_group: Orphan[] };
   missed_two_plus_leader_ids: number[];
   reviewers: Record<number, {
@@ -74,7 +75,7 @@ type TrackerData = {
   last_sync: {
     last_synced_at: string;
     last_synced_by: string | null;
-    last_sync_summary: any;
+    last_sync_summary: unknown;
   } | null;
 };
 
@@ -95,6 +96,16 @@ type Row = {
   missedTwoPlus: boolean;
 };
 
+type PagePayload = {
+  leaders: CircleLeader[];
+  snapshots: SnapshotRow[];
+  occurrences: OccurrenceRow[];
+  submissions: SubmissionRow[];
+  tracker: TrackerData | null;
+  aiSummary: string | null;
+  aiSummaryAt: string | null;
+};
+
 const DAY_INDEX: Record<string, number> = {
   Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6,
 };
@@ -108,13 +119,16 @@ const CIRCLE_STATUS_OPTIONS = [
   { value: 'pipeline', label: 'Pipeline' },
 ] as const;
 
+const TRACKER_PAGE_CACHE_TTL_MS = 60_000;
+const trackerPageCache = new Map<string, { loadedAt: number; payload: PagePayload }>();
+
 // True on platforms where the `sms:` protocol reliably opens a Messages app:
 // macOS (with Messages.app), iOS, Android. Windows desktops typically have no
 // SMS handler (or open Skype unexpectedly), so we hide the Send Reminder button.
 function platformSupportsSms(): boolean {
   if (typeof navigator === 'undefined') return true; // SSR — assume yes; resolved on hydration
   const ua = navigator.userAgent || '';
-  const platform = (navigator as any).userAgentData?.platform || navigator.platform || '';
+  const platform = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform || navigator.platform || '';
   if (/Windows/i.test(ua) || /Win/i.test(platform)) return false;
   // Macs, iOS, Android all have native SMS handlers
   return true;
@@ -295,21 +309,6 @@ function AiSummaryMarkdown({ text }: { text: string }) {
   return <div className="space-y-0.5">{elements}</div>;
 }
 
-function StatusPill({ status }: { status: RowStatus }) {
-  const map: Record<RowStatus, { label: string; className: string }> = {
-    no_summary:   { label: 'No Summary',   className: 'bg-red-500/15 text-red-300 border border-red-500/30' },
-    needs_review: { label: 'Needs Review', className: 'bg-amber-500/20 text-amber-300 border border-amber-500/30' },
-    received:     { label: 'Received',     className: 'bg-green-500/20 text-green-300 border border-green-500/30' },
-    did_not_meet: { label: "Didn't Meet",  className: 'bg-slate-500/25 text-slate-300 border border-slate-500/40' },
-  };
-  const m = map[status];
-  return (
-    <span className={`inline-flex items-center text-[11px] font-medium px-2.5 py-0.5 rounded-full ${m.className}`}>
-      {m.label}
-    </span>
-  );
-}
-
 function Spinner({ className = '' }: { className?: string }) {
   return <div className={`w-4 h-4 border-2 border-slate-600 border-t-indigo-400 rounded-full animate-spin ${className}`} />;
 }
@@ -417,67 +416,110 @@ export default function EventSummaryTrackerPage() {
 
   // -- Data load ----------------------------------------------------------------
   const loadIdRef = useRef(0);
-  const loadAll = useCallback(async () => {
+  const applyPayload = useCallback((payload: PagePayload) => {
+    setLeaders(payload.leaders);
+    setSnapshots(payload.snapshots);
+    setOccurrences(payload.occurrences);
+    setSubmissions(payload.submissions);
+    setTracker(payload.tracker);
+    setAiSummary(payload.aiSummary);
+    setAiSummaryAt(payload.aiSummaryAt);
+    setAiSummarySaved(!!payload.aiSummary);
+  }, []);
+
+  const loadAll = useCallback(async ({ preferCache = true }: { preferCache?: boolean } = {}) => {
     const myId = ++loadIdRef.current;
-    setLoading(true);
+    const cacheKey = `${weekStart}:${user?.id ?? 'anonymous'}`;
+    const cached = trackerPageCache.get(cacheKey);
+    const canUseCache = preferCache && cached && Date.now() - cached.loadedAt < TRACKER_PAGE_CACHE_TTL_MS;
+
+    if (canUseCache) {
+      applyPayload(cached.payload);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
     try {
       // Load every circle status so status filtering can inspect the full tracker population.
-      const { data: leaderRows } = await supabase
+      const leadersPromise = supabase
         .from('circle_leaders')
         .select('id, name, phone, campus, acpd, status, day, time, frequency, meeting_start_date, circle_type, ccb_group_id, ccb_group_name, circle_name, follow_up_required');
 
-      // Snapshots for the week
-      const snapshotsRes = await fetch(`/api/event-summary-snapshots?week_start_date=${weekStart}`);
-      const snapshotsJson = await snapshotsRes.json();
-
-      // Occurrences in week
-      const { data: occRows } = await supabase
+      const occurrencesPromise = supabase
         .from('circle_meeting_occurrences')
         .select('id, leader_id, meeting_date, status, headcount, has_notes, guest_count, topic, notes, prayer_requests, reviewed_at, reviewed_by')
         .gte('meeting_date', weekStart)
         .lte('meeting_date', weekEnd);
 
-      // App submissions in week
-      const { data: subRows } = await supabase
+      const submissionsPromise = supabase
         .from('circle_event_summaries')
         .select('id, leader_id, occurrence, did_not_meet, topic, notes, prayer_requests, reviewed_at, reviewed_by')
         .gte('occurrence', `${weekStart}T00:00:00Z`)
         .lte('occurrence', `${weekEnd}T23:59:59Z`);
 
-      // Composite tracker payload (orphans + missed_2 + reviewers + last_sync)
-      const trackerRes = await fetch(`/api/event-summary-tracker?week_start_date=${weekStart}`, { cache: 'no-store' });
-      const trackerJson = await trackerRes.json();
+      const trackerPromise = fetch(`/api/event-summary-tracker?week_start_date=${weekStart}`, { cache: 'no-store' })
+        .then(async (res) => {
+          const json = await res.json();
+          if (!res.ok) {
+            console.warn('[tracker] composite payload failed:', json?.error || res.statusText);
+            return null;
+          }
+          return json as TrackerData;
+        })
+        .catch((e) => {
+          console.warn('[tracker] composite payload failed:', e);
+          return null;
+        });
 
-      // AI summary (per user, per week)
-      let aiText: string | null = null;
-      let aiAt: string | null = null;
-      if (user?.id) {
-        try {
-          const aiRes = await fetch(`/api/weekly-ai-summary?week=${weekStart}&userId=${user.id}`);
-          const aiJson = await aiRes.json();
-          aiText = aiJson?.summary?.summary_text ?? null;
-          aiAt = aiJson?.summary?.generated_at ?? null;
-        } catch (e) {
-          console.warn('[tracker] AI summary fetch failed (non-fatal):', e);
-        }
-      }
+      const aiPromise = user?.id
+        ? fetch(`/api/weekly-ai-summary?week=${weekStart}&userId=${user.id}`)
+            .then(async (res) => {
+              if (!res.ok) return { text: null, at: null };
+              const json = await res.json();
+              return {
+                text: json?.summary?.summary_text ?? null,
+                at: json?.summary?.generated_at ?? null,
+              };
+            })
+            .catch((e) => {
+              console.warn('[tracker] AI summary fetch failed (non-fatal):', e);
+              return { text: null, at: null };
+            })
+        : Promise.resolve({ text: null, at: null });
+
+      const [leaderRes, occRes, subRes, trackerJson, ai] = await Promise.all([
+        leadersPromise,
+        occurrencesPromise,
+        submissionsPromise,
+        trackerPromise,
+        aiPromise,
+      ]);
+
+      if (leaderRes.error) throw leaderRes.error;
+      if (occRes.error) throw occRes.error;
+      if (subRes.error) throw subRes.error;
+
+      const payload: PagePayload = {
+        leaders: leaderRes.data ?? [],
+        snapshots: trackerJson?.snapshots ?? [],
+        occurrences: occRes.data ?? [],
+        submissions: subRes.data ?? [],
+        tracker: trackerJson,
+        aiSummary: ai.text,
+        aiSummaryAt: ai.at,
+      };
 
       // Only commit state if this is still the latest load
       if (loadIdRef.current !== myId) return;
-      setLeaders(leaderRows ?? []);
-      setSnapshots(snapshotsJson?.snapshots ?? []);
-      setOccurrences(occRows ?? []);
-      setSubmissions(subRows ?? []);
-      setTracker(trackerJson?.error ? null : trackerJson);
-      setAiSummary(aiText);
-      setAiSummaryAt(aiAt);
-      setAiSummarySaved(!!aiText);
+      trackerPageCache.set(cacheKey, { loadedAt: Date.now(), payload });
+      applyPayload(payload);
     } catch (err) {
       console.error('[tracker] loadAll failed:', err);
     } finally {
       if (loadIdRef.current === myId) setLoading(false);
     }
-  }, [weekStart, user?.id]);
+  }, [weekStart, weekEnd, user?.id, applyPayload]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -523,7 +565,7 @@ export default function EventSummaryTrackerPage() {
           loading: false,
         };
         setReviewLive(next);
-      } catch (e) {
+      } catch {
         if (cancelled) return;
         setReviewLive(prev => prev ? { ...prev, loading: false } : null);
       }
@@ -665,7 +707,7 @@ export default function EventSummaryTrackerPage() {
         missedTwoPlus: missedSet.has(l.id),
       };
     });
-  }, [leaders, occurrences, submissions, snapshots, scheduledLeaderIds, tracker, campusFilter, acpdFilter, circleStatusFilters]);
+  }, [leaders, occurrences, submissions, snapshots, scheduledLeaderIds, tracker, campusFilter, acpdFilter, circleStatusFilters, justReviewed, justUnreviewed]);
 
   const sortRows = useCallback((arr: Row[]) => {
     const sorted = [...arr];
@@ -730,7 +772,7 @@ export default function EventSummaryTrackerPage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || 'Sync failed');
-      await loadAll();
+      await loadAll({ preferCache: false });
     } catch (err) {
       console.error(err);
       alert((err as Error).message);
@@ -766,7 +808,7 @@ export default function EventSummaryTrackerPage() {
       alert(j?.error || 'Action failed');
       return;
     }
-    await loadAll();
+    await loadAll({ preferCache: false });
   }, [weekStart, loadAll, authHeader]);
 
   const bulkReview = useCallback(async () => {
@@ -786,7 +828,7 @@ export default function EventSummaryTrackerPage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || 'Bulk review failed');
-      await loadAll();
+      await loadAll({ preferCache: false });
       const totalMarked = json.leaders_total_marked ?? 0;
       const skipped = json.backfill_skipped_no_ccb_match ?? 0;
       const msgs: string[] = [];
@@ -809,7 +851,7 @@ export default function EventSummaryTrackerPage() {
         .eq('circle_leader_id', leader.id)
         .eq('week_start_date', weekStart);
       setReminderSent(data ? data.map(r => r.message_number) : []);
-    } catch (e) {
+    } catch {
       setReminderSent([]);
     }
     setReminderLeader(leader);

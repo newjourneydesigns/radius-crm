@@ -177,6 +177,7 @@ function CardDetailModal({
   onUpdateChecklistDueDate,
   onRenameChecklistItem,
   onUpdateChecklistItemUrl,
+  onReorderChecklistItems,
   onDeleteChecklistItem,
   onPromoteUngrouped,
   onAddChecklistGroup,
@@ -206,6 +207,7 @@ function CardDetailModal({
   onUpdateChecklistDueDate: (itemId: string, dueDate: string | null) => Promise<void>;
   onRenameChecklistItem: (itemId: string, title: string) => Promise<void>;
   onUpdateChecklistItemUrl: (itemId: string, url: string | null) => Promise<void>;
+  onReorderChecklistItems: (orderedItemIds: string[]) => Promise<void>;
   onDeleteChecklistItem: (itemId: string) => Promise<void>;
   onPromoteUngrouped: (title: string) => Promise<CardChecklistGroup | null>;
   onAddChecklistGroup: (title: string) => Promise<CardChecklistGroup | null>;
@@ -240,6 +242,9 @@ function CardDetailModal({
   const [editingChecklistLinkId, setEditingChecklistLinkId] = useState<string | null>(null);
   const [editingChecklistUrl, setEditingChecklistUrl] = useState('');
   const [showingDateInputId, setShowingDateInputId] = useState<string | null>(null);
+  const [draggingChecklistId, setDraggingChecklistId] = useState<string | null>(null);
+  const [dragOverChecklistId, setDragOverChecklistId] = useState<string | null>(null);
+  const [dragOverChecklistPos, setDragOverChecklistPos] = useState<'above' | 'below'>('below');
   const [activeAddSection, setActiveAddSection] = useState<string | null>(null);
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingGroupTitle, setEditingGroupTitle] = useState('');
@@ -416,6 +421,84 @@ function CardDetailModal({
   const completedCount = checklists.filter(c => c.is_completed).length;
   const descriptionContacts = useMemo(() => extractTextContacts(editDesc), [editDesc]);
 
+  const checklistSectionKey = (item: NonNullable<typeof checklists>[number]) => item.group_id || '__ungrouped__';
+
+  const checklistDisplayOrder = (
+    changedSection: string,
+    changedItems: NonNullable<typeof checklists>
+  ) => {
+    const ordered: string[] = [];
+    const pushItems = (items: NonNullable<typeof checklists>) => {
+      items.forEach(item => ordered.push(item.id));
+    };
+
+    pushItems(changedSection === '__ungrouped__' ? changedItems : ungroupedItems);
+    checklistGroups.forEach(group => {
+      const groupItems = checklists.filter(item => item.group_id === group.id);
+      pushItems(changedSection === group.id ? changedItems : groupItems);
+    });
+
+    const seen = new Set(ordered);
+    checklists.forEach(item => {
+      if (!seen.has(item.id)) ordered.push(item.id);
+    });
+    return ordered;
+  };
+
+  const handleChecklistDragStart = (e: React.DragEvent, itemId: string) => {
+    e.stopPropagation();
+    setDraggingChecklistId(itemId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', itemId);
+  };
+
+  const handleChecklistDragOver = (e: React.DragEvent, overItemId: string) => {
+    const activeId = draggingChecklistId || e.dataTransfer.getData('text/plain');
+    const activeItem = checklists.find(item => item.id === activeId);
+    const overItem = checklists.find(item => item.id === overItemId);
+    if (!activeItem || !overItem || checklistSectionKey(activeItem) !== checklistSectionKey(overItem)) return;
+
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const pos = e.clientY < rect.top + rect.height / 2 ? 'above' : 'below';
+    setDragOverChecklistId(overItemId);
+    setDragOverChecklistPos(pos);
+  };
+
+  const handleChecklistDrop = async (e: React.DragEvent, overItemId: string) => {
+    e.preventDefault();
+    const activeId = draggingChecklistId || e.dataTransfer.getData('text/plain');
+    setDragOverChecklistId(null);
+    setDraggingChecklistId(null);
+    if (!activeId || activeId === overItemId) return;
+
+    const activeItem = checklists.find(item => item.id === activeId);
+    const overItem = checklists.find(item => item.id === overItemId);
+    if (!activeItem || !overItem) return;
+
+    const section = checklistSectionKey(activeItem);
+    if (section !== checklistSectionKey(overItem)) return;
+
+    const sectionItems = checklists.filter(item => checklistSectionKey(item) === section);
+    const fromIndex = sectionItems.findIndex(item => item.id === activeId);
+    const overIndex = sectionItems.findIndex(item => item.id === overItemId);
+    if (fromIndex === -1 || overIndex === -1) return;
+
+    const nextSectionItems = [...sectionItems];
+    const [moved] = nextSectionItems.splice(fromIndex, 1);
+    let insertIndex = overIndex + (dragOverChecklistPos === 'below' ? 1 : 0);
+    if (fromIndex < insertIndex) insertIndex -= 1;
+    nextSectionItems.splice(insertIndex, 0, moved);
+
+    await onReorderChecklistItems(checklistDisplayOrder(section, nextSectionItems));
+  };
+
+  const clearChecklistDrag = () => {
+    setDraggingChecklistId(null);
+    setDragOverChecklistId(null);
+  };
+
   const htmlToPlainText = (html: string) =>
     html
       .replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n').replace(/<\/li>/gi, '\n')
@@ -502,7 +585,22 @@ function CardDetailModal({
 
   const renderChecklistItem = (item: NonNullable<typeof checklists>[number]) => (
     <React.Fragment key={item.id}>
-      <div className="kb-checklist-item">
+      <div
+        className={`kb-checklist-item${draggingChecklistId === item.id ? ' dragging' : ''}${dragOverChecklistId === item.id ? ` drop-${dragOverChecklistPos}` : ''}`}
+        onDragOver={e => handleChecklistDragOver(e, item.id)}
+        onDrop={e => handleChecklistDrop(e, item.id)}
+      >
+        <button
+          className="kb-checklist-drag-handle"
+          draggable
+          onDragStart={e => handleChecklistDragStart(e, item.id)}
+          onDragEnd={clearChecklistDrag}
+          onClick={e => e.stopPropagation()}
+          title="Drag to reorder"
+          aria-label="Drag to reorder checklist item"
+        >
+          <GripVertical size={13} />
+        </button>
         <button
           className={`kb-checkbox ${item.is_completed ? 'checked' : ''}`}
           onClick={() => onToggleChecklistItem(item.id, !item.is_completed)}
@@ -2942,7 +3040,7 @@ function BoardPage() {
     addColumn, updateColumn, deleteColumn, reorderColumns,
     addCard, updateCard, deleteCard, moveCard, moveToBoardCard, reorderCardsInColumn,
     addComment, updateComment, deleteComment,
-    addChecklistItem, toggleChecklistItem, updateChecklistItemDueDate, deleteChecklistItem, renameChecklistItem, updateChecklistItemUrl,
+    addChecklistItem, toggleChecklistItem, updateChecklistItemDueDate, deleteChecklistItem, renameChecklistItem, updateChecklistItemUrl, reorderChecklistItems,
     promoteUngroupedToGroup, addChecklistGroup, renameChecklistGroup, deleteChecklistGroup,
     fetchChecklistTemplates, saveChecklistTemplate, deleteChecklistTemplate, applyChecklistTemplate,
     checklistTemplates,
@@ -4292,6 +4390,7 @@ function BoardPage() {
           onUpdateChecklistDueDate={async (itemId, dueDate) => { await updateChecklistItemDueDate(boardId, activeCard.id, itemId, dueDate); }}
           onRenameChecklistItem={async (itemId, title) => { await renameChecklistItem(boardId, activeCard.id, itemId, title); }}
           onUpdateChecklistItemUrl={async (itemId, url) => { await updateChecklistItemUrl(boardId, activeCard.id, itemId, url); }}
+          onReorderChecklistItems={async (orderedItemIds) => { await reorderChecklistItems(boardId, activeCard.id, orderedItemIds); }}
           onDeleteChecklistItem={async (itemId) => { await deleteChecklistItem(boardId, activeCard.id, itemId); }}
           onPromoteUngrouped={async (title) => await promoteUngroupedToGroup(boardId, activeCard.id, title)}
           onAddChecklistGroup={async (title) => await addChecklistGroup(boardId, activeCard.id, title)}
@@ -5566,10 +5665,48 @@ const kanbanStyles = `
   }
   .kb-checklist-items { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
   .kb-checklist-item {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 4px 0;
+  }
+  .kb-checklist-item.dragging {
+    opacity: 0.45;
+  }
+  .kb-checklist-item.drop-above::before,
+  .kb-checklist-item.drop-below::after {
+    content: '';
+    position: absolute;
+    left: 28px;
+    right: 0;
+    height: 2px;
+    border-radius: 999px;
+    background: #8da9c4;
+    box-shadow: 0 0 0 1px rgba(141,169,196,0.2);
+  }
+  .kb-checklist-item.drop-above::before { top: -3px; }
+  .kb-checklist-item.drop-below::after { bottom: -3px; }
+  .kb-checklist-drag-handle {
+    width: 18px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 0;
+    color: #4b5563;
+    background: transparent !important;
+    border: none !important;
+    cursor: grab;
+    transition: color 0.15s ease;
+  }
+  .kb-checklist-drag-handle:hover,
+  .kb-checklist-drag-handle:focus-visible {
+    color: #9ca3af;
+  }
+  .kb-checklist-drag-handle:active {
+    cursor: grabbing;
   }
   .kb-checkbox {
     width: 18px;

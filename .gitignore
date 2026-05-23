@@ -42,3 +42,6 @@ Thumbs.db
 
 # CCB skill local mirror
 .claude/skills/ccb/ccb.db
+
+# Local Netlify folder
+.netlify

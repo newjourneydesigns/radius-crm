@@ -970,6 +970,41 @@ export function useProjectBoard() {
     }
   }, []);
 
+  const reorderChecklistItems = useCallback(async (boardId: string, cardId: string, itemIds: string[]) => {
+    setError(null);
+    setBoard(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        cards: prev.cards.map(c => {
+          if (c.id !== cardId) return c;
+          const existing = c.checklists || [];
+          const byId = new Map(existing.map(item => [item.id, item]));
+          const ordered = itemIds
+            .map((id, position) => {
+              const item = byId.get(id);
+              return item ? { ...item, position } : null;
+            })
+            .filter(Boolean) as typeof existing;
+          const untouched = existing.filter(item => !itemIds.includes(item.id));
+          return { ...c, checklists: [...ordered, ...untouched] };
+        }),
+      };
+    });
+
+    try {
+      const updates = await Promise.all(
+        itemIds.map((id, position) =>
+          supabase.from('card_checklists').update({ position }).eq('id', id)
+        )
+      );
+      const firstError = updates.find(result => result.error)?.error;
+      if (firstError) throw firstError;
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }, []);
+
   // ─── Checklist Groups ──────────────────────────────────────
   const promoteUngroupedToGroup = useCallback(async (boardId: string, cardId: string, title: string) => {
     setError(null);
@@ -1319,7 +1354,7 @@ export function useProjectBoard() {
     addColumn, updateColumn, deleteColumn, reorderColumns,
     addCard, updateCard, deleteCard, moveCard, moveToBoardCard, createNextRepeatCard, reorderCardsInColumn,
     addComment, updateComment, deleteComment,
-    addChecklistItem, toggleChecklistItem, updateChecklistItemDueDate, deleteChecklistItem, renameChecklistItem, updateChecklistItemUrl,
+    addChecklistItem, toggleChecklistItem, updateChecklistItemDueDate, deleteChecklistItem, renameChecklistItem, updateChecklistItemUrl, reorderChecklistItems,
     promoteUngroupedToGroup, addChecklistGroup, renameChecklistGroup, deleteChecklistGroup,
     fetchChecklistTemplates, saveChecklistTemplate, deleteChecklistTemplate, applyChecklistTemplate,
     addLabel, updateLabel, deleteLabel,
