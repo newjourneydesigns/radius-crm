@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-05-22",
+    "type": "improvement",
+    "page": "/event-summary-tracker",
+    "description": "The review modal now shows the circle's actual roster size (from CCB) instead of a computed attended-minus-guests figure."
+  },
+  {
+    "date": "2026-05-22",
     "type": "fix",
     "page": "/event-summary-tracker",
     "description": "Fixed a bug in the Event Summary Tracker review modal where notes submitted via the Radius app would disappear after the live data fetch completed."

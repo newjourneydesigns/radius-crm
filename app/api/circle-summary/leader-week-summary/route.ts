@@ -201,6 +201,16 @@ export async function GET(request: NextRequest) {
     let resolved = await resolveLeaderWeek(supabase, leaderId, weekStart, weekEnd);
     let peekResult: { attempted: boolean; throttled: boolean; circuit_open: boolean; found_evidence: boolean } | null = null;
 
+    // Fetch roster size by counting cached members for this leader.
+    let rosterSize: number | null = null;
+    const { count: rosterCount } = await supabase
+      .from('circle_roster_cache')
+      .select('*', { count: 'exact', head: true })
+      .eq('circle_leader_id', leaderId);
+    if (typeof rosterCount === 'number' && rosterCount > 0) {
+      rosterSize = rosterCount;
+    }
+
     // Peek runs in two scenarios:
     //  (1) Auto-peek when we resolved to `not_submitted` — closes the gap if
     //      the leader submitted directly in CCB and sync hasn't caught up yet.
@@ -290,7 +300,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ leader_id: leaderId, week_start_date: weekStart, week_end_date: weekEnd, ...resolved, peek: peekResult });
+    return NextResponse.json({ leader_id: leaderId, week_start_date: weekStart, week_end_date: weekEnd, ...resolved, roster_size: rosterSize, peek: peekResult });
   } catch (err: any) {
     console.error('[leader-week-summary GET]', err);
     return NextResponse.json({ error: err.message || 'Failed to load leader summary' }, { status: 500 });

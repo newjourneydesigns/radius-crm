@@ -408,6 +408,7 @@ export default function EventSummaryTrackerPage() {
     prayer_requests: string | null;
     headcount: number | null;
     guest_count: number | null;
+    roster_size: number | null;
     did_not_meet: boolean;
     loading: boolean;
   } | null>(null);
@@ -496,6 +497,7 @@ export default function EventSummaryTrackerPage() {
       prayer_requests: reviewRow.occurrence?.prayer_requests ?? reviewRow.submission?.prayer_requests ?? null,
       headcount: reviewRow.headcount,
       guest_count: reviewRow.guestCount,
+      roster_size: null,
       did_not_meet: reviewRow.occurrence?.status === 'did_not_meet' || (reviewRow.submission?.did_not_meet ?? false),
       loading: true,
     });
@@ -516,6 +518,7 @@ export default function EventSummaryTrackerPage() {
           prayer_requests: json.prayer_requests || reviewRow.occurrence?.prayer_requests || reviewRow.submission?.prayer_requests || null,
           headcount: json.headcount ?? reviewRow.headcount ?? null,
           guest_count: json.guest_count ?? reviewRow.guestCount ?? null,
+          roster_size: json.roster_size ?? null,
           did_not_meet: json.did_not_meet === true || json.status === 'did_not_meet',
           loading: false,
         };
@@ -1238,6 +1241,7 @@ function ReviewModal({
     prayer_requests: string | null;
     headcount: number | null;
     guest_count: number | null;
+    roster_size: number | null;
     did_not_meet: boolean;
     loading: boolean;
   } | null;
@@ -1254,7 +1258,7 @@ function ReviewModal({
   const dnm = live?.did_not_meet ?? (row.occurrence?.status === 'did_not_meet' || row.submission?.did_not_meet);
   const headcount = live?.headcount ?? row.headcount ?? 0;
   const guestCount = live?.guest_count ?? row.guestCount ?? 0;
-  const inRoster = Math.max(0, (headcount ?? 0) - (guestCount ?? 0));
+  const rosterSize = live?.roster_size ?? null;
   const totalAttended = (headcount ?? 0);
   const notes = live?.notes || row.notes || null;
   const topic = live?.topic || row.topic || null;
@@ -1309,7 +1313,7 @@ function ReviewModal({
         {!dnm && (headcount ?? 0) > 0 && (
           <div className="grid grid-cols-3 gap-3">
             <ModalStat label="Attended" value={totalAttended} />
-            <ModalStat label="In-Roster" value={inRoster} />
+            <ModalStat label="Roster" value={rosterSize !== null ? rosterSize : '–'} />
             <ModalStat label="Guests" value={guestCount ?? 0} />
           </div>
         )}
