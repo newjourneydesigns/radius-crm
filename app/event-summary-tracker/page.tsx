@@ -509,10 +509,11 @@ export default function EventSummaryTrackerPage() {
         if (cancelled) return;
 
         // resolveLeaderWeek returns either {status:'submitted',...} or {status:'ccb_only',...} or {status:'did_not_meet'} or {status:'not_submitted'}
+        // Use || (not ??) so empty strings from the API don't hide existing row data.
         const next = {
-          topic: json.topic ?? null,
-          notes: json.notes ?? null,
-          prayer_requests: json.prayer_requests ?? null,
+          topic: json.topic || reviewRow.topic || null,
+          notes: json.notes || reviewRow.notes || null,
+          prayer_requests: json.prayer_requests || reviewRow.occurrence?.prayer_requests || reviewRow.submission?.prayer_requests || null,
           headcount: json.headcount ?? reviewRow.headcount ?? null,
           guest_count: json.guest_count ?? reviewRow.guestCount ?? null,
           did_not_meet: json.did_not_meet === true || json.status === 'did_not_meet',
@@ -1094,8 +1095,8 @@ export default function EventSummaryTrackerPage() {
             <Stat value={stats.dnm}       label="Didn't Meet"   color="text-slate-300" />
             <Stat value={stats.notReport} label="No Summary"    color="text-red-400" />
           </div>
-          <div className="mt-5 pt-4 border-t border-slate-700/60 flex flex-wrap items-end justify-between gap-3 text-sm">
-            <div className="flex w-full justify-center gap-6 sm:w-auto sm:justify-start">
+          <div className="mt-5 pt-4 border-t border-slate-700/60 flex flex-wrap items-center justify-between gap-3 text-sm">
+            <div className="flex w-full justify-center gap-8 sm:w-auto sm:justify-start">
               <SmallStat label="ATTENDED" value={stats.totalAttended} />
               <SmallStat label="AVG SIZE" value={stats.avgSize ?? '–'} />
               <SmallStat label="CIRCLES" value={rows.length} />
@@ -1255,9 +1256,9 @@ function ReviewModal({
   const guestCount = live?.guest_count ?? row.guestCount ?? 0;
   const inRoster = Math.max(0, (headcount ?? 0) - (guestCount ?? 0));
   const totalAttended = (headcount ?? 0);
-  const notes = live?.notes ?? row.notes ?? null;
-  const topic = live?.topic ?? row.topic ?? null;
-  const prayerRequests = live?.prayer_requests ?? row.occurrence?.prayer_requests ?? row.submission?.prayer_requests ?? null;
+  const notes = live?.notes || row.notes || null;
+  const topic = live?.topic || row.topic || null;
+  const prayerRequests = live?.prayer_requests || row.occurrence?.prayer_requests || row.submission?.prayer_requests || null;
   const liveLoading = live?.loading === true;
 
   return (
@@ -1399,9 +1400,9 @@ function Stat({ value, label, color }: { value: number | string; label: string; 
 
 function SmallStat({ label, value }: { label: string; value: number | string }) {
   return (
-    <div>
-      <div className="text-[10px] text-slate-500 uppercase tracking-wide">{label}</div>
-      <div className="text-lg font-semibold text-slate-100">{value}</div>
+    <div className="flex flex-col items-center gap-0.5">
+      <div className="text-2xl font-bold text-white tabular-nums">{value}</div>
+      <div className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">{label}</div>
     </div>
   );
 }
