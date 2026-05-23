@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
-import { getRandomLoadingMessage } from '../lib/loadingMessages';
+import { useRandomLoadingMessage } from '../hooks/useRandomLoadingMessage';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -15,7 +15,7 @@ export default function ProtectedRoute({ children, requireAuth = true }: Protect
   const router = useRouter();
   const pathname = usePathname();
   const [timeoutReached, setTimeoutReached] = useState(false);
-  const [loadingMessage] = useState(getRandomLoadingMessage);
+  const loadingMessage = useRandomLoadingMessage();
 
   const handleClearData = async () => {
     console.log('🔄 ProtectedRoute: Clearing data and refreshing...');

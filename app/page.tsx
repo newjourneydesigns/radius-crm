@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../contexts/AuthContext';
-import { getRandomLoadingMessage } from '../lib/loadingMessages';
+import { useRandomLoadingMessage } from '../hooks/useRandomLoadingMessage';
 
 export default function Page() {
   const router = useRouter();
   const { loading, isAuthenticated } = useAuth();
-  const [loadingMessage] = useState(getRandomLoadingMessage);
+  const loadingMessage = useRandomLoadingMessage();
 
   useEffect(() => {
     if (loading) return;
