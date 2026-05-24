@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-05-24",
+    "type": "improvement",
+    "page": "/event-summary-tracker",
+    "description": "Refreshed the Event Summary Tracker stats panel: status counts now appear as a single color-coded progress bar with a submission-rate headline, and Attended / Avg Size show week-over-week deltas so trends are visible at a glance."
+  },
+  {
     "date": "2026-05-23",
     "type": "fix",
     "page": "/today",

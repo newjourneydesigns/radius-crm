@@ -320,6 +320,7 @@ export default function EventSummaryTrackerPage() {
   const [snapshots, setSnapshots] = useState<SnapshotRow[]>([]);
   const [occurrences, setOccurrences] = useState<OccurrenceRow[]>([]);
   const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
+  const [prevOccurrences, setPrevOccurrences] = useState<OccurrenceRow[]>([]);
   const [tracker, setTracker] = useState<TrackerData | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -522,6 +523,24 @@ export default function EventSummaryTrackerPage() {
   }, [weekStart, weekEnd, user?.id, applyPayload]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+  // Load previous week's occurrences so we can compute WoW deltas in the stats card.
+  useEffect(() => {
+    let cancelled = false;
+    const prevStart = shiftWeek(weekStart, -1);
+    const prevEnd = DateTime.fromISO(prevStart).plus({ days: 6 }).toISODate()!;
+    (async () => {
+      const { data, error } = await supabase
+        .from('circle_meeting_occurrences')
+        .select('id, leader_id, meeting_date, status, headcount, has_notes, guest_count, topic, notes, prayer_requests, reviewed_at, reviewed_by')
+        .gte('meeting_date', prevStart)
+        .lte('meeting_date', prevEnd);
+      if (cancelled) return;
+      if (error) { setPrevOccurrences([]); return; }
+      setPrevOccurrences(data ?? []);
+    })();
+    return () => { cancelled = true; };
+  }, [weekStart]);
 
   // Reset the dismissible banner when the user navigates to a different week
   useEffect(() => { setBannerDismissed(false); }, [weekStart]);
@@ -749,6 +768,32 @@ export default function EventSummaryTrackerPage() {
     const missedCount = rows.filter(r => r.missedTwoPlus).length;
     return { received, dnm, review, notReport, inCcb, totalAttended, avgSize, missedCount };
   }, [rows, needsReview.length, awaiting.length]);
+
+  // Prior-week stats, scoped to the same set of leaders currently in `rows`
+  // (so campus/ACPD/status filters apply to the deltas too).
+  const prevStats = useMemo(() => {
+    const leaderIds = new Set(rows.map(r => r.leader.id));
+    // Dedupe to one occurrence per leader (mirrors `rows` logic — reviewed first, then latest)
+    const occByLeader = new Map<number, OccurrenceRow>();
+    for (const o of prevOccurrences) {
+      if (!leaderIds.has(o.leader_id)) continue;
+      const existing = occByLeader.get(o.leader_id);
+      if (!existing) { occByLeader.set(o.leader_id, o); continue; }
+      const oRev = !!o.reviewed_at, eRev = !!existing.reviewed_at;
+      if (oRev && !eRev) { occByLeader.set(o.leader_id, o); continue; }
+      if (!oRev && eRev) continue;
+      if (o.meeting_date > existing.meeting_date) occByLeader.set(o.leader_id, o);
+    }
+    let received = 0, totalAtt = 0;
+    for (const o of occByLeader.values()) {
+      if (o.status === 'did_not_meet') continue;
+      received++;
+      const head = o.headcount ?? 0;
+      totalAtt += head; // includes guests
+    }
+    const avgSize = received > 0 ? Math.round((totalAtt / received) * 10) / 10 : null;
+    return { received, totalAttended: totalAtt, avgSize };
+  }, [prevOccurrences, rows]);
 
   const orphanCount = (tracker?.orphans.inactive.length ?? 0) + (tracker?.orphans.unknown_group.length ?? 0);
   const issueCount = orphanCount + (stats.missedCount > 0 ? 1 : 0);
@@ -1134,16 +1179,19 @@ export default function EventSummaryTrackerPage() {
 
         {/* Stats card */}
         <div className="rounded-xl border border-slate-700 bg-slate-800/60 p-4 sm:p-5 shadow-card-glass mb-4">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 text-center">
-            <Stat value={stats.received}  label="Received"      color="text-green-400" />
-            <Stat value={stats.review}    label="Needs Review"  color="text-amber-400" />
-            <Stat value={stats.dnm}       label="Didn't Meet"   color="text-slate-300" />
-            <Stat value={stats.notReport} label="No Summary"    color="text-red-400" />
-          </div>
+          <StatusBar
+            segments={[
+              { key: 'received', label: 'Received',     value: stats.received,  color: '#22c55e' },
+              { key: 'review',   label: 'Needs Review', value: stats.review,    color: '#f59e0b' },
+              { key: 'dnm',      label: "Didn't Meet",  value: stats.dnm,       color: '#3b82f6' },
+              { key: 'no',       label: 'No Summary',   value: stats.notReport, color: '#ef4444' },
+            ]}
+            total={rows.length}
+          />
           <div className="mt-5 pt-4 border-t border-slate-700/60 flex flex-wrap items-center justify-between gap-3 text-sm">
-            <div className="flex w-full justify-center gap-8 sm:w-auto sm:justify-start">
-              <SmallStat label="ATTENDED" value={stats.totalAttended} />
-              <SmallStat label="AVG SIZE" value={stats.avgSize ?? '–'} />
+            <div className="flex w-full justify-center gap-6 sm:w-auto sm:justify-start sm:gap-8">
+              <SmallStat label="ATTENDED" value={stats.totalAttended} delta={diff(stats.totalAttended, prevStats.totalAttended)} />
+              <SmallStat label="AVG SIZE" value={stats.avgSize ?? '–'} delta={diff(stats.avgSize, prevStats.avgSize)} />
               <SmallStat label="CIRCLES" value={rows.length} />
             </div>
             <div className="flex w-full items-center justify-center gap-2 sm:w-auto sm:justify-end">
@@ -1435,20 +1483,81 @@ function ModalStat({ label, value }: { label: string; value: number | string }) 
 
 // ─── subcomponents ────────────────────────────────────────────────────────────
 
-function Stat({ value, label, color }: { value: number | string; label: string; color: string }) {
+function diff(curr: number | null | undefined, prev: number | null | undefined): number | null {
+  if (curr == null || prev == null) return null;
+  const d = curr - prev;
+  return Number.isFinite(d) ? Math.round(d * 10) / 10 : null;
+}
+
+function DeltaBadge({ delta }: { delta: number | null }) {
+  if (delta == null || delta === 0) {
+    return <span className="text-[10px] text-slate-500 tabular-nums">—</span>;
+  }
+  const up = delta > 0;
+  const cls = up ? 'text-emerald-400' : 'text-rose-400';
+  const arrow = up ? '▲' : '▼';
+  const formatted = Number.isInteger(delta) ? Math.abs(delta).toString() : Math.abs(delta).toFixed(1);
   return (
-    <div>
-      <div className={`text-3xl font-bold ${color}`}>{value}</div>
-      <div className="text-xs text-slate-400 mt-1">{label}</div>
-    </div>
+    <span className={`text-[10px] font-semibold tabular-nums ${cls}`}>
+      {arrow} {formatted}
+    </span>
   );
 }
 
-function SmallStat({ label, value }: { label: string; value: number | string }) {
+function SmallStat({ label, value, delta }: { label: string; value: number | string; delta?: number | null }) {
   return (
     <div className="flex flex-col items-center gap-0.5">
       <div className="text-2xl font-bold text-white tabular-nums">{value}</div>
       <div className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">{label}</div>
+      {delta !== undefined && (
+        <div className="mt-0.5" title="vs. last week">
+          <DeltaBadge delta={delta} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+type StatusSegment = { key: string; label: string; value: number; color: string };
+
+function StatusBar({ segments, total }: { segments: StatusSegment[]; total: number }) {
+  const received = segments.find(s => s.key === 'received')?.value ?? 0;
+  const rate = total > 0 ? Math.round((received / total) * 100) : 0;
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-3 mb-2">
+        <div className="flex items-baseline gap-2">
+          <span className="text-2xl sm:text-3xl font-bold text-white tabular-nums">{rate}%</span>
+          <span className="text-xs text-slate-400">submitted ({received}/{total})</span>
+        </div>
+      </div>
+      <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-slate-900/70 ring-1 ring-slate-700/60">
+        {total === 0 ? (
+          <div className="flex-1 bg-slate-700/40" />
+        ) : (
+          segments.map(seg => {
+            if (seg.value === 0) return null;
+            const pct = (seg.value / total) * 100;
+            return (
+              <div
+                key={seg.key}
+                className="h-full transition-all"
+                style={{ width: `${pct}%`, background: seg.color }}
+                title={`${seg.label}: ${seg.value} (${Math.round(pct)}%)`}
+              />
+            );
+          })
+        )}
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 sm:flex sm:flex-wrap sm:gap-x-5 sm:gap-y-2">
+        {segments.map(seg => (
+          <div key={seg.key} className="flex items-center gap-2 min-w-0">
+            <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: seg.color }} />
+            <span className="text-xs text-slate-300 truncate">{seg.label}</span>
+            <span className="text-xs font-semibold text-white tabular-nums ml-auto sm:ml-1">{seg.value}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
