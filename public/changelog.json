@@ -3,6 +3,12 @@
     "date": "2026-05-25",
     "type": "improvement",
     "page": "/circle-summary",
+    "description": "Faster Circle Summary roster: the page now loads from a server-side roster cache instead of waiting on a live CCB call every time. Add/remove actions update the cache instantly so changes appear immediately, and the cache transparently re-syncs from CCB in the background after 15 minutes."
+  },
+  {
+    "date": "2026-05-25",
+    "type": "improvement",
+    "page": "/circle-summary",
     "description": "Circle Summary now installs as its own PWA with a dedicated icon: the white Circles logo centered on the page's signature green. Adding /circle-summary to your home screen launches straight into the Circle Summary sign-in flow, not the main RADIUS app. Magic-link previews in iMessage now show 'Circle Summary' as the title instead of 'Signing you in…'."
   },
   {
