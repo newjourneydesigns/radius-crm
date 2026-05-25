@@ -5,6 +5,18 @@ export const metadata = {
   title: 'RADIUS Circle Leader Management',
   description: 'Circle Leader Management System for RADIUS',
   manifest: '/manifest.json',
+  icons: {
+    icon: [
+      { url: '/icon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/icon-16x16.png', sizes: '16x16', type: 'image/png' },
+    ],
+    shortcut: '/icon-32x32.png',
+    apple: [
+      { url: '/apple-touch-icon.png' },
+      { url: '/apple-touch-icon-152x152.png', sizes: '152x152' },
+      { url: '/apple-touch-icon-120x120.png', sizes: '120x120' },
+    ],
+  },
 };
 
 export default function RootLayout({ 
@@ -99,14 +111,6 @@ export default function RootLayout({
         <meta name="msapplication-tap-highlight" content="no" />
         <meta name="theme-color" content="#091b34" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-
-        {/* Favicon Links */}
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon-152x152.png" />
-        <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon-120x120.png" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/icon-32x32.png" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/icon-16x16.png" />
-        <link rel="shortcut icon" href="/icon-32x32.png" />
 
         {/* Force dark theme immediately */}
         <script dangerouslySetInnerHTML={{ __html: darkThemeScript }} />
