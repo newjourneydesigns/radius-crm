@@ -2,6 +2,12 @@
   {
     "date": "2026-05-25",
     "type": "improvement",
+    "page": "/circle-summary",
+    "description": "Circle Summary now installs as its own PWA with a dedicated icon: the white Circles logo centered on the page's signature green. Adding /circle-summary to your home screen launches straight into the Circle Summary sign-in flow, not the main RADIUS app. Magic-link previews in iMessage now show 'Circle Summary' as the title instead of 'Signing you in…'."
+  },
+  {
+    "date": "2026-05-25",
+    "type": "improvement",
     "page": "/notebook",
     "description": "Notebook opens faster: the app remembers your last-opened page and jumps to it instantly on reload, and the most-recent page lookup now fetches full content in one query instead of two. If the remembered page has been deleted, you're gracefully bounced back to /notebook instead of seeing an endless skeleton."
   },

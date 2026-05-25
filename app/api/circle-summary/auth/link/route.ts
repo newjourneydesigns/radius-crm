@@ -98,7 +98,9 @@ export async function GET(req: Request) {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Signing you in…</title>
+  <title>Circle Summary</title>
+  <meta property="og:title" content="Circle Summary" />
+  <meta name="twitter:title" content="Circle Summary" />
   <meta http-equiv="refresh" content="0;url=${escapeHtml(resolvedNext)}" />
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #fff; color: #3E3E3E; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
