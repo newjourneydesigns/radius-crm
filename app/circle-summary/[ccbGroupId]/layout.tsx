@@ -32,7 +32,7 @@ function writeLeaderCache(groupId: string, leader: HeaderLeader): void {
 
 export default function CircleGroupLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname() ?? '';
+  const pathname = (usePathname() ?? '').replace(/\/+$/, '');
   const params = useParams<{ ccbGroupId: string }>();
   const urlGroupId = params?.ccbGroupId ?? '';
   const [leader, setLeader] = useState<HeaderLeader | null>(null);
