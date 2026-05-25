@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useBigThree } from '../../hooks/useBigThree';
 import type { BigThreeBoard, BigThreeCard, BigThreeSlot } from '../../hooks/useBigThree';
+import { useRandomLoadingMessage } from '../../hooks/useRandomLoadingMessage';
 import { useTodayData } from '../../hooks/useTodayData';
 import type {
   EncouragementItem,
@@ -712,6 +713,7 @@ function SkEl({ w, h, r = 5, style }: { w: number | string; h: number; r?: numbe
 }
 
 function TodaySkeleton() {
+  const loadingMessage = useRandomLoadingMessage();
   const sectionRows = [3, 2, 4, 2];
   return (
     <div style={{
@@ -722,8 +724,43 @@ function TodaySkeleton() {
     }}>
       <style>{`
         @keyframes sk-pulse { 0%,100% { opacity:.45 } 50% { opacity:.8 } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .sk { background:${SK}; animation: sk-pulse 1.6s ease-in-out infinite; }
       `}</style>
+
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 12,
+        margin: '8px 0 24px',
+        textAlign: 'center',
+      }}>
+        <div style={{
+          width: 34,
+          height: 34,
+          borderRadius: 999,
+          border: `2px solid ${T.cardBorder}`,
+          borderTopColor: '#60a5fa',
+          animation: 'spin 1s linear infinite',
+        }} />
+        <p
+          key={loadingMessage}
+          suppressHydrationWarning
+          className="loading-message-build-in"
+          style={{
+            minHeight: 22,
+            margin: 0,
+            color: T.textMuted,
+            fontSize: 13,
+            fontWeight: 500,
+            lineHeight: 1.5,
+            overflowWrap: 'anywhere',
+          }}
+        >
+          {loadingMessage}
+        </p>
+      </div>
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>

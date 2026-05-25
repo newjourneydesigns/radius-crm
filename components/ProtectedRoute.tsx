@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
-import { useRandomLoadingMessage } from '../hooks/useRandomLoadingMessage';
+import AppLoadingScreen from './layout/AppLoadingScreen';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -15,7 +15,6 @@ export default function ProtectedRoute({ children, requireAuth = true }: Protect
   const router = useRouter();
   const pathname = usePathname();
   const [timeoutReached, setTimeoutReached] = useState(false);
-  const loadingMessage = useRandomLoadingMessage();
 
   const handleClearData = async () => {
     console.log('🔄 ProtectedRoute: Clearing data and refreshing...');
@@ -68,16 +67,7 @@ export default function ProtectedRoute({ children, requireAuth = true }: Protect
 
   // Show loading while checking authentication
   if (loading && !timeoutReached) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-2 border-gray-300/30 border-t-blue-600"></div>
-          <p suppressHydrationWarning className="text-sm text-gray-600 dark:text-gray-300">
-            {loadingMessage}
-          </p>
-        </div>
-      </div>
-    );
+    return <AppLoadingScreen />;
   }
 
   // If timeout reached, show error message with refresh option
@@ -114,32 +104,14 @@ export default function ProtectedRoute({ children, requireAuth = true }: Protect
   // If authentication is required but user is not authenticated, show loading
   // (the useEffect will redirect to login)
   if (requireAuth && !isAuthenticated()) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-2 border-gray-300/30 border-t-blue-600"></div>
-          <p suppressHydrationWarning className="text-sm text-gray-600 dark:text-gray-300">
-            {loadingMessage}
-          </p>
-        </div>
-      </div>
-    );
+    return <AppLoadingScreen />;
   }
 
   // If this is a public-only route (e.g. login) but the user is already authenticated,
   // show a spinner instead of the login UI while the useEffect redirect fires.
   // This prevents the login screen from briefly flashing before navigating away.
   if (!requireAuth && isAuthenticated()) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-600/20 border-t-blue-600"></div>
-          <p suppressHydrationWarning className="text-sm text-gray-600 dark:text-gray-300">
-            {loadingMessage}
-          </p>
-        </div>
-      </div>
-    );
+    return <AppLoadingScreen compact />;
   }
 
   // User is authenticated or route doesn't require auth, render children

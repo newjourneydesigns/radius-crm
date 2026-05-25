@@ -395,6 +395,10 @@ async function buildTodayData(
       dueToday: (followUpsRaw || []).filter((f: any) => f.follow_up_date === today).map(toFU),
       overdue:  (followUpsRaw || []).filter((f: any) => !f.follow_up_date || f.follow_up_date < today).map(toFU),
     },
+    prayerRequests: {
+      dueToday: [],
+      overdue: [],
+    },
     cards: {
       dueToday: allCards.filter(c => c.due_date === today),
       overdue:  allCards.filter(c => c.due_date !== null && c.due_date! < today),

@@ -2,11 +2,10 @@
 
 import { useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import type { TodayData } from '../app/api/today/route';
 import type { TodayCoreData } from '../app/api/today/core/route';
 import type { TodayCardsData } from '../app/api/today/cards/route';
 
-export type { TodayData };
+export type TodayData = TodayCoreData & TodayCardsData;
 
 const CORE_CACHE_KEY  = 'today_core_cache_v1';
 const CARDS_CACHE_KEY = 'today_cards_cache_v1';
@@ -18,9 +17,57 @@ const EMPTY_CARDS: TodayCardsData = {
   checklistItems: { dueToday: [], overdue: [] },
 };
 
+type CacheResult = {
+  data: TodayData | null;
+  hasCore: boolean;
+  hasCards: boolean;
+};
+
+function readTodayCache(): CacheResult {
+  const empty = { data: null, hasCore: false, hasCards: false };
+  if (typeof window === 'undefined') return empty;
+
+  try {
+    const rawCore = localStorage.getItem(CORE_CACHE_KEY);
+    const rawCards = localStorage.getItem(CARDS_CACHE_KEY);
+    let cachedCore: TodayCoreData | null = null;
+    let cachedCards: TodayCardsData | null = null;
+    let hasCore = false;
+    let hasCards = false;
+
+    if (rawCore) {
+      const { data, timestamp } = JSON.parse(rawCore);
+      if (Date.now() - timestamp < CACHE_TTL) {
+        hasCore = true;
+        cachedCore = data;
+      }
+    }
+
+    if (rawCards) {
+      const { data, timestamp } = JSON.parse(rawCards);
+      if (Date.now() - timestamp < CACHE_TTL) {
+        hasCards = true;
+        cachedCards = data;
+      }
+    }
+
+    return {
+      data: cachedCore ? { ...cachedCore, ...(cachedCards || EMPTY_CARDS) } : null,
+      hasCore,
+      hasCards,
+    };
+  } catch {
+    return empty;
+  }
+}
+
+function getErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : 'Unknown error';
+}
+
 export function useTodayData() {
   const [data, setData] = useState<TodayData | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
   const [isCardsLoading, setIsCardsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,25 +77,10 @@ export function useTodayData() {
     setIsFetching(true);
 
     // Load cached data immediately so the page renders without a spinner
-    let hasCachedCore  = false;
-    let hasCachedCards = false;
-    let cachedCore: TodayCoreData | null  = null;
-    let cachedCards: TodayCardsData | null = null;
-    try {
-      const rawCore  = localStorage.getItem(CORE_CACHE_KEY);
-      const rawCards = localStorage.getItem(CARDS_CACHE_KEY);
-      if (rawCore) {
-        const { data: d, timestamp } = JSON.parse(rawCore);
-        if (Date.now() - timestamp < CACHE_TTL) { hasCachedCore = true; cachedCore = d; }
-      }
-      if (rawCards) {
-        const { data: d, timestamp } = JSON.parse(rawCards);
-        if (Date.now() - timestamp < CACHE_TTL) { hasCachedCards = true; cachedCards = d; }
-      }
-      if (hasCachedCore) {
-        setData({ ...cachedCore!, ...(hasCachedCards ? cachedCards! : EMPTY_CARDS) });
-      }
-    } catch {}
+    const cached = readTodayCache();
+    const hasCachedCore = cached.hasCore;
+    const hasCachedCards = cached.hasCards;
+    if (cached.data) setData(cached.data);
 
     // Only block with a full-page spinner on the very first load (no cache at all)
     if (!hasCachedCore) setIsLoading(true);
@@ -88,9 +120,9 @@ export function useTodayData() {
           setIsLoading(false);
           applyData();
           try { localStorage.setItem(CORE_CACHE_KEY, JSON.stringify({ data: freshCore, timestamp: Date.now() })); } catch {}
-        } catch (err: any) {
+        } catch (err: unknown) {
           setIsLoading(false);
-          setError(err.message || 'Unknown error');
+          setError(getErrorMessage(err));
         }
       })();
 
@@ -108,8 +140,8 @@ export function useTodayData() {
       })();
 
       await Promise.allSettled([corePromise, cardsPromise]);
-    } catch (err: any) {
-      setError(err.message || 'Unknown error');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
       setIsLoading(false);
       setIsCardsLoading(false);
     } finally {

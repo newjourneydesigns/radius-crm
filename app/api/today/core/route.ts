@@ -21,6 +21,16 @@ export interface TodayCoreData {
   recentNotes: NoteItem[];
 }
 
+type UserProfile = { id: string; name: string; email: string };
+type LeaderSummary = { name?: string | null; campus?: string | null };
+type VisitRow = { id: string; visit_date: string; leader_id: number; previsit_note?: string | null; circle_leaders?: LeaderSummary | LeaderSummary[] | null };
+type EncouragementRow = { id: number; circle_leader_id: number; encourage_method: string; message_date: string; note?: string | null; circle_leaders?: LeaderSummary | LeaderSummary[] | null };
+type FollowUpRow = { id: number; name: string; campus?: string | null; follow_up_date?: string | null };
+type BirthdayLeaderRow = { id: number; name: string; campus?: string | null; birthday?: string | null; phone?: string | null };
+type NoteRow = { id: number; circle_leader_id: number; content: string; created_at: string; circle_leaders?: LeaderSummary | LeaderSummary[] | null };
+type LeaderPrayerRow = { id: number; content: string; pray_date: string; circle_leader_id: number; circle_leaders?: LeaderSummary | LeaderSummary[] | null };
+type GeneralPrayerRow = { id: number; content: string; pray_date: string };
+
 function getSupabaseServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -53,6 +63,10 @@ function extractSubFromToken(token: string): string | null {
 const responseCache = new Map<string, { payload: object; cachedAt: number }>();
 const RESPONSE_CACHE_TTL = 60_000;
 
+function singleLeader(value: LeaderSummary | LeaderSummary[] | null | undefined): LeaderSummary | null {
+  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
+}
+
 export async function GET(request: NextRequest) {
   try {
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
@@ -77,7 +91,7 @@ export async function GET(request: NextRequest) {
 
     if (!authResult.data.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const userProfile = profileResult.data;
+    const userProfile = profileResult.data as UserProfile | null;
     if (!userProfile || userProfile.id !== authResult.data.user.id) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -93,7 +107,6 @@ export async function GET(request: NextRequest) {
     const weekEnd    = getDateOffset(today, 7);
     const monthEnd   = getDateOffset(today, 30);
     const afterWeek  = getDateOffset(today, 8);
-    const weekDates  = Array.from({ length: 7 }, (_, i) => getDateOffset(today, i));
 
     const [
       { data: visitsRaw },
@@ -159,48 +172,64 @@ export async function GET(request: NextRequest) {
         .order('pray_date', { ascending: true }),
     ]);
 
-    const toVisit = (v: any): VisitItem => ({
-      id: v.id, visit_date: v.visit_date, leader_id: v.leader_id,
-      leader_name: v.circle_leaders?.name ?? 'Unknown',
-      leader_campus: v.circle_leaders?.campus, previsit_note: v.previsit_note,
-    });
-    const toEnc = (e: any): EncouragementItem => ({
-      id: e.id, circle_leader_id: e.circle_leader_id,
-      leader_name: e.circle_leaders?.name ?? 'Unknown',
-      leader_campus: e.circle_leaders?.campus,
-      encourage_method: e.encourage_method, message_date: e.message_date, note: e.note,
-    });
-    const toFU = (f: any): FollowUpItem => ({
-      id: f.id, name: f.name, campus: f.campus, follow_up_date: f.follow_up_date,
+    const visits = (visitsRaw || []) as VisitRow[];
+    const upcomingVisits = (upcomingVisitsRaw || []) as VisitRow[];
+    const encouragements = (encsRaw || []) as EncouragementRow[];
+    const followUps = (followUpsRaw || []) as FollowUpRow[];
+    const birthdayRows = (birthdayLeaders || []) as BirthdayLeaderRow[];
+    const notes = (notesRaw || []) as NoteRow[];
+    const leaderPrayers = (leaderPrayersRaw || []) as LeaderPrayerRow[];
+    const generalPrayers = (generalPrayersRaw || []) as GeneralPrayerRow[];
+
+    const toVisit = (v: VisitRow): VisitItem => {
+      const leader = singleLeader(v.circle_leaders);
+      return {
+        id: v.id, visit_date: v.visit_date, leader_id: v.leader_id,
+        leader_name: leader?.name ?? 'Unknown',
+        leader_campus: leader?.campus ?? undefined,
+        previsit_note: v.previsit_note ?? undefined,
+      };
+    };
+    const toEnc = (e: EncouragementRow): EncouragementItem => {
+      const leader = singleLeader(e.circle_leaders);
+      return {
+        id: e.id, circle_leader_id: e.circle_leader_id,
+        leader_name: leader?.name ?? 'Unknown',
+        leader_campus: leader?.campus ?? undefined,
+        encourage_method: e.encourage_method, message_date: e.message_date, note: e.note ?? undefined,
+      };
+    };
+    const toFU = (f: FollowUpRow): FollowUpItem => ({
+      id: f.id, name: f.name, campus: f.campus ?? undefined, follow_up_date: f.follow_up_date ?? undefined,
     });
 
     const todayDate  = new Date(today + 'T00:00:00');
     const todayMonth = todayDate.getMonth() + 1;
     const todayDayN  = todayDate.getDate();
 
-    const birthdays: BirthdayItem[] = (birthdayLeaders || []).filter((l: any) => {
+    const birthdays: BirthdayItem[] = birthdayRows.filter((l) => {
       if (!l.birthday) return false;
-      const raw = (l.birthday as string).trim();
+      const raw = l.birthday.trim();
       let m: number, d: number;
       if (raw.includes('/')) { const p = raw.split('/'); m = +p[0]; d = +p[1]; }
       else if (raw.includes('-')) { const p = raw.split('-'); m = +p[1]; d = +p[2]; }
       else return false;
       return m === todayMonth && d === todayDayN;
-    }).map((l: any) => ({ id: l.id, name: l.name, campus: l.campus ?? undefined, birthday: l.birthday, phone: l.phone || undefined }));
+    }).map((l) => ({ id: l.id, name: l.name, campus: l.campus ?? undefined, birthday: l.birthday || '', phone: l.phone || undefined }));
 
-    const toPrayer = (p: any, isGeneral = false): PrayerRequestItem => ({
+    const toPrayer = (p: LeaderPrayerRow | GeneralPrayerRow, isGeneral = false): PrayerRequestItem => ({
       id: p.id,
       content: p.content,
       pray_date: p.pray_date,
-      circle_leader_id: isGeneral ? undefined : p.circle_leader_id,
-      leader_name: isGeneral ? undefined : (p.circle_leaders?.name ?? undefined),
-      leader_campus: isGeneral ? undefined : (p.circle_leaders?.campus ?? undefined),
+      circle_leader_id: isGeneral ? undefined : (p as LeaderPrayerRow).circle_leader_id,
+      leader_name: isGeneral ? undefined : (singleLeader((p as LeaderPrayerRow).circle_leaders)?.name ?? undefined),
+      leader_campus: isGeneral ? undefined : (singleLeader((p as LeaderPrayerRow).circle_leaders)?.campus ?? undefined),
       is_general: isGeneral,
     });
 
     const allPrayers: PrayerRequestItem[] = [
-      ...(leaderPrayersRaw || []).map(p => toPrayer(p, false)),
-      ...(generalPrayersRaw || []).map(p => toPrayer(p, true)),
+      ...leaderPrayers.map(p => toPrayer(p, false)),
+      ...generalPrayers.map(p => toPrayer(p, true)),
     ];
 
     const payload: TodayCoreData = {
@@ -208,26 +237,26 @@ export async function GET(request: NextRequest) {
       user,
       birthdays,
       circleVisits: {
-        today: (visitsRaw || []).filter((v: any) => v.visit_date === today).map(toVisit),
-        thisWeek: (visitsRaw || []).filter((v: any) => v.visit_date >= tomorrow && v.visit_date <= weekEnd).map(toVisit),
+        today: visits.filter((v) => v.visit_date === today).map(toVisit),
+        thisWeek: visits.filter((v) => v.visit_date >= tomorrow && v.visit_date <= weekEnd).map(toVisit),
       },
-      upcomingVisits: (upcomingVisitsRaw || []).map(toVisit),
+      upcomingVisits: upcomingVisits.map(toVisit),
       encouragements: {
-        dueToday: (encsRaw || []).filter((e: any) => e.message_date === today).map(toEnc),
-        overdue:  (encsRaw || []).filter((e: any) => e.message_date < today).map(toEnc),
+        dueToday: encouragements.filter((e) => e.message_date === today).map(toEnc),
+        overdue:  encouragements.filter((e) => e.message_date < today).map(toEnc),
       },
       followUps: {
-        dueToday: (followUpsRaw || []).filter((f: any) => f.follow_up_date === today).map(toFU),
-        overdue:  (followUpsRaw || []).filter((f: any) => !f.follow_up_date || f.follow_up_date < today).map(toFU),
+        dueToday: followUps.filter((f) => f.follow_up_date === today).map(toFU),
+        overdue:  followUps.filter((f) => !f.follow_up_date || f.follow_up_date < today).map(toFU),
       },
       prayerRequests: {
         dueToday: allPrayers.filter(p => p.pray_date === today),
         overdue:  allPrayers.filter(p => p.pray_date < today),
       },
-      recentNotes: (notesRaw || []).map((n: any) => ({
+      recentNotes: notes.map((n) => ({
         id: n.id, circle_leader_id: n.circle_leader_id,
-        leader_name: n.circle_leaders?.name ?? 'Unknown',
-        leader_campus: n.circle_leaders?.campus,
+        leader_name: singleLeader(n.circle_leaders)?.name ?? 'Unknown',
+        leader_campus: singleLeader(n.circle_leaders)?.campus ?? undefined,
         content: n.content, created_at: n.created_at,
       })),
     };
@@ -237,7 +266,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(payload, {
       headers: { 'X-Cache': 'MISS', 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Today core API error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

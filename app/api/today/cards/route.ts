@@ -8,6 +8,35 @@ export interface TodayCardsData {
   checklistItems: { dueToday: ChecklistDigestItem[]; overdue: ChecklistDigestItem[] };
 }
 
+type UserProfile = { id: string; name: string; email: string };
+type BoardRow = { id: string; title: string };
+type AssignmentRow = { card_id: string };
+type BoardColumnRow = { id?: string | null; title?: string | null };
+type CardLabelRow = { name: string; color: string };
+type CardLabelAssignmentRow = { board_labels?: CardLabelRow | null };
+type CardAssignmentRow = { users?: { name?: string | null } | null };
+type ChecklistProgressRow = { is_completed?: boolean | null };
+type RawCard = {
+  id: string;
+  title: string;
+  due_date: string | null;
+  priority?: string | null;
+  board_id: string | null;
+  column_id?: string | null;
+  board_columns?: BoardColumnRow | BoardColumnRow[] | null;
+  card_label_assignments?: CardLabelAssignmentRow[] | null;
+  card_checklists?: ChecklistProgressRow[] | null;
+  card_assignments?: CardAssignmentRow[] | null;
+};
+type CardIdRow = { id: string };
+type ChecklistRow = {
+  id: string;
+  title: string;
+  due_date: string;
+  card_id: string;
+  board_cards?: { id?: string; title?: string | null; board_id?: string | null } | { id?: string; title?: string | null; board_id?: string | null }[] | null;
+};
+
 function getSupabaseServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -45,21 +74,21 @@ const CARD_SELECT = `
   card_assignments(users(name))
 `;
 
-function mapCard(c: any, boardMap: Map<string, string>): CardDigestItem {
+function mapCard(c: RawCard, boardMap: Map<string, string>): CardDigestItem {
   const col = Array.isArray(c.board_columns) ? c.board_columns[0] : c.board_columns;
-  const checklists = (c.card_checklists || []);
+  const checklists = c.card_checklists || [];
   return {
     id: c.id,
     title: c.title,
     due_date: c.due_date,
-    board_name: boardMap.get(c.board_id) || 'Unknown Board',
+    board_name: boardMap.get(c.board_id || '') || 'Unknown Board',
     board_id: c.board_id || '',
     column_name: col?.title || '',
-    assignees: (c.card_assignments || []).map((a: any) => a.users?.name).filter(Boolean),
-    priority: c.priority,
-    labels: (c.card_label_assignments || []).map((la: any) => la.board_labels).filter(Boolean),
+    assignees: (c.card_assignments || []).map((a) => a.users?.name).filter((name): name is string => Boolean(name)),
+    priority: c.priority ?? undefined,
+    labels: (c.card_label_assignments || []).map((la) => la.board_labels).filter((label): label is CardLabelRow => Boolean(label)),
     checklist_total: checklists.length,
-    checklist_done: checklists.filter((ci: any) => ci.is_completed).length,
+    checklist_done: checklists.filter((ci) => ci.is_completed).length,
   };
 }
 
@@ -75,9 +104,11 @@ async function buildCardsData(
     supabase.from('card_assignments').select('card_id').eq('user_id', user.id),
   ]);
 
-  const boardIds        = (boardsRaw || []).map((b: any) => b.id as string);
-  const boardMap        = new Map<string, string>((boardsRaw || []).map((b: any) => [b.id, b.title as string]));
-  const assignedCardIds = (assignmentRows || []).map((a: any) => a.card_id as string);
+  const boards = (boardsRaw || []) as BoardRow[];
+  const assignments = (assignmentRows || []) as AssignmentRow[];
+  const boardIds = boards.map((b) => b.id);
+  const boardMap = new Map<string, string>(boards.map((b) => [b.id, b.title]));
+  const assignedCardIds = assignments.map((a) => a.card_id);
 
   if (boardIds.length === 0 && assignedCardIds.length === 0) {
     return { cards: { dueToday: [], overdue: [] }, focusCards: [], checklistItems: { dueToday: [], overdue: [] } };
@@ -100,7 +131,7 @@ async function buildCardsData(
           .eq('is_complete', false)
           .not('due_date', 'is', null)
           .lte('due_date', today)
-      : Promise.resolve({ data: [] as any[] }),
+      : Promise.resolve({ data: [] as RawCard[] }),
 
     // Cards assigned to user (may overlap with owned — deduplicated below)
     assignedCardIds.length > 0
@@ -110,7 +141,7 @@ async function buildCardsData(
           .eq('is_complete', false)
           .not('due_date', 'is', null)
           .lte('due_date', today)
-      : Promise.resolve({ data: [] as any[] }),
+      : Promise.resolve({ data: [] as RawCard[] }),
 
     // Focus cards in user's boards (regardless of due date)
     boardIds.length > 0
@@ -120,20 +151,20 @@ async function buildCardsData(
           .eq('is_complete', false)
           .eq('is_focused', true)
           .order('due_date', { ascending: true, nullsFirst: false })
-      : Promise.resolve({ data: [] as any[] }),
+      : Promise.resolve({ data: [] as RawCard[] }),
 
     // All incomplete card IDs in user's boards — needed to scope checklist items.
     // Lightweight: IDs only, no enrichment.
     boardIds.length > 0
       ? supabase.from('board_cards').select('id').in('board_id', boardIds).eq('is_complete', false)
-      : Promise.resolve({ data: [] as any[] }),
+      : Promise.resolve({ data: [] as CardIdRow[] }),
   ]);
 
   // ── Phase 3: checklist items (1 query) ───────────────────────────────────
   //
   // Replaces the old Phase 5 which had its own waterfall of 3–4 sub-queries.
 
-  const ownedCardIds    = (allCardIdsRes.data || []).map((c: any) => c.id as string);
+  const ownedCardIds = ((allCardIdsRes.data || []) as CardIdRow[]).map((c) => c.id);
   const allUserCardIds  = Array.from(new Set([...ownedCardIds, ...assignedCardIds]));
 
   const { data: checklistsRaw } = allUserCardIds.length > 0
@@ -143,21 +174,21 @@ async function buildCardsData(
         .not('due_date', 'is', null)
         .lte('due_date', today)
         .in('card_id', allUserCardIds)
-    : { data: [] as any[] };
+    : { data: [] as ChecklistRow[] };
 
   // ── Build results ─────────────────────────────────────────────────────────
 
   // Owned cards first; assigned cards fill in any not already present
   const cardDedupe = new Map<string, CardDigestItem>();
-  for (const c of (ownedCardsRes.data || []))    cardDedupe.set(c.id, mapCard(c, boardMap));
-  for (const c of (assignedCardsRes.data || [])) if (!cardDedupe.has(c.id)) cardDedupe.set(c.id, mapCard(c, boardMap));
+  for (const c of (ownedCardsRes.data || []) as RawCard[]) cardDedupe.set(c.id, mapCard(c, boardMap));
+  for (const c of (assignedCardsRes.data || []) as RawCard[]) if (!cardDedupe.has(c.id)) cardDedupe.set(c.id, mapCard(c, boardMap));
   const allCards = Array.from(cardDedupe.values());
 
   const focusDedupe = new Map<string, CardDigestItem>();
-  for (const c of (focusCardsRes.data || [])) focusDedupe.set(c.id, mapCard(c, boardMap));
+  for (const c of (focusCardsRes.data || []) as RawCard[]) focusDedupe.set(c.id, mapCard(c, boardMap));
   const focusCards = Array.from(focusDedupe.values());
 
-  const allChecklist: ChecklistDigestItem[] = (checklistsRaw || []).map((cl: any) => {
+  const allChecklist: ChecklistDigestItem[] = ((checklistsRaw || []) as ChecklistRow[]).map((cl) => {
     const card   = Array.isArray(cl.board_cards) ? cl.board_cards[0] : cl.board_cards;
     const boardId = card?.board_id || '';
     return {
@@ -206,7 +237,7 @@ export async function GET(request: NextRequest) {
 
     if (!authResult.data.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const userProfile = profileResult.data;
+    const userProfile = profileResult.data as UserProfile | null;
     if (!userProfile || userProfile.id !== authResult.data.user.id) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -224,7 +255,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(payload, {
       headers: { 'X-Cache': 'MISS', 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Today cards API error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
