@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import CircleTabs from '../CircleTabs';
 
@@ -47,7 +48,7 @@ function parseDateStamp(iso: string) {
 export default function CircleSummaryEventsPage() {
   const router = useRouter();
   const params = useParams<{ ccbGroupId: string }>();
-  const urlGroupId = params.ccbGroupId;
+  const urlGroupId = params?.ccbGroupId ?? '';
   const [leader, setLeader] = useState<Leader>(null);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [messages, setMessages] = useState<CenterMessage[]>([]);
@@ -67,7 +68,7 @@ export default function CircleSummaryEventsPage() {
       inFlightRef.current = true;
 
       const { force = false, paintCached = false } = opts;
-      let cancelled = false;
+      const cancelled = false;
 
       // Stale-while-revalidate: optionally paint cached list immediately, then refresh.
       if (paintCached) {
@@ -118,8 +119,8 @@ export default function CircleSummaryEventsPage() {
           );
         } catch {}
         lastLoadAtRef.current = Date.now();
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message || 'Could not load events.');
+      } catch (e: unknown) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Could not load events.');
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -162,7 +163,7 @@ export default function CircleSummaryEventsPage() {
     const onFocus = () => {
       if (document.visibilityState !== 'visible') return;
       if (Date.now() - lastLoadAtRef.current < 15_000) return;
-      loadEvents({ force: true });
+      loadEvents();
     };
     document.addEventListener('visibilitychange', onFocus);
     window.addEventListener('focus', onFocus);
@@ -191,9 +192,12 @@ export default function CircleSummaryEventsPage() {
             Sign out
           </button>
           <div className="flex items-center gap-4 min-w-0">
-            <img
+            <Image
               src="/Circles Logo V2-White.png"
               alt="Circles"
+              width={80}
+              height={79}
+              priority
               className="h-16 sm:h-20 w-auto shrink-0"
             />
             <div className="min-w-0 flex-1">

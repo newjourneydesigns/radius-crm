@@ -14,6 +14,27 @@ import { cleanManualAttendees, splitLegacyRosterAdditions } from '../../../../li
 
 export const dynamic = 'force-dynamic';
 
+type CcbAttendanceData = {
+  didNotMeet: boolean;
+  notes: string;
+  topic: string;
+  prayerRequests: string;
+  info: string;
+  attendeeIds: string[];
+};
+
+type XmlRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): XmlRecord | null {
+  return value && typeof value === 'object' ? (value as XmlRecord) : null;
+}
+
+function readText(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  return String(asRecord(value)?.['#text'] ?? '');
+}
+
 async function fetchCcbAttendance(req: Request, eventId: string, occurrence: string) {
   try {
     const { createCCBClient } = await import('../../../../lib/ccb/ccb-client');
@@ -22,33 +43,35 @@ async function fetchCcbAttendance(req: Request, eventId: string, occurrence: str
       await getCCBRequestContext(req, { module: 'circle-summary', action: 'draft_ccb_prefill' })
     );
     const occurrenceDateOnly = occurrence.slice(0, 10);
-    const xml: any = await (ccb as any).getXml({
+    const xml = await ccb.getXml<unknown>({
       srv: 'attendance_profile',
       id: eventId,
       occurrence: occurrenceDateOnly,
     });
-    const response = xml?.ccb_api?.response ?? null;
-    const eventsRoot = response?.events ?? null;
-    const firstEvent = Array.isArray(eventsRoot?.event)
-      ? eventsRoot.event[0]
-      : eventsRoot?.event ?? null;
-    const a = response?.attendance ?? firstEvent ?? null;
+    const response = asRecord(asRecord(asRecord(xml)?.ccb_api)?.response);
+    const eventsRoot = asRecord(response?.events);
+    const rawEvent = eventsRoot?.event;
+    const firstEvent = Array.isArray(rawEvent) ? rawEvent[0] : rawEvent ?? null;
+    const a = asRecord(response?.attendance) ?? asRecord(firstEvent);
     if (!a) return null;
-    const text = (v: any) => (v == null ? '' : typeof v === 'string' ? v : (v['#text'] ?? ''));
-    const attendeeNode = a?.attendees?.attendee;
+    const attendees = asRecord(a.attendees);
+    const attendeeNode = attendees?.attendee;
     const attendeeIds: string[] = !attendeeNode
       ? []
       : (Array.isArray(attendeeNode) ? attendeeNode : [attendeeNode])
-          .map((x: any) => String(x?.['@_id'] ?? x?.id ?? ''))
+          .map((x) => {
+            const attendee = asRecord(x);
+            return String(attendee?.['@_id'] ?? attendee?.id ?? '');
+          })
           .filter(Boolean);
     return {
       didNotMeet: String(a?.did_not_meet ?? '').toLowerCase() === 'true',
-      notes: text(a?.notes),
-      topic: text(a?.topic),
-      prayerRequests: text(a?.prayer_requests),
-      info: text(a?.info),
+      notes: readText(a?.notes),
+      topic: readText(a?.topic),
+      prayerRequests: readText(a?.prayer_requests),
+      info: readText(a?.info),
       attendeeIds,
-    };
+    } satisfies CcbAttendanceData;
   } catch {
     return null;
   }
@@ -68,9 +91,28 @@ function isPayloadEmpty(payload: Record<string, unknown> | null | undefined): bo
   return true;
 }
 
-function referenceNotesFromCcb(ccbData: Awaited<ReturnType<typeof fetchCcbAttendance>>): string {
-  if (!ccbData?.notes) return '';
-  return splitLegacyRosterAdditions(ccbData.notes).notes;
+function draftFromCcbData(ccbData: Awaited<ReturnType<typeof fetchCcbAttendance>>) {
+  if (!ccbData) return null;
+  const hasAnything =
+    !!ccbData.notes || !!ccbData.topic || ccbData.didNotMeet || ccbData.attendeeIds.length > 0;
+  if (!hasAnything) return null;
+
+  const parsed = splitLegacyRosterAdditions(ccbData.notes);
+  return {
+    didNotMeet: ccbData.didNotMeet,
+    didNotMeetReason: '',
+    notes: parsed.notes,
+    referenceNotes: parsed.notes,
+    topic: ccbData.topic,
+    prayerRequests: ccbData.prayerRequests,
+    info: ccbData.info,
+    attendeeCcbIds: ccbData.attendeeIds,
+    manualAttendees: parsed.manualAttendees,
+    dynamicValues: {},
+    infoUpdateDay: '',
+    infoUpdateTime: '',
+    infoUpdateLocation: '',
+  };
 }
 
 export async function GET(req: Request) {
@@ -84,8 +126,6 @@ export async function GET(req: Request) {
   }
 
   const supabase = createServiceSupabaseClient();
-  const ccbData = await fetchCcbAttendance(req, eventId, occurrence);
-  const ccbReferenceNotes = referenceNotesFromCcb(ccbData);
 
   // Prefer an in-progress draft if one exists
   const { data: draftRow } = await supabase
@@ -105,7 +145,7 @@ export async function GET(req: Request) {
         draft: {
           ...payload,
           notes: parsed.notes,
-          referenceNotes: ccbReferenceNotes || parsed.notes,
+          referenceNotes: parsed.notes,
           manualAttendees: existingManual.length ? existingManual : parsed.manualAttendees,
         },
         updatedAt: draftRow.updated_at,
@@ -136,8 +176,8 @@ export async function GET(req: Request) {
     .maybeSingle();
 
   if (subRow) {
-    const dynamicValues: Record<string, any> = {};
-    const dr = subRow.dynamic_responses as Record<string, { label?: string; value?: any }> | null;
+    const dynamicValues: Record<string, unknown> = {};
+    const dr = subRow.dynamic_responses as Record<string, { label?: string; value?: unknown }> | null;
     if (dr) {
       for (const [qid, entry] of Object.entries(dr)) {
         dynamicValues[qid] = entry?.value;
@@ -148,16 +188,12 @@ export async function GET(req: Request) {
       | null;
     const parsed = splitLegacyRosterAdditions(subRow.notes ?? '');
     const existingManual = cleanManualAttendees(subRow.manual_attendees);
-    // The new form stores its body in dynamic_responses, so subRow.notes is
-    // usually empty for app-submitted records. Pull the composed notes from
-    // CCB so the "Notes from your last summary" reference card still appears.
-    const referenceNotes = ccbReferenceNotes || parsed.notes;
     return NextResponse.json({
       draft: {
         didNotMeet: subRow.did_not_meet,
         didNotMeetReason: subRow.did_not_meet_reason ?? '',
         notes: parsed.notes,
-        referenceNotes,
+        referenceNotes: parsed.notes,
         topic: subRow.topic ?? '',
         prayerRequests: subRow.prayer_requests ?? '',
         info: subRow.info ?? '',
@@ -177,31 +213,14 @@ export async function GET(req: Request) {
   // Final fallback: load whatever's currently in CCB for this event +
   // occurrence so leaders can review/edit a summary that was entered directly
   // in CCB without going through this app.
-  if (ccbData) {
-    const hasAnything =
-      !!ccbData.notes || !!ccbData.topic || ccbData.didNotMeet || ccbData.attendeeIds.length > 0;
-    if (hasAnything) {
-      const parsed = splitLegacyRosterAdditions(ccbData.notes);
-      return NextResponse.json({
-        draft: {
-          didNotMeet: ccbData.didNotMeet,
-          didNotMeetReason: '',
-          notes: parsed.notes,
-          referenceNotes: parsed.notes,
-          topic: ccbData.topic,
-          prayerRequests: ccbData.prayerRequests,
-          info: ccbData.info,
-          attendeeCcbIds: ccbData.attendeeIds,
-          manualAttendees: parsed.manualAttendees,
-          dynamicValues: {},
-          infoUpdateDay: '',
-          infoUpdateTime: '',
-          infoUpdateLocation: '',
-        },
-        updatedAt: null,
-        source: 'ccb',
-      });
-    }
+  const ccbData = await fetchCcbAttendance(req, eventId, occurrence);
+  const ccbDraft = draftFromCcbData(ccbData);
+  if (ccbDraft) {
+    return NextResponse.json({
+      draft: ccbDraft,
+      updatedAt: null,
+      source: 'ccb',
+    });
   }
 
   return NextResponse.json({ draft: null, updatedAt: null, source: null });
@@ -211,7 +230,7 @@ export async function POST(req: Request) {
   const leader = await getSessionLeader();
   if (!leader) return unauthorized();
 
-  let body: { eventId?: string; occurrence?: string; payload?: any } = {};
+  let body: { eventId?: string; occurrence?: string; payload?: Record<string, unknown> } = {};
   try {
     body = await req.json();
   } catch {
