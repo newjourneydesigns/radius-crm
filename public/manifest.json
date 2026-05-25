@@ -6,28 +6,53 @@
   "start_url": "/",
   "display": "standalone",
   "display_override": ["standalone"],
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#091b34",
+  "theme_color": "#091b34",
   "orientation": "portrait-primary",
   "categories": ["productivity", "business"],
   "version": "1.2.0",
   "scope": "/",
   "lang": "en-US",
   "icons": [
-    { "src": "/icon-16x16.png", "sizes": "16x16", "type": "image/png" },
-    { "src": "/icon-32x32.png", "sizes": "32x32", "type": "image/png" },
-    { "src": "/icon-144x144.png", "sizes": "144x144", "type": "image/png" },
-    { "src": "/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
-    { "src": "/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
-    { "src": "/icon-16x16-light.png", "sizes": "16x16", "type": "image/png", "media": "(prefers-color-scheme: light)" },
-    { "src": "/icon-32x32-light.png", "sizes": "32x32", "type": "image/png", "media": "(prefers-color-scheme: light)" },
-    { "src": "/icon-144x144-light.png", "sizes": "144x144", "type": "image/png", "media": "(prefers-color-scheme: light)" },
-    { "src": "/icon-192x192-light.png", "sizes": "192x192", "type": "image/png", "purpose": "any", "media": "(prefers-color-scheme: light)" },
-    { "src": "/icon-192x192-light.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable", "media": "(prefers-color-scheme: light)" },
-    { "src": "/icon-512x512-light.png", "sizes": "512x512", "type": "image/png", "purpose": "any", "media": "(prefers-color-scheme: light)" },
-    { "src": "/icon-512x512-light.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable", "media": "(prefers-color-scheme: light)" }
+    {
+      "src": "/icon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ],
   "screenshots": [
     {

@@ -2,12 +2,6 @@
   {
     "date": "2026-05-25",
     "type": "improvement",
-    "page": "/",
-    "description": "New PWA icon: the home-screen and tab icons now use the Circles logo with light and dark variants — black field with white logo when your device is in dark mode, white field with black logo in light mode."
-  },
-  {
-    "date": "2026-05-25",
-    "type": "improvement",
     "page": "/notebook",
     "description": "Notebook opens faster: the app remembers your last-opened page and jumps to it instantly on reload, and the most-recent page lookup now fetches full content in one query instead of two. If the remembered page has been deleted, you're gracefully bounced back to /notebook instead of seeing an endless skeleton."
   },
