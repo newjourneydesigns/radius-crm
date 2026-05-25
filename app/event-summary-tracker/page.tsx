@@ -102,8 +102,6 @@ type PagePayload = {
   occurrences: OccurrenceRow[];
   submissions: SubmissionRow[];
   tracker: TrackerData | null;
-  aiSummary: string | null;
-  aiSummaryAt: string | null;
 };
 
 const DAY_INDEX: Record<string, number> = {
@@ -121,6 +119,37 @@ const CIRCLE_STATUS_OPTIONS = [
 
 const TRACKER_PAGE_CACHE_TTL_MS = 60_000;
 const trackerPageCache = new Map<string, { loadedAt: number; payload: PagePayload }>();
+
+// localStorage stale-while-revalidate so warm reloads paint instantly.
+// We always re-fetch in the background to refresh state; the cached payload
+// just gives us something to render right away.
+const TRACKER_LS_PREFIX = 'est.cache.v1:';
+const TRACKER_LS_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+function readLocalCache(cacheKey: string): PagePayload | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(TRACKER_LS_PREFIX + cacheKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { savedAt: number; payload: PagePayload };
+    if (!parsed?.savedAt || Date.now() - parsed.savedAt > TRACKER_LS_MAX_AGE_MS) return null;
+    return parsed.payload;
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalCache(cacheKey: string, payload: PagePayload): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(
+      TRACKER_LS_PREFIX + cacheKey,
+      JSON.stringify({ savedAt: Date.now(), payload }),
+    );
+  } catch {
+    // Quota errors / private mode — silently ignore; in-memory cache still works.
+  }
+}
 
 // True on platforms where the `sms:` protocol reliably opens a Messages app:
 // macOS (with Messages.app), iOS, Android. Windows desktops typically have no
@@ -320,7 +349,6 @@ export default function EventSummaryTrackerPage() {
   const [snapshots, setSnapshots] = useState<SnapshotRow[]>([]);
   const [occurrences, setOccurrences] = useState<OccurrenceRow[]>([]);
   const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
-  const [prevOccurrences, setPrevOccurrences] = useState<OccurrenceRow[]>([]);
   const [tracker, setTracker] = useState<TrackerData | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -423,20 +451,27 @@ export default function EventSummaryTrackerPage() {
     setOccurrences(payload.occurrences);
     setSubmissions(payload.submissions);
     setTracker(payload.tracker);
-    setAiSummary(payload.aiSummary);
-    setAiSummaryAt(payload.aiSummaryAt);
-    setAiSummarySaved(!!payload.aiSummary);
   }, []);
 
   const loadAll = useCallback(async ({ preferCache = true }: { preferCache?: boolean } = {}) => {
     const myId = ++loadIdRef.current;
     const cacheKey = `${weekStart}:${user?.id ?? 'anonymous'}`;
     const cached = trackerPageCache.get(cacheKey);
-    const canUseCache = preferCache && cached && Date.now() - cached.loadedAt < TRACKER_PAGE_CACHE_TTL_MS;
+    const canUseMemoryCache = preferCache && cached && Date.now() - cached.loadedAt < TRACKER_PAGE_CACHE_TTL_MS;
 
-    if (canUseCache) {
-      applyPayload(cached.payload);
+    if (canUseMemoryCache) {
+      applyPayload(cached!.payload);
       setLoading(false);
+    } else if (preferCache) {
+      // Try localStorage for an instant first paint even when the in-memory
+      // cache is empty (e.g. cold reload). Always re-fetch from network below.
+      const lsPayload = readLocalCache(cacheKey);
+      if (lsPayload) {
+        applyPayload(lsPayload);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
     } else {
       setLoading(true);
     }
@@ -473,28 +508,11 @@ export default function EventSummaryTrackerPage() {
           return null;
         });
 
-      const aiPromise = user?.id
-        ? fetch(`/api/weekly-ai-summary?week=${weekStart}&userId=${user.id}`)
-            .then(async (res) => {
-              if (!res.ok) return { text: null, at: null };
-              const json = await res.json();
-              return {
-                text: json?.summary?.summary_text ?? null,
-                at: json?.summary?.generated_at ?? null,
-              };
-            })
-            .catch((e) => {
-              console.warn('[tracker] AI summary fetch failed (non-fatal):', e);
-              return { text: null, at: null };
-            })
-        : Promise.resolve({ text: null, at: null });
-
-      const [leaderRes, occRes, subRes, trackerJson, ai] = await Promise.all([
+      const [leaderRes, occRes, subRes, trackerJson] = await Promise.all([
         leadersPromise,
         occurrencesPromise,
         submissionsPromise,
         trackerPromise,
-        aiPromise,
       ]);
 
       if (leaderRes.error) throw leaderRes.error;
@@ -507,13 +525,12 @@ export default function EventSummaryTrackerPage() {
         occurrences: occRes.data ?? [],
         submissions: subRes.data ?? [],
         tracker: trackerJson,
-        aiSummary: ai.text,
-        aiSummaryAt: ai.at,
       };
 
       // Only commit state if this is still the latest load
       if (loadIdRef.current !== myId) return;
       trackerPageCache.set(cacheKey, { loadedAt: Date.now(), payload });
+      writeLocalCache(cacheKey, payload);
       applyPayload(payload);
     } catch (err) {
       console.error('[tracker] loadAll failed:', err);
@@ -524,23 +541,39 @@ export default function EventSummaryTrackerPage() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
-  // Load previous week's occurrences so we can compute WoW deltas in the stats card.
+  // AI summary loads independently of the main data so the stats panel and
+  // tables render as soon as their queries return.
   useEffect(() => {
+    if (!user?.id) {
+      setAiSummary(null);
+      setAiSummaryAt(null);
+      setAiSummarySaved(false);
+      return;
+    }
     let cancelled = false;
-    const prevStart = shiftWeek(weekStart, -1);
-    const prevEnd = DateTime.fromISO(prevStart).plus({ days: 6 }).toISODate()!;
     (async () => {
-      const { data, error } = await supabase
-        .from('circle_meeting_occurrences')
-        .select('id, leader_id, meeting_date, status, headcount, has_notes, guest_count, topic, notes, prayer_requests, reviewed_at, reviewed_by')
-        .gte('meeting_date', prevStart)
-        .lte('meeting_date', prevEnd);
-      if (cancelled) return;
-      if (error) { setPrevOccurrences([]); return; }
-      setPrevOccurrences(data ?? []);
+      try {
+        const res = await fetch(`/api/weekly-ai-summary?week=${weekStart}&userId=${user.id}`);
+        if (cancelled) return;
+        if (!res.ok) {
+          setAiSummary(null);
+          setAiSummaryAt(null);
+          setAiSummarySaved(false);
+          return;
+        }
+        const json = await res.json();
+        const text = json?.summary?.summary_text ?? null;
+        const at = json?.summary?.generated_at ?? null;
+        if (cancelled) return;
+        setAiSummary(text);
+        setAiSummaryAt(at);
+        setAiSummarySaved(!!text);
+      } catch (e) {
+        if (!cancelled) console.warn('[tracker] AI summary fetch failed (non-fatal):', e);
+      }
     })();
     return () => { cancelled = true; };
-  }, [weekStart]);
+  }, [weekStart, user?.id]);
 
   // Reset the dismissible banner when the user navigates to a different week
   useEffect(() => { setBannerDismissed(false); }, [weekStart]);
@@ -768,32 +801,6 @@ export default function EventSummaryTrackerPage() {
     const missedCount = rows.filter(r => r.missedTwoPlus).length;
     return { received, dnm, review, notReport, inCcb, totalAttended, avgSize, missedCount };
   }, [rows, needsReview.length, awaiting.length]);
-
-  // Prior-week stats, scoped to the same set of leaders currently in `rows`
-  // (so campus/ACPD/status filters apply to the deltas too).
-  const prevStats = useMemo(() => {
-    const leaderIds = new Set(rows.map(r => r.leader.id));
-    // Dedupe to one occurrence per leader (mirrors `rows` logic — reviewed first, then latest)
-    const occByLeader = new Map<number, OccurrenceRow>();
-    for (const o of prevOccurrences) {
-      if (!leaderIds.has(o.leader_id)) continue;
-      const existing = occByLeader.get(o.leader_id);
-      if (!existing) { occByLeader.set(o.leader_id, o); continue; }
-      const oRev = !!o.reviewed_at, eRev = !!existing.reviewed_at;
-      if (oRev && !eRev) { occByLeader.set(o.leader_id, o); continue; }
-      if (!oRev && eRev) continue;
-      if (o.meeting_date > existing.meeting_date) occByLeader.set(o.leader_id, o);
-    }
-    let received = 0, totalAtt = 0;
-    for (const o of occByLeader.values()) {
-      if (o.status === 'did_not_meet') continue;
-      received++;
-      const head = o.headcount ?? 0;
-      totalAtt += head; // includes guests
-    }
-    const avgSize = received > 0 ? Math.round((totalAtt / received) * 10) / 10 : null;
-    return { received, totalAttended: totalAtt, avgSize };
-  }, [prevOccurrences, rows]);
 
   const orphanCount = (tracker?.orphans.inactive.length ?? 0) + (tracker?.orphans.unknown_group.length ?? 0);
   const issueCount = orphanCount + (stats.missedCount > 0 ? 1 : 0);
@@ -1181,17 +1188,17 @@ export default function EventSummaryTrackerPage() {
         <div className="rounded-xl border border-slate-700 bg-slate-800/60 p-4 sm:p-5 shadow-card-glass mb-4">
           <StatusBar
             segments={[
-              { key: 'received', label: 'Received',     value: stats.received,  color: '#22c55e' },
               { key: 'review',   label: 'Needs Review', value: stats.review,    color: '#f59e0b' },
+              { key: 'received', label: 'Meet',         value: stats.received,  color: '#22c55e' },
               { key: 'dnm',      label: "Didn't Meet",  value: stats.dnm,       color: '#3b82f6' },
               { key: 'no',       label: 'No Summary',   value: stats.notReport, color: '#ef4444' },
             ]}
             total={rows.length}
           />
           <div className="mt-5 pt-4 border-t border-slate-700/60 flex flex-wrap items-center justify-between gap-3 text-sm">
-            <div className="flex w-full justify-center gap-6 sm:w-auto sm:justify-start sm:gap-8">
-              <SmallStat label="ATTENDED" value={stats.totalAttended} delta={diff(stats.totalAttended, prevStats.totalAttended)} />
-              <SmallStat label="AVG SIZE" value={stats.avgSize ?? '–'} delta={diff(stats.avgSize, prevStats.avgSize)} />
+            <div className="flex w-full justify-center gap-8 sm:w-auto sm:justify-start">
+              <SmallStat label="ATTENDED" value={stats.totalAttended} />
+              <SmallStat label="AVG SIZE" value={stats.avgSize ?? '–'} />
               <SmallStat label="CIRCLES" value={rows.length} />
             </div>
             <div className="flex w-full items-center justify-center gap-2 sm:w-auto sm:justify-end">
@@ -1483,37 +1490,11 @@ function ModalStat({ label, value }: { label: string; value: number | string }) 
 
 // ─── subcomponents ────────────────────────────────────────────────────────────
 
-function diff(curr: number | null | undefined, prev: number | null | undefined): number | null {
-  if (curr == null || prev == null) return null;
-  const d = curr - prev;
-  return Number.isFinite(d) ? Math.round(d * 10) / 10 : null;
-}
-
-function DeltaBadge({ delta }: { delta: number | null }) {
-  if (delta == null || delta === 0) {
-    return <span className="text-[10px] text-slate-500 tabular-nums">—</span>;
-  }
-  const up = delta > 0;
-  const cls = up ? 'text-emerald-400' : 'text-rose-400';
-  const arrow = up ? '▲' : '▼';
-  const formatted = Number.isInteger(delta) ? Math.abs(delta).toString() : Math.abs(delta).toFixed(1);
-  return (
-    <span className={`text-[10px] font-semibold tabular-nums ${cls}`}>
-      {arrow} {formatted}
-    </span>
-  );
-}
-
-function SmallStat({ label, value, delta }: { label: string; value: number | string; delta?: number | null }) {
+function SmallStat({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="flex flex-col items-center gap-0.5">
       <div className="text-2xl font-bold text-white tabular-nums">{value}</div>
       <div className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">{label}</div>
-      {delta !== undefined && (
-        <div className="mt-0.5" title="vs. last week">
-          <DeltaBadge delta={delta} />
-        </div>
-      )}
     </div>
   );
 }
@@ -1522,13 +1503,15 @@ type StatusSegment = { key: string; label: string; value: number; color: string 
 
 function StatusBar({ segments, total }: { segments: StatusSegment[]; total: number }) {
   const received = segments.find(s => s.key === 'received')?.value ?? 0;
-  const rate = total > 0 ? Math.round((received / total) * 100) : 0;
+  const dnm = segments.find(s => s.key === 'dnm')?.value ?? 0;
+  const submitted = received + dnm;
+  const rate = total > 0 ? Math.round((submitted / total) * 100) : 0;
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3 mb-2">
         <div className="flex items-baseline gap-2">
           <span className="text-2xl sm:text-3xl font-bold text-white tabular-nums">{rate}%</span>
-          <span className="text-xs text-slate-400">submitted ({received}/{total})</span>
+          <span className="text-xs text-slate-400">submitted ({submitted}/{total})</span>
         </div>
       </div>
       <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-slate-900/70 ring-1 ring-slate-700/60">

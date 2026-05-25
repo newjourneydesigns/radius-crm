@@ -512,19 +512,20 @@ export function useNotebook() {
   }, [fetchPageContent, fetchPageLinks]);
 
   // Optimistic load: render cached page instantly, revalidate in background.
-  // Returns the cached page (or null) synchronously via a ref-style read.
-  const loadPageOptimistic = useCallback((pageId: string): NotebookPage | null => {
+  // Returns the cached page (or null) synchronously plus the revalidation
+  // Promise so callers can detect deleted pages.
+  const loadPageOptimistic = useCallback((pageId: string): { cached: NotebookPage | null; revalidate: Promise<NotebookPage | null> } => {
     const cached = pagesById[pageId];
     if (cached) {
       const hasContent = Object.prototype.hasOwnProperty.call(cached, 'content');
       const hasInkPayload = cached.editor_mode !== 'ink' || Object.prototype.hasOwnProperty.call(cached, 'ink');
       if (hasContent && hasInkPayload) setActivePage(cached);
-      // Background revalidate — don't block render when the cached page is complete.
-      fetchPage(pageId);
-      return hasContent && hasInkPayload ? cached : null;
+      return {
+        cached: hasContent && hasInkPayload ? cached : null,
+        revalidate: fetchPage(pageId),
+      };
     }
-    fetchPage(pageId);
-    return null;
+    return { cached: null, revalidate: fetchPage(pageId) };
   }, [pagesById, fetchPage]);
 
   const createPage = useCallback(async (folderId: string): Promise<NotebookPage | null> => {

@@ -77,12 +77,20 @@ export async function GET(request: NextRequest) {
       .eq('week_start_date', weekStart)
       .maybeSingle();
 
-    const [orphansRes, snapshotsRes, submissionsRes, occurrencesRes, syncRes] = await Promise.all([
+    // Reviewer name lookup runs in parallel with the main queries — the
+    // users table is small enough that fetching all rows is cheaper than the
+    // extra round-trip we used to make sequentially after the main queries.
+    const usersPromise = db
+      .from('users')
+      .select('id, name, email');
+
+    const [orphansRes, snapshotsRes, submissionsRes, occurrencesRes, syncRes, usersRes] = await Promise.all([
       orphansPromise,
       snapshotsPromise,
       submissionsPromise,
       occurrencesPromise,
       syncPromise,
+      usersPromise,
     ]);
 
     let snapshotRows = snapshotsRes.data ?? [];
@@ -134,20 +142,10 @@ export async function GET(request: NextRequest) {
       if (missThis && missLast) missedSet.add(lid);
     }
 
-    // Map reviewer user-ids to display names in one batched lookup
-    const reviewerIds = new Set<string>();
-    for (const r of submissionsRes.data ?? []) if (r.reviewed_by) reviewerIds.add(r.reviewed_by);
-    for (const r of occurrencesRes.data ?? []) if (r.reviewed_by) reviewerIds.add(r.reviewed_by);
-
+    // Build the reviewer-id → display-name map from the parallel users fetch.
     const nameById = new Map<string, string>();
-    if (reviewerIds.size > 0) {
-      const { data: users } = await db
-        .from('users')
-        .select('id, name, email')
-        .in('id', Array.from(reviewerIds));
-      for (const u of users ?? []) {
-        nameById.set(u.id, u.name || u.email || 'Someone');
-      }
+    for (const u of usersRes.data ?? []) {
+      nameById.set(u.id, u.name || u.email || 'Someone');
     }
 
     const reviewers: Record<number, {

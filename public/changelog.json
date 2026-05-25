@@ -1,9 +1,21 @@
 [
   {
+    "date": "2026-05-25",
+    "type": "improvement",
+    "page": "/notebook",
+    "description": "Notebook opens faster: the app remembers your last-opened page and jumps to it instantly on reload, and the most-recent page lookup now fetches full content in one query instead of two. If the remembered page has been deleted, you're gracefully bounced back to /notebook instead of seeing an endless skeleton."
+  },
+  {
+    "date": "2026-05-25",
+    "type": "improvement",
+    "page": "/event-summary-tracker",
+    "description": "Faster Event Summary Tracker: AI Weekly Summary no longer blocks the initial render, reviewer names are fetched in parallel on the server, and the page now caches its last good payload in your browser so reloads paint instantly while fresh data refreshes in the background."
+  },
+  {
     "date": "2026-05-24",
     "type": "improvement",
     "page": "/event-summary-tracker",
-    "description": "Refreshed the Event Summary Tracker stats panel: status counts now appear as a single color-coded progress bar with a submission-rate headline, and Attended / Avg Size show week-over-week deltas so trends are visible at a glance."
+    "description": "Refreshed the Event Summary Tracker stats panel: status counts now appear as a single color-coded progress bar with a submission-rate headline that includes both 'Meet' and 'Didn't Meet' as submitted."
   },
   {
     "date": "2026-05-23",
