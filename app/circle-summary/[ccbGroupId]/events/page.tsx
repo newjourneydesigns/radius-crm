@@ -2,9 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
-import CircleTabs from '../CircleTabs';
 
 type EventRow = {
   eventId: string;
@@ -16,14 +14,6 @@ type EventRow = {
   submittedAt: string | null;
   submittedStatus: 'submitted' | 'failed' | null;
 };
-
-type Leader = {
-  id: number | string;
-  name: string;
-  campus: string | null;
-  status: string | null;
-  ccb_group_id: string | number | null;
-} | null;
 
 type CenterMessage = {
   id: string;
@@ -49,7 +39,6 @@ export default function CircleSummaryEventsPage() {
   const router = useRouter();
   const params = useParams<{ ccbGroupId: string }>();
   const urlGroupId = params?.ccbGroupId ?? '';
-  const [leader, setLeader] = useState<Leader>(null);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [messages, setMessages] = useState<CenterMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,7 +65,6 @@ export default function CircleSummaryEventsPage() {
           const cached = localStorage.getItem(cacheKey);
           if (cached) {
             const parsed = JSON.parse(cached);
-            if (parsed?.leader) setLeader(parsed.leader);
             if (Array.isArray(parsed?.events)) setEvents(parsed.events);
             setLoading(false);
             setRefreshing(true);
@@ -107,7 +95,6 @@ export default function CircleSummaryEventsPage() {
           return;
         }
 
-        setLeader(data.leader || null);
         setEvents(data.events || []);
         if (data.error) setError(data.error);
         else setError(null);
@@ -173,86 +160,11 @@ export default function CircleSummaryEventsPage() {
     };
   }, [invalidationKey, loadEvents]);
 
-  async function signOut() {
-    await fetch('/api/circle-summary/auth/logout/', { method: 'POST' });
-    router.replace('/circle-summary');
-  }
-
   const submitted = events.filter((e) => !!e.submittedAt || e.hasExistingAttendance).length;
   const pending = events.filter((e) => !e.submittedAt && !e.hasExistingAttendance).length;
 
   return (
     <>
-      <header className="cs-hero px-6 pt-10 pb-8 sm:pt-14 sm:pb-10">
-        <div className="max-w-2xl mx-auto relative">
-          <button
-            onClick={signOut}
-            className="absolute -top-4 right-0 sm:-top-6 text-white/70 hover:text-white text-xs font-semibold uppercase tracking-wide"
-          >
-            Sign out
-          </button>
-          <div className="flex items-center gap-4 min-w-0">
-            <Image
-              src="/Circles Logo V2-White.png"
-              alt="Circles"
-              width={80}
-              height={79}
-              priority
-              className="h-16 sm:h-20 w-auto shrink-0"
-            />
-            <div className="min-w-0 flex-1">
-              <h1 className="cs-display whitespace-nowrap text-[clamp(1.75rem,8.5vw,3rem)] leading-tight">
-                {leader?.name ? `${leader.name.trim().split(/\s+/)[0]}'s` : 'Your'} Circle
-              </h1>
-              {leader && (
-                <p className="mt-1.5 text-white/90 font-semibold text-base">
-                  {leader.name}
-                  {leader.campus ? <span className="font-normal text-white/70"> · {leader.campus}</span> : ''}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Stats pill — give leaders a quick sense of their status at a glance */}
-          {!loading && events.length > 0 && (
-            <div className="mt-4 flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-1.5 bg-white/15 rounded-full px-3 py-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-300 inline-block" />
-                <span className="text-white/90 text-xs font-semibold">{submitted} submitted</span>
-              </div>
-              {pending > 0 && (
-                <div className="flex items-center gap-1.5 bg-white/15 rounded-full px-3 py-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-300 inline-block" />
-                  <span className="text-white/90 text-xs font-semibold">{pending} need{pending === 1 ? 's' : ''} summary</span>
-                </div>
-              )}
-              {refreshing && (
-                <div
-                  aria-live="polite"
-                  className="flex items-center gap-1.5 bg-white/15 rounded-full px-3 py-1"
-                >
-                  <svg
-                    className="w-3 h-3 text-white/90 cs-spin-reverse"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v6h6M20 20v-6h-6" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M20 10A8 8 0 006.34 6.34M4 14a8 8 0 0013.66 3.66" />
-                  </svg>
-                  <span className="text-white/90 text-xs font-semibold">Refreshing…</span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </header>
-
-      <div className="max-w-2xl mx-auto px-4 pt-4">
-        <CircleTabs urlGroupId={urlGroupId} active="events" />
-      </div>
-
       {messages.length > 0 && (
         <section className="max-w-2xl mx-auto px-4 pt-5 -mb-1 space-y-2.5">
           {messages.map((m) => (
@@ -288,6 +200,39 @@ export default function CircleSummaryEventsPage() {
       )}
 
       <main className="max-w-2xl mx-auto px-4 py-6">
+        {!loading && events.length > 0 && (
+          <div className="mb-4 flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 bg-white border border-neutral-200 rounded-full px-3 py-1 shadow-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+              <span className="text-neutral-700 text-xs font-semibold">{submitted} submitted</span>
+            </div>
+            {pending > 0 && (
+              <div className="flex items-center gap-1.5 bg-white border border-amber-200 rounded-full px-3 py-1 shadow-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+                <span className="text-amber-800 text-xs font-semibold">{pending} need{pending === 1 ? 's' : ''} summary</span>
+              </div>
+            )}
+            {refreshing && (
+              <div
+                aria-live="polite"
+                className="flex items-center gap-1.5 bg-white border border-neutral-200 rounded-full px-3 py-1 shadow-sm"
+              >
+                <svg
+                  className="w-3 h-3 text-neutral-500 cs-spin-reverse"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v6h6M20 20v-6h-6" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20 10A8 8 0 006.34 6.34M4 14a8 8 0 0013.66 3.66" />
+                </svg>
+                <span className="text-neutral-600 text-xs font-semibold">Refreshing...</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {loading && (
           <div className="space-y-2.5">
             {[0, 1, 2].map((i) => (

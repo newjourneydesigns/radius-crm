@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useRouter } from 'next/navigation';
-import CircleTabs from '../CircleTabs';
 
 type Participant = {
   id: string;
@@ -23,12 +22,6 @@ type CcbSearchResult = {
   fullName?: string;
   email?: string;
   phone?: string;
-};
-
-type Leader = {
-  id: number | string;
-  name: string;
-  ccb_group_id: string | number | null;
 };
 
 const DISMISS_STORAGE_KEY = 'cs:bday-dismiss:v1';
@@ -117,9 +110,8 @@ function phoneHref(p: string, scheme: 'tel' | 'sms'): string {
 export default function CircleRosterPage() {
   const router = useRouter();
   const params = useParams<{ ccbGroupId: string }>();
-  const urlGroupId = params.ccbGroupId;
+  const urlGroupId = params?.ccbGroupId ?? '';
 
-  const [leader, setLeader] = useState<Leader | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -214,27 +206,11 @@ export default function CircleRosterPage() {
 
     (async () => {
       try {
-        const [meRes, rosterRes] = await Promise.all([
-          fetch('/api/circle-summary/me'),
-          fetch('/api/circle-summary/roster'),
-        ]);
-        if (meRes.status === 401) {
+        const rosterRes = await fetch('/api/circle-summary/roster');
+        if (rosterRes.status === 401) {
           router.replace('/circle-summary');
           return;
         }
-        const meData = await meRes.json();
-        if (cancelled) return;
-        if (!meData.leader) {
-          router.replace('/circle-summary');
-          return;
-        }
-        const leaderGroupId =
-          meData.leader.ccb_group_id != null ? String(meData.leader.ccb_group_id) : null;
-        if (leaderGroupId && leaderGroupId !== urlGroupId) {
-          router.replace(`/circle-summary/${leaderGroupId}/roster`);
-          return;
-        }
-        setLeader(meData.leader);
 
         const rosterData = await rosterRes.json();
         const list: Participant[] = (rosterData.participants || []).map((p: Participant) => ({
@@ -297,9 +273,9 @@ export default function CircleRosterPage() {
             setParticipants((prev) => prev.map((x) => ({ ...x, detailsLoaded: true })));
           }
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (!cancelled && !cached) {
-          setLoadError(e?.message || 'Failed to load roster.');
+          setLoadError(e instanceof Error ? e.message : 'Failed to load roster.');
           setLoading(false);
         }
       }
@@ -382,7 +358,9 @@ export default function CircleRosterPage() {
       });
       if (r.ok) {
         const j = await r.json();
-        const prof = (j.profiles || []).find((p: any) => String(p.id) === String(individual.id));
+        const prof = (j.profiles || []).find(
+          (p: { id: string | number }) => String(p.id) === String(individual.id)
+        );
         if (prof) {
           setParticipants((prev) => {
             const next = prev.map((x) =>
@@ -471,18 +449,11 @@ export default function CircleRosterPage() {
 
   if (loading) {
     return (
-      <>
-        <header className="cs-hero py-10 px-6">
-          <div className="max-w-2xl mx-auto">
-            <div className="cs-skeleton h-10 w-2/3 mb-2" style={{ background: 'rgba(255,255,255,0.25)' }} />
-          </div>
-        </header>
-        <main className="max-w-2xl mx-auto px-4 py-6 space-y-4">
-          <div className="cs-skeleton h-12 w-full" />
-          <div className="cs-skeleton h-24 w-full" />
-          <div className="cs-skeleton h-40 w-full" />
-        </main>
-      </>
+      <main className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+        <div className="cs-skeleton h-12 w-full" />
+        <div className="cs-skeleton h-24 w-full" />
+        <div className="cs-skeleton h-40 w-full" />
+      </main>
     );
   }
 
@@ -496,30 +467,6 @@ export default function CircleRosterPage() {
 
   return (
     <>
-      <header className="cs-hero px-6 pt-10 pb-8 sm:pt-14 sm:pb-10">
-        <div className="max-w-2xl mx-auto">
-          <div className="flex items-center gap-4">
-            <img
-              src="/Circles Logo V2-White.png"
-              alt="Circles"
-              className="h-16 sm:h-20 w-auto shrink-0"
-            />
-            <div className="min-w-0 flex-1">
-              <h1 className="cs-display whitespace-nowrap text-[clamp(1.75rem,8.5vw,3rem)] leading-tight">
-                {leader?.name ? `${leader.name.trim().split(/\s+/)[0]}'s` : 'Your'} Roster
-              </h1>
-              {leader && (
-                <p className="mt-1.5 text-white/90 font-semibold text-base">{leader.name}</p>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-2xl mx-auto px-4 pt-4">
-        <CircleTabs urlGroupId={urlGroupId} active="roster" />
-      </div>
-
       <main className="max-w-2xl mx-auto px-4 py-4 pb-32 space-y-4">
         {upcomingBirthdays.length > 0 && (
           <div className="space-y-2">
