@@ -20,14 +20,14 @@ export async function POST(req: Request) {
   const leader = await getSessionLeader();
   if (!leader) return unauthorized();
 
-  let body: any;
+  let body: { ids?: unknown[] };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON.' }, { status: 400 });
   }
   const ids: string[] = Array.isArray(body?.ids)
-    ? Array.from(new Set(body.ids.map((x: any) => String(x)).filter(Boolean))).slice(0, MAX_IDS_PER_REQUEST) as string[]
+    ? Array.from(new Set(body.ids.map((x) => String(x)).filter(Boolean))).slice(0, MAX_IDS_PER_REQUEST) as string[]
     : [];
   if (ids.length === 0) {
     return NextResponse.json({ profiles: [] });
@@ -85,6 +85,25 @@ export async function POST(req: Request) {
       })),
       { onConflict: 'ccb_individual_id' }
     );
+
+    if (leader.ccb_group_id) {
+      await admin.from('circle_roster_cache').upsert(
+        results.map((r) => ({
+          circle_leader_id: leader.id,
+          ccb_group_id: String(leader.ccb_group_id),
+          ccb_individual_id: r.id,
+          first_name: r.firstName,
+          last_name: r.lastName,
+          full_name: r.fullName,
+          email: r.email,
+          phone: r.phone,
+          mobile_phone: r.phone,
+          birthday: r.birthday,
+          fetched_at: nowIso,
+        })),
+        { onConflict: 'circle_leader_id,ccb_individual_id' }
+      );
+    }
   }
 
   return NextResponse.json({ profiles: results });

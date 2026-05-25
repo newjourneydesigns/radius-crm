@@ -107,6 +107,31 @@ function phoneHref(p: string, scheme: 'tel' | 'sms'): string {
   return `${scheme}:${p.replace(/[^\d+]/g, '')}`;
 }
 
+function normalizeParticipants(input: unknown): Participant[] {
+  return (Array.isArray(input) ? input : []).map((p: Participant) => ({
+    id: p.id,
+    firstName: p.firstName,
+    lastName: p.lastName,
+    fullName: p.fullName,
+    email: p.email,
+    phone: p.phone,
+    birthday: p.birthday || '',
+    detailsLoaded: !!p.detailsLoaded,
+  }));
+}
+
+async function fetchProfileDetails(ids: string[]) {
+  if (ids.length === 0) return [];
+  const r = await fetch('/api/circle-summary/roster/refresh', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids }),
+  });
+  if (!r.ok) return [];
+  const j = await r.json();
+  return (j.profiles || []) as Array<{ id: string; phone: string; email: string; birthday: string }>;
+}
+
 export default function CircleRosterPage() {
   const router = useRouter();
   const params = useParams<{ ccbGroupId: string }>();
@@ -132,15 +157,19 @@ export default function CircleRosterPage() {
     if (refreshing || participants.length === 0) return;
     setRefreshing(true);
     try {
-      const ids = participants.map((p) => p.id);
-      const r = await fetch('/api/circle-summary/roster/refresh', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids }),
-      });
-      if (!r.ok) return;
-      const j = await r.json();
-      const profiles: Array<{ id: string; phone: string; email: string; birthday: string }> = j.profiles || [];
+      let ids = participants.map((p) => p.id);
+      const rosterRes = await fetch('/api/circle-summary/roster?refresh=1');
+      if (rosterRes.ok) {
+        const rosterData = (await rosterRes.json()) as { participants?: Participant[] };
+        const freshList = normalizeParticipants(rosterData.participants);
+        if (freshList.length > 0) {
+          ids = freshList.map((p) => p.id);
+          setParticipants(freshList);
+          writeRosterCache(urlGroupId, freshList);
+        }
+      }
+
+      const profiles = await fetchProfileDetails(ids);
       const byId = new Map(profiles.map((p) => [String(p.id), p]));
       setParticipants((prev) => {
         const next = prev.map((x) => {
@@ -212,21 +241,37 @@ export default function CircleRosterPage() {
           return;
         }
 
-        const rosterData = await rosterRes.json();
-        const list: Participant[] = (rosterData.participants || []).map((p: Participant) => ({
-          id: p.id,
-          firstName: p.firstName,
-          lastName: p.lastName,
-          fullName: p.fullName,
-          email: p.email,
-          phone: p.phone,
-          birthday: p.birthday || '',
-          detailsLoaded: !!p.detailsLoaded,
-        }));
+        let rosterData = (await rosterRes.json()) as {
+          participants?: Participant[];
+          staleIds?: string[];
+          needsRosterRefresh?: boolean;
+        };
+        let list = normalizeParticipants(rosterData.participants);
         if (cancelled) return;
         setParticipants(list);
         setLoading(false);
         writeRosterCache(urlGroupId, list);
+
+        if (rosterData.needsRosterRefresh) {
+          try {
+            setRefreshing(true);
+            const freshRes = await fetch('/api/circle-summary/roster?refresh=1');
+            if (freshRes.ok) {
+              rosterData = (await freshRes.json()) as {
+                participants?: Participant[];
+                staleIds?: string[];
+                needsRosterRefresh?: boolean;
+              };
+              list = normalizeParticipants(rosterData.participants);
+              if (!cancelled && list.length > 0) {
+                setParticipants(list);
+                writeRosterCache(urlGroupId, list);
+              }
+            }
+          } finally {
+            if (!cancelled) setRefreshing(false);
+          }
+        }
 
         // Revalidate stale or missing-profile members in one batched, parallel
         // request. The server fans out to CCB with bounded concurrency and
@@ -238,19 +283,11 @@ export default function CircleRosterPage() {
         if (staleIds.length === 0) return;
 
         try {
-          const r = await fetch('/api/circle-summary/roster/refresh', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids: staleIds }),
-          });
-          if (!r.ok) {
-            if (!cancelled) {
-              setParticipants((prev) => prev.map((x) => ({ ...x, detailsLoaded: true })));
-            }
+          const profiles = await fetchProfileDetails(staleIds);
+          if (profiles.length === 0 && !cancelled) {
+            setParticipants((prev) => prev.map((x) => ({ ...x, detailsLoaded: true })));
             return;
           }
-          const j = await r.json();
-          const profiles: Array<{ id: string; phone: string; email: string; birthday: string }> = j.profiles || [];
           const byId = new Map(profiles.map((p) => [String(p.id), p]));
           if (cancelled) return;
           setParticipants((prev) => {
