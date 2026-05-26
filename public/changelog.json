@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-05-26",
+    "type": "feature",
+    "page": "/admin/circle-leader-resources",
+    "description": "New Resources tab on the Circle Summary, plus a 'Circle Leader Resources' admin page under Tools. ACPDs can publish a rich-text page (links, lists, headings, and buttons) that every Circle Leader sees inside their Circle Summary."
+  },
+  {
     "date": "2026-05-25",
     "type": "improvement",
     "page": "/event-summary-tracker",

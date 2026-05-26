@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-type Tab = 'events' | 'roster';
+type Tab = 'events' | 'roster' | 'resources';
 
 export default function CircleTabs({
   urlGroupId,
@@ -14,6 +14,7 @@ export default function CircleTabs({
   const tabs: Array<{ key: Tab; label: string; href: string }> = [
     { key: 'events', label: 'Events', href: `/circle-summary/${urlGroupId}/events` },
     { key: 'roster', label: 'Roster', href: `/circle-summary/${urlGroupId}/roster` },
+    { key: 'resources', label: 'Resources', href: `/circle-summary/${urlGroupId}/resources` },
   ];
 
   return (

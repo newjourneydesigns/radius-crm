@@ -451,6 +451,96 @@ body:has(.cs-root) {
   white-space: pre-wrap;
 }
 
+/* Circle Leader Resources — content rendered from admin-edited HTML */
+.cs-resources {
+  color: var(--cs-ink);
+  font-size: 0.975rem;
+  line-height: 1.65;
+}
+.cs-resources > *:first-child { margin-top: 0; }
+.cs-resources > *:last-child { margin-bottom: 0; }
+.cs-resources h1,
+.cs-resources h2,
+.cs-resources h3 {
+  color: var(--cs-ink);
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 1.5rem 0 0.5rem;
+}
+.cs-resources h1 { font-size: 1.5rem; }
+.cs-resources h2 { font-size: 1.25rem; }
+.cs-resources h3 { font-size: 1.1rem; }
+.cs-resources p { margin: 0.75rem 0; }
+/* Preserve blank lines the admin pressed Enter for — empty <p> tags normally
+   collapse to zero height in the browser. */
+.cs-resources p:empty { min-height: 1em; }
+.cs-resources ul,
+.cs-resources ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+.cs-resources ul { list-style: disc; }
+.cs-resources ol { list-style: decimal; }
+.cs-resources li { margin: 0.25rem 0; }
+/* Overrides the global `a { color: #94a3b8 !important; }` rule in globals.css */
+.cs-resources a,
+.cs-resources a:visited {
+  color: var(--cs-green) !important;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--cs-green);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  transition: color 120ms ease, text-decoration-color 120ms ease;
+}
+.cs-resources a:hover {
+  color: var(--cs-green-dark) !important;
+  text-decoration-color: var(--cs-green-dark);
+}
+/* Buttons override the underline + weight from the generic anchor rule */
+.cs-resources a.cs-button,
+.cs-resources a.cs-button:visited,
+.cs-resources a.cs-button:hover {
+  color: #ffffff !important;
+  text-decoration: none;
+}
+.cs-resources hr {
+  border: none;
+  border-top: 1px solid var(--cs-border);
+  margin: 1.5rem 0;
+}
+.cs-resources img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+/* Inline button helper — admins can paste <a class="cs-button" href="...">Label</a> */
+.cs-resources a.cs-button,
+a.cs-button {
+  display: inline-block;
+  background: var(--cs-green);
+  color: #ffffff !important;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: 9999px;
+  border: 1px solid var(--cs-green);
+  transition: background 150ms ease, border-color 150ms ease, transform 100ms ease;
+  margin: 0.25rem 0.35rem 0.25rem 0;
+}
+.cs-resources a.cs-button:hover,
+a.cs-button:hover {
+  background: var(--cs-green-dark);
+  border-color: var(--cs-green-dark);
+}
+.cs-resources a.cs-button:active,
+a.cs-button:active {
+  transform: translateY(1px);
+}
+
 /* Event row cards — left border communicates status without relying solely on badge text */
 .cs-event-row {
   background: #ffffff;

@@ -172,6 +172,7 @@ const adminToolsNavItems = [
   { href: '/import-circles',         label: 'Import Circles',           Icon: ImportCirclesIcon },
   { href: '/import-circles/#mass-update', label: 'Mass Update',          Icon: MassUpdateIcon },
   { href: '/admin/dynamic-questions', label: 'Circle Summary Questions', Icon: LayoutListIcon },
+  { href: '/admin/circle-leader-resources', label: 'Circle Leader Resources', Icon: NotebookIcon },
   { href: '/users',                  label: 'Manage Users',             Icon: UsersIcon },
 ];
 

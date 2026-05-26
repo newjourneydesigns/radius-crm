@@ -35,7 +35,25 @@ interface RichTextEditorProps {
   minHeight?: string;
   stickyToolbar?: boolean;
   borderless?: boolean;
+  /** Adds a "Button" toolbar action that inserts a styled anchor (`<a class="cs-button">`). */
+  allowButton?: boolean;
 }
+
+// Link extension that preserves a custom `class` attribute, so anchors styled
+// with classes like `cs-button` round-trip cleanly through save/load.
+const ClassyLink = Link.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      class: {
+        default: null,
+        parseHTML: (el: HTMLElement) => el.getAttribute('class'),
+        renderHTML: (attrs: { class?: string | null }) =>
+          attrs.class ? { class: attrs.class } : {},
+      },
+    };
+  },
+});
 
 function ToolbarButton({
   onClick,
@@ -81,8 +99,10 @@ export default function RichTextEditor({
   minHeight = '80px',
   stickyToolbar = false,
   borderless = false,
+  allowButton = false,
 }: RichTextEditorProps) {
   const [linkDialog, setLinkDialog] = useState({ visible: false, displayText: '', url: '', hasSelection: false });
+  const [buttonDialog, setButtonDialog] = useState({ visible: false, label: '', url: '' });
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -94,14 +114,13 @@ export default function RichTextEditor({
         blockquote: false,
       }),
       Underline,
-      Link.configure({
+      ClassyLink.configure({
         openOnClick: true,
         autolink: true,
         linkOnPaste: true,
         HTMLAttributes: {
           rel: 'noopener noreferrer',
           target: '_blank',
-          class: 'rte-link',
         },
       }),
       Placeholder.configure({
@@ -131,16 +150,17 @@ export default function RichTextEditor({
     },
   });
 
-  // Sync external value changes (e.g. from DictateAndSummarize)
+  // Sync external value changes (e.g. from DictateAndSummarize) — also fires
+  // once the editor finishes initializing so the loaded value paints in.
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
     const current = editor.getHTML();
     const normalizedCurrent = current === '<p></p>' ? '' : current;
     const processed = linkifyHtml(value || '');
     if (normalizedCurrent !== processed) {
-      editor.commands.setContent(processed, false);
+      editor.commands.setContent(processed, { emitUpdate: false });
     }
-  }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [value, editor]);
 
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
@@ -183,6 +203,30 @@ export default function RichTextEditor({
 
   const cancelLinkDialog = useCallback(() => {
     setLinkDialog({ visible: false, displayText: '', url: '', hasSelection: false });
+    editor?.commands.focus();
+  }, [editor]);
+
+  const openButtonDialog = useCallback(() => {
+    if (!editor) return;
+    const { from, to } = editor.state.selection;
+    const selectedText = editor.state.doc.textBetween(from, to);
+    setButtonDialog({ visible: true, label: selectedText || '', url: '' });
+  }, [editor]);
+
+  const handleInsertButton = useCallback(() => {
+    if (!editor) return;
+    const url = buttonDialog.url.trim();
+    const label = buttonDialog.label.trim();
+    if (!url || !label) return;
+    const href = url.startsWith('http') ? url : `https://${url}`;
+    editor.chain().focus().insertContent(
+      `<a href="${href}" class="cs-button" target="_blank" rel="noopener noreferrer">${label}</a> `
+    ).run();
+    setButtonDialog({ visible: false, label: '', url: '' });
+  }, [editor, buttonDialog]);
+
+  const cancelButtonDialog = useCallback(() => {
+    setButtonDialog({ visible: false, label: '', url: '' });
     editor?.commands.focus();
   }, [editor]);
 
@@ -277,6 +321,16 @@ export default function RichTextEditor({
           </svg>
         </ToolbarButton>
 
+        <ToolbarButton
+          onClick={() => editor.chain().focus().setHorizontalRule().run()}
+          disabled={disabled}
+          title="Horizontal rule"
+        >
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <line x1="4" y1="12" x2="20" y2="12" />
+          </svg>
+        </ToolbarButton>
+
         <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1" />
 
         <button
@@ -299,6 +353,18 @@ export default function RichTextEditor({
               d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
           </svg>
         </button>
+
+        {allowButton && (
+          <ToolbarButton
+            onClick={openButtonDialog}
+            disabled={disabled}
+            title="Insert button"
+          >
+            <span className="inline-flex items-center justify-center text-[10px] font-bold tracking-wide leading-none px-1.5 py-[3px] rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/40">
+              BTN
+            </span>
+          </ToolbarButton>
+        )}
       </div>
 
       {/* Inline link dialog */}
@@ -336,6 +402,48 @@ export default function RichTextEditor({
             </button>
             <button type="button" onClick={handleSetLink} className="btn-primary px-3 py-1 rounded-lg text-xs">
               Insert
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Inline button dialog */}
+      {buttonDialog.visible && (
+        <div className="px-3 py-2 bg-emerald-50 dark:bg-emerald-900/20 border-b border-emerald-200 dark:border-emerald-800 space-y-2">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-gray-600 dark:text-gray-400 w-20 shrink-0">Button label</label>
+            <input
+              autoFocus
+              type="text"
+              value={buttonDialog.label}
+              onChange={(e) => setButtonDialog((p) => ({ ...p, label: e.target.value }))}
+              placeholder="e.g. What's Happening"
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleInsertButton(); } if (e.key === 'Escape') cancelButtonDialog(); }}
+              className="flex-1 text-sm px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-gray-600 dark:text-gray-400 w-20 shrink-0">URL</label>
+            <input
+              type="url"
+              value={buttonDialog.url}
+              onChange={(e) => setButtonDialog((p) => ({ ...p, url: e.target.value }))}
+              placeholder="https://example.com"
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleInsertButton(); } if (e.key === 'Escape') cancelButtonDialog(); }}
+              className="flex-1 text-sm px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            />
+          </div>
+          <div className="flex items-center gap-2 justify-end">
+            <button type="button" onClick={cancelButtonDialog} className="text-xs px-2 py-1 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleInsertButton}
+              disabled={!buttonDialog.label.trim() || !buttonDialog.url.trim()}
+              className="btn-primary px-3 py-1 rounded-lg text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Insert button
             </button>
           </div>
         </div>

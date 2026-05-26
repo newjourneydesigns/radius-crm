@@ -13,7 +13,7 @@ type HeaderLeader = {
   ccb_group_id: string | number | null;
 };
 
-type ActiveTab = 'events' | 'roster';
+type ActiveTab = 'events' | 'roster' | 'resources';
 
 function readLeaderCache(groupId: string): HeaderLeader | null {
   try {
@@ -43,6 +43,8 @@ export default function CircleGroupLayout({ children }: { children: ReactNode })
       ? 'events'
       : pathname === `/circle-summary/${urlGroupId}/roster`
       ? 'roster'
+      : pathname === `/circle-summary/${urlGroupId}/resources`
+      ? 'resources'
       : null;
 
   useEffect(() => {
