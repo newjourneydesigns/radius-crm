@@ -15,6 +15,7 @@ interface CircleSearchResult {
   day: string;
   time: string;
   circle_type: string;
+  status?: string;
   ccb_group_id?: string;
   leader_type?: string;
 }
@@ -35,6 +36,7 @@ interface DashboardFilters {
 export default function SearchPage() {
   const { isAuthenticated } = useAuth();
   const signedIn = isAuthenticated();
+  const normalizeStatus = (status: string | null | undefined) => (status || '').trim().toLowerCase();
 
   // localStorage key for persisting filters
   const STORAGE_KEY = 'radius-find-circle-filters';
@@ -51,12 +53,13 @@ export default function SearchPage() {
   // State for filters - using dashboard filter structure
   // Initialise from localStorage when available
   const [filters, setFilters] = useState<DashboardFilters>(() => {
-    if (typeof window === 'undefined') return { campus: [], meetingDay: [], circleType: [], timeOfDay: 'all', searchTerm: '', leaderType: 'all' };
+    const defaults = { campus: [], status: ['Active'], meetingDay: [], circleType: [], timeOfDay: 'all', searchTerm: '', leaderType: 'all' };
+    if (typeof window === 'undefined') return defaults;
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return { leaderType: 'all', ...JSON.parse(saved) };
+      if (saved) return { ...defaults, ...JSON.parse(saved) };
     } catch { /* ignore */ }
-    return { campus: [], meetingDay: [], circleType: [], timeOfDay: 'all', searchTerm: '', leaderType: 'all' };
+    return defaults;
   });
 
   // State for export modal
@@ -108,10 +111,9 @@ export default function SearchPage() {
           throw allError;
         }
 
-        // Only show active leaders
-        const visibleCircles = allData?.filter(circle =>
-          (circle.status || '').toLowerCase() === 'active'
-        ) || [];
+        // Public visitors only see active circles. Signed-in RADIUS users can filter by status.
+        const activeCircles = allData?.filter(circle => normalizeStatus(circle.status) === 'active') || [];
+        const visibleCircles = signedIn ? (allData || []) : activeCircles;
 
         setCircles(visibleCircles);
         setFilteredCircles(visibleCircles);
@@ -136,7 +138,7 @@ export default function SearchPage() {
     };
 
     loadCircles();
-  }, [isClient]);
+  }, [isClient, signedIn]);
 
   // Apply filters and search
   useEffect(() => {
@@ -154,6 +156,12 @@ export default function SearchPage() {
     // Apply campus filter
     if (filters.campus && filters.campus.length > 0) {
       filtered = filtered.filter(circle => filters.campus.includes(circle.campus));
+    }
+
+    // Apply status filter for signed-in RADIUS users only. Public visitors are already limited to Active circles.
+    if (signedIn && filters.status && filters.status.length > 0) {
+      const selectedStatusSet = new Set(filters.status.map((status) => normalizeStatus(status)));
+      filtered = filtered.filter(circle => selectedStatusSet.has(normalizeStatus(circle.status)));
     }
 
     // Apply circle type filter
@@ -198,7 +206,7 @@ export default function SearchPage() {
     }
 
     setFilteredCircles(filtered);
-  }, [circles, filters, sortConfig]);
+  }, [circles, filters, signedIn, sortConfig]);
 
   // Handle filter changes (using dashboard filter structure)
   const handleFiltersChange = (newFilters: Partial<DashboardFilters>) => {
@@ -221,6 +229,7 @@ export default function SearchPage() {
   const clearAllFilters = () => {
     const defaults: DashboardFilters = {
       campus: [],
+      status: ['Active'],
       meetingDay: [],
       circleType: [],
       timeOfDay: 'all',
@@ -233,6 +242,27 @@ export default function SearchPage() {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(SORT_STORAGE_KEY);
     } catch { /* ignore */ }
+  };
+
+  const statusOptions = useMemo(() => {
+    const statuses = circles
+      .map((circle) => circle.status)
+      .filter((status): status is string => Boolean(status && status.trim()))
+      .map((status) => status.trim());
+    return Array.from(new Set(statuses)).sort((a, b) => {
+      if (a === 'Active') return -1;
+      if (b === 'Active') return 1;
+      return a.localeCompare(b);
+    });
+  }, [circles]);
+
+  const selectedStatuses = filters.status || [];
+
+  const handleStatusChange = (value: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      status: value === 'all' ? [] : [value],
+    }));
   };
 
   // Format time display - convert 24hr to 12hr AM/PM format
@@ -328,6 +358,27 @@ export default function SearchPage() {
           totalLeaders={filteredCircles.length}
           allLeaders={circles}
         />
+
+        {signedIn && (
+          <div className="mb-4 max-w-xs">
+            <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+              Status
+            </label>
+            <select
+              id="status-filter"
+              value={selectedStatuses[0] || 'all'}
+              onChange={(event) => handleStatusChange(event.target.value)}
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            >
+              <option value="all">All Statuses</option>
+              {statusOptions.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Leader Type Filter */}
         <div className="flex items-center gap-2 mb-4">

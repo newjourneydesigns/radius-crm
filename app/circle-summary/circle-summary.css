@@ -137,6 +137,25 @@ body:has(.cs-root) {
   color: #1c1c1c !important;
   background: rgba(255, 255, 255, 0.6);
 }
+.cs-root .cs-inbox-folder-tab {
+  border: 1px solid transparent;
+}
+.cs-root .cs-inbox-folder-tab-active,
+.cs-root .cs-inbox-folder-tab-active * {
+  background: var(--cs-green);
+  border-color: var(--cs-green);
+  color: #ffffff !important;
+  box-shadow: 0 8px 18px -10px rgba(52, 178, 51, 0.8);
+}
+.cs-root .cs-inbox-folder-tab-inactive,
+.cs-root .cs-inbox-folder-tab-inactive * {
+  color: #5a5a5a !important;
+}
+.cs-root .cs-inbox-folder-tab-inactive:hover,
+.cs-root .cs-inbox-folder-tab-inactive:hover * {
+  color: #1c1c1c !important;
+  background: rgba(255, 255, 255, 0.75);
+}
 
 /* ─── Phone action sheet ───────────────────────────────────────
    Portaled to <body>, so we use literal brand colors instead of
@@ -514,6 +533,22 @@ body:has(.cs-root) {
   height: auto;
   border-radius: 0.5rem;
   margin: 1rem 0;
+}
+.cs-resources .cs-youtube-embed {
+  margin: 1rem 0;
+}
+.cs-resources .cs-youtube-embed iframe {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 0.75rem;
+  background: #111827;
+}
+.cs-resources .cs-youtube-embed a {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
 }
 
 /* Inline button helper — admins can paste <a class="cs-button" href="...">Label</a> */
@@ -947,6 +982,10 @@ a.cs-button:active {
 /* Message Center CTA button — !important needed to beat .cs-root inherited color */
 .cs-root .cs-message-cta,
 .cs-root .cs-message-cta * {
+  color: #ffffff !important;
+}
+.cs-root .cs-inbox-banner-cta,
+.cs-root .cs-inbox-banner-cta * {
   color: #ffffff !important;
 }
 .cs-message-cta {

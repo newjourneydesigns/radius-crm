@@ -472,6 +472,30 @@ button.score-btn:hover {
   filter: brightness(1.2);
 }
 
+.cs-youtube-embed {
+  margin: 0.75rem 0;
+}
+
+.cs-youtube-embed iframe {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 0.75rem;
+  background: #111827;
+}
+
+.cs-youtube-embed a {
+  display: inline-block;
+  margin-top: 0.5rem;
+  color: #60a5fa !important;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 /* ═══════════════════════════════════════════════════════════
    RADIUS Button Variant System — Brand Slate Palette
    ═══════════════════════════════════════════════════════════ */

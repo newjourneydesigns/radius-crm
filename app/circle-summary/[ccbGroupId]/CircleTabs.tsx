@@ -1,8 +1,9 @@
 'use client';
 
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 
-type Tab = 'events' | 'roster' | 'resources';
+type Tab = 'events' | 'roster' | 'inbox' | 'resources';
 
 export default function CircleTabs({
   urlGroupId,
@@ -11,38 +12,110 @@ export default function CircleTabs({
   urlGroupId: string;
   active: Tab;
 }) {
+  const [unreadCount, setUnreadCount] = useState<number | null>(null);
+
+  const refreshUnread = useCallback(async () => {
+    try {
+      const res = await fetch('/api/circle-summary/inbox/', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      setUnreadCount(Number(data.unreadCount || 0));
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    refreshUnread();
+    const onUpdate = () => refreshUnread();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refreshUnread();
+    };
+    window.addEventListener('circle-summary-inbox-updated', onUpdate);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('circle-summary-inbox-updated', onUpdate);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [refreshUnread]);
+
   const tabs: Array<{ key: Tab; label: string; href: string }> = [
     { key: 'events', label: 'Events', href: `/circle-summary/${urlGroupId}/events` },
     { key: 'roster', label: 'Roster', href: `/circle-summary/${urlGroupId}/roster` },
     { key: 'resources', label: 'Resources', href: `/circle-summary/${urlGroupId}/resources` },
+    { key: 'inbox', label: 'Inbox', href: `/circle-summary/${urlGroupId}/inbox` },
   ];
+  const hasUnreadMessages = unreadCount !== null && unreadCount > 0;
+  const unreadLabel = unreadCount === 1 ? '1 unread message' : `${unreadCount} unread messages`;
 
   return (
-    <div
-      role="tablist"
-      className="inline-flex w-full rounded-full p-1 gap-1"
-      style={{
-        background: 'var(--cs-bg-soft)',
-        border: '1px solid var(--cs-border)',
-      }}
-    >
-      {tabs.map((t) => {
-        const isActive = t.key === active;
-        return (
-          <Link
-            key={t.key}
-            role="tab"
-            aria-selected={isActive}
-            href={t.href}
-            className={
-              'flex-1 text-center text-sm font-semibold py-2.5 rounded-full transition-all ' +
-              (isActive ? 'shadow-sm cs-tab-active' : 'cs-tab-inactive')
-            }
-          >
-            {t.label}
-          </Link>
-        );
-      })}
+    <div className="space-y-3">
+      <div
+        role="tablist"
+        className="inline-flex w-full rounded-full p-1 gap-1"
+        style={{
+          background: 'var(--cs-bg-soft)',
+          border: '1px solid var(--cs-border)',
+        }}
+      >
+        {tabs.map((t) => {
+          const isActive = t.key === active;
+          return (
+            <Link
+              key={t.key}
+              role="tab"
+              aria-selected={isActive}
+              href={t.href}
+              className={
+                'flex-1 text-center text-xs sm:text-sm font-semibold py-2.5 rounded-full transition-all ' +
+                (isActive ? 'shadow-sm cs-tab-active' : 'cs-tab-inactive')
+              }
+            >
+              <span className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
+                {t.label}
+                {t.key === 'inbox' && unreadCount !== null && (
+                  <span
+                    aria-label={hasUnreadMessages ? unreadLabel : 'No unread messages'}
+                    className={
+                      'inline-flex min-w-5 h-5 px-1.5 items-center justify-center rounded-full text-[11px] font-bold leading-none ' +
+                      (hasUnreadMessages
+                        ? 'bg-red-600 text-white ring-2 ring-white shadow-sm animate-pulse'
+                        : isActive
+                        ? 'bg-neutral-200 text-neutral-700'
+                        : 'bg-white/80 text-neutral-500')
+                    }
+                  >
+                    {unreadCount}
+                  </span>
+                )}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+
+      {hasUnreadMessages && active !== 'inbox' && (
+        <Link
+          href={`/circle-summary/${urlGroupId}/inbox`}
+          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 text-neutral-900 shadow-lg ring-2 ring-red-400"
+        >
+          <span className="flex items-start gap-3 min-w-0">
+            <span className="relative mt-1 flex h-3 w-3 shrink-0">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping" />
+              <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-extrabold tracking-tight">
+                You have {unreadLabel}
+              </span>
+              <span className="block text-xs text-neutral-600 mt-0.5">
+                Open your inbox to read the latest update from your Circle team.
+              </span>
+            </span>
+          </span>
+          <span className="cs-inbox-banner-cta shrink-0 rounded-full bg-[#34B233] px-4 py-2 text-xs font-extrabold text-center shadow-sm">
+            Open Inbox
+          </span>
+        </Link>
+      )}
     </div>
   );
 }

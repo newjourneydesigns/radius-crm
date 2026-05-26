@@ -1,11 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { renderMessageHtml } from '../../../../lib/renderMessageHtml';
 
 type Resource = {
   body_html: string;
   updated_at: string | null;
 };
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
 
 export default function CircleSummaryResourcesPage() {
   const [resource, setResource] = useState<Resource | null>(null);
@@ -20,8 +25,8 @@ export default function CircleSummaryResourcesPage() {
         if (!res.ok) throw new Error('Could not load resources.');
         const data = await res.json();
         if (!cancelled) setResource(data.resource || { body_html: '', updated_at: null });
-      } catch (e: any) {
-        if (!cancelled) setError(e.message || 'Could not load resources.');
+      } catch (error: unknown) {
+        if (!cancelled) setError(getErrorMessage(error, 'Could not load resources.'));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -61,7 +66,9 @@ export default function CircleSummaryResourcesPage() {
       {!loading && !error && hasContent && (
         <article
           className="cs-card cs-resources p-5 sm:p-7"
-          dangerouslySetInnerHTML={{ __html: resource!.body_html }}
+          dangerouslySetInnerHTML={{
+            __html: renderMessageHtml(resource!.body_html, { includeYouTubeLink: false }),
+          }}
         />
       )}
     </main>

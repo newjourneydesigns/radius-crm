@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-05-26",
+    "type": "improvement",
+    "page": "/leader-messages",
+    "description": "Leader Messages admin page now scales smoothly: recipient/unread/read counts come from a single aggregated query instead of pulling every recipient row, target previews fetch only the leaders that match the chosen campus/ACPD/circle, and editing a sent message no longer rewrites every recipient row. The page stays fast as message history grows."
+  },
+  {
+    "date": "2026-05-26",
     "type": "feature",
     "page": "/admin/circle-leader-resources",
     "description": "New Resources tab on the Circle Summary, plus a 'Circle Leader Resources' admin page under Tools. ACPDs can publish a rich-text page (links, lists, headings, and buttons) that every Circle Leader sees inside their Circle Summary."
@@ -531,7 +537,7 @@
     "date": "2026-05-13",
     "type": "feature",
     "description": "ACPD admin pages for Circle Summary: build dynamic questions that appear on the leader form (with date windows and field types), review meeting-info change requests with one click to apply them to the leader's profile, and audit every submission with CCB push status.",
-    "page": "/admin/submission-log"
+    "page": "/admin/dynamic-questions"
   },
   {
     "date": "2026-05-13",

@@ -136,13 +136,6 @@ const ChevronDownIcon = () => (
 );
 
 // ----- Nav definitions -----
-const CircleDashIcon = () => (
-  <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z" />
-  </svg>
-);
-
 const TodayIcon = () => (
   <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -159,9 +152,15 @@ const primaryNavItems = [
 ];
 
 const toolsNavItems = [
-  { href: '/search',        label: 'Find Leaders',   Icon: SearchNavIcon },
+  { href: '/search',        label: 'Find A Circle',  Icon: SearchNavIcon },
   { href: '/person-lookup', label: 'Person Lookup',   Icon: SearchNavIcon },
   { href: '/birthday-list', label: 'Birthday List',   Icon: BirthdayCakeIcon },
+];
+
+const circleSummaryNavItems = [
+  { href: '/leader-messages', label: 'Leader Messages', Icon: MessageBulkIcon },
+  { href: '/admin/circle-leader-resources', label: 'Leader Resources', Icon: NotebookIcon, adminOnly: true },
+  { href: '/admin/dynamic-questions', label: 'Circle Summary Questions', Icon: LayoutListIcon, adminOnly: true },
 ];
 
 const adminToolsNavItems = [
@@ -171,8 +170,6 @@ const adminToolsNavItems = [
   { href: '/add-leader',             label: 'Add Circle/Leader',        Icon: UserPlusIcon },
   { href: '/import-circles',         label: 'Import Circles',           Icon: ImportCirclesIcon },
   { href: '/import-circles/#mass-update', label: 'Mass Update',          Icon: MassUpdateIcon },
-  { href: '/admin/dynamic-questions', label: 'Circle Summary Questions', Icon: LayoutListIcon },
-  { href: '/admin/circle-leader-resources', label: 'Circle Leader Resources', Icon: NotebookIcon },
   { href: '/users',                  label: 'Manage Users',             Icon: UsersIcon },
 ];
 
@@ -235,6 +232,7 @@ export default function AuthenticatedNavigation() {
   if (!isAuthenticated()) return null;
 
   const admin = isAdmin();
+  const visibleCircleSummaryNavItems = circleSummaryNavItems.filter((item) => !item.adminOnly || admin);
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : user?.email?.[0].toUpperCase() ?? '?';
@@ -302,12 +300,22 @@ export default function AuthenticatedNavigation() {
               </button>
 
               {toolsMenuOpen && (
-                <div className="absolute right-0 mt-2 w-52 rounded-xl bg-[#1a1c22] border border-white/[0.08] shadow-2xl shadow-black/50 ring-1 ring-black/20 z-[99999] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                <div className="absolute right-0 mt-2 w-60 rounded-xl bg-[#1a1c22] border border-white/[0.08] shadow-2xl shadow-black/50 ring-1 ring-black/20 z-[99999] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
                   <div className="px-3 py-2">
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Tools</p>
                   </div>
                   <div className="py-1">
                     {toolsNavItems.map(({ href, label, Icon }) => (
+                      <Link key={href} href={href} onClick={closeAll} className={dropdownLinkClass(href)}>
+                        <Icon /> {label}
+                      </Link>
+                    ))}
+                  </div>
+                  <div className="border-t border-white/[0.06] px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Circle Summary</p>
+                  </div>
+                  <div className="py-1">
+                    {visibleCircleSummaryNavItems.map(({ href, label, Icon }) => (
                       <Link key={href} href={href} onClick={closeAll} className={dropdownLinkClass(href)}>
                         <Icon /> {label}
                       </Link>

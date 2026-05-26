@@ -13,12 +13,17 @@ type HeaderLeader = {
   ccb_group_id: string | number | null;
 };
 
-type ActiveTab = 'events' | 'roster' | 'resources';
+type ActiveTab = 'events' | 'roster' | 'inbox' | 'resources';
 
 function readLeaderCache(groupId: string): HeaderLeader | null {
   try {
     const raw = sessionStorage.getItem(`cs:leader:${groupId}`);
-    return raw ? (JSON.parse(raw) as HeaderLeader) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as HeaderLeader;
+    // Only trust the cache if it has the fields the header relies on; otherwise
+    // force a fresh fetch so the name doesn't render as "Your Circle".
+    if (!parsed || typeof parsed.name !== 'string' || parsed.name.trim() === '') return null;
+    return parsed;
   } catch {
     return null;
   }
@@ -38,14 +43,14 @@ export default function CircleGroupLayout({ children }: { children: ReactNode })
   const [leader, setLeader] = useState<HeaderLeader | null>(null);
   const fetchedGroupRef = useRef<string | null>(null);
 
+  const base = `/circle-summary/${urlGroupId}`;
+  const tail = pathname.startsWith(base) ? pathname.slice(base.length).replace(/^\/+/, '').split('/')[0] : '';
   const active: ActiveTab | null =
-    pathname === `/circle-summary/${urlGroupId}/events`
-      ? 'events'
-      : pathname === `/circle-summary/${urlGroupId}/roster`
-      ? 'roster'
-      : pathname === `/circle-summary/${urlGroupId}/resources`
-      ? 'resources'
-      : null;
+    tail === 'events' ? 'events'
+    : tail === 'roster' ? 'roster'
+    : tail === 'inbox' ? 'inbox'
+    : tail === 'resources' ? 'resources'
+    : null;
 
   useEffect(() => {
     if (!urlGroupId || !active) return;
