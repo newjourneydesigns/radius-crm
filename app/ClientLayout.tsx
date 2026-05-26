@@ -13,10 +13,12 @@ import ProtectedRoute from "../components/ProtectedRoute";
 // Only these routes are accessible without being signed in.
 // `/auth/*` is required for the Supabase magic-link callback to complete the login flow.
 function isPublicRoute(pathname: string) {
+  // Strip a trailing slash so '/login/' matches '/login' (Netlify can add one).
+  const p = pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
   return (
-    pathname === '/login' ||
-    pathname === '/search' ||
-    pathname.startsWith('/auth')
+    p === '/login' ||
+    p === '/search' ||
+    p.startsWith('/auth')
   );
 }
 
