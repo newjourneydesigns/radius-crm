@@ -150,6 +150,8 @@ const toolsNavItems = [
   { href: '/search',        label: 'Find A Circle',  Icon: SearchNavIcon },
   { href: '/person-lookup', label: 'Person Lookup',   Icon: SearchNavIcon },
   { href: '/birthday-list', label: 'Birthday List',   Icon: BirthdayCakeIcon },
+  { href: '/ccb-explorer',  label: 'CCB Explorer',   Icon: CompassIcon, adminOnly: true },
+  { href: '/bulk-message',  label: 'Bulk Message',   Icon: MessageBulkIcon, adminOnly: true },
 ];
 
 const circleSummaryNavItems = [
@@ -160,9 +162,7 @@ const circleSummaryNavItems = [
 ];
 
 const adminToolsNavItems = [
-  { href: '/ccb-explorer',           label: 'CCB Explorer',             Icon: CompassIcon },
   { href: '/ccb-usage',              label: 'CCB Usage',                Icon: ChartIcon },
-  { href: '/bulk-message',           label: 'Bulk Message',             Icon: MessageBulkIcon },
   { href: '/add-leader',             label: 'Add Circle/Leader',        Icon: UserPlusIcon },
   { href: '/import-circles',         label: 'Import Circles',           Icon: ImportCirclesIcon },
   { href: '/import-circles/#mass-update', label: 'Mass Update',          Icon: MassUpdateIcon },
@@ -228,6 +228,7 @@ export default function AuthenticatedNavigation() {
   if (!isAuthenticated()) return null;
 
   const admin = isAdmin();
+  const visibleToolsNavItems = toolsNavItems.filter((item) => !item.adminOnly || admin);
   const visibleCircleSummaryNavItems = circleSummaryNavItems.filter((item) => !item.adminOnly || admin);
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -301,7 +302,7 @@ export default function AuthenticatedNavigation() {
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Tools</p>
                   </div>
                   <div className="py-1">
-                    {toolsNavItems.map(({ href, label, Icon }) => (
+                    {visibleToolsNavItems.map(({ href, label, Icon }) => (
                       <Link key={href} href={href} onClick={closeAll} className={dropdownLinkClass(href)}>
                         <Icon /> {label}
                       </Link>
