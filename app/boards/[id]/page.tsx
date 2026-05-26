@@ -14,7 +14,7 @@ import {
   FolderKanban, Check, Globe, Lock, StickyNote, UserPlus, Download, Copy,
   Zap, ArrowDownAZ, ArrowUpZA, Bold, Italic, Underline, Strikethrough,
   LinkIcon, ExternalLink, Heading, ListBullet, ListOrdered, SlidersHorizontal, Repeat2,
-  LayoutDashboard, ChevronsLeft, Circle, Star,
+  LayoutDashboard, ChevronsLeft, Circle, Star, ArrowUpRight,
 } from '../../../components/icons/BoardIcons';
 import { supabase } from '../../../lib/supabase';
 import type { CircleLeader } from '../../../lib/supabase';
@@ -183,6 +183,7 @@ function CardDetailModal({
   onAddChecklistGroup,
   onRenameChecklistGroup,
   onDeleteChecklistGroup,
+  onConvertToCard,
   onMoveCard,
   onMoveToBoardCard,
   checklistTemplates,
@@ -213,6 +214,7 @@ function CardDetailModal({
   onAddChecklistGroup: (title: string) => Promise<CardChecklistGroup | null>;
   onRenameChecklistGroup: (groupId: string, title: string) => Promise<void>;
   onDeleteChecklistGroup: (groupId: string) => Promise<void>;
+  onConvertToCard: (itemId: string, title: string, columnId: string) => Promise<void>;
   onMoveCard: (newColumnId: string) => Promise<void>;
   onMoveToBoardCard: (targetBoardId: string, targetColumnId: string) => Promise<void>;
   checklistTemplates: ChecklistTemplate[];
@@ -267,6 +269,8 @@ function CardDetailModal({
   const [suggestions, setSuggestions] = useState<{ text: string; kind: string; sourceLine: number; sourceQuote: string }[]>([]);
   const [selectedSuggestions, setSelectedSuggestions] = useState<Set<number>>(new Set());
   const [targetSuggestionGroupId, setTargetSuggestionGroupId] = useState<string>('__new__');
+  const [convertingItemId, setConvertingItemId] = useState<string | null>(null);
+  const [convertColumnId, setConvertColumnId] = useState(card.column_id);
   const titleRef = useRef<HTMLInputElement>(null);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialRef = useRef(true);
@@ -717,7 +721,46 @@ function CardDetailModal({
         <button className="kb-btn-icon-sm" onClick={() => onDeleteChecklistItem(item.id)}>
           <X size={11} />
         </button>
+        <button
+          className={`kb-btn-icon-sm${convertingItemId === item.id ? ' kb-checklist-link-active' : ''}`}
+          onClick={() => {
+            if (convertingItemId === item.id) {
+              setConvertingItemId(null);
+            } else {
+              setConvertingItemId(item.id);
+              setConvertColumnId(card.column_id);
+            }
+          }}
+          title="Convert to card"
+        >
+          <ArrowUpRight size={11} />
+        </button>
       </div>
+      {convertingItemId === item.id && (
+        <div className="kb-checklist-convert-row">
+          <ArrowUpRight size={11} style={{ color: '#8da9c4', flexShrink: 0 }} />
+          <select
+            className="kb-input kb-checklist-convert-select"
+            value={convertColumnId}
+            onChange={e => setConvertColumnId(e.target.value)}
+          >
+            {board.columns.map(col => (
+              <option key={col.id} value={col.id}>{col.title}</option>
+            ))}
+          </select>
+          <button
+            className="kb-btn kb-btn-primary kb-btn-sm"
+            onClick={async () => {
+              await onConvertToCard(item.id, item.title, convertColumnId);
+              setConvertingItemId(null);
+            }}
+          >Convert</button>
+          <button
+            className="kb-btn kb-btn-sm"
+            onClick={() => setConvertingItemId(null)}
+          >Cancel</button>
+        </div>
+      )}
       {editingChecklistLinkId === item.id && (
         <div className="kb-checklist-url-row">
           <LinkIcon size={11} style={{ color: '#8da9c4', flexShrink: 0 }} />
@@ -4396,6 +4439,10 @@ function BoardPage() {
           onAddChecklistGroup={async (title) => await addChecklistGroup(boardId, activeCard.id, title)}
           onRenameChecklistGroup={async (groupId, title) => { await renameChecklistGroup(boardId, activeCard.id, groupId, title); }}
           onDeleteChecklistGroup={async (groupId) => { await deleteChecklistGroup(boardId, activeCard.id, groupId); }}
+          onConvertToCard={async (itemId, title, columnId) => {
+            await addCard(boardId, { column_id: columnId, title });
+            await deleteChecklistItem(boardId, activeCard.id, itemId);
+          }}
           onMoveCard={async (newColumnId) => {
             await moveCard(boardId, activeCard.id, newColumnId, 0);
             await runColumnAutomations(activeCard.id, newColumnId);
@@ -5738,6 +5785,8 @@ const kanbanStyles = `
   .kb-checklist-link-active { color: #8da9c4 !important; }
   .kb-checklist-url-row { display: flex; align-items: center; gap: 6px; padding: 4px 0 2px 28px; }
   .kb-checklist-url-input { font-size: 12px; padding: 2px 6px; height: auto; flex: 1; }
+  .kb-checklist-convert-row { display: flex; align-items: center; gap: 6px; padding: 4px 0 2px 28px; }
+  .kb-checklist-convert-select { font-size: 12px; padding: 2px 6px; height: auto; flex: 1; }
   .kb-checklist-edit-input { font-size: 13px; padding: 2px 6px; height: auto; flex: 1; }
   .kb-checklist-due-wrapper { display: flex; align-items: center; flex-shrink: 0; }
   .kb-checklist-date-btn {

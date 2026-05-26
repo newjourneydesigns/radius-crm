@@ -8,15 +8,29 @@ import Footer from "../components/layout/Footer";
 import QuickActionsFAB from "../components/layout/QuickActionsFAB";
 import { AuthProvider } from "../contexts/AuthContext";
 import NavigationProgress from "../components/layout/NavigationProgress";
+import ProtectedRoute from "../components/ProtectedRoute";
+
+// Only these routes are accessible without being signed in.
+// `/auth/*` is required for the Supabase magic-link callback to complete the login flow.
+function isPublicRoute(pathname: string) {
+  return (
+    pathname === '/login' ||
+    pathname === '/search' ||
+    pathname.startsWith('/auth')
+  );
+}
 
 function LayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const isPublic = isPublicRoute(pathname);
   const hideChrome =
     pathname === '/login' ||
     pathname.startsWith('/auth') ||
     pathname.startsWith('/circle-summary');
   const isBoardDetailPage = /^\/boards\/[^/]+/.test(pathname);
   const isNotebookPage = pathname.startsWith('/notebook');
+
+  const content = isPublic ? children : <ProtectedRoute>{children}</ProtectedRoute>;
 
   return (
     <>
@@ -37,7 +51,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Main Content — bottom padding clears the fixed bottom nav + safe area on mobile */}
-      <main className="mobile-nav-padding">{children}</main>
+      <main className="mobile-nav-padding">{content}</main>
 
       {!hideChrome && !isNotebookPage && (
         <>

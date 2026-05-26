@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-05-26",
+    "type": "fix",
+    "page": "/login",
+    "description": "Closed an authentication gap where signed-out users could reach internal pages (like the Event Summary Tracker) directly by URL. All pages now require sign-in except the login page and the public Find a Circle search."
+  },
+  {
+    "date": "2026-05-26",
+    "type": "feature",
+    "page": "/boards",
+    "description": "Checklist items on board cards can now be converted into their own cards. Click the arrow icon on any checklist item, choose a list, and hit Convert — the item becomes a new card and is removed from the checklist."
+  },
+  {
+    "date": "2026-05-26",
     "type": "improvement",
     "page": "/circle-summary",
     "description": "Message Center banners on the Circle Summary events page now render YouTube links as inline video embeds, matching how the Inbox and Resources pages already handle them."
