@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-05-26",
+    "type": "improvement",
+    "page": "/notebook",
+    "description": "Card descriptions in the notebook side panel now render as friendly text and clickable links instead of raw HTML. Click the description to edit it."
+  },
+  {
+    "date": "2026-05-26",
     "type": "fix",
     "page": "/login",
     "description": "Closed an authentication gap where signed-out users could reach internal pages (like the Event Summary Tracker) directly by URL. All pages now require sign-in except the login page and the public Find a Circle search."

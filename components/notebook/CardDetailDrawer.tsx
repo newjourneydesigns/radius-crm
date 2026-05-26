@@ -37,6 +37,47 @@ function htmlToPlainText(html: string): string {
     .trim();
 }
 
+const ALLOWED_TAGS = new Set(['p', 'br', 'a', 'strong', 'em', 'b', 'i', 'u', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'code', 'pre', 'blockquote']);
+
+function sanitizeDescriptionHtml(html: string): string {
+  if (typeof window === 'undefined') return '';
+  const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html');
+  const root = doc.body.firstElementChild;
+  if (!root) return '';
+
+  const walk = (node: Element) => {
+    Array.from(node.children).forEach(child => {
+      const tag = child.tagName.toLowerCase();
+      if (!ALLOWED_TAGS.has(tag)) {
+        const text = doc.createTextNode(child.textContent || '');
+        child.replaceWith(text);
+        return;
+      }
+      Array.from(child.attributes).forEach(attr => {
+        const name = attr.name.toLowerCase();
+        if (tag === 'a' && (name === 'href' || name === 'target' || name === 'rel')) {
+          if (name === 'href' && /^\s*javascript:/i.test(attr.value)) {
+            child.removeAttribute(attr.name);
+          }
+          return;
+        }
+        child.removeAttribute(attr.name);
+      });
+      if (tag === 'a') {
+        child.setAttribute('target', '_blank');
+        child.setAttribute('rel', 'noopener noreferrer');
+      }
+      walk(child);
+    });
+  };
+  walk(root);
+  return root.innerHTML;
+}
+
+function descriptionLooksLikeHtml(text: string): boolean {
+  return /<\/?[a-z][\s\S]*>/i.test(text);
+}
+
 function suggestionDescription(suggestion: ChecklistSuggestion): string {
   return `${suggestion.kind === 'open_item' ? 'Open item' : 'Next step'} · line ${suggestion.sourceLine}: "${suggestion.sourceQuote}"`;
 }
@@ -57,6 +98,8 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
   const [dueDate, setDueDate] = useState(card?.due_date ?? '');
   const [isComplete, setIsComplete] = useState(card?.is_complete ?? false);
   const [saving, setSaving] = useState(false);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Checklists
@@ -420,13 +463,37 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
           {/* Description */}
           <div>
             <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1.5">Description</p>
-            <textarea
-              value={description}
-              onChange={e => handleDescChange(e.target.value)}
-              rows={4}
-              placeholder="Add a description…"
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-indigo-400/40 resize-none transition-colors leading-relaxed"
-            />
+            {isEditingDescription || !description ? (
+              <textarea
+                ref={descriptionRef}
+                value={description}
+                onChange={e => handleDescChange(e.target.value)}
+                onBlur={() => setIsEditingDescription(false)}
+                rows={4}
+                placeholder="Add a description…"
+                autoFocus={isEditingDescription}
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-indigo-400/40 resize-none transition-colors leading-relaxed"
+              />
+            ) : descriptionLooksLikeHtml(description) ? (
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setIsEditingDescription(true)}
+                onKeyDown={e => { if (e.key === 'Enter') setIsEditingDescription(true); }}
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-gray-300 leading-relaxed cursor-text hover:border-white/[0.12] transition-colors [&_a]:text-indigo-400 [&_a]:underline [&_a:hover]:text-indigo-300 [&_p]:mb-2 [&_p:last-child]:mb-0"
+                dangerouslySetInnerHTML={{ __html: sanitizeDescriptionHtml(description) }}
+              />
+            ) : (
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setIsEditingDescription(true)}
+                onKeyDown={e => { if (e.key === 'Enter') setIsEditingDescription(true); }}
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-gray-300 leading-relaxed cursor-text hover:border-white/[0.12] transition-colors whitespace-pre-wrap break-words"
+              >
+                {description}
+              </div>
+            )}
           </div>
 
           <div className="h-px bg-white/[0.06]" />
