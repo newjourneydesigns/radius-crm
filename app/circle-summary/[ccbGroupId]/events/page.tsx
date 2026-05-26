@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { renderMessageHtml } from '../../../../lib/renderMessageHtml';
 
 type EventRow = {
   eventId: string;
@@ -178,7 +179,7 @@ export default function CircleSummaryEventsPage() {
               {m.body_html && (
                 <div
                   className="cs-message-body text-sm text-neutral-700 mt-1.5 leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: m.body_html }}
+                  dangerouslySetInnerHTML={{ __html: renderMessageHtml(m.body_html) }}
                 />
               )}
               {m.url && (

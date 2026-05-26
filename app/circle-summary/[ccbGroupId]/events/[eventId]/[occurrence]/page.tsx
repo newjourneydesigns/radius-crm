@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 
 type Participant = {
@@ -33,6 +34,8 @@ type Leader = {
 
 type ManualAttendee = { firstName: string; lastName: string; phone?: string; email?: string };
 
+type DynamicValue = string | string[] | boolean | null;
+
 type CcbSearchResult = {
   id: string;
   firstName?: string;
@@ -60,22 +63,20 @@ function dateLabel(occurrenceDateTime: string): string {
   });
 }
 
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-
 function normalizeNoteText(value: unknown): string {
   return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }
 
 export default function CircleSummaryFormPage() {
   const router = useRouter();
   const params = useParams<{ ccbGroupId: string; eventId: string; occurrence: string }>();
-  const urlGroupId = params.ccbGroupId;
-  const eventId = params.eventId;
-  const occurrence = decodeURIComponent(params.occurrence);
+  const urlGroupId = params?.ccbGroupId ?? '';
+  const eventId = params?.eventId ?? '';
+  const occurrence = decodeURIComponent(params?.occurrence ?? '');
 
   const [leader, setLeader] = useState<Leader | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -91,7 +92,7 @@ export default function CircleSummaryFormPage() {
   const [notes, setNotes] = useState('');
   const [prayerRequests, setPrayerRequests] = useState('');
   const [info, setInfo] = useState('');
-  const [dynamicValues, setDynamicValues] = useState<Record<string, any>>({});
+  const [dynamicValues, setDynamicValues] = useState<Record<string, DynamicValue>>({});
   const [manualAttendees, setManualAttendees] = useState<ManualAttendee[]>([]);
   const [infoUpdateDay, setInfoUpdateDay] = useState('');
   const [infoUpdateTime, setInfoUpdateTime] = useState('');
@@ -172,15 +173,15 @@ export default function CircleSummaryFormPage() {
           setPreviousNotes(d.referenceNotes ?? '');
           setPrayerRequests(d.prayerRequests ?? '');
           setInfo(d.info ?? '');
-          setDynamicValues(d.dynamicValues ?? {});
+          setDynamicValues((d.dynamicValues ?? {}) as Record<string, DynamicValue>);
           setManualAttendees(d.manualAttendees ?? []);
           setInfoUpdateDay(d.infoUpdateDay ?? '');
           setInfoUpdateTime(d.infoUpdateTime ?? '');
           setInfoUpdateLocation(d.infoUpdateLocation ?? '');
           if (d.infoUpdateDay || d.infoUpdateTime || d.infoUpdateLocation) setShowInfoUpdate(true);
         }
-      } catch (e: any) {
-        if (!cancelled) setLoadError(e?.message || 'Failed to load form.');
+      } catch (error: unknown) {
+        if (!cancelled) setLoadError(getErrorMessage(error, 'Failed to load form.'));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -499,8 +500,8 @@ export default function CircleSummaryFormPage() {
         localStorage.removeItem(`cs:events:${urlGroupId}`);
       } catch {}
       router.replace(`/circle-summary/success?id=${data.summaryId}`);
-    } catch (e: any) {
-      setSubmitError(e?.message || 'Submission failed.');
+    } catch (error: unknown) {
+      setSubmitError(getErrorMessage(error, 'Submission failed.'));
     } finally {
       setSubmitting(false);
     }
@@ -508,17 +509,10 @@ export default function CircleSummaryFormPage() {
 
   if (loading) {
     return (
-      <>
-        <header className="cs-hero py-10 px-6">
-          <div className="max-w-2xl mx-auto">
-            <div className="cs-skeleton h-10 w-2/3 mb-2" style={{ background: 'rgba(255,255,255,0.25)' }} />
-          </div>
-        </header>
-        <main className="max-w-2xl mx-auto px-4 py-6 space-y-4">
-          <div className="cs-skeleton h-24 w-full" />
-          <div className="cs-skeleton h-40 w-full" />
-        </main>
-      </>
+      <main className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+        <div className="cs-skeleton h-24 w-full" />
+        <div className="cs-skeleton h-40 w-full" />
+      </main>
     );
   }
   if (loadError) {
@@ -542,20 +536,13 @@ export default function CircleSummaryFormPage() {
     <>
       <header className="cs-hero py-8 sm:py-10 px-6">
         <div className="max-w-2xl mx-auto">
-          <button
-            type="button"
-            onClick={() => router.push(`/circle-summary/${urlGroupId}/events`)}
-            className="inline-flex items-center gap-1 text-white/75 hover:text-white text-sm mb-4 transition-colors"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to events
-          </button>
           <div className="flex items-center gap-4">
-            <img
+            <Image
               src="/Circles Logo V2-White.png"
               alt="Circles"
+              width={80}
+              height={79}
+              priority
               className="h-16 sm:h-20 w-auto shrink-0"
             />
             <div className="min-w-0">
@@ -594,7 +581,7 @@ export default function CircleSummaryFormPage() {
               <div>
                 <div className="font-semibold text-neutral-900">Did your Circle meet?</div>
                 <div className="text-xs text-neutral-500 mt-0.5">
-                  Toggle off if you didn't gather this time.
+                  Toggle off if you didn&apos;t gather this time.
                 </div>
               </div>
             </div>
@@ -689,7 +676,7 @@ export default function CircleSummaryFormPage() {
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mt-0.5 shrink-0 text-amber-500">
                     <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
                   </svg>
-                  <span>Tap the minus button to remove someone from your Circle's roster. Their profile isn't deleted — they're just removed from this Circle.</span>
+                  <span>Tap the minus button to remove someone from your Circle&apos;s roster. Their profile isn&apos;t deleted — they&apos;re just removed from this Circle.</span>
                 </div>
               )}
               <div className="space-y-1 mb-4">
@@ -968,14 +955,19 @@ export default function CircleSummaryFormPage() {
               <button
                 type="button"
                 onClick={() => setShowInfoUpdate(true)}
-                className="text-left w-full"
+                className="group flex w-full flex-col gap-3 text-left sm:flex-row sm:items-center sm:justify-between"
               >
-                <div className="font-semibold text-neutral-900">
-                  Do any Circle details need to update?
+                <div className="min-w-0">
+                  <div className="font-semibold text-neutral-900">
+                    Do you need to update any Circle details?
+                  </div>
+                  <div className="text-xs text-neutral-500 mt-1">
+                    Ask you Circle team to update your day, time, or location
+                  </div>
                 </div>
-                <div className="text-xs text-neutral-500 mt-1">
-                  Day, time, or location changes — your ACPD will review.
-                </div>
+                <span className="inline-flex shrink-0 items-center justify-center rounded-xl border-2 border-[#34B233] px-4 py-2 text-sm font-bold text-[#1f7320] transition-colors group-hover:bg-[#34B233] group-hover:text-white">
+                  Edit Details
+                </span>
               </button>
             ) : (
               <div className="space-y-3">
@@ -1037,7 +1029,15 @@ export default function CircleSummaryFormPage() {
 
       {/* Sticky submit footer */}
       <div className="fixed bottom-0 inset-x-0 cs-dark px-4 py-4 z-50 shadow-[0_-4px_16px_rgba(0,0,0,0.15)]">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl mx-auto grid grid-cols-[auto,1fr] gap-3">
+          <button
+            type="button"
+            onClick={() => router.push(`/circle-summary/${urlGroupId}/events`)}
+            disabled={submitting}
+            className="rounded-xl border border-white/30 px-5 py-4 text-base font-semibold text-white/90 transition-colors hover:bg-white/10 disabled:opacity-50"
+          >
+            Cancel
+          </button>
           <button
             type="button"
             onClick={handleSubmit}
@@ -1091,8 +1091,8 @@ function DynamicQuestionField({
   onChange,
 }: {
   question: DynamicQuestion;
-  value: any;
-  onChange: (v: any) => void;
+  value: DynamicValue | undefined;
+  onChange: (v: DynamicValue) => void;
 }) {
   const opts = (question.options || []).map((o) =>
     typeof o === 'string' ? { label: o, value: o } : o
@@ -1110,20 +1110,20 @@ function DynamicQuestionField({
         <input
           type="text"
           className="cs-input"
-          value={value ?? ''}
+          value={typeof value === 'string' ? value : ''}
           onChange={(e) => onChange(e.target.value)}
         />
       )}
       {question.field_type === 'textarea' && (
         <AutoGrowTextarea
-          value={value ?? ''}
+          value={typeof value === 'string' ? value : ''}
           onChange={(v) => onChange(v)}
         />
       )}
       {question.field_type === 'dropdown' && (
         <select
           className="cs-select"
-          value={value ?? ''}
+          value={typeof value === 'string' ? value : ''}
           onChange={(e) => onChange(e.target.value)}
         >
           <option value="">Choose…</option>

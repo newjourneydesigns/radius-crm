@@ -2,6 +2,12 @@
   {
     "date": "2026-05-26",
     "type": "improvement",
+    "page": "/circle-summary",
+    "description": "Message Center banners on the Circle Summary events page now render YouTube links as inline video embeds, matching how the Inbox and Resources pages already handle them."
+  },
+  {
+    "date": "2026-05-26",
+    "type": "improvement",
     "page": "/leader-messages",
     "description": "Leader Messages admin page now scales smoothly: recipient/unread/read counts come from a single aggregated query instead of pulling every recipient row, target previews fetch only the leaders that match the chosen campus/ACPD/circle, and editing a sent message no longer rewrites every recipient row. The page stays fast as message history grows."
   },

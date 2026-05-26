@@ -9,11 +9,6 @@ import { useAuth } from "../../contexts/AuthContext";
 import GlobalSearch from './GlobalSearch';
 
 // ----- Icon components (heroicons-style, 20 × 20) -----
-const HomeIcon = () => (
-  <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-  </svg>
-);
 const ChartIcon = () => (
   <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -158,6 +153,7 @@ const toolsNavItems = [
 ];
 
 const circleSummaryNavItems = [
+  { href: '/admin/message-center', label: 'Message Center', Icon: MessageBulkIcon, adminOnly: true },
   { href: '/leader-messages', label: 'Leader Messages', Icon: MessageBulkIcon },
   { href: '/admin/circle-leader-resources', label: 'Leader Resources', Icon: NotebookIcon, adminOnly: true },
   { href: '/admin/dynamic-questions', label: 'Circle Summary Questions', Icon: LayoutListIcon, adminOnly: true },
@@ -312,7 +308,7 @@ export default function AuthenticatedNavigation() {
                     ))}
                   </div>
                   <div className="border-t border-white/[0.06] px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Circle Summary</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Circle Leader Page</p>
                   </div>
                   <div className="py-1">
                     {visibleCircleSummaryNavItems.map(({ href, label, Icon }) => (

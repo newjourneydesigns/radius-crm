@@ -51,6 +51,8 @@ export default function CircleGroupLayout({ children }: { children: ReactNode })
     : tail === 'inbox' ? 'inbox'
     : tail === 'resources' ? 'resources'
     : null;
+  const isEventSummaryForm =
+    !!urlGroupId && pathname.startsWith(`/circle-summary/${urlGroupId}/events/`);
 
   useEffect(() => {
     if (!urlGroupId || !active) return;
@@ -95,7 +97,7 @@ export default function CircleGroupLayout({ children }: { children: ReactNode })
     router.replace('/circle-summary');
   }
 
-  if (!active) return <>{children}</>;
+  if (!active || isEventSummaryForm) return <>{children}</>;
 
   const firstName = leader?.name ? leader.name.trim().split(/\s+/)[0] : null;
   return (
