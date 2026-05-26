@@ -2,6 +2,12 @@
   {
     "date": "2026-05-25",
     "type": "improvement",
+    "page": "/event-summary-tracker",
+    "description": "Renamed the 'Meet' status segment on the Event Summary Tracker to 'Circle Met' for clarity."
+  },
+  {
+    "date": "2026-05-25",
+    "type": "improvement",
     "page": "/circle-summary",
     "description": "Faster Circle Summary roster: the page now loads from a server-side roster cache instead of waiting on a live CCB call every time. Add/remove actions update the cache instantly so changes appear immediately, and the cache transparently re-syncs from CCB in the background after 15 minutes."
   },

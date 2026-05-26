@@ -1189,7 +1189,7 @@ export default function EventSummaryTrackerPage() {
           <StatusBar
             segments={[
               { key: 'review',   label: 'Needs Review', value: stats.review,    color: '#f59e0b' },
-              { key: 'received', label: 'Meet',         value: stats.received,  color: '#22c55e' },
+              { key: 'received', label: 'Circle Met',   value: stats.received,  color: '#22c55e' },
               { key: 'dnm',      label: "Didn't Meet",  value: stats.dnm,       color: '#3b82f6' },
               { key: 'no',       label: 'No Summary',   value: stats.notReport, color: '#ef4444' },
             ]}
