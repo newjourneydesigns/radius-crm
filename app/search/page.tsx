@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { CircleLeader } from '../../lib/supabase';
 import DashboardFilterAdapter from '../../components/dashboard/DashboardFilterAdapter';
 import ExportModal from '../../components/dashboard/ExportModal';
+import InviteToCircleModal from '../../components/modals/InviteToCircleModal';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface CircleSearchResult {
@@ -18,7 +19,22 @@ interface CircleSearchResult {
   status?: string;
   ccb_group_id?: string;
   leader_type?: string;
+  frequency?: string;
+  location?: string;
+  acpd?: string;
 }
+
+const ROSTER_COUNT_PAGE_SIZE = 1000;
+
+const DAY_ORDER: Record<string, number> = {
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+};
 
 interface DashboardFilters {
   campus: string[];
@@ -32,6 +48,36 @@ interface DashboardFilters {
   searchTerm?: string;
   leaderType?: string;
 }
+
+const loadRosterCounts = async () => {
+  const counts: Record<number, number> = {};
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('circle_roster_cache')
+      .select('circle_leader_id')
+      .range(from, from + ROSTER_COUNT_PAGE_SIZE - 1);
+
+    if (error) {
+      throw error;
+    }
+
+    const rows = data || [];
+    rows.forEach((r: { circle_leader_id: number | null }) => {
+      if (typeof r.circle_leader_id !== 'number') return;
+      counts[r.circle_leader_id] = (counts[r.circle_leader_id] || 0) + 1;
+    });
+
+    if (rows.length < ROSTER_COUNT_PAGE_SIZE) {
+      break;
+    }
+
+    from += ROSTER_COUNT_PAGE_SIZE;
+  }
+
+  return counts;
+};
 
 export default function SearchPage() {
   const { isAuthenticated } = useAuth();
@@ -53,7 +99,7 @@ export default function SearchPage() {
   // State for filters - using dashboard filter structure
   // Initialise from localStorage when available
   const [filters, setFilters] = useState<DashboardFilters>(() => {
-    const defaults = { campus: [], status: ['Active'], meetingDay: [], circleType: [], timeOfDay: 'all', searchTerm: '', leaderType: 'all' };
+    const defaults = { campus: [], acpd: [], status: ['Active'], meetingDay: [], circleType: [], timeOfDay: 'all', searchTerm: '', leaderType: 'all' };
     if (typeof window === 'undefined') return defaults;
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -64,18 +110,19 @@ export default function SearchPage() {
 
   // State for export modal
   const [exportModal, setExportModal] = useState(false);
+  const [inviteCircle, setInviteCircle] = useState<CircleSearchResult | null>(null);
 
   // State for sorting
   const [sortConfig, setSortConfig] = useState<{
-    key: keyof CircleSearchResult | null;
+    key: keyof CircleSearchResult | 'roster' | null;
     direction: 'asc' | 'desc';
   }>(() => {
-    if (typeof window === 'undefined') return { key: 'name', direction: 'asc' };
+    if (typeof window === 'undefined') return { key: 'day', direction: 'asc' };
     try {
       const saved = localStorage.getItem(SORT_STORAGE_KEY);
       if (saved) return JSON.parse(saved);
     } catch { /* ignore */ }
-    return { key: 'name', direction: 'asc' };
+    return { key: 'day', direction: 'asc' };
   });
 
   // Persist filters to localStorage whenever they change
@@ -104,7 +151,7 @@ export default function SearchPage() {
       try {
         const { data: allData, error: allError } = await supabase
           .from('circle_leaders')
-          .select('id, name, campus, day, time, circle_type, status, ccb_group_id, leader_type')
+          .select('id, name, campus, day, time, circle_type, status, ccb_group_id, leader_type, frequency, location, acpd')
           .order('name');
 
         if (allError) {
@@ -118,17 +165,8 @@ export default function SearchPage() {
         setCircles(visibleCircles);
         setFilteredCircles(visibleCircles);
 
-        // Fetch roster counts from cache
-        const { data: rosterData } = await supabase
-          .from('circle_roster_cache')
-          .select('circle_leader_id');
-        if (rosterData) {
-          const counts: Record<number, number> = {};
-          rosterData.forEach((r: { circle_leader_id: number }) => {
-            counts[r.circle_leader_id] = (counts[r.circle_leader_id] || 0) + 1;
-          });
-          setRosterCounts(counts);
-        }
+        // Fetch roster counts from cache in pages so counts are not capped by the default API limit.
+        setRosterCounts(await loadRosterCounts());
       } catch (error) {
         console.error('Error loading circles:', error);
         setError('Failed to load circles. Please try again.');
@@ -174,6 +212,12 @@ export default function SearchPage() {
       filtered = filtered.filter(circle => filters.meetingDay.includes(circle.day));
     }
 
+    // Apply ACPD filter
+    if (filters.acpd && filters.acpd.length > 0) {
+      const selectedAcpdSet = new Set(filters.acpd.map((a) => a.trim().toLowerCase()));
+      filtered = filtered.filter(circle => selectedAcpdSet.has((circle.acpd || '').trim().toLowerCase()));
+    }
+
     // Apply leader type filter
     if (filters.leaderType && filters.leaderType !== 'all') {
       filtered = filtered.filter(circle => (circle.leader_type || 'circle') === filters.leaderType);
@@ -191,22 +235,31 @@ export default function SearchPage() {
 
     // Apply sorting
     if (sortConfig.key) {
+      const dir = sortConfig.direction === 'asc' ? 1 : -1;
       filtered.sort((a, b) => {
-        const aValue = a[sortConfig.key!] ?? '';
-        const bValue = b[sortConfig.key!] ?? '';
-        
-        if (aValue < bValue) {
-          return sortConfig.direction === 'asc' ? -1 : 1;
+        if (sortConfig.key === 'day') {
+          const aRank = DAY_ORDER[(a.day || '').trim().toLowerCase()] ?? 99;
+          const bRank = DAY_ORDER[(b.day || '').trim().toLowerCase()] ?? 99;
+          if (aRank !== bRank) return (aRank - bRank) * dir;
+          // Secondary sort by name for stable grouping within a day
+          return a.name.localeCompare(b.name);
         }
-        if (aValue > bValue) {
-          return sortConfig.direction === 'asc' ? 1 : -1;
+        if (sortConfig.key === 'roster') {
+          const aCount = rosterCounts[a.id] ?? -1;
+          const bCount = rosterCounts[b.id] ?? -1;
+          if (aCount !== bCount) return (aCount - bCount) * dir;
+          return a.name.localeCompare(b.name);
         }
+        const aValue = a[sortConfig.key as keyof CircleSearchResult] ?? '';
+        const bValue = b[sortConfig.key as keyof CircleSearchResult] ?? '';
+        if (aValue < bValue) return -1 * dir;
+        if (aValue > bValue) return 1 * dir;
         return 0;
       });
     }
 
     setFilteredCircles(filtered);
-  }, [circles, filters, signedIn, sortConfig]);
+  }, [circles, filters, signedIn, sortConfig, rosterCounts]);
 
   // Handle filter changes (using dashboard filter structure)
   const handleFiltersChange = (newFilters: Partial<DashboardFilters>) => {
@@ -217,7 +270,7 @@ export default function SearchPage() {
   };
 
   // Handle sorting
-  const handleSort = (key: keyof CircleSearchResult) => {
+  const handleSort = (key: keyof CircleSearchResult | 'roster') => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig.key === key && sortConfig.direction === 'asc') {
       direction = 'desc';
@@ -229,6 +282,7 @@ export default function SearchPage() {
   const clearAllFilters = () => {
     const defaults: DashboardFilters = {
       campus: [],
+      acpd: [],
       status: ['Active'],
       meetingDay: [],
       circleType: [],
@@ -237,7 +291,7 @@ export default function SearchPage() {
       leaderType: 'all'
     };
     setFilters(defaults);
-    setSortConfig({ key: 'name', direction: 'asc' });
+    setSortConfig({ key: 'day', direction: 'asc' });
     try {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(SORT_STORAGE_KEY);
@@ -262,6 +316,23 @@ export default function SearchPage() {
     setFilters((prev) => ({
       ...prev,
       status: value === 'all' ? [] : [value],
+    }));
+  };
+
+  const acpdOptions = useMemo(() => {
+    const names = circles
+      .map((c) => c.acpd)
+      .filter((v): v is string => Boolean(v && v.trim()))
+      .map((v) => v.trim());
+    return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
+  }, [circles]);
+
+  const selectedAcpd = filters.acpd || [];
+
+  const handleAcpdChange = (value: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      acpd: value === 'all' ? [] : [value],
     }));
   };
 
@@ -357,23 +428,43 @@ export default function SearchPage() {
         />
 
         {signedIn && (
-          <div className="mb-4 max-w-xs">
-            <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-              Status
-            </label>
-            <select
-              id="status-filter"
-              value={selectedStatuses[0] || 'all'}
-              onChange={(event) => handleStatusChange(event.target.value)}
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-            >
-              <option value="all">All Statuses</option>
-              {statusOptions.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
+          <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+            <div>
+              <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                Status
+              </label>
+              <select
+                id="status-filter"
+                value={selectedStatuses[0] || 'all'}
+                onChange={(event) => handleStatusChange(event.target.value)}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              >
+                <option value="all">All Statuses</option>
+                {statusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="acpd-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                ACPD
+              </label>
+              <select
+                id="acpd-filter"
+                value={selectedAcpd[0] || 'all'}
+                onChange={(event) => handleAcpdChange(event.target.value)}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              >
+                <option value="all">All ACPDs</option>
+                {acpdOptions.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         )}
 
@@ -458,50 +549,8 @@ export default function SearchPage() {
                         )}
                       </div>
                     </th>
-                    <th 
-                      scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
-                      onClick={() => handleSort('campus')}
-                    >
-                      <div className="flex items-center space-x-1">
-                        <span>Campus</span>
-                        {sortConfig.key === 'campus' && (
-                          <span className="text-blue-500">
-                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
-                          </span>
-                        )}
-                      </div>
-                    </th>
-                    <th 
-                      scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
-                      onClick={() => handleSort('day')}
-                    >
-                      <div className="flex items-center space-x-1">
-                        <span>Day</span>
-                        {sortConfig.key === 'day' && (
-                          <span className="text-blue-500">
-                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
-                          </span>
-                        )}
-                      </div>
-                    </th>
-                    <th 
-                      scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
-                      onClick={() => handleSort('time')}
-                    >
-                      <div className="flex items-center space-x-1">
-                        <span>Time</span>
-                        {sortConfig.key === 'time' && (
-                          <span className="text-blue-500">
-                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
-                          </span>
-                        )}
-                      </div>
-                    </th>
-                    <th 
-                      scope="col" 
+                    <th
+                      scope="col"
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                       onClick={() => handleSort('circle_type')}
                     >
@@ -514,15 +563,86 @@ export default function SearchPage() {
                         )}
                       </div>
                     </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                      onClick={() => handleSort('day')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Day</span>
+                        {sortConfig.key === 'day' && (
+                          <span className="text-blue-500">
+                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                      onClick={() => handleSort('time')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Time</span>
+                        {sortConfig.key === 'time' && (
+                          <span className="text-blue-500">
+                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                      onClick={() => handleSort('location')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Location</span>
+                        {sortConfig.key === 'location' && (
+                          <span className="text-blue-500">
+                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                      onClick={() => handleSort('campus')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Campus</span>
+                        {sortConfig.key === 'campus' && (
+                          <span className="text-blue-500">
+                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
+                    </th>
 
                     {signedIn && (
                       <th
                         scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                        className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200"
+                        onClick={() => handleSort('roster')}
                       >
-                        <div className="flex items-center space-x-1">
+                        <div className="flex items-center justify-center space-x-1">
                           <span>Roster</span>
+                          {sortConfig.key === 'roster' && (
+                            <span className="text-gray-400">
+                              {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                            </span>
+                          )}
                         </div>
+                      </th>
+                    )}
+
+                    {signedIn && (
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                      >
+                        <span className="sr-only">Actions</span>
                       </th>
                     )}
 
@@ -541,7 +661,7 @@ export default function SearchPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 dark:text-white">
-                          {circle.campus || '-'}
+                          {circle.circle_type || '-'}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -554,35 +674,45 @@ export default function SearchPage() {
                           {formatTime(circle.time) || '-'}
                         </div>
                       </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900 dark:text-white">
+                          {circle.location || <span className="text-gray-400 dark:text-gray-500">—</span>}
+                        </div>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 dark:text-white">
-                          {circle.circle_type || '-'}
+                          {circle.campus || '-'}
                         </div>
                       </td>
 
                       {signedIn && (
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {rosterCounts[circle.id] ? (
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        {typeof rosterCounts[circle.id] === 'number' ? (
                           <Link
                             href={`/circle/${circle.id}/roster`}
-                            className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-slate-300 bg-slate-700/50 hover:bg-slate-700 rounded-full transition-colors"
+                            className="inline-flex items-center px-2 py-1 text-xs font-medium text-slate-300 bg-slate-700/50 hover:bg-slate-700 rounded-full transition-colors"
                           >
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                            </svg>
                             {rosterCounts[circle.id]}
                           </Link>
-                        ) : circle.ccb_group_id ? (
-                          <Link
-                            href={`/circle/${circle.id}/roster`}
-                            className="text-xs text-gray-400 dark:text-gray-500 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
-                          >
-                            View
-                          </Link>
                         ) : (
-                          <span className="text-xs text-gray-300 dark:text-gray-600">—</span>
+                          <span className="text-xs text-gray-300 dark:text-gray-600">-</span>
                         )}
                       </td>
+                      )}
+
+                      {signedIn && (
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <button
+                            onClick={() => setInviteCircle(circle)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-900/30 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 rounded-md transition-colors"
+                            title="Invite a new person to this circle"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                            </svg>
+                            Invite
+                          </button>
+                        </td>
                       )}
 
                     </tr>
@@ -600,6 +730,32 @@ export default function SearchPage() {
         onClose={() => setExportModal(false)}
         leaders={filteredCircles as unknown as CircleLeader[]}
       />
+
+      {/* Invite to Circle Modal */}
+      {inviteCircle && (
+        <InviteToCircleModal
+          isOpen={!!inviteCircle}
+          onClose={() => setInviteCircle(null)}
+          circle={{
+            leaderName: inviteCircle.name,
+            campus: inviteCircle.campus,
+            day: inviteCircle.day,
+            time: inviteCircle.time,
+            frequency: inviteCircle.frequency,
+            location: inviteCircle.location,
+            acpdName: inviteCircle.acpd,
+          }}
+          onSend={async (_personName, phone, _email, message) => {
+            if (phone) {
+              const cleanPhone = phone.replace(/\D/g, '');
+              const encodedMessage = encodeURIComponent(message);
+              window.location.href = `sms:${cleanPhone}&body=${encodedMessage}`;
+            } else {
+              await navigator.clipboard.writeText(message);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

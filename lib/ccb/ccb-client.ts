@@ -503,23 +503,30 @@ export class CCBClient {
     const esc = (s: string) =>
       s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+    const didNotMeet = Boolean(payload.didNotMeet);
     const attendeesXml = (payload.attendeeIds ?? [])
       .map((id) => `    <attendee id="${esc(String(id))}"></attendee>`)
       .join('\n');
+    const attendeesBlock = `    <attendees>
+${attendeesXml}
+    </attendees>`;
+    const headCountXml = didNotMeet
+      ? '<head_count></head_count>'
+      : payload.headCount != null
+        ? `<head_count>${payload.headCount}</head_count>`
+        : '<head_count></head_count>';
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <events>
   <event id="${esc(String(payload.eventId))}" occurrence="${esc(payload.occurrence)}">
-    <did_not_meet>${payload.didNotMeet ? 'true' : 'false'}</did_not_meet>
-    ${payload.headCount != null ? `<head_count>${payload.headCount}</head_count>` : ''}
-    ${payload.guestCount != null ? `<guest_count>${payload.guestCount}</guest_count>` : ''}
-    <attendees>
-${attendeesXml}
-    </attendees>
-    ${payload.topic != null ? `<topic>${esc(payload.topic)}</topic>` : ''}
-    ${payload.notes != null ? `<notes>${esc(payload.notes)}</notes>` : ''}
-    ${payload.prayerRequests != null ? `<prayer_requests>${esc(payload.prayerRequests)}</prayer_requests>` : ''}
-    ${payload.info != null ? `<info>${esc(payload.info)}</info>` : ''}
+    <did_not_meet>${didNotMeet ? 'true' : 'false'}</did_not_meet>
+    ${headCountXml}
+    ${!didNotMeet && payload.guestCount != null ? `<guest_count>${payload.guestCount}</guest_count>` : ''}
+${attendeesBlock}
+    <topic>${esc(payload.topic ?? '')}</topic>
+    <notes>${esc(payload.notes ?? '')}</notes>
+    <prayer_requests>${esc(payload.prayerRequests ?? '')}</prayer_requests>
+    <info>${esc(payload.info ?? '')}</info>
     <email_notification>${payload.emailNotification ?? 'none'}</email_notification>
   </event>
 </events>`;

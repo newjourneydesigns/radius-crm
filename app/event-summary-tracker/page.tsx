@@ -94,6 +94,8 @@ type Row = {
   occurrence: OccurrenceRow | null;
   submission: SubmissionRow | null;
   missedTwoPlus: boolean;
+  overdue: boolean;
+  hoursOverdue: number;
 };
 
 type PagePayload = {
@@ -744,6 +746,25 @@ export default function EventSummaryTrackerPage() {
       const guestCount = occ?.guest_count ?? 0;
       const attendees = headcount && guestCount ? Math.max(0, headcount - guestCount) : (headcount ?? 0);
 
+      // Overdue: a leader still in "Awaiting Submission" more than 24h after their
+      // scheduled meeting time. Helps surface circles that have gone silent.
+      let overdue = false;
+      let hoursOverdue = 0;
+      if (status === 'no_summary' && l.day) {
+        const meetingDate = scheduledMeetingDateForWeek(weekStart, l.day);
+        if (meetingDate) {
+          const minutes = parseTimeToMinutes(l.time);
+          const scheduledDt = minutes < 9999
+            ? meetingDate.plus({ minutes })
+            : meetingDate.endOf('day');
+          const diffHours = DateTime.now().diff(scheduledDt, 'hours').hours;
+          if (diffHours >= 24) {
+            overdue = true;
+            hoursOverdue = Math.floor(diffHours);
+          }
+        }
+      }
+
       return {
         leader: l,
         status,
@@ -757,9 +778,11 @@ export default function EventSummaryTrackerPage() {
         occurrence: occ,
         submission: sub,
         missedTwoPlus: missedSet.has(l.id),
+        overdue,
+        hoursOverdue,
       };
     });
-  }, [leaders, occurrences, submissions, snapshots, scheduledLeaderIds, tracker, campusFilter, acpdFilter, circleStatusFilters, justReviewed, justUnreviewed]);
+  }, [leaders, occurrences, submissions, snapshots, scheduledLeaderIds, tracker, campusFilter, acpdFilter, circleStatusFilters, justReviewed, justUnreviewed, weekStart]);
 
   const sortRows = useCallback((arr: Row[]) => {
     const sorted = [...arr];
@@ -780,7 +803,11 @@ export default function EventSummaryTrackerPage() {
   }, [sortMode]);
 
   const needsReview = useMemo(() => sortRows(rows.filter(r => r.status === 'needs_review')), [rows, sortRows]);
-  const awaiting    = useMemo(() => sortRows(rows.filter(r => r.status === 'no_summary')), [rows, sortRows]);
+  const awaiting    = useMemo(() => {
+    const sorted = sortRows(rows.filter(r => r.status === 'no_summary'));
+    // Float overdue rows to the top so attention goes where it's needed first.
+    return sorted.sort((a, b) => Number(b.overdue) - Number(a.overdue));
+  }, [rows, sortRows]);
   const complete    = useMemo(() => sortRows(rows.filter(r => r.status === 'received' || r.status === 'did_not_meet')), [rows, sortRows]);
 
   const stats = useMemo(() => {
@@ -1281,9 +1308,15 @@ export default function EventSummaryTrackerPage() {
             <Bucket title="Needs Review" tone="amber" rows={needsReview} renderRow={(r) => (
               <RowItem row={r} onReview={() => setReviewRow(r)} reviewLabel="Review" />
             )} />
-            <Bucket title="Awaiting Submission" tone="red" rows={awaiting} renderRow={(r) => (
-              <RowItem row={r} onSendReminder={smsSupported ? () => openReminder(r.leader) : undefined} />
-            )} />
+            <Bucket
+              title="Awaiting Submission"
+              tone="red"
+              rows={awaiting}
+              overdueCount={awaiting.filter(r => r.overdue).length}
+              renderRow={(r) => (
+                <RowItem row={r} onSendReminder={smsSupported ? () => openReminder(r.leader) : undefined} />
+              )}
+            />
             <Bucket title="Complete" tone="green" rows={complete} renderRow={(r) => (
               <RowItem row={r} onReview={() => setReviewRow(r)} reviewLabel="View Summary" />
             )} collapsedByDefault={complete.length > 12} />
@@ -1638,12 +1671,14 @@ function Bucket({
   rows,
   renderRow,
   collapsedByDefault,
+  overdueCount,
 }: {
   title: string;
   tone: 'amber' | 'red' | 'green';
   rows: Row[];
   renderRow: (r: Row) => React.ReactNode;
   collapsedByDefault?: boolean;
+  overdueCount?: number;
 }) {
   const [open, setOpen] = useState(!collapsedByDefault);
   const toneClass = tone === 'amber' ? 'border-amber-500/30' : tone === 'red' ? 'border-red-500/30' : 'border-green-500/30';
@@ -1659,6 +1694,12 @@ function Bucket({
           <span className={`w-2 h-2 rounded-full ${dot}`} />
           {title}
           <span className="text-slate-500 font-normal">· {rows.length}</span>
+          {overdueCount !== undefined && overdueCount > 0 && (
+            <span className="ml-1 inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-semibold text-red-200 bg-red-500/20 border border-red-500/40 px-1.5 py-0.5 rounded">
+              <AlertTriangle className="w-3 h-3" />
+              {overdueCount} overdue
+            </span>
+          )}
         </span>
         <span className="text-slate-400 inline-flex items-center justify-center w-6 h-6 rounded-md hover:bg-slate-700/40">
           <svg
@@ -1697,16 +1738,38 @@ function RowItem({
   onSendReminder?: () => void;
 }) {
   const r = row;
+  const overdue = r.overdue;
+  const overdueLabel = r.hoursOverdue >= 48
+    ? `${Math.floor(r.hoursOverdue / 24)}d overdue`
+    : `${r.hoursOverdue}h overdue`;
   return (
-    <div className="px-4 py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-slate-700/20 transition-colors">
+    <div
+      className={`px-4 py-3 flex flex-wrap items-center justify-between gap-3 transition-colors ${
+        overdue
+          ? 'bg-red-500/10 border-l-4 border-red-500 hover:bg-red-500/15'
+          : 'hover:bg-slate-700/20'
+      }`}
+    >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
+          {overdue && (
+            <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 animate-pulse" />
+          )}
           <Link
             href={`/circle/${r.leader.id}`}
-            className="text-sm font-medium text-slate-100 hover:text-indigo-300 hover:underline transition-colors"
+            className={`text-sm font-medium hover:underline transition-colors ${
+              overdue
+                ? 'text-red-100 hover:text-red-200'
+                : 'text-slate-100 hover:text-indigo-300'
+            }`}
           >
             {r.leader.name}
           </Link>
+          {overdue && (
+            <span className="text-[10px] uppercase tracking-wide font-semibold text-red-200 bg-red-500/25 px-1.5 py-0.5 rounded">
+              {overdueLabel}
+            </span>
+          )}
           {r.missedTwoPlus && (
             <span className="text-[10px] uppercase tracking-wide text-amber-300 bg-amber-500/15 px-1.5 py-0.5 rounded">
               missed 2+
@@ -1731,7 +1794,11 @@ function RowItem({
         {onSendReminder && (
           <button
             onClick={onSendReminder}
-            className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+            className={`text-xs px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
+              overdue
+                ? 'bg-red-500/80 hover:bg-red-500 text-white font-medium shadow-sm shadow-red-500/30'
+                : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
+            }`}
           >
             Send Reminder
           </button>

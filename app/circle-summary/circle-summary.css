@@ -595,7 +595,7 @@ a.cs-button:active {
 }
 .cs-event-row.needs-summary { border-left-color: #f59e0b; }
 .cs-event-row.submitted     { border-left-color: var(--cs-green); }
-.cs-event-row.did-not-meet  { border-left-color: #d1d5db; }
+.cs-event-row.did-not-meet  { border-left-color: #dc2626; background: #fef2f2; }
 
 /* Date stamp column inside event rows */
 .cs-date-stamp {
@@ -940,6 +940,10 @@ a.cs-button:active {
 .cs-badge-muted {
   background: #f3f4f6;
   color: #6b7280;
+}
+.cs-badge-danger {
+  background: #fee2e2;
+  color: #991b1b;
 }
 .cs-badge-new {
   background: rgba(52, 178, 51, 0.12);

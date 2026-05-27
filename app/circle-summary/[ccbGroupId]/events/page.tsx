@@ -13,7 +13,7 @@ type EventRow = {
   hasExistingAttendance: boolean;
   didNotMeet: boolean;
   submittedAt: string | null;
-  submittedStatus: 'submitted' | 'failed' | null;
+  submittedStatus: 'submitted' | 'failed' | 'retrying' | null;
 };
 
 type CenterMessage = {
@@ -161,7 +161,9 @@ export default function CircleSummaryEventsPage() {
     };
   }, [invalidationKey, loadEvents]);
 
-  const submitted = events.filter((e) => !!e.submittedAt || e.hasExistingAttendance).length;
+  const submittedEvents = events.filter((e) => !!e.submittedAt || e.hasExistingAttendance);
+  const submitted = submittedEvents.length;
+  const didNotMeet = submittedEvents.filter((e) => e.didNotMeet).length;
   const pending = events.filter((e) => !e.submittedAt && !e.hasExistingAttendance).length;
 
   return (
@@ -211,6 +213,12 @@ export default function CircleSummaryEventsPage() {
               <div className="flex items-center gap-1.5 bg-white border border-amber-200 rounded-full px-3 py-1 shadow-sm">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
                 <span className="text-amber-800 text-xs font-semibold">{pending} need{pending === 1 ? 's' : ''} summary</span>
+              </div>
+            )}
+            {didNotMeet > 0 && (
+              <div className="flex items-center gap-1.5 bg-white border border-red-200 rounded-full px-3 py-1 shadow-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />
+                <span className="text-red-800 text-xs font-semibold">{didNotMeet} did not meet</span>
               </div>
             )}
             {refreshing && (
@@ -267,7 +275,7 @@ export default function CircleSummaryEventsPage() {
               <rect x="3" y="4" width="18" height="18" rx="2" />
               <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
             </svg>
-            <p className="text-neutral-500 font-medium">No events in the last 8 weeks</p>
+            <p className="text-neutral-500 font-medium">No events in the last 12 weeks</p>
             <p className="text-neutral-400 text-sm mt-1">Check back after your next meeting.</p>
           </div>
         )}
@@ -275,7 +283,7 @@ export default function CircleSummaryEventsPage() {
         {!loading && events.length > 0 && (
           <div className="space-y-2.5">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-400 mb-3 px-0.5">
-              Last 8 weeks
+              Last 12 weeks
             </p>
             {events.map((e) => {
               const occurEncoded = encodeURIComponent(e.occurrenceDateTime);
@@ -311,7 +319,7 @@ export default function CircleSummaryEventsPage() {
                       <p className="text-xs text-green-700 font-semibold">Summary on file</p>
                     )}
                     {isSubmitted && e.didNotMeet && (
-                      <p className="text-xs text-neutral-500 font-semibold">Did not meet</p>
+                      <p className="text-xs text-red-700 font-semibold">Did not meet</p>
                     )}
                   </div>
 
@@ -319,7 +327,7 @@ export default function CircleSummaryEventsPage() {
                   <div className="pr-3 flex items-center gap-2 shrink-0">
                     <div className="shrink-0">
                       {isSubmitted && e.didNotMeet && (
-                        <span className="cs-badge cs-badge-muted">Skipped</span>
+                        <span className="cs-badge cs-badge-danger">Did Not Meet</span>
                       )}
                       {isSubmitted && !e.didNotMeet && (
                         <span className="cs-badge cs-badge-success">Done</span>

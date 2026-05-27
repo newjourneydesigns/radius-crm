@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { SearchX, Plus, Calendar, X } from 'lucide-react';
+import { SearchX, Plus, Calendar, X, HandHeart } from 'lucide-react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import PrayerToolbar from '../../components/prayer/PrayerToolbar';
 import PrayerSectionHeader from '../../components/prayer/PrayerSectionHeader';
 import PrayerRow, { PrayerRowData } from '../../components/prayer/PrayerRow';
+import PrayerSessionLogList from '../../components/prayer/PrayerSessionLogList';
 import { supabase, PrayerPoint, PrayerSessionLog, PrayerKind } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -46,6 +47,23 @@ interface GeneralPrayer {
 
 function logKey(kind: PrayerKind, id: number) {
   return `${kind}:${id}`;
+}
+
+function timeAgoFromTimestamp(ts: string) {
+  const now = new Date();
+  const d = new Date(ts);
+  const diffMs = now.getTime() - d.getTime();
+  const diffMin = Math.floor(diffMs / (1000 * 60));
+  if (diffMin < 1) return 'just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDays = Math.floor(diffHr / 24);
+  if (diffDays === 1) return 'yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`;
+  return `${Math.floor(diffDays / 365)}y ago`;
 }
 
 // ── Main Component ─────────────────────────────────────
@@ -97,6 +115,10 @@ function PrayerListContent() {
 
   // Draft log id (just-created) per prayer key — auto-opens history + note editor
   const [draftLogIds, setDraftLogIds] = useState<Record<string, number | null>>({});
+  // Draft log id per leader (for the leader_session note editor)
+  const [draftLeaderSessionIds, setDraftLeaderSessionIds] = useState<Record<number, number | null>>({});
+  // Which leaders have their session history panel open
+  const [leaderSessionHistoryOpen, setLeaderSessionHistoryOpen] = useState<Set<number>>(new Set());
 
   // Persist filters
   useEffect(() => {
@@ -108,6 +130,7 @@ function PrayerListContent() {
 
   // ─── Load data ───
   const loadData = useCallback(async () => {
+    if (!currentUserId) return;
     try {
       setIsLoading(true);
       setError(null);
@@ -124,15 +147,18 @@ function PrayerListContent() {
             circle_leaders!inner ( id, name, campus, acpd )
           `)
           .eq('is_answered', false)
+          .eq('user_id', currentUserId)
           .order('created_at', { ascending: false }),
         supabase
           .from('general_prayer_points')
           .select('*')
           .eq('is_answered', false)
+          .eq('user_id', currentUserId)
           .order('created_at', { ascending: false }),
         supabase
           .from('prayer_session_logs')
           .select('*')
+          .eq('user_id', currentUserId)
           .order('prayed_on', { ascending: false }),
       ]);
 
@@ -167,7 +193,7 @@ function PrayerListContent() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [currentUserId]);
 
   useEffect(() => {
     loadData();
@@ -192,6 +218,18 @@ function PrayerListContent() {
       const key = logKey(log.prayer_kind, log.prayer_point_id);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(log);
+    }
+    return map;
+  }, [sessionLogs]);
+
+  // leader_session logs grouped by leader id (stored in prayer_point_id)
+  const leaderSessionLogsByLeader = useMemo(() => {
+    const map = new Map<number, PrayerSessionLog[]>();
+    for (const log of sessionLogs) {
+      if (log.prayer_kind !== 'leader_session') continue;
+      const arr = map.get(log.prayer_point_id) || [];
+      arr.push(log);
+      map.set(log.prayer_point_id, arr);
     }
     return map;
   }, [sessionLogs]);
@@ -404,6 +442,45 @@ function PrayerListContent() {
       console.error(err);
       setSessionLogs(prev);
     }
+  };
+
+  const handleLogLeaderSession = async (leaderId: number) => {
+    if (!currentUserId) return;
+    const today = new Date().toISOString().split('T')[0];
+    const { data, error: err } = await supabase
+      .from('prayer_session_logs')
+      .insert([
+        {
+          prayer_point_id: leaderId,
+          prayer_kind: 'leader_session',
+          prayed_on: today,
+          note: null,
+          user_id: currentUserId,
+        },
+      ])
+      .select('*')
+      .single();
+    if (err || !data) return console.error(err);
+    setSessionLogs((prev) => [data as PrayerSessionLog, ...prev]);
+    setDraftLeaderSessionIds((prev) => ({ ...prev, [leaderId]: data.id }));
+    setLeaderSessionHistoryOpen((prev) => {
+      const next = new Set(prev);
+      next.add(leaderId);
+      return next;
+    });
+    setExpandedLeaders((prev) => {
+      const next = new Set(prev);
+      next.add(leaderId);
+      return next;
+    });
+  };
+
+  const clearLeaderSessionDraft = (leaderId: number) => {
+    setDraftLeaderSessionIds((prev) => {
+      const next = { ...prev };
+      delete next[leaderId];
+      return next;
+    });
   };
 
   const clearDraft = (kind: PrayerKind, prayerId: number) => {
@@ -681,27 +758,84 @@ function PrayerListContent() {
                 <div className="mt-1">
                   {groupedPrayers.map((group) => {
                     const isExpanded = expandedLeaders.has(group.leaderId);
+                    const leaderLogs = leaderSessionLogsByLeader.get(group.leaderId) || [];
+                    const leaderSessionDraft = draftLeaderSessionIds[group.leaderId] ?? null;
+                    const sessionHistoryOpen = leaderSessionHistoryOpen.has(group.leaderId);
+                    const lastLeaderLog = leaderLogs[0];
                     return (
                       <div key={group.leaderId} className="py-2">
-                        <button
-                          onClick={() => toggleLeader(group.leaderId)}
-                          className="w-full min-h-[44px] flex items-center gap-2 py-2 text-left"
-                        >
-                          <span className="text-sm font-medium text-slate-200">
-                            {group.leaderName}
-                          </span>
-                          {group.leaderCampus && (
-                            <span className="text-xs text-slate-600 hidden sm:inline">
-                              · {group.leaderCampus}
+                        <div className="w-full min-h-[44px] flex items-center gap-2 py-2">
+                          <button
+                            onClick={() => toggleLeader(group.leaderId)}
+                            className="flex-1 min-h-[44px] flex items-center gap-2 text-left"
+                          >
+                            <span className="text-sm font-medium text-slate-200">
+                              {group.leaderName}
                             </span>
-                          )}
-                          <span className="ml-auto text-xs text-slate-600">
-                            {group.prayers.length}
-                          </span>
-                        </button>
+                            {group.leaderCampus && (
+                              <span className="text-xs text-slate-600 hidden sm:inline">
+                                · {group.leaderCampus}
+                              </span>
+                            )}
+                            {lastLeaderLog && (
+                              <span className="text-xs text-slate-600 hidden sm:inline">
+                                · prayed {timeAgoFromTimestamp(lastLeaderLog.created_at)}
+                              </span>
+                            )}
+                            <span className="ml-auto text-xs text-slate-600">
+                              {group.prayers.length}
+                            </span>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleLogLeaderSession(group.leaderId);
+                            }}
+                            className="inline-flex items-center gap-1.5 min-h-[44px] px-2.5 text-xs font-medium text-slate-400 hover:text-white transition-colors"
+                            aria-label={`Log prayer for ${group.leaderName}`}
+                          >
+                            <HandHeart strokeWidth={1.5} className="w-3.5 h-3.5" />
+                            Pray
+                          </button>
+                        </div>
 
                         {isExpanded && (
                           <div className="pl-0">
+                            {leaderLogs.length > 0 && (
+                              <div className="py-2 text-xs text-slate-500 flex items-center gap-1.5 flex-wrap">
+                                <span>Last prayed {timeAgoFromTimestamp(leaderLogs[0].created_at)}</span>
+                                <span className="text-slate-700">·</span>
+                                <span>
+                                  {leaderLogs.length} session{leaderLogs.length === 1 ? '' : 's'}
+                                </span>
+                                <span className="text-slate-700">·</span>
+                                <button
+                                  onClick={() =>
+                                    setLeaderSessionHistoryOpen((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(group.leaderId)) next.delete(group.leaderId);
+                                      else next.add(group.leaderId);
+                                      return next;
+                                    })
+                                  }
+                                  className="text-slate-400 hover:text-slate-200 transition-colors underline-offset-2 hover:underline"
+                                >
+                                  {sessionHistoryOpen || leaderSessionDraft
+                                    ? 'Hide history'
+                                    : 'View history'}
+                                </button>
+                              </div>
+                            )}
+                            {(sessionHistoryOpen || leaderSessionDraft) && leaderLogs.length > 0 && (
+                              <PrayerSessionLogList
+                                logs={leaderLogs}
+                                draftLogId={leaderSessionDraft}
+                                isOwnerOf={(log) => !!currentUserId && log.user_id === currentUserId}
+                                onNoteSave={handleLogNoteSave}
+                                onDelete={handleLogDelete}
+                                onDraftDismiss={() => clearLeaderSessionDraft(group.leaderId)}
+                              />
+                            )}
                             {group.prayers.map((prayer) => {
                               const key = logKey('leader', prayer.id);
                               const rowData: PrayerRowData = {

@@ -1,7 +1,7 @@
 /**
  * GET /api/circle-summary/events
  *
- * Returns the current leader's circle events for the last 8 weeks, each tagged
+ * Returns the current leader's circle events for the last 12 weeks, each tagged
  * with whether a summary has already been submitted (so the UI can show
  * "needs submission" vs "submitted").
  *
@@ -62,7 +62,7 @@ export async function GET(req: Request) {
   const forceRefresh = url.searchParams.get('refresh') === '1';
 
   const end = DateTime.now().setZone('America/Chicago');
-  const start = end.minus({ weeks: 8 });
+  const start = end.minus({ weeks: 12 });
   const startStr = start.toFormat('yyyy-LL-dd');
   const endStr = end.toFormat('yyyy-LL-dd');
   const cacheKey = `${leader.ccb_group_id}|${startStr}|${endStr}`;
@@ -121,6 +121,12 @@ export async function GET(req: Request) {
       }
     }
 
+    // Track whether either fetch went all the way to CCB so we can write the
+    // result back to the shared cache. Closes the gap where prewarm skipped a
+    // group: today's first request hits CCB, but the second is served from cache.
+    let calFromCcb = false;
+    let attFromCcb = false;
+
     const [calEvents, bulkXml, submissionsRes] = await Promise.all([
       calCached
         ? Promise.resolve(calCached)
@@ -132,6 +138,7 @@ export async function GET(req: Request) {
         : ccb
             .getGroupCalendarEvents(String(leader.ccb_group_id), startStr, endStr)
             .then((v) => {
+              calFromCcb = true;
               cacheSet(ccbCalCache, cacheKey, v, CCB_CAL_TTL_MS);
               return v;
             }),
@@ -145,6 +152,7 @@ export async function GET(req: Request) {
         : (ccb as any)
             .getXml({ srv: 'attendance_profiles', start_date: startStr, end_date: endStr })
             .then((v: any) => {
+              attFromCcb = true;
               cacheSet(ccbAttendanceCache, cacheKey, v, CCB_ATTENDANCE_TTL_MS);
               return v;
             })
@@ -155,6 +163,31 @@ export async function GET(req: Request) {
         .eq('leader_id', leader.id)
         .gte('occurrence', start.toISO()!),
     ]);
+
+    // Fire-and-forget write-back: when we just paid for a CCB call AND we have
+    // both pieces (calendar + attendance), persist the row so every other
+    // route/page (notably roster/attendance) sees the fresh data without
+    // re-hitting CCB. Skip if attendance is missing — we don't want to clobber
+    // a potentially-good existing row with null. Not awaited — the response
+    // can ship while the upsert lands.
+    if ((calFromCcb || attFromCcb) && bulkXml != null && Array.isArray(calEvents)) {
+      supabase
+        .from('ccb_group_events_cache')
+        .upsert(
+          {
+            group_id: String(leader.ccb_group_id),
+            start_date: startStr,
+            end_date: endStr,
+            calendar_events: calEvents,
+            attendance_xml: bulkXml,
+            synced_at: new Date().toISOString(),
+          },
+          { onConflict: 'group_id,start_date,end_date' }
+        )
+        .then(({ error }) => {
+          if (error) console.warn('[circle-summary/events] cache write-back failed:', error.message);
+        });
+    }
 
     submissions = submissionsRes.data ?? [];
 
@@ -177,13 +210,14 @@ export async function GET(req: Request) {
         if (!evId || !occurrence) continue;
 
         const occurDate = occurrence.slice(0, 10); // "YYYY-MM-DD"
+        const dnm = String(ev?.did_not_meet ?? '').toLowerCase() === 'true';
         const has =
+          dnm ||
           !!textVal(ev?.notes) ||
           !!textVal(ev?.topic) ||
           Number(ev?.head_count) > 0 ||
           !!(ev?.attendees?.attendee &&
             (Array.isArray(ev.attendees.attendee) ? ev.attendees.attendee.length : 1));
-        const dnm = String(ev?.did_not_meet ?? '').toLowerCase() === 'true';
 
         attendanceMap.set(`${evId}|${occurDate}`, { has, dnm });
       }
@@ -215,9 +249,12 @@ export async function GET(req: Request) {
     .map((e) => {
       const key = `${e.eventId}|${e.occurrenceDate}`;
       const sub = submittedSet.get(key);
+      const localSubmitted = sub?.status === 'submitted';
+      const localDidNotMeet = localSubmitted && sub?.did_not_meet === true;
       return {
         ...e,
-        submittedAt: sub?.created_at ?? null,
+        didNotMeet: localDidNotMeet || e.didNotMeet,
+        submittedAt: localSubmitted ? sub.created_at : null,
         submittedStatus: sub?.status ?? null,
       };
     })

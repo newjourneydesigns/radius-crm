@@ -171,6 +171,7 @@ export async function GET(req: Request) {
     .eq('leader_id', leader.id)
     .eq('ccb_event_id', eventId)
     .eq('occurrence', occurrence)
+    .eq('status', 'submitted')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();

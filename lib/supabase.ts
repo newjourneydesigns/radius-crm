@@ -114,6 +114,7 @@ export interface CircleLeader {
   leader_type?: 'circle' | 'host_team';
   team_name?: string;
   director?: string;
+  location?: string;
   uuid?: string;
   created_at?: string;
   updated_at?: string;
@@ -303,7 +304,7 @@ export interface PrayerPoint {
   updated_at: string;
 }
 
-export type PrayerKind = 'leader' | 'general';
+export type PrayerKind = 'leader' | 'general' | 'leader_session';
 
 export interface PrayerSessionLog {
   id: number;

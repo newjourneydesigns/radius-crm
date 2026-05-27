@@ -9,7 +9,7 @@
  *   4. Push to CCB via create_event_attendance with email_notification=leaders
  *   5. Record the submission in circle_event_summaries
  *   6. Record any manual roster additions and info-update requests
- *   7. Mark the leader's event_summary_received flag (best-effort)
+ *   7. Mark the leader's weekly event summary state (best-effort)
  *   8. Clear the draft
  *
  * Body shape:
@@ -30,6 +30,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { DateTime } from 'luxon';
 import { getSessionLeader, unauthorized } from '../../../../lib/circle-summary/session';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
@@ -45,6 +46,22 @@ import {
 } from '../../../../lib/circle-summary/notes-formatter';
 
 export const dynamic = 'force-dynamic';
+
+function parseOccurrenceStart(occurrence: string): DateTime | null {
+  const sqlDate = DateTime.fromSQL(occurrence, { zone: 'America/Chicago' });
+  if (sqlDate.isValid) return sqlDate;
+
+  const isoDate = DateTime.fromISO(occurrence.replace(' ', 'T'), {
+    zone: 'America/Chicago',
+  });
+  return isoDate.isValid ? isoDate : null;
+}
+
+function weekStartFromOccurrence(occurrence: string): string | null {
+  const parsed = parseOccurrenceStart(occurrence);
+  if (!parsed) return null;
+  return parsed.minus({ days: parsed.weekday % 7 }).toISODate();
+}
 
 export async function POST(req: Request) {
   const leader = await getSessionLeader();
@@ -100,6 +117,25 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { error: 'Please tell us why your Circle did not meet.' },
       { status: 400 }
+    );
+  }
+  const occurrenceStart = parseOccurrenceStart(occurrence);
+  if (!occurrenceStart) {
+    return NextResponse.json(
+      { error: 'Invalid meeting occurrence time.' },
+      { status: 400 }
+    );
+  }
+  const now = DateTime.now().setZone('America/Chicago');
+  if (now.toMillis() < occurrenceStart.toMillis()) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: 'MEETING_NOT_STARTED',
+        error: `You can submit this summary after the Circle meeting starts at ${occurrenceStart.toFormat('h:mm a')} on ${occurrenceStart.toFormat('cccc, LLLL d')}.`,
+        unlockAt: occurrenceStart.toISO(),
+      },
+      { status: 409 }
     );
   }
 
@@ -165,11 +201,11 @@ export async function POST(req: Request) {
       occurrence,
       didNotMeet,
       attendeeIds: isCCBResubmission || didNotMeet ? [] : attendeeCcbIds,
-      headCount: isCCBResubmission ? undefined : didNotMeet ? 0 : manualAttendeesForSubmit.length,
-      topic: didNotMeet ? '' : flattenForCCB(topic),
+      headCount: isCCBResubmission || didNotMeet ? undefined : manualAttendeesForSubmit.length,
+      topic: didNotMeet ? undefined : flattenForCCB(topic),
       notes: finalNotes,
-      prayerRequests: didNotMeet ? '' : flattenForCCB(cleanPrayerRequests),
-      info: didNotMeet ? '' : flattenForCCB(cleanInfo),
+      prayerRequests: didNotMeet ? undefined : flattenForCCB(cleanPrayerRequests),
+      info: didNotMeet ? undefined : flattenForCCB(cleanInfo),
       emailNotification: 'leaders',
     } as const;
 
@@ -187,7 +223,21 @@ export async function POST(req: Request) {
       });
     }
 
-    ccbResponse = await ccb.createEventAttendance(ccbAttendancePayload);
+    try {
+      ccbResponse = await ccb.createEventAttendance(ccbAttendancePayload);
+    } catch (firstError: unknown) {
+      try {
+        ccbResponse = await ccb.createEventAttendance({
+          ...ccbAttendancePayload,
+          emailNotification: 'none',
+        });
+      } catch (fallbackError: unknown) {
+        const firstMessage = firstError instanceof Error ? firstError.message : String(firstError);
+        const fallbackMessage =
+          fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+        throw new Error(`${firstMessage}; fallback without email notification also failed: ${fallbackMessage}`);
+      }
+    }
   } catch (e: unknown) {
     ccbError = e instanceof Error ? e.message : String(e);
     status = 'failed';
@@ -221,7 +271,7 @@ export async function POST(req: Request) {
         dynamic_responses: dynamicResponses.reduce((acc, r) => {
           acc[r.questionId] = { label: r.label, value: r.value };
           return acc;
-        }, {} as Record<string, { label: string; value: string }>),
+        }, {} as Record<string, { label: string; value: DynamicResponse['value'] }>),
         info_update_requested: infoUpdate ?? null,
         ccb_submitted_at: status === 'submitted' ? new Date().toISOString() : null,
         ccb_response: ccbResponse,
@@ -282,7 +332,8 @@ export async function POST(req: Request) {
     });
   }
 
-  // Clear draft on successful CCB submission
+  // Clear the draft only after CCB accepted the attendance write. A failed
+  // CCB save must stay visible as a failed submission, not as local success.
   if (status === 'submitted') {
     await supabase
       .from('circle_event_summary_drafts')
@@ -291,11 +342,28 @@ export async function POST(req: Request) {
       .eq('ccb_event_id', eventId)
       .eq('occurrence', occurrence);
 
-    // Best-effort: mark leader as having submitted recently
-    await supabase
+    // Best-effort: mark the leader's weekly summary state. The enum column is
+    // canonical; legacy booleans are included for older deployments/fallback.
+    const nextState = didNotMeet ? 'did_not_meet' : 'received';
+    const legacySummaryState = {
+      event_summary_received: !didNotMeet,
+      event_summary_skipped: didNotMeet,
+    };
+    const stateUpdate = await supabase
       .from('circle_leaders')
-      .update({ event_summary_received: true, event_summary_skipped: false })
+      .update({
+        event_summary_state: nextState,
+        event_summary_state_week: weekStartFromOccurrence(occurrence),
+        ...legacySummaryState,
+      })
       .eq('id', leader.id);
+
+    if (stateUpdate.error && /event_summary_state/i.test(stateUpdate.error.message || '')) {
+      await supabase
+        .from('circle_leaders')
+        .update(legacySummaryState)
+        .eq('id', leader.id);
+    }
   }
 
   return NextResponse.json({

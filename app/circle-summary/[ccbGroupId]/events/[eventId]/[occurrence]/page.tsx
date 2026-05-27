@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
+import { DateTime } from 'luxon';
 
 type Participant = {
   id: string;
@@ -52,6 +53,16 @@ const DID_NOT_MEET_REASONS = [
   'Weather',
   'Other',
 ];
+
+function parseOccurrenceStart(occurrenceDateTime: string): DateTime | null {
+  const sqlDate = DateTime.fromSQL(occurrenceDateTime, { zone: 'America/Chicago' });
+  if (sqlDate.isValid) return sqlDate;
+
+  const isoDate = DateTime.fromISO(occurrenceDateTime.replace(' ', 'T'), {
+    zone: 'America/Chicago',
+  });
+  return isoDate.isValid ? isoDate : null;
+}
 
 function dateLabel(occurrenceDateTime: string): string {
   const datePart = occurrenceDateTime.slice(0, 10);
@@ -114,6 +125,22 @@ export default function CircleSummaryFormPage() {
   const [loadedFromSubmission, setLoadedFromSubmission] = useState<string | null>(null);
   const [loadedFromCcb, setLoadedFromCcb] = useState(false);
   const [previousNotes, setPreviousNotes] = useState<string>('');
+  const [nowMillis, setNowMillis] = useState(() => Date.now());
+
+  const occurrenceStart = useMemo(() => parseOccurrenceStart(occurrence), [occurrence]);
+  const isBeforeMeetingTime = Boolean(
+    occurrenceStart &&
+      DateTime.fromMillis(nowMillis).setZone('America/Chicago').toMillis() <
+        occurrenceStart.toMillis()
+  );
+  const meetingStartLabel = occurrenceStart
+    ? occurrenceStart.toFormat('cccc, LLLL d, yyyy \'at\' h:mm a')
+    : '';
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowMillis(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -383,6 +410,11 @@ export default function CircleSummaryFormPage() {
 
   async function handleSubmit() {
     setSubmitError(null);
+
+    if (isBeforeMeetingTime) {
+      setSubmitError(`You can submit this summary after the Circle meeting starts on ${meetingStartLabel}.`);
+      return;
+    }
 
     if (didNotMeet) {
       const reason =
@@ -1024,6 +1056,11 @@ export default function CircleSummaryFormPage() {
           </div>
         )}
 
+        {isBeforeMeetingTime && (
+          <div className="cs-alert cs-alert-warning">
+            You can submit this summary after the Circle meeting starts on {meetingStartLabel}.
+          </div>
+        )}
         {submitError && <div className="cs-alert cs-alert-error">{submitError}</div>}
       </main>
 
@@ -1041,7 +1078,7 @@ export default function CircleSummaryFormPage() {
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || isBeforeMeetingTime}
             className="cs-btn cs-btn-primary w-full text-lg py-4"
           >
             {submitting ? 'Submitting…' : didNotMeet ? 'Submit "Did Not Meet"' : 'Submit Circle Summary'}

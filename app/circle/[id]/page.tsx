@@ -13,6 +13,7 @@ import AlertModal from '../../../components/ui/AlertModal';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 import LogConnectionModal from '../../../components/dashboard/LogConnectionModal';
 import ConnectPersonModal from '../../../components/modals/ConnectPersonModal';
+import InviteToCircleModal from '../../../components/modals/InviteToCircleModal';
 import EventSummaryReminderModal from '../../../components/modals/EventSummaryReminderModal';
 import CCBPersonLookup from '../../../components/ui/CCBPersonLookup';
 import type { CCBPerson } from '../../../components/ui/CCBPersonLookup';
@@ -233,6 +234,7 @@ export default function CircleLeaderProfilePage() {
   const [hostTeamDirectors, setHostTeamDirectors] = useState<Array<{id: number, name: string}>>([]);
   const [showLogConnectionModal, setShowLogConnectionModal] = useState(false);
   const [showConnectPersonModal, setShowConnectPersonModal] = useState(false);
+  const [showInvitePersonModal, setShowInvitePersonModal] = useState(false);
   const [showEventSummaryReminderModal, setShowEventSummaryReminderModal] = useState(false);
   const [showEventExplorerModal, setShowEventExplorerModal] = useState(false);
   const [sentReminderMessages, setSentReminderMessages] = useState<number[]>([]);
@@ -1518,6 +1520,7 @@ export default function CircleLeaderProfilePage() {
       email: leader.email,
       phone: leader.phone,
       campus: leader.campus,
+      location: leader.location || '',
       acpd: leader.acpd,
       status: leader.status,
       day: leader.day,
@@ -1563,6 +1566,7 @@ export default function CircleLeaderProfilePage() {
           email: editedLeader.email || null,
           phone: editedLeader.phone || null,
           campus: editedLeader.campus || null,
+          location: editedLeader.location || null,
           acpd: editedLeader.acpd || null,
           status: editedLeader.status || 'active',
           day: editedLeader.day || null,
@@ -2177,7 +2181,7 @@ export default function CircleLeaderProfilePage() {
               </div>
             </button>
             
-            <button 
+            <button
               onClick={() => setShowConnectPersonModal(true)}
               className="w-full flex items-center px-4 py-3 text-slate-200 hover:bg-slate-700/50 text-sm transition-colors"
             >
@@ -2188,7 +2192,19 @@ export default function CircleLeaderProfilePage() {
                 Connect New Person
               </div>
             </button>
-            
+
+            <button
+              onClick={() => setShowInvitePersonModal(true)}
+              className="w-full flex items-center px-4 py-3 text-slate-200 hover:bg-slate-700/50 text-sm transition-colors"
+            >
+              <div className="flex items-center gap-2.5">
+                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+                Invite a Person
+              </div>
+            </button>
+
             {/* View Roster Link */}
             {leader?.ccb_group_id && (
               <Link
@@ -2419,6 +2435,22 @@ export default function CircleLeaderProfilePage() {
                         </select>
                       ) : (
                         <span className="text-sm text-slate-200">{leader.campus || 'Not specified'}</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="text-sm font-medium text-slate-400">Location</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editedLeader.location !== undefined ? editedLeader.location : (leader.location || '')}
+                          onChange={(e) => handleLeaderFieldChange('location', e.target.value)}
+                          placeholder="e.g. Flower Mound — Smith home"
+                          className="w-full px-3 py-1 text-sm border border-slate-600 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        />
+                      ) : (
+                        <span className="text-sm text-slate-200">{leader.location || 'Not specified'}</span>
                       )}
                     </dd>
                   </div>
@@ -3010,7 +3042,7 @@ export default function CircleLeaderProfilePage() {
                   </div>
                 </button>
                 
-                <button 
+                <button
                   onClick={() => setShowConnectPersonModal(true)}
                   className="w-full flex items-center px-4 py-3 text-slate-200 hover:bg-slate-700/50 text-sm transition-colors"
                 >
@@ -3021,7 +3053,19 @@ export default function CircleLeaderProfilePage() {
                     Connect New Person
                   </div>
                 </button>
-                
+
+                <button
+                  onClick={() => setShowInvitePersonModal(true)}
+                  className="w-full flex items-center px-4 py-3 text-slate-200 hover:bg-slate-700/50 text-sm transition-colors"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                    </svg>
+                    Invite a Person
+                  </div>
+                </button>
+
                 {/* View Roster Link */}
                 {leader?.ccb_group_id && (
                   <Link
@@ -3282,6 +3326,30 @@ export default function CircleLeaderProfilePage() {
         leaderName={leader?.name || ''}
         currentUserName={user?.name || ''}
         onSend={handleConnectPerson}
+      />
+
+      {/* Invite a Person Modal */}
+      <InviteToCircleModal
+        isOpen={showInvitePersonModal}
+        onClose={() => setShowInvitePersonModal(false)}
+        circle={{
+          leaderName: leader?.name || '',
+          campus: leader?.campus,
+          day: leader?.day,
+          time: leader?.time,
+          frequency: leader?.frequency,
+          location: leader?.location,
+          acpdName: leader?.acpd,
+        }}
+        onSend={async (_personName, phone, _email, message) => {
+          if (phone) {
+            const cleanPhone = phone.replace(/\D/g, '');
+            const encodedMessage = encodeURIComponent(message);
+            window.location.href = `sms:${cleanPhone}&body=${encodedMessage}`;
+          } else {
+            await navigator.clipboard.writeText(message);
+          }
+        }}
       />
 
       {/* Event Summary Reminder Modal */}

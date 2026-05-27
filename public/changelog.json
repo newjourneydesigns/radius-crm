@@ -1,5 +1,101 @@
 [
   {
+    "date": "2026-05-27",
+    "type": "improvement",
+    "page": "/circle-summary",
+    "description": "Circle Summary events list now goes back 12 weeks instead of 8, so leaders can see and back-fill summaries further into the semester. The roster page's 'last attended' badges now read from the same shared cache as the events list, so opening the roster no longer triggers a fresh CCB pull every visit."
+  },
+  {
+    "date": "2026-05-27",
+    "type": "improvement",
+    "page": "/search",
+    "description": "Moved 'Find A Circle' (now renamed 'Circle List') into the main navigation, and moved 'Progress' into the Tools menu."
+  },
+  {
+    "date": "2026-05-27",
+    "type": "improvement",
+    "page": "/search",
+    "description": "Simplified the Invite a Person modal — the separate template editor is gone. Toggle 'Show placeholders' on the Message Preview to swap between the rendered message and the template view (with clickable placeholder chips below). When your template differs from your saved default, a 'Save as default for future invites?' prompt appears inline."
+  },
+  {
+    "date": "2026-05-27",
+    "type": "improvement",
+    "page": "/search",
+    "description": "Placeholder chips in the Invite a Person template editor are now clickable — click {personFirstName}, {location}, {day}, etc. to drop the token into your template at the cursor (or appended to the end if the editor isn't focused). The Message Preview above also updates live as you tweak the template, so you can see exactly what the prospective person will receive."
+  },
+  {
+    "date": "2026-05-27",
+    "type": "improvement",
+    "page": "/search",
+    "description": "Reordered Find a Circle columns to: Circle Leader, Type, Day, Time, Location, Campus, Roster."
+  },
+  {
+    "date": "2026-05-27",
+    "type": "improvement",
+    "page": "/search",
+    "description": "The Roster column on Find a Circle is now centered and sortable — click the header to sort by roster size (ascending or descending)."
+  },
+  {
+    "date": "2026-05-27",
+    "type": "feature",
+    "page": "/search",
+    "description": "The Invite a Person flow (on Find a Circle and on the circle detail page) now uses a customizable message template with placeholders for {personName}, {acpdName}, {leaderName}, {day}, {time}, {frequency}, and {location}. Edit the default once, save it to your profile, and every future invite starts from your version. A new 'Invite a Person' button has also been added to the circle detail page under 'Connect New Person'."
+  },
+  {
+    "date": "2026-05-27",
+    "type": "fix",
+    "page": "/prayer",
+    "description": "Prayer points are now scoped to your own user — the Prayer List only shows prayer points and session logs you created, so they're no longer visible across accounts."
+  },
+  {
+    "date": "2026-05-27",
+    "type": "improvement",
+    "page": "/search",
+    "description": "Find a Circle now shows a Location column, an ACPD filter for signed-in users, and defaults to sorting by day-of-week (Sunday → Saturday) instead of alphabetical day order. Edit a circle's location from the circle detail page."
+  },
+  {
+    "date": "2026-05-26",
+    "type": "feature",
+    "page": "/circle-summary",
+    "description": "If someone on your Circle roster hasn't attended in 15+ days, the roster page now shows a red banner at the top with quick Text and Call buttons so you can reach out right away. Dismiss the banner if you've already followed up — it'll come back automatically the next time they miss after attending again."
+  },
+  {
+    "date": "2026-05-26",
+    "type": "feature",
+    "page": "/prayer",
+    "description": "Every Circle Leader row on the Prayer page now has a small 'Pray' button so you can log that you prayed for a leader even when there are no specific prayer requests on file. Each tap records a session — with optional note — and shows last-prayed time and full history under the leader."
+  },
+  {
+    "date": "2026-05-26",
+    "type": "feature",
+    "page": "/circle-summary",
+    "description": "Each person on the Circle Leader roster now shows their last attended date, pulled from CCB attendance. If it's been more than 14 days since they attended, the row gets a red 'last attended … Xd ago' badge so leaders can spot members drifting away."
+  },
+  {
+    "date": "2026-05-26",
+    "type": "improvement",
+    "page": "/circle-summary",
+    "description": "Circle Leader events list now flags 'Did Not Meet' submissions in red — red left border, light red row background, a red 'Did Not Meet' badge, and a semester-level count chip at the top — so leaders can see at a glance how many weeks they didn't meet."
+  },
+  {
+    "date": "2026-05-26",
+    "type": "feature",
+    "page": "/search",
+    "description": "Each circle row on Find A Circle now has an 'Invite' button. Click it to pull up a CCB person lookup, pre-fill a friendly text describing when and where the circle meets, and send it straight to Messages so the prospective member can confirm the schedule works."
+  },
+  {
+    "date": "2026-05-26",
+    "type": "improvement",
+    "page": "/event-summary-tracker",
+    "description": "Circles still in 'Awaiting Submission' more than 24 hours after their meeting now light up red with an overdue badge, a pulsing alert icon, and a prominent red Send Reminder button. The bucket header also shows a count of overdue circles, and overdue rows float to the top so you can chase them first."
+  },
+  {
+    "date": "2026-05-26",
+    "type": "feature",
+    "page": "/circle",
+    "description": "You can now customize the default Connect New Person message per ACPD. Open the Connect New Person modal and click 'Customize default template' to edit your saved template with placeholders like {leaderFirstName}, {personName}, {phone}, and {email}."
+  },
+  {
     "date": "2026-05-26",
     "type": "improvement",
     "page": "/notebook",

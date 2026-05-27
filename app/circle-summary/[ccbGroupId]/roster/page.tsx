@@ -25,6 +25,8 @@ type CcbSearchResult = {
 };
 
 const DISMISS_STORAGE_KEY = 'cs:bday-dismiss:v1';
+const ABSENT_DISMISS_STORAGE_KEY = 'cs:absent-dismiss:v1';
+const ABSENCE_THRESHOLD_DAYS = 15;
 const ROSTER_CACHE_KEY = 'cs:roster-cache:v1';
 
 type RosterCacheEntry = { groupId: string; participants: Participant[]; cachedAt: number };
@@ -92,6 +94,19 @@ function birthdayLabel(b: { month: number; day: number }): string {
   return `${months[b.month - 1]} ${b.day}`;
 }
 
+function daysSince(isoDate: string, now = new Date()): number {
+  const d = new Date(isoDate + 'T00:00:00');
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.floor((today.getTime() - d.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+function formatLastAttended(isoDate: string): string {
+  const d = new Date(isoDate + 'T00:00:00');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${months[d.getMonth()]} ${d.getDate()}`;
+}
+
 function formatPhoneForDisplay(p: string): string {
   const digits = p.replace(/\D/g, '');
   if (digits.length === 10) {
@@ -138,6 +153,7 @@ export default function CircleRosterPage() {
   const urlGroupId = params?.ccbGroupId ?? '';
 
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [lastAttended, setLastAttended] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -150,6 +166,7 @@ export default function CircleRosterPage() {
 
   const [actionSheet, setActionSheet] = useState<{ name: string; phone: string } | null>(null);
   const [dismissed, setDismissed] = useState<Record<string, string>>({});
+  const [absentDismissed, setAbsentDismissed] = useState<Record<string, string>>({});
   const [mounted, setMounted] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -194,6 +211,38 @@ export default function CircleRosterPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/circle-summary/roster/attendance')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d?.lastAttended) return;
+        const fresh = d.lastAttended as Record<string, string>;
+        setLastAttended(fresh);
+        // Auto-clear absent dismissals once the person has attended again.
+        // Stored value is the lastAttended date at dismissal time — if the
+        // current date differs (they came back), the dismissal is stale.
+        try {
+          const raw = localStorage.getItem(ABSENT_DISMISS_STORAGE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw) as Record<string, string>;
+            const reconciled: Record<string, string> = {};
+            for (const [id, stamp] of Object.entries(parsed)) {
+              if (fresh[id] === stamp) reconciled[id] = stamp;
+            }
+            setAbsentDismissed(reconciled);
+            if (Object.keys(reconciled).length !== Object.keys(parsed).length) {
+              localStorage.setItem(ABSENT_DISMISS_STORAGE_KEY, JSON.stringify(reconciled));
+            }
+          }
+        } catch {}
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [urlGroupId]);
 
   useEffect(() => {
     if (!actionSheet) return;
@@ -462,6 +511,42 @@ export default function CircleRosterPage() {
     return out;
   }, [participants, dismissed]);
 
+  const absentMembers = useMemo(() => {
+    const out: Array<{
+      id: string;
+      name: string;
+      phone?: string;
+      daysAway: number;
+      lastAttended: string;
+    }> = [];
+    for (const p of participants) {
+      const last = lastAttended[p.id];
+      if (!last) continue;
+      const days = daysSince(last);
+      if (days < ABSENCE_THRESHOLD_DAYS) continue;
+      if (absentDismissed[p.id] === last) continue;
+      out.push({
+        id: p.id,
+        name: p.fullName || `${p.firstName} ${p.lastName}`.trim(),
+        phone: p.phone,
+        daysAway: days,
+        lastAttended: last,
+      });
+    }
+    out.sort((a, b) => b.daysAway - a.daysAway);
+    return out;
+  }, [participants, lastAttended, absentDismissed]);
+
+  function dismissAbsent(id: string, lastAttendedDate: string) {
+    setAbsentDismissed((prev) => {
+      const next = { ...prev, [id]: lastAttendedDate };
+      try {
+        localStorage.setItem(ABSENT_DISMISS_STORAGE_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }
+
   function dismissBirthday(id: string) {
     // Persist a dismissal that expires after this person's birthday passes —
     // simplest correct way is to store the next-birthday date so the cleanup
@@ -505,6 +590,59 @@ export default function CircleRosterPage() {
   return (
     <>
       <main className="max-w-2xl mx-auto px-4 py-4 pb-32 space-y-4">
+        {absentMembers.length > 0 && (
+          <div className="space-y-2">
+            {absentMembers.map((m) => (
+              <div
+                key={m.id}
+                className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 shadow-sm"
+              >
+                <span className="text-2xl leading-none" aria-hidden>👀</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-red-900">
+                    {m.name} hasn&apos;t attended in {m.daysAway} days
+                  </p>
+                  <p className="text-xs text-red-800/80 mt-0.5">
+                    Last seen {formatLastAttended(m.lastAttended)}
+                  </p>
+                  {m.phone && (
+                    <div className="mt-2 flex gap-2">
+                      <a
+                        href={phoneHref(m.phone, 'sms')}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-1.5 transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                          <path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clipRule="evenodd" />
+                        </svg>
+                        Text
+                      </a>
+                      <a
+                        href={phoneHref(m.phone, 'tel')}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-red-300 hover:bg-red-100 text-red-800 text-xs font-semibold px-3 py-1.5 transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                          <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+                        </svg>
+                        Call
+                      </a>
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => dismissAbsent(m.id, m.lastAttended)}
+                  className="shrink-0 text-red-700/70 hover:text-red-900 -mt-0.5 -mr-1 p-1"
+                  aria-label="Dismiss"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {upcomingBirthdays.length > 0 && (
           <div className="space-y-2">
             {upcomingBirthdays.map((b) => (
@@ -594,6 +732,9 @@ export default function CircleRosterPage() {
             {participants.map((p) => {
               const fullName = p.fullName || `${p.firstName} ${p.lastName}`.trim();
               const bday = parseBirthday(p.birthday);
+              const lastAttendedDate = lastAttended[p.id];
+              const daysAway = lastAttendedDate ? daysSince(lastAttendedDate) : null;
+              const isAbsent = daysAway != null && daysAway >= ABSENCE_THRESHOLD_DAYS;
               return (
                 <div
                   key={p.id}
@@ -663,6 +804,23 @@ export default function CircleRosterPage() {
                       {p.detailsLoaded && !p.phone && !p.email && !bday && (
                         <span className="text-neutral-400 italic">No contact info on file</span>
                       )}
+                      {lastAttendedDate ? (
+                        <span
+                          className={
+                            isAbsent
+                              ? 'self-start inline-flex items-center gap-1.5 rounded-full bg-red-50 border border-red-200 px-2 py-0.5 text-red-700 font-semibold'
+                              : 'inline-flex items-center gap-1.5 text-neutral-500'
+                          }
+                          title={isAbsent ? `Hasn't attended in ${daysAway} days` : undefined}
+                        >
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .2.08.39.22.53l3 3a.75.75 0 101.06-1.06L10.75 9.69V5z" clipRule="evenodd" />
+                          </svg>
+                          {isAbsent
+                            ? `Last attended ${formatLastAttended(lastAttendedDate)} · ${daysAway}d ago`
+                            : `Last attended ${formatLastAttended(lastAttendedDate)}`}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 </div>

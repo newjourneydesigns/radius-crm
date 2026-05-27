@@ -18,7 +18,8 @@ function isPublicRoute(pathname: string) {
   return (
     p === '/login' ||
     p === '/search' ||
-    p.startsWith('/auth')
+    p.startsWith('/auth') ||
+    p.startsWith('/circle-summary')
   );
 }
 

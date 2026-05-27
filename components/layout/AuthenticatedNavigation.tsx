@@ -143,11 +143,11 @@ const primaryNavItems = [
   { name: 'Boards',    href: '/boards',    icon: BoardIcon },
   { name: 'Notebook',  href: '/notebook',  icon: NotebookIcon },
   { name: 'Prayer',    href: '/prayer',    icon: PrayerIcon },
-  { name: 'Progress',  href: '/progress',  icon: ChartIcon },
+  { name: 'Circle List', href: '/search',  icon: SearchNavIcon },
 ];
 
 const toolsNavItems = [
-  { href: '/search',        label: 'Find A Circle',  Icon: SearchNavIcon },
+  { href: '/progress',      label: 'Progress',        Icon: ChartIcon },
   { href: '/person-lookup', label: 'Person Lookup',   Icon: SearchNavIcon },
   { href: '/birthday-list', label: 'Birthday List',   Icon: BirthdayCakeIcon },
   { href: '/ccb-explorer',  label: 'CCB Explorer',   Icon: CompassIcon, adminOnly: true },

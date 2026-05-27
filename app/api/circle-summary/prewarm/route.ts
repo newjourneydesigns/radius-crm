@@ -3,7 +3,7 @@
  *
  * Daily bulk sync (cron-triggered, ~4 AM CT). Two halves:
  *
- *   1. ONE global `attendance_profiles` call for the last 8 weeks — covers
+ *   1. ONE global `attendance_profiles` call for the last 12 weeks — covers
  *      every group at once. The dashboard "Auto-Update Summaries" button
  *      reads any fresh cache row's `attendance_xml`, so all leaders' attendance
  *      stays current daily.
@@ -126,7 +126,7 @@ export async function POST(req: Request) {
   const groupIds = [...todayList, ...staleList].slice(0, limitOverride);
 
   const end = DateTime.now().setZone('America/Chicago');
-  const start = end.minus({ weeks: 8 });
+  const start = end.minus({ weeks: 12 });
   const startStr = start.toFormat('yyyy-LL-dd');
   const endStr = end.toFormat('yyyy-LL-dd');
 
@@ -135,7 +135,7 @@ export async function POST(req: Request) {
     action: 'daily-bulk-sync',
   });
 
-  // ONE bulk attendance call for the entire 8-week window. Same payload is
+  // ONE bulk attendance call for the entire 12-week window. Same payload is
   // stored on every group's cache row so reads can grab it without joining.
   let bulkAttendanceXml: any = null;
   try {

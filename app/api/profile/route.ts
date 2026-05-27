@@ -263,6 +263,12 @@ export async function PUT(request: NextRequest) {
         if (typeof preferences.ai_assistant_enabled === 'boolean') {
           updatePayload.ai_assistant_enabled = preferences.ai_assistant_enabled;
         }
+        if (typeof preferences.connect_person_template === 'string' || preferences.connect_person_template === null) {
+          updatePayload.connect_person_template = preferences.connect_person_template;
+        }
+        if (typeof preferences.invite_person_template === 'string' || preferences.invite_person_template === null) {
+          updatePayload.invite_person_template = preferences.invite_person_template;
+        }
 
         // Only update if there's something to write
         if (Object.keys(updatePayload).length > 0) {
