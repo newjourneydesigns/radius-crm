@@ -271,7 +271,7 @@ export default function LogConnectionModal({
                 id="connection-date"
                 value={formData.date}
                 onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-vc-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                 autoFocus
               />
             </div>
@@ -290,7 +290,7 @@ export default function LogConnectionModal({
                   id="connection-type"
                   value={formData.connectionTypeId}
                   onChange={(e) => setFormData(prev => ({ ...prev, connectionTypeId: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-vc-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="">Select connection type...</option>
                   {connectionTypes.map((type) => (
@@ -313,7 +313,7 @@ export default function LogConnectionModal({
                 value={formData.note}
                 onChange={(e) => setFormData(prev => ({ ...prev, note: e.target.value }))}
                 placeholder="Add any additional details about this connection..."
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-vc-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
               />
             </div>
           </div>

@@ -55,7 +55,7 @@ const STATUS_STYLES = {
   always: 'bg-emerald-500/20 text-emerald-300',
   active: 'bg-sky-500/20 text-sky-300',
   upcoming: 'bg-violet-500/20 text-violet-300',
-  expired: 'bg-slate-600/50 text-slate-400',
+  expired: 'bg-zinc-600/50 text-slate-400',
 };
 
 function getErrorMessage(error: unknown, fallback = 'Something went wrong.'): string {
@@ -70,7 +70,7 @@ export default function DynamicQuestionsAdminPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-900 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-[#0f1117] p-4 sm:p-6 lg:p-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-white tracking-tight">Circle Summary Questions</h1>
@@ -251,21 +251,21 @@ function QuestionsPanel({ token }: { token: string | null }) {
       )}
 
       {draft && (
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-card-glass mb-6">
+        <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-5 shadow-card-glass mb-6">
           <h2 className="text-base font-semibold text-white mb-4">
             {(draft as Question).id ? 'Edit question' : 'New question'}
           </h2>
           <div className="space-y-4">
             <Field label="Label" required>
               <input
-                className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500"
                 value={draft.label || ''}
                 onChange={(e) => setDraft({ ...draft, label: e.target.value })}
               />
             </Field>
             <Field label="Help text">
               <input
-                className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500"
                 value={draft.help_text || ''}
                 onChange={(e) => setDraft({ ...draft, help_text: e.target.value })}
               />
@@ -273,7 +273,7 @@ function QuestionsPanel({ token }: { token: string | null }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Field type" required>
                 <select
-                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500"
                   value={draft.field_type}
                   onChange={(e) =>
                     setDraft({ ...draft, field_type: e.target.value as FieldType })
@@ -289,7 +289,7 @@ function QuestionsPanel({ token }: { token: string | null }) {
               <Field label="Sort order">
                 <input
                   type="number"
-                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500"
                   value={draft.sort_order ?? 0}
                   onChange={(e) =>
                     setDraft({ ...draft, sort_order: parseInt(e.target.value || '0', 10) })
@@ -304,7 +304,7 @@ function QuestionsPanel({ token }: { token: string | null }) {
               >
                 <textarea
                   rows={4}
-                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-vc-500"
                   value={optionsText}
                   onChange={(e) => setOptionsText(e.target.value)}
                   placeholder={'Yes\nNo\nNot sure'}
@@ -339,7 +339,7 @@ function QuestionsPanel({ token }: { token: string | null }) {
                     <p className="text-xs text-slate-500 mb-1">Start date (required)</p>
                     <input
                       type="date"
-                      className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500"
                       value={draft.active_from || ''}
                       onChange={(e) =>
                         setDraft({ ...draft, active_from: e.target.value || null })
@@ -352,7 +352,7 @@ function QuestionsPanel({ token }: { token: string | null }) {
                     </p>
                     <input
                       type="date"
-                      className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500"
                       value={draft.active_to || ''}
                       onChange={(e) =>
                         setDraft({ ...draft, active_to: e.target.value || null })
@@ -401,7 +401,7 @@ function QuestionsPanel({ token }: { token: string | null }) {
               </button>
               <button
                 onClick={cancelEdit}
-                className="text-slate-400 hover:text-white hover:bg-slate-700 px-3 py-1.5 rounded-lg text-sm transition-colors"
+                className="text-slate-400 hover:text-white hover:bg-zinc-700 px-3 py-1.5 rounded-lg text-sm transition-colors"
               >
                 Cancel
               </button>
@@ -412,11 +412,11 @@ function QuestionsPanel({ token }: { token: string | null }) {
 
       {loading ? (
         <div className="space-y-2">
-          <div className="animate-pulse bg-slate-700 rounded-xl h-16" />
-          <div className="animate-pulse bg-slate-700 rounded-xl h-16" />
+          <div className="animate-pulse bg-zinc-700 rounded-xl h-16" />
+          <div className="animate-pulse bg-zinc-700 rounded-xl h-16" />
         </div>
       ) : questions.length === 0 ? (
-        <div className="text-center py-12 bg-slate-800 border border-slate-700 rounded-xl">
+        <div className="text-center py-12 bg-zinc-800 border border-zinc-700 rounded-xl">
           <p className="text-slate-400 text-sm">No dynamic questions yet.</p>
           <p className="text-slate-500 text-xs mt-1">
             Click &quot;New question&quot; to add one to the Circle Summary form.
@@ -429,7 +429,7 @@ function QuestionsPanel({ token }: { token: string | null }) {
             return (
               <div
                 key={q.id}
-                className="bg-slate-800 border border-slate-700 rounded-xl p-4 flex items-start justify-between gap-4"
+                className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 flex items-start justify-between gap-4"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -439,7 +439,7 @@ function QuestionsPanel({ token }: { token: string | null }) {
                     >
                       {status}
                     </span>
-                    <span className="bg-indigo-500/20 text-indigo-300 text-xs font-medium px-2 py-0.5 rounded-full">
+                    <span className="bg-vc-500/20 text-vc-300 text-xs font-medium px-2 py-0.5 rounded-full">
                       {q.field_type}
                     </span>
                     {q.required && (
@@ -448,7 +448,7 @@ function QuestionsPanel({ token }: { token: string | null }) {
                       </span>
                     )}
                     {!q.show_when_attended && (
-                      <span className="bg-slate-700 text-slate-300 text-xs px-2 py-0.5 rounded-full">
+                      <span className="bg-zinc-700 text-slate-300 text-xs px-2 py-0.5 rounded-full">
                         DNM only
                       </span>
                     )}

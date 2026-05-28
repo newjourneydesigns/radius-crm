@@ -248,7 +248,7 @@ export default function NotebookSidebar({ onClose, onCollapse }: NotebookSidebar
                 if (e.key === 'Escape') setCreatingFolder(false);
               }}
               placeholder="Folder name…"
-              className="w-full bg-white/[0.08] border border-indigo-400/60 rounded-md px-2 py-1.5 text-sm text-white focus:outline-none"
+              className="w-full bg-white/[0.08] border border-vc-400/60 rounded-md px-2 py-1.5 text-sm text-white focus:outline-none"
             />
           </div>
         )}
@@ -292,7 +292,7 @@ export default function NotebookSidebar({ onClose, onCollapse }: NotebookSidebar
 
           <DragOverlay dropAnimation={null} modifiers={[dragOverlayCursorOffset]}>
             {activeDragPage ? (
-              <div className="bg-[#1e2130] border border-indigo-400/30 rounded-md px-3 py-2 text-sm text-gray-200 shadow-2xl cursor-grabbing select-none">
+              <div className="bg-[#1e2130] border border-vc-400/30 rounded-md px-3 py-2 text-sm text-gray-200 shadow-2xl cursor-grabbing select-none">
                 {activeDragPage.title || 'Untitled'}
               </div>
             ) : null}

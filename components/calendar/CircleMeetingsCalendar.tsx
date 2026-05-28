@@ -91,16 +91,16 @@ function renderAISummary(text: string) {
         .trim();
       if (leaderMatch) {
         elements.push(
-          <div key={key++} className="bg-slate-800/50 border border-slate-700/40 rounded-lg p-3 mb-2">
+          <div key={key++} className="bg-zinc-800/50 border border-zinc-700/40 rounded-lg p-3 mb-2">
             <div className="flex flex-wrap items-center gap-2 mb-1.5">
               <span className="text-sm font-semibold text-white">{leaderMatch[1]}</span>
               {personMatch && (
-                <span className="text-xs text-slate-300 bg-slate-700/60 px-2 py-0.5 rounded-full">{personMatch[1]}</span>
+                <span className="text-xs text-slate-300 bg-zinc-700/60 px-2 py-0.5 rounded-full">{personMatch[1]}</span>
               )}
             </div>
             {reason && <p className="text-sm text-slate-300 leading-relaxed">{reason}</p>}
             {afterResponse && (
-              <div className="flex items-start gap-2 mt-2 pt-2 border-t border-slate-700/30">
+              <div className="flex items-start gap-2 mt-2 pt-2 border-t border-zinc-700/30">
                 <span className="text-xs font-bold text-amber-400 mt-0.5 shrink-0">→</span>
                 <p className="text-xs text-amber-200/90 leading-relaxed">{afterResponse.trim()}</p>
               </div>
@@ -1383,7 +1383,7 @@ export default function CircleMeetingsCalendar({
   const isListView = currentViewType.startsWith('list');
 
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass p-4 sm:p-6">
+    <div className="bg-zinc-800 border border-zinc-700 rounded-xl shadow-card-glass p-4 sm:p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-semibold text-white tracking-tight">Calendar</h1>
@@ -1428,7 +1428,7 @@ export default function CircleMeetingsCalendar({
       )}
 
       {!isLoadingLeaders && !loadError && leadersWithSchedules.length === 0 && (
-        <div className="mb-4 p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-sm">
+        <div className="mb-4 p-3 rounded-xl bg-vc-500/10 border border-vc-500/20 text-vc-300 text-sm">
           No circles have both a meeting day and time set yet.
         </div>
       )}
@@ -1457,7 +1457,7 @@ export default function CircleMeetingsCalendar({
         const hasScheduledLeaders = leadersWithSchedules.length > 0;
         if (!hasScheduledLeaders) return null;
         return (
-          <div className="mb-4 rounded-xl overflow-hidden border bg-slate-800/60 border-slate-700 text-sm">
+          <div className="mb-4 rounded-xl overflow-hidden border bg-zinc-800/60 border-zinc-700 text-sm">
             {/* Header */}
             <div className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-2.5">
@@ -1474,7 +1474,7 @@ export default function CircleMeetingsCalendar({
             </div>
 
             {/* Status band */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 divide-x divide-slate-700/60 border-t border-slate-700/60 bg-slate-900/30">
+            <div className="grid grid-cols-2 sm:grid-cols-5 divide-x divide-zinc-700/60 border-t border-zinc-700/60 bg-zinc-900/30">
               <div className="px-3 sm:px-4 py-2.5 sm:py-3 text-center col-span-2 sm:col-span-1">
                 {currentWeekCounts.reviewable > 0 && currentWeekCounts.needs_review === 0 ? (
                   <>
@@ -1507,7 +1507,7 @@ export default function CircleMeetingsCalendar({
             </div>
 
             {/* Footer: attendance stats + action buttons */}
-            <div className="px-3 sm:px-4 py-2.5 border-t border-slate-700/60 flex flex-col sm:flex-row items-center justify-between gap-3 flex-wrap">
+            <div className="px-3 sm:px-4 py-2.5 border-t border-zinc-700/60 flex flex-col sm:flex-row items-center justify-between gap-3 flex-wrap">
               {weeklyAttendanceStats ? (
                 <div className="flex items-center justify-center gap-6 sm:gap-8 w-full sm:w-auto">
                   <div className="text-center">
@@ -1551,10 +1551,10 @@ export default function CircleMeetingsCalendar({
       {isViewingSnapshot && (
         <div className={`mb-4 rounded-xl overflow-hidden border text-sm ${
           isLoadingSnapshot
-            ? 'bg-slate-800/60 border-slate-700/60 text-slate-400'
+            ? 'bg-zinc-800/60 border-zinc-700/60 text-slate-400'
             : snapshotMap !== null && snapshotMap.size > 0
-              ? 'bg-slate-800/60 border-slate-700'
-              : 'bg-slate-800/60 border-slate-700/60 text-slate-400'
+              ? 'bg-zinc-800/60 border-zinc-700'
+              : 'bg-zinc-800/60 border-zinc-700/60 text-slate-400'
         }`}>
           {isLoadingSnapshot ? (
             <div className="px-4 py-3 flex items-center gap-2.5">
@@ -1665,7 +1665,7 @@ export default function CircleMeetingsCalendar({
                   }
                 }
                 return (
-                  <div className="grid grid-cols-2 sm:grid-cols-5 divide-x divide-slate-700/60 border-t border-slate-700/60 bg-slate-900/30">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 divide-x divide-zinc-700/60 border-t border-zinc-700/60 bg-zinc-900/30">
                     <div className="px-4 py-3 text-center col-span-2 sm:col-span-1">
                       {counts.reviewable > 0 && counts.needs_review === 0 ? (
                         <>
@@ -1694,7 +1694,7 @@ export default function CircleMeetingsCalendar({
                     <button
                       type="button"
                       onClick={() => setShowNotReportedList(v => !v)}
-                      className="px-4 py-3 text-center hover:bg-slate-700/30 transition-colors duration-150"
+                      className="px-4 py-3 text-center hover:bg-zinc-700/30 transition-colors duration-150"
                     >
                       <p className="text-2xl font-bold text-red-400 leading-none">{counts.not_received}</p>
                       <p className="text-xs text-red-300/60 mt-1 flex items-center justify-center gap-0.5">
@@ -1709,7 +1709,7 @@ export default function CircleMeetingsCalendar({
               })()}
 
               {/* Footer: attendance stats + action buttons */}
-              <div className="px-3 sm:px-4 py-2.5 border-t border-slate-700/60 flex flex-col sm:flex-row items-center justify-between gap-3 flex-wrap">
+              <div className="px-3 sm:px-4 py-2.5 border-t border-zinc-700/60 flex flex-col sm:flex-row items-center justify-between gap-3 flex-wrap">
                 {weeklyAttendanceStats ? (
                   <div className="flex items-center justify-center gap-6 sm:gap-8 w-full sm:w-auto">
                     <div className="text-center">
@@ -1735,7 +1735,7 @@ export default function CircleMeetingsCalendar({
 
               {/* Expandable lists */}
               {(showDnmList && dnmLeaderIds.size > 0) || (showNotReportedList && snapshotMap) || showOffScheduleList ? (
-                <div className="border-t border-slate-700/60 px-4 py-3 space-y-2">
+                <div className="border-t border-zinc-700/60 px-4 py-3 space-y-2">
                   {showDnmList && dnmLeaderIds.size > 0 && (
                     <div className="rounded-lg border border-orange-500/25 bg-orange-500/8 p-2.5">
                       <p className="text-xs font-semibold text-orange-300 mb-1.5">Didn&apos;t meet in 2+ of the last 4 weeks</p>
@@ -1936,7 +1936,7 @@ export default function CircleMeetingsCalendar({
 
           {/* Expandable content */}
           {showAiSummary && (
-            <div className="mt-1 rounded-xl border border-purple-500/20 bg-slate-900/60 overflow-hidden">
+            <div className="mt-1 rounded-xl border border-purple-500/20 bg-zinc-900/60 overflow-hidden">
               {/* Error state */}
               {summaryError && (
                 <div className="px-4 py-3 text-sm text-red-300 flex items-start gap-2">
@@ -2174,7 +2174,7 @@ export default function CircleMeetingsCalendar({
                       {/* Missing Attendance badge — CCB report exists but no headcount */}
                       {leaderId && ccbReportMap?.get(leaderId) && !attendanceData?.get(leaderId)?.headcount && state !== 'not_received' && (
                         <div className="inline-flex items-center gap-1 mt-0.5">
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-slate-500/20 text-slate-400 border border-slate-500/25 leading-none">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-zinc-500/20 text-slate-400 border border-zinc-500/25 leading-none">
                             <svg className="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
@@ -2286,7 +2286,7 @@ export default function CircleMeetingsCalendar({
                               CCB
                             </a>
                           ) : (
-                            <button type="button" disabled className="h-9 px-3 rounded-lg text-xs font-semibold bg-slate-700/50 text-slate-600 cursor-not-allowed opacity-50 inline-flex items-center gap-1.5">
+                            <button type="button" disabled className="h-9 px-3 rounded-lg text-xs font-semibold bg-zinc-700/50 text-slate-600 cursor-not-allowed opacity-50 inline-flex items-center gap-1.5">
                               <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                               </svg>
@@ -2394,7 +2394,7 @@ export default function CircleMeetingsCalendar({
                             </a>
                           ) : (
                             <button type="button" disabled
-                              className="h-11 rounded-lg text-[13px] font-semibold bg-slate-700/50 text-slate-600 cursor-not-allowed flex items-center justify-center gap-1.5">
+                              className="h-11 rounded-lg text-[13px] font-semibold bg-zinc-700/50 text-slate-600 cursor-not-allowed flex items-center justify-center gap-1.5">
                               <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                               </svg>
@@ -2423,7 +2423,7 @@ export default function CircleMeetingsCalendar({
       </div>
 
       {!isListView && (
-      <div className="mt-5 border-t border-slate-700 pt-5">
+      <div className="mt-5 border-t border-zinc-700 pt-5">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-white">Events for {selectedDateLabel || selectedISODate}</h2>
@@ -2454,7 +2454,7 @@ export default function CircleMeetingsCalendar({
                 <div
                   key={ev.id}
                   className={
-                    `flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-slate-700 bg-slate-700/40 hover:bg-slate-700/60 transition-colors px-3 py-2.5 border-l-4 ${stateBorderClass}`
+                    `flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-zinc-700 bg-zinc-700/40 hover:bg-zinc-700/60 transition-colors px-3 py-2.5 border-l-4 ${stateBorderClass}`
                   }
                   role={leaderId ? 'button' : undefined}
                   tabIndex={leaderId ? 0 : undefined}
@@ -2481,7 +2481,7 @@ export default function CircleMeetingsCalendar({
                             e.stopPropagation();
                             router.push(`/circle/${leaderId}`);
                           }}
-                          className="text-base font-bold text-white hover:text-indigo-400 transition-colors text-left group"
+                          className="text-base font-bold text-white hover:text-vc-400 transition-colors text-left group"
                           title="Open circle leader profile"
                         >
                           <span className="group-hover:underline">{ev.title}</span>
@@ -2504,7 +2504,7 @@ export default function CircleMeetingsCalendar({
                               e.stopPropagation();
                               openEventExplorerForLeader(leaderId, isoDate);
                             }}
-                            className="h-9 col-span-1 rounded-lg text-xs font-semibold leading-none border border-slate-600 text-slate-200 hover:bg-slate-600 transition-colors inline-flex items-center justify-center"
+                            className="h-9 col-span-1 rounded-lg text-xs font-semibold leading-none border border-zinc-600 text-slate-200 hover:bg-zinc-600 transition-colors inline-flex items-center justify-center"
                             title="Open attendance summary"
                           >
                             Summary
@@ -2513,7 +2513,7 @@ export default function CircleMeetingsCalendar({
                           <button
                             type="button"
                             disabled
-                            className="h-9 col-span-1 rounded-lg text-xs font-semibold leading-none border border-slate-700 text-slate-500 cursor-not-allowed opacity-50"
+                            className="h-9 col-span-1 rounded-lg text-xs font-semibold leading-none border border-zinc-700 text-slate-500 cursor-not-allowed opacity-50"
                             title="Summary unavailable"
                           >
                             Summary
@@ -2526,7 +2526,7 @@ export default function CircleMeetingsCalendar({
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
-                            className="h-9 col-span-2 rounded-lg text-xs font-semibold leading-none border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/15 transition-colors inline-flex items-center justify-center"
+                            className="h-9 col-span-2 rounded-lg text-xs font-semibold leading-none border border-vc-500/30 text-vc-300 hover:bg-vc-500/15 transition-colors inline-flex items-center justify-center"
                             title="Open CCB profile"
                           >
                             CCB
@@ -2535,7 +2535,7 @@ export default function CircleMeetingsCalendar({
                           <button
                             type="button"
                             disabled
-                            className="h-9 col-span-2 rounded-lg text-xs font-semibold leading-none border border-slate-700 text-slate-500 cursor-not-allowed opacity-50"
+                            className="h-9 col-span-2 rounded-lg text-xs font-semibold leading-none border border-zinc-700 text-slate-500 cursor-not-allowed opacity-50"
                             title="No CCB profile link"
                           >
                             CCB
@@ -2560,7 +2560,7 @@ export default function CircleMeetingsCalendar({
                             onClick={(e) => { e.stopPropagation(); openSummaryModalForLeader(leaderId, ev.title); }}
                             className={
                               reviewed
-                                ? 'h-9 w-full rounded-lg text-xs font-medium border border-slate-600 text-slate-200 hover:bg-slate-600 transition-colors'
+                                ? 'h-9 w-full rounded-lg text-xs font-medium border border-zinc-600 text-slate-200 hover:bg-zinc-600 transition-colors'
                                 : 'h-9 w-full rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors'
                             }
                           >
@@ -2579,7 +2579,7 @@ export default function CircleMeetingsCalendar({
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); router.push(`/circle/${leaderId}`); }}
-                          className="block text-sm font-semibold text-white hover:text-indigo-400 transition-colors truncate text-left group"
+                          className="block text-sm font-semibold text-white hover:text-vc-400 transition-colors truncate text-left group"
                           title="Open circle leader profile"
                         >
                           <span className="group-hover:underline">{ev.title}</span>
@@ -2614,7 +2614,7 @@ export default function CircleMeetingsCalendar({
                             <button
                               type="button"
                               disabled
-                              className="h-8 px-3 text-xs font-medium rounded-lg border border-slate-700 text-slate-500 opacity-50 cursor-not-allowed"
+                              className="h-8 px-3 text-xs font-medium rounded-lg border border-zinc-700 text-slate-500 opacity-50 cursor-not-allowed"
                               title="No event summary submitted yet"
                             >
                               No summary
@@ -2627,7 +2627,7 @@ export default function CircleMeetingsCalendar({
                             onClick={(e) => { e.stopPropagation(); openSummaryModalForLeader(leaderId, ev.title); }}
                             className={
                               reviewed
-                                ? 'h-8 px-3 text-xs font-medium rounded-lg border border-slate-600 text-slate-200 hover:bg-slate-600 transition-colors'
+                                ? 'h-8 px-3 text-xs font-medium rounded-lg border border-zinc-600 text-slate-200 hover:bg-zinc-600 transition-colors'
                                 : 'h-8 px-3 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors'
                             }
                             title={reviewed ? 'View event summary' : 'Review event summary'}
@@ -2642,7 +2642,7 @@ export default function CircleMeetingsCalendar({
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); openEventExplorerForLeader(leaderId, isoDate); }}
-                          className="h-8 px-3 text-xs font-medium rounded-lg border border-slate-600 text-slate-200 hover:bg-slate-600 transition-colors"
+                          className="h-8 px-3 text-xs font-medium rounded-lg border border-zinc-600 text-slate-200 hover:bg-zinc-600 transition-colors"
                           title="Open attendance summary"
                         >
                           Summary
@@ -2654,7 +2654,7 @@ export default function CircleMeetingsCalendar({
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); router.push(`/circle/${leaderId}`); }}
-                          className="h-8 px-3 text-xs font-medium rounded-lg border border-slate-600 text-slate-200 hover:bg-slate-600 transition-colors"
+                          className="h-8 px-3 text-xs font-medium rounded-lg border border-zinc-600 text-slate-200 hover:bg-zinc-600 transition-colors"
                           title="Open circle leader profile"
                         >
                           Profile
@@ -2668,7 +2668,7 @@ export default function CircleMeetingsCalendar({
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="h-8 px-3 text-xs font-medium rounded-lg border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/15 transition-colors inline-flex items-center"
+                          className="h-8 px-3 text-xs font-medium rounded-lg border border-vc-500/30 text-vc-300 hover:bg-vc-500/15 transition-colors inline-flex items-center"
                           title="Open CCB profile"
                         >
                           CCB
@@ -2677,7 +2677,7 @@ export default function CircleMeetingsCalendar({
                         <button
                           type="button"
                           disabled
-                          className="h-8 px-3 text-xs font-medium rounded-lg border border-slate-700 text-slate-500 cursor-not-allowed opacity-50"
+                          className="h-8 px-3 text-xs font-medium rounded-lg border border-zinc-700 text-slate-500 cursor-not-allowed opacity-50"
                           title="No CCB profile link"
                         >
                           CCB
@@ -2734,7 +2734,7 @@ export default function CircleMeetingsCalendar({
 
       {/* Missing Schedule Info */}
       {!isLoadingLeaders && leadersWithoutSchedules.length > 0 && (
-        <div className="mt-5 border-t border-slate-700 pt-5">
+        <div className="mt-5 border-t border-zinc-700 pt-5">
           <button
             type="button"
             onClick={() => setShowMissingSchedules(prev => !prev)}
@@ -2762,7 +2762,7 @@ export default function CircleMeetingsCalendar({
               {leadersWithoutSchedules.map(leader => (
                 <div
                   key={leader.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-700/40 px-3 py-2.5 border-l-4 border-l-amber-500"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-zinc-700 bg-zinc-700/40 px-3 py-2.5 border-l-4 border-l-amber-500"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold text-white truncate">
@@ -2788,7 +2788,7 @@ export default function CircleMeetingsCalendar({
                   <button
                     type="button"
                     onClick={() => router.push(`/circle/${leader.id}`)}
-                    className="h-8 px-3 text-xs font-medium rounded-lg border border-slate-600 text-slate-200 hover:bg-slate-600 transition-colors shrink-0"
+                    className="h-8 px-3 text-xs font-medium rounded-lg border border-zinc-600 text-slate-200 hover:bg-zinc-600 transition-colors shrink-0"
                   >
                     Edit
                   </button>
@@ -2873,7 +2873,7 @@ function SyncStatusPill({
         type="button"
         onClick={onRefresh}
         disabled={syncing}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-700/60 hover:bg-slate-700 disabled:opacity-60 disabled:cursor-not-allowed text-slate-200 transition-colors"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-zinc-700/60 hover:bg-zinc-700 disabled:opacity-60 disabled:cursor-not-allowed text-slate-200 transition-colors"
         title="Force a refresh from CCB"
       >
         {syncing ? (
@@ -2919,7 +2919,7 @@ function ConflictReviewPanel({
   onClose: () => void;
 }) {
   return (
-    <div className="border-t border-slate-700/60 px-4 py-3">
+    <div className="border-t border-zinc-700/60 px-4 py-3">
       <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-semibold text-amber-200 flex items-center gap-1.5">
@@ -2943,7 +2943,7 @@ function ConflictReviewPanel({
             if (c.ccb_evidence.has_notes) evidenceBits.push('has notes');
             const evidenceText = evidenceBits.length > 0 ? evidenceBits.join(' · ') : 'no submission evidence';
             return (
-              <div key={c.leader_id} className="rounded-md bg-slate-900/40 border border-slate-700/60 p-2.5">
+              <div key={c.leader_id} className="rounded-md bg-zinc-900/40 border border-zinc-700/60 p-2.5">
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold text-white">{c.leader_name}</div>
@@ -2959,7 +2959,7 @@ function ConflictReviewPanel({
                       type="button"
                       onClick={() => onResolve(c, 'dismiss_conflict')}
                       disabled={busy}
-                      className="px-2.5 py-1 rounded-md text-xs font-medium border border-slate-600 text-slate-200 hover:bg-slate-700 transition-colors disabled:opacity-60"
+                      className="px-2.5 py-1 rounded-md text-xs font-medium border border-zinc-600 text-slate-200 hover:bg-zinc-700 transition-colors disabled:opacity-60"
                     >
                       Keep current
                     </button>

@@ -1,6 +1,42 @@
 [
   {
     "date": "2026-05-28",
+    "type": "improvement",
+    "page": "/event-summary-tracker",
+    "description": "The RADIUS logo in the top navigation now links to the Events page, and the quick-actions menu icons were recolored from blue to the Valley Creek brand green."
+  },
+  {
+    "date": "2026-05-28",
+    "type": "improvement",
+    "page": "/circle/321",
+    "description": "Polished modal styling: button labels are now centered in all branded buttons, primary action buttons (Save Follow-Up, Set Follow-Up, Add Note) now use the Valley Creek brand green instead of slate/orange, and the modal header bar was changed from navy to a neutral gray to match the rest of the app."
+  },
+  {
+    "date": "2026-05-28",
+    "type": "fix",
+    "page": "/boards",
+    "description": "Fixed an annoying bug on card detail panels where highlighting text in the description or checklist by click-dragging would close the card if you released the mouse outside the panel. The card now only closes when you actually click the dimmed backdrop."
+  },
+  {
+    "date": "2026-05-28",
+    "type": "improvement",
+    "page": "/circle/321",
+    "description": "Toned down the circle profile sub-navigation bar (Profile / Notes / Scorecard / Care). The bright green gradient was replaced with a subtle dark gray that blends with the rest of the app, while the active tab keeps its green underline accent."
+  },
+  {
+    "date": "2026-05-28",
+    "type": "feature",
+    "page": "/boards",
+    "description": "Added a Snooze button to board cards with a due date. One click pushes the due date to the next business day (Monday–Thursday), so you can quickly defer a card without opening the date picker."
+  },
+  {
+    "date": "2026-05-28",
+    "type": "improvement",
+    "page": "/",
+    "description": "Refreshed the app's accent color to Valley Creek green. Active nav links, the floating action buttons, page toggles/filter chips, the circle profile tab bar, loading spinners, and the splash screen now use the brand green instead of blue. Several navy-tinted page and card backgrounds (Event Summary, Progress, Message Center, Leader Messages, Resources, circle profile cards) were also neutralized to a darker gray to match the rest of the app."
+  },
+  {
+    "date": "2026-05-28",
     "type": "feature",
     "page": "/event-summary-tracker",
     "description": "Added a 'View in CCB' button to the event summary review modal. It opens the meeting's event detail page in CCB for that exact occurrence date, so you can jump straight to the source record while reviewing."
@@ -482,7 +518,7 @@
   {
     "date": "2026-05-14",
     "type": "improvement",
-    "description": "Circle Summary reminder emails: follow-up emails now use warm, inviting language ("we'd love to hear about your Circle") instead of deficit framing. Magic link now lands on the events list page so leaders always land on a working screen. Footer now says \"staff contact\" instead of referencing ACPDs.",
+    "description": "Circle Summary reminder emails: follow-up emails now use warm, inviting language (\"we'd love to hear about your Circle\") instead of deficit framing. Magic link now lands on the events list page so leaders always land on a working screen. Footer now says \"staff contact\" instead of referencing ACPDs.",
     "page": "/circle-summary"
   },
   {

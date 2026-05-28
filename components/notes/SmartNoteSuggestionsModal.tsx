@@ -183,7 +183,7 @@ export default function SmartNoteSuggestionsModal({
                   onChange={e => setPrayerContent(e.target.value)}
                   placeholder="What should we pray for?"
                   rows={2}
-                  className="w-full bg-slate-700 border border-slate-600 text-white placeholder-slate-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none transition-colors"
+                  className="w-full bg-zinc-700 border border-zinc-600 text-white placeholder-slate-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none transition-colors"
                 />
                 {prayerError && <p className="text-xs text-red-400">{prayerError}</p>}
                 <button
@@ -200,18 +200,18 @@ export default function SmartNoteSuggestionsModal({
 
         {/* Development Section */}
         {hasDevelopment && (
-          <div className="border border-indigo-500/20 bg-indigo-500/5 rounded-xl p-4">
+          <div className="border border-vc-500/20 bg-vc-500/5 rounded-xl p-4">
             <div className="flex items-start gap-2.5 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-indigo-500/15 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
+              <div className="w-7 h-7 rounded-lg bg-vc-500/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg className="w-4 h-4 text-vc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-sm font-semibold text-indigo-300">Log Development Opportunity</h3>
+                  <h3 className="text-sm font-semibold text-vc-300">Log Development Opportunity</h3>
                   {matchedPhrases.development && (
-                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-400 border border-indigo-500/20">
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-vc-500/15 text-vc-400 border border-vc-500/20">
                       &ldquo;{matchedPhrases.development}&rdquo;
                     </span>
                   )}
@@ -230,7 +230,7 @@ export default function SmartNoteSuggestionsModal({
 
             {/* Existing prospects context */}
             {existingProspects.length > 0 && !developmentLogged && (
-              <div className="flex items-start gap-2 mb-3 px-2.5 py-2 rounded-lg bg-slate-800/60 border border-slate-700/50">
+              <div className="flex items-start gap-2 mb-3 px-2.5 py-2 rounded-lg bg-zinc-800/60 border border-zinc-700/50">
                 <svg className="w-3.5 h-3.5 text-slate-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -250,7 +250,7 @@ export default function SmartNoteSuggestionsModal({
                   value={developmentName}
                   onChange={e => setDevelopmentName(e.target.value)}
                   placeholder="Person's name (required)"
-                  className="w-full bg-slate-700 border border-slate-600 text-white placeholder-slate-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                  className="w-full bg-zinc-700 border border-zinc-600 text-white placeholder-slate-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent transition-colors"
                 />
                 {duplicateMatch && (
                   <p className="text-xs text-amber-400 flex items-center gap-1.5">
@@ -265,7 +265,7 @@ export default function SmartNoteSuggestionsModal({
                   onChange={e => setDevelopmentNotes(e.target.value)}
                   placeholder="Context or notes (optional)"
                   rows={2}
-                  className="w-full bg-slate-700 border border-slate-600 text-white placeholder-slate-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none transition-colors"
+                  className="w-full bg-zinc-700 border border-zinc-600 text-white placeholder-slate-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent resize-none transition-colors"
                 />
                 {developmentError && <p className="text-xs text-red-400">{developmentError}</p>}
                 <button
@@ -283,7 +283,7 @@ export default function SmartNoteSuggestionsModal({
         <div className="flex justify-end pt-1">
           <button
             onClick={() => resetAndClose({ prayer: prayerLogged, development: developmentLogged })}
-            className="text-slate-400 hover:text-white hover:bg-slate-700 px-4 py-2 rounded-lg text-sm transition-colors"
+            className="text-slate-400 hover:text-white hover:bg-zinc-700 px-4 py-2 rounded-lg text-sm transition-colors"
           >
             {prayerLogged || developmentLogged ? 'Done' : 'Skip for now'}
           </button>

@@ -352,7 +352,7 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
@@ -413,7 +413,7 @@ export default function UsersPage() {
                     id="email"
                     value={formData.email}
                     onChange={(e) => handleFormChange('email', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-vc-500"
                     placeholder="user@example.com"
                     required
                   />
@@ -427,7 +427,7 @@ export default function UsersPage() {
                     id="name"
                     value={formData.name}
                     onChange={(e) => handleFormChange('name', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-vc-500"
                     placeholder="John Doe"
                   />
                 </div>
@@ -439,7 +439,7 @@ export default function UsersPage() {
                     id="role"
                     value={formData.role}
                     onChange={(e) => handleFormChange('role', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-vc-500"
                   >
                     <option value="Viewer">Viewer</option>
                     <option value="ACPD">ACPD</option>
@@ -454,7 +454,7 @@ export default function UsersPage() {
                     setShowAddForm(false);
                     setFormData({ email: '', name: '', role: 'Viewer' });
                   }}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-vc-500 transition-colors"
                 >
                   Cancel
                 </button>
@@ -487,7 +487,7 @@ export default function UsersPage() {
                     id="edit-email"
                     value={formData.email}
                     onChange={(e) => handleFormChange('email', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-vc-500"
                     placeholder="user@example.com"
                     required
                   />
@@ -501,7 +501,7 @@ export default function UsersPage() {
                     id="edit-name"
                     value={formData.name}
                     onChange={(e) => handleFormChange('name', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-vc-500"
                     placeholder="John Doe"
                   />
                 </div>
@@ -513,7 +513,7 @@ export default function UsersPage() {
                     id="edit-role"
                     value={formData.role}
                     onChange={(e) => handleFormChange('role', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-vc-500"
                   >
                     <option value="Viewer">Viewer</option>
                     <option value="ACPD">ACPD</option>
@@ -529,7 +529,7 @@ export default function UsersPage() {
                     setEditingUser(null);
                     setFormData({ email: '', name: '', role: 'Viewer' });
                   }}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-vc-500 transition-colors"
                 >
                   Cancel
                 </button>
@@ -553,7 +553,7 @@ export default function UsersPage() {
           
           {isLoading ? (
             <div className="p-8 text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-vc-500"></div>
               <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Loading users...</p>
             </div>
           ) : users.length === 0 ? (
@@ -620,7 +620,7 @@ export default function UsersPage() {
                           </button>
                         )}
                         <button onClick={() => { setPasswordUser(user); setNewPassword(''); setShowPassword(false); }} disabled={isSubmitting}
-                          className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 transition-colors">
+                          className="text-vc-600 dark:text-vc-400 hover:text-vc-900 dark:hover:text-vc-300 transition-colors">
                           Set Password
                         </button>
                         <button onClick={() => handleResendAccess(user.email)} disabled={isSubmitting}
@@ -659,7 +659,7 @@ export default function UsersPage() {
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="At least 8 characters"
                     autoFocus
-                    className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent text-sm"
                   />
                   <button type="button" onClick={() => setShowPassword(p => !p)}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">

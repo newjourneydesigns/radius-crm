@@ -240,7 +240,7 @@ export default function AuthenticatedNavigation() {
     const activeHref = href.split(/[?#]/)[0];
     return `flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
       isActive(activeHref)
-        ? 'text-slate-300 bg-white/[0.06] border-l-2 border-slate-400/50'
+        ? 'text-slate-300 bg-white/[0.06] border-l-2 border-zinc-400/50'
         : 'text-gray-300 hover:text-white hover:bg-white/[0.06]'
     }`;
   };
@@ -251,7 +251,7 @@ export default function AuthenticatedNavigation() {
         <div className="flex items-center justify-between h-14">
 
           {/* ── Left: Brand ── */}
-          <Link href="/boards" className="flex items-center space-x-2 shrink-0 group">
+          <Link href="/event-summary-tracker" className="flex items-center space-x-2 shrink-0 group">
             <Image src="/icon-32x32.png" alt="RADIUS" width={28} height={28} className="rounded-lg group-hover:scale-105 transition-transform" />
             <span className="text-base font-bold text-white tracking-tight">RADIUS</span>
           </Link>
@@ -360,7 +360,7 @@ export default function AuthenticatedNavigation() {
                     <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
                     <p className="text-xs text-gray-500 truncate">{user?.email}</p>
                     {admin && (
-                      <span className="mt-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-500/15 text-slate-400 ring-1 ring-slate-500/20">
+                      <span className="mt-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-500/15 text-slate-400 ring-1 ring-zinc-500/20">
                         Admin
                       </span>
                     )}

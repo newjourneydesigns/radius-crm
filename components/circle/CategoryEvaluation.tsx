@@ -336,7 +336,7 @@ export default function CategoryEvaluation({
           value={contextNotes}
           onChange={(e) => onContextChange(e.target.value)}
           placeholder="Why this score? Observations, context, pastoral notes..."
-          className="w-full px-3 py-2 bg-gray-800/50 border border-gray-600/50 rounded-lg text-sm text-white placeholder-gray-600 focus:border-blue-500/50 focus:outline-none resize-none"
+          className="w-full px-3 py-2 bg-gray-800/50 border border-gray-600/50 rounded-lg text-sm text-white placeholder-gray-600 focus:border-vc-500/50 focus:outline-none resize-none"
           rows={3}
         />
       </div>

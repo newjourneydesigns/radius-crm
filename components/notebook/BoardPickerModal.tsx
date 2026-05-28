@@ -50,7 +50,7 @@ export default function BoardPickerModal({ excludeIds = [], onSelect, onClose }:
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Search boards…"
-              className="w-full bg-white/[0.06] rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-400/60"
+              className="w-full bg-white/[0.06] rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-vc-400/60"
             />
           </div>
         </div>
@@ -66,8 +66,8 @@ export default function BoardPickerModal({ excludeIds = [], onSelect, onClose }:
               onClick={() => onSelect(board)}
               className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.06] transition-colors text-left"
             >
-              <div className="w-7 h-7 rounded-md bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center flex-shrink-0">
-                <svg className="w-3.5 h-3.5 text-indigo-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+              <div className="w-7 h-7 rounded-md bg-vc-500/20 border border-vc-400/30 flex items-center justify-center flex-shrink-0">
+                <svg className="w-3.5 h-3.5 text-vc-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
                   <rect x="3" y="3" width="7" height="9" rx="1.5" strokeLinecap="round" />
                   <rect x="14" y="3" width="7" height="5" rx="1.5" strokeLinecap="round" />
                   <rect x="14" y="12" width="7" height="9" rx="1.5" strokeLinecap="round" />

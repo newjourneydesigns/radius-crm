@@ -62,8 +62,8 @@ export default function CircleLeaderScorecardPage() {
   if (isLoading) {
     return (
       <ProtectedRoute>
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-600/20 border-t-blue-600" />
+        <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117] flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-600/20 border-t-vc-500" />
         </div>
       </ProtectedRoute>
     );
@@ -71,7 +71,7 @@ export default function CircleLeaderScorecardPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28 lg:pb-6">
 
           {/* Header */}

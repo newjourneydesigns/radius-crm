@@ -11,7 +11,6 @@ const TABS = [
   { label: 'Notes',     route: (id: string) => `/circle/${id}/notes` },
   { label: 'Scorecard', route: (id: string) => `/circle/${id}/scorecard`,     circleOnly: true },
   { label: 'Care',      route: (id: string) => `/circle/${id}/care`,          adminOnly: true },
-  { label: 'Visits',    route: (id: string) => `/circle/${id}/circle-visits`, adminOnly: true, circleOnly: true },
 ] as const;
 
 type Tab = (typeof TABS)[number];
@@ -202,13 +201,13 @@ export default function CircleLeaderLayout({
   const tabClass = (active: boolean) =>
     `flex-1 text-center whitespace-nowrap py-3 text-sm font-medium transition-colors border-b-2 ${
       active
-        ? 'border-blue-500 text-white'
-        : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'
+        ? 'border-vc-500 text-white'
+        : 'border-transparent text-gray-300 hover:text-white hover:border-vc-700'
     }`;
 
   return (
     <>
-      <div className="sticky top-0 z-40 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700/60">
+      <div className="sticky top-0 z-40 bg-vc-submenu backdrop-blur-sm border-b border-vc-900/60">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <nav className="flex" aria-label="Section navigation">
             {filteredTabs.map(tab => {

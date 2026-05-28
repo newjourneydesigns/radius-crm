@@ -90,7 +90,7 @@ export default function SimpleCampusFilter({
                       type="checkbox"
                       checked={filters.campus.includes(campus.value)}
                       onChange={(e) => handleCampusChange(campus.value, e.target.checked)}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700"
+                      className="h-4 w-4 text-blue-600 focus:ring-vc-500 border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700"
                     />
                     <span className="ml-3 text-sm text-gray-700 dark:text-gray-300">
                       {campus.value}

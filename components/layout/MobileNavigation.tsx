@@ -409,10 +409,10 @@ export default function MobileNavigation() {
         className="md:hidden fixed right-4 z-[10002] w-9 h-9 rounded-full flex items-center justify-center text-white transition-all duration-200 active:scale-90"
         style={{
           bottom: 'calc(98px + env(safe-area-inset-bottom, 0px) + 16px)',
-          background: 'linear-gradient(135deg, #2563eb 0%, #60a5fa 100%)',
+          background: 'linear-gradient(135deg, #2a9329 0%, #56c93f 100%)',
           boxShadow: sheetOpen
-            ? '0 2px 8px rgba(96, 165, 250, 0.3), 0 1px 4px rgba(0,0,0,0.3)'
-            : '0 0 14px rgba(96, 165, 250, 0.45), 0 2px 8px rgba(0,0,0,0.35)',
+            ? '0 2px 8px rgba(51, 178, 51, 0.3), 0 1px 4px rgba(0,0,0,0.3)'
+            : '0 0 14px rgba(51, 178, 51, 0.45), 0 2px 8px rgba(0,0,0,0.35)',
           border: '2px solid rgba(9, 27, 52, 0.85)',
         }}
         aria-label={sheetOpen ? 'Close menu' : 'Open menu'}

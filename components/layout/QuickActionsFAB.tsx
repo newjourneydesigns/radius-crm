@@ -113,7 +113,7 @@ export default function QuickActionsFAB() {
               key={action.id}
               type="button"
               onClick={() => handleActionClick(action.id)}
-              className={`w-48 max-w-[calc(100vw-2rem)] flex items-center justify-between rounded-xl border border-slate-700 bg-slate-800/95 px-4 py-2.5 text-slate-100 shadow-card-glass transition-all duration-200 hover:bg-slate-700/95 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+              className={`w-48 max-w-[calc(100vw-2rem)] flex items-center justify-between rounded-xl border border-zinc-700 bg-zinc-800/95 px-4 py-2.5 text-slate-100 shadow-card-glass transition-all duration-200 hover:bg-zinc-700/95 focus:outline-none focus:ring-2 focus:ring-vc-500 ${
                 isOpen
                   ? 'opacity-100 translate-y-0 pointer-events-auto'
                   : 'opacity-0 translate-y-3 pointer-events-none'
@@ -126,7 +126,7 @@ export default function QuickActionsFAB() {
               }}
               aria-label={action.label}
             >
-              <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center text-blue-300">
+              <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center text-vc-400">
                 {action.icon}
               </span>
               <span className="text-xs font-semibold whitespace-nowrap">{action.label}</span>
@@ -139,10 +139,10 @@ export default function QuickActionsFAB() {
           onClick={() => setIsOpen(prev => !prev)}
           className="w-9 h-9 rounded-full flex items-center justify-center text-white transition-all duration-200 active:scale-90 pointer-events-auto"
           style={{
-            background: 'linear-gradient(135deg, #2563eb 0%, #60a5fa 100%)',
+            background: 'linear-gradient(135deg, #2a9329 0%, #56c93f 100%)',
             boxShadow: isOpen
-              ? '0 2px 8px rgba(96, 165, 250, 0.3), 0 1px 4px rgba(0,0,0,0.3)'
-              : '0 0 14px rgba(96, 165, 250, 0.45), 0 2px 8px rgba(0,0,0,0.35)',
+              ? '0 2px 8px rgba(51, 178, 51, 0.3), 0 1px 4px rgba(0,0,0,0.3)'
+              : '0 0 14px rgba(51, 178, 51, 0.45), 0 2px 8px rgba(0,0,0,0.35)',
             border: '2px solid rgba(9, 27, 52, 0.85)',
           }}
           aria-label={isOpen ? 'Close quick actions' : 'Open quick actions'}

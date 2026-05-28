@@ -128,7 +128,7 @@ function VerifyContent() {
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center gap-4">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-vc-500" />
       <p className="text-sm text-gray-400">
         {error || 'Verifying your account…'}
       </p>
@@ -141,7 +141,7 @@ export default function VerifyPage() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-vc-500" />
         </div>
       }
     >

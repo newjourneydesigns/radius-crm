@@ -112,7 +112,7 @@ export default function AddPrayerModal({ isOpen, onClose, onSaved }: Props) {
             onClick={() => setPrayerType('general')}
             className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors ${
               prayerType === 'general'
-                ? 'bg-indigo-600 text-white shadow-sm'
+                ? 'bg-vc-600 text-white shadow-sm'
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
             }`}
           >
@@ -178,7 +178,7 @@ export default function AddPrayerModal({ isOpen, onClose, onSaved }: Props) {
             onClick={handleSave}
             disabled={isSaving || !content.trim() || (prayerType === 'leader' && !selectedLeaderId)}
             className={`px-4 py-2 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm ${
-              prayerType === 'leader' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-indigo-600 hover:bg-indigo-500'
+              prayerType === 'leader' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-vc-600 hover:bg-vc-500'
             }`}
           >
             {isSaving ? 'Saving...' : 'Save Prayer'}

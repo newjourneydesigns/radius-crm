@@ -741,7 +741,7 @@ function TodaySkeleton() {
           height: 34,
           borderRadius: 999,
           border: `2px solid ${T.cardBorder}`,
-          borderTopColor: '#60a5fa',
+          borderTopColor: '#33B233',
           animation: 'spin 1s linear infinite',
         }} />
         <p

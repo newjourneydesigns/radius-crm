@@ -66,7 +66,7 @@ const renderContactActions = (contacts: TextContact[]) => {
   return (
     <div className="mt-3 flex flex-wrap gap-2">
       {contacts.map((contact, index) => (
-        <div key={`${contact.type}-${contact.value}-${index}`} className="inline-flex flex-wrap items-center gap-2 rounded-full border border-slate-700 bg-slate-900/80 px-3 py-1.5">
+        <div key={`${contact.type}-${contact.value}-${index}`} className="inline-flex flex-wrap items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900/80 px-3 py-1.5">
           <span className="text-xs text-slate-300 break-all">{contact.value}</span>
           <div className="inline-flex items-center gap-1">
             {contact.type === 'phone' ? (
@@ -347,8 +347,8 @@ export default function CircleLeaderNotesPage() {
   if (isLoading) {
     return (
       <ProtectedRoute>
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-600/20 border-t-blue-600" />
+        <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117] flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-600/20 border-t-vc-500" />
         </div>
       </ProtectedRoute>
     );
@@ -365,7 +365,7 @@ export default function CircleLeaderNotesPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28 lg:pb-6">
 
           {/* Header */}
@@ -385,7 +385,7 @@ export default function CircleLeaderNotesPage() {
           </div>
 
           {/* Notes Panel */}
-          <div className="section-panel bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass">
+          <div className="section-panel bg-zinc-800 border border-zinc-700 rounded-xl shadow-card-glass">
             <div className="section-header-row px-4 sm:px-6 py-4">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center">
@@ -681,14 +681,14 @@ export default function CircleLeaderNotesPage() {
                                     <button
                                       onClick={() => handleEditNote(note)}
                                       disabled={editingNoteId !== null || isDeletingNote}
-                                      className="px-3 py-1.5 text-xs font-medium rounded-md border border-slate-600 text-slate-300 hover:border-blue-500/60 hover:text-blue-400 hover:bg-blue-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                      className="px-3 py-1.5 text-xs font-medium rounded-md border border-zinc-600 text-slate-300 hover:border-blue-500/60 hover:text-blue-400 hover:bg-blue-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                                     >
                                       Edit
                                     </button>
                                     <button
                                       onClick={() => handleSaveAsTemplate(note)}
                                       disabled={editingNoteId !== null || isDeletingNote || isSavingAsTemplate === note.id}
-                                      className="px-3 py-1.5 text-xs font-medium rounded-md border border-slate-600 text-slate-300 hover:border-emerald-500/60 hover:text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                      className="px-3 py-1.5 text-xs font-medium rounded-md border border-zinc-600 text-slate-300 hover:border-emerald-500/60 hover:text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                                     >
                                       {isSavingAsTemplate === note.id ? 'Saving…' : 'Save as Template'}
                                     </button>
@@ -699,7 +699,7 @@ export default function CircleLeaderNotesPage() {
                                         <button
                                           onClick={() => handleCopyForCCB(note.id, note.content)}
                                           disabled={editingNoteId !== null || isDeletingNote}
-                                          className="px-3 py-1.5 text-xs font-medium rounded-md border border-slate-600 text-slate-300 hover:border-sky-500/60 hover:text-sky-400 hover:bg-sky-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                          className="px-3 py-1.5 text-xs font-medium rounded-md border border-zinc-600 text-slate-300 hover:border-sky-500/60 hover:text-sky-400 hover:bg-sky-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                                         >
                                           Copy for CCB
                                         </button>
@@ -718,7 +718,7 @@ export default function CircleLeaderNotesPage() {
                                         <button
                                           onClick={() => setDeletingNoteId(null)}
                                           disabled={isDeletingNote}
-                                          className="px-3 py-1.5 text-xs font-medium rounded-md border border-slate-600 text-slate-300 hover:bg-slate-700 disabled:opacity-40 transition-colors"
+                                          className="px-3 py-1.5 text-xs font-medium rounded-md border border-zinc-600 text-slate-300 hover:bg-zinc-700 disabled:opacity-40 transition-colors"
                                         >
                                           Cancel
                                         </button>
@@ -727,7 +727,7 @@ export default function CircleLeaderNotesPage() {
                                       <button
                                         onClick={() => handleDeleteNote(note.id)}
                                         disabled={editingNoteId !== null || isDeletingNote}
-                                        className="px-3 py-1.5 text-xs font-medium rounded-md border border-slate-600 text-slate-300 hover:border-red-500/60 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                        className="px-3 py-1.5 text-xs font-medium rounded-md border border-zinc-600 text-slate-300 hover:border-red-500/60 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                                       >
                                         Delete
                                       </button>

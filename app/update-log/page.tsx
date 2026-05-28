@@ -37,14 +37,14 @@ export default function UpdateLogPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-slate-900">
+      <div className="min-h-screen bg-[#0f1117]">
         <div className="max-w-2xl mx-auto p-4 sm:p-6 lg:p-8">
 
           {/* Header */}
           <div className="flex items-center gap-3 mb-8">
             <Link
               href="/help"
-              className="text-slate-500 hover:text-slate-300 transition-colors p-1 -ml-1 rounded-lg hover:bg-slate-800"
+              className="text-slate-500 hover:text-slate-300 transition-colors p-1 -ml-1 rounded-lg hover:bg-zinc-800"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
@@ -67,18 +67,18 @@ export default function UpdateLogPage() {
           ) : (
             <div className="relative">
               {/* Vertical line */}
-              <div className="absolute left-3 top-2 bottom-2 w-px bg-slate-700/60" />
+              <div className="absolute left-3 top-2 bottom-2 w-px bg-zinc-700/60" />
 
               <div className="space-y-6">
                 {entries.map((entry, index) => (
                   <div key={index} className="flex gap-4 relative">
                     {/* Dot */}
-                    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center z-10">
-                      <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-zinc-800 border border-zinc-600 flex items-center justify-center z-10">
+                      <div className="w-2 h-2 rounded-full bg-vc-500" />
                     </div>
 
                     {/* Content */}
-                    <div className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 flex-1 shadow-card-glass">
+                    <div className="bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 flex-1 shadow-card-glass">
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <p className="text-xs text-slate-500 uppercase tracking-wide">
                           {formatDate(entry.date)}
@@ -97,7 +97,7 @@ export default function UpdateLogPage() {
                         <div className="mt-2">
                           <Link
                             href={entry.page}
-                            className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                            className="inline-flex items-center gap-1 text-xs text-vc-400 hover:text-vc-300 transition-colors"
                           >
                             View page
                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">

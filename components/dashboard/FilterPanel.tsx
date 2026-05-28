@@ -22,7 +22,7 @@ const ORDERED_STATUSES = [
 
 const STATUS_OPTIONS = [
   { value: 'invited', label: 'Invited', color: 'text-blue-700' },
-  { value: 'pipeline', label: 'Pipeline', color: 'text-indigo-700' },
+  { value: 'pipeline', label: 'Pipeline', color: 'text-vc-700' },
   { value: 'on-boarding', label: 'On-Boarding', color: 'text-blue-700' },
   { value: 'active', label: 'Active', color: 'text-green-700' },
   { value: 'paused', label: 'Paused', color: 'text-yellow-700' },
@@ -36,7 +36,7 @@ const STATUS_MAP = {
   'paused': { label: 'Paused', color: 'text-yellow-600 dark:text-yellow-400' },
   'off-boarding': { label: 'Off Boarding', color: 'text-red-600 dark:text-red-400' },
   'invited': { label: 'Invited', color: 'text-blue-600 dark:text-blue-400' },
-  'pipeline': { label: 'Pipeline', color: 'text-indigo-600 dark:text-indigo-400' },
+  'pipeline': { label: 'Pipeline', color: 'text-vc-600 dark:text-vc-400' },
   'on-boarding': { label: 'On-Boarding', color: 'text-blue-600 dark:text-blue-400' },
   'archive': { label: 'Archive', color: 'text-gray-600 dark:text-gray-400' },
   'follow-up': { label: 'Follow Up', color: 'text-orange-600 dark:text-orange-400' }
@@ -563,7 +563,7 @@ export default function FilterPanel({
           color = 'text-blue-700';
           break;
         case 'pipeline':
-          color = 'text-indigo-700';
+          color = 'text-vc-700';
           break;
         case 'paused':
           color = 'text-yellow-700';
@@ -690,7 +690,7 @@ export default function FilterPanel({
                   multiple 
                   value={filters.campus}
                   onChange={(e) => handleMultiSelectChange('campus', e.target)}
-                  className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-32 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 dark:[&::-webkit-scrollbar-track]:bg-gray-600 [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-500 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent"
+                  className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-vc-500 focus:border-vc-500 h-32 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 dark:[&::-webkit-scrollbar-track]:bg-gray-600 [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-500 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent"
                 >
                   {campuses.map(campus => (
                     <option key={campus.id} value={campus.value}>{campus.value}</option>
@@ -706,7 +706,7 @@ export default function FilterPanel({
                   multiple 
                   value={filters.acpd}
                   onChange={(e) => handleMultiSelectChange('acpd', e.target)}
-                  className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-32 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 dark:[&::-webkit-scrollbar-track]:bg-gray-600 [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-500 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent"
+                  className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-vc-500 focus:border-vc-500 h-32 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 dark:[&::-webkit-scrollbar-track]:bg-gray-600 [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-500 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent"
                 >
                   {directors.map(director => (
                     <option key={director.id} value={director.name}>{director.name}</option>
@@ -722,7 +722,7 @@ export default function FilterPanel({
                   multiple 
                   value={filters.status}
                   onChange={(e) => handleMultiSelectChange('status', e.target)}
-                  className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-32 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 dark:[&::-webkit-scrollbar-track]:bg-gray-600 [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-500 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent"
+                  className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-vc-500 focus:border-vc-500 h-32 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 dark:[&::-webkit-scrollbar-track]:bg-gray-600 [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-500 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent"
                 >
                   {statuses.map(status => (
                     <option key={status.id} value={status.value}>
@@ -740,7 +740,7 @@ export default function FilterPanel({
                   multiple 
                   value={filters.meetingDay}
                   onChange={(e) => handleMultiSelectChange('meetingDay', e.target)}
-                  className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-32 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 dark:[&::-webkit-scrollbar-track]:bg-gray-600 [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-500 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent"
+                  className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-vc-500 focus:border-vc-500 h-32 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 dark:[&::-webkit-scrollbar-track]:bg-gray-600 [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-500 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent"
                 >
                   {MEETING_DAYS.map(day => (
                     <option key={day} value={day}>{day}</option>
@@ -756,7 +756,7 @@ export default function FilterPanel({
                   multiple 
                   value={filters.circleType}
                   onChange={(e) => handleMultiSelectChange('circleType', e.target)}
-                  className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-32 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 dark:[&::-webkit-scrollbar-track]:bg-gray-600 [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-500 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent"
+                  className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-vc-500 focus:border-vc-500 h-32 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 dark:[&::-webkit-scrollbar-track]:bg-gray-600 [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-500 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent"
                 >
                   {circleTypes.map(type => (
                     <option key={type.id} value={type.value}>{type.value}</option>
@@ -772,7 +772,7 @@ export default function FilterPanel({
                   multiple
                   value={filters.frequency}
                   onChange={(e) => handleMultiSelectChange('frequency', e.target)}
-                  className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-32 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 dark:[&::-webkit-scrollbar-track]:bg-gray-600 [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-500 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent"
+                  className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-vc-500 focus:border-vc-500 h-32 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 dark:[&::-webkit-scrollbar-track]:bg-gray-600 [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-500 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent"
                 >
                   {frequencies.map(freq => (
                     <option key={freq.id} value={freq.value}>{freq.value}</option>
@@ -787,7 +787,7 @@ export default function FilterPanel({
                   id="eventSummaryFilter"
                   value={filters.eventSummary}
                   onChange={(e) => handleFilterChange('eventSummary', e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-10"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-vc-500 focus:border-vc-500 h-10"
                 >
                   <option value="all">All</option>
                   <option value="received">Received</option>
@@ -803,7 +803,7 @@ export default function FilterPanel({
                   id="connectedFilter"
                   value={filters.connected}
                   onChange={(e) => handleFilterChange('connected', e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-10"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-vc-500 focus:border-vc-500 h-10"
                 >
                   <option value="all">All</option>
                   <option value="connected">Connected</option>
@@ -818,7 +818,7 @@ export default function FilterPanel({
                   id="timeOfDayFilter"
                   value={filters.timeOfDay}
                   onChange={(e) => handleFilterChange('timeOfDay', e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-10"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-vc-500 focus:border-vc-500 h-10"
                 >
                   <option value="all">All</option>
                   <option value="am">AM</option>
@@ -833,7 +833,7 @@ export default function FilterPanel({
                   id="leaderTypeFilter"
                   value={filters.leaderType || 'all'}
                   onChange={(e) => handleFilterChange('leaderType', e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 h-10"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-vc-500 focus:border-vc-500 h-10"
                 >
                   <option value="all">All Leaders</option>
                   <option value="circle">Circles Only</option>
@@ -1004,7 +1004,7 @@ export default function FilterPanel({
                   <div className="relative" ref={bulkDropdownRef}>
                     <button
                       onClick={() => setShowBulkDropdown(!showBulkDropdown)}
-                      className="flex items-center px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors w-full sm:w-auto"
+                      className="flex items-center px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-vc-500 transition-colors w-full sm:w-auto"
                     >
                       <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>

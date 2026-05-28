@@ -131,7 +131,7 @@ export default function NoteTemplatesManager() {
                 type="text"
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-vc-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                 placeholder="Enter template name..."
                 maxLength={255}
               />
@@ -144,7 +144,7 @@ export default function NoteTemplatesManager() {
               <textarea
                 value={templateContent}
                 onChange={(e) => setTemplateContent(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-vc-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none"
                 rows={6}
                 placeholder="Enter template content..."
               />

@@ -368,7 +368,7 @@ export default function SearchPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117] py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
             <div className="flex">
@@ -393,7 +393,7 @@ export default function SearchPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117]">
       <div className="bg-white dark:bg-gray-800 shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-6">
@@ -437,7 +437,7 @@ export default function SearchPage() {
                 id="status-filter"
                 value={selectedStatuses[0] || 'all'}
                 onChange={(event) => handleStatusChange(event.target.value)}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:border-vc-500 focus:outline-none focus:ring-2 focus:ring-vc-500/30"
               >
                 <option value="all">All Statuses</option>
                 {statusOptions.map((status) => (
@@ -455,7 +455,7 @@ export default function SearchPage() {
                 id="acpd-filter"
                 value={selectedAcpd[0] || 'all'}
                 onChange={(event) => handleAcpdChange(event.target.value)}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:border-vc-500 focus:outline-none focus:ring-2 focus:ring-vc-500/30"
               >
                 <option value="all">All ACPDs</option>
                 {acpdOptions.map((name) => (
@@ -478,7 +478,7 @@ export default function SearchPage() {
                 (filters.leaderType || 'all') === type
                   ? type === 'host_team'
                     ? 'bg-violet-600 text-white'
-                    : 'bg-blue-600 text-white'
+                    : 'bg-vc-600 text-white'
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
@@ -517,7 +517,7 @@ export default function SearchPage() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-visible">
           {isLoading ? (
             <div className="p-8 text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-vc-500"></div>
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading circles...</p>
             </div>
           ) : filteredCircles.length === 0 ? (
@@ -690,7 +690,7 @@ export default function SearchPage() {
                         {typeof rosterCounts[circle.id] === 'number' ? (
                           <Link
                             href={`/circle/${circle.id}/roster`}
-                            className="inline-flex items-center px-2 py-1 text-xs font-medium text-slate-300 bg-slate-700/50 hover:bg-slate-700 rounded-full transition-colors"
+                            className="inline-flex items-center px-2 py-1 text-xs font-medium text-slate-300 bg-zinc-700/50 hover:bg-zinc-700 rounded-full transition-colors"
                           >
                             {rosterCounts[circle.id]}
                           </Link>

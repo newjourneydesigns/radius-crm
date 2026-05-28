@@ -295,7 +295,7 @@ export default function ChecklistsWidget() {
           </button>
           <button
             onClick={addChecklist}
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 active:bg-indigo-500/20 transition-colors"
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-vc-400 hover:text-vc-300 hover:bg-vc-500/10 active:bg-vc-500/20 transition-colors"
           >
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -484,7 +484,7 @@ export default function ChecklistsWidget() {
 
                 <button
                   onClick={() => addItem(checklist.id)}
-                  className="mt-2.5 flex items-center gap-1.5 text-[11px] text-gray-600 hover:text-indigo-400 transition-colors"
+                  className="mt-2.5 flex items-center gap-1.5 text-[11px] text-gray-600 hover:text-vc-400 transition-colors"
                 >
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -541,7 +541,7 @@ function ChecklistItemRow({
 
   return (
     <div
-      className={`group flex items-start gap-2.5 rounded-md border px-2 py-1.5 transition-colors focus-within:border-indigo-400/50 focus-within:bg-white/[0.055] ${
+      className={`group flex items-start gap-2.5 rounded-md border px-2 py-1.5 transition-colors focus-within:border-vc-400/50 focus-within:bg-white/[0.055] ${
         item.checked
           ? 'border-emerald-400/10 bg-emerald-400/[0.035]'
           : 'border-white/[0.055] bg-white/[0.025] hover:border-white/[0.1] hover:bg-white/[0.045]'
@@ -549,7 +549,7 @@ function ChecklistItemRow({
     >
       <button
         onClick={onToggle}
-        className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400/40"
+        className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border transition-colors focus:outline-none focus:ring-2 focus:ring-vc-400/40"
         aria-label={item.checked ? 'Mark item incomplete' : 'Mark item complete'}
         style={item.checked
           ? { background: '#10b981', borderColor: '#10b981' }

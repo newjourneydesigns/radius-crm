@@ -384,8 +384,8 @@ export default function LeaderMessagesPage() {
 
   if (authChecked && !token) {
     return (
-      <div className="min-h-screen bg-slate-900 p-4 sm:p-6 lg:p-8">
-        <div className="max-w-xl mx-auto bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-card-glass">
+      <div className="min-h-screen bg-[#0f1117] p-4 sm:p-6 lg:p-8">
+        <div className="max-w-xl mx-auto bg-zinc-800 border border-zinc-700 rounded-xl p-6 shadow-card-glass">
           <h1 className="text-xl font-semibold text-white tracking-tight">Leader Messages</h1>
           <p className="text-sm text-slate-400 mt-2">
             Sign in to RADIUS before sending messages to Circle Leaders.
@@ -402,7 +402,7 @@ export default function LeaderMessagesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-[#0f1117] p-4 sm:p-6 lg:p-8">
       <div className="max-w-6xl mx-auto">
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-white tracking-tight">Leader Messages</h1>
@@ -425,7 +425,7 @@ export default function LeaderMessagesPage() {
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-5">
           <section
             ref={editorSectionRef}
-            className="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-card-glass"
+            className="bg-zinc-800 border border-zinc-700 rounded-xl p-5 shadow-card-glass"
           >
             <div className="flex items-center justify-between gap-4 mb-4">
               <div>
@@ -446,7 +446,7 @@ export default function LeaderMessagesPage() {
               {editingId && (
                 <button
                   onClick={resetDraft}
-                  className="text-slate-400 hover:text-white hover:bg-slate-700 px-3 py-1.5 rounded-lg text-sm transition-colors"
+                  className="text-slate-400 hover:text-white hover:bg-zinc-700 px-3 py-1.5 rounded-lg text-sm transition-colors"
                 >
                   Cancel edit
                 </button>
@@ -456,7 +456,7 @@ export default function LeaderMessagesPage() {
             <div className="space-y-4">
               <Field label="Title" required>
                 <input
-                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500"
                   value={draft.title}
                   onChange={(e) => setDraft({ ...draft, title: e.target.value })}
                   placeholder="e.g. Updated Leader Night details"
@@ -493,8 +493,8 @@ export default function LeaderMessagesPage() {
                       onClick={() => updateTargetType(value as TargetType)}
                       className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors disabled:opacity-60 ${
                         draft.target_type === value
-                          ? 'bg-indigo-500/20 text-indigo-200 border-indigo-500/50'
-                          : 'bg-slate-700/50 text-slate-300 border-slate-600 hover:bg-slate-700'
+                          ? 'bg-vc-500/20 text-vc-200 border-vc-500/50'
+                          : 'bg-zinc-700/50 text-slate-300 border-zinc-600 hover:bg-zinc-700'
                       }`}
                     >
                       {label}
@@ -509,14 +509,14 @@ export default function LeaderMessagesPage() {
                         {selectedLeaders.map((leader) => (
                           <span
                             key={leader.id}
-                            className="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/15 px-3 py-1 text-xs font-medium text-indigo-100"
+                            className="inline-flex items-center gap-2 rounded-full border border-vc-500/30 bg-vc-500/15 px-3 py-1 text-xs font-medium text-vc-100"
                           >
                             {leader.name}
                             {!targetLocked && (
                               <button
                                 type="button"
                                 onClick={() => toggleSelectedLeader(String(leader.id))}
-                                className="text-indigo-200 hover:text-white"
+                                className="text-vc-200 hover:text-white"
                                 aria-label={`Remove ${leader.name}`}
                               >
                                 x
@@ -529,13 +529,13 @@ export default function LeaderMessagesPage() {
 
                     <input
                       disabled={targetLocked}
-                      className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
+                      className="w-full bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 disabled:opacity-60"
                       value={leaderSearch}
                       onChange={(e) => setLeaderSearch(e.target.value)}
                       placeholder="Search leaders by name, campus, or ACPD..."
                     />
 
-                    <div className="max-h-64 overflow-auto rounded-lg border border-slate-700 bg-slate-900/60 divide-y divide-slate-700">
+                    <div className="max-h-64 overflow-auto rounded-lg border border-zinc-700 bg-zinc-900/60 divide-y divide-zinc-700">
                       {filteredLeaderOptions.length === 0 ? (
                         <div className="p-3 text-sm text-slate-400">No leaders match that search.</div>
                       ) : (
@@ -550,14 +550,14 @@ export default function LeaderMessagesPage() {
                               onClick={() => toggleSelectedLeader(leaderId)}
                               className={
                                 'flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors disabled:opacity-60 ' +
-                                (checked ? 'bg-indigo-500/15' : 'hover:bg-slate-800')
+                                (checked ? 'bg-vc-500/15' : 'hover:bg-zinc-800')
                               }
                             >
                               <input
                                 type="checkbox"
                                 checked={checked}
                                 readOnly
-                                className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-500 bg-slate-800 text-indigo-500"
+                                className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-500 bg-zinc-800 text-vc-500"
                               />
                               <span className="min-w-0">
                                 <span className="block text-sm font-medium text-slate-100">{leader.name}</span>
@@ -581,7 +581,7 @@ export default function LeaderMessagesPage() {
                 {draft.target_type === 'campus' && (
                   <select
                     disabled={targetLocked}
-                    className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
+                    className="w-full bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 disabled:opacity-60"
                     value={draft.target_value}
                     onChange={(e) => setDraft({ ...draft, target_value: e.target.value })}
                   >
@@ -595,7 +595,7 @@ export default function LeaderMessagesPage() {
                 {draft.target_type === 'acpd' && (
                   <select
                     disabled={targetLocked}
-                    className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
+                    className="w-full bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 disabled:opacity-60"
                     value={draft.target_value}
                     onChange={(e) => setDraft({ ...draft, target_value: e.target.value })}
                   >
@@ -626,23 +626,23 @@ export default function LeaderMessagesPage() {
             </div>
           </section>
 
-          <aside className="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-card-glass lg:sticky lg:top-6 h-fit">
+          <aside className="bg-zinc-800 border border-zinc-700 rounded-xl p-5 shadow-card-glass lg:sticky lg:top-6 h-fit">
             <h2 className="text-base font-semibold text-white">Recipient preview</h2>
             <p className="text-xs text-slate-400 mt-1">
               Push subscription status will be added later. This list shows leaders who will receive the inbox message.
             </p>
             {targetLocked ? (
-              <div className="mt-4 rounded-lg bg-slate-900/60 border border-slate-700 p-3 text-sm text-slate-300">
+              <div className="mt-4 rounded-lg bg-zinc-900/60 border border-zinc-700 p-3 text-sm text-slate-300">
                 Recipients are already set for this message.
               </div>
             ) : recipients.length === 0 ? (
-              <div className="mt-4 rounded-lg bg-slate-900/60 border border-slate-700 p-3 text-sm text-slate-400">
+              <div className="mt-4 rounded-lg bg-zinc-900/60 border border-zinc-700 p-3 text-sm text-slate-400">
                 Choose a target to see who will receive it.
               </div>
             ) : (
-              <div className="mt-4 max-h-[420px] overflow-auto rounded-lg border border-slate-700 divide-y divide-slate-700">
+              <div className="mt-4 max-h-[420px] overflow-auto rounded-lg border border-zinc-700 divide-y divide-zinc-700">
                 {recipients.map((leader) => (
-                  <div key={leader.id} className="p-3 bg-slate-900/40">
+                  <div key={leader.id} className="p-3 bg-zinc-900/40">
                     <p className="text-sm font-medium text-slate-100">{leader.name}</p>
                     <p className="text-xs text-slate-500 mt-0.5">
                       {[leader.campus, leader.acpd].filter(Boolean).join(' · ') || 'No campus/ACPD'}
@@ -660,7 +660,7 @@ export default function LeaderMessagesPage() {
             <button
               onClick={loadMessages}
               disabled={loading}
-              className="text-slate-400 hover:text-white hover:bg-slate-800 px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50"
+              className="text-slate-400 hover:text-white hover:bg-zinc-800 px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50"
             >
               Refresh
             </button>
@@ -668,11 +668,11 @@ export default function LeaderMessagesPage() {
 
           {loading ? (
             <div className="space-y-2">
-              <div className="animate-pulse bg-slate-800 rounded-xl h-20" />
-              <div className="animate-pulse bg-slate-800 rounded-xl h-20" />
+              <div className="animate-pulse bg-zinc-800 rounded-xl h-20" />
+              <div className="animate-pulse bg-zinc-800 rounded-xl h-20" />
             </div>
           ) : messages.length === 0 ? (
-            <div className="text-center py-12 bg-slate-800 border border-slate-700 rounded-xl">
+            <div className="text-center py-12 bg-zinc-800 border border-zinc-700 rounded-xl">
               <p className="text-slate-400 text-sm">No inbox messages have been sent yet.</p>
             </div>
           ) : (
@@ -680,7 +680,7 @@ export default function LeaderMessagesPage() {
               {messages.map((message) => (
                 <article
                   key={message.id}
-                  className="bg-slate-800 border border-slate-700 rounded-xl p-4 flex items-start justify-between gap-4"
+                  className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 flex items-start justify-between gap-4"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -720,14 +720,14 @@ export default function LeaderMessagesPage() {
                     <button
                       onClick={() => duplicateMessage(message)}
                       disabled={actingId === message.id}
-                      className="text-slate-300 hover:text-white hover:bg-slate-700 px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50"
+                      className="text-slate-300 hover:text-white hover:bg-zinc-700 px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50"
                     >
                       Duplicate
                     </button>
                     <button
                       onClick={() => startEdit(message)}
                       disabled={actingId === message.id}
-                      className="text-slate-300 hover:text-white hover:bg-slate-700 px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50"
+                      className="text-slate-300 hover:text-white hover:bg-zinc-700 px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50"
                     >
                       Edit
                     </button>

@@ -380,7 +380,7 @@ export default function RichTextEditor({
                 onChange={(e) => setLinkDialog((p) => ({ ...p, displayText: e.target.value }))}
                 placeholder="e.g. Google"
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSetLink(); } if (e.key === 'Escape') cancelLinkDialog(); }}
-                className="flex-1 text-sm px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="flex-1 text-sm px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-vc-500"
               />
             </div>
           )}
@@ -393,7 +393,7 @@ export default function RichTextEditor({
               onChange={(e) => setLinkDialog((p) => ({ ...p, url: e.target.value }))}
               placeholder="https://example.com"
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSetLink(); } if (e.key === 'Escape') cancelLinkDialog(); }}
-              className="flex-1 text-sm px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="flex-1 text-sm px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-vc-500"
             />
           </div>
           <div className="flex items-center gap-2 justify-end">

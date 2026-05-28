@@ -42,7 +42,7 @@ export default function NotebookSearch() {
           value={query}
           onChange={e => handleChange(e.target.value)}
           placeholder="Search pages…"
-          className="w-full bg-white/[0.06] border border-white/[0.08] rounded-md pl-8 pr-7 py-2 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-indigo-400/60 transition-colors"
+          className="w-full bg-white/[0.06] border border-white/[0.08] rounded-md pl-8 pr-7 py-2 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-vc-400/60 transition-colors"
         />
         {query && (
           <button

@@ -256,7 +256,7 @@ export default function ScorecardQuestionsManager() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-vc-500"></div>
         <span className="ml-3 text-gray-400">Loading questions...</span>
       </div>
     );
@@ -325,7 +325,7 @@ export default function ScorecardQuestionsManager() {
             value={newQuestionLabel}
             onChange={(e) => setNewQuestionLabel(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAddQuestion()}
-            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-vc-500 text-sm"
           />
           <button
             onClick={handleAddQuestion}
@@ -398,7 +398,7 @@ export default function ScorecardQuestionsManager() {
                       if (e.key === 'Escape') { setEditingQuestion(null); setEditLabel(''); }
                     }}
                     autoFocus
-                    className="flex-1 px-3 py-1.5 border border-blue-500/40 rounded-md bg-gray-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 px-3 py-1.5 border border-blue-500/40 rounded-md bg-gray-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-vc-500"
                   />
                   <button
                     onClick={handleEditQuestion}

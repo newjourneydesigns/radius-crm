@@ -150,7 +150,7 @@ export default function NotebookShell({ children }: NotebookShellProps) {
             onClick={() => setRightPanelOpen(v => !v)}
             className={`flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg transition-colors ${
               rightPanelOpen
-                ? 'text-indigo-400 bg-indigo-500/15'
+                ? 'text-vc-400 bg-vc-500/15'
                 : 'text-gray-400 hover:text-white hover:bg-white/[0.08] active:bg-white/[0.12]'
             }`}
             aria-label="Toggle links panel"

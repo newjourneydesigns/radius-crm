@@ -51,7 +51,7 @@ export default function LeaderPickerModal({ excludeIds = [], onSelect, onClose }
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Search leaders by name…"
-              className="w-full bg-white/[0.06] rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-400/60"
+              className="w-full bg-white/[0.06] rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-vc-400/60"
             />
           </div>
         </div>
@@ -70,7 +70,7 @@ export default function LeaderPickerModal({ excludeIds = [], onSelect, onClose }
               onClick={() => onSelect(leader)}
               className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.06] transition-colors text-left"
             >
-              <div className="w-7 h-7 rounded-full bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-xs font-semibold text-indigo-300 flex-shrink-0">
+              <div className="w-7 h-7 rounded-full bg-vc-500/20 border border-vc-400/30 flex items-center justify-center text-xs font-semibold text-vc-300 flex-shrink-0">
                 {leader.name.charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0">

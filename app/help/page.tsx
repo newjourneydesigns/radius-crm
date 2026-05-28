@@ -84,14 +84,14 @@ const OL = ({ children }: { children: ReactNode }) => (
   <ol className="list-decimal list-outside pl-5 space-y-1 text-sm text-slate-300 mb-3 marker:text-slate-500">{children}</ol>
 );
 const Kbd = ({ children }: { children: ReactNode }) => (
-  <kbd className="px-1.5 py-0.5 rounded bg-slate-700/80 text-slate-100 border border-slate-600/80 text-[11px] font-mono">{children}</kbd>
+  <kbd className="px-1.5 py-0.5 rounded bg-zinc-700/80 text-slate-100 border border-zinc-600/80 text-[11px] font-mono">{children}</kbd>
 );
 const Callout = ({ tone = 'tip', title, children }: { tone?: 'tip' | 'warn' | 'pro'; title: string; children: ReactNode }) => {
   const styles =
     tone === 'warn'
       ? 'bg-amber-500/10 border-amber-500/30 text-amber-200'
       : tone === 'pro'
-      ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-100'
+      ? 'bg-vc-500/10 border-vc-500/30 text-vc-100'
       : 'bg-sky-500/10 border-sky-500/30 text-sky-100';
   return (
     <div className={`rounded-lg border px-3 py-2.5 text-xs my-3 ${styles}`}>
@@ -954,7 +954,7 @@ export default function HelpPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-slate-900">
+      <div className="min-h-screen bg-[#0f1117]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
 
           {/* ─── Header ─── */}
@@ -994,12 +994,12 @@ export default function HelpPage() {
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Search help — try “follow-up”, “bulk”, “magic link”, “scorecard”…"
-              className="w-full pl-12 pr-12 py-3.5 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors shadow-card-glass"
+              className="w-full pl-12 pr-12 py-3.5 rounded-xl bg-zinc-800 border border-zinc-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent transition-colors shadow-card-glass"
             />
             {query && (
               <button
                 onClick={() => setQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white p-1.5 rounded-md hover:bg-slate-700 transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white p-1.5 rounded-md hover:bg-zinc-700 transition-colors"
                 aria-label="Clear search"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -1034,16 +1034,16 @@ export default function HelpPage() {
 
           {/* ─── What's New ─── */}
           {changelog.length > 0 && (
-            <div className="mb-8 bg-gradient-to-br from-indigo-500/10 via-slate-800 to-slate-800 border border-indigo-500/20 rounded-xl p-5 shadow-card-glass">
+            <div className="mb-8 bg-gradient-to-br from-vc-500/10 via-zinc-800 to-zinc-800 border border-vc-500/20 rounded-xl p-5 shadow-card-glass">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500" />
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-vc-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-vc-500" />
                   </span>
                   <h2 className="text-sm font-semibold text-white uppercase tracking-wide">What&apos;s new</h2>
                 </div>
-                <Link href="/update-log" className="text-xs text-indigo-300 hover:text-indigo-200">
+                <Link href="/update-log" className="text-xs text-vc-300 hover:text-vc-200">
                   Full update log →
                 </Link>
               </div>
@@ -1068,7 +1068,7 @@ export default function HelpPage() {
                         {entry.page && (
                           <>
                             <span>·</span>
-                            <Link href={entry.page} className="text-indigo-400 hover:text-indigo-300">
+                            <Link href={entry.page} className="text-vc-400 hover:text-vc-300">
                               View page
                             </Link>
                           </>
@@ -1092,14 +1092,14 @@ export default function HelpPage() {
               <div className="flex items-center gap-2 text-xs">
                 <button
                   onClick={expandAll}
-                  className="text-slate-400 hover:text-white px-2 py-1 rounded-md hover:bg-slate-800 transition-colors"
+                  className="text-slate-400 hover:text-white px-2 py-1 rounded-md hover:bg-zinc-800 transition-colors"
                 >
                   Expand all
                 </button>
                 <span className="text-slate-700">·</span>
                 <button
                   onClick={collapseAll}
-                  className="text-slate-400 hover:text-white px-2 py-1 rounded-md hover:bg-slate-800 transition-colors"
+                  className="text-slate-400 hover:text-white px-2 py-1 rounded-md hover:bg-zinc-800 transition-colors"
                 >
                   Collapse all
                 </button>
@@ -1109,7 +1109,7 @@ export default function HelpPage() {
 
           {/* ─── Articles ─── */}
           {filtered.length === 0 ? (
-            <div className="text-center py-16 bg-slate-800/40 border border-slate-700/60 rounded-xl">
+            <div className="text-center py-16 bg-zinc-800/40 border border-zinc-700/60 rounded-xl">
               <svg className="w-10 h-10 text-slate-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
               </svg>
@@ -1124,7 +1124,7 @@ export default function HelpPage() {
                   <article
                     key={article.id}
                     id={article.id}
-                    className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-card-glass transition-colors hover:border-slate-600"
+                    className="bg-zinc-800 border border-zinc-700 rounded-xl overflow-hidden shadow-card-glass transition-colors hover:border-zinc-600"
                   >
                     <button
                       onClick={() => toggle(article.id)}
@@ -1143,7 +1143,7 @@ export default function HelpPage() {
                             {LEVEL_LABEL[article.level]}
                           </span>
                         </div>
-                        <h3 className="text-base font-semibold text-white group-hover:text-indigo-200 transition-colors">
+                        <h3 className="text-base font-semibold text-white group-hover:text-vc-200 transition-colors">
                           {article.title}
                         </h3>
                         <p className="text-sm text-slate-400 mt-1">{article.snippet}</p>
@@ -1159,12 +1159,12 @@ export default function HelpPage() {
                       </svg>
                     </button>
                     {isOpen && (
-                      <div className="px-5 pb-5 -mt-1 border-t border-slate-700/60 pt-4">
+                      <div className="px-5 pb-5 -mt-1 border-t border-zinc-700/60 pt-4">
                         {article.body}
                         {article.tryIt && (
                           <Link
                             href={article.tryIt.href}
-                            className="inline-flex items-center gap-1.5 mt-2 text-sm font-medium text-indigo-300 hover:text-indigo-200 transition-colors"
+                            className="inline-flex items-center gap-1.5 mt-2 text-sm font-medium text-vc-300 hover:text-vc-200 transition-colors"
                           >
                             {article.tryIt.label}
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
@@ -1186,10 +1186,10 @@ export default function HelpPage() {
               <h2 className="text-xl font-semibold text-white tracking-tight">Glossary</h2>
               <span className="text-xs text-slate-500">{GLOSSARY.length} terms</span>
             </div>
-            <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
-              <dl className="divide-y divide-slate-700/60">
+            <div className="bg-zinc-800 border border-zinc-700 rounded-xl shadow-card-glass overflow-hidden">
+              <dl className="divide-y divide-zinc-700/60">
                 {GLOSSARY.map(({ term, def }) => (
-                  <div key={term} className="grid grid-cols-1 sm:grid-cols-4 gap-2 sm:gap-4 px-5 py-3.5 hover:bg-slate-700/20 transition-colors">
+                  <div key={term} className="grid grid-cols-1 sm:grid-cols-4 gap-2 sm:gap-4 px-5 py-3.5 hover:bg-zinc-700/20 transition-colors">
                     <dt className="text-sm font-semibold text-white">{term}</dt>
                     <dd className="text-sm text-slate-300 sm:col-span-3 leading-relaxed">{def}</dd>
                   </div>
@@ -1199,7 +1199,7 @@ export default function HelpPage() {
           </section>
 
           {/* ─── Footer / contact ─── */}
-          <div className="mt-10 mb-6 bg-slate-800/50 border border-slate-700/60 rounded-xl p-5">
+          <div className="mt-10 mb-6 bg-zinc-800/50 border border-zinc-700/60 rounded-xl p-5">
             <h3 className="text-base font-semibold text-white mb-1">Still stuck?</h3>
             <p className="text-sm text-slate-400">
               Message your site admin with the URL you were on, what you expected, and what happened. That&apos;s the
@@ -1243,12 +1243,12 @@ function CategoryChip({
       onClick={onClick}
       className={`text-xs font-medium px-3 py-1.5 rounded-full transition-colors flex items-center gap-1.5 ${
         active
-          ? 'bg-indigo-500 text-white'
-          : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
+          ? 'bg-vc-500 text-white'
+          : 'bg-zinc-800 text-slate-300 hover:bg-zinc-700 border border-zinc-700'
       }`}
     >
       <span>{label}</span>
-      <span className={`text-[10px] ${active ? 'text-indigo-100' : 'text-slate-500'}`}>{count}</span>
+      <span className={`text-[10px] ${active ? 'text-vc-100' : 'text-slate-500'}`}>{count}</span>
     </button>
   );
 }

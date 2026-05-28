@@ -422,7 +422,7 @@ export default function CircleSummaryModal({
           <div className="flex flex-col items-center justify-center py-16 gap-4">
             <div className="relative">
               <div className="w-12 h-12 rounded-full border-4 border-blue-100 dark:border-blue-900/30" />
-              <div className="absolute inset-0 w-12 h-12 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
+              <div className="absolute inset-0 w-12 h-12 rounded-full border-4 border-vc-500 border-t-transparent animate-spin" />
             </div>
             <div className="text-center">
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Analyzing circle reports…</p>
@@ -530,7 +530,7 @@ export default function CircleSummaryModal({
                 onKeyDown={handleChatKeyDown}
                 placeholder="e.g. Which circles showed the most spiritual depth?"
                 rows={1}
-                className="flex-1 resize-none text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50 transition-colors"
+                className="flex-1 resize-none text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-vc-500/30 focus:border-vc-500/50 transition-colors"
                 style={{ maxHeight: '96px' }}
                 disabled={isChatLoading}
               />

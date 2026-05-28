@@ -110,7 +110,7 @@ export default function ProgressTimeline({ ratings, height = 280 }: ProgressTime
           display: true,
           position: 'top' as const,
           labels: {
-            color: '#8da9c4',
+            color: '#a1a1aa',
             usePointStyle: true,
             pointStyle: 'circle',
             padding: 16,
@@ -120,7 +120,7 @@ export default function ProgressTimeline({ ratings, height = 280 }: ProgressTime
         tooltip: {
           backgroundColor: 'rgba(11, 37, 69, 0.95)',
           titleColor: '#eef4ed',
-          bodyColor: '#8da9c4',
+          bodyColor: '#a1a1aa',
           borderColor: 'rgba(76, 103, 133, 0.3)',
           borderWidth: 1,
           padding: 12,
@@ -149,7 +149,7 @@ export default function ProgressTimeline({ ratings, height = 280 }: ProgressTime
               if (value >= 1 && value <= 5 && Number.isInteger(value)) return value;
               return '';
             },
-            color: '#8da9c4',
+            color: '#a1a1aa',
             font: { size: 11 },
           },
           grid: {
@@ -161,7 +161,7 @@ export default function ProgressTimeline({ ratings, height = 280 }: ProgressTime
         },
         x: {
           ticks: {
-            color: '#8da9c4',
+            color: '#a1a1aa',
             font: { size: 11 },
             maxRotation: 45,
           },

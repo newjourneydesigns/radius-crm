@@ -493,7 +493,7 @@ export default function ImportPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Header */}
           <div className="mb-8">
@@ -579,7 +579,7 @@ export default function ImportPage() {
                           setMassUpdateFilterField(e.target.value as 'all' | 'campus' | 'acpd');
                           setMassUpdateFilterValue('');
                         }}
-                        className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                        className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-vc-500 focus:ring-vc-500 sm:text-sm"
                       >
                         <option value="all">All Leaders</option>
                         <option value="campus">Current Campus</option>
@@ -596,7 +596,7 @@ export default function ImportPage() {
                         <select
                           value={massUpdateFilterValue}
                           onChange={(e) => setMassUpdateFilterValue(e.target.value)}
-                          className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                          className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-vc-500 focus:ring-vc-500 sm:text-sm"
                         >
                           <option value="">-- Select --</option>
                           {massUpdateFilterField === 'campus'
@@ -634,7 +634,7 @@ export default function ImportPage() {
                           setMassUpdateField(e.target.value as 'campus' | 'acpd' | 'email_reminders_enabled');
                           setMassUpdateValue('');
                         }}
-                        className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                        className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-vc-500 focus:ring-vc-500 sm:text-sm"
                       >
                         <option value="campus">Campus</option>
                         <option value="acpd">ACPD / Director</option>
@@ -648,7 +648,7 @@ export default function ImportPage() {
                       <select
                         value={massUpdateValue}
                         onChange={(e) => setMassUpdateValue(e.target.value)}
-                        className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                        className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-vc-500 focus:ring-vc-500 sm:text-sm"
                       >
                         <option value="">-- Select New Value --</option>
                         {massUpdateField === 'campus'
@@ -707,7 +707,7 @@ export default function ImportPage() {
                                 type="checkbox"
                                 checked={massUpdateSelected.size === massUpdateLeaders.length && massUpdateLeaders.length > 0}
                                 onChange={(e) => e.target.checked ? massUpdateSelectAll() : massUpdateDeselectAll()}
-                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                className="rounded border-gray-300 text-blue-600 focus:ring-vc-500"
                               />
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -744,7 +744,7 @@ export default function ImportPage() {
                                   checked={massUpdateSelected.has(leader.id)}
                                   onChange={() => toggleMassUpdateSelect(leader.id)}
                                   onClick={(e) => e.stopPropagation()}
-                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                  className="rounded border-gray-300 text-blue-600 focus:ring-vc-500"
                                 />
                               </td>
                               <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
@@ -927,7 +927,7 @@ export default function ImportPage() {
                           <select
                             value={fieldMappings.find(m => m.csvColumn === header)?.dbField || ''}
                             onChange={(e) => updateMapping(header, e.target.value)}
-                            className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                            className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-vc-500 focus:ring-vc-500 sm:text-sm"
                           >
                             <option value="">-- Skip --</option>
                             {DB_FIELDS.map(field => (

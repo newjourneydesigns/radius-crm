@@ -9,7 +9,7 @@ export default function CircleLeaderProfileSkeleton() {
   const pulse = 'animate-pulse bg-gray-200 dark:bg-gray-700 rounded';
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117]">
       {/* ── Sticky Section Navigation skeleton ── */}
       <div className="sticky top-0 z-40 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

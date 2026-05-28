@@ -60,7 +60,7 @@ export default function SubmissionLogPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-[#0f1117] p-4 sm:p-6 lg:p-8">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-xl font-semibold text-white tracking-tight mb-1">Submission log</h1>
         <p className="text-sm text-slate-400 mb-6">
@@ -74,8 +74,8 @@ export default function SubmissionLogPage() {
               onClick={() => setStatusFilter(s)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 statusFilter === s
-                  ? 'bg-indigo-500/20 text-indigo-200'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  ? 'bg-vc-500/20 text-vc-200'
+                  : 'text-slate-400 hover:text-white hover:bg-zinc-800'
               }`}
             >
               {s[0].toUpperCase() + s.slice(1)}
@@ -90,16 +90,16 @@ export default function SubmissionLogPage() {
         )}
 
         {loading ? (
-          <div className="animate-pulse bg-slate-700 rounded-xl h-48" />
+          <div className="animate-pulse bg-zinc-700 rounded-xl h-48" />
         ) : rows.length === 0 ? (
-          <div className="text-center py-12 bg-slate-800 border border-slate-700 rounded-xl">
+          <div className="text-center py-12 bg-zinc-800 border border-zinc-700 rounded-xl">
             <p className="text-slate-400 text-sm">No submissions match.</p>
           </div>
         ) : (
-          <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+          <div className="bg-zinc-800 border border-zinc-700 rounded-xl overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-slate-900/50">
-                <tr className="border-b border-slate-700">
+              <thead className="bg-zinc-900/50">
+                <tr className="border-b border-zinc-700">
                   <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">
                     When
                   </th>
@@ -114,9 +114,9 @@ export default function SubmissionLogPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700/50">
+              <tbody className="divide-y divide-zinc-700/50">
                 {rows.map((r) => (
-                  <tr key={r.id} className="hover:bg-slate-700/30 transition-colors">
+                  <tr key={r.id} className="hover:bg-zinc-700/30 transition-colors">
                     <td className="px-4 py-3 align-top">
                       <div className="text-slate-200">
                         {new Date(r.created_at).toLocaleString('en-US', {

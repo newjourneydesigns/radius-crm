@@ -31,7 +31,7 @@ export default function BulkStatusUpdate({ totalLeaders, onBulkUpdateStatus }: B
 
   const statusOptions = [
     { value: 'invited', label: 'Invited', color: 'text-blue-700' },
-    { value: 'pipeline', label: 'Pipeline', color: 'text-indigo-700' },
+    { value: 'pipeline', label: 'Pipeline', color: 'text-vc-700' },
     { value: 'active', label: 'Active', color: 'text-green-700' },
     { value: 'paused', label: 'Paused', color: 'text-yellow-700' },
     { value: 'off-boarding', label: 'Off-boarding', color: 'text-red-700' }
@@ -66,7 +66,7 @@ export default function BulkStatusUpdate({ totalLeaders, onBulkUpdateStatus }: B
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setShowDropdown(!showDropdown)}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-vc-500 transition-colors"
           >
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -93,7 +93,7 @@ export default function BulkStatusUpdate({ totalLeaders, onBulkUpdateStatus }: B
                         : option.value === 'invited'
                         ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
                         : option.value === 'pipeline'
-                        ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400'
+                        ? 'bg-vc-100 text-vc-800 dark:bg-vc-900/20 dark:text-vc-400'
                         : option.value === 'paused'
                         ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
                         : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'

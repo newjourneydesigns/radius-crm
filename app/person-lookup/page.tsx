@@ -160,7 +160,7 @@ export default function PersonLookupPage() {
   }, [selectedPerson, contactPhone]);
 
   return (
-    <div style={{ minHeight: '100vh', background: '#111827' }}>
+    <div style={{ minHeight: '100vh', background: '#0f1117' }}>
       <div style={{ maxWidth: '640px', margin: '0 auto', padding: '32px 16px 120px' }}>
         {/* Page header */}
         <div style={{ marginBottom: '28px' }}>
@@ -202,7 +202,7 @@ export default function PersonLookupPage() {
                     width: '52px',
                     height: '52px',
                     borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                    background: 'linear-gradient(135deg, #2a9329, #56c93f)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -508,7 +508,7 @@ export default function PersonLookupPage() {
                   gap: '6px',
                   padding: '16px 8px',
                   background: '#1f2937',
-                  color: '#818cf8',
+                  color: '#56c93f',
                   textDecoration: 'none',
                   fontSize: '13px',
                   fontWeight: 500,
@@ -549,7 +549,7 @@ export default function PersonLookupPage() {
                     fontSize: '13px',
                     fontWeight: 500,
                     color: '#fff',
-                    background: 'linear-gradient(135deg, #4c6785, #8da9c4)',
+                    background: 'linear-gradient(135deg, #52525b, #a1a1aa)',
                     border: 'none',
                     borderRadius: '8px',
                     cursor: 'pointer',
@@ -743,7 +743,7 @@ export default function PersonLookupPage() {
                   fontSize: '13px',
                   fontWeight: 600,
                   color: '#fff',
-                  background: !selectedBoard || !selectedColumn ? '#6b7280' : 'linear-gradient(135deg, #4c6785, #8da9c4)',
+                  background: !selectedBoard || !selectedColumn ? '#6b7280' : 'linear-gradient(135deg, #52525b, #a1a1aa)',
                   border: 'none',
                   borderRadius: '6px',
                   cursor: !selectedBoard || !selectedColumn ? 'not-allowed' : 'pointer',

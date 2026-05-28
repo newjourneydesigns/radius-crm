@@ -76,7 +76,7 @@ export default function CardPickerModal({ excludeIds = [], onSelect, onClose }: 
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Search cards by title…"
-              className="w-full bg-white/[0.06] rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-400/60"
+              className="w-full bg-white/[0.06] rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-vc-400/60"
             />
           </div>
         </div>

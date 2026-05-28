@@ -66,7 +66,7 @@ type DashboardData = {
   }>;
 };
 
-const cardStyle = 'rounded-lg border border-slate-300 bg-white p-4 shadow-sm';
+const cardStyle = 'rounded-lg border border-zinc-300 bg-white p-4 shadow-sm';
 
 function formatNumber(value: number | null | undefined) {
   if (value === null || value === undefined) return 'n/a';
@@ -104,7 +104,7 @@ function statusClass(label: string) {
   if (label === 'At risk') return 'bg-orange-100 text-orange-800';
   if (label === 'Getting close') return 'bg-yellow-100 text-yellow-800';
   if (label === 'Healthy') return 'bg-emerald-100 text-emerald-800';
-  return 'bg-slate-100 text-slate-700';
+  return 'bg-zinc-100 text-slate-700';
 }
 
 function statusContext(label: string, remaining: number | null, limit: number | null) {
@@ -124,8 +124,8 @@ function dailyUsageStatus(percent: number | null) {
   if (percent === null) {
     return {
       label: 'Unknown',
-      className: 'bg-slate-100 text-slate-700',
-      barClassName: 'bg-slate-400',
+      className: 'bg-zinc-100 text-slate-700',
+      barClassName: 'bg-zinc-400',
       message: 'Refresh api_status to capture the current CCB daily allotment.',
     };
   }
@@ -293,48 +293,48 @@ export default function CCBUsageDashboardPage() {
   ] : [];
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-950 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-zinc-50 px-4 py-6 text-slate-950 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-5">
-        <div className="flex flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-3 border-b border-zinc-200 pb-5 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-sm font-semibold text-blue-700">Internal operations</p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">CCB API Usage</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <select value={range} onChange={(event) => setRange(event.target.value)} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900">
+            <select value={range} onChange={(event) => setRange(event.target.value)} className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-slate-900">
               <option value="today">Today</option>
               <option value="7d">7 days</option>
               <option value="30d">30 days</option>
               <option value="custom">Custom</option>
             </select>
-            <select value={groupBy} onChange={(event) => setGroupBy(event.target.value)} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900">
+            <select value={groupBy} onChange={(event) => setGroupBy(event.target.value)} className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-slate-900">
               <option value="hour">Hour</option>
               <option value="day">Day</option>
               <option value="week">Week</option>
             </select>
-            <button onClick={() => load(true)} className="inline-flex items-center gap-2 rounded-md bg-slate-950 px-3 py-2 text-sm font-semibold text-white">
+            <button onClick={() => load(true)} className="inline-flex items-center gap-2 rounded-md bg-zinc-950 px-3 py-2 text-sm font-semibold text-white">
               <RefreshCw size={16} /> Refresh status
             </button>
           </div>
         </div>
 
         {range === 'custom' && (
-          <div className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4">
+          <div className="flex flex-wrap items-end gap-3 rounded-lg border border-zinc-200 bg-white p-4">
             <label className="text-sm font-semibold text-slate-700">
               Start
-              <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-1 block rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-1 block rounded-md border border-zinc-300 px-3 py-2 text-sm" />
             </label>
             <label className="text-sm font-semibold text-slate-700">
               End
-              <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="mt-1 block rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="mt-1 block rounded-md border border-zinc-300 px-3 py-2 text-sm" />
             </label>
-            <button onClick={() => load(false)} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900">Apply</button>
+            <button onClick={() => load(false)} className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900">Apply</button>
           </div>
         )}
 
         {error && <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
 
-        <section className="rounded-xl border border-slate-300 bg-white p-5 shadow-sm">
+        <section className="rounded-xl border border-zinc-300 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-3">
@@ -360,7 +360,7 @@ export default function CCBUsageDashboardPage() {
                   {dailyCounter !== null && dailyLimit !== null ? formatNumber(Math.max(0, dailyLimit - dailyCounter)) : 'n/a'}
                 </strong></span>
               </div>
-              <div className="mt-4 h-4 overflow-hidden rounded-full bg-slate-100">
+              <div className="mt-4 h-4 overflow-hidden rounded-full bg-zinc-100">
                 <div className={`h-full rounded-full ${dailyStatus.barClassName}`} style={{ width: `${dailyPercentWidth}%` }} />
               </div>
               <p className="mt-2 text-xs font-medium text-slate-600">
@@ -409,7 +409,7 @@ export default function CCBUsageDashboardPage() {
                   : null;
 
                 return (
-                  <div key={row.ccb_service} className="rounded-md border border-slate-300 bg-white p-3">
+                  <div key={row.ccb_service} className="rounded-md border border-zinc-300 bg-white p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-mono text-sm font-bold text-slate-950">{row.ccb_service}</p>
@@ -420,7 +420,7 @@ export default function CCBUsageDashboardPage() {
                       <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${statusClass(row.label)}`}>{row.label}</span>
                     </div>
 
-                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-100">
                       <div
                         className={row.label === 'Healthy' ? 'h-full rounded-full bg-emerald-500' : row.label === 'Getting close' ? 'h-full rounded-full bg-yellow-500' : 'h-full rounded-full bg-red-500'}
                         style={{ width: `${percent ?? 0}%` }}
@@ -434,7 +434,7 @@ export default function CCBUsageDashboardPage() {
                       <span>Retry after <strong className="block text-slate-950">{row.retry_after ? `${row.retry_after}s` : 'n/a'}</strong></span>
                     </div>
 
-                    <div className="mt-3 grid gap-1 border-t border-slate-200 pt-3 text-xs font-medium text-slate-700 sm:grid-cols-2">
+                    <div className="mt-3 grid gap-1 border-t border-zinc-200 pt-3 text-xs font-medium text-slate-700 sm:grid-cols-2">
                       <span>Reset: <strong className="font-semibold text-slate-950">{formatReset(row.rate_limit_reset)}</strong></span>
                       <span>Last checked: <strong className="font-semibold text-slate-950">{formatTime(row.updated_at)}</strong></span>
                     </div>
@@ -464,7 +464,7 @@ export default function CCBUsageDashboardPage() {
             <h2 className="text-base font-bold">Caching recommendations</h2>
             <div className="mt-3 space-y-2">
               {(data?.recommendations || []).map((item) => (
-                <div key={`${item.module}-${item.action}-${item.service}`} className="rounded-md border border-slate-200 p-3 text-sm">
+                <div key={`${item.module}-${item.action}-${item.service}`} className="rounded-md border border-zinc-200 p-3 text-sm">
                   <p className="font-semibold">{item.service}</p>
                   <p className="mt-1 text-slate-600">{item.message}</p>
                 </div>
@@ -485,9 +485,9 @@ export default function CCBUsageDashboardPage() {
             <div className="flex flex-col gap-2 sm:flex-row">
               <label className="relative">
                 <Search className="pointer-events-none absolute left-3 top-2.5 text-slate-400" size={16} />
-                <input value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && load(false)} placeholder="Search logs" className="w-full rounded-md border border-slate-300 py-2 pl-9 pr-3 text-sm font-medium text-slate-900 sm:w-72" />
+                <input value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && load(false)} placeholder="Search logs" className="w-full rounded-md border border-zinc-300 py-2 pl-9 pr-3 text-sm font-medium text-slate-900 sm:w-72" />
               </label>
-              <select value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900">
+              <select value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-slate-900">
                 <option value="">All statuses</option>
                 <option value="failed">Failed</option>
                 <option value="429">429 only</option>
@@ -498,7 +498,7 @@ export default function CCBUsageDashboardPage() {
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse text-sm">
               <thead>
-                <tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-600">
+                <tr className="border-b border-zinc-200 text-left text-xs uppercase text-slate-600">
                   <th className="px-3 py-2">Timestamp</th>
                   <th className="px-3 py-2">Source</th>
                   <th className="px-3 py-2">Action</th>
@@ -511,7 +511,7 @@ export default function CCBUsageDashboardPage() {
               </thead>
               <tbody>
                 {(data?.logs || []).map((row) => (
-                  <tr key={row.id} className="border-b border-slate-100 text-slate-900">
+                  <tr key={row.id} className="border-b border-zinc-100 text-slate-900">
                     <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-700">{formatTime(row.created_at)}</td>
                     <td className="whitespace-nowrap px-3 py-2 font-medium">{formatSource(row)}</td>
                     <td className="whitespace-nowrap px-3 py-2 font-medium">{row.action}</td>

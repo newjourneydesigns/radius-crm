@@ -101,7 +101,7 @@ export default function AssigneePicker({ assignments, onAssign, onUnassign, fetc
                   width: 22,
                   height: 22,
                   borderRadius: '50%',
-                  background: '#4f46e5',
+                  background: '#2a9329',
                   color: '#fff',
                   display: 'flex',
                   alignItems: 'center',

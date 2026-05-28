@@ -148,11 +148,11 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
     return (
       <div className="space-y-4">
         {[1, 2, 3].map(i => (
-          <div key={i} className="bg-slate-800 border border-slate-700 rounded-xl p-5">
+          <div key={i} className="bg-zinc-800 border border-zinc-700 rounded-xl p-5">
             <div className="animate-pulse space-y-3">
-              <div className="h-4 bg-slate-700 rounded w-1/4"></div>
-              <div className="h-10 bg-slate-700 rounded"></div>
-              <div className="h-16 bg-slate-700 rounded"></div>
+              <div className="h-4 bg-zinc-700 rounded w-1/4"></div>
+              <div className="h-10 bg-zinc-700 rounded"></div>
+              <div className="h-16 bg-zinc-700 rounded"></div>
             </div>
           </div>
         ))}
@@ -163,7 +163,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
   return (
     <div className="space-y-4">
       {/* ═══ PRAY SECTION ═══════════════════════════════ */}
-      <div className="section-panel bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
+      <div className="section-panel bg-zinc-800 border border-zinc-700 rounded-xl shadow-card-glass overflow-hidden">
         <div className="section-header-row px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center">
@@ -187,7 +187,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
           )}
         </div>
 
-        <div className="px-5 pb-5 space-y-4 border-t border-slate-700/40">
+        <div className="px-5 pb-5 space-y-4 border-t border-zinc-700/40">
             {/* Add prayer input */}
             <div className="flex gap-2 pt-4">
               <input
@@ -197,7 +197,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                 onKeyDown={e => e.key === 'Enter' && handleAddPrayer()}
                 placeholder="Add a prayer point..."
                 disabled={isAddingPrayer}
-                className="flex-1 px-3 py-2.5 bg-slate-900/50 border border-slate-600 rounded-xl text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all disabled:opacity-50"
+                className="flex-1 px-3 py-2.5 bg-zinc-900/50 border border-zinc-600 rounded-xl text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all disabled:opacity-50"
               />
               <input
                 type="date"
@@ -205,7 +205,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                 onChange={e => setNewPrayDate(e.target.value)}
                 title="Pray on (optional)"
                 disabled={isAddingPrayer}
-                className="px-2 py-2.5 bg-slate-900/50 border border-slate-600 rounded-xl text-sm text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all w-36 disabled:opacity-50"
+                className="px-2 py-2.5 bg-zinc-900/50 border border-zinc-600 rounded-xl text-sm text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all w-36 disabled:opacity-50"
               />
               <button
                 onClick={handleAddPrayer}
@@ -239,12 +239,12 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                       return (
                       <div
                         key={prayer.id}
-                        className="flex items-start gap-3 p-3 rounded-xl bg-slate-900/30 border border-slate-700/40 hover:border-amber-500/20 transition-all group"
+                        className="flex items-start gap-3 p-3 rounded-xl bg-zinc-900/30 border border-zinc-700/40 hover:border-amber-500/20 transition-all group"
                       >
                         {isPrayerOwner && (
                         <button
                           onClick={() => handleTogglePrayerAnswered(prayer.id)}
-                          className="mt-0.5 w-5 h-5 rounded-md border-2 border-slate-500 hover:border-amber-400 flex-shrink-0 flex items-center justify-center transition-colors"
+                          className="mt-0.5 w-5 h-5 rounded-md border-2 border-zinc-500 hover:border-amber-400 flex-shrink-0 flex items-center justify-center transition-colors"
                           title="Mark as answered"
                         >
                           <span className="sr-only">Mark answered</span>
@@ -269,7 +269,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                                 }}
                                 rows={2}
                                 autoFocus
-                                className="w-full px-3 py-2 bg-slate-900/60 border border-amber-500/40 rounded-lg text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all resize-none"
+                                className="w-full px-3 py-2 bg-zinc-900/60 border border-amber-500/40 rounded-lg text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all resize-none"
                               />
                               <div className="flex items-center gap-2">
                                 <button
@@ -287,7 +287,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                                 </button>
                                 <button
                                   onClick={() => { setEditingPrayerId(null); setEditPrayerText(''); }}
-                                  className="px-3 py-1 text-xs font-medium text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors"
+                                  className="px-3 py-1 text-xs font-medium text-slate-400 hover:text-white bg-zinc-700/50 hover:bg-zinc-700 rounded-lg transition-colors"
                                 >
                                   Cancel
                                 </button>
@@ -381,7 +381,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                         {answeredPrayers.map(prayer => (
                           <div
                             key={prayer.id}
-                            className="flex items-start gap-3 p-2.5 rounded-lg bg-slate-900/20 group"
+                            className="flex items-start gap-3 p-2.5 rounded-lg bg-zinc-900/20 group"
                           >
                             <button
                               onClick={() => handleTogglePrayerAnswered(prayer.id)}
@@ -420,7 +420,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
       </div>
 
       {/* ═══ ENCOURAGE SECTION ══════════════════════════ */}
-      <div className="section-panel bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
+      <div className="section-panel bg-zinc-800 border border-zinc-700 rounded-xl shadow-card-glass overflow-hidden">
         <div className="section-header-row px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
@@ -445,7 +445,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
           )}
         </div>
 
-        <div className="px-5 pb-5 space-y-4 border-t border-slate-700/40">
+        <div className="px-5 pb-5 space-y-4 border-t border-zinc-700/40">
             {/* Status summary cards */}
             <div className="grid grid-cols-2 gap-3 pt-4">
               <div className="p-3.5 rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20">
@@ -504,7 +504,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
             {/* ── Add encouragement form (collapsible) ── */}
             <button
               onClick={() => setShowEncourageForm(!showEncourageForm)}
-              className="w-full py-2 text-sm font-medium text-slate-400 hover:text-white border border-dashed border-slate-700 hover:border-slate-500 rounded-xl transition-colors flex items-center justify-center gap-2"
+              className="w-full py-2 text-sm font-medium text-slate-400 hover:text-white border border-dashed border-zinc-700 hover:border-zinc-500 rounded-xl transition-colors flex items-center justify-center gap-2"
             >
               {showEncourageForm ? (
                 <>
@@ -520,7 +520,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
             </button>
 
             {showEncourageForm && (
-            <div className="p-4 rounded-xl bg-slate-900/30 border border-slate-700/40 space-y-3">
+            <div className="p-4 rounded-xl bg-zinc-900/30 border border-zinc-700/40 space-y-3">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Log an Encouragement</p>
 
               {/* Intent radio: sent vs planned */}
@@ -529,7 +529,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                   className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${
                     newEncourageType === 'sent'
                       ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                      : 'border-slate-700 text-slate-400 hover:border-slate-500'
+                      : 'border-zinc-700 text-slate-400 hover:border-zinc-500'
                   }`}
                 >
                   <input
@@ -541,7 +541,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                     className="sr-only"
                   />
                   <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                    newEncourageType === 'sent' ? 'border-emerald-400' : 'border-slate-500'
+                    newEncourageType === 'sent' ? 'border-emerald-400' : 'border-zinc-500'
                   }`}>
                     {newEncourageType === 'sent' && <div className="w-2 h-2 rounded-full bg-emerald-400" />}
                   </div>
@@ -554,7 +554,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                   className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${
                     newEncourageType === 'planned'
                       ? 'bg-sky-500/10 border-sky-500/30 text-sky-400'
-                      : 'border-slate-700 text-slate-400 hover:border-slate-500'
+                      : 'border-zinc-700 text-slate-400 hover:border-zinc-500'
                   }`}
                 >
                   <input
@@ -566,7 +566,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                     className="sr-only"
                   />
                   <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                    newEncourageType === 'planned' ? 'border-sky-400' : 'border-slate-500'
+                    newEncourageType === 'planned' ? 'border-sky-400' : 'border-zinc-500'
                   }`}>
                     {newEncourageType === 'planned' && <div className="w-2 h-2 rounded-full bg-sky-400" />}
                   </div>
@@ -592,7 +592,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                             className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg border-2 transition-all ${
                               newEncourageMethod === m.key
                                 ? 'bg-emerald-500 text-white border-emerald-400 shadow-lg shadow-emerald-500/30 scale-105'
-                                : 'border-slate-800 text-slate-600 hover:text-slate-300 hover:border-slate-600 hover:bg-slate-800/50 opacity-60'
+                                : 'border-zinc-800 text-slate-600 hover:text-slate-300 hover:border-zinc-600 hover:bg-zinc-800/50 opacity-60'
                             }`}
                           >
                             <span className="inline-flex items-center gap-1.5">
@@ -615,7 +615,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                   type="date"
                   value={newEncourageDate}
                   onChange={e => setNewEncourageDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-xl text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 focus:outline-none transition-all [color-scheme:dark]"
+                  className="w-full px-3 py-2 bg-zinc-900/50 border border-zinc-600 rounded-xl text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 focus:outline-none transition-all [color-scheme:dark]"
                 />
               </div>
 
@@ -628,7 +628,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                   onChange={e => setNewEncourageNote(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleAddEncouragement()}
                   placeholder={`What did you say to ${leaderName}?`}
-                  className="w-full px-3 py-2.5 bg-slate-900/50 border border-slate-600 rounded-xl text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 focus:outline-none transition-all"
+                  className="w-full px-3 py-2.5 bg-zinc-900/50 border border-zinc-600 rounded-xl text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 focus:outline-none transition-all"
                 />
               </div>
 
@@ -663,10 +663,10 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                     return (
                     <div
                       key={enc.id}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-700/20 transition-colors group"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-zinc-700/20 transition-colors group"
                     >
                       <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                        enc.message_type === 'sent' ? 'bg-emerald-400' : 'bg-slate-500 ring-2 ring-gray-500/30'
+                        enc.message_type === 'sent' ? 'bg-emerald-400' : 'bg-zinc-500 ring-2 ring-gray-500/30'
                       }`} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
@@ -718,7 +718,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
       </div>
 
       {/* ═══ COACH SECTION ══════════════════════════════ */}
-      <div className="section-panel bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass overflow-hidden">
+      <div className="section-panel bg-zinc-800 border border-zinc-700 rounded-xl shadow-card-glass overflow-hidden">
         <div className="section-header-row px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-sky-500/15 flex items-center justify-center">
@@ -742,7 +742,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
           )}
         </div>
 
-        <div className="px-5 pb-5 space-y-4 border-t border-slate-700/40">
+        <div className="px-5 pb-5 space-y-4 border-t border-zinc-700/40">
             {/* Add coaching note */}
             <div className="space-y-2 pt-4">
               <div className="flex gap-2">
@@ -763,7 +763,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                         className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all duration-150 ${
                           isActive
                             ? `${c.activeBg} ${c.activeText} ${c.activeBorder} ring-2 ${c.ring} shadow-sm`
-                            : 'border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-500'
+                            : 'border-zinc-700 text-slate-500 hover:text-slate-300 hover:border-zinc-500'
                         }`}
                       >
                         {d.label}
@@ -779,7 +779,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                   onChange={e => setNewCoachContent(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleAddCoachNote()}
                   placeholder="Growth opportunity..."
-                  className="flex-1 px-3 py-2.5 bg-slate-900/50 border border-slate-600 rounded-xl text-sm text-white placeholder-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 focus:outline-none transition-all"
+                  className="flex-1 px-3 py-2.5 bg-zinc-900/50 border border-zinc-600 rounded-xl text-sm text-white placeholder-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 focus:outline-none transition-all"
                 />
                 <button
                   onClick={handleAddCoachNote}
@@ -825,7 +825,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                           >
                             <button
                               onClick={() => handleToggleCoachingResolved(note.id)}
-                              className={`mt-0.5 w-5 h-5 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-colors border-slate-500 hover:border-sky-400`}
+                              className={`mt-0.5 w-5 h-5 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-colors border-zinc-500 hover:border-sky-400`}
                               title="Mark resolved"
                             >
                               <span className="sr-only">Mark resolved</span>
@@ -872,7 +872,7 @@ export default function ACPDTrackingSection({ leaderId, leaderName, onNoteSaved 
                           return (
                             <div
                               key={note.id}
-                              className="flex items-start gap-3 p-2.5 rounded-lg bg-slate-900/20 group"
+                              className="flex items-start gap-3 p-2.5 rounded-lg bg-zinc-900/20 group"
                             >
                               <button
                                 onClick={() => handleToggleCoachingResolved(note.id)}

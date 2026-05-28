@@ -300,9 +300,9 @@ function AiSummaryMarkdown({ text }: { text: string }) {
       const label = cleanHeader.replace(/^\d+\.\s+/, '').replace(/\*\*/g, '');
       const sectionNumber = cleanHeader.match(/^(\d+)/)?.[1];
       elements.push(
-        <div key={key++} className="mt-5 flex items-baseline gap-2 border-b border-indigo-500/15 pb-1.5 first:mt-1">
-          {sectionNumber && <span className="w-4 shrink-0 text-xs font-bold tabular-nums text-indigo-300/60">{sectionNumber}</span>}
-          <h3 className="text-sm font-semibold uppercase text-indigo-100">{label}</h3>
+        <div key={key++} className="mt-5 flex items-baseline gap-2 border-b border-vc-500/15 pb-1.5 first:mt-1">
+          {sectionNumber && <span className="w-4 shrink-0 text-xs font-bold tabular-nums text-vc-300/60">{sectionNumber}</span>}
+          <h3 className="text-sm font-semibold uppercase text-vc-100">{label}</h3>
         </div>
       );
       continue;
@@ -312,7 +312,7 @@ function AiSummaryMarkdown({ text }: { text: string }) {
       const content = line.replace(/^[\*\-•]\s+/, '');
       elements.push(
         <div key={key++} className="flex gap-2 py-0.5">
-          <span className="mt-0.5 shrink-0 text-xs text-indigo-300/60">▸</span>
+          <span className="mt-0.5 shrink-0 text-xs text-vc-300/60">▸</span>
           <p className="text-sm leading-relaxed text-slate-200">{renderInline(content)}</p>
         </div>
       );
@@ -322,7 +322,7 @@ function AiSummaryMarkdown({ text }: { text: string }) {
     if (line.startsWith('"') && /[–—]/.test(line)) {
       const [quote, ...attribution] = line.split(/[–—]/);
       elements.push(
-        <blockquote key={key++} className="my-1 border-l-2 border-indigo-400/35 py-1 pl-3">
+        <blockquote key={key++} className="my-1 border-l-2 border-vc-400/35 py-1 pl-3">
           <p className="text-sm italic leading-relaxed text-slate-300">{quote.trim()}</p>
           {attribution.length > 0 && <p className="mt-0.5 text-xs text-slate-500">— {attribution.join('—').trim()}</p>}
         </blockquote>
@@ -341,7 +341,7 @@ function AiSummaryMarkdown({ text }: { text: string }) {
 }
 
 function Spinner({ className = '' }: { className?: string }) {
-  return <div className={`w-4 h-4 border-2 border-slate-600 border-t-indigo-400 rounded-full animate-spin ${className}`} />;
+  return <div className={`w-4 h-4 border-2 border-zinc-600 border-t-vc-400 rounded-full animate-spin ${className}`} />;
 }
 
 export default function EventSummaryTrackerPage() {
@@ -1041,7 +1041,7 @@ export default function EventSummaryTrackerPage() {
 
   // -- Render -------------------------------------------------------------------
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
+    <div className="min-h-screen bg-[#0f1117] text-white">
       <div className="p-4 sm:p-6 lg:p-8 max-w-screen-2xl mx-auto">
 
         {/* Header */}
@@ -1064,7 +1064,7 @@ export default function EventSummaryTrackerPage() {
               <select
                 value={campusFilter}
                 onChange={e => setCampusFilter(e.target.value)}
-                className="bg-slate-700 border border-slate-600 text-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto min-w-0"
+                className="bg-zinc-700 border border-zinc-600 text-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 w-full sm:w-auto min-w-0"
               >
                 <option value="">All campuses</option>
                 {campuses.map(c => <option key={c} value={c}>{c}</option>)}
@@ -1072,7 +1072,7 @@ export default function EventSummaryTrackerPage() {
               <select
                 value={acpdFilter}
                 onChange={e => setAcpdFilter(e.target.value)}
-                className="bg-slate-700 border border-slate-600 text-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto min-w-0"
+                className="bg-zinc-700 border border-zinc-600 text-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 w-full sm:w-auto min-w-0"
               >
                 <option value="">All ACPDs</option>
                 {acpds.map(a => <option key={a} value={a}>{a}</option>)}
@@ -1082,7 +1082,7 @@ export default function EventSummaryTrackerPage() {
             <div className="flex flex-wrap items-center gap-2">
               {/* Sort: compact icon-only segmented control (fits anywhere) */}
               <div
-                className="inline-flex items-center rounded-lg border border-slate-700 bg-slate-800/80 p-0.5 flex-shrink-0"
+                className="inline-flex items-center rounded-lg border border-zinc-700 bg-zinc-800/80 p-0.5 flex-shrink-0"
                 role="group"
                 aria-label="Sort order"
               >
@@ -1093,7 +1093,7 @@ export default function EventSummaryTrackerPage() {
                   title="Sort by day and time"
                   className={`inline-flex items-center justify-center w-8 h-7 rounded-md transition-colors ${
                     sortMode === 'day_time'
-                      ? 'bg-indigo-500/20 text-indigo-200'
+                      ? 'bg-vc-500/20 text-vc-200'
                       : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
@@ -1108,7 +1108,7 @@ export default function EventSummaryTrackerPage() {
                   title="Sort A–Z"
                   className={`inline-flex items-center justify-center w-8 h-7 rounded-md transition-colors ${
                     sortMode === 'name'
-                      ? 'bg-indigo-500/20 text-indigo-200'
+                      ? 'bg-vc-500/20 text-vc-200'
                       : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
@@ -1123,23 +1123,23 @@ export default function EventSummaryTrackerPage() {
           </div>
 
           {/* Row 2: week nav + sync */}
-          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-800/80 pt-3 sm:mt-2 sm:border-0 sm:pt-0">
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-zinc-800/80 pt-3 sm:mt-2 sm:border-0 sm:pt-0">
             <button
               onClick={() => setWeekStart(s => shiftWeek(s, -1))}
-              className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-sm transition-colors"
+              className="bg-zinc-700 hover:bg-zinc-600 text-slate-200 px-3 py-1.5 rounded-lg text-sm transition-colors"
               aria-label="Previous week"
             >‹</button>
             <button
               onClick={() => setWeekStart(sundayOfThisWeek())}
-              className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-sm transition-colors"
+              className="bg-zinc-700 hover:bg-zinc-600 text-slate-200 px-3 py-1.5 rounded-lg text-sm transition-colors"
             >Today</button>
             <button
               onClick={() => setWeekStart(s => shiftWeek(s, 1))}
-              className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-sm transition-colors"
+              className="bg-zinc-700 hover:bg-zinc-600 text-slate-200 px-3 py-1.5 rounded-lg text-sm transition-colors"
               aria-label="Next week"
             >›</button>
             <p className="hidden items-center gap-2 text-sm text-slate-400 sm:flex">
-              <span className="rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-base font-semibold text-white shadow-sm">
+              <span className="rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-1.5 text-base font-semibold text-white shadow-sm">
                 {formatWeekLabel(weekStart)}
               </span>
               {tracker?.last_sync && (
@@ -1149,7 +1149,7 @@ export default function EventSummaryTrackerPage() {
             <button
               onClick={syncNow}
               disabled={syncing}
-              className="inline-flex items-center gap-1.5 bg-btn-primary text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-60 ml-auto"
+              className="inline-flex items-center gap-1.5 bg-vc-fab text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-60 ml-auto"
             >
               {syncing ? <Spinner /> : (
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
@@ -1212,7 +1212,7 @@ export default function EventSummaryTrackerPage() {
         )}
 
         {/* Stats card */}
-        <div className="rounded-xl border border-slate-700 bg-slate-800/60 p-4 sm:p-5 shadow-card-glass mb-4">
+        <div className="rounded-xl border border-zinc-700 bg-zinc-800/60 p-4 sm:p-5 shadow-card-glass mb-4">
           <StatusBar
             segments={[
               { key: 'review',   label: 'Needs Review', value: stats.review,    color: '#f59e0b' },
@@ -1222,7 +1222,7 @@ export default function EventSummaryTrackerPage() {
             ]}
             total={rows.length}
           />
-          <div className="mt-5 pt-4 border-t border-slate-700/60 flex flex-wrap items-center justify-between gap-3 text-sm">
+          <div className="mt-5 pt-4 border-t border-zinc-700/60 flex flex-wrap items-center justify-between gap-3 text-sm">
             <div className="flex w-full justify-center gap-8 sm:w-auto sm:justify-start">
               <SmallStat label="ATTENDED" value={stats.totalAttended} />
               <SmallStat label="AVG SIZE" value={stats.avgSize ?? '–'} />
@@ -1232,7 +1232,7 @@ export default function EventSummaryTrackerPage() {
               <button
                 onClick={bulkReview}
                 disabled={bulkBusy || needsReview.length === 0}
-                className="bg-btn-primary text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                className="bg-vc-fab text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
               >
                 {bulkBusy ? 'Marking…' : `Mark all reviewed (${needsReview.length})`}
               </button>
@@ -1241,10 +1241,10 @@ export default function EventSummaryTrackerPage() {
         </div>
 
         {/* AI Weekly Summary */}
-        <div className="rounded-xl border border-indigo-500/20 bg-gradient-to-r from-indigo-500/5 to-purple-500/5 p-3 mb-4">
+        <div className="rounded-xl border border-vc-500/20 bg-gradient-to-r from-vc-500/5 to-purple-500/5 p-3 mb-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2 text-sm">
-              <span className="text-indigo-300">✨ AI Weekly Summary</span>
+              <span className="text-vc-300">✨ AI Weekly Summary</span>
               <span className={`text-slate-500 ${aiOpen ? '' : 'hidden'}`}>·</span>
               <span className={`text-slate-400 text-xs ${aiOpen ? '' : 'hidden'}`}>{[campusFilter, acpdFilter].filter(Boolean).join(' · ') || 'All Circles'}</span>
               {aiSummaryAt && (
@@ -1267,7 +1267,7 @@ export default function EventSummaryTrackerPage() {
               <button
                 onClick={generateAi}
                 disabled={aiBusy || aiSaving || !user?.id}
-                className={`text-xs text-indigo-300 hover:text-indigo-200 px-2 py-1 rounded-lg hover:bg-indigo-500/10 transition-colors disabled:opacity-50 ${aiSummary && !aiOpen ? 'hidden' : ''}`}
+                className={`text-xs text-vc-300 hover:text-vc-200 px-2 py-1 rounded-lg hover:bg-vc-500/10 transition-colors disabled:opacity-50 ${aiSummary && !aiOpen ? 'hidden' : ''}`}
               >
                 {aiBusy ? 'Generating…' : (aiSummary ? 'Regenerate' : 'Generate')}
               </button>
@@ -1276,7 +1276,7 @@ export default function EventSummaryTrackerPage() {
                   onClick={() => setAiOpen(o => !o)}
                   aria-label={aiOpen ? 'Collapse AI weekly summary' : 'Expand AI weekly summary'}
                   aria-expanded={aiOpen}
-                  className="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-xs text-indigo-300 transition-colors hover:bg-slate-700 hover:text-slate-200"
+                  className="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-xs text-vc-300 transition-colors hover:bg-zinc-700 hover:text-slate-200"
                 >
                   {!aiOpen && <span>View</span>}
                   <svg
@@ -1293,7 +1293,7 @@ export default function EventSummaryTrackerPage() {
             </div>
           </div>
           {aiOpen && aiSummary && (
-            <div className="mt-3 border-t border-indigo-500/10 pt-3">
+            <div className="mt-3 border-t border-vc-500/10 pt-3">
               <AiSummaryMarkdown text={aiSummary} />
             </div>
           )}
@@ -1415,12 +1415,12 @@ function ReviewModal({
           {(row.leader.campus || row.leader.acpd) && (
             <div className="flex flex-wrap items-center gap-2 mt-2 text-[10px]">
               {row.leader.campus && (
-                <span className="bg-slate-700/60 text-slate-300 uppercase tracking-wide px-2 py-0.5 rounded">
+                <span className="bg-zinc-700/60 text-slate-300 uppercase tracking-wide px-2 py-0.5 rounded">
                   {row.leader.campus}
                 </span>
               )}
               {row.leader.acpd && (
-                <span className="bg-indigo-500/15 text-indigo-300 uppercase tracking-wide px-2 py-0.5 rounded">
+                <span className="bg-vc-500/15 text-vc-300 uppercase tracking-wide px-2 py-0.5 rounded">
                   {row.leader.acpd}
                 </span>
               )}
@@ -1465,7 +1465,7 @@ function ReviewModal({
         {notes && (
           <div>
             <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">Notes</div>
-            <div className="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed bg-slate-900/40 border border-slate-700 rounded-lg p-3">
+            <div className="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
               {notes}
             </div>
           </div>
@@ -1474,7 +1474,7 @@ function ReviewModal({
         {prayerRequests && (
           <div>
             <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">Prayer Requests</div>
-            <div className="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed bg-slate-900/40 border border-slate-700 rounded-lg p-3">
+            <div className="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
               {prayerRequests}
             </div>
           </div>
@@ -1493,7 +1493,7 @@ function ReviewModal({
         )}
 
         <div
-          className="flex items-center justify-end gap-2 sticky bottom-0 -mx-4 sm:-mx-6 -mb-3 sm:-mb-4 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-700/60 bg-[rgba(9,27,52,0.95)] backdrop-blur-sm"
+          className="flex items-center justify-end gap-2 sticky bottom-0 -mx-4 sm:-mx-6 -mb-3 sm:-mb-4 px-4 sm:px-6 py-3 sm:py-4 border-t border-zinc-700/60 bg-[rgba(9,27,52,0.95)] backdrop-blur-sm"
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
         >
           {ccbUrl && (
@@ -1501,7 +1501,7 @@ function ReviewModal({
               href={ccbUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="mr-auto inline-flex items-center gap-1.5 text-slate-300 hover:text-white border border-slate-600 hover:border-slate-500 px-3 py-1.5 rounded-lg text-sm transition-colors"
+              className="mr-auto inline-flex items-center gap-1.5 text-slate-300 hover:text-white border border-zinc-600 hover:border-zinc-500 px-3 py-1.5 rounded-lg text-sm transition-colors"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
@@ -1512,7 +1512,7 @@ function ReviewModal({
           <button
             onClick={onClose}
             disabled={busy}
-            className="text-slate-400 hover:text-white hover:bg-slate-700 px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50"
+            className="text-slate-400 hover:text-white hover:bg-zinc-700 px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50"
           >
             Close
           </button>
@@ -1520,7 +1520,7 @@ function ReviewModal({
             onClick={onConfirm}
             disabled={busy}
             className={`inline-flex items-center gap-1.5 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-60 ${
-              isReviewed ? 'bg-slate-600 hover:bg-slate-500' : 'bg-btn-primary'
+              isReviewed ? 'bg-zinc-600 hover:bg-zinc-500' : 'bg-btn-primary'
             }`}
           >
             {busy && <Spinner />}
@@ -1534,7 +1534,7 @@ function ReviewModal({
 
 function ModalStat({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="bg-slate-900/40 border border-slate-700 rounded-lg px-3 py-2">
+    <div className="bg-zinc-900/40 border border-zinc-700 rounded-lg px-3 py-2">
       <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
       <div className="text-xl font-semibold text-slate-100 mt-0.5">{value}</div>
     </div>
@@ -1567,9 +1567,9 @@ function StatusBar({ segments, total }: { segments: StatusSegment[]; total: numb
           <span className="text-xs text-slate-400">submitted ({submitted}/{total})</span>
         </div>
       </div>
-      <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-slate-900/70 ring-1 ring-slate-700/60">
+      <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-zinc-900/70 ring-1 ring-zinc-700/60">
         {total === 0 ? (
-          <div className="flex-1 bg-slate-700/40" />
+          <div className="flex-1 bg-zinc-700/40" />
         ) : (
           segments.map(seg => {
             if (seg.value === 0) return null;
@@ -1645,7 +1645,7 @@ function StatusFilterDropdown({
         type="button"
         onClick={() => setOpen(current => !current)}
         aria-expanded={open}
-        className="bg-slate-700 border border-slate-600 text-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 inline-flex w-full sm:w-44 items-center justify-between gap-2"
+        className="bg-zinc-700 border border-zinc-600 text-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 inline-flex w-full sm:w-44 items-center justify-between gap-2"
       >
         <span className="truncate">{label}</span>
         <svg className="h-4 w-4 flex-shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
@@ -1653,18 +1653,18 @@ function StatusFilterDropdown({
         </svg>
       </button>
       {open && (
-        <div className="absolute left-0 top-[calc(100%+0.4rem)] z-30 w-[min(14rem,calc(100vw-3rem))] rounded-lg border border-slate-600 bg-slate-800 p-1.5 shadow-xl sm:left-auto sm:right-0">
+        <div className="absolute left-0 top-[calc(100%+0.4rem)] z-30 w-[min(14rem,calc(100vw-3rem))] rounded-lg border border-zinc-600 bg-zinc-800 p-1.5 shadow-xl sm:left-auto sm:right-0">
           <div className="max-h-72 space-y-0.5 overflow-y-auto">
             {CIRCLE_STATUS_OPTIONS.map(status => (
               <label
                 key={status.value}
-                className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-200 hover:bg-slate-700/70"
+                className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-200 hover:bg-zinc-700/70"
               >
                 <input
                   type="checkbox"
                   checked={selected.includes(status.value)}
                   onChange={() => toggleStatus(status.value)}
-                  className="h-4 w-4 rounded border-slate-500 bg-slate-700 text-indigo-400 focus:ring-indigo-400"
+                  className="h-4 w-4 rounded border-zinc-500 bg-zinc-700 text-vc-400 focus:ring-vc-400"
                 />
                 <span>{status.label}</span>
               </label>
@@ -1674,7 +1674,7 @@ function StatusFilterDropdown({
             <button
               type="button"
               onClick={() => onChange([])}
-              className="mt-2 w-full rounded-md border border-slate-600 px-2 py-1.5 text-left text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-white"
+              className="mt-2 w-full rounded-md border border-zinc-600 px-2 py-1.5 text-left text-xs font-medium text-slate-300 hover:bg-zinc-700 hover:text-white"
             >
               Clear statuses
             </button>
@@ -1704,10 +1704,10 @@ function Bucket({
   const toneClass = tone === 'amber' ? 'border-amber-500/30' : tone === 'red' ? 'border-red-500/30' : 'border-green-500/30';
   const dot = tone === 'amber' ? 'bg-amber-400' : tone === 'red' ? 'bg-red-400' : 'bg-green-400';
   return (
-    <div className={`mb-4 rounded-xl border ${toneClass} bg-slate-800/40`}>
+    <div className={`mb-4 rounded-xl border ${toneClass} bg-zinc-800/40`}>
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-700/20 transition-colors rounded-t-xl"
+        className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-700/20 transition-colors rounded-t-xl"
         aria-expanded={open}
       >
         <span className="flex items-center gap-2 text-sm font-semibold text-slate-100">
@@ -1721,7 +1721,7 @@ function Bucket({
             </span>
           )}
         </span>
-        <span className="text-slate-400 inline-flex items-center justify-center w-6 h-6 rounded-md hover:bg-slate-700/40">
+        <span className="text-slate-400 inline-flex items-center justify-center w-6 h-6 rounded-md hover:bg-zinc-700/40">
           <svg
             className={`w-4 h-4 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
             viewBox="0 0 24 24"
@@ -1737,7 +1737,7 @@ function Bucket({
         rows.length === 0 ? (
           <div className="px-4 pb-4 text-slate-500 text-xs italic">Nothing here.</div>
         ) : (
-          <div className="divide-y divide-slate-700/40 border-t border-slate-700/40">
+          <div className="divide-y divide-zinc-700/40 border-t border-zinc-700/40">
             {rows.map(r => <div key={r.leader.id}>{renderRow(r)}</div>)}
           </div>
         )
@@ -1767,7 +1767,7 @@ function RowItem({
       className={`px-4 py-3 flex flex-wrap items-center justify-between gap-3 transition-colors ${
         overdue
           ? 'bg-red-500/10 border-l-4 border-red-500 hover:bg-red-500/15'
-          : 'hover:bg-slate-700/20'
+          : 'hover:bg-zinc-700/20'
       }`}
     >
       <div className="min-w-0 flex-1">
@@ -1780,7 +1780,7 @@ function RowItem({
             className={`text-sm font-medium hover:underline transition-colors ${
               overdue
                 ? 'text-red-100 hover:text-red-200'
-                : 'text-slate-100 hover:text-indigo-300'
+                : 'text-slate-100 hover:text-vc-300'
             }`}
           >
             {r.leader.name}
@@ -1817,7 +1817,7 @@ function RowItem({
             className={`text-xs px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
               overdue
                 ? 'bg-red-500/80 hover:bg-red-500 text-white font-medium shadow-sm shadow-red-500/30'
-                : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
+                : 'bg-zinc-700 hover:bg-zinc-600 text-slate-200'
             }`}
           >
             Send Reminder
@@ -1826,7 +1826,7 @@ function RowItem({
         {onReview && (
           <button
             onClick={onReview}
-            className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+            className="bg-zinc-700 hover:bg-zinc-600 text-slate-200 text-xs px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
           >
             {reviewLabel ?? 'Mark Reviewed'}
           </button>

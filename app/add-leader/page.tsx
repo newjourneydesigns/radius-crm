@@ -212,11 +212,11 @@ export default function AddLeaderPage() {
     }
   };
 
-  const inputClass = 'mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500';
+  const inputClass = 'mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-vc-500';
   const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300';
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117]">
       <div className="max-w-3xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
@@ -229,7 +229,7 @@ export default function AddLeaderPage() {
         {isLoadingData ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-vc-500 mx-auto"></div>
               <p className="mt-2 text-gray-600 dark:text-gray-400">Loading form data...</p>
             </div>
           </div>
@@ -579,7 +579,7 @@ export default function AddLeaderPage() {
             <button
               type="button"
               onClick={() => window.history.back()}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-vc-500 transition-colors"
             >
               Cancel
             </button>

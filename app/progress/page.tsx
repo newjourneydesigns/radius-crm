@@ -68,7 +68,7 @@ function TrendArrow({ delta }: { delta: number }) {
 
 function MiniBar({ score, barColor }: { score: number; barColor: string }) {
   return (
-    <div className="h-1 bg-slate-700 rounded-full overflow-hidden mt-2">
+    <div className="h-1 bg-zinc-700 rounded-full overflow-hidden mt-2">
       <div
         className={`h-full rounded-full ${barColor} transition-all duration-300`}
         style={{ width: `${(score / 5) * 100}%` }}
@@ -126,7 +126,7 @@ function LeaderRow({
     onDimensionClick?.(summary.leader.id, summary.leader.name, dim);
 
   return (
-    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-700/30 transition-colors duration-150 group">
+    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-zinc-700/30 transition-colors duration-150 group">
       {rank !== undefined && (
         <span className="w-5 text-right text-xs text-slate-600 flex-shrink-0 tabular-nums">{rank}</span>
       )}
@@ -134,7 +134,7 @@ function LeaderRow({
       <div className="flex-1 min-w-0">
         <Link
           href={`/circle/${summary.leader.id}`}
-          className="text-sm font-medium text-white truncate block hover:text-indigo-400 transition-colors"
+          className="text-sm font-medium text-white truncate block hover:text-vc-400 transition-colors"
         >
           {summary.leader.name}
         </Link>
@@ -300,11 +300,11 @@ export default function ProgressDashboardPage() {
     }
   };
 
-  const selectClass = 'bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors';
+  const selectClass = 'bg-zinc-800 border border-zinc-700 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent transition-colors';
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-slate-900">
+      <div className="min-h-screen bg-[#0f1117]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
           {/* Header */}
@@ -337,7 +337,7 @@ export default function ProgressDashboardPage() {
             {hasActiveFilters && (
               <button
                 onClick={clearFilters}
-                className="flex items-center gap-1.5 text-slate-400 hover:text-white hover:bg-slate-700 px-3 py-2 rounded-lg text-sm transition-colors duration-150"
+                className="flex items-center gap-1.5 text-slate-400 hover:text-white hover:bg-zinc-700 px-3 py-2 rounded-lg text-sm transition-colors duration-150"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -349,7 +349,7 @@ export default function ProgressDashboardPage() {
 
           {isLoading ? (
             <div className="flex items-center justify-center py-20">
-              <div className="w-7 h-7 border-2 border-slate-600 border-t-indigo-500 rounded-full animate-spin" />
+              <div className="w-7 h-7 border-2 border-zinc-600 border-t-vc-500 rounded-full animate-spin" />
             </div>
           ) : (
             <>
@@ -359,7 +359,7 @@ export default function ProgressDashboardPage() {
                   const cfg = DIMENSION_CONFIG[dim];
                   const score = dimensionAverages[dim];
                   return (
-                    <div key={dim} className={`p-4 rounded-xl border ${score ? scoreBgBorder(score) : 'bg-slate-800/50 border-slate-700'}`}>
+                    <div key={dim} className={`p-4 rounded-xl border ${score ? scoreBgBorder(score) : 'bg-zinc-800/50 border-zinc-700'}`}>
                       <span className="text-xs text-slate-400 uppercase tracking-wide">{cfg.label}</span>
                       <div className="flex items-baseline gap-1 mt-1">
                         <span className={`text-2xl font-bold ${score ? scoreColor(score) : 'text-slate-500'}`}>
@@ -373,7 +373,7 @@ export default function ProgressDashboardPage() {
                 })}
 
                 {/* Overall — visually distinct */}
-                <div className={`p-4 rounded-xl border col-span-2 sm:col-span-1 ${dimensionAverages.overall ? scoreBgBorder(dimensionAverages.overall) : 'bg-slate-800/50 border-slate-700'}`}>
+                <div className={`p-4 rounded-xl border col-span-2 sm:col-span-1 ${dimensionAverages.overall ? scoreBgBorder(dimensionAverages.overall) : 'bg-zinc-800/50 border-zinc-700'}`}>
                   <span className="text-xs text-slate-400 uppercase tracking-wide">Overall</span>
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className={`text-3xl font-bold ${dimensionAverages.overall ? scoreColor(dimensionAverages.overall) : 'text-slate-500'}`}>
@@ -405,8 +405,8 @@ export default function ProgressDashboardPage() {
               )}
 
               {/* Leader tabs */}
-              <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass">
-                <div className="border-b border-slate-700 px-4 overflow-x-auto">
+              <div className="bg-zinc-800 border border-zinc-700 rounded-xl shadow-card-glass">
+                <div className="border-b border-zinc-700 px-4 overflow-x-auto">
                   <div className="flex gap-0.5">
                     {([
                       { key: 'top', label: 'Top Performers', count: topPerformers.length },
@@ -420,15 +420,15 @@ export default function ProgressDashboardPage() {
                         onClick={() => setActiveTab(tab.key)}
                         className={`px-3 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors duration-150 ${
                           activeTab === tab.key
-                            ? 'border-indigo-500 text-indigo-400'
-                            : 'border-transparent text-slate-400 hover:text-white hover:border-slate-600'
+                            ? 'border-vc-500 text-vc-400'
+                            : 'border-transparent text-slate-400 hover:text-white hover:border-zinc-600'
                         }`}
                       >
                         {tab.label}
                         <span className={`ml-1.5 px-1.5 py-0.5 text-xs rounded-full ${
                           activeTab === tab.key
-                            ? 'bg-indigo-500/20 text-indigo-400'
-                            : 'bg-slate-700 text-slate-400'
+                            ? 'bg-vc-500/20 text-vc-400'
+                            : 'bg-zinc-700 text-slate-400'
                         }`}>
                           {tab.count}
                         </span>
@@ -440,7 +440,7 @@ export default function ProgressDashboardPage() {
                 <div className="p-4">
                   {/* Column legend — mirrors LeaderRow layout exactly */}
                   {activeTab !== 'unscored' && (
-                    <div className="hidden sm:flex items-center gap-3 px-3 pb-2 mb-1 border-b border-slate-700/50">
+                    <div className="hidden sm:flex items-center gap-3 px-3 pb-2 mb-1 border-b border-zinc-700/50">
                       <span className="w-5 flex-shrink-0" />
                       <div className="flex-1" />
                       <div className="flex items-center gap-1">
@@ -465,24 +465,24 @@ export default function ProgressDashboardPage() {
                       </p>
                     </div>
                   ) : (
-                    <div className="divide-y divide-slate-700/40">
+                    <div className="divide-y divide-zinc-700/40">
                       {getActiveList().map((summary, i) =>
                         activeTab === 'unscored' ? (
                           <Link
                             key={summary.leader.id}
                             href={`/circle/${summary.leader.id}`}
-                            className="flex items-center justify-between px-3 py-3 hover:bg-slate-700/50 transition-colors duration-150 group first:rounded-t-lg last:rounded-b-lg"
+                            className="flex items-center justify-between px-3 py-3 hover:bg-zinc-700/50 transition-colors duration-150 group first:rounded-t-lg last:rounded-b-lg"
                           >
                             <div className="flex items-center gap-3">
                               <span className="text-xs text-slate-600 tabular-nums w-5 text-right">{i + 1}</span>
                               <div>
-                                <h4 className="text-sm font-medium text-white group-hover:text-indigo-400 transition-colors">
+                                <h4 className="text-sm font-medium text-white group-hover:text-vc-400 transition-colors">
                                   {summary.leader.name}
                                 </h4>
                                 <span className="text-xs text-slate-500">{summary.leader.campus}</span>
                               </div>
                             </div>
-                            <span className="text-xs text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded-full">Not scored</span>
+                            <span className="text-xs text-slate-500 bg-zinc-700/50 px-2 py-0.5 rounded-full">Not scored</span>
                           </Link>
                         ) : (
                           <LeaderRow key={summary.leader.id} summary={summary} rank={i + 1} onDimensionClick={openModal} />
@@ -494,8 +494,8 @@ export default function ProgressDashboardPage() {
               </div>
 
               {/* Developing Leaders */}
-              <div className="mt-6 bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass">
-                <div className="px-6 py-4 border-b border-slate-700">
+              <div className="mt-6 bg-zinc-800 border border-zinc-700 rounded-xl shadow-card-glass">
+                <div className="px-6 py-4 border-b border-zinc-700">
                   <div className="flex items-center gap-2">
                     <svg className="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -511,7 +511,7 @@ export default function ProgressDashboardPage() {
                 <div className="p-4">
                   {developingLoading ? (
                     <div className="flex items-center justify-center py-8">
-                      <div className="w-5 h-5 border-2 border-slate-600 border-t-orange-400 rounded-full animate-spin" />
+                      <div className="w-5 h-5 border-2 border-zinc-600 border-t-orange-400 rounded-full animate-spin" />
                     </div>
                   ) : developingLeaders.length === 0 ? (
                     <div className="py-10 text-center">
@@ -525,7 +525,7 @@ export default function ProgressDashboardPage() {
                     </div>
                   ) : (
                     <>
-                      <div className="hidden sm:grid sm:grid-cols-12 gap-3 px-3 pb-2 text-xs text-slate-500 uppercase tracking-wide border-b border-slate-700/50 mb-1">
+                      <div className="hidden sm:grid sm:grid-cols-12 gap-3 px-3 pb-2 text-xs text-slate-500 uppercase tracking-wide border-b border-zinc-700/50 mb-1">
                         <div className="col-span-3">Name</div>
                         <div className="col-span-4">Notes</div>
                         <div className="col-span-2">Updated</div>
@@ -536,7 +536,7 @@ export default function ProgressDashboardPage() {
                           <Link
                             key={dl.id}
                             href={`/circle/${dl.circle_leader_id}`}
-                            className="block sm:grid sm:grid-cols-12 gap-3 p-3 rounded-lg hover:bg-slate-700/50 transition-colors duration-150 group"
+                            className="block sm:grid sm:grid-cols-12 gap-3 p-3 rounded-lg hover:bg-zinc-700/50 transition-colors duration-150 group"
                           >
                             <div className="col-span-3">
                               <span className="text-sm font-medium text-white group-hover:text-orange-400 transition-colors">
@@ -554,7 +554,7 @@ export default function ProgressDashboardPage() {
                               </span>
                             </div>
                             <div className="col-span-3 mt-1 sm:mt-0">
-                              <span className="text-xs text-indigo-400">{dl.circle_leader_name}</span>
+                              <span className="text-xs text-vc-400">{dl.circle_leader_name}</span>
                             </div>
                           </Link>
                         ))}
@@ -565,8 +565,8 @@ export default function ProgressDashboardPage() {
               </div>
 
               {/* Dimension Breakdown */}
-              <div className="mt-6 bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass">
-                <div className="px-6 py-4 border-b border-slate-700">
+              <div className="mt-6 bg-zinc-800 border border-zinc-700 rounded-xl shadow-card-glass">
+                <div className="px-6 py-4 border-b border-zinc-700">
                   <h2 className="text-base font-semibold text-white">Dimension Breakdown</h2>
                   <p className="text-xs text-slate-500 mt-0.5">Score distribution across all scored leaders</p>
                 </div>
@@ -595,12 +595,12 @@ export default function ProgressDashboardPage() {
                               <Link
                                 key={s.id}
                                 href={`/circle/${s.id}`}
-                                className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-700/50 transition-colors duration-150 group"
+                                className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-zinc-700/50 transition-colors duration-150 group"
                               >
                                 <span className="flex-1 text-xs text-slate-300 truncate group-hover:text-white transition-colors">
                                   {s.name}
                                 </span>
-                                <div className="w-14 h-1.5 bg-slate-700 rounded-full overflow-hidden flex-shrink-0">
+                                <div className="w-14 h-1.5 bg-zinc-700 rounded-full overflow-hidden flex-shrink-0">
                                   <div
                                     className={`h-full rounded-full ${cfg.barColor}`}
                                     style={{ width: `${(s.score / 5) * 100}%` }}

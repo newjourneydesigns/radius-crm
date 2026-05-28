@@ -465,7 +465,7 @@ export default function ImportCirclesPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-4 px-4 sm:px-6">
+      <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117] py-4 px-4 sm:px-6">
         <div className="w-full">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
@@ -542,7 +542,7 @@ export default function ImportCirclesPage() {
                           setMassUpdateFilterField(e.target.value as 'all' | 'campus' | 'acpd');
                           setMassUpdateFilterValue('');
                         }}
-                        className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                        className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-vc-500 focus:ring-vc-500 sm:text-sm"
                       >
                         <option value="all">All Leaders</option>
                         <option value="campus">Current Campus</option>
@@ -558,7 +558,7 @@ export default function ImportCirclesPage() {
                         <select
                           value={massUpdateFilterValue}
                           onChange={(e) => setMassUpdateFilterValue(e.target.value)}
-                          className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                          className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-vc-500 focus:ring-vc-500 sm:text-sm"
                         >
                           <option value="">-- Select --</option>
                           {massUpdateFilterField === 'campus'
@@ -595,7 +595,7 @@ export default function ImportCirclesPage() {
                           setMassUpdateField(e.target.value as 'campus' | 'acpd' | 'frequency' | 'circle_type' | 'day' | 'time' | 'meeting_start_date' | 'status' | 'email_reminders_enabled');
                           setMassUpdateValue('');
                         }}
-                        className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                        className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-vc-500 focus:ring-vc-500 sm:text-sm"
                       >
                         <option value="campus">Campus</option>
                         <option value="acpd">ACPD / Director</option>
@@ -617,20 +617,20 @@ export default function ImportCirclesPage() {
                           type="time"
                           value={massUpdateValue}
                           onChange={(e) => setMassUpdateValue(e.target.value)}
-                          className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2"
+                          className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-vc-500 focus:ring-vc-500 sm:text-sm px-3 py-2"
                         />
                       ) : massUpdateField === 'meeting_start_date' ? (
                         <input
                           type="date"
                           value={massUpdateValue}
                           onChange={(e) => setMassUpdateValue(e.target.value)}
-                          className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2"
+                          className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-vc-500 focus:ring-vc-500 sm:text-sm px-3 py-2"
                         />
                       ) : (
                         <select
                           value={massUpdateValue}
                           onChange={(e) => setMassUpdateValue(e.target.value)}
-                          className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                          className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-vc-500 focus:ring-vc-500 sm:text-sm"
                         >
                           <option value="">-- Select New Value --</option>
                           {massUpdateField === 'campus'
@@ -706,7 +706,7 @@ export default function ImportCirclesPage() {
                                 type="checkbox"
                                 checked={massUpdateSelected.size === massUpdateLeaders.length && massUpdateLeaders.length > 0}
                                 onChange={(e) => e.target.checked ? massUpdateSelectAll() : massUpdateDeselectAll()}
-                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                className="rounded border-gray-300 text-blue-600 focus:ring-vc-500"
                               />
                             </th>
                             <th
@@ -788,7 +788,7 @@ export default function ImportCirclesPage() {
                                   disabled={isEditing}
                                   onChange={() => {}}
                                   onClick={(e) => { e.stopPropagation(); if (!isEditing) toggleMassUpdateSelect(leader.id, e.nativeEvent as unknown as React.MouseEvent); }}
-                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                  className="rounded border-gray-300 text-blue-600 focus:ring-vc-500"
                                 />
                               </td>
                               <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
@@ -996,7 +996,7 @@ export default function ImportCirclesPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={onKeyDown}
                 placeholder="Enter group or circle name..."
-                className="flex-1 min-w-0 block w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500"
+                className="flex-1 min-w-0 block w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-vc-500 focus:border-vc-500"
                 disabled={isSearching}
               />
               <button
@@ -1143,7 +1143,7 @@ export default function ImportCirclesPage() {
                               checked={isSelected}
                               disabled={isImported}
                               onChange={() => toggleSelect(g.id)}
-                              className="h-4 w-4 mt-1 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-40"
+                              className="h-4 w-4 mt-1 text-blue-600 focus:ring-vc-500 border-gray-300 rounded disabled:opacity-40"
                             />
                           )}
                         </div>

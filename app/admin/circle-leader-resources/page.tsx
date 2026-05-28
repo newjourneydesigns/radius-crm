@@ -173,7 +173,7 @@ export default function CircleLeaderResourcesAdminPage() {
   }, [dirty]);
 
   return (
-    <div className="min-h-screen bg-slate-900 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-[#0f1117] p-4 sm:p-6 lg:p-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
           <div>
@@ -200,10 +200,10 @@ export default function CircleLeaderResourcesAdminPage() {
         )}
 
         {loading ? (
-          <div className="animate-pulse bg-slate-700 rounded-xl h-64" />
+          <div className="animate-pulse bg-zinc-700 rounded-xl h-64" />
         ) : (
           <>
-            <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-card-glass">
+            <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 shadow-card-glass">
               <RichTextEditor
                 value={bodyHtml}
                 onChange={setBodyHtml}
@@ -239,7 +239,7 @@ export default function CircleLeaderResourcesAdminPage() {
           aria-modal="true"
           aria-labelledby="unsaved-title"
         >
-          <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl max-w-md w-full p-6">
+          <div className="bg-zinc-800 border border-zinc-700 rounded-xl shadow-2xl max-w-md w-full p-6">
             <h2 id="unsaved-title" className="text-base font-semibold text-white">You have unsaved edits</h2>
             <p className="text-sm text-slate-300 mt-2">
               Would you like to save them before leaving this page?
@@ -253,7 +253,7 @@ export default function CircleLeaderResourcesAdminPage() {
               <button
                 onClick={cancelLeave}
                 disabled={savingThenLeaving}
-                className="text-slate-300 hover:text-white hover:bg-slate-700 px-3 py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
+                className="text-slate-300 hover:text-white hover:bg-zinc-700 px-3 py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>

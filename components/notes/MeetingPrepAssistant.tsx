@@ -166,7 +166,7 @@ Be warm, practical, and specific. Use the leader's name. Reference actual data p
       {/* Loading State */}
       {isLoading && (
         <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-blue-50 to-violet-50 dark:from-blue-950/30 dark:to-violet-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full" />
+          <div className="animate-spin h-5 w-5 border-2 border-vc-500 border-t-transparent rounded-full" />
           <div>
             <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Preparing your meeting briefing...</p>
             <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">Analyzing scorecard progress, notes, and trends</p>

@@ -161,7 +161,7 @@ export default function FolderItem({ folder, depth = 0, onPageCreated, onPageDel
         ref={setDropRef}
         className={`group flex items-center gap-1 rounded-md px-2 py-2 cursor-pointer transition-colors ${
           isOver
-            ? 'bg-indigo-500/20 border border-indigo-400/40'
+            ? 'bg-vc-500/20 border border-vc-400/40'
             : activeFolderId === folder.id
             ? 'bg-white/[0.04] border border-transparent'
             : 'hover:bg-white/[0.06] border border-transparent'
@@ -192,7 +192,7 @@ export default function FolderItem({ folder, depth = 0, onPageCreated, onPageDel
               onChange={e => setRenameValue(e.target.value)}
               onBlur={handleRename}
               onKeyDown={e => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') setRenaming(false); }}
-              className="flex-1 text-sm bg-white/[0.1] border border-indigo-400 rounded px-1 text-white focus:outline-none"
+              className="flex-1 text-sm bg-white/[0.1] border border-vc-400 rounded px-1 text-white focus:outline-none"
               onClick={e => e.stopPropagation()}
             />
           ) : (

@@ -30,8 +30,8 @@ export default function CircleLeaderCarePage() {
   if (isLoading) {
     return (
       <ProtectedRoute>
-        <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-          <div className="w-5 h-5 border-2 border-slate-600 border-t-indigo-500 rounded-full animate-spin" />
+        <div className="min-h-screen bg-[#0f1117] flex items-center justify-center">
+          <div className="w-5 h-5 border-2 border-zinc-600 border-t-vc-500 rounded-full animate-spin" />
         </div>
       </ProtectedRoute>
     );
@@ -39,7 +39,7 @@ export default function CircleLeaderCarePage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-slate-900">
+      <div className="min-h-screen bg-[#0f1117]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28 lg:pb-6">
 
           {leaderName && (

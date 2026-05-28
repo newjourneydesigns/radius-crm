@@ -107,9 +107,9 @@ export default function RootLayout({
         <meta name="format-detection" content="telephone=no" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
-        <meta name="msapplication-TileColor" content="#091b34" />
+        <meta name="msapplication-TileColor" content="#0f1117" />
         <meta name="msapplication-tap-highlight" content="no" />
-        <meta name="theme-color" content="#091b34" />
+        <meta name="theme-color" content="#0f1117" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 
         {/* Force dark theme immediately */}
@@ -118,7 +118,7 @@ export default function RootLayout({
         {/* Service Worker + PWA Install */}
         <script dangerouslySetInnerHTML={{ __html: swScript }} />
       </head>
-      <body className="font-sans dark bg-slate-900 min-h-screen text-gray-100">
+      <body className="font-sans dark bg-[#0f1117] min-h-screen text-gray-100">
         <ClientLayout>{children}</ClientLayout>
       </body>
     </html>

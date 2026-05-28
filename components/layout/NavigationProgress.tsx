@@ -139,7 +139,7 @@ export default function NavigationProgress() {
           height: '2px',
           width: `${width}%`,
           opacity,
-          background: 'linear-gradient(90deg, #4c6785 0%, #8da9c4 100%)',
+          background: 'linear-gradient(90deg, #52525b 0%, #a1a1aa 100%)',
           boxShadow: '0 0 10px rgba(141, 169, 196, 0.55)',
           borderRadius: '0 2px 2px 0',
           zIndex: 100001,

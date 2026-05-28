@@ -26,7 +26,7 @@ interface FollowUpTableProps {
 const STATUS_MAP = {
   'active': { label: 'Active', color: 'text-green-600 dark:text-green-400' },
   'invited': { label: 'Invited', color: 'text-blue-600 dark:text-blue-400' },
-  'pipeline': { label: 'Pipeline', color: 'text-indigo-600 dark:text-indigo-400' },
+  'pipeline': { label: 'Pipeline', color: 'text-vc-600 dark:text-vc-400' },
   'paused': { label: 'Paused', color: 'text-yellow-600 dark:text-yellow-400' },
   'off-boarding': { label: 'Off-boarding', color: 'text-red-600 dark:text-red-400' }
 } as const;

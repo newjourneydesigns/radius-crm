@@ -290,9 +290,9 @@ export default function ProfilePage() {
   if (isLoading) {
     return (
       <ProtectedRoute>
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117] flex items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-vc-500 mx-auto"></div>
             <p className="mt-4 text-gray-600 dark:text-gray-400">Loading profile...</p>
           </div>
         </div>
@@ -306,7 +306,7 @@ export default function ProfilePage() {
       type="button"
       id={id}
       onClick={() => !disabled && onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${
+      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-vc-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${
         disabled ? 'opacity-50 cursor-not-allowed' : ''
       } ${checked ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'}`}
       role="switch"
@@ -349,7 +349,7 @@ export default function ProfilePage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117]">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
           <div className="mb-6">
@@ -426,7 +426,7 @@ export default function ProfilePage() {
                         id="name"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-vc-500 transition-colors"
                         placeholder="Enter your full name"
                       />
                     </div>
@@ -440,7 +440,7 @@ export default function ProfilePage() {
                         id="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-vc-500 transition-colors"
                         placeholder="Enter your email address"
                       />
                     </div>
@@ -570,7 +570,7 @@ export default function ProfilePage() {
                         value={preferences.frequency_hours}
                         onChange={(e) => setPreferences(prev => ({ ...prev, frequency_hours: parseInt(e.target.value) }))}
                         disabled={!preferences.email_enabled}
-                        className="px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-vc-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         <option value={24}>Every 24 hours</option>
                         <option value={12}>Every 12 hours</option>
@@ -598,7 +598,7 @@ export default function ProfilePage() {
                       id="email_address"
                       value={preferences.email_address || ''}
                       onChange={(e) => setPreferences(prev => ({ ...prev, email_address: e.target.value || null }))}
-                      className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-vc-500 transition-colors"
                       placeholder={email || profile?.email || 'Enter alternate email'}
                       disabled={!preferences.email_enabled}
                     />
@@ -636,7 +636,7 @@ export default function ProfilePage() {
                         id="weather_city"
                         value={preferences.weather_city}
                         onChange={(e) => setPreferences(prev => ({ ...prev, weather_city: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition-colors"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-vc-500 text-sm transition-colors"
                         placeholder="City"
                         disabled={!preferences.email_enabled || !preferences.include_weather}
                       />
@@ -650,7 +650,7 @@ export default function ProfilePage() {
                         value={preferences.weather_state}
                         onChange={(e) => setPreferences(prev => ({ ...prev, weather_state: e.target.value }))}
                         disabled={!preferences.email_enabled || !preferences.include_weather}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-colors"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-vc-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-colors"
                       >
                         <option value="">Select state...</option>
                         <option value="AL">Alabama</option>
@@ -715,7 +715,7 @@ export default function ProfilePage() {
                         id="weather_zip"
                         value={preferences.weather_zip}
                         onChange={(e) => setPreferences(prev => ({ ...prev, weather_zip: e.target.value.replace(/[^0-9]/g, '').slice(0, 5) }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition-colors"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-vc-500 text-sm transition-colors"
                         placeholder="ZIP Code"
                         maxLength={5}
                         disabled={!preferences.email_enabled || !preferences.include_weather}
@@ -769,7 +769,7 @@ export default function ProfilePage() {
                 <button
                   onClick={handleSendTestEmail}
                   disabled={isSendingTest || !preferences.email_enabled}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -798,13 +798,13 @@ export default function ProfilePage() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">New password</label>
               <input type="password" autoComplete="new-password" value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)} placeholder="At least 8 characters"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm" />
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent text-sm" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Confirm new password</label>
               <input type="password" autoComplete="new-password" value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repeat your password"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm" />
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent text-sm" />
             </div>
             <button type="submit" disabled={isSavingPassword || !newPassword || !confirmPassword}
               className="btn-primary px-5 py-2.5 rounded-lg text-sm">

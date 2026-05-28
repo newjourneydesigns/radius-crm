@@ -191,7 +191,7 @@ export default function CategoryTrendChart({
       tooltip: {
         backgroundColor: 'rgba(11, 37, 69, 0.95)',
         titleColor: '#eef4ed',
-        bodyColor: '#8da9c4',
+        bodyColor: '#a1a1aa',
         borderColor: theme.line + '40',
         borderWidth: 1,
         padding: compact ? 8 : 12,

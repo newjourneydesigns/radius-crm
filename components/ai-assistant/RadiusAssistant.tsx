@@ -22,13 +22,13 @@ import { useAuth } from '../../contexts/AuthContext';
 // ---- Inline style constants (escape global CSS !important) ----
 
 const COLORS = {
-  bg: '#0b2545',
+  bg: '#111317',
   bgLight: '#0e3060',
   bgCard: 'rgba(14, 48, 96, 0.95)',
   border: 'rgba(141, 169, 196, 0.3)',
   borderLight: 'rgba(141, 169, 196, 0.15)',
   text: '#eef4ed',
-  textMuted: '#8da9c4',
+  textMuted: '#a1a1aa',
   accent: '#3b82f6',
   accentHover: '#2563eb',
   userBubble: '#1d4ed8',

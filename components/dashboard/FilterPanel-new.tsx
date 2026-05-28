@@ -77,7 +77,7 @@ export default function FilterPanelNew({
             value={filters.searchTerm || ""}
             onChange={e => onFiltersChange({ ...filters, searchTerm: e.target.value })}
             placeholder="Search by leader name, campus, or circle type..."
-            className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-vc-500 focus:border-vc-500"
           />
         </div>
       </div>
@@ -93,7 +93,7 @@ export default function FilterPanelNew({
             id="campus-filter"
             value={Array.isArray(filters.campus) ? (filters.campus[0] || "") : ""}
             onChange={e => handleSelectChange("campus", e.target.value)}
-            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-vc-500 focus:border-vc-500"
           >
             <option value="">All Campuses</option>
             {campuses.map(campus => (
@@ -111,7 +111,7 @@ export default function FilterPanelNew({
             id="circleType-filter"
             value={Array.isArray(filters.circleType) ? (filters.circleType[0] || "") : ""}
             onChange={e => handleSelectChange("circleType", e.target.value)}
-            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-vc-500 focus:border-vc-500"
           >
             <option value="">All Types</option>
             {circleTypes.map(type => (
@@ -129,7 +129,7 @@ export default function FilterPanelNew({
             id="meetingDay-filter"
             value={Array.isArray(filters.meetingDay) ? (filters.meetingDay[0] || "") : ""}
             onChange={e => handleSelectChange("meetingDay", e.target.value)}
-            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-vc-500 focus:border-vc-500"
           >
             <option value="">All Days</option>
             {MEETING_DAYS.map(day => (
@@ -147,7 +147,7 @@ export default function FilterPanelNew({
             id="timeOfDay-filter"
             value={filters.timeOfDay || ""}
             onChange={e => handleSelectChange("timeOfDay", e.target.value)}
-            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-vc-500 focus:border-vc-500"
           >
             <option value="">All Times</option>
             <option value="AM">AM</option>

@@ -40,7 +40,7 @@ export default function FolderColorPicker({ value, onChange }: FolderColorPicker
           type="text"
           value={value}
           onChange={e => onChange(e.target.value)}
-          className="flex-1 text-xs bg-white/[0.06] border border-white/[0.1] rounded px-2 py-1 text-gray-300 focus:outline-none focus:border-indigo-400"
+          className="flex-1 text-xs bg-white/[0.06] border border-white/[0.1] rounded px-2 py-1 text-gray-300 focus:outline-none focus:border-vc-400"
           placeholder="#6366f1"
           maxLength={7}
         />

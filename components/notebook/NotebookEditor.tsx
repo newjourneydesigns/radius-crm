@@ -373,7 +373,7 @@ export default function NotebookEditor() {
               <button
                 type="button"
                 onClick={() => handleModeChange('ink')}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${editorMode === 'ink' ? 'bg-indigo-500 text-white' : 'text-gray-400 hover:text-white'}`}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${editorMode === 'ink' ? 'bg-vc-500 text-white' : 'text-gray-400 hover:text-white'}`}
               >
                 Ink
                 {hasSavedInk && (

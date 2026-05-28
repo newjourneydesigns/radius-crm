@@ -230,7 +230,7 @@ export default function CircleRosterPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#111827' }}>
+    <div style={{ minHeight: '100vh', background: '#0f1117' }}>
       <div style={{ maxWidth: '640px', margin: '0 auto', padding: '20px 16px 120px' }}>
         {/* Back nav */}
         <div style={{ marginBottom: '20px' }}>
@@ -295,7 +295,7 @@ export default function CircleRosterPage() {
               alignItems: 'center',
               gap: '6px',
               fontSize: '13px',
-              color: '#818cf8',
+              color: '#56c93f',
               textDecoration: 'none',
               marginBottom: '16px',
             }}
@@ -456,7 +456,7 @@ export default function CircleRosterPage() {
                         width: '40px',
                         height: '40px',
                         borderRadius: '50%',
-                        background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                        background: 'linear-gradient(135deg, #2a9329, #56c93f)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -606,7 +606,7 @@ export default function CircleRosterPage() {
                         fontWeight: 500,
                         color: '#94a3b8',
                         background: '#1e293b',
-                        border: '1px solid #334155',
+                        border: '1px solid #3f3f46',
                         borderRadius: '6px',
                         textDecoration: 'none',
                         cursor: 'pointer',

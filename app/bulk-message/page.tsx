@@ -627,7 +627,7 @@ function BulkMessageContent() {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <div className="text-center space-y-4">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <div className="w-12 h-12 border-4 border-vc-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-gray-400 text-sm font-medium">Loading circle leaders...</p>
         </div>
       </div>
@@ -682,7 +682,7 @@ function BulkMessageContent() {
             {/* ── Filter Section ── */}
             <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-lg">
               <div className="flex items-center justify-between mb-5">
-                <h2 className="text-sm font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+                <h2 className="text-sm font-bold text-vc-400 uppercase tracking-wider flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
                   </svg>
@@ -714,7 +714,7 @@ function BulkMessageContent() {
                         setFilterDay([]);
                         setFilterAcpd([]);
                       }}
-                      className="text-[10px] font-bold text-blue-400 hover:text-blue-300 uppercase underline"
+                      className="text-[10px] font-bold text-vc-400 hover:text-vc-300 uppercase underline"
                     >
                       Reset Filters
                     </button>
@@ -733,7 +733,7 @@ function BulkMessageContent() {
                         onClick={() => toggleFilter(filterStatus, setFilterStatus, s)}
                         className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
                           filterStatus.includes(s)
-                            ? 'bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-900/30'
+                            ? 'bg-vc-600 border-vc-500 text-white shadow-md shadow-vc-900/30'
                             : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'
                         }`}
                       >
@@ -858,7 +858,7 @@ function BulkMessageContent() {
                       onChange={(e) => { setSearchQuery(e.target.value); setShowSearchDropdown(true); }}
                       onFocus={() => setShowSearchDropdown(true)}
                       placeholder="Search name, phone, campus..."
-                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow placeholder:text-gray-600"
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-vc-500 focus:border-vc-500 transition-shadow placeholder:text-gray-600"
                     />
                     {showSearchDropdown && leaderSearchResults.length > 0 && (
                       <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-gray-800 border border-gray-700 rounded-xl shadow-xl overflow-hidden max-h-60 overflow-y-auto">
@@ -1148,7 +1148,7 @@ function BulkMessageContent() {
             {/* ── Recipient Preview Table ── */}
             <section className="bg-gray-900 border border-gray-800 rounded-2xl shadow-lg overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
-                <h2 className="text-sm font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+                <h2 className="text-sm font-bold text-vc-400 uppercase tracking-wider flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
                   </svg>
@@ -1231,7 +1231,7 @@ function BulkMessageContent() {
             {/* ── Message Composer ── */}
             <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-lg">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+                <h2 className="text-sm font-bold text-vc-400 uppercase tracking-wider flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
                   </svg>
@@ -1245,7 +1245,7 @@ function BulkMessageContent() {
                       if (t) { setMessage(t.content); setSelectedTemplateId(t.id); }
                       else { setSelectedTemplateId(''); }
                     }}
-                    className="bg-gray-800 text-[11px] font-medium rounded-lg px-3 py-1.5 border border-gray-700 outline-none text-gray-300 focus:ring-1 focus:ring-blue-500"
+                    className="bg-gray-800 text-[11px] font-medium rounded-lg px-3 py-1.5 border border-gray-700 outline-none text-gray-300 focus:ring-1 focus:ring-vc-500"
                   >
                     <option value="">Saved Templates</option>
                     {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -1292,7 +1292,7 @@ function BulkMessageContent() {
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="Hey {{first_name}}, just wanted to check in about your circle..."
-                  className="w-full h-32 bg-gray-800 border border-gray-700 rounded-xl p-4 outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm leading-relaxed transition-shadow resize-none placeholder:text-gray-600"
+                  className="w-full h-32 bg-gray-800 border border-gray-700 rounded-xl p-4 outline-none focus:ring-1 focus:ring-vc-500 focus:border-vc-500 text-sm leading-relaxed transition-shadow resize-none placeholder:text-gray-600"
                 />
                 <div className="absolute bottom-3 right-3 text-[10px] font-medium text-gray-600 bg-gray-800/80 px-2 py-0.5 rounded">
                   {message.length} chars
@@ -1309,7 +1309,7 @@ function BulkMessageContent() {
                       onChange={(e) => setTemplateNameInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleSaveTemplate()}
                       placeholder="Template name..."
-                      className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-gray-600"
+                      className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:ring-1 focus:ring-vc-500 placeholder:text-gray-600"
                       autoFocus
                     />
                     <button
@@ -1546,7 +1546,7 @@ export default function BulkMessagePage() {
     <ProtectedRoute>
       <Suspense fallback={
         <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <div className="w-12 h-12 border-4 border-vc-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
       }>
         <BulkMessageContent />

@@ -56,10 +56,10 @@ function ResetPasswordContent() {
     setTimeout(() => router.replace('/boards'), 2500);
   };
 
-  const inputClass = "w-full px-4 py-3 bg-gray-900/50 border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-150 disabled:opacity-60";
+  const inputClass = "w-full px-4 py-3 bg-gray-900/50 border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent transition-all duration-150 disabled:opacity-60";
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-900 to-slate-950 flex items-center justify-center py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-900 to-zinc-950 flex items-center justify-center py-12 px-4">
       <div className="max-w-sm w-full space-y-6">
         <div className="text-center">
           <div className="mx-auto h-20 w-20 flex items-center justify-center">
@@ -83,7 +83,7 @@ function ResetPasswordContent() {
             </div>
           ) : !ready ? (
             <div className="text-center py-6 space-y-3">
-              <div className="w-8 h-8 border-2 border-gray-700 border-t-blue-500 rounded-full animate-spin mx-auto" />
+              <div className="w-8 h-8 border-2 border-gray-700 border-t-vc-500 rounded-full animate-spin mx-auto" />
               <p className="text-sm text-gray-400">Verifying reset link…</p>
             </div>
           ) : (
@@ -111,7 +111,7 @@ function ResetPasswordContent() {
               </div>
               <button type="submit" disabled={isLoading || !password || !confirm}
                 className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl
-                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900
+                  focus:outline-none focus:ring-2 focus:ring-vc-500 focus:ring-offset-2 focus:ring-offset-gray-900
                   flex items-center justify-center gap-3 transition-all duration-150
                   disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.98]">
                 {isLoading
@@ -130,7 +130,7 @@ export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gray-700 border-t-blue-500 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-gray-700 border-t-vc-500 rounded-full animate-spin" />
       </div>
     }>
       <ResetPasswordContent />

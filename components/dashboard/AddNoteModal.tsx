@@ -232,7 +232,7 @@ export default function AddNoteModal({
             }
             rows={4}
             maxLength={500}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white resize-none"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-vc-500 dark:bg-gray-700 dark:text-white resize-none"
             disabled={isSubmitting}
             required
           />
@@ -253,7 +253,7 @@ export default function AddNoteModal({
           <button
             type="submit"
             className={`px-4 py-2 rounded-lg text-sm ${
-              clearFollowUp ? 'btn-danger' : 'btn-primary'
+              clearFollowUp ? 'btn-danger' : 'btn-success'
             }`}
             disabled={isSubmitting || !content.trim() || (!circleLeaderId && !selectedLeaderId)}
           >

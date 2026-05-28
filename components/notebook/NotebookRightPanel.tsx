@@ -139,7 +139,7 @@ export default function NotebookRightPanel() {
                   return next;
                 });
               }}
-              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 active:bg-indigo-500/20 transition-colors"
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-vc-400 hover:text-vc-300 hover:bg-vc-500/10 active:bg-vc-500/20 transition-colors"
             >
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -190,7 +190,7 @@ export default function NotebookRightPanel() {
             onFocus={loadUsers}
             onChange={event => { setUserSearch(event.target.value); loadUsers(); }}
             placeholder="Add user by name or email"
-            className="w-full rounded-md border border-white/[0.08] bg-white/[0.04] px-2.5 py-2 text-xs text-gray-200 placeholder:text-gray-600 focus:border-indigo-400/60 focus:outline-none"
+            className="w-full rounded-md border border-white/[0.08] bg-white/[0.04] px-2.5 py-2 text-xs text-gray-200 placeholder:text-gray-600 focus:border-vc-400/60 focus:outline-none"
             autoFocus
           />
           {(userSearch || loadingUsers || users.length > 0) && (
@@ -207,7 +207,7 @@ export default function NotebookRightPanel() {
                     disabled={sharingUserId === user.id}
                     className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-white/[0.06] disabled:opacity-60"
                   >
-                    <div className="w-6 h-6 rounded-full bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-[10px] font-bold text-indigo-300 flex-shrink-0">
+                    <div className="w-6 h-6 rounded-full bg-vc-500/20 border border-vc-400/30 flex items-center justify-center text-[10px] font-bold text-vc-300 flex-shrink-0">
                       {(user.name || user.email || '?').charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">
@@ -231,7 +231,7 @@ export default function NotebookRightPanel() {
           <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Leaders</h3>
           <button
             onClick={() => setLeaderPickerOpen(true)}
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 active:bg-indigo-500/20 transition-colors"
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-vc-400 hover:text-vc-300 hover:bg-vc-500/10 active:bg-vc-500/20 transition-colors"
           >
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -250,7 +250,7 @@ export default function NotebookRightPanel() {
                   href={`/circle/${ll.circle_leader_id}`}
                   className="flex items-center gap-2 flex-1 min-w-0"
                 >
-                  <div className="w-7 h-7 rounded-full bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-[10px] font-bold text-indigo-300 flex-shrink-0">
+                  <div className="w-7 h-7 rounded-full bg-vc-500/20 border border-vc-400/30 flex items-center justify-center text-[10px] font-bold text-vc-300 flex-shrink-0">
                     {ll.circle_leader?.name.charAt(0).toUpperCase() ?? '?'}
                   </div>
                   <div className="min-w-0">
@@ -283,7 +283,7 @@ export default function NotebookRightPanel() {
           <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Boards</h3>
           <button
             onClick={() => setBoardPickerOpen(true)}
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 active:bg-indigo-500/20 transition-colors"
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-vc-400 hover:text-vc-300 hover:bg-vc-500/10 active:bg-vc-500/20 transition-colors"
           >
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -302,8 +302,8 @@ export default function NotebookRightPanel() {
                   href={`/boards/${lb.board_id}`}
                   className="flex items-center gap-2 flex-1 min-w-0"
                 >
-                  <div className="w-7 h-7 rounded-md bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center flex-shrink-0">
-                    <svg className="w-3.5 h-3.5 text-indigo-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                  <div className="w-7 h-7 rounded-md bg-vc-500/20 border border-vc-400/30 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-3.5 h-3.5 text-vc-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
                       <rect x="3" y="3" width="7" height="9" rx="1.5" strokeLinecap="round" />
                       <rect x="14" y="3" width="7" height="5" rx="1.5" strokeLinecap="round" />
                       <rect x="14" y="12" width="7" height="9" rx="1.5" strokeLinecap="round" />
@@ -336,7 +336,7 @@ export default function NotebookRightPanel() {
           <div className="flex items-center gap-1">
             <button
               onClick={() => setQuickAddOpen(true)}
-              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 active:bg-indigo-500/20 transition-colors"
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-vc-400 hover:text-vc-300 hover:bg-vc-500/10 active:bg-vc-500/20 transition-colors"
               title="Create a new card and link it"
             >
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">

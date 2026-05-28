@@ -220,19 +220,19 @@ function LoginContent() {
 
   const inputClass = [
     'w-full px-4 py-3 rounded-xl text-sm text-white placeholder-slate-500',
-    'bg-slate-700/60 border border-slate-600',
-    'focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent',
+    'bg-white/5 border border-white/10',
+    'focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent',
     'transition-colors duration-150 disabled:opacity-50',
   ].join(' ');
 
-  const pageWrap = `min-h-screen bg-slate-900 flex items-center justify-center py-8 px-4`;
-  const cardClass = `bg-slate-800 border border-slate-700 rounded-2xl shadow-card-glass p-6 sm:p-8 space-y-5`;
+  const pageWrap = `min-h-screen bg-[#0f1117] flex items-center justify-center py-8 px-4`;
+  const cardClass = `bg-brand-dark border border-white/10 rounded-2xl shadow-card-glass p-6 sm:p-8 space-y-5`;
   const primaryBtn = [
     'w-full py-3 px-4 rounded-xl font-semibold text-sm text-white',
-    'bg-btn-primary hover:opacity-90 active:scale-[0.98]',
+    'bg-vc-fab hover:opacity-90 active:scale-[0.98]',
     'flex items-center justify-center gap-2.5',
     'transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed',
-    'focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900',
+    'focus:outline-none focus:ring-2 focus:ring-vc-500 focus:ring-offset-2 focus:ring-offset-[#0f1117]',
   ].join(' ');
 
   /* ── Code entry step ── */
@@ -273,17 +273,17 @@ function LoginContent() {
                   disabled={isVerifying}
                   className={[
                     'w-11 h-14 text-center text-xl font-bold rounded-xl border-2',
-                    'bg-slate-700/60 text-white outline-none transition-all duration-150',
-                    digit ? 'border-indigo-500 shadow-sm shadow-indigo-500/20' : 'border-slate-600',
-                    'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 disabled:opacity-50',
+                    'bg-white/5 text-white outline-none transition-all duration-150',
+                    digit ? 'border-vc-500 shadow-sm shadow-vc-500/20' : 'border-white/10',
+                    'focus:border-vc-500 focus:ring-2 focus:ring-vc-500/30 disabled:opacity-50',
                   ].join(' ')}
                 />
               ))}
             </div>
 
             {isVerifying && (
-              <div className="flex items-center justify-center gap-2 text-sm text-indigo-400">
-                <div className="w-4 h-4 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
+              <div className="flex items-center justify-center gap-2 text-sm text-vc-400">
+                <div className="w-4 h-4 border-2 border-vc-400/30 border-t-vc-400 rounded-full animate-spin" />
                 Verifying…
               </div>
             )}
@@ -292,7 +292,7 @@ function LoginContent() {
               <button
                 type="button"
                 onClick={() => { setStep('email'); setOtpCode(['', '', '', '', '', '']); setError(''); }}
-                className="w-full py-2.5 px-4 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900"
+                className="w-full py-2.5 px-4 bg-zinc-700 hover:bg-zinc-600 text-slate-200 text-sm font-medium rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-vc-500 focus:ring-offset-2 focus:ring-offset-[#0f1117]"
               >
                 Use a different email
               </button>
@@ -300,7 +300,7 @@ function LoginContent() {
                 type="button"
                 onClick={handleSendCode as any}
                 disabled={isLoading || cooldown > 0}
-                className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors disabled:opacity-50 py-1"
+                className="text-sm text-vc-400 hover:text-vc-300 transition-colors disabled:opacity-50 py-1"
               >
                 {isLoading ? 'Sending…' : cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
               </button>
@@ -330,7 +330,7 @@ function LoginContent() {
         </div>
 
         {/* Mode toggle */}
-        <div className="flex bg-slate-800 border border-slate-700 rounded-xl p-1 gap-1">
+        <div className="flex bg-brand-dark border border-white/10 rounded-xl p-1 gap-1">
           <button
             type="button"
             onClick={() => { setMode('password'); setError(''); setSuccessMessage(''); }}
@@ -382,7 +382,7 @@ function LoginContent() {
               <div className="flex items-center justify-between">
                 <label className="flex items-center gap-2 cursor-pointer select-none group">
                   <input type="checkbox" checked={rememberMe} onChange={e => handleRememberMeChange(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-600 bg-slate-700 accent-indigo-500 cursor-pointer" />
+                    className="w-4 h-4 rounded border-white/10 bg-zinc-700 accent-vc-500 cursor-pointer" />
                   <span className="text-sm text-slate-400 group-hover:text-slate-300 transition-colors">Stay signed in</span>
                 </label>
                 <span className="text-xs text-slate-600">{rememberMe ? 'Persistent session' : 'Signs out on close'}</span>
@@ -421,11 +421,11 @@ function LoginContent() {
               <div className="flex items-center justify-between">
                 <label className="flex items-center gap-2 cursor-pointer select-none group">
                   <input type="checkbox" checked={rememberMe} onChange={e => handleRememberMeChange(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-600 bg-slate-700 accent-indigo-500 cursor-pointer" />
+                    className="w-4 h-4 rounded border-white/10 bg-zinc-700 accent-vc-500 cursor-pointer" />
                   <span className="text-sm text-slate-400 group-hover:text-slate-300 transition-colors">Stay signed in</span>
                 </label>
                 <button type="button" onClick={handleForgotPassword} disabled={isLoading}
-                  className="text-xs text-indigo-400/80 hover:text-indigo-400 hover:underline transition-colors disabled:opacity-50">
+                  className="text-xs text-vc-400/80 hover:text-vc-400 hover:underline transition-colors disabled:opacity-50">
                   Forgot password?
                 </button>
               </div>
@@ -442,7 +442,7 @@ function LoginContent() {
         {/* Footer */}
         <p className="text-center text-xs text-slate-600">
           Need access?{' '}
-          <a href="mailto:trip.ochenski@valleycreek.org" className="text-indigo-400/80 hover:text-indigo-400 hover:underline transition-colors">
+          <a href="mailto:trip.ochenski@valleycreek.org" className="text-vc-400/80 hover:text-vc-400 hover:underline transition-colors">
             Contact an administrator
           </a>
         </p>
@@ -455,8 +455,8 @@ export default function LoginPage() {
   return (
     <ProtectedRoute requireAuth={false}>
       <Suspense fallback={
-        <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-          <div className="w-5 h-5 border-2 border-slate-700 border-t-indigo-500 rounded-full animate-spin" />
+        <div className="min-h-screen bg-[#0f1117] flex items-center justify-center">
+          <div className="w-5 h-5 border-2 border-white/10 border-t-vc-500 rounded-full animate-spin" />
         </div>
       }>
         <LoginContent />

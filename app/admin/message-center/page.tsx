@@ -31,7 +31,7 @@ const STATUS_STYLES = {
   always: 'bg-emerald-500/20 text-emerald-300',
   active: 'bg-sky-500/20 text-sky-300',
   upcoming: 'bg-violet-500/20 text-violet-300',
-  expired: 'bg-slate-600/50 text-slate-400',
+  expired: 'bg-zinc-600/50 text-slate-400',
 };
 
 function emptyMessage(): Partial<Message> {
@@ -67,7 +67,7 @@ export default function MessageCenterAdminPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-900 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-[#0f1117] p-4 sm:p-6 lg:p-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-white tracking-tight">Message Center</h1>
@@ -264,14 +264,14 @@ function MessagesPanel({ token }: { token: string | null }) {
       )}
 
       {draft && (
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-card-glass mb-6">
+        <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-5 shadow-card-glass mb-6">
           <h2 className="text-base font-semibold text-white mb-4">
             {(draft as Message).id ? 'Edit message' : 'New message'}
           </h2>
           <div className="space-y-4">
             <Field label="Header" required>
               <input
-                className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500"
                 value={draft.header || ''}
                 onChange={(e) => setDraft({ ...draft, header: e.target.value })}
                 placeholder="e.g. Holiday schedule update"
@@ -293,7 +293,7 @@ function MessagesPanel({ token }: { token: string | null }) {
               <Field label="Call-to-action URL" hint="Optional link button.">
                 <input
                   type="url"
-                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500"
                   value={draft.url || ''}
                   onChange={(e) => setDraft({ ...draft, url: e.target.value })}
                   placeholder="https://..."
@@ -301,7 +301,7 @@ function MessagesPanel({ token }: { token: string | null }) {
               </Field>
               <Field label="Button label" hint='Defaults to "Learn more" if blank.'>
                 <input
-                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500"
                   value={draft.url_label || ''}
                   onChange={(e) => setDraft({ ...draft, url_label: e.target.value })}
                   placeholder="Learn more"
@@ -324,8 +324,8 @@ function MessagesPanel({ token }: { token: string | null }) {
                         key={c}
                         className={`flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                           checked
-                            ? 'bg-indigo-500/20 text-indigo-200 border-indigo-500/40'
-                            : 'bg-slate-700/50 text-slate-300 border-slate-600 hover:bg-slate-700'
+                            ? 'bg-vc-500/20 text-vc-200 border-vc-500/40'
+                            : 'bg-zinc-700/50 text-slate-300 border-zinc-600 hover:bg-zinc-700'
                         }`}
                       >
                         <input
@@ -369,7 +369,7 @@ function MessagesPanel({ token }: { token: string | null }) {
                     <p className="text-xs text-slate-500 mb-1">Start date</p>
                     <input
                       type="date"
-                      className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500"
                       value={draft.start_date || ''}
                       onChange={(e) =>
                         setDraft({ ...draft, start_date: e.target.value || null })
@@ -391,7 +391,7 @@ function MessagesPanel({ token }: { token: string | null }) {
                     </div>
                     <input
                       type="date"
-                      className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500"
                       value={draft.end_date || ''}
                       onChange={(e) =>
                         setDraft({ ...draft, end_date: e.target.value || null })
@@ -415,7 +415,7 @@ function MessagesPanel({ token }: { token: string | null }) {
                   hint="Where this message appears when multiple are active."
                 >
                   <select
-                    className="w-48 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-48 bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500"
                     value={position}
                     onChange={(e) => setPosition(parseInt(e.target.value, 10))}
                   >
@@ -439,7 +439,7 @@ function MessagesPanel({ token }: { token: string | null }) {
               </button>
               <button
                 onClick={cancelEdit}
-                className="text-slate-400 hover:text-white hover:bg-slate-700 px-3 py-1.5 rounded-lg text-sm transition-colors"
+                className="text-slate-400 hover:text-white hover:bg-zinc-700 px-3 py-1.5 rounded-lg text-sm transition-colors"
               >
                 Cancel
               </button>
@@ -450,11 +450,11 @@ function MessagesPanel({ token }: { token: string | null }) {
 
       {loading ? (
         <div className="space-y-2">
-          <div className="animate-pulse bg-slate-700 rounded-xl h-16" />
-          <div className="animate-pulse bg-slate-700 rounded-xl h-16" />
+          <div className="animate-pulse bg-zinc-700 rounded-xl h-16" />
+          <div className="animate-pulse bg-zinc-700 rounded-xl h-16" />
         </div>
       ) : messages.length === 0 ? (
-        <div className="text-center py-12 bg-slate-800 border border-slate-700 rounded-xl">
+        <div className="text-center py-12 bg-zinc-800 border border-zinc-700 rounded-xl">
           <p className="text-slate-400 text-sm">No messages yet.</p>
           <p className="text-slate-500 text-xs mt-1">
             Click &quot;New message&quot; to post one to the Circle Summary events page.
@@ -468,7 +468,7 @@ function MessagesPanel({ token }: { token: string | null }) {
             return (
               <div
                 key={m.id}
-                className="bg-slate-800 border border-slate-700 rounded-xl p-4 flex items-start justify-between gap-4"
+                className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 flex items-start justify-between gap-4"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -479,7 +479,7 @@ function MessagesPanel({ token }: { token: string | null }) {
                       {status}
                     </span>
                     {m.campus_filter && m.campus_filter.length > 0 ? (
-                      <span className="bg-indigo-500/20 text-indigo-300 text-xs font-medium px-2 py-0.5 rounded-full">
+                      <span className="bg-vc-500/20 text-vc-300 text-xs font-medium px-2 py-0.5 rounded-full">
                         {m.campus_filter.join(', ')}
                       </span>
                     ) : (

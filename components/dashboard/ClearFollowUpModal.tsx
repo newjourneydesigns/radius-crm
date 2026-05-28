@@ -119,7 +119,7 @@ export default function ClearFollowUpModal({
             placeholder="Explain why the follow-up is being cleared (e.g., 'Contacted leader and resolved the issue', 'Follow-up completed successfully', etc.)"
             rows={4}
             maxLength={500}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white resize-none"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-vc-500 dark:bg-gray-700 dark:text-white resize-none"
             disabled={isSubmitting}
             required
           />

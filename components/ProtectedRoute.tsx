@@ -73,7 +73,7 @@ export default function ProtectedRoute({ children, requireAuth = true }: Protect
   // If timeout reached, show error message with refresh option
   if (timeoutReached && loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117] flex items-center justify-center">
         <div className="text-center">
           <div className="mb-4">
             <svg className="w-12 h-12 text-red-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">

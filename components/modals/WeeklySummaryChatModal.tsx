@@ -86,7 +86,7 @@ function MarkdownContent({ content }: { content: string }) {
     if (h2Match) {
       flushList();
       elements.push(
-        <h2 key={key++} className="text-sm font-bold text-white mt-4 mb-1.5 pb-1 border-b border-slate-700">
+        <h2 key={key++} className="text-sm font-bold text-white mt-4 mb-1.5 pb-1 border-b border-zinc-700">
           {renderInline(h2Match[1])}
         </h2>
       );
@@ -108,7 +108,7 @@ function MarkdownContent({ content }: { content: string }) {
     if (numberedHeaderMatch && trimmed.length <= 50 && !trimmed.includes('(')) {
       flushList();
       elements.push(
-        <h2 key={key++} className="text-sm font-bold text-white mt-4 mb-1.5 pb-1 border-b border-slate-700">
+        <h2 key={key++} className="text-sm font-bold text-white mt-4 mb-1.5 pb-1 border-b border-zinc-700">
           {numberedHeaderMatch[1]}. {renderInline(numberedHeaderMatch[2].replace(/\*\*/g, ''))}
         </h2>
       );
@@ -173,7 +173,7 @@ function MarkdownContent({ content }: { content: string }) {
 
     if (/^[-_]{3,}$/.test(trimmed)) {
       flushList();
-      elements.push(<hr key={key++} className="border-slate-700 my-3" />);
+      elements.push(<hr key={key++} className="border-zinc-700 my-3" />);
       continue;
     }
 
@@ -304,11 +304,11 @@ export default function WeeklySummaryChatModal({
               {weekLabel}
             </span>
             {filterLabel && (
-              <span className="inline-flex items-center px-2.5 py-1 bg-slate-700/50 text-slate-300 rounded-full text-xs font-medium">
+              <span className="inline-flex items-center px-2.5 py-1 bg-zinc-700/50 text-slate-300 rounded-full text-xs font-medium">
                 {filterLabel}
               </span>
             )}
-            <span className="inline-flex items-center px-2.5 py-1 bg-slate-700/50 text-slate-400 rounded-full text-xs">
+            <span className="inline-flex items-center px-2.5 py-1 bg-zinc-700/50 text-slate-400 rounded-full text-xs">
               {leaderCount} leader{leaderCount !== 1 ? 's' : ''}
             </span>
           </div>
@@ -316,7 +316,7 @@ export default function WeeklySummaryChatModal({
           {summary && (
             <button
               onClick={handleCopySummary}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 border border-slate-600 hover:bg-slate-700 text-slate-400 hover:text-slate-200"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 border border-zinc-600 hover:bg-zinc-700 text-slate-400 hover:text-slate-200"
             >
               {summaryCopied ? (
                 <>
@@ -339,16 +339,16 @@ export default function WeeklySummaryChatModal({
 
         {/* Summary content */}
         {summary && (
-          <div className="bg-slate-800/60 rounded-xl border border-slate-700 p-4 max-h-[35vh] overflow-y-auto">
+          <div className="bg-zinc-800/60 rounded-xl border border-zinc-700 p-4 max-h-[35vh] overflow-y-auto">
             <MarkdownContent content={summary} />
           </div>
         )}
 
         {/* Chat panel */}
         {summary && (
-          <div className="border border-slate-700 rounded-xl overflow-hidden">
+          <div className="border border-zinc-700 rounded-xl overflow-hidden">
             {/* Chat header */}
-            <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 border-b border-slate-700">
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-zinc-800 border-b border-zinc-700">
               <svg className="h-3.5 w-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
@@ -387,14 +387,14 @@ export default function WeeklySummaryChatModal({
 
             {/* Message history */}
             {chatMessages.length > 0 && (
-              <div className="max-h-64 overflow-y-auto px-4 py-3 space-y-3 bg-slate-900">
+              <div className="max-h-64 overflow-y-auto px-4 py-3 space-y-3 bg-zinc-900">
                 {chatMessages.map((msg, i) => (
                   <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     <div
                       className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
                         msg.role === 'user'
                           ? 'bg-purple-600 text-white rounded-br-sm'
-                          : 'bg-slate-800 text-slate-200 rounded-bl-sm border border-slate-700'
+                          : 'bg-zinc-800 text-slate-200 rounded-bl-sm border border-zinc-700'
                       }`}
                     >
                       {msg.role === 'assistant' ? <MarkdownContent content={msg.content} /> : msg.content}
@@ -403,10 +403,10 @@ export default function WeeklySummaryChatModal({
                 ))}
                 {isChatLoading && (
                   <div className="flex justify-start">
-                    <div className="bg-slate-800 border border-slate-700 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce [animation-delay:0ms]" />
-                      <span className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce [animation-delay:150ms]" />
-                      <span className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce [animation-delay:300ms]" />
+                    <div className="bg-zinc-800 border border-zinc-700 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:0ms]" />
+                      <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:150ms]" />
+                      <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:300ms]" />
                     </div>
                   </div>
                 )}
@@ -420,7 +420,7 @@ export default function WeeklySummaryChatModal({
             )}
 
             {/* Input row */}
-            <div className="flex items-end gap-2 px-3 py-2.5 bg-slate-900 border-t border-slate-800">
+            <div className="flex items-end gap-2 px-3 py-2.5 bg-zinc-900 border-t border-zinc-800">
               <textarea
                 ref={chatInputRef}
                 value={chatInput}
@@ -428,7 +428,7 @@ export default function WeeklySummaryChatModal({
                 onKeyDown={handleChatKeyDown}
                 placeholder="e.g. Which leaders need the most attention this week?"
                 rows={1}
-                className="flex-1 resize-none text-sm px-3 py-2 rounded-xl border border-slate-700 bg-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500/50 transition-colors"
+                className="flex-1 resize-none text-sm px-3 py-2 rounded-xl border border-zinc-700 bg-zinc-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500/50 transition-colors"
                 style={{ maxHeight: '96px' }}
                 disabled={isChatLoading}
               />
@@ -449,7 +449,7 @@ export default function WeeklySummaryChatModal({
         <div className="flex justify-end pt-1">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-slate-200 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-slate-200 bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 rounded-lg transition-colors"
           >
             Close
           </button>

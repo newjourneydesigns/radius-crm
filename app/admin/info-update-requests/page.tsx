@@ -80,7 +80,7 @@ export default function InfoUpdateRequestsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-[#0f1117] p-4 sm:p-6 lg:p-8">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-xl font-semibold text-white tracking-tight mb-1">
           Circle info update requests
@@ -94,8 +94,8 @@ export default function InfoUpdateRequestsPage() {
             onClick={() => setTab('pending')}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               tab === 'pending'
-                ? 'bg-indigo-500/20 text-indigo-200'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                ? 'bg-vc-500/20 text-vc-200'
+                : 'text-slate-400 hover:text-white hover:bg-zinc-800'
             }`}
           >
             Pending
@@ -104,8 +104,8 @@ export default function InfoUpdateRequestsPage() {
             onClick={() => setTab('reviewed')}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               tab === 'reviewed'
-                ? 'bg-indigo-500/20 text-indigo-200'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                ? 'bg-vc-500/20 text-vc-200'
+                : 'text-slate-400 hover:text-white hover:bg-zinc-800'
             }`}
           >
             Reviewed
@@ -120,11 +120,11 @@ export default function InfoUpdateRequestsPage() {
 
         {loading ? (
           <div className="space-y-2">
-            <div className="animate-pulse bg-slate-700 rounded-xl h-24" />
-            <div className="animate-pulse bg-slate-700 rounded-xl h-24" />
+            <div className="animate-pulse bg-zinc-700 rounded-xl h-24" />
+            <div className="animate-pulse bg-zinc-700 rounded-xl h-24" />
           </div>
         ) : rows.length === 0 ? (
-          <div className="text-center py-12 bg-slate-800 border border-slate-700 rounded-xl">
+          <div className="text-center py-12 bg-zinc-800 border border-zinc-700 rounded-xl">
             <p className="text-slate-400 text-sm">
               {tab === 'pending' ? 'No pending requests.' : 'No reviewed requests yet.'}
             </p>
@@ -134,7 +134,7 @@ export default function InfoUpdateRequestsPage() {
             {rows.map((r) => (
               <div
                 key={r.id}
-                className="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-card-glass"
+                className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 shadow-card-glass"
               >
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div>
@@ -206,14 +206,14 @@ export default function InfoUpdateRequestsPage() {
                     <button
                       onClick={() => review(r.id, 'applied', false)}
                       disabled={busyId === r.id}
-                      className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium"
+                      className="bg-zinc-700 hover:bg-zinc-600 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium"
                     >
                       Mark applied (no leader change)
                     </button>
                     <button
                       onClick={() => review(r.id, 'deferred', false)}
                       disabled={busyId === r.id}
-                      className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium"
+                      className="bg-zinc-700 hover:bg-zinc-600 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium"
                     >
                       Defer
                     </button>

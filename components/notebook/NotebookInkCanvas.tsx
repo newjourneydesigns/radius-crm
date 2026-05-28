@@ -655,10 +655,10 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
     <div className="flex min-h-0 flex-1 flex-col rounded-md border border-white/[0.08] bg-[#0b0d13] overflow-hidden">
       <div className="flex items-center gap-2 overflow-x-auto border-b border-white/[0.08] bg-[#111421] px-3 py-2 touch-none select-none">
         <div className="flex shrink-0 rounded-md border border-white/[0.08] bg-white/[0.04] p-0.5">
-          <button type="button" onClick={() => setTool('pen')} className={`p-2 rounded ${tool === 'pen' ? 'bg-indigo-500 text-white' : 'text-gray-400 hover:text-white'}`} title="Pen">
+          <button type="button" onClick={() => setTool('pen')} className={`p-2 rounded ${tool === 'pen' ? 'bg-vc-500 text-white' : 'text-gray-400 hover:text-white'}`} title="Pen">
             <Brush className="h-4 w-4" />
           </button>
-          <button type="button" onClick={() => setTool('eraser')} className={`p-2 rounded ${tool === 'eraser' ? 'bg-indigo-500 text-white' : 'text-gray-400 hover:text-white'}`} title="Stroke eraser">
+          <button type="button" onClick={() => setTool('eraser')} className={`p-2 rounded ${tool === 'eraser' ? 'bg-vc-500 text-white' : 'text-gray-400 hover:text-white'}`} title="Stroke eraser">
             <Eraser className="h-4 w-4" />
           </button>
         </div>
@@ -670,7 +670,7 @@ export default function NotebookInkCanvas({ pageId, ink, onChange }: NotebookInk
               type="button"
               onClick={() => setColor(c.value)}
               className={`h-7 w-7 rounded-full border transition-transform hover:scale-105 ${
-                color === c.value ? 'border-white ring-2 ring-indigo-400/70' : 'border-white/20'
+                color === c.value ? 'border-white ring-2 ring-vc-400/70' : 'border-white/20'
               }`}
               style={{ backgroundColor: c.value }}
               title={c.name}

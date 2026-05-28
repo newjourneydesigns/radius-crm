@@ -588,9 +588,9 @@ export default function SettingsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-vc-500 mx-auto"></div>
           <p className="mt-4 text-gray-600 dark:text-gray-400">Loading settings...</p>
         </div>
       </div>
@@ -599,7 +599,7 @@ export default function SettingsPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117]">
         <div className="max-w-6xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
           {/* Header */}
           <div className="mb-6 sm:mb-8">
@@ -655,19 +655,19 @@ export default function SettingsPage() {
                     placeholder="Full Name *"
                     value={newDirector.name}
                     onChange={(e) => setNewDirector(prev => ({ ...prev, name: e.target.value }))}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500"
                   />
                   <input
                     type="text"
                     placeholder="Description (optional)"
                     value={newDirector.description}
                     onChange={(e) => setNewDirector(prev => ({ ...prev, description: e.target.value }))}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500"
                   />
                   <select
                     value={newDirector.status}
                     onChange={(e) => setNewDirector(prev => ({ ...prev, status: e.target.value as 'active' | 'inactive' }))}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500"
                   >
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
@@ -692,18 +692,18 @@ export default function SettingsPage() {
                           type="text"
                           value={editingDirector.name}
                           onChange={(e) => setEditingDirector(prev => prev ? { ...prev, name: e.target.value } : null)}
-                          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500"
                         />
                         <input
                           type="text"
                           value={editingDirector.description || ''}
                           onChange={(e) => setEditingDirector(prev => prev ? { ...prev, description: e.target.value } : null)}
-                          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500"
                         />
                         <select
                           value={editingDirector.status}
                           onChange={(e) => setEditingDirector(prev => prev ? { ...prev, status: e.target.value as 'active' | 'inactive' } : null)}
-                          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500"
                         >
                           <option value="active">Active</option>
                           <option value="inactive">Inactive</option>
@@ -787,19 +787,19 @@ export default function SettingsPage() {
                     placeholder="Full Name *"
                     value={newHostTeamDirector.name}
                     onChange={(e) => setNewHostTeamDirector(prev => ({ ...prev, name: e.target.value }))}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500"
                   />
                   <input
                     type="text"
                     placeholder="Description (optional)"
                     value={newHostTeamDirector.description}
                     onChange={(e) => setNewHostTeamDirector(prev => ({ ...prev, description: e.target.value }))}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500"
                   />
                   <select
                     value={newHostTeamDirector.status}
                     onChange={(e) => setNewHostTeamDirector(prev => ({ ...prev, status: e.target.value as 'active' | 'inactive' }))}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500"
                   >
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
@@ -830,18 +830,18 @@ export default function SettingsPage() {
                             type="text"
                             value={editingHostTeamDirector.name}
                             onChange={(e) => setEditingHostTeamDirector(prev => prev ? { ...prev, name: e.target.value } : null)}
-                            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500"
                           />
                           <input
                             type="text"
                             value={editingHostTeamDirector.description || ''}
                             onChange={(e) => setEditingHostTeamDirector(prev => prev ? { ...prev, description: e.target.value } : null)}
-                            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500"
                           />
                           <select
                             value={editingHostTeamDirector.status}
                             onChange={(e) => setEditingHostTeamDirector(prev => prev ? { ...prev, status: e.target.value as 'active' | 'inactive' } : null)}
-                            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500"
                           >
                             <option value="active">Active</option>
                             <option value="inactive">Inactive</option>
@@ -926,7 +926,7 @@ export default function SettingsPage() {
                     placeholder="Circle Type Name *"
                     value={newCircleType}
                     onChange={(e) => setNewCircleType(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500"
                     onKeyDown={(e) => e.key === 'Enter' && handleAddCircleType()}
                   />
                   <button
@@ -955,7 +955,7 @@ export default function SettingsPage() {
                             type="text"
                             value={editingCircleType.value}
                             onChange={(e) => setEditingCircleType(prev => prev ? { ...prev, value: e.target.value } : null)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500"
                             onKeyDown={(e) => e.key === 'Enter' && handleEditCircleType(editingCircleType)}
                           />
                         </div>
@@ -1024,7 +1024,7 @@ export default function SettingsPage() {
                     placeholder="Status Name *"
                     value={newStatus}
                     onChange={(e) => setNewStatus(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500"
                     onKeyDown={(e) => e.key === 'Enter' && handleAddStatus()}
                   />
                   <button
@@ -1053,7 +1053,7 @@ export default function SettingsPage() {
                             type="text"
                             value={editingStatus.value}
                             onChange={(e) => setEditingStatus(prev => prev ? { ...prev, value: e.target.value } : null)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500"
                             onKeyDown={(e) => e.key === 'Enter' && handleEditStatus(editingStatus)}
                           />
                         </div>
@@ -1122,7 +1122,7 @@ export default function SettingsPage() {
                     placeholder="Frequency Name *"
                     value={newFrequency}
                     onChange={(e) => setNewFrequency(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500"
                     onKeyDown={(e) => e.key === 'Enter' && handleAddFrequency()}
                   />
                   <button
@@ -1151,7 +1151,7 @@ export default function SettingsPage() {
                             type="text"
                             value={editingFrequency.value}
                             onChange={(e) => setEditingFrequency(prev => prev ? { ...prev, value: e.target.value } : null)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500"
                             onKeyDown={(e) => e.key === 'Enter' && handleEditFrequency(editingFrequency)}
                           />
                         </div>
@@ -1220,7 +1220,7 @@ export default function SettingsPage() {
                     placeholder="Campus Name *"
                     value={newCampus}
                     onChange={(e) => setNewCampus(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500"
                     onKeyDown={(e) => e.key === 'Enter' && handleAddCampus()}
                   />
                   <button
@@ -1249,7 +1249,7 @@ export default function SettingsPage() {
                             type="text"
                             value={editingCampus.value}
                             onChange={(e) => setEditingCampus(prev => prev ? { ...prev, value: e.target.value } : null)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500"
                             onKeyDown={(e) => e.key === 'Enter' && handleEditCampus(editingCampus)}
                           />
                         </div>
@@ -1388,8 +1388,8 @@ export default function SettingsPage() {
                   <button
                     onClick={toggleDigestSubscription}
                     disabled={digestLoading || digestSubscribed === null}
-                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 ${
-                      digestSubscribed ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-vc-500 focus:ring-offset-2 disabled:opacity-50 ${
+                      digestSubscribed ? 'bg-vc-600' : 'bg-gray-300 dark:bg-gray-600'
                     }`}
                     role="switch"
                     aria-checked={digestSubscribed ?? false}

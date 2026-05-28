@@ -371,7 +371,7 @@ export default function EventExplorerModal({
               onChange={(e) => setDate(e.target.value)}
               onKeyPress={handleKeyPress}
               style={{ maxWidth: '100%', minWidth: 0 }}
-              className="w-full px-4 py-3 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-200"
+              className="w-full px-4 py-3 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500/20 focus:border-vc-500/50 backdrop-blur-sm transition-all duration-200"
               disabled={loading}
             />
 
@@ -388,7 +388,7 @@ export default function EventExplorerModal({
                   onKeyPress={handleKeyPress}
                   min={date || undefined}
                   style={{ maxWidth: '100%', minWidth: 0 }}
-                  className="w-full px-4 py-3 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-200"
+                  className="w-full px-4 py-3 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500/20 focus:border-vc-500/50 backdrop-blur-sm transition-all duration-200"
                   disabled={loading}
                 />
               </div>
@@ -470,7 +470,7 @@ export default function EventExplorerModal({
               onChange={(e) => setGroupName(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="e.g., LVT | S1"
-              className="w-full px-4 py-3 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-200"
+              className="w-full px-4 py-3 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500/20 focus:border-vc-500/50 backdrop-blur-sm transition-all duration-200"
               disabled={loading}
             />
           </div>
@@ -584,7 +584,7 @@ export default function EventExplorerModal({
                 className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden"
               >
                 {/* Event Header */}
-                <div className="bg-slate-700 px-4 py-3">
+                <div className="bg-zinc-700 px-4 py-3">
                   <h3 className="text-base font-semibold text-white">
                     {event.title}
                   </h3>

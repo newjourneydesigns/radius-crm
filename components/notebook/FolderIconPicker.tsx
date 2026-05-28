@@ -182,7 +182,7 @@ export default function FolderIconPicker({ value, onChange }: FolderIconPickerPr
                 type="button"
                 onClick={() => onChange(name)}
                 className={`w-7 h-7 flex items-center justify-center rounded text-gray-300 transition-all hover:bg-white/[0.1] hover:text-white ${
-                  selectedIconName === name ? 'bg-indigo-500/30 text-white ring-1 ring-indigo-400' : ''
+                  selectedIconName === name ? 'bg-vc-500/30 text-white ring-1 ring-vc-400' : ''
                 }`}
                 aria-label={label}
                 title={label}

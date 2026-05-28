@@ -35,7 +35,7 @@ export default function NotebookEmptyState() {
       </div>
       <button
         onClick={handleCreate}
-        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors"
+        className="flex items-center gap-2 px-4 py-2 bg-vc-600 hover:bg-vc-500 text-white text-sm font-medium rounded-lg transition-colors"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />

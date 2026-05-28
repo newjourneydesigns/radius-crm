@@ -82,13 +82,13 @@ export default function CalendarFilterPanel({
     return count;
   }, [filters]);
 
-  const selectClass = "block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors";
-  const checkboxClass = "h-4 w-4 text-indigo-500 focus:ring-indigo-500 border-slate-600 rounded bg-slate-700";
+  const selectClass = "block w-full px-3 py-2 bg-zinc-700 border border-zinc-600 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent transition-colors";
+  const checkboxClass = "h-4 w-4 text-vc-500 focus:ring-vc-500 border-zinc-600 rounded bg-zinc-700";
   const labelClass = "text-xs font-medium text-slate-500 uppercase tracking-wide mb-2";
 
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-card-glass mb-4">
-      <div className={`px-4 py-3 ${open ? 'border-b border-slate-700' : ''}`}>
+    <div className="bg-zinc-800 border border-zinc-700 rounded-xl shadow-card-glass mb-4">
+      <div className={`px-4 py-3 ${open ? 'border-b border-zinc-700' : ''}`}>
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-sm font-semibold text-white">Filters</span>
@@ -114,7 +114,7 @@ export default function CalendarFilterPanel({
                   return next;
                 });
               }}
-              className="px-2.5 py-1 text-xs font-medium text-slate-300 hover:text-white border border-slate-600 rounded-lg hover:bg-slate-700 transition-colors"
+              className="px-2.5 py-1 text-xs font-medium text-slate-300 hover:text-white border border-zinc-600 rounded-lg hover:bg-zinc-700 transition-colors"
             >
               {open ? 'Hide' : 'Filters'}
             </button>

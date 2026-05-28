@@ -234,8 +234,8 @@ export default function ScorecardSection({ leaderId, isAdmin, initialDimension, 
     <div className="section-panel bg-white dark:bg-gray-800 rounded-lg shadow">
       <div className="section-header-row px-6 py-4 flex justify-between items-center">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-indigo-500/15 flex items-center justify-center">
-            <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-8 h-8 rounded-lg bg-vc-500/15 flex items-center justify-center">
+            <svg className="w-4 h-4 text-vc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
           </div>
@@ -422,13 +422,13 @@ export default function ScorecardSection({ leaderId, isAdmin, initialDimension, 
                           <input
                             value={prospectEditValues.name}
                             onChange={e => setProspectEditValues(prev => ({ ...prev, name: e.target.value }))}
-                            className="w-full bg-slate-700 border border-slate-600 text-white placeholder-slate-400 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            className="w-full bg-zinc-700 border border-zinc-600 text-white placeholder-slate-400 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent"
                             placeholder="Name"
                           />
                           <textarea
                             value={prospectEditValues.notes}
                             onChange={e => setProspectEditValues(prev => ({ ...prev, notes: e.target.value }))}
-                            className="w-full bg-slate-700 border border-slate-600 text-white placeholder-slate-400 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                            className="w-full bg-zinc-700 border border-zinc-600 text-white placeholder-slate-400 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent resize-none"
                             placeholder="Notes (optional)"
                             rows={2}
                           />
@@ -447,7 +447,7 @@ export default function ScorecardSection({ leaderId, isAdmin, initialDimension, 
                                 setIsSavingProspect(false);
                                 setEditingProspectId(null);
                               }}
-                              className="text-xs bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-3 py-1 rounded-lg transition-colors"
+                              className="text-xs bg-vc-600 hover:bg-vc-500 disabled:opacity-50 text-white px-3 py-1 rounded-lg transition-colors"
                             >
                               {isSavingProspect ? 'Saving…' : 'Save'}
                             </button>
@@ -520,7 +520,7 @@ export default function ScorecardSection({ leaderId, isAdmin, initialDimension, 
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="Add context for this rating..."
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none resize-none"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500 focus:border-vc-500 focus:outline-none resize-none"
                   rows={2}
                 />
               </div>

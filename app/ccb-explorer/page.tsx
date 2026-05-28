@@ -349,7 +349,7 @@ export default function CCBExplorerPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117]">
         <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
           {/* Header */}
           <div className="mb-6 sm:mb-8">
@@ -388,7 +388,7 @@ export default function CCBExplorerPage() {
                   }}
                   onKeyPress={handleKeyPress}
                   style={{ maxWidth: '100%', minWidth: 0 }}
-                  className="w-full px-4 py-3 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-200"
+                  className="w-full px-4 py-3 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500/20 focus:border-vc-500/50 backdrop-blur-sm transition-all duration-200"
                   disabled={loading}
                 />
               </div>
@@ -403,7 +403,7 @@ export default function CCBExplorerPage() {
                   onChange={(e) => setEndDate(e.target.value)}
                   onKeyPress={handleKeyPress}
                   style={{ maxWidth: '100%', minWidth: 0 }}
-                  className="w-full px-4 py-3 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-200"
+                  className="w-full px-4 py-3 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500/20 focus:border-vc-500/50 backdrop-blur-sm transition-all duration-200"
                   disabled={loading}
                 />
               </div>
@@ -422,7 +422,7 @@ export default function CCBExplorerPage() {
                     onFocus={() => setShowLeaderDropdown(true)}
                     onKeyPress={handleKeyPress}
                     placeholder="Type to search or select a leader..."
-                    className="w-full px-4 py-3 pr-10 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-200"
+                    className="w-full px-4 py-3 pr-10 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500/20 focus:border-vc-500/50 backdrop-blur-sm transition-all duration-200"
                     disabled={loading}
                   />
                   {groupName && !loading && (
@@ -576,7 +576,7 @@ export default function CCBExplorerPage() {
                   className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden"
                 >
                   {/* Event Header */}
-                  <div className="bg-slate-700 px-4 py-3">
+                  <div className="bg-zinc-700 px-4 py-3">
                     <h3 className="text-base font-semibold text-white">
                       {event.title}
                     </h3>

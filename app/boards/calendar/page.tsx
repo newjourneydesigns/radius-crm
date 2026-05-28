@@ -801,7 +801,7 @@ function CalendarPage() {
                       <div className="kbm-event-top">
                         <span className="kbm-event-title">
                           {card.type === 'checklist' && (
-                            <CheckSquare size={13} style={{ color: '#818cf8', flexShrink: 0 }} />
+                            <CheckSquare size={13} style={{ color: '#56c93f', flexShrink: 0 }} />
                           )}
                           {card.title}
                         </span>
@@ -919,7 +919,7 @@ function CalendarPage() {
               <div className="kbc-sub-modal" onClick={e => e.stopPropagation()}>
                 <div className="kbc-add-header">
                   <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <CalendarDays size={16} style={{ color: '#6366f1' }} />
+                    <CalendarDays size={16} style={{ color: '#33B233' }} />
                     Subscribe to Calendar
                   </span>
                   <button className="kbc-add-close" onClick={() => setShowSubscribeModal(false)}>
@@ -1050,7 +1050,7 @@ function CalendarPage() {
                   >
                     <span className="kbc-board-dot" style={{ background: getBoardColor(i) }} />
                     <span className="kbc-board-option-title">{b.title}</span>
-                    {selectedBoardIds.has(b.id) && <Check size={14} style={{ color: '#6366f1', flexShrink: 0 }} />}
+                    {selectedBoardIds.has(b.id) && <Check size={14} style={{ color: '#33B233', flexShrink: 0 }} />}
                   </button>
                 ))}
               </div>
@@ -1191,7 +1191,7 @@ function CalendarPage() {
                       <div className="kbc-day-card-body">
                         <div className="kbc-day-card-top">
                           <span className="kbc-day-card-title">
-                            {card.type === 'checklist' && <CheckSquare size={13} style={{ color: '#818cf8', flexShrink: 0 }} />}
+                            {card.type === 'checklist' && <CheckSquare size={13} style={{ color: '#56c93f', flexShrink: 0 }} />}
                             {card.title}
                           </span>
                           {pri && (
@@ -1355,7 +1355,7 @@ function CalendarPage() {
                         <div className="kbc-day-card-body">
                           <div className="kbc-day-card-top">
                             <span className="kbc-day-card-title">
-                              {card.type === 'checklist' && <CheckSquare size={13} style={{ color: '#818cf8', flexShrink: 0 }} />}
+                              {card.type === 'checklist' && <CheckSquare size={13} style={{ color: '#56c93f', flexShrink: 0 }} />}
                               {card.title}
                             </span>
                             {pri && (
@@ -1441,7 +1441,7 @@ function CalendarPage() {
                             key={card.id}
                             className={`kbc-event ${multi ? 'multi' : 'single'} ${start ? 'start' : ''} ${end ? 'end' : ''} ${!start && !end && multi ? 'mid' : ''} ${card.type === 'checklist' ? 'checklist-event' : ''}`}
                             style={{
-                              '--event-color': card.type === 'checklist' ? '#818cf8' : card.boardColor,
+                              '--event-color': card.type === 'checklist' ? '#56c93f' : card.boardColor,
                               '--event-bg': card.type === 'checklist' ? 'rgba(129,140,248,0.12)' : card.boardColor + '22',
                             } as React.CSSProperties}
                             onMouseEnter={e => showTooltip(card, e)}
@@ -1486,7 +1486,7 @@ function CalendarPage() {
               {tooltip.card.boardTitle}
             </div>
             <div className="kbc-tooltip-title">
-              {tooltip.card.type === 'checklist' && <CheckSquare size={12} style={{ flexShrink: 0, color: '#818cf8' }} />}
+              {tooltip.card.type === 'checklist' && <CheckSquare size={12} style={{ flexShrink: 0, color: '#56c93f' }} />}
               {tooltip.card.title}
             </div>
             {tooltip.card.type === 'checklist' && tooltip.card.parentCardTitle && (
@@ -1555,7 +1555,7 @@ function CalendarPage() {
             <div className="kbc-sub-modal" onClick={e => e.stopPropagation()}>
               <div className="kbc-add-header">
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <CalendarDays size={16} style={{ color: '#6366f1' }} />
+                  <CalendarDays size={16} style={{ color: '#33B233' }} />
                   Subscribe to Calendar
                 </span>
                 <button className="kbc-add-close" onClick={() => setShowSubscribeModal(false)}>
@@ -1808,7 +1808,7 @@ const calendarStyles = `
     background: rgba(255,255,255,0.04) !important;
   }
   .kbc-view-btn.active {
-    background: #2563eb !important;
+    background: #2a9329 !important;
     color: #fff !important;
     box-shadow: 0 1px 4px rgba(37,99,235,0.3);
   }
@@ -1841,7 +1841,7 @@ const calendarStyles = `
     transition: border-color 0.15s;
   }
   .kbc-search-wrap:focus-within {
-    border-color: #6366f1;
+    border-color: #33B233;
     box-shadow: 0 0 0 2px rgba(99,102,241,0.15);
   }
   .kbc-search-input {
@@ -1885,7 +1885,7 @@ const calendarStyles = `
   }
   .kbc-filter-btn:hover { border-color: #374151 !important; color: #e5e7eb; }
   .kbc-filter-btn.active {
-    border-color: #6366f1 !important;
+    border-color: #33B233 !important;
     color: #c7d2fe;
     background: rgba(99,102,241,0.08) !important;
   }
@@ -1948,10 +1948,10 @@ const calendarStyles = `
     cursor: pointer;
     transition: all 0.15s;
   }
-  .kbc-today-btn:hover { border-color: #6366f1 !important; }
+  .kbc-today-btn:hover { border-color: #33B233 !important; }
   .kbc-today-btn.active {
     background: rgba(99, 102, 241, 0.2) !important;
-    border-color: #6366f1 !important;
+    border-color: #33B233 !important;
     color: #a5b4fc !important;
   }
   .kbc-month-label {
@@ -2037,12 +2037,12 @@ const calendarStyles = `
   }
   .kbc-day-num.today {
     color: #fff;
-    background: #6366f1;
+    background: #33B233;
     border-radius: 6px;
     padding: 1px 7px;
   }
   .kbc-day-num.today:hover {
-    background: #4f46e5;
+    background: #2a9329;
   }
 
   /* Events */
@@ -2111,7 +2111,7 @@ const calendarStyles = `
   }
   .kbc-more {
     font-size: 10px;
-    color: #818cf8;
+    color: #56c93f;
     padding: 1px 6px;
     font-weight: 600;
     cursor: pointer;
@@ -2175,7 +2175,7 @@ const calendarStyles = `
   }
   .kbc-tooltip-dates {
     font-size: 11px;
-    color: #818cf8;
+    color: #56c93f;
     margin-bottom: 2px;
   }
   .kbc-tooltip-assignee {
@@ -2221,7 +2221,7 @@ const calendarStyles = `
     width: 32px;
     height: 32px;
     border: 3px solid #374151;
-    border-top-color: #6366f1;
+    border-top-color: #33B233;
     border-radius: 50%;
     animation: kbc-spin 0.8s linear infinite;
     margin-bottom: 16px;
@@ -2254,7 +2254,7 @@ const calendarStyles = `
   }
   .kbc-view-btn:hover { color: #e5e7eb; background: #252836; }
   .kbc-view-btn.active {
-    background: #6366f1 !important;
+    background: #33B233 !important;
     color: #fff !important;
   }
 
@@ -2282,7 +2282,7 @@ const calendarStyles = `
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: #6366f1;
+    color: #33B233;
     background: rgba(99,102,241,0.12);
     padding: 2px 8px;
     border-radius: 5px;
@@ -2416,7 +2416,7 @@ const calendarStyles = `
     align-items: center;
     gap: 4px;
     font-size: 12px;
-    color: #818cf8;
+    color: #56c93f;
   }
   .kbc-day-card-dates.overdue {
     color: #ef4444;
@@ -2524,17 +2524,17 @@ const calendarStyles = `
     transition: color 0.15s, border-color 0.15s;
   }
   .kbc-agenda-day.today .kbc-agenda-day-num {
-    color: #818cf8;
+    color: #56c93f;
     font-weight: 600;
   }
   .kbc-agenda-day.selected .kbc-agenda-day-num {
     color: #f9fafb;
     font-weight: 600;
-    border-bottom-color: #6366f1;
+    border-bottom-color: #33B233;
   }
   .kbc-agenda-day.today.selected .kbc-agenda-day-num {
     color: #f9fafb;
-    border-bottom-color: #6366f1;
+    border-bottom-color: #33B233;
   }
 
   /* Event dot indicators */
@@ -2548,7 +2548,7 @@ const calendarStyles = `
     width: 4px;
     height: 4px;
     border-radius: 50%;
-    background: #6366f1;
+    background: #33B233;
     opacity: 0.7;
   }
   .kbc-agenda-day.selected .kbc-agenda-dot {
@@ -2558,7 +2558,7 @@ const calendarStyles = `
   .kbc-agenda-dot-plus {
     font-size: 7px;
     font-weight: 700;
-    color: #6366f1;
+    color: #33B233;
     line-height: 1;
     opacity: 0.7;
   }
@@ -2595,7 +2595,7 @@ const calendarStyles = `
   }
   .kbc-agenda-pill.active {
     background: rgba(99,102,241,0.12);
-    border-color: #6366f1;
+    border-color: #33B233;
     color: #c7d2fe;
   }
 
@@ -2649,7 +2649,7 @@ const calendarStyles = `
     display: flex;
     align-items: center;
     gap: 6px;
-    background: #3b82f6;
+    background: #33B233;
     color: #fff;
     border: none;
     border-radius: 8px;
@@ -2660,7 +2660,7 @@ const calendarStyles = `
     white-space: nowrap;
     transition: background 0.15s;
   }
-  .kbc-add-btn:hover { background: #2563eb; }
+  .kbc-add-btn:hover { background: #2a9329; }
 
   .kbc-add-btn-header {
     background: none;
@@ -2705,7 +2705,7 @@ const calendarStyles = `
   .kbc-add-close {
     background: none;
     border: none;
-    color: #64748b;
+    color: #71717a;
     cursor: pointer;
     padding: 4px;
     border-radius: 6px;
@@ -2736,14 +2736,14 @@ const calendarStyles = `
   }
   .kbc-add-select:focus,
   .kbc-add-input:focus {
-    border-color: #3b82f6;
+    border-color: #33B233;
   }
   .kbc-add-date-hint {
     display: flex;
     align-items: center;
     gap: 6px;
     font-size: 12px;
-    color: #64748b;
+    color: #71717a;
     margin-top: 4px;
   }
   .kbc-add-footer {
@@ -2762,9 +2762,9 @@ const calendarStyles = `
     font-size: 13px;
     cursor: pointer;
   }
-  .kbc-add-cancel:hover { color: #e2e8f0; border-color: #475569; }
+  .kbc-add-cancel:hover { color: #e2e8f0; border-color: #52525b; }
   .kbc-add-save {
-    background: #3b82f6;
+    background: #33B233;
     border: none;
     color: #fff;
     padding: 7px 18px;
@@ -2773,7 +2773,7 @@ const calendarStyles = `
     font-weight: 600;
     cursor: pointer;
   }
-  .kbc-add-save:hover { background: #2563eb; }
+  .kbc-add-save:hover { background: #2a9329; }
   .kbc-add-save:disabled { opacity: 0.5; cursor: not-allowed; }
 
   /* ── Cross-board search bar ── */
@@ -2828,7 +2828,7 @@ const calendarStyles = `
   .kb-search-global-item.selected,
   .kb-search-global-item:hover { background: #22252f; }
   .kb-search-global-title { font-size: 13px; font-weight: 500; color: #f9fafb; }
-  .kb-search-global-meta { font-size: 11px; color: #6366f1; }
+  .kb-search-global-meta { font-size: 11px; color: #33B233; }
 
   /* ── Subscribe to Calendar button ── */
   .kbc-subscribe-btn {
@@ -2847,7 +2847,7 @@ const calendarStyles = `
     transition: all 0.15s;
   }
   .kbc-subscribe-btn:hover {
-    border-color: #6366f1;
+    border-color: #33B233;
     color: #a5b4fc;
     background: rgba(99,102,241,0.08);
   }
@@ -2927,10 +2927,10 @@ const calendarStyles = `
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    color: #818cf8;
+    color: #56c93f;
   }
   .kbc-sub-board-row.selected .kbc-sub-check {
-    border-color: #6366f1;
+    border-color: #33B233;
     background: rgba(99,102,241,0.2);
   }
   .kbc-sub-board-dot {
@@ -2975,13 +2975,13 @@ const calendarStyles = `
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .kbc-sub-url-input:focus { border-color: #3b82f6; }
+  .kbc-sub-url-input:focus { border-color: #33B233; }
   .kbc-sub-copy-btn {
     display: flex;
     align-items: center;
     gap: 5px;
     padding: 8px 14px;
-    background: #2563eb;
+    background: #2a9329;
     border: none;
     border-radius: 8px;
     color: #fff;
@@ -2992,7 +2992,7 @@ const calendarStyles = `
     transition: background 0.15s;
     flex-shrink: 0;
   }
-  .kbc-sub-copy-btn:hover { background: #1d4ed8; }
+  .kbc-sub-copy-btn:hover { background: #237821; }
   .kbc-sub-copy-btn.copied { background: #16a34a; }
   .kbc-sub-app-btns {
     display: flex;
@@ -3016,7 +3016,7 @@ const calendarStyles = `
     white-space: nowrap;
   }
   .kbc-sub-app-btn:hover {
-    border-color: #6366f1;
+    border-color: #33B233;
     color: #a5b4fc;
     background: rgba(99,102,241,0.08);
   }
@@ -3175,18 +3175,18 @@ const mobileCalendarStyles = `
     transition: color 0.15s, border-color 0.15s;
   }
   .kbm-day.today .kbm-day-num {
-    color: #818cf8;
+    color: #56c93f;
     font-weight: 600;
     border-bottom-color: transparent !important;
   }
   .kbm-day.selected .kbm-day-num {
     color: #f9fafb;
     font-weight: 600;
-    border-bottom-color: #6366f1 !important;
+    border-bottom-color: #33B233 !important;
   }
   .kbm-day.today.selected .kbm-day-num {
     color: #f9fafb;
-    border-bottom-color: #6366f1 !important;
+    border-bottom-color: #33B233 !important;
   }
   .kbm-day.out .kbm-day-num {
     color: #374151;
@@ -3203,7 +3203,7 @@ const mobileCalendarStyles = `
     width: 4px;
     height: 4px;
     border-radius: 50%;
-    background: #6366f1;
+    background: #33B233;
     opacity: 0.7;
   }
   .kbm-day.selected .kbm-dot {
@@ -3213,7 +3213,7 @@ const mobileCalendarStyles = `
   .kbm-dot-plus {
     font-size: 7px;
     font-weight: 700;
-    color: #6366f1;
+    color: #33B233;
     line-height: 1;
     opacity: 0.7;
   }
@@ -3278,7 +3278,7 @@ const mobileCalendarStyles = `
   }
   .kbm-filter-pill.active {
     background: rgba(99,102,241,0.12);
-    border-color: #6366f1;
+    border-color: #33B233;
     color: #c7d2fe;
   }
 
@@ -3300,7 +3300,7 @@ const mobileCalendarStyles = `
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: #6366f1;
+    color: #33B233;
     background: rgba(99,102,241,0.12);
     padding: 2px 8px;
     border-radius: 5px;
@@ -3417,7 +3417,7 @@ const mobileCalendarStyles = `
     align-items: center;
     gap: 4px;
     font-size: 12px;
-    color: #818cf8;
+    color: #56c93f;
   }
   .kbm-event-dates.overdue {
     color: #ef4444;

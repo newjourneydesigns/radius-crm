@@ -99,7 +99,7 @@ export default function SearchFilterPanel({
             id="campus-filter"
             value={filters.campus}
             onChange={e => handleFilterChange('campus', e.target.value)}
-            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-vc-500 focus:border-vc-500"
           >
             <option value="">Select a Campus</option>
             <option value="all">All Campuses</option>
@@ -118,7 +118,7 @@ export default function SearchFilterPanel({
             id="circleType-filter"
             value={filters.circleType}
             onChange={e => handleFilterChange('circleType', e.target.value)}
-            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-vc-500 focus:border-vc-500"
           >
             <option value="">All Types</option>
             {uniqueCircleTypes.map(type => (
@@ -133,7 +133,7 @@ export default function SearchFilterPanel({
             Day
           </label>
           <div className="relative">
-            <div className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 min-h-[38px] cursor-pointer"
+            <div className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-vc-500 focus:border-vc-500 min-h-[38px] cursor-pointer"
                  onClick={() => setShowDayDropdown(!showDayDropdown)}>
               {filters.meetingDay.length === 0 ? (
                 <span className="text-gray-500 dark:text-gray-400">All Days</span>
@@ -192,7 +192,7 @@ export default function SearchFilterPanel({
                         type="checkbox"
                         checked={filters.meetingDay.includes(day)}
                         onChange={() => handleDayFilterChange(day)}
-                        className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded"
+                        className="mr-2 h-4 w-4 text-blue-600 focus:ring-vc-500 border-gray-300 dark:border-gray-600 rounded"
                       />
                       <span className="text-sm text-gray-700 dark:text-gray-300">{day}</span>
                     </label>
@@ -212,7 +212,7 @@ export default function SearchFilterPanel({
             id="timeOfDay-filter"
             value={filters.timeOfDay}
             onChange={e => handleFilterChange('timeOfDay', e.target.value)}
-            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-vc-500 focus:border-vc-500"
           >
             <option value="">All Times</option>
             {TIME_OPTIONS.map(time => (

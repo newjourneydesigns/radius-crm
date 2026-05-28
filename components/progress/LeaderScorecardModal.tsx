@@ -86,7 +86,7 @@ export default function LeaderScorecardModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={leaderName} size="xl">
       {/* Dimension tabs */}
-      <div className="flex gap-0.5 border-b border-slate-700 -mx-4 sm:-mx-6 px-4 sm:px-6 mb-4">
+      <div className="flex gap-0.5 border-b border-zinc-700 -mx-4 sm:-mx-6 px-4 sm:px-6 mb-4">
         {DIMENSIONS.map(d => (
           <button
             key={d.key}
@@ -94,7 +94,7 @@ export default function LeaderScorecardModal({
             className={`px-3 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors duration-150 ${
               activeDim === d.key
                 ? d.activeClass
-                : 'border-transparent text-slate-400 hover:text-white hover:border-slate-600'
+                : 'border-transparent text-slate-400 hover:text-white hover:border-zinc-600'
             }`}
           >
             {d.label}
@@ -104,7 +104,7 @@ export default function LeaderScorecardModal({
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="w-5 h-5 border-2 border-slate-600 border-t-indigo-500 rounded-full animate-spin" />
+          <div className="w-5 h-5 border-2 border-zinc-600 border-t-vc-500 rounded-full animate-spin" />
         </div>
       ) : (
         <CategoryEvaluation

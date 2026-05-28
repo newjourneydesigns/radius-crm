@@ -670,16 +670,16 @@ export default function GlobalSearch() {
                     style={{ opacity: 0.12 }}
                   />
                   <p style={{
-                    fontSize: '11px',
+                    fontSize: '15px',
                     color: 'rgba(255, 255, 255, 0.72)',
                     textAlign: 'center',
                     lineHeight: 1.7,
-                    maxWidth: '320px',
+                    maxWidth: '420px',
                     fontStyle: 'italic',
                     letterSpacing: '0.01em',
                   }}>
                     "Care for the flock that God has entrusted to you. Watch over it willingly, not grudgingly—not for what you will get out of it, but because you are eager to serve God."
-                    <span style={{ display: 'block', marginTop: '6px', fontStyle: 'normal', fontWeight: 500 }}>1 Peter 5:2</span>
+                    <span style={{ display: 'block', marginTop: '8px', fontStyle: 'normal', fontWeight: 500 }}>1 Peter 5:2</span>
                   </p>
                 </div>
               )}

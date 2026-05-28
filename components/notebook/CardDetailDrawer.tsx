@@ -101,6 +101,7 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const backdropMouseDown = useRef(false);
 
   // Checklists
   const [checklists, setChecklists] = useState<CardChecklist[]>([]);
@@ -370,7 +371,14 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
+      <div
+        className="fixed inset-0 z-40 bg-black/40"
+        onMouseDown={(e) => { backdropMouseDown.current = e.target === e.currentTarget; }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget && backdropMouseDown.current) onClose();
+          backdropMouseDown.current = false;
+        }}
+      />
 
       {/* Drawer */}
       <div className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-sm bg-[#13151c] border-l border-white/[0.08] shadow-2xl flex flex-col">
@@ -406,7 +414,7 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
               target="_blank"
               rel="noopener"
               title="Open in board"
-              className="text-gray-500 hover:text-indigo-400 transition-colors"
+              className="text-gray-500 hover:text-vc-400 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
@@ -472,7 +480,7 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
                 rows={4}
                 placeholder="Add a description…"
                 autoFocus={isEditingDescription}
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-indigo-400/40 resize-none transition-colors leading-relaxed"
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-vc-400/40 resize-none transition-colors leading-relaxed"
               />
             ) : descriptionLooksLikeHtml(description) ? (
               <div
@@ -480,7 +488,7 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
                 tabIndex={0}
                 onClick={() => setIsEditingDescription(true)}
                 onKeyDown={e => { if (e.key === 'Enter') setIsEditingDescription(true); }}
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-gray-300 leading-relaxed cursor-text hover:border-white/[0.12] transition-colors [&_a]:text-indigo-400 [&_a]:underline [&_a:hover]:text-indigo-300 [&_p]:mb-2 [&_p:last-child]:mb-0"
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-gray-300 leading-relaxed cursor-text hover:border-white/[0.12] transition-colors [&_a]:text-vc-400 [&_a]:underline [&_a:hover]:text-vc-300 [&_p]:mb-2 [&_p:last-child]:mb-0"
                 dangerouslySetInnerHTML={{ __html: sanitizeDescriptionHtml(description) }}
               />
             ) : (
@@ -578,7 +586,7 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
             {checklists.length > 0 && (
               <div className="h-1 bg-white/[0.08] rounded-full mb-3 overflow-hidden">
                 <div
-                  className="h-1 bg-indigo-500 rounded-full transition-all duration-300"
+                  className="h-1 bg-vc-500 rounded-full transition-all duration-300"
                   style={{ width: `${(completedCount / checklists.length) * 100}%` }}
                 />
               </div>
@@ -612,7 +620,7 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
                           if (e.key === 'Enter') handleRenameChecklist(item);
                           if (e.key === 'Escape') setEditingChecklistId(null);
                         }}
-                        className="flex-1 text-sm bg-white/[0.06] border border-indigo-400/60 rounded px-2 py-0.5 text-white focus:outline-none"
+                        className="flex-1 text-sm bg-white/[0.06] border border-vc-400/60 rounded px-2 py-0.5 text-white focus:outline-none"
                       />
                     ) : (
                       <div
@@ -677,12 +685,12 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
                 onChange={e => setNewChecklistTitle(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleAddChecklistItem(); }}
                 placeholder="Add item…"
-                className="flex-1 text-sm bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1.5 text-gray-300 placeholder-gray-600 focus:outline-none focus:border-indigo-400/40 transition-colors"
+                className="flex-1 text-sm bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1.5 text-gray-300 placeholder-gray-600 focus:outline-none focus:border-vc-400/40 transition-colors"
               />
               <button
                 onClick={handleAddChecklistItem}
                 disabled={!newChecklistTitle.trim()}
-                className="text-xs text-indigo-400 hover:text-indigo-300 disabled:opacity-40 transition-colors flex-shrink-0"
+                className="text-xs text-vc-400 hover:text-vc-300 disabled:opacity-40 transition-colors flex-shrink-0"
               >
                 Add
               </button>
@@ -728,12 +736,12 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
                         value={editingCommentContent}
                         onChange={e => setEditingCommentContent(e.target.value)}
                         rows={3}
-                        className="w-full bg-white/[0.06] border border-indigo-400/40 rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none resize-none leading-relaxed"
+                        className="w-full bg-white/[0.06] border border-vc-400/40 rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none resize-none leading-relaxed"
                       />
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleUpdateComment(comment.id)}
-                          className="text-xs px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors"
+                          className="text-xs px-2.5 py-1 bg-vc-600 hover:bg-vc-500 text-white rounded-md transition-colors"
                         >
                           Save
                         </button>
@@ -766,13 +774,13 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
                 onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleAddComment(); }}
                 placeholder="Add a comment… (⌘↵ to post)"
                 rows={2}
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-indigo-400/40 resize-none transition-colors leading-relaxed"
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-vc-400/40 resize-none transition-colors leading-relaxed"
               />
               {newComment.trim() && (
                 <button
                   onClick={handleAddComment}
                   disabled={savingComment}
-                  className="text-xs px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors disabled:opacity-50"
+                  className="text-xs px-3 py-1.5 bg-vc-600 hover:bg-vc-500 text-white rounded-lg transition-colors disabled:opacity-50"
                 >
                   {savingComment ? 'Posting…' : 'Post'}
                 </button>
@@ -788,7 +796,7 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
             href={`/boards/${card.board_id}?card=${card.id}`}
             target="_blank"
             rel="noopener"
-            className="flex items-center justify-center gap-1.5 w-full py-2 text-sm text-indigo-400 hover:text-indigo-300 border border-indigo-500/30 hover:border-indigo-400/50 rounded-lg transition-colors"
+            className="flex items-center justify-center gap-1.5 w-full py-2 text-sm text-vc-400 hover:text-vc-300 border border-vc-500/30 hover:border-vc-400/50 rounded-lg transition-colors"
           >
             Open full card in board
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">

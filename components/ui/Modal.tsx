@@ -102,7 +102,7 @@ export default function Modal({
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-white/[0.07] sticky top-0 bg-[rgba(9,27,52,0.95)] backdrop-blur-sm z-10 rounded-t-xl">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-white/[0.07] sticky top-0 bg-[rgba(22,24,32,0.95)] backdrop-blur-sm z-10 rounded-t-xl">
           <h2 
             id="modal-title"
             className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white tracking-tight pr-2"
@@ -111,7 +111,7 @@ export default function Modal({
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-150 p-1 rounded-md hover:bg-gray-100/80 dark:hover:bg-gray-700/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 flex-shrink-0"
+            className="text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-150 p-1 rounded-md hover:bg-gray-100/80 dark:hover:bg-gray-700/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-vc-500 flex-shrink-0"
             aria-label="Close modal"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">

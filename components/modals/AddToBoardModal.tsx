@@ -203,7 +203,7 @@ export default function AddToBoardModal({
             <select
               value={selectedBoardId}
               onChange={e => setSelectedBoardId(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm border border-gray-300/40 dark:border-gray-600/40 rounded-xl bg-white/60 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50 backdrop-blur-sm"
+              className="w-full px-3 py-2.5 text-sm border border-gray-300/40 dark:border-gray-600/40 rounded-xl bg-white/60 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500/30 focus:border-vc-500/50 backdrop-blur-sm"
             >
               <option value="">Select a board…</option>
               {boards.map(b => (
@@ -223,7 +223,7 @@ export default function AddToBoardModal({
               <select
                 value={selectedColumnId}
                 onChange={e => setSelectedColumnId(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm border border-gray-300/40 dark:border-gray-600/40 rounded-xl bg-white/60 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50 backdrop-blur-sm"
+                className="w-full px-3 py-2.5 text-sm border border-gray-300/40 dark:border-gray-600/40 rounded-xl bg-white/60 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500/30 focus:border-vc-500/50 backdrop-blur-sm"
               >
                 <option value="">Select a column…</option>
                 {columns.map(c => (
@@ -243,7 +243,7 @@ export default function AddToBoardModal({
               value={cardTitle}
               onChange={e => setCardTitle(e.target.value)}
               maxLength={120}
-              className="w-full px-3 py-2.5 text-sm border border-gray-300/40 dark:border-gray-600/40 rounded-xl bg-white/60 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50 backdrop-blur-sm"
+              className="w-full px-3 py-2.5 text-sm border border-gray-300/40 dark:border-gray-600/40 rounded-xl bg-white/60 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500/30 focus:border-vc-500/50 backdrop-blur-sm"
             />
             <p className="text-xs text-gray-500 dark:text-gray-400">
               Due date will be set to {formattedDate} and the card will be linked to {leaderName}&apos;s profile.

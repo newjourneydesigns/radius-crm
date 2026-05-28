@@ -315,7 +315,7 @@ export default function EventSummaryReminderModal({
               value={editedMessage}
               onChange={(e) => setEditedMessage(e.target.value)}
               rows={8}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500 font-mono text-sm"
             />
             {saveSuccess && (
               <p className="text-xs text-green-600 dark:text-green-400">
@@ -333,7 +333,7 @@ export default function EventSummaryReminderModal({
                 checked={includeCircleSummaryLink}
                 onChange={(e) => setIncludeCircleSummaryLink(e.target.checked)}
                 disabled={!canIncludeCircleSummaryLink || isSending}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-vc-500 disabled:opacity-50"
               />
               <span className="min-w-0">
                 <span className="block text-sm font-medium text-gray-900 dark:text-white">

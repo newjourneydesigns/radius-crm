@@ -275,6 +275,7 @@ function CardDetailModal({
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialRef = useRef(true);
   const pendingChangesRef = useRef(false);
+  const overlayMouseDownRef = useRef(false);
 
   useEffect(() => {
     supabase.from('project_boards').select('id, title').eq('is_archived', false).order('created_at', { ascending: false })
@@ -738,7 +739,7 @@ function CardDetailModal({
       </div>
       {convertingItemId === item.id && (
         <div className="kb-checklist-convert-row">
-          <ArrowUpRight size={11} style={{ color: '#8da9c4', flexShrink: 0 }} />
+          <ArrowUpRight size={11} style={{ color: '#a1a1aa', flexShrink: 0 }} />
           <select
             className="kb-input kb-checklist-convert-select"
             value={convertColumnId}
@@ -763,7 +764,7 @@ function CardDetailModal({
       )}
       {editingChecklistLinkId === item.id && (
         <div className="kb-checklist-url-row">
-          <LinkIcon size={11} style={{ color: '#8da9c4', flexShrink: 0 }} />
+          <LinkIcon size={11} style={{ color: '#a1a1aa', flexShrink: 0 }} />
           <input
             className="kb-input kb-checklist-url-input"
             value={editingChecklistUrl}
@@ -799,7 +800,14 @@ function CardDetailModal({
   );
 
   return (
-    <div className="kb-modal-overlay" onClick={handleClose}>
+    <div
+      className="kb-modal-overlay"
+      onMouseDown={e => { overlayMouseDownRef.current = e.target === e.currentTarget; }}
+      onClick={e => {
+        if (e.target === e.currentTarget && overlayMouseDownRef.current) handleClose();
+        overlayMouseDownRef.current = false;
+      }}
+    >
       <div className="kb-detail-modal" onClick={e => e.stopPropagation()}>
         {/* Close */}
         <button className="kb-detail-close" onClick={handleClose}><X size={18} /></button>
@@ -969,7 +977,7 @@ function CardDetailModal({
                         />
                         <span style={{ flex: 1, minWidth: 0 }}>
                           <span style={{ display: 'block', fontSize: 12, color: 'var(--kb-text, #e2e8f0)', lineHeight: 1.4 }}>{s.text}</span>
-                          <span style={{ display: 'block', fontSize: 10, color: 'var(--kb-muted, #64748b)', lineHeight: 1.3 }}>
+                          <span style={{ display: 'block', fontSize: 10, color: 'var(--kb-muted, #71717a)', lineHeight: 1.3 }}>
                             {s.kind === 'open_item' ? 'Open item' : 'Next step'} · "{s.sourceQuote}"
                           </span>
                         </span>
@@ -1447,7 +1455,7 @@ function CardDetailModal({
                         style={{
                           width: 30, height: 30, borderRadius: 6, border: 'none',
                           fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                          background: active ? '#6366f1' : '#1e2030',
+                          background: active ? '#33B233' : '#1e2030',
                           color: active ? '#fff' : '#6b7280',
                           transition: 'all 0.15s',
                         }}
@@ -1558,7 +1566,7 @@ function CardDetailModal({
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Link
                         href={`/circle/${linkedLeaderId}`}
-                        style={{ flex: 1, color: '#818cf8', fontSize: 13, fontWeight: 500, textDecoration: 'none' }}
+                        style={{ flex: 1, color: '#56c93f', fontSize: 13, fontWeight: 500, textDecoration: 'none' }}
                         onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
                         onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
                       >
@@ -1732,6 +1740,17 @@ function DueDateQuickPicker({
   );
 }
 
+/* Next business day (Mon–Thu). Advances from the given date,
+   or from today when no date is set. */
+function nextBusinessDay(fromDate: string | null | undefined): string {
+  const base = fromDate ? DateTime.fromISO(fromDate) : DateTime.now().startOf('day');
+  let next = base.plus({ days: 1 });
+  while (next.weekday > 4) {
+    next = next.plus({ days: 1 });
+  }
+  return next.toISODate()!;
+}
+
 /* ═══════════════════════════════════════════════════════════
    KanbanCard
    ═══════════════════════════════════════════════════════════ */
@@ -1740,11 +1759,13 @@ function KanbanCard({
   onClick,
   isDragging,
   onToggleComplete,
+  onSnooze,
 }: {
   card: BoardCard;
   onClick: () => void;
   isDragging?: boolean;
   onToggleComplete: () => void;
+  onSnooze: () => void;
 }) {
   const pri = PRIORITY_CONFIG[card.priority] || PRIORITY_CONFIG.medium;
   const labels = card.labels || [];
@@ -1815,7 +1836,7 @@ function KanbanCard({
 
         {/* Repeat indicator */}
         {card.repeat_rule && card.repeat_rule !== 'none' && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#6366f1', fontSize: 10 }} title={
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#33B233', fontSize: 10 }} title={
             card.repeat_rule === 'daily' && card.repeat_days?.length
               ? `Repeats on ${card.repeat_days.map(d => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join(', ')}`
               : buildRepeatLabel((card.repeat_rule as TodoRepeatRule), card.repeat_interval || 1)
@@ -1846,6 +1867,17 @@ function KanbanCard({
         </span>
       </div>
 
+      {/* Snooze to next business day */}
+      {(isOverdue || daysUntilDue === 0) && (
+        <button
+          className="kb-card-snooze"
+          onClick={(e) => { e.stopPropagation(); onSnooze(); }}
+          title="Snooze to next business day (Mon–Thu)"
+        >
+          <Clock size={10} /> Snooze
+        </button>
+      )}
+
       {/* Assignees */}
       {(card.assignments || []).length > 0 && (
         <div className="kb-card-assignee">
@@ -1856,7 +1888,7 @@ function KanbanCard({
 
       {/* Linked Circle Leader */}
       {card.linked_leader_id && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, fontSize: 10, color: '#818cf8' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, fontSize: 10, color: '#56c93f' }}>
           <LinkIcon size={9} />
           <span>Circle Leader</span>
         </div>
@@ -1886,7 +1918,7 @@ const LABEL_COLORS: { hex: string; name: string }[] = [
   { hex: '#ec4899', name: 'Pink' },
   { hex: '#f43f5e', name: 'Rose' },
   { hex: '#78716c', name: 'Stone' },
-  { hex: '#64748b', name: 'Slate' },
+  { hex: '#71717a', name: 'Slate' },
 ];
 
 function LabelManagerModal({
@@ -2188,7 +2220,7 @@ function ImportLeadersModal({
         {/* Header */}
         <div className="kb-import-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Download size={18} style={{ color: '#818cf8' }} />
+            <Download size={18} style={{ color: '#56c93f' }} />
             <h3 className="kb-import-title">Import Circle Leaders</h3>
           </div>
           <button className="kb-btn-icon-sm" onClick={onClose}><X size={16} /></button>
@@ -2905,7 +2937,7 @@ function ColumnAutomationsModal({
         {/* Header */}
         <div className="kb-import-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <SlidersHorizontal size={16} style={{ color: '#6366f1' }} />
+            <SlidersHorizontal size={16} style={{ color: '#33B233' }} />
             <h3 className="kb-import-title">Automations — {column.title}</h3>
           </div>
           <button className="kb-btn-icon-sm" onClick={onClose}><X size={16} /></button>
@@ -4209,6 +4241,7 @@ function BoardPage() {
                         onClick={() => openCardDetail(card)}
                         isDragging={dragCardId === card.id}
                         onToggleComplete={() => handleToggleComplete(card.id, !card.is_complete)}
+                        onSnooze={() => handleQuickDueDateUpdate(card.id, nextBusinessDay(card.due_date))}
                       />
                       {dueDateCardId === card.id && (
                         <div ref={dueDatePickerRef}>
@@ -4725,7 +4758,7 @@ const kanbanStyles = `
   .kb-search-global-item.selected,
   .kb-search-global-item:hover { background: #22252f; }
   .kb-search-global-title { font-size: 13px; font-weight: 500; color: #f9fafb; }
-  .kb-search-global-meta { font-size: 11px; color: #6366f1; }
+  .kb-search-global-meta { font-size: 11px; color: #33B233; }
 
   /* ── Filter button + dropdown ── */
   .kb-filter-btn {
@@ -4744,8 +4777,8 @@ const kanbanStyles = `
     padding: 0;
     flex-shrink: 0;
   }
-  .kb-filter-btn:hover { border-color: #4c6785; color: #e5e7eb; }
-  .kb-filter-btn-active { border-color: #8da9c4 !important; color: #c5d8e8 !important; background: rgba(76, 103, 133, 0.18) !important; }
+  .kb-filter-btn:hover { border-color: #52525b; color: #e5e7eb; }
+  .kb-filter-btn-active { border-color: #a1a1aa !important; color: #c5d8e8 !important; background: rgba(76, 103, 133, 0.18) !important; }
   .kb-filter-badge {
     position: absolute;
     top: -4px;
@@ -4753,7 +4786,7 @@ const kanbanStyles = `
     min-width: 16px;
     height: 16px;
     border-radius: 8px;
-    background: linear-gradient(135deg, #4c6785 0%, #8da9c4 100%);
+    background: linear-gradient(135deg, #52525b 0%, #a1a1aa 100%);
     color: #fff;
     font-size: 10px;
     font-weight: 700;
@@ -4796,13 +4829,13 @@ const kanbanStyles = `
     align-self: flex-end;
     font-size: 11px;
     font-weight: 600;
-    color: #6366f1;
+    color: #33B233;
     background: transparent;
     border: none;
     cursor: pointer;
     padding: 4px 0;
   }
-  .kb-filter-clear-btn:hover { color: #818cf8; }
+  .kb-filter-clear-btn:hover { color: #56c93f; }
 
   /* ── Filter select ── */
   .kb-filter-select {
@@ -4816,7 +4849,7 @@ const kanbanStyles = `
     outline: none;
     -webkit-appearance: none;
   }
-  .kb-filter-select:focus { border-color: #6366f1 !important; }
+  .kb-filter-select:focus { border-color: #33B233 !important; }
 
   /* ── Buttons ── */
   .kb-btn {
@@ -4835,7 +4868,7 @@ const kanbanStyles = `
   }
   .kb-btn-sm { padding: 5px 12px; font-size: 12px; }
   .kb-btn-primary {
-    background: linear-gradient(135deg, #4c6785 0%, #8da9c4 100%) !important;
+    background: linear-gradient(135deg, #52525b 0%, #a1a1aa 100%) !important;
     color: #fff !important;
     box-shadow: 0 2px 8px rgba(76, 103, 133, 0.35) !important;
   }
@@ -4952,10 +4985,10 @@ const kanbanStyles = `
     overflow: hidden;
   }
   .kb-column-collapsed:hover {
-    border-color: #6366f1;
+    border-color: #33B233;
   }
   .kb-column-collapsed.drag-over {
-    border-color: #6366f1 !important;
+    border-color: #33B233 !important;
     box-shadow: 0 0 0 2px rgba(99,102,241,0.2) inset;
   }
   .kb-column-collapsed-title {
@@ -4985,7 +5018,7 @@ const kanbanStyles = `
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
   }
   .kb-column.drag-over {
-    border-color: #6366f1 !important;
+    border-color: #33B233 !important;
     box-shadow: 0 0 0 2px rgba(99,102,241,0.2) inset;
   }
   .kb-column-header {
@@ -5096,7 +5129,7 @@ const kanbanStyles = `
     left: 4px;
     right: 4px;
     height: 3px;
-    background: linear-gradient(90deg, #4c6785, #8da9c4);
+    background: linear-gradient(90deg, #52525b, #a1a1aa);
     border-radius: 2px;
     z-index: 10;
   }
@@ -5107,7 +5140,7 @@ const kanbanStyles = `
     left: 4px;
     right: 4px;
     height: 3px;
-    background: linear-gradient(90deg, #4c6785, #8da9c4);
+    background: linear-gradient(90deg, #52525b, #a1a1aa);
     border-radius: 2px;
     z-index: 10;
   }
@@ -5150,7 +5183,7 @@ const kanbanStyles = `
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #8da9c4;
+    color: #a1a1aa;
     margin-bottom: 8px;
   }
   .kb-card-due-picker-row {
@@ -5169,7 +5202,7 @@ const kanbanStyles = `
     outline: none;
   }
   .kb-card-due-picker-input:focus {
-    border-color: #8da9c4 !important;
+    border-color: #a1a1aa !important;
     box-shadow: 0 0 0 2px rgba(141, 169, 196, 0.16);
   }
   .kb-card-labels {
@@ -5330,6 +5363,28 @@ const kanbanStyles = `
   .kb-card-date-sep {
     opacity: 0.5;
     margin: 0 1px;
+  }
+  .kb-card-snooze {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 100%;
+    margin-top: 6px;
+    padding: 5px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #9ca3af;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+  }
+  .kb-card-snooze:hover {
+    color: #56c93f;
+    background: rgba(86,201,63,0.12);
+    border-color: rgba(86,201,63,0.3);
   }
   .kb-card-counts {
     margin-left: auto;
@@ -5498,7 +5553,7 @@ const kanbanStyles = `
     width: 32px;
     height: 32px;
     border: 3px solid #374151;
-    border-top-color: #6366f1;
+    border-top-color: #33B233;
     border-radius: 50%;
     animation: kb-spin 0.8s linear infinite;
     margin-bottom: 16px;
@@ -5706,7 +5761,7 @@ const kanbanStyles = `
   }
   .kb-checklist-fill {
     height: 100%;
-    background: linear-gradient(90deg, #4c6785 0%, #8da9c4 100%);
+    background: linear-gradient(90deg, #52525b 0%, #a1a1aa 100%);
     border-radius: 3px;
     transition: width 0.3s ease;
   }
@@ -5729,7 +5784,7 @@ const kanbanStyles = `
     right: 0;
     height: 2px;
     border-radius: 999px;
-    background: #8da9c4;
+    background: #a1a1aa;
     box-shadow: 0 0 0 1px rgba(141,169,196,0.2);
   }
   .kb-checklist-item.drop-above::before { top: -3px; }
@@ -5771,18 +5826,18 @@ const kanbanStyles = `
     padding: 0;
   }
   .kb-checkbox.checked {
-    background: linear-gradient(135deg, #4c6785 0%, #8da9c4 100%) !important;
-    border-color: #8da9c4;
+    background: linear-gradient(135deg, #52525b 0%, #a1a1aa 100%) !important;
+    border-color: #a1a1aa;
     color: #fff;
   }
   .kb-checklist-text { font-size: 13px; color: #d1d5db; flex: 1; }
   .kb-checklist-text.completed { text-decoration: line-through; color: #6b7280; }
   .kb-checklist-link { text-decoration: underline; text-decoration-color: rgba(141,169,196,0.5); text-underline-offset: 2px; }
-  .kb-checklist-link:hover { color: #8da9c4; text-decoration-color: #8da9c4; }
+  .kb-checklist-link:hover { color: #a1a1aa; text-decoration-color: #a1a1aa; }
   .kb-checklist-link.completed { color: #6b7280; text-decoration: line-through; }
   .kb-checklist-open-btn { display: inline-flex; align-items: center; color: #6b7280; flex-shrink: 0; padding: 0 2px; transition: color 0.15s; }
-  .kb-checklist-open-btn:hover { color: #8da9c4; }
-  .kb-checklist-link-active { color: #8da9c4 !important; }
+  .kb-checklist-open-btn:hover { color: #a1a1aa; }
+  .kb-checklist-link-active { color: #a1a1aa !important; }
   .kb-checklist-url-row { display: flex; align-items: center; gap: 6px; padding: 4px 0 2px 28px; }
   .kb-checklist-url-input { font-size: 12px; padding: 2px 6px; height: auto; flex: 1; }
   .kb-checklist-convert-row { display: flex; align-items: center; gap: 6px; padding: 4px 0 2px 28px; }
@@ -5867,7 +5922,7 @@ const kanbanStyles = `
   .kb-btn-ghost:hover {
     background: rgba(99, 102, 241, 0.1) !important;
     color: #a5b4fc !important;
-    border-color: #6366f1 !important;
+    border-color: #33B233 !important;
   }
   .kb-template-picker {
     margin-top: 8px;
@@ -5954,7 +6009,7 @@ const kanbanStyles = `
   }
   .kb-import-count {
     font-size: 12px;
-    color: #818cf8;
+    color: #56c93f;
     white-space: nowrap;
   }
   .kb-import-list {
@@ -6076,7 +6131,7 @@ const kanbanStyles = `
   .kb-comment-text { font-size: 13px; color: #d1d5db; margin: 0 !important; line-height: 1.5; }
   .kb-comment-text .kb-link,
   .kb-desc-display .kb-link {
-    color: #818cf8 !important;
+    color: #56c93f !important;
     text-decoration: underline;
     text-underline-offset: 2px;
     word-break: break-all;
@@ -6134,7 +6189,7 @@ const kanbanStyles = `
     background: #1e2130 !important;
     color: #e5e7eb !important;
   }
-  .kb-desc-editor [contenteditable] a { color: #818cf8 !important; }
+  .kb-desc-editor [contenteditable] a { color: #56c93f !important; }
   .kb-desc-editor [contenteditable] h3 { color: #f3f4f6 !important; }
   .kb-desc-editor [contenteditable] ul,
   .kb-desc-editor [contenteditable] ol { color: #d1d5db !important; }
@@ -6432,7 +6487,7 @@ const kanbanStyles = `
     font-size: 14px;
     line-height: 1.7;
     word-break: break-word;
-    caret-color: #818cf8;
+    caret-color: #56c93f;
   }
   .kb-note-editable:empty::before {
     content: 'Start typing your notes...';
@@ -6451,7 +6506,7 @@ const kanbanStyles = `
     margin-top: 0;
   }
   .kb-note-editable a {
-    color: #818cf8;
+    color: #56c93f;
     text-decoration: underline;
     text-underline-offset: 2px;
     cursor: text;
@@ -6496,18 +6551,18 @@ const kanbanStyles = `
     display: list-item !important;
   }
   .kb-note-editable blockquote {
-    border-left: 3px solid #4c6785;
+    border-left: 3px solid #52525b;
     padding-left: 12px;
     margin: 8px 0;
     color: #94a3b8;
     font-style: italic;
   }
   .kb-note-editable s {
-    color: #64748b;
+    color: #71717a;
   }
   .kb-btn-icon-active {
     background: rgba(76, 103, 133, 0.25) !important;
-    color: #8da9c4 !important;
+    color: #a1a1aa !important;
   }
 
   /* ── View toggle ── */
@@ -6654,7 +6709,7 @@ const kanbanStyles = `
     align-items: center;
     gap: 4px;
     font-size: 12px;
-    color: #818cf8;
+    color: #56c93f;
     white-space: nowrap;
   }
   .kb-list-row-date.overdue { color: #ef4444; }
@@ -6675,7 +6730,7 @@ const kanbanStyles = `
 
   /* ── Column automations button highlight ── */
   .kb-automations-active {
-    color: #6366f1 !important;
+    color: #33B233 !important;
   }
 
   /* ── Automations Modal ── */
@@ -6780,12 +6835,12 @@ const kanbanStyles = `
     transition: all 0.15s;
   }
   .kb-auto-chip:hover {
-    border-color: #6366f1;
+    border-color: #33B233;
     color: #e5e7eb;
   }
   .kb-auto-chip.selected {
     background: rgba(99, 102, 241, 0.15);
-    border-color: #6366f1;
+    border-color: #33B233;
     color: #a5b4fc;
   }
   .kb-auto-footer {
@@ -6822,7 +6877,7 @@ const kanbanStyles = `
   }
   .kb-shortcut-hint {
     font-size: 11px;
-    color: #64748b;
+    color: #71717a;
     letter-spacing: 0.01em;
   }
   .kb-shortcut-key {

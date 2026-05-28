@@ -147,7 +147,7 @@ export default function AdminPage() {
               border: '1px solid rgba(148, 163, 184, 0.25)',
               borderRadius: '6px',
               background: includeAll ? 'rgba(30, 41, 59, 0.5)' : 'rgba(15, 23, 42, 0.8)',
-              color: includeAll ? '#64748b' : '#f1f5f9',
+              color: includeAll ? '#71717a' : '#f1f5f9',
               boxSizing: 'border-box',
               outline: 'none',
             }}
@@ -210,7 +210,7 @@ export default function AdminPage() {
             ) : response.dryRun ? (
               <div style={{ fontSize: '14px', color: '#cbd5e1' }}>
                 <strong style={{ color: '#93c5fd' }}>Dry run</strong> — filter: <code style={{ background: 'rgba(51, 65, 85, 0.8)', padding: '2px 6px', borderRadius: '3px', color: '#e2e8f0' }}>{response.nameFilter}</code>
-                <span style={{ margin: '0 10px', color: '#475569' }}>|</span>
+                <span style={{ margin: '0 10px', color: '#52525b' }}>|</span>
                 {response.totalMatching} matching &nbsp;·&nbsp; {response.alreadyCached} already cached &nbsp;·&nbsp;
                 <strong style={{ color: response.missingRosters! > 0 ? '#fbbf24' : '#4ade80' }}>{response.missingRosters} need fetching</strong>
               </div>
@@ -247,7 +247,7 @@ export default function AdminPage() {
                         {row.name}
                       </a>
                       {'campus' in row && row.campus && (
-                        <span style={{ marginLeft: '6px', fontSize: '11px', color: '#64748b' }}>{row.campus}</span>
+                        <span style={{ marginLeft: '6px', fontSize: '11px', color: '#71717a' }}>{row.campus}</span>
                       )}
                     </td>
                     <td style={{ padding: '9px 16px', color: '#94a3b8', fontFamily: 'monospace', fontSize: '12px' }}>{row.ccb_group_id}</td>
@@ -352,13 +352,13 @@ export default function AdminPage() {
                       <td style={{ padding: '9px 16px', color: '#e2e8f0' }}>
                         <a href={`/circle/${row.id}/`} style={{ color: '#60a5fa', textDecoration: 'none' }}>{row.name}</a>
                       </td>
-                      <td style={{ padding: '9px 16px', color: row.birthday ? '#fbbf24' : '#475569', fontFamily: 'monospace', fontSize: '12px' }}>
+                      <td style={{ padding: '9px 16px', color: row.birthday ? '#fbbf24' : '#52525b', fontFamily: 'monospace', fontSize: '12px' }}>
                         {row.birthday || '—'}
                       </td>
                       <td style={{ padding: '9px 16px' }}>
                         {row.matchType === 'own-roster' && <span style={{ color: '#4ade80', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}><CheckCircle2 size={14} />Own roster</span>}
                         {row.matchType === 'cross-roster' && <span style={{ color: '#93c5fd' }}>↗ Cross-roster</span>}
-                        {row.matchType === 'no-match' && <span style={{ color: '#475569' }}>—</span>}
+                        {row.matchType === 'no-match' && <span style={{ color: '#52525b' }}>—</span>}
                       </td>
                     </tr>
                   ))}
