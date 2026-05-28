@@ -147,6 +147,16 @@ async function fetchProfileDetails(ids: string[]) {
   return (j.profiles || []) as Array<{ id: string; phone: string; email: string; birthday: string }>;
 }
 
+async function fetchLastAttended(groupId: string): Promise<Record<string, string> | null> {
+  const attendanceUrl = groupId
+    ? `/api/circle-summary/roster/attendance?group_id=${encodeURIComponent(groupId)}`
+    : '/api/circle-summary/roster/attendance';
+  const r = await fetch(attendanceUrl);
+  if (!r.ok) return null;
+  const d = await r.json();
+  return (d?.lastAttended || null) as Record<string, string> | null;
+}
+
 export default function CircleRosterPage() {
   const router = useRouter();
   const params = useParams<{ ccbGroupId: string }>();
@@ -169,6 +179,27 @@ export default function CircleRosterPage() {
   const [absentDismissed, setAbsentDismissed] = useState<Record<string, string>>({});
   const [mounted, setMounted] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  function applyLastAttended(fresh: Record<string, string>) {
+    setLastAttended(fresh);
+    // Auto-clear absent dismissals once the person has attended again.
+    // Stored value is the lastAttended date at dismissal time — if the
+    // current date differs (they came back), the dismissal is stale.
+    try {
+      const raw = localStorage.getItem(ABSENT_DISMISS_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<string, string>;
+        const reconciled: Record<string, string> = {};
+        for (const [id, stamp] of Object.entries(parsed)) {
+          if (fresh[id] === stamp) reconciled[id] = stamp;
+        }
+        setAbsentDismissed(reconciled);
+        if (Object.keys(reconciled).length !== Object.keys(parsed).length) {
+          localStorage.setItem(ABSENT_DISMISS_STORAGE_KEY, JSON.stringify(reconciled));
+        }
+      }
+    } catch {}
+  }
 
   async function refreshFromCcb() {
     if (refreshing || participants.length === 0) return;
@@ -203,6 +234,8 @@ export default function CircleRosterPage() {
         writeRosterCache(urlGroupId, next);
         return next;
       });
+      const attendance = await fetchLastAttended(urlGroupId);
+      if (attendance) applyLastAttended(attendance);
     } finally {
       setRefreshing(false);
     }
@@ -214,29 +247,10 @@ export default function CircleRosterPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/circle-summary/roster/attendance')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (cancelled || !d?.lastAttended) return;
-        const fresh = d.lastAttended as Record<string, string>;
-        setLastAttended(fresh);
-        // Auto-clear absent dismissals once the person has attended again.
-        // Stored value is the lastAttended date at dismissal time — if the
-        // current date differs (they came back), the dismissal is stale.
-        try {
-          const raw = localStorage.getItem(ABSENT_DISMISS_STORAGE_KEY);
-          if (raw) {
-            const parsed = JSON.parse(raw) as Record<string, string>;
-            const reconciled: Record<string, string> = {};
-            for (const [id, stamp] of Object.entries(parsed)) {
-              if (fresh[id] === stamp) reconciled[id] = stamp;
-            }
-            setAbsentDismissed(reconciled);
-            if (Object.keys(reconciled).length !== Object.keys(parsed).length) {
-              localStorage.setItem(ABSENT_DISMISS_STORAGE_KEY, JSON.stringify(reconciled));
-            }
-          }
-        } catch {}
+    fetchLastAttended(urlGroupId)
+      .then((fresh) => {
+        if (cancelled || !fresh) return;
+        applyLastAttended(fresh);
       })
       .catch(() => {});
     return () => {
@@ -609,7 +623,7 @@ export default function CircleRosterPage() {
                     <div className="mt-2 flex gap-2">
                       <a
                         href={phoneHref(m.phone, 'sms')}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-1.5 transition-colors"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-red-600 hover:bg-red-700 !text-white hover:!text-white text-xs font-semibold px-3 py-1.5 transition-colors"
                       >
                         <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
                           <path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clipRule="evenodd" />

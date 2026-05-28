@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../../../lib/supabase';
 import { verifyAdminAccessDemo } from '../../../lib/auth-middleware';
+import { extractCcbGroupId } from '../../../lib/ccbGroupId';
 
 const VALID_STATUSES = ['invited', 'pipeline', 'on-boarding', 'active', 'paused', 'off-boarding'] as const;
 
@@ -98,6 +99,13 @@ export async function POST(request: NextRequest) {
 
       const ccbProfileLink = normalizeString(circleLeader.ccb_profile_link);
       if (ccbProfileLink) cleanData.ccb_profile_link = ccbProfileLink;
+
+      const providedCcbGroupId = normalizeString(circleLeader.ccb_group_id);
+      const ccbGroupId =
+        providedCcbGroupId && /^\d+$/.test(providedCcbGroupId)
+          ? providedCcbGroupId
+          : extractCcbGroupId(ccbProfileLink);
+      if (ccbGroupId) cleanData.ccb_group_id = ccbGroupId;
 
       const leaderCcbProfileLink = normalizeString(circleLeader.leader_ccb_profile_link);
       if (leaderCcbProfileLink) cleanData.leader_ccb_profile_link = leaderCcbProfileLink;

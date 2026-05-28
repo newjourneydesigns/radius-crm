@@ -504,22 +504,30 @@ export class CCBClient {
       s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
     const didNotMeet = Boolean(payload.didNotMeet);
-    const attendeesXml = (payload.attendeeIds ?? [])
+    const attendeeIds = payload.attendeeIds ?? [];
+    const attendeesXml = attendeeIds
       .map((id) => `    <attendee id="${esc(String(id))}"></attendee>`)
       .join('\n');
-    const attendeesBlock = `    <attendees>
+    const attendeesBlock = attendeesXml
+      ? `    <attendees>
 ${attendeesXml}
-    </attendees>`;
+    </attendees>`
+      : '    <attendees></attendees>';
     const headCountXml = didNotMeet
-      ? '<head_count></head_count>'
+      ? '<head_count>0</head_count>'
       : payload.headCount != null
         ? `<head_count>${payload.headCount}</head_count>`
         : '<head_count></head_count>';
+    // CCB rejects literal "true" for did_not_meet on create_event_attendance.
+    // The endpoint accepts this legacy marker but normalizes the response to
+    // false, so RADIUS keeps did_not_meet as the canonical app state while CCB
+    // receives a zero-attendance summary with the reason in notes.
+    const didNotMeetXmlValue = didNotMeet ? '1' : 'false';
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <events>
   <event id="${esc(String(payload.eventId))}" occurrence="${esc(payload.occurrence)}">
-    <did_not_meet>${didNotMeet ? 'true' : 'false'}</did_not_meet>
+    <did_not_meet>${didNotMeetXmlValue}</did_not_meet>
     ${headCountXml}
     ${!didNotMeet && payload.guestCount != null ? `<guest_count>${payload.guestCount}</guest_count>` : ''}
 ${attendeesBlock}

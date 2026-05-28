@@ -482,7 +482,7 @@ export default function EventSummaryTrackerPage() {
       // Load every circle status so status filtering can inspect the full tracker population.
       const leadersPromise = supabase
         .from('circle_leaders')
-        .select('id, name, phone, campus, acpd, status, day, time, frequency, meeting_start_date, circle_type, ccb_group_id, ccb_group_name, circle_name, follow_up_required');
+        .select('id, name, phone, campus, acpd, status, day, time, frequency, meeting_start_date, circle_type, ccb_group_id, ccb_group_name, ccb_event_ids, circle_name, follow_up_required');
 
       const occurrencesPromise = supabase
         .from('circle_meeting_occurrences')
@@ -1395,6 +1395,13 @@ function ReviewModal({
   const prayerRequests = live?.prayer_requests || row.occurrence?.prayer_requests || row.submission?.prayer_requests || null;
   const liveLoading = live?.loading === true;
 
+  const ccbEventId = row.leader.ccb_event_ids?.[0] ?? null;
+  const ccbUrl = ccbEventId && row.meetingDate
+    ? `https://valleycreekchurch.ccbchurch.com/event_detail.php?event_id=${encodeURIComponent(ccbEventId)}&occur=${DateTime.fromISO(row.meetingDate).toFormat('yyyyLLdd')}`
+    : row.leader.ccb_group_id
+      ? `https://valleycreekchurch.ccbchurch.com/goto/groups/${row.leader.ccb_group_id}/events`
+      : null;
+
   return (
     <Modal isOpen={!!row} onClose={onClose} title={row.leader.name} size="lg">
       <div className="space-y-5">
@@ -1489,6 +1496,19 @@ function ReviewModal({
           className="flex items-center justify-end gap-2 sticky bottom-0 -mx-4 sm:-mx-6 -mb-3 sm:-mb-4 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-700/60 bg-[rgba(9,27,52,0.95)] backdrop-blur-sm"
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
         >
+          {ccbUrl && (
+            <a
+              href={ccbUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mr-auto inline-flex items-center gap-1.5 text-slate-300 hover:text-white border border-slate-600 hover:border-slate-500 px-3 py-1.5 rounded-lg text-sm transition-colors"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+              </svg>
+              View in CCB
+            </a>
+          )}
           <button
             onClick={onClose}
             disabled={busy}

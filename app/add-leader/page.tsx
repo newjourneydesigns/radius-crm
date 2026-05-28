@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { ensureDefaultFrequencies, formatFrequencyLabel } from '../../lib/frequencyUtils';
+import { extractCcbGroupId } from '../../lib/ccbGroupId';
 import CCBPersonLookup from '../../components/ui/CCBPersonLookup';
 import type { CCBPerson } from '../../components/ui/CCBPersonLookup';
 
@@ -82,6 +83,7 @@ export default function AddLeaderPage() {
   const [statuses, setStatuses] = useState<SettingsItem[]>([]);
   const [frequencies, setFrequencies] = useState<SettingsItem[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const ccbGroupId = extractCcbGroupId(formData.ccbProfileLink);
 
   useEffect(() => {
     loadReferenceData();
@@ -187,6 +189,7 @@ export default function AddLeaderPage() {
           meeting_start_date: !isHostTeam ? (formData.meeting_start_date || null) : null,
           circle_type: !isHostTeam ? (formData.circleType || null) : null,
           ccb_profile_link: !isHostTeam ? (formData.ccbProfileLink || null) : null,
+          ccb_group_id: !isHostTeam ? ccbGroupId : null,
           leader_ccb_profile_link: !isHostTeam ? (formData.leaderCcbProfileLink || null) : null,
           // Host team-specific fields
           team_name: isHostTeam ? (formData.teamName || null) : null,
@@ -517,7 +520,11 @@ export default function AddLeaderPage() {
                     className={inputClass}
                     placeholder="https://valleycreekchurch.ccbchurch.com/group_detail.php?group_id=..."
                   />
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Link to the circle/group page in CCB</p>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {ccbGroupId
+                      ? `Group ID ${ccbGroupId} will be saved automatically.`
+                      : 'Link to the circle/group page in CCB'}
+                  </p>
                 </div>
                 <div>
                   <label htmlFor="leaderCcbProfileLink" className={labelClass}>Leader CCB Profile Link</label>

@@ -26,6 +26,7 @@ import CircleLeaderProfileSkeleton from '../../../components/circle/CircleLeader
 import { useRealtimeSubscription, RealtimeSubscriptionConfig } from '../../../hooks/useRealtimeSubscription';
 import { getEventSummaryButtonLabel, getEventSummaryColors, getEventSummaryState } from '../../../lib/event-summary-utils';
 import { calculateSuggestedScore, getFinalScore } from '../../../lib/evaluationQuestions';
+import { extractCcbGroupId } from '../../../lib/ccbGroupId';
 
 // Helper function to format time to AM/PM
 const formatTimeToAMPM = (time: string | undefined | null): string => {
@@ -246,13 +247,6 @@ export default function CircleLeaderProfilePage() {
   const [attendanceRefreshKey, setAttendanceRefreshKey] = useState(0);
   const [rosterCount, setRosterCount] = useState<number | null>(null);
 
-  // Extract CCB Group ID from profile link URL (e.g. /groups/3682/events -> 3682)
-  const extractCcbGroupId = (url: string | null | undefined): string | null => {
-    if (!url) return null;
-    const match = url.match(/\/groups\/(\d+)/i);
-    return match ? match[1] : null;
-  };
-
   // Reference data state
   const [campuses, setCampuses] = useState<Array<{id: number, value: string}>>([]);
   const [statuses, setStatuses] = useState<Array<{id: number, value: string}>>([]);
@@ -287,11 +281,11 @@ export default function CircleLeaderProfilePage() {
           // Auto-populate ccb_group_id from profile link if missing
           const ld = leaderResult.data;
           if (!ld.ccb_group_id && ld.ccb_profile_link) {
-            const extracted = ld.ccb_profile_link.match(/\/groups\/(\d+)/i);
+            const extracted = extractCcbGroupId(ld.ccb_profile_link);
             if (extracted) {
-              ld.ccb_group_id = extracted[1];
+              ld.ccb_group_id = extracted;
               // Persist it silently
-              supabase.from('circle_leaders').update({ ccb_group_id: extracted[1] }).eq('id', leaderId).then();
+              supabase.from('circle_leaders').update({ ccb_group_id: extracted }).eq('id', leaderId).then();
             }
           }
           setLeader(ld);
@@ -1689,9 +1683,9 @@ export default function CircleLeaderProfilePage() {
       const updated = { ...prev, [field]: value };
       // Auto-extract CCB Group ID when profile link changes
       if (field === 'ccb_profile_link' && typeof value === 'string') {
-        const match = value.match(/\/groups\/(\d+)/i);
-        if (match) {
-          updated.ccb_group_id = match[1];
+        const ccbGroupId = extractCcbGroupId(value);
+        if (ccbGroupId) {
+          updated.ccb_group_id = ccbGroupId;
         }
       }
       return updated;

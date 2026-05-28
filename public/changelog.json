@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-05-28",
+    "type": "feature",
+    "page": "/event-summary-tracker",
+    "description": "Added a 'View in CCB' button to the event summary review modal. It opens the meeting's event detail page in CCB for that exact occurrence date, so you can jump straight to the source record while reviewing."
+  },
+  {
     "date": "2026-05-27",
     "type": "improvement",
     "page": "/circle-summary",
