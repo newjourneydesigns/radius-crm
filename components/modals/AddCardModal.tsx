@@ -16,6 +16,11 @@ interface Props {
   onSaved?: () => void;
 }
 
+function getStoredCardValue(key: string) {
+  if (typeof window === 'undefined') return '';
+  return window.localStorage.getItem(key) || '';
+}
+
 export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
   const { user } = useAuth();
   const [boards, setBoards] = useState<Board[]>([]);
@@ -23,8 +28,8 @@ export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedBoardId, setSelectedBoardId] = useState(() => localStorage.getItem('addCard:lastBoardId') || '');
-  const [selectedColumnId, setSelectedColumnId] = useState(() => localStorage.getItem('addCard:lastColumnId') || '');
+  const [selectedBoardId, setSelectedBoardId] = useState(() => getStoredCardValue('addCard:lastBoardId'));
+  const [selectedColumnId, setSelectedColumnId] = useState(() => getStoredCardValue('addCard:lastColumnId'));
   const [selectedLeaderId, setSelectedLeaderId] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -38,8 +43,8 @@ export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
     if (!isOpen) return;
     setTitle('');
     setDescription('');
-    setSelectedBoardId(localStorage.getItem('addCard:lastBoardId') || '');
-    setSelectedColumnId(localStorage.getItem('addCard:lastColumnId') || '');
+    setSelectedBoardId(getStoredCardValue('addCard:lastBoardId'));
+    setSelectedColumnId(getStoredCardValue('addCard:lastColumnId'));
     setSelectedLeaderId('');
     setDueDate('');
     setError('');
@@ -142,7 +147,9 @@ export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
             </svg>
           </div>
           <p className="text-base font-medium text-gray-900 dark:text-white mb-1">Card Added</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">"{savedTitle}" was added to the board.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            &ldquo;{savedTitle}&rdquo; was added to the board.
+          </p>
           <button
             onClick={onClose}
             className="btn-primary px-6 py-2 rounded-lg text-sm"
