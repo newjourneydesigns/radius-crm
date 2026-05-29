@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Pencil, Trash2, Check, X } from 'lucide-react';
+import { Pencil, Trash2, Check } from 'lucide-react';
 import { PrayerSessionLog } from '../../lib/supabase';
 
 function formatLogDate(dateStr: string) {
@@ -111,7 +111,7 @@ export default function PrayerSessionLogList({
                   autoFocus
                   className="w-full rounded-xl px-3 py-2 text-[14px] text-slate-200 placeholder-slate-500 resize-none"
                 />
-                <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center justify-end gap-2 mt-2">
                   <button
                     onClick={() => handleBlur(log)}
                     className="inline-flex items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold bg-vc-500/15 text-vc-300 ring-1 ring-vc-500/25 hover:bg-vc-500/25 active:scale-95 transition"

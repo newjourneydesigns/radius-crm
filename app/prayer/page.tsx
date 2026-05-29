@@ -162,13 +162,11 @@ function PrayerListContent() {
             *,
             circle_leaders!inner ( id, name, campus, acpd )
           `)
-          .eq('is_answered', false)
           .eq('user_id', currentUserId)
           .order('created_at', { ascending: false }),
         supabase
           .from('general_prayer_points')
           .select('*')
-          .eq('is_answered', false)
           .eq('user_id', currentUserId)
           .order('created_at', { ascending: false }),
         supabase
@@ -363,7 +361,7 @@ function PrayerListContent() {
         },
       ]);
     }
-    setAllPrayers((prev) => prev.filter((p) => p.id !== id));
+    updateLeaderPrayer(id, { is_answered: true });
   };
 
   const handleLeaderDueDateSave = async (id: number, due: string | null) => {
@@ -413,7 +411,7 @@ function PrayerListContent() {
       .update({ is_answered: true, updated_at: new Date().toISOString() })
       .eq('id', id);
     if (err) return console.error(err);
-    setGeneralPrayers((prev) => prev.filter((p) => p.id !== id));
+    updateGeneralPrayer(id, { is_answered: true });
   };
 
   const handleGeneralDueDateSave = async (id: number, due: string | null) => {
@@ -426,27 +424,6 @@ function PrayerListContent() {
   };
 
   // ─── Session logs ───
-  const handleLogPrayer = async (kind: PrayerKind, prayerId: number) => {
-    if (!currentUserId) return;
-    const today = new Date().toISOString().split('T')[0];
-    const { data, error: err } = await supabase
-      .from('prayer_session_logs')
-      .insert([
-        {
-          prayer_point_id: prayerId,
-          prayer_kind: kind,
-          prayed_on: today,
-          note: null,
-          user_id: currentUserId,
-        },
-      ])
-      .select('*')
-      .single();
-    if (err || !data) return console.error(err);
-    setSessionLogs((prev) => [data as PrayerSessionLog, ...prev]);
-    setDraftLogIds((prev) => ({ ...prev, [logKey(kind, prayerId)]: data.id }));
-  };
-
   const handleLogNoteSave = async (logId: number, note: string) => {
     const value = note.trim() === '' ? null : note;
     const prev = sessionLogs;
@@ -686,6 +663,7 @@ function PrayerListContent() {
                       id: gp.id,
                       content: gp.content,
                       user_id: gp.user_id,
+                      is_answered: gp.is_answered,
                       is_shared: gp.is_shared,
                       pray_date: gp.pray_date,
                       created_at: gp.created_at,
@@ -704,7 +682,6 @@ function PrayerListContent() {
                         onShareToggle={handleGeneralShareToggle}
                         onAnswered={handleGeneralAnswered}
                         onDueDateSave={handleGeneralDueDateSave}
-                        onLogPrayer={(id) => handleLogPrayer('general', id)}
                         onLogNoteSave={handleLogNoteSave}
                         onLogDelete={handleLogDelete}
                         onDraftDismiss={() => clearDraft('general', gp.id)}
@@ -889,6 +866,7 @@ function PrayerListContent() {
                                 id: prayer.id,
                                 content: prayer.content,
                                 user_id: prayer.user_id,
+                                is_answered: prayer.is_answered,
                                 is_shared: prayer.is_shared,
                                 pray_date: prayer.pray_date,
                                 created_at: prayer.created_at,
@@ -911,7 +889,6 @@ function PrayerListContent() {
                                   onShareToggle={handleLeaderShareToggle}
                                   onAnswered={handleLeaderAnswered}
                                   onDueDateSave={handleLeaderDueDateSave}
-                                  onLogPrayer={(id) => handleLogPrayer('leader', id)}
                                   onLogNoteSave={handleLogNoteSave}
                                   onLogDelete={handleLogDelete}
                                   onDraftDismiss={() => clearDraft('leader', prayer.id)}

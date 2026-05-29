@@ -9,9 +9,7 @@ import {
   Share2,
   CheckCircle2,
   Calendar,
-  ExternalLink,
   Check,
-  X,
 } from 'lucide-react';
 import { PrayerSessionLog, PrayerKind } from '../../lib/supabase';
 import PrayerSessionLogList from './PrayerSessionLogList';
@@ -59,6 +57,7 @@ export interface PrayerRowData {
   id: number;
   content: string;
   user_id: string;
+  is_answered: boolean;
   is_shared: boolean;
   pray_date?: string | null;
   created_at: string;
@@ -81,7 +80,6 @@ interface PrayerRowProps {
   onShareToggle: (id: number, next: boolean) => Promise<void> | void;
   onAnswered: (id: number) => Promise<void> | void;
   onDueDateSave: (id: number, due: string | null) => Promise<void> | void;
-  onLogPrayer: (id: number) => Promise<void> | void;
   onLogNoteSave: (logId: number, note: string) => Promise<void> | void;
   onLogDelete: (logId: number) => Promise<void> | void;
   onDraftDismiss: () => void;
@@ -99,7 +97,6 @@ export default function PrayerRow({
   onShareToggle,
   onAnswered,
   onDueDateSave,
-  onLogPrayer,
   onLogNoteSave,
   onLogDelete,
   onDraftDismiss,
@@ -238,7 +235,11 @@ export default function PrayerRow({
           </div>
         </div>
       ) : (
-        <p className="text-[15px] text-slate-100 leading-relaxed whitespace-pre-wrap">
+        <p
+          className={`text-[15px] leading-relaxed whitespace-pre-wrap ${
+            data.is_answered ? 'text-slate-400' : 'text-slate-100'
+          }`}
+        >
           {data.content}
         </p>
       )}
@@ -306,19 +307,34 @@ export default function PrayerRow({
                 <span className="text-slate-500">Shared</span>
               </>
             )}
+            {data.is_answered && (
+              <>
+                <span className="text-slate-700">·</span>
+                <span className="text-vc-300">Answered</span>
+              </>
+            )}
           </div>
 
           <div className="ml-auto flex items-center gap-1 flex-shrink-0">
+            {/* Always-visible quick actions */}
             {isOwner && (
               <button
-                onClick={() => onLogPrayer(data.id)}
-                className="inline-flex items-center justify-center rounded-full px-3.5 py-2 text-xs font-semibold bg-vc-500/15 text-vc-300 ring-1 ring-vc-500/25 hover:bg-vc-500/25 active:scale-95 transition"
+                type="button"
+                onClick={() => {
+                  if (!data.is_answered) onAnswered(data.id);
+                }}
+                disabled={data.is_answered}
+                className={`h-8 w-8 flex items-center justify-center rounded-lg ring-1 active:scale-95 transition ${
+                  data.is_answered
+                    ? 'text-vc-300 ring-vc-500/30 bg-vc-500/10 cursor-default'
+                    : 'text-slate-400 ring-white/[0.08] hover:text-vc-300 hover:bg-vc-500/10 hover:ring-vc-500/25'
+                }`}
+                aria-label={data.is_answered ? 'Prayer answered' : 'Mark prayer answered'}
+                title={data.is_answered ? 'Prayer answered' : 'Mark answered'}
               >
-                Pray
+                <CheckCircle2 strokeWidth={1.8} className="w-4 h-4" />
               </button>
             )}
-
-            {/* Always-visible quick actions */}
             {isOwner && (
               <button
                 onClick={() => setEditing(true)}
@@ -389,27 +405,19 @@ export default function PrayerRow({
                         <Share2 strokeWidth={1.5} className="w-4 h-4 text-slate-500" />
                         {data.is_shared ? 'Make private' : 'Share with team'}
                       </button>
-                      <button
-                        onClick={() => {
-                          onAnswered(data.id);
-                          setMenuOpen(false);
-                        }}
-                        className="w-full min-h-[44px] flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors text-left"
-                      >
-                        <CheckCircle2 strokeWidth={1.5} className="w-4 h-4 text-slate-500" />
-                        Mark answered
-                      </button>
+                      {!data.is_answered && (
+                        <button
+                          onClick={() => {
+                            onAnswered(data.id);
+                            setMenuOpen(false);
+                          }}
+                          className="w-full min-h-[44px] flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors text-left"
+                        >
+                          <CheckCircle2 strokeWidth={1.5} className="w-4 h-4 text-slate-500" />
+                          Mark answered
+                        </button>
+                      )}
                     </>
-                  )}
-                  {kind === 'leader' && data.leader_id && (
-                    <Link
-                      href={`/circle/${data.leader_id}`}
-                      onClick={() => setMenuOpen(false)}
-                      className="w-full min-h-[44px] flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors"
-                    >
-                      <ExternalLink strokeWidth={1.5} className="w-4 h-4 text-slate-500" />
-                      Open in Radius
-                    </Link>
                   )}
                   {isOwner && (
                     <button
