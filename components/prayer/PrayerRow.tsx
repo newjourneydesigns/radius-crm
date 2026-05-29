@@ -216,24 +216,24 @@ export default function PrayerRow({
             }}
             rows={2}
             autoFocus
-            className="w-full bg-transparent border-0 border-b border-white/[0.15] py-1 text-[15px] text-slate-100 focus:outline-none focus:border-white/40 resize-none transition-colors"
+            className="w-full rounded-xl px-3 py-2.5 text-[15px] text-slate-100 resize-none"
           />
-          <div className="flex items-center gap-3 text-xs text-slate-500">
+          <div className="flex items-center gap-2">
             <button
               onClick={handleSaveEdit}
               disabled={!editText.trim()}
-              className="inline-flex items-center gap-1 text-slate-400 hover:text-white disabled:opacity-40 transition-colors min-h-[40px]"
+              className="inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold bg-vc-500/15 text-vc-300 ring-1 ring-vc-500/25 hover:bg-vc-500/25 active:scale-95 transition disabled:opacity-30 disabled:hover:bg-vc-500/15"
             >
-              <Check strokeWidth={1.5} className="w-4 h-4" /> Save
+              <Check strokeWidth={2} className="w-3.5 h-3.5" /> Save
             </button>
             <button
               onClick={() => {
                 setEditText(data.content);
                 setEditing(false);
               }}
-              className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-200 transition-colors min-h-[40px]"
+              className="inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-medium text-slate-400 ring-1 ring-white/[0.1] hover:text-white hover:bg-white/[0.06] active:scale-95 transition"
             >
-              <X strokeWidth={1.5} className="w-4 h-4" /> Cancel
+              Cancel
             </button>
           </div>
         </div>
@@ -246,23 +246,22 @@ export default function PrayerRow({
       {/* Due date editor */}
       {showDueEditor && isOwner && !editing && (
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-          <Calendar strokeWidth={1.5} className="w-3.5 h-3.5 text-slate-500" />
           <input
             type="date"
             value={dueValue}
             onChange={(e) => setDueValue(e.target.value)}
-            className="bg-transparent border-0 border-b border-white/[0.1] py-1 text-xs text-slate-200 focus:outline-none focus:border-white/30"
+            className="rounded-lg px-2.5 py-1.5 text-xs text-slate-200"
           />
           <button
             onClick={handleSaveDue}
-            className="inline-flex items-center gap-1 text-slate-400 hover:text-white transition-colors min-h-[40px] px-1"
+            className="inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-vc-500/15 text-vc-300 ring-1 ring-vc-500/25 hover:bg-vc-500/25 active:scale-95 transition"
           >
-            <Check strokeWidth={1.5} className="w-3.5 h-3.5" /> Save
+            <Check strokeWidth={2} className="w-3.5 h-3.5" /> Save
           </button>
           {data.pray_date && (
             <button
               onClick={handleClearDue}
-              className="text-slate-500 hover:text-rose-400 transition-colors min-h-[40px] px-1"
+              className="rounded-full px-3 py-1.5 text-xs font-medium text-slate-400 ring-1 ring-white/[0.1] hover:text-rose-300 hover:bg-rose-500/10 active:scale-95 transition"
             >
               Clear
             </button>
@@ -272,7 +271,7 @@ export default function PrayerRow({
               setDueValue(data.pray_date || '');
               setShowDueEditor(false);
             }}
-            className="text-slate-500 hover:text-slate-200 transition-colors min-h-[40px] px-1"
+            className="rounded-full px-3 py-1.5 text-xs font-medium text-slate-400 ring-1 ring-white/[0.1] hover:text-white hover:bg-white/[0.06] active:scale-95 transition"
           >
             Cancel
           </button>
@@ -313,48 +312,46 @@ export default function PrayerRow({
             {isOwner && (
               <button
                 onClick={() => onLogPrayer(data.id)}
-                className="inline-flex items-center min-h-[44px] px-3 text-xs font-medium text-slate-400 hover:text-white transition-colors"
+                className="inline-flex items-center justify-center rounded-full px-3.5 py-2 text-xs font-semibold bg-vc-500/15 text-vc-300 ring-1 ring-vc-500/25 hover:bg-vc-500/25 active:scale-95 transition"
               >
-                Log
+                Pray
               </button>
             )}
 
-            {/* Desktop hover-only quick actions */}
-            <div className="hidden sm:flex items-center gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-              {isOwner && (
-                <button
-                  onClick={() => setEditing(true)}
-                  className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-slate-100 transition-colors"
-                  aria-label="Edit prayer"
-                >
-                  <Pencil strokeWidth={1.5} className="w-4 h-4" />
-                </button>
-              )}
-              {isOwner && (
-                <button
-                  onClick={() => {
-                    setDueValue(data.pray_date || '');
-                    setShowDueEditor(true);
-                  }}
-                  className={`min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors ${
-                    data.pray_date
-                      ? 'text-amber-400/80 hover:text-amber-300'
-                      : 'text-slate-500 hover:text-slate-100'
-                  }`}
-                  aria-label="Set due date"
-                >
-                  <Calendar strokeWidth={1.5} className="w-4 h-4" />
-                </button>
-              )}
-            </div>
+            {/* Always-visible quick actions */}
+            {isOwner && (
+              <button
+                onClick={() => setEditing(true)}
+                className="h-8 w-8 flex items-center justify-center rounded-lg ring-1 ring-white/[0.08] text-slate-400 hover:text-white hover:bg-white/[0.06] active:scale-95 transition"
+                aria-label="Edit prayer"
+              >
+                <Pencil strokeWidth={1.8} className="w-4 h-4" />
+              </button>
+            )}
+            {isOwner && (
+              <button
+                onClick={() => {
+                  setDueValue(data.pray_date || '');
+                  setShowDueEditor(true);
+                }}
+                className={`h-8 w-8 flex items-center justify-center rounded-lg ring-1 active:scale-95 transition ${
+                  data.pray_date
+                    ? 'text-amber-300 ring-amber-300/30 bg-amber-300/10 hover:bg-amber-300/15'
+                    : 'text-slate-400 ring-white/[0.08] hover:text-white hover:bg-white/[0.06]'
+                }`}
+                aria-label="Set due date"
+              >
+                <Calendar strokeWidth={1.8} className="w-4 h-4" />
+              </button>
+            )}
 
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen((v) => !v)}
-                className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-slate-100 transition-colors"
+                className="h-8 w-8 flex items-center justify-center rounded-lg ring-1 ring-white/[0.08] text-slate-400 hover:text-white hover:bg-white/[0.06] active:scale-95 transition"
                 aria-label="More actions"
               >
-                <MoreHorizontal strokeWidth={1.5} className="w-4 h-4" />
+                <MoreHorizontal strokeWidth={1.8} className="w-4 h-4" />
               </button>
 
               {menuOpen && (

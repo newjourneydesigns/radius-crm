@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { SearchX, Plus, Calendar, X, HandHeart } from 'lucide-react';
+import { Plus, Calendar, X, Heart } from 'lucide-react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import PrayerToolbar from '../../components/prayer/PrayerToolbar';
 import PrayerSectionHeader from '../../components/prayer/PrayerSectionHeader';
@@ -64,6 +64,22 @@ function timeAgoFromTimestamp(ts: string) {
   if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
   if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`;
   return `${Math.floor(diffDays / 365)}y ago`;
+}
+
+function initialsOf(name: string) {
+  return (
+    name
+      .split(' ')
+      .filter(Boolean)
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2) || '?'
+  );
+}
+
+function todayISO() {
+  return new Date().toISOString().split('T')[0];
 }
 
 // ── Main Component ─────────────────────────────────────
@@ -284,7 +300,18 @@ function PrayerListContent() {
   // ─── Stats ───
   const totalPrayers = allPrayers.length;
   const totalLeaders = allLeaders.length;
-  const leadersWithPrayers = new Set(allPrayers.map((p) => p.circle_leader_id)).size;
+
+  const prayedTodayLeaderIds = useMemo(() => {
+    const today = todayISO();
+    const set = new Set<number>();
+    for (const log of sessionLogs) {
+      if (log.prayer_kind === 'leader_session' && log.prayed_on === today) {
+        set.add(log.prayer_point_id);
+      }
+    }
+    return set;
+  }, [sessionLogs]);
+  const prayedTodayCount = prayedTodayLeaderIds.size;
 
   // ─── Mutations: leader prayers ───
   const updateLeaderPrayer = (id: number, patch: Partial<PrayerWithLeader>) => {
@@ -591,10 +618,19 @@ function PrayerListContent() {
       <div className="max-w-3xl mx-auto px-4 py-6 pb-32">
         {/* Header */}
         <div className="mb-5">
-          <h1 className="text-base font-semibold text-white">Prayer List</h1>
-          <p className="text-xs text-slate-600 mt-0.5">
-            {totalPrayers} prayer{totalPrayers !== 1 ? 's' : ''} · {leadersWithPrayers} of{' '}
-            {totalLeaders} circle{totalLeaders !== 1 ? 's' : ''}
+          <h1 className="text-2xl font-bold text-white tracking-tight">Prayer</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            {prayedTodayCount > 0 ? (
+              <>
+                <span className="font-medium text-vc-400">{prayedTodayCount} prayed today</span>
+                {' · '}
+                {totalLeaders} circles
+              </>
+            ) : (
+              <>
+                {totalLeaders} circles · {totalPrayers} prayer point{totalPrayers !== 1 ? 's' : ''}
+              </>
+            )}
           </p>
         </div>
 
@@ -637,8 +673,8 @@ function PrayerListContent() {
           {generalExpanded && (
             <div>
               {filteredGeneralPrayers.length === 0 ? (
-                <div className="py-8 text-center">
-                  <p className="text-sm text-slate-600">
+                <div className="py-5 text-center">
+                  <p className="text-sm text-slate-500">
                     {searchQuery ? 'No matching prayer points' : 'No prayer points yet'}
                   </p>
                 </div>
@@ -679,7 +715,7 @@ function PrayerListContent() {
               )}
 
               {/* Inline add general prayer */}
-              <div className="mt-5 flex items-start gap-2">
+              <div className="mt-3 flex items-center gap-2">
                 <input
                   type="text"
                   value={newGeneralText}
@@ -688,23 +724,23 @@ function PrayerListContent() {
                     if (e.key === 'Enter') addGeneralPrayer();
                   }}
                   placeholder="Add a prayer point"
-                  className="flex-1 min-h-[44px] bg-transparent border-0 border-b border-white/[0.08] px-3 py-2 text-[15px] text-slate-100 placeholder-slate-600 focus:outline-none focus:border-white/30 transition-colors"
+                  className="flex-1 min-w-0 min-h-[44px] rounded-xl px-3 text-[15px] text-slate-100 placeholder-slate-500"
                 />
                 <button
                   onClick={() => setShowNewGeneralDate((v) => !v)}
-                  className={`min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors ${
+                  className={`flex-shrink-0 h-11 w-11 flex items-center justify-center rounded-xl ring-1 transition-colors ${
                     showNewGeneralDate || newGeneralDate
-                      ? 'text-amber-300'
-                      : 'text-slate-500 hover:text-slate-200'
+                      ? 'text-amber-300 bg-amber-300/10 ring-amber-300/30'
+                      : 'text-slate-400 ring-white/[0.1] hover:text-white hover:bg-white/[0.06]'
                   }`}
                   aria-label="Set due date"
                 >
-                  <Calendar strokeWidth={1.5} className="w-4 h-4" />
+                  <Calendar strokeWidth={1.8} className="w-4 h-4" />
                 </button>
                 <button
                   onClick={addGeneralPrayer}
                   disabled={!newGeneralText.trim()}
-                  className="min-h-[44px] px-3 text-sm font-medium text-slate-300 hover:text-white disabled:opacity-30 disabled:hover:text-slate-300 transition-colors"
+                  className="flex-shrink-0 inline-flex items-center justify-center rounded-full px-4 py-2.5 text-xs font-semibold bg-vc-500/15 text-vc-300 ring-1 ring-vc-500/25 hover:bg-vc-500/25 active:scale-95 disabled:opacity-30 disabled:hover:bg-vc-500/15 transition"
                 >
                   Add
                 </button>
@@ -744,46 +780,58 @@ function PrayerListContent() {
           {leaderSectionExpanded && (
             <div>
               {groupedPrayers.length === 0 ? (
-                <div className="py-10 text-center">
-                  <div className="mb-3 flex justify-center">
-                    <SearchX strokeWidth={1.5} className="h-8 w-8 text-slate-700" />
-                  </div>
-                  <p className="text-sm text-slate-500">
+                <div className="mt-3 rounded-2xl bg-white/[0.025] border border-white/[0.06] py-12 text-center">
+                  <Heart strokeWidth={1.5} className="h-8 w-8 text-slate-600 mx-auto mb-3" />
+                  <p className="text-sm text-slate-400">
                     {searchQuery || filterCampus || filterAcpd
                       ? 'No matching prayers'
                       : 'No active circle leader prayers'}
                   </p>
                 </div>
               ) : (
-                <div className="mt-1">
+                <div className="mt-3 rounded-2xl bg-white/[0.025] border border-white/[0.06] overflow-hidden divide-y divide-white/[0.05]">
                   {groupedPrayers.map((group) => {
                     const isExpanded = expandedLeaders.has(group.leaderId);
                     const leaderLogs = leaderSessionLogsByLeader.get(group.leaderId) || [];
                     const leaderSessionDraft = draftLeaderSessionIds[group.leaderId] ?? null;
                     const sessionHistoryOpen = leaderSessionHistoryOpen.has(group.leaderId);
                     const lastLeaderLog = leaderLogs[0];
+                    const prayedToday = prayedTodayLeaderIds.has(group.leaderId);
+                    const subtitle =
+                      [
+                        group.leaderCampus,
+                        prayedToday
+                          ? 'Prayed today'
+                          : lastLeaderLog
+                            ? `Prayed ${timeAgoFromTimestamp(lastLeaderLog.created_at)}`
+                            : null,
+                        group.prayers.length > 0
+                          ? `${group.prayers.length} pt${group.prayers.length === 1 ? '' : 's'}`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ') || 'Tap to pray';
                     return (
-                      <div key={group.leaderId} className="py-2">
-                        <div className="w-full min-h-[44px] flex items-center gap-2 py-2">
+                      <div key={group.leaderId} className={isExpanded ? 'bg-white/[0.015]' : ''}>
+                        <div className="flex items-center gap-3 px-3 py-2.5">
                           <button
                             onClick={() => toggleLeader(group.leaderId)}
-                            className="flex-1 min-h-[44px] flex items-center gap-2 text-left"
+                            className="flex items-center gap-3 flex-1 min-w-0 min-h-[44px] text-left"
                           >
-                            <span className="text-sm font-medium text-slate-200">
-                              {group.leaderName}
+                            <span
+                              className={`flex-shrink-0 flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-semibold transition-colors ${
+                                prayedToday
+                                  ? 'bg-vc-500/20 text-vc-300 ring-1 ring-vc-500/30'
+                                  : 'bg-white/[0.06] text-slate-400'
+                              }`}
+                            >
+                              {initialsOf(group.leaderName)}
                             </span>
-                            {group.leaderCampus && (
-                              <span className="text-xs text-slate-600 hidden sm:inline">
-                                · {group.leaderCampus}
+                            <span className="min-w-0">
+                              <span className="block text-[15px] font-medium text-white truncate">
+                                {group.leaderName}
                               </span>
-                            )}
-                            {lastLeaderLog && (
-                              <span className="text-xs text-slate-600 hidden sm:inline">
-                                · prayed {timeAgoFromTimestamp(lastLeaderLog.created_at)}
-                              </span>
-                            )}
-                            <span className="ml-auto text-xs text-slate-600">
-                              {group.prayers.length}
+                              <span className="block text-xs text-slate-500 truncate">{subtitle}</span>
                             </span>
                           </button>
                           <button
@@ -791,16 +839,15 @@ function PrayerListContent() {
                               e.stopPropagation();
                               handleLogLeaderSession(group.leaderId);
                             }}
-                            className="inline-flex items-center gap-1.5 min-h-[44px] px-2.5 text-xs font-medium text-slate-400 hover:text-white transition-colors"
+                            className="flex-shrink-0 inline-flex items-center justify-center rounded-full px-3.5 py-2 text-xs font-semibold bg-vc-500/15 text-vc-300 ring-1 ring-vc-500/25 hover:bg-vc-500/25 active:scale-95 transition"
                             aria-label={`Log prayer for ${group.leaderName}`}
                           >
-                            <HandHeart strokeWidth={1.5} className="w-3.5 h-3.5" />
                             Pray
                           </button>
                         </div>
 
                         {isExpanded && (
-                          <div className="pl-0">
+                          <div className="px-3 pb-2 pt-1 border-t border-white/[0.04]">
                             {leaderLogs.length > 0 && (
                               <div className="py-2 text-xs text-slate-500 flex items-center gap-1.5 flex-wrap">
                                 <span>Last prayed {timeAgoFromTimestamp(leaderLogs[0].created_at)}</span>
@@ -893,15 +940,15 @@ function PrayerListContent() {
                                   rows={2}
                                   autoFocus
                                   placeholder={`Add a prayer for ${group.leaderName}`}
-                                  className="w-full bg-transparent border-0 border-b border-white/[0.15] px-3 py-2 text-[15px] text-slate-100 placeholder-slate-600 focus:outline-none focus:border-white/40 resize-none transition-colors"
+                                  className="w-full rounded-xl px-3 py-2.5 text-[15px] text-slate-100 placeholder-slate-500 resize-none"
                                 />
                                 <div className="flex flex-wrap items-center gap-3 text-xs">
                                   <button
                                     onClick={() => setShowNewPrayerDate((v) => !v)}
-                                    className={`inline-flex items-center gap-1.5 min-h-[44px] transition-colors ${
+                                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ring-1 transition active:scale-95 ${
                                       showNewPrayerDate || newPrayerDate
-                                        ? 'text-amber-300'
-                                        : 'text-slate-500 hover:text-slate-200'
+                                        ? 'text-amber-300 ring-amber-300/30 bg-amber-300/10'
+                                        : 'text-slate-400 ring-white/[0.1] hover:text-white hover:bg-white/[0.06]'
                                     }`}
                                   >
                                     <Calendar strokeWidth={1.5} className="w-3.5 h-3.5" />
@@ -918,7 +965,7 @@ function PrayerListContent() {
                                   <button
                                     onClick={() => addLeaderPrayer(group.leaderId)}
                                     disabled={!newPrayerText.trim()}
-                                    className="ml-auto min-h-[44px] px-2 text-slate-300 hover:text-white disabled:opacity-30 disabled:hover:text-slate-300 transition-colors font-medium"
+                                    className="ml-auto inline-flex items-center justify-center rounded-full px-4 py-2 text-xs font-semibold bg-vc-500/15 text-vc-300 ring-1 ring-vc-500/25 hover:bg-vc-500/25 active:scale-95 transition disabled:opacity-30 disabled:hover:bg-vc-500/15"
                                   >
                                     Save
                                   </button>
@@ -929,7 +976,7 @@ function PrayerListContent() {
                                       setNewPrayerDate('');
                                       setShowNewPrayerDate(false);
                                     }}
-                                    className="min-h-[44px] px-2 text-slate-500 hover:text-slate-200 transition-colors"
+                                    className="inline-flex items-center justify-center rounded-full px-3.5 py-2 text-xs font-medium text-slate-400 ring-1 ring-white/[0.1] hover:text-white hover:bg-white/[0.06] active:scale-95 transition"
                                   >
                                     Cancel
                                   </button>
@@ -943,9 +990,9 @@ function PrayerListContent() {
                                   setNewPrayerDate('');
                                   setShowNewPrayerDate(false);
                                 }}
-                                className="inline-flex items-center gap-1.5 min-h-[44px] px-1 mt-1 mb-1 text-xs text-slate-600 hover:text-slate-300 transition-colors"
+                                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 mt-1 mb-1 text-xs font-medium text-vc-300 ring-1 ring-vc-500/25 hover:bg-vc-500/15 active:scale-95 transition"
                               >
-                                <Plus strokeWidth={1.5} className="w-3.5 h-3.5" />
+                                <Plus strokeWidth={1.8} className="w-3.5 h-3.5" />
                                 Add prayer
                               </button>
                             )}

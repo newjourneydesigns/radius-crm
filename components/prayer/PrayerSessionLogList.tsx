@@ -76,7 +76,7 @@ export default function PrayerSessionLogList({
                       setEditingId(log.id);
                       setEditValue(log.note ?? '');
                     }}
-                    className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-slate-200 active:text-white transition-colors"
+                    className="h-8 w-8 flex items-center justify-center rounded-lg ring-1 ring-white/[0.08] text-slate-400 hover:text-white hover:bg-white/[0.06] active:scale-95 transition"
                     aria-label="Edit note"
                   >
                     <Pencil strokeWidth={1.5} className="w-4 h-4" />
@@ -84,7 +84,7 @@ export default function PrayerSessionLogList({
                   <button
                     type="button"
                     onClick={() => handleDelete(log.id)}
-                    className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-rose-400 active:text-rose-300 transition-colors"
+                    className="h-8 w-8 flex items-center justify-center rounded-lg ring-1 ring-white/[0.08] text-slate-400 hover:text-rose-300 hover:bg-rose-500/10 active:scale-95 transition"
                     aria-label="Delete log"
                   >
                     <Trash2 strokeWidth={1.5} className="w-4 h-4" />
@@ -109,14 +109,14 @@ export default function PrayerSessionLogList({
                   placeholder="Add a note about this prayer time (optional)"
                   rows={2}
                   autoFocus
-                  className="w-full bg-transparent border-0 border-b border-white/[0.1] py-1.5 text-[14px] text-slate-200 placeholder-slate-600 focus:outline-none focus:border-white/30 resize-none transition-colors"
+                  className="w-full rounded-xl px-3 py-2 text-[14px] text-slate-200 placeholder-slate-500 resize-none"
                 />
-                <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-600">
+                <div className="flex items-center gap-2 mt-2">
                   <button
                     onClick={() => handleBlur(log)}
-                    className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-200 transition-colors min-h-[40px] px-2"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold bg-vc-500/15 text-vc-300 ring-1 ring-vc-500/25 hover:bg-vc-500/25 active:scale-95 transition"
                   >
-                    <Check strokeWidth={1.5} className="w-3.5 h-3.5" /> Save
+                    <Check strokeWidth={2} className="w-3.5 h-3.5" /> Save
                   </button>
                   <button
                     onClick={() => {
@@ -124,9 +124,9 @@ export default function PrayerSessionLogList({
                       setEditValue('');
                       if (draftLogId === log.id) onDraftDismiss();
                     }}
-                    className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-200 transition-colors min-h-[40px] px-2"
+                    className="inline-flex items-center justify-center rounded-full px-3.5 py-1.5 text-xs font-medium text-slate-400 ring-1 ring-white/[0.1] hover:text-white hover:bg-white/[0.06] active:scale-95 transition"
                   >
-                    <X strokeWidth={1.5} className="w-3.5 h-3.5" /> Cancel
+                    Cancel
                   </button>
                 </div>
               </div>
@@ -134,9 +134,7 @@ export default function PrayerSessionLogList({
               <p className="mt-0.5 text-[14px] text-slate-300 whitespace-pre-wrap leading-relaxed">
                 {log.note}
               </p>
-            ) : (
-              <p className="mt-0.5 text-[13px] text-slate-600 italic">No note</p>
-            )}
+            ) : null}
           </li>
         );
       })}

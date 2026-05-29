@@ -240,8 +240,8 @@ export default function AuthenticatedNavigation() {
     const activeHref = href.split(/[?#]/)[0];
     return `flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
       isActive(activeHref)
-        ? 'text-slate-300 bg-white/[0.06] border-l-2 border-zinc-400/50'
-        : 'text-gray-300 hover:text-white hover:bg-white/[0.06]'
+        ? 'text-vc-300 bg-vc-500/10 border-l-2 border-vc-500/60'
+        : 'text-slate-300 hover:text-white hover:bg-white/[0.06]'
     }`;
   };
 
@@ -265,7 +265,7 @@ export default function AuthenticatedNavigation() {
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150 ${
                   isActive(href)
                     ? 'nav-active-pill'
-                    : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
+                    : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
                 }`}
               >
                 <Icon />
@@ -284,12 +284,9 @@ export default function AuthenticatedNavigation() {
                 onClick={() => { setToolsMenuOpen(v => !v); setUserMenuOpen(false); }}
                 aria-expanded={toolsMenuOpen}
                 aria-haspopup="true"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150 focus:outline-none"
-                style={{
-                  background: toolsMenuOpen ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.10)',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  color: toolsMenuOpen ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.7)',
-                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium border border-white/10 transition-colors duration-150 focus:outline-none ${
+                  toolsMenuOpen ? 'bg-white/[0.14] text-white' : 'bg-white/[0.06] text-slate-300 hover:bg-white/10 hover:text-white'
+                }`}
               >
                 <ToolsIcon />
                 <span>Tools</span>
@@ -299,7 +296,7 @@ export default function AuthenticatedNavigation() {
               {toolsMenuOpen && (
                 <div className="absolute right-0 mt-2 w-60 rounded-xl bg-[#1a1c22] border border-white/[0.08] shadow-2xl shadow-black/50 ring-1 ring-black/20 z-[99999] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
                   <div className="px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Tools</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Tools</p>
                   </div>
                   <div className="py-1">
                     {visibleToolsNavItems.map(({ href, label, Icon }) => (
@@ -309,7 +306,7 @@ export default function AuthenticatedNavigation() {
                     ))}
                   </div>
                   <div className="border-t border-white/[0.06] px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Circle Leader Page</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Circle Leader Page</p>
                   </div>
                   <div className="py-1">
                     {visibleCircleSummaryNavItems.map(({ href, label, Icon }) => (
@@ -321,7 +318,7 @@ export default function AuthenticatedNavigation() {
                   {admin && (
                     <>
                       <div className="border-t border-white/[0.06] px-3 py-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Admin</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Admin</p>
                       </div>
                       <div className="py-1">
                         {adminToolsNavItems.map(({ href, label, Icon }) => (
@@ -342,12 +339,9 @@ export default function AuthenticatedNavigation() {
                 onClick={() => { setUserMenuOpen(v => !v); setToolsMenuOpen(false); }}
                 aria-expanded={userMenuOpen}
                 aria-haspopup="true"
-                className="flex items-center px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150 focus:outline-none"
-                style={{
-                  background: userMenuOpen ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.10)',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  color: userMenuOpen ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.7)',
-                }}
+                className={`flex items-center justify-center w-8 h-8 rounded-full bg-vc-fab text-[12px] font-semibold text-white transition-all duration-150 focus:outline-none ${
+                  userMenuOpen ? 'ring-2 ring-vc-400/50' : 'hover:opacity-90'
+                }`}
                 title={user?.name || user?.email || 'Account'}
               >
                 {initials}
@@ -358,7 +352,7 @@ export default function AuthenticatedNavigation() {
                   {/* User info header */}
                   <div className="px-4 py-3 border-b border-white/[0.06]">
                     <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
-                    <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                    <p className="text-xs text-slate-500 truncate">{user?.email}</p>
                     {admin && (
                       <span className="mt-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-500/15 text-slate-400 ring-1 ring-zinc-500/20">
                         Admin

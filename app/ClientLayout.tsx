@@ -7,6 +7,7 @@ import PublicNavigation from "../components/layout/PublicNavigation";
 import Footer from "../components/layout/Footer";
 import QuickActionsFAB from "../components/layout/QuickActionsFAB";
 import { AuthProvider } from "../contexts/AuthContext";
+import { QuickActionsProvider } from "../contexts/QuickActionsContext";
 import NavigationProgress from "../components/layout/NavigationProgress";
 import ProtectedRoute from "../components/ProtectedRoute";
 
@@ -74,7 +75,9 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <LayoutInner>{children}</LayoutInner>
+      <QuickActionsProvider>
+        <LayoutInner>{children}</LayoutInner>
+      </QuickActionsProvider>
     </AuthProvider>
   );
 }

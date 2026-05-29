@@ -66,7 +66,7 @@ export default function PrayerToolbar({
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search prayers or leaders"
-          className="w-full pl-10 pr-10 py-2.5 bg-transparent border-0 border-b border-white/[0.08] text-[15px] text-slate-100 placeholder-slate-600 focus:outline-none focus:border-white/30 transition-colors"
+          className="w-full pl-10 pr-10 py-3 rounded-xl bg-white/[0.04] border border-white/[0.07] text-[15px] text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-vc-500/40 focus:border-transparent transition-all"
         />
         {searchQuery && (
           <button
@@ -83,7 +83,7 @@ export default function PrayerToolbar({
         <select
           value={filterCampus}
           onChange={(e) => onFilterCampusChange(e.target.value)}
-          className="flex-1 min-w-0 min-h-[44px] px-3 py-2 bg-transparent border-0 border-b border-white/[0.06] text-sm text-slate-300 focus:outline-none focus:border-white/30 transition-colors"
+          className="flex-1 min-w-0 min-h-[44px] px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.07] text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-vc-500/40 focus:border-transparent transition-all"
         >
           <option value="" className="bg-[#111318]">All campuses</option>
           {campusList.map((c) => (
@@ -95,7 +95,7 @@ export default function PrayerToolbar({
         <select
           value={filterAcpd}
           onChange={(e) => onFilterAcpdChange(e.target.value)}
-          className="flex-1 min-w-0 min-h-[44px] px-3 py-2 bg-transparent border-0 border-b border-white/[0.06] text-sm text-slate-300 focus:outline-none focus:border-white/30 transition-colors"
+          className="flex-1 min-w-0 min-h-[44px] px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.07] text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-vc-500/40 focus:border-transparent transition-all"
         >
           <option value="" className="bg-[#111318]">All ACPDs</option>
           {acpdList.map((a) => (
@@ -108,10 +108,10 @@ export default function PrayerToolbar({
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setMenuOpen((v) => !v)}
-            className={`flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md transition-colors ${
+            className={`flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-white/[0.07] transition-colors ${
               menuOpen
-                ? 'text-slate-300 bg-white/[0.04]'
-                : 'text-slate-700 hover:text-slate-400'
+                ? 'text-white bg-white/[0.08]'
+                : 'text-slate-400 bg-white/[0.04] hover:text-white'
             }`}
             aria-label="View options"
           >

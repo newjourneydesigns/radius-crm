@@ -492,6 +492,22 @@ function BigThreeSection({
     if (ok) setSearches(prev => ({ ...prev, [slotNumber]: { query: '', results: [], isSearching: false, hasSearched: false } }));
   };
 
+  // Display order: filled cards sorted by due date (soonest first, no-date last),
+  // then empty slots. The underlying slotNumber is preserved for create/clear actions.
+  const orderedSlots = [...slots].sort((a, b) => {
+    if (!a.card || !b.card) {
+      if (a.card) return -1;
+      if (b.card) return 1;
+      return a.slotNumber - b.slotNumber;
+    }
+    const aDate = a.card.due_date;
+    const bDate = b.card.due_date;
+    if (!aDate && !bDate) return a.slotNumber - b.slotNumber;
+    if (!aDate) return 1;
+    if (!bDate) return -1;
+    return aDate.localeCompare(bDate);
+  });
+
   return (
     <div id="big-three" style={{
       background: T.cardBg, border: `1px solid ${T.cardBorder}`,
@@ -520,7 +536,7 @@ function BigThreeSection({
       </div>
 
       <div style={{ display: 'grid', gap: 0 }}>
-        {slots.map(slot => {
+        {orderedSlots.map((slot, index) => {
           const draft = drafts[slot.slotNumber] ?? { title: '', boardId: defaultBoardId };
           const search = searches[slot.slotNumber] ?? { query: '', results: [], isSearching: false, hasSearched: false };
           const card = slot.card;
@@ -529,7 +545,7 @@ function BigThreeSection({
           return (
             <div key={slot.slotNumber} style={{
               padding: '13px 16px',
-              borderBottom: slot.slotNumber < 3 ? `1px solid ${T.cardBorder}` : 'none',
+              borderBottom: index < orderedSlots.length - 1 ? `1px solid ${T.cardBorder}` : 'none',
               borderLeft: `3px solid ${card ? T.green : 'transparent'}`,
             }}>
               <div className="today-big3-row" style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>

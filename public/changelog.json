@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-05-29",
+    "type": "improvement",
+    "page": "/today",
+    "description": "The Big 3 section on the Today page now sorts your priorities by due date, with the soonest-due card at the top and any open slots at the bottom, so the most urgent work is always first."
+  },
+  {
     "date": "2026-05-28",
     "type": "improvement",
     "page": "/event-summary-tracker",
