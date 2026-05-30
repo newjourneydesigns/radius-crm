@@ -127,6 +127,97 @@ const trackerPageCache = new Map<string, { loadedAt: number; payload: PagePayloa
 // just gives us something to render right away.
 const TRACKER_LS_PREFIX = 'est.cache.v1:';
 const TRACKER_LS_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const ALLOWED_NOTE_TAGS = new Set(['A', 'B', 'BR', 'DIV', 'EM', 'I', 'LI', 'OL', 'P', 'SPAN', 'STRONG', 'U', 'UL']);
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function decodeHtmlEntities(value: string): string {
+  if (typeof document !== 'undefined') {
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = value;
+    return textarea.value;
+  }
+
+  return value
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)))
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+function sanitizeNotesHtml(value: string): string {
+  const decoded = decodeHtmlEntities(value)
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/\\n/g, '\n');
+  const hasHtmlTags = /<\/?[a-z][\s\S]*>/i.test(decoded);
+  const html = hasHtmlTags ? decoded : escapeHtml(decoded).replace(/\n/g, '<br>');
+
+  if (typeof document === 'undefined') return html;
+
+  const template = document.createElement('template');
+  template.innerHTML = html;
+
+  const cleanNode = (node: Node): Node | DocumentFragment | null => {
+    if (node.nodeType === Node.TEXT_NODE) return document.createTextNode(node.textContent ?? '');
+    if (node.nodeType !== Node.ELEMENT_NODE) return null;
+
+    const element = node as HTMLElement;
+    if (['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED'].includes(element.tagName)) return null;
+
+    if (!ALLOWED_NOTE_TAGS.has(element.tagName)) {
+      const fragment = document.createDocumentFragment();
+      element.childNodes.forEach((child) => {
+        const cleanChild = cleanNode(child);
+        if (cleanChild) fragment.appendChild(cleanChild);
+      });
+      return fragment;
+    }
+
+    const cleanElement = document.createElement(element.tagName.toLowerCase());
+    if (element.tagName === 'A') {
+      const rawHref = element.getAttribute('href') ?? '';
+      try {
+        const href = new URL(rawHref, window.location.origin);
+        if (href.protocol === 'http:' || href.protocol === 'https:' || href.protocol === 'mailto:') {
+          cleanElement.setAttribute('href', href.href);
+          cleanElement.setAttribute('target', '_blank');
+          cleanElement.setAttribute('rel', 'noopener noreferrer');
+        }
+      } catch {
+        // Drop malformed links but keep the link text.
+      }
+    }
+
+    element.childNodes.forEach((child) => {
+      const cleanChild = cleanNode(child);
+      if (cleanChild) cleanElement.appendChild(cleanChild);
+    });
+
+    return cleanElement;
+  };
+
+  const fragment = document.createDocumentFragment();
+  template.content.childNodes.forEach((child) => {
+    const cleanChild = cleanNode(child);
+    if (cleanChild) fragment.appendChild(cleanChild);
+  });
+
+  const container = document.createElement('div');
+  container.appendChild(fragment);
+  return container.innerHTML;
+}
 
 function readLocalCache(cacheKey: string): PagePayload | null {
   if (typeof window === 'undefined') return null;
@@ -443,6 +534,11 @@ export default function EventSummaryTrackerPage() {
     loading: boolean;
   } | null>(null);
 
+  // Alphabetized list of people who attended the selected leader's meeting this
+  // week. Pulled live from CCB via /api/ccb/event-attendance (same endpoint the
+  // calendar Event Summary modal uses), so names reflect the latest attendance.
+  const [reviewAttendees, setReviewAttendees] = useState<{ names: string[]; loading: boolean } | null>(null);
+
   const weekEnd = useMemo(() => DateTime.fromISO(weekStart).plus({ days: 6 }).toISODate()!, [weekStart]);
 
   // -- Data load ----------------------------------------------------------------
@@ -626,6 +722,46 @@ export default function EventSummaryTrackerPage() {
     })();
     return () => { cancelled = true; };
   }, [reviewRow, weekStart]);
+
+  // Fetch the attendee roster for the selected meeting. Skips circles with no
+  // summary (nothing to show) and runs independently of the rest of the modal
+  // so a slow/failed CCB lookup never blocks the notes/stats from rendering.
+  useEffect(() => {
+    if (!reviewRow || reviewRow.status === 'no_summary') {
+      setReviewAttendees(null);
+      return;
+    }
+    const groupName = reviewRow.leader.ccb_group_name || reviewRow.leader.circle_name || reviewRow.leader.name;
+    if (!groupName) {
+      setReviewAttendees(null);
+      return;
+    }
+    let cancelled = false;
+    setReviewAttendees({ names: [], loading: true });
+    (async () => {
+      try {
+        const res = await fetch('/api/ccb/event-attendance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date: weekStart, endDate: weekEnd, groupName }),
+        });
+        const json = await res.json();
+        if (cancelled) return;
+        if (!res.ok) { setReviewAttendees({ names: [], loading: false }); return; }
+        const events = (json.data ?? []) as Array<{ attendees?: Array<{ name?: string }> }>;
+        const names = Array.from(new Set(
+          events
+            .flatMap(e => e.attendees ?? [])
+            .map(a => (a.name ?? '').trim())
+            .filter(Boolean)
+        )).sort((a, b) => a.localeCompare(b));
+        setReviewAttendees({ names, loading: false });
+      } catch {
+        if (!cancelled) setReviewAttendees({ names: [], loading: false });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [reviewRow, weekStart, weekEnd]);
 
   // -- Derived state ------------------------------------------------------------
   const campuses = useMemo(() => Array.from(new Set(leaders.map(l => l.campus).filter(Boolean))).sort() as string[], [leaders]);
@@ -1327,6 +1463,7 @@ export default function EventSummaryTrackerPage() {
       <ReviewModal
         row={reviewRow}
         live={reviewLive}
+        attendees={reviewAttendees}
         busy={reviewBusy}
         isReviewed={!!reviewRow?.reviewer}
         onClose={() => reviewRow && !reviewBusy && setReviewRow(null)}
@@ -1359,6 +1496,7 @@ export default function EventSummaryTrackerPage() {
 function ReviewModal({
   row,
   live,
+  attendees,
   busy,
   isReviewed,
   onClose,
@@ -1375,6 +1513,7 @@ function ReviewModal({
     did_not_meet: boolean;
     loading: boolean;
   } | null;
+  attendees: { names: string[]; loading: boolean } | null;
   busy: boolean;
   isReviewed: boolean;
   onClose: () => void;
@@ -1394,6 +1533,8 @@ function ReviewModal({
   const topic = live?.topic || row.topic || null;
   const prayerRequests = live?.prayer_requests || row.occurrence?.prayer_requests || row.submission?.prayer_requests || null;
   const liveLoading = live?.loading === true;
+  const notesHtml = notes ? sanitizeNotesHtml(notes) : '';
+  const prayerRequestsHtml = prayerRequests ? sanitizeNotesHtml(prayerRequests) : '';
 
   const ccbEventId = row.leader.ccb_event_ids?.[0] ?? null;
   const ccbUrl = ccbEventId && row.meetingDate
@@ -1465,18 +1606,43 @@ function ReviewModal({
         {notes && (
           <div>
             <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">Notes</div>
-            <div className="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
-              {notes}
-            </div>
+            <div
+              className="text-sm text-slate-200 leading-relaxed bg-zinc-900/40 border border-zinc-700 rounded-lg p-3 [&_a]:text-vc-300 [&_a]:underline [&_a]:underline-offset-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p:not(:last-child)]:mb-3 [&_ul]:list-disc [&_ul]:pl-5"
+              dangerouslySetInnerHTML={{ __html: notesHtml }}
+            />
           </div>
         )}
 
         {prayerRequests && (
           <div>
             <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">Prayer Requests</div>
-            <div className="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
-              {prayerRequests}
+            <div
+              className="text-sm text-slate-200 leading-relaxed bg-zinc-900/40 border border-zinc-700 rounded-lg p-3 [&_a]:text-vc-300 [&_a]:underline [&_a]:underline-offset-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p:not(:last-child)]:mb-3 [&_ul]:list-disc [&_ul]:pl-5"
+              dangerouslySetInnerHTML={{ __html: prayerRequestsHtml }}
+            />
+          </div>
+        )}
+
+        {!dnm && attendees && (attendees.loading || attendees.names.length > 0) && (
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="text-[10px] uppercase tracking-wide text-slate-500">
+                Attendees{attendees.names.length > 0 ? ` · ${attendees.names.length}` : ''}
+              </span>
+              {attendees.loading && <Spinner className="w-3 h-3" />}
             </div>
+            {attendees.names.length > 0 ? (
+              <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5 bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
+                {attendees.names.map((name) => (
+                  <li key={name} className="flex items-center gap-2 text-sm text-slate-200 min-w-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-vc-400/70 shrink-0" />
+                    <span className="truncate">{name}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="text-xs text-slate-500 italic">Loading attendee names…</div>
+            )}
           </div>
         )}
 

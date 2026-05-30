@@ -94,9 +94,15 @@ export async function POST(request: NextRequest) {
     // populates these rows for every active group; one row carries the bulk
     // attendance XML for the whole 8-week window.
     const SHARED_CACHE_FRESH_MS = 24 * 60 * 60_000;
+    const CURRENT_WEEK_ATTENDANCE_CACHE_FRESH_MS = 5 * 60_000;
     let ccbSource: 'cache' | 'live' | 'live_fallback_after_breaker' = 'live';
     let ccbMap: Awaited<ReturnType<typeof ccb.checkReportsForLeaders>> | null = null;
     let cacheAgeMs: number | null = null;
+    const today = DateTime.now().toISODate()!;
+    const attendanceCacheFreshMs =
+      week_start_date <= today && today <= week_end_date
+        ? CURRENT_WEEK_ATTENDANCE_CACHE_FRESH_MS
+        : SHARED_CACHE_FRESH_MS;
 
     {
       const { data: cacheRow } = await supabase
@@ -111,7 +117,7 @@ export async function POST(request: NextRequest) {
 
       if (cacheRow?.synced_at && cacheRow.attendance_xml) {
         const ageMs = Date.now() - new Date(cacheRow.synced_at).getTime();
-        if (ageMs < SHARED_CACHE_FRESH_MS) {
+        if (ageMs < attendanceCacheFreshMs) {
           ccbMap = ccb.matchAttendanceXml(cacheRow.attendance_xml, leaderMatchInputs, debug, { startDate: week_start_date, endDate: week_end_date });
           ccbSource = 'cache';
           cacheAgeMs = ageMs;
@@ -186,7 +192,6 @@ export async function POST(request: NextRequest) {
       // did_not_meet. If the date is today or later, or unknown (null), skip it —
       // the meeting may not have happened yet.
       if (ccbState === 'did_not_meet') {
-        const today = DateTime.now().toISODate()!;
         if (!ccbData.occurrenceDate || ccbData.occurrenceDate >= today) {
           skipped++;
           continue;
@@ -206,28 +211,6 @@ export async function POST(request: NextRequest) {
         });
       }
       // If currentState === ccbState: already correct, nothing to do
-    }
-
-    // Fallback: mark received for leaders still not_received who have attendance data
-    // in circle_meeting_occurrences for this week — covers cases where CCB report
-    // hasn't been submitted yet but the meeting clearly happened.
-    const stillNotReceived = leaders.filter(l =>
-      !toUpdate.find(u => u.id === l.id) &&
-      (currentStateMap.get(l.id) ?? 'not_received') === 'not_received'
-    );
-
-    if (stillNotReceived.length > 0) {
-      const { data: occurrences } = await supabase
-        .from('circle_meeting_occurrences')
-        .select('leader_id')
-        .in('leader_id', stillNotReceived.map(l => l.id))
-        .eq('status', 'met')
-        .gte('meeting_date', week_start_date)
-        .lte('meeting_date', week_end_date);
-
-      for (const occ of occurrences ?? []) {
-        toUpdate.push({ id: occ.leader_id, state: 'received' });
-      }
     }
 
     // Apply updates

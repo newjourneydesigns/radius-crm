@@ -26,6 +26,7 @@ import { NextResponse } from 'next/server';
 import { DateTime } from 'luxon';
 import { createCCBClient, CCBCircuitBreakerError } from '../../../../lib/ccb/ccb-client';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
+import { computeLastAttended, storeDerivedLastAttended } from '../../../../lib/circle-summary/roster-data';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 600;
@@ -184,6 +185,20 @@ export async function POST(req: Request) {
         errors.push({ groupId, error: upsertErr.message || 'upsert failed' });
         continue;
       }
+
+      // Tier 3: derive this group's small last-attended map up front so the
+      // roster page never has to re-parse the global attendance blob on read.
+      // Separate, column-error-tolerant write — never fails the warm.
+      if (bulkAttendanceXml) {
+        storeDerivedLastAttended(
+          supabase,
+          groupId,
+          startStr,
+          endStr,
+          computeLastAttended(bulkAttendanceXml, groupId, calEvents ?? [])
+        );
+      }
+
       warmed += 1;
     } catch (e: any) {
       if (e instanceof CCBCircuitBreakerError) {

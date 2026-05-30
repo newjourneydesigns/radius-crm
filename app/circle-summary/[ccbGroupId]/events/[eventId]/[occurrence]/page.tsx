@@ -53,6 +53,29 @@ const DID_NOT_MEET_REASONS = [
   'Weather',
   'Other',
 ];
+const ABSENCE_THRESHOLD_DAYS = 15;
+const ATTENDANCE_CACHE_KEY = 'cs:attendance-cache:v1';
+
+type AttendanceCacheEntry = { groupId: string; lastAttended: Record<string, string>; cachedAt: number };
+
+function readAttendanceCache(groupId: string): Record<string, string> | null {
+  try {
+    const raw = sessionStorage.getItem(ATTENDANCE_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AttendanceCacheEntry;
+    if (parsed?.groupId !== groupId) return null;
+    return parsed.lastAttended || null;
+  } catch {
+    return null;
+  }
+}
+
+function writeAttendanceCache(groupId: string, lastAttended: Record<string, string>): void {
+  try {
+    const entry: AttendanceCacheEntry = { groupId, lastAttended, cachedAt: Date.now() };
+    sessionStorage.setItem(ATTENDANCE_CACHE_KEY, JSON.stringify(entry));
+  } catch {}
+}
 
 function parseOccurrenceStart(occurrenceDateTime: string): DateTime | null {
   const sqlDate = DateTime.fromSQL(occurrenceDateTime, { zone: 'America/Chicago' });
@@ -74,6 +97,29 @@ function dateLabel(occurrenceDateTime: string): string {
   });
 }
 
+function daysSince(isoDate: string, now = new Date()): number {
+  const d = new Date(isoDate + 'T00:00:00');
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.floor((today.getTime() - d.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+function formatLastAttended(isoDate: string): string {
+  const d = new Date(isoDate + 'T00:00:00');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${months[d.getMonth()]} ${d.getDate()}`;
+}
+
+async function fetchLastAttended(groupId: string): Promise<Record<string, string> | null> {
+  const attendanceUrl = groupId
+    ? `/api/circle-summary/roster/attendance?group_id=${encodeURIComponent(groupId)}`
+    : '/api/circle-summary/roster/attendance';
+  const r = await fetch(attendanceUrl);
+  if (!r.ok) return null;
+  const d = await r.json();
+  return (d?.lastAttended || null) as Record<string, string> | null;
+}
+
 function normalizeNoteText(value: unknown): string {
   return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
 }
@@ -91,6 +137,8 @@ export default function CircleSummaryFormPage() {
 
   const [leader, setLeader] = useState<Leader | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [lastAttended, setLastAttended] = useState<Record<string, string>>({});
+  const [attendanceLoaded, setAttendanceLoaded] = useState(false);
   const [questions, setQuestions] = useState<DynamicQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -217,6 +265,29 @@ export default function CircleSummaryFormPage() {
       cancelled = true;
     };
   }, [eventId, occurrence, router, urlGroupId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const cached = readAttendanceCache(urlGroupId);
+
+    setLastAttended(cached ?? {});
+    setAttendanceLoaded(Boolean(cached));
+
+    fetchLastAttended(urlGroupId)
+      .then((fresh) => {
+        if (cancelled || !fresh) return;
+        setLastAttended(fresh);
+        writeAttendanceCache(urlGroupId, fresh);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setAttendanceLoaded(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [urlGroupId]);
 
   const draftPayload = useMemo(
     () => ({
@@ -735,20 +806,23 @@ export default function CircleSummaryFormPage() {
                 {participants.map((p) => {
                   const fullName = p.fullName || `${p.firstName} ${p.lastName}`;
                   const checked = selectedCcbIds.has(p.id);
+                  const lastAttendedDate = lastAttended[p.id];
+                  const daysAway = lastAttendedDate ? daysSince(lastAttendedDate) : null;
+                  const isAbsent = daysAway != null && daysAway >= ABSENCE_THRESHOLD_DAYS;
                   return (
                     <div
                       key={p.id}
                       className={
                         editRoster
-                          ? 'group flex items-center gap-2.5 py-1.5 px-2 -mx-2 rounded-md hover:bg-red-50/60 transition-colors'
-                          : 'flex items-center gap-2.5 py-0.5'
+                          ? 'group flex items-start gap-2.5 py-1.5 px-2 -mx-2 rounded-md hover:bg-red-50/60 transition-colors'
+                          : 'flex items-start gap-2.5 py-1'
                       }
                     >
                       {editRoster ? (
                         <button
                           type="button"
                           onClick={() => removeFromCcb(p)}
-                          className="w-6 h-6 rounded-full border-2 border-red-300 text-red-500 hover:bg-red-500 hover:border-red-500 hover:text-white group-hover:border-red-400 flex items-center justify-center shrink-0 transition-colors"
+                          className="mt-0.5 w-6 h-6 rounded-full border-2 border-red-300 text-red-500 hover:bg-red-500 hover:border-red-500 hover:text-white group-hover:border-red-400 flex items-center justify-center shrink-0 transition-colors"
                           aria-label={`Remove ${fullName} from Circle`}
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
@@ -758,14 +832,33 @@ export default function CircleSummaryFormPage() {
                       ) : (
                         <input
                           type="checkbox"
-                          className="cs-check"
+                          className="cs-check mt-0.5"
                           checked={checked}
                           onChange={() => toggleOne(p.id)}
                           aria-label={fullName}
                         />
                       )}
                       <label className="flex-1 min-w-0 cursor-pointer" onClick={() => !editRoster && toggleOne(p.id)}>
-                        <span className="truncate text-sm font-medium">{fullName}</span>
+                        <span className="block truncate text-sm font-medium">{fullName}</span>
+                        {lastAttendedDate ? (
+                          <span
+                            className={
+                              isAbsent
+                                ? 'mt-1 self-start inline-flex items-center gap-1.5 rounded-full bg-red-50 border border-red-200 px-2 py-0.5 text-[11px] text-red-700 font-semibold'
+                                : 'mt-0.5 ml-2 inline-flex items-center gap-1.5 text-[11px] text-neutral-500'
+                            }
+                            title={isAbsent ? `Hasn't attended in ${daysAway} days` : undefined}
+                          >
+                            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .2.08.39.22.53l3 3a.75.75 0 101.06-1.06L10.75 9.69V5z" clipRule="evenodd" />
+                            </svg>
+                            {isAbsent
+                              ? `${formatLastAttended(lastAttendedDate)} · ${daysAway}d ago`
+                              : formatLastAttended(lastAttendedDate)}
+                          </span>
+                        ) : !attendanceLoaded ? (
+                          <span className="mt-1 ml-2 inline-block h-5 w-36 rounded-full cs-skeleton" />
+                        ) : null}
                       </label>
                     </div>
                   );
@@ -803,16 +896,29 @@ export default function CircleSummaryFormPage() {
                     </button>
                   </div>
                 ))}
+                {participants.length > 0 && (
+                  <div className="pt-1 flex items-center justify-end gap-1.5 text-[11px] text-neutral-500">
+                    <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .2.08.39.22.53l3 3a.75.75 0 101.06-1.06L10.75 9.69V5z" clipRule="evenodd" />
+                    </svg>
+                    <span>= Last Attendance Date</span>
+                  </div>
+                )}
               </div>
 
               {!addOpen ? (
-                <button
-                  type="button"
-                  onClick={() => setAddOpen(true)}
-                  className="cs-btn cs-btn-outline w-full"
-                >
-                  + Add someone to my Circle
-                </button>
+                <div className="space-y-2">
+                  <p className="text-xs leading-relaxed text-neutral-500">
+                    Please report everyone who attended your Circle. First-time guests and one-time guests count too, so add them here even if they aren&apos;t on your regular roster yet.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setAddOpen(true)}
+                    className="cs-btn cs-btn-outline w-full"
+                  >
+                    + Add someone to my Circle
+                  </button>
+                </div>
               ) : (
                 <div className="rounded-lg border border-[color:var(--cs-border)] bg-[color:var(--cs-bg-soft)] p-4 space-y-3">
                   {editingManualIdx !== null ? (

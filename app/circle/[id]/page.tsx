@@ -2464,19 +2464,27 @@ export default function CircleLeaderProfilePage() {
                       )}
                     </dd>
                   </div>}
-                  {!isHostTeam && <div>
-                    <dt className="text-sm font-medium text-slate-400">CCB Group Name Override</dt>
+                  {!isHostTeam && (isEditing || leader.ccb_group_name) && <div>
+                    <dt className="text-sm font-medium text-slate-400">
+                      CCB Group Name Override
+                      {isEditing && <span className="ml-1.5 text-xs font-normal text-slate-500">(optional)</span>}
+                    </dt>
                     <dd className="mt-1">
                       {isEditing ? (
-                        <input
-                          type="text"
-                          value={editedLeader.ccb_group_name !== undefined ? editedLeader.ccb_group_name : (leader.ccb_group_name || '')}
-                          onChange={(e) => handleLeaderFieldChange('ccb_group_name', e.target.value)}
-                          placeholder="e.g. LVT | S1 | Todd Baden"
-                          className="w-full px-3 py-1 text-sm border border-zinc-600 rounded-md bg-zinc-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent"
-                        />
+                        <>
+                          <input
+                            type="text"
+                            value={editedLeader.ccb_group_name !== undefined ? editedLeader.ccb_group_name : (leader.ccb_group_name || '')}
+                            onChange={(e) => handleLeaderFieldChange('ccb_group_name', e.target.value)}
+                            placeholder="e.g. LVT | S1 | Todd Baden"
+                            className="w-full px-3 py-1 text-sm border border-zinc-600 rounded-md bg-zinc-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent"
+                          />
+                          <p className="mt-1.5 text-xs text-slate-500">
+                            RADIUS normally finds this circle&apos;s attendance and calendar in CCB using the leader&apos;s name. If the group is saved under a different name in CCB, type that exact name here so the data lines up. Leave blank to use the leader&apos;s name.
+                          </p>
+                        </>
                       ) : (
-                        <span className="text-sm text-slate-200">{leader.ccb_group_name || <span className="text-slate-500">Not set — uses leader name</span>}</span>
+                        <span className="text-sm text-slate-200">{leader.ccb_group_name}</span>
                       )}
                     </dd>
                   </div>}

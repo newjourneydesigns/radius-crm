@@ -11,6 +11,7 @@ import { DateTime, Interval } from "luxon";
 import { recordCCBApiTelemetry, recordCCBDailyStatus, type CCBApiRequestContext } from "./ccb-api-gateway";
 
 const IS_DEV = process.env.NODE_ENV === 'development';
+const DID_NOT_MEET_REASON_PREFIX_RE = /^reason\s+we\s+did(?:n['’]t| not)\s+meet:\s*/i;
 
 // ---- Hard rate-limit circuit breaker ----
 //
@@ -1359,8 +1360,10 @@ ${attendeesBlock}
       const headCountFromForm = attendance?.headCount ?? 0;
       const headCountFromAttendees = attendance?.attendees?.length ?? 0;
       const headcount = (headCountFromForm + headCountFromAttendees) || null;
-      const didNotMeet = attendance?.didNotMeet ?? false;
       const hasNotes = !!(attendance?.topic || attendance?.notes || attendance?.prayerRequests);
+      const didNotMeet =
+        (attendance?.didNotMeet ?? false) ||
+        DID_NOT_MEET_REASON_PREFIX_RE.test(String(attendance?.notes ?? '').trim());
       const guestCountNum = Number(e?.guest_count ?? e?.guest_cnt ?? 0);
       const guestCount = Number.isFinite(guestCountNum) && guestCountNum > 0 ? guestCountNum : 0;
       const topic = attendance?.topic ? String(attendance.topic).trim() || null : null;

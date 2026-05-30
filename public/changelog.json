@@ -1,5 +1,48 @@
 [
   {
+    "date": "2026-05-30",
+    "version": "2.4.1",
+    "date_display": "May 30, 2026",
+    "date_iso": "2026-05-30",
+    "id": "circle-summary-faster-loads",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Circle Summary",
+    "page": "/circle-summary",
+    "title": "Faster Circle Summary loads",
+    "description": "Your Circle pages now load noticeably faster. The events and roster tabs render with your data already in place instead of flashing a spinner first, the header name appears instantly, and behind the scenes we cut several redundant lookups on every page so things feel snappier — without changing any of your data."
+  },
+  {
+    "date": "2026-05-30",
+    "type": "improvement",
+    "page": "/prayer",
+    "description": "Logging a prayer for a circle leader is now a single tap — the \"Pray\" button records it and gets out of your way, no longer popping open a note box. Adding a note is now its own button (the pencil next to \"Pray\") for the times you want to jot something down."
+  },
+  {
+    "date": "2026-05-30",
+    "type": "feature",
+    "page": "/prayer",
+    "description": "When you mark a circle leader's prayer as answered, RADIUS now asks if you'd like to save it as a note on that leader's profile. The note text is pre-filled and editable, so you can capture the answered prayer in their history with one tap — or skip it if you'd rather not."
+  },
+  {
+    "date": "2026-05-30",
+    "type": "improvement",
+    "page": "/circle-summary",
+    "description": "Each meeting in your Circle's Events list now shows how many people attended right next to \"Summary on file,\" so you can see turnout at a glance without opening each meeting."
+  },
+  {
+    "date": "2026-05-30",
+    "type": "improvement",
+    "page": "/circle-summary",
+    "description": "Your Circle roster now loads attendance info instantly. Previously the names appeared first and then the \"Last attended\" tags and the absent-member alerts popped in a moment later. Those values are now remembered between visits and shown right away, with a brief placeholder on the very first load so the list no longer jumps around."
+  },
+  {
+    "date": "2026-05-30",
+    "type": "improvement",
+    "page": "/circle/324",
+    "description": "Cleaned up the circle profile's Circle Info section: the CCB Group Name Override now only appears when it's actually set, so empty fields no longer clutter the page. When editing, the field is clearly marked optional and includes a plain-English note explaining that it's only needed when a circle is saved under a different name in CCB than the leader's."
+  },
+  {
     "date": "2026-05-29",
     "type": "improvement",
     "page": "/today",

@@ -25,6 +25,15 @@ type CcbAttendanceData = {
 
 type XmlRecord = Record<string, unknown>;
 
+const DID_NOT_MEET_REASONS = new Set([
+  'Holiday weekend',
+  'Leader out of town',
+  'Low attendance',
+  'Weather',
+  'Other',
+]);
+const REASON_PREFIX_RE = /^reason\s+we\s+did(?:n['’]t| not)\s+meet:\s*/i;
+
 function asRecord(value: unknown): XmlRecord | null {
   return value && typeof value === 'object' ? (value as XmlRecord) : null;
 }
@@ -33,6 +42,27 @@ function readText(value: unknown): string {
   if (value == null) return '';
   if (typeof value === 'string') return value;
   return String(asRecord(value)?.['#text'] ?? '');
+}
+
+function normalizeDidNotMeetReason(reason: unknown, other: unknown = '') {
+  const reasonText = typeof reason === 'string' ? reason.trim() : '';
+  const otherText = typeof other === 'string' ? other.trim() : '';
+  if (!reasonText) {
+    return { didNotMeetReason: '', didNotMeetReasonOther: otherText };
+  }
+  if (DID_NOT_MEET_REASONS.has(reasonText)) {
+    return {
+      didNotMeetReason: reasonText,
+      didNotMeetReasonOther: reasonText === 'Other' ? otherText : '',
+    };
+  }
+  return { didNotMeetReason: 'Other', didNotMeetReasonOther: reasonText };
+}
+
+function extractDidNotMeetReasonFromNotes(notes: string) {
+  const trimmed = notes.trim();
+  if (!REASON_PREFIX_RE.test(trimmed)) return null;
+  return trimmed.replace(REASON_PREFIX_RE, '').trim();
 }
 
 async function fetchCcbAttendance(req: Request, eventId: string, occurrence: string) {
@@ -93,14 +123,18 @@ function isPayloadEmpty(payload: Record<string, unknown> | null | undefined): bo
 
 function draftFromCcbData(ccbData: Awaited<ReturnType<typeof fetchCcbAttendance>>) {
   if (!ccbData) return null;
+  const ccbReason = extractDidNotMeetReasonFromNotes(ccbData.notes);
+  const reason = normalizeDidNotMeetReason(ccbReason ?? '');
+  const didNotMeet = ccbData.didNotMeet || !!ccbReason;
+  const notes = ccbReason ? '' : ccbData.notes;
   const hasAnything =
-    !!ccbData.notes || !!ccbData.topic || ccbData.didNotMeet || ccbData.attendeeIds.length > 0;
+    !!ccbData.notes || !!ccbData.topic || didNotMeet || ccbData.attendeeIds.length > 0;
   if (!hasAnything) return null;
 
-  const parsed = splitLegacyRosterAdditions(ccbData.notes);
+  const parsed = splitLegacyRosterAdditions(notes);
   return {
-    didNotMeet: ccbData.didNotMeet,
-    didNotMeetReason: '',
+    didNotMeet,
+    ...reason,
     notes: parsed.notes,
     referenceNotes: parsed.notes,
     topic: ccbData.topic,
@@ -141,9 +175,11 @@ export async function GET(req: Request) {
     if (!isPayloadEmpty(payload)) {
       const parsed = splitLegacyRosterAdditions(String(payload.notes ?? ''));
       const existingManual = cleanManualAttendees(payload.manualAttendees);
+      const reason = normalizeDidNotMeetReason(payload.didNotMeetReason, payload.didNotMeetReasonOther);
       return NextResponse.json({
         draft: {
           ...payload,
+          ...reason,
           notes: parsed.notes,
           referenceNotes: parsed.notes,
           manualAttendees: existingManual.length ? existingManual : parsed.manualAttendees,
@@ -189,10 +225,11 @@ export async function GET(req: Request) {
       | null;
     const parsed = splitLegacyRosterAdditions(subRow.notes ?? '');
     const existingManual = cleanManualAttendees(subRow.manual_attendees);
+    const reason = normalizeDidNotMeetReason(subRow.did_not_meet_reason ?? '');
     return NextResponse.json({
       draft: {
         didNotMeet: subRow.did_not_meet,
-        didNotMeetReason: subRow.did_not_meet_reason ?? '',
+        ...reason,
         notes: parsed.notes,
         referenceNotes: parsed.notes,
         topic: subRow.topic ?? '',

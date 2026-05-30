@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { Plus, Calendar, X, Heart } from 'lucide-react';
+import { Plus, Calendar, X, Heart, PenLine } from 'lucide-react';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import Modal from '../../components/ui/Modal';
 import PrayerToolbar from '../../components/prayer/PrayerToolbar';
 import PrayerSectionHeader from '../../components/prayer/PrayerSectionHeader';
 import PrayerRow, { PrayerRowData } from '../../components/prayer/PrayerRow';
@@ -128,6 +129,14 @@ function PrayerListContent() {
   const [newGeneralText, setNewGeneralText] = useState('');
   const [newGeneralDate, setNewGeneralDate] = useState('');
   const [showNewGeneralDate, setShowNewGeneralDate] = useState(false);
+
+  // "Save as note?" prompt after marking a leader prayer answered
+  const [answeredNotePrompt, setAnsweredNotePrompt] = useState<{
+    leaderId: number;
+    leaderName: string;
+  } | null>(null);
+  const [answeredNoteText, setAnsweredNoteText] = useState('');
+  const [savingAnsweredNote, setSavingAnsweredNote] = useState(false);
 
   // Draft log id (just-created) per prayer key — auto-opens history + note editor
   const [draftLogIds, setDraftLogIds] = useState<Record<string, number | null>>({});
@@ -343,25 +352,47 @@ function PrayerListContent() {
     updateLeaderPrayer(id, { is_shared: next });
   };
 
-  const handleLeaderAnswered = async (id: number) => {
+  const handleLeaderAnswered = async (id: number, next: boolean) => {
     const prayer = allPrayers.find((p) => p.id === id);
     const { error: err } = await supabase
       .from('acpd_prayer_points')
-      .update({ is_answered: true, updated_at: new Date().toISOString() })
+      .update({ is_answered: next, updated_at: new Date().toISOString() })
       .eq('id', id);
     if (err) return console.error(err);
-    if (prayer) {
-      const truncated =
-        prayer.content.length > 100 ? prayer.content.substring(0, 100) + '...' : prayer.content;
-      await supabase.from('notes').insert([
-        {
-          circle_leader_id: prayer.circle_leader_id,
-          content: `Prayer answered: "${truncated}"`,
-          created_by: 'System',
-        },
-      ]);
+    updateLeaderPrayer(id, { is_answered: next });
+    // After marking answered, offer to save it as a note on the leader's profile
+    if (next && prayer) {
+      setAnsweredNoteText(`Answered prayer: "${prayer.content}"`);
+      setAnsweredNotePrompt({
+        leaderId: prayer.circle_leader_id,
+        leaderName: prayer.leader_name,
+      });
     }
-    updateLeaderPrayer(id, { is_answered: true });
+  };
+
+  const closeAnsweredNotePrompt = () => {
+    setAnsweredNotePrompt(null);
+    setAnsweredNoteText('');
+    setSavingAnsweredNote(false);
+  };
+
+  const handleSaveAnsweredNote = async () => {
+    if (!answeredNotePrompt || !answeredNoteText.trim()) return;
+    setSavingAnsweredNote(true);
+    const noteData: any = {
+      circle_leader_id: answeredNotePrompt.leaderId,
+      content: answeredNoteText.trim(),
+      created_at: new Date().toISOString(),
+    };
+    // created_by references auth.users(id) — only set when we have a valid UUID
+    if (currentUserId) noteData.created_by = currentUserId;
+    const { error: err } = await supabase.from('notes').insert([noteData]);
+    if (err) {
+      console.error(err);
+      setSavingAnsweredNote(false);
+      return;
+    }
+    closeAnsweredNotePrompt();
   };
 
   const handleLeaderDueDateSave = async (id: number, due: string | null) => {
@@ -405,13 +436,13 @@ function PrayerListContent() {
     updateGeneralPrayer(id, { is_shared: next });
   };
 
-  const handleGeneralAnswered = async (id: number) => {
+  const handleGeneralAnswered = async (id: number, next: boolean) => {
     const { error: err } = await supabase
       .from('general_prayer_points')
-      .update({ is_answered: true, updated_at: new Date().toISOString() })
+      .update({ is_answered: next, updated_at: new Date().toISOString() })
       .eq('id', id);
     if (err) return console.error(err);
-    updateGeneralPrayer(id, { is_answered: true });
+    updateGeneralPrayer(id, { is_answered: next });
   };
 
   const handleGeneralDueDateSave = async (id: number, due: string | null) => {
@@ -448,7 +479,9 @@ function PrayerListContent() {
     }
   };
 
-  const handleLogLeaderSession = async (leaderId: number) => {
+  // One-and-done: a single tap logs a prayer session. Pass openNote=true to also
+  // open the note editor for that session (the separate "add note" action).
+  const handleLogLeaderSession = async (leaderId: number, openNote = false) => {
     if (!currentUserId) return;
     const today = new Date().toISOString().split('T')[0];
     const { data, error: err } = await supabase
@@ -466,6 +499,8 @@ function PrayerListContent() {
       .single();
     if (err || !data) return console.error(err);
     setSessionLogs((prev) => [data as PrayerSessionLog, ...prev]);
+    if (!openNote) return;
+    // Note flow: reveal the session and open its note editor
     setDraftLeaderSessionIds((prev) => ({ ...prev, [leaderId]: data.id }));
     setLeaderSessionHistoryOpen((prev) => {
       const next = new Set(prev);
@@ -811,16 +846,29 @@ function PrayerListContent() {
                               <span className="block text-xs text-slate-500 truncate">{subtitle}</span>
                             </span>
                           </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleLogLeaderSession(group.leaderId);
-                            }}
-                            className="flex-shrink-0 inline-flex items-center justify-center rounded-full px-3.5 py-2 text-xs font-semibold bg-vc-500/15 text-vc-300 ring-1 ring-vc-500/25 hover:bg-vc-500/25 active:scale-95 transition"
-                            aria-label={`Log prayer for ${group.leaderName}`}
-                          >
-                            Pray
-                          </button>
+                          <div className="flex-shrink-0 flex items-center gap-1.5">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleLogLeaderSession(group.leaderId);
+                              }}
+                              className="inline-flex items-center justify-center rounded-full px-3.5 py-2 text-xs font-semibold bg-vc-500/15 text-vc-300 ring-1 ring-vc-500/25 hover:bg-vc-500/25 active:scale-95 transition"
+                              aria-label={`Log prayer for ${group.leaderName}`}
+                            >
+                              Pray
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleLogLeaderSession(group.leaderId, true);
+                              }}
+                              className="h-9 w-9 flex items-center justify-center rounded-full ring-1 ring-white/[0.1] text-slate-400 hover:text-vc-300 hover:bg-vc-500/10 hover:ring-vc-500/25 active:scale-95 transition"
+                              aria-label={`Log prayer and add a note for ${group.leaderName}`}
+                              title="Pray and add a note"
+                            >
+                              <PenLine strokeWidth={1.8} className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
 
                         {isExpanded && (
@@ -1004,6 +1052,47 @@ function PrayerListContent() {
           </p>
         </div>
       </div>
+
+      {/* Save answered prayer as a note */}
+      <Modal
+        isOpen={!!answeredNotePrompt}
+        onClose={closeAnsweredNotePrompt}
+        title="Prayer answered 🎉"
+        size="md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-slate-400">
+            Would you like to save this as a note on{' '}
+            <span className="font-medium text-slate-200">
+              {answeredNotePrompt?.leaderName}
+            </span>
+            &rsquo;s profile?
+          </p>
+          <textarea
+            value={answeredNoteText}
+            onChange={(e) => setAnsweredNoteText(e.target.value)}
+            rows={4}
+            autoFocus
+            className="w-full rounded-xl px-3 py-2.5 text-[15px] text-slate-100 placeholder-slate-500 resize-none bg-white/[0.04] ring-1 ring-white/[0.08] focus:outline-none focus:ring-vc-500/40"
+            placeholder="Note to save on the leader's profile"
+          />
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={closeAnsweredNotePrompt}
+              className="inline-flex items-center justify-center rounded-full px-4 py-2 text-xs font-medium text-slate-400 ring-1 ring-white/[0.1] hover:text-white hover:bg-white/[0.06] active:scale-95 transition"
+            >
+              Not now
+            </button>
+            <button
+              onClick={handleSaveAnsweredNote}
+              disabled={!answeredNoteText.trim() || savingAnsweredNote}
+              className="inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold bg-vc-500/15 text-vc-300 ring-1 ring-vc-500/25 hover:bg-vc-500/25 active:scale-95 transition disabled:opacity-30 disabled:hover:bg-vc-500/15"
+            >
+              {savingAnsweredNote ? 'Saving…' : 'Save as note'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

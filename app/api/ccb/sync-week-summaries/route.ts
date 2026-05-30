@@ -8,7 +8,9 @@ import type { EventSummaryState } from '../../../../lib/supabase';
 export const dynamic = 'force-dynamic';
 
 const SHARED_CACHE_FRESH_MS = 24 * 60 * 60_000;
+const CURRENT_WEEK_ATTENDANCE_CACHE_FRESH_MS = 5 * 60_000;
 const WEEK_SYNC_THROTTLE_MS = 30 * 60_000;
+const CURRENT_WEEK_SYNC_THROTTLE_MS = 5 * 60_000;
 
 function getServiceClient() {
   return createClient(
@@ -50,8 +52,9 @@ type ConflictItem = {
  * Auto-Update button. Designed to run automatically on page load / week change.
  *
  * Behavior:
- *   • If last sync for this week-window was < 30 min ago AND !force → returns
- *     cached result with `fresh: false`. No CCB call.
+ *   • If last sync for this week-window is fresh AND !force → returns cached
+ *     result with `fresh: false`. Current week uses a short 5 min window;
+ *     historical weeks use 30 min. No CCB call.
  *   • Reads bulk attendance XML from ccb_group_events_cache (24h-fresh). On
  *     miss, makes ONE live attendance_profiles call. Concurrency-guarded by a
  *     Postgres advisory lock so parallel admins never fan out duplicate calls.
@@ -94,6 +97,10 @@ export async function POST(request: NextRequest) {
     const supabase = getServiceClient();
     const userId = await getAuthUserId(request);
 
+    const today = DateTime.now().toISODate()!;
+    const isActiveWeek = week_start_date <= today && today <= week_end_date;
+    const syncThrottleMs = isActiveWeek ? CURRENT_WEEK_SYNC_THROTTLE_MS : WEEK_SYNC_THROTTLE_MS;
+
     // ── Throttle: skip CCB work if sync is fresh ────────────────────────────
     const { data: syncLog } = await supabase
       .from('ccb_week_sync_log')
@@ -103,7 +110,7 @@ export async function POST(request: NextRequest) {
 
     if (!force && syncLog?.last_synced_at) {
       const ageMs = Date.now() - new Date(syncLog.last_synced_at).getTime();
-      if (ageMs < WEEK_SYNC_THROTTLE_MS) {
+      if (ageMs < syncThrottleMs) {
         return NextResponse.json({
           fresh: false,
           throttled: true,
@@ -145,6 +152,10 @@ export async function POST(request: NextRequest) {
     let ccbSource: 'cache' | 'live' | 'circuit_open' = 'cache';
     let ccbMap: Awaited<ReturnType<typeof ccb.checkReportsForLeaders>> | null = null;
     let cacheAgeMs: number | null = null;
+    const attendanceCacheFreshMs =
+      isActiveWeek
+        ? CURRENT_WEEK_ATTENDANCE_CACHE_FRESH_MS
+        : SHARED_CACHE_FRESH_MS;
 
     {
       const { data: cacheRow } = await supabase
@@ -159,7 +170,7 @@ export async function POST(request: NextRequest) {
 
       if (cacheRow?.synced_at && cacheRow.attendance_xml) {
         const ageMs = Date.now() - new Date(cacheRow.synced_at).getTime();
-        if (ageMs < SHARED_CACHE_FRESH_MS) {
+        if (ageMs < attendanceCacheFreshMs) {
           ccbMap = ccb.matchAttendanceXml(
             cacheRow.attendance_xml,
             leaderMatchInputs,
@@ -252,7 +263,6 @@ export async function POST(request: NextRequest) {
     const toUpdate: Array<{ id: number; state: EventSummaryState }> = [];
     const conflicts: ConflictItem[] = [];
     let skipped = 0;
-    const today = DateTime.now().toISODate()!;
 
     for (const leader of leaders) {
       const ccbData = ccbMap.get(leader.id);
@@ -292,26 +302,6 @@ export async function POST(request: NextRequest) {
             occurrence_date: ccbData.occurrenceDate ?? null,
           },
         });
-      }
-    }
-
-    // ── Attendance-table fallback ───────────────────────────────────────────
-    const stillNotReceived = leaders.filter(l =>
-      !toUpdate.find(u => u.id === l.id) &&
-      (currentStateMap.get(l.id) ?? 'not_received') === 'not_received'
-    );
-
-    if (stillNotReceived.length > 0) {
-      const { data: occurrences } = await supabase
-        .from('circle_meeting_occurrences')
-        .select('leader_id')
-        .in('leader_id', stillNotReceived.map(l => l.id))
-        .eq('status', 'met')
-        .gte('meeting_date', week_start_date)
-        .lte('meeting_date', week_end_date);
-
-      for (const occ of occurrences ?? []) {
-        toUpdate.push({ id: occ.leader_id, state: 'received' });
       }
     }
 
@@ -424,4 +414,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

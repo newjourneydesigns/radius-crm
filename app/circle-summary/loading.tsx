@@ -12,7 +12,7 @@ export default function CircleSummaryLoading() {
       aria-label="Loading Circle Summary"
     >
       <div className="cs-splash-inner">
-        <div className="cs-vc-mark cs-splash-mark">VC</div>
+        <img src="/Circles Logo V2-White.png" alt="Circles" className="cs-splash-logo" />
         <h1 className="cs-display cs-splash-title">Circle Summary</h1>
         <p className="cs-splash-sub">Loading your circle…</p>
         <div className="cs-splash-spinner" aria-hidden="true" />

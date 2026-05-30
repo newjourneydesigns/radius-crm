@@ -78,7 +78,7 @@ interface PrayerRowProps {
   onContentSave: (id: number, content: string) => Promise<void> | void;
   onDelete: (id: number) => Promise<void> | void;
   onShareToggle: (id: number, next: boolean) => Promise<void> | void;
-  onAnswered: (id: number) => Promise<void> | void;
+  onAnswered: (id: number, next: boolean) => Promise<void> | void;
   onDueDateSave: (id: number, due: string | null) => Promise<void> | void;
   onLogNoteSave: (logId: number, note: string) => Promise<void> | void;
   onLogDelete: (logId: number) => Promise<void> | void;
@@ -320,17 +320,14 @@ export default function PrayerRow({
             {isOwner && (
               <button
                 type="button"
-                onClick={() => {
-                  if (!data.is_answered) onAnswered(data.id);
-                }}
-                disabled={data.is_answered}
+                onClick={() => onAnswered(data.id, !data.is_answered)}
                 className={`h-8 w-8 flex items-center justify-center rounded-lg ring-1 active:scale-95 transition ${
                   data.is_answered
-                    ? 'text-vc-300 ring-vc-500/30 bg-vc-500/10 cursor-default'
+                    ? 'text-vc-300 ring-vc-500/30 bg-vc-500/10 hover:bg-vc-500/15'
                     : 'text-slate-400 ring-white/[0.08] hover:text-vc-300 hover:bg-vc-500/10 hover:ring-vc-500/25'
                 }`}
-                aria-label={data.is_answered ? 'Prayer answered' : 'Mark prayer answered'}
-                title={data.is_answered ? 'Prayer answered' : 'Mark answered'}
+                aria-label={data.is_answered ? 'Mark prayer not answered' : 'Mark prayer answered'}
+                title={data.is_answered ? 'Mark not answered' : 'Mark answered'}
               >
                 <CheckCircle2 strokeWidth={1.8} className="w-4 h-4" />
               </button>
@@ -405,18 +402,16 @@ export default function PrayerRow({
                         <Share2 strokeWidth={1.5} className="w-4 h-4 text-slate-500" />
                         {data.is_shared ? 'Make private' : 'Share with team'}
                       </button>
-                      {!data.is_answered && (
-                        <button
-                          onClick={() => {
-                            onAnswered(data.id);
-                            setMenuOpen(false);
-                          }}
-                          className="w-full min-h-[44px] flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors text-left"
-                        >
-                          <CheckCircle2 strokeWidth={1.5} className="w-4 h-4 text-slate-500" />
-                          Mark answered
-                        </button>
-                      )}
+                      <button
+                        onClick={() => {
+                          onAnswered(data.id, !data.is_answered);
+                          setMenuOpen(false);
+                        }}
+                        className="w-full min-h-[44px] flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors text-left"
+                      >
+                        <CheckCircle2 strokeWidth={1.5} className="w-4 h-4 text-slate-500" />
+                        {data.is_answered ? 'Mark not answered' : 'Mark answered'}
+                      </button>
                     </>
                   )}
                   {isOwner && (

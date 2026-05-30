@@ -39,6 +39,12 @@
 .cs-splash-mark {
   margin-bottom: 1rem;
 }
+.cs-splash-logo {
+  width: 10rem;
+  height: auto;
+  margin-bottom: 1rem;
+  object-fit: contain;
+}
 .cs-splash-title {
   font-style: italic;
   font-weight: 800;

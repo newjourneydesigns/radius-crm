@@ -3,6 +3,7 @@
  * App Router API routes.
  */
 
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import {
@@ -29,6 +30,12 @@ export type SessionLeader = {
 };
 
 const INELIGIBLE_STATUSES = new Set(['archive', 'archived']);
+
+// `last_seen_at` is telemetry, not auth state — don't block the request on it.
+// We only bother writing when the stored value is older than this, which keeps
+// the write off the critical path AND collapses the write volume for the
+// several auth handshakes a single page load triggers.
+const LAST_SEEN_THROTTLE_MS = 60_000;
 
 function getSessionCookieValue(): string | null {
   return cookies().get(SESSION_COOKIE_NAME)?.value ?? null;
@@ -103,8 +110,14 @@ export async function getSessionLeaderId(): Promise<string | null> {
   return data?.leader_id != null ? String(data.leader_id) : null;
 }
 
-/** Read the session, then load the leader's profile from Supabase. */
-export async function getSessionLeader(): Promise<SessionLeader | null> {
+/**
+ * Read the session, then load the leader's profile from Supabase.
+ *
+ * Wrapped in React `cache()` so the layout, page, and any nested server
+ * components in a single render all share ONE session+leader lookup instead of
+ * each paying for the round trips independently.
+ */
+export const getSessionLeader = cache(async function getSessionLeader(): Promise<SessionLeader | null> {
   const token = getSessionCookieValue();
   if (!token) return null;
 
@@ -113,7 +126,7 @@ export async function getSessionLeader(): Promise<SessionLeader | null> {
 
   const { data: session, error: sessionError } = await supabase
     .from('leader_sessions')
-    .select('id, leader_id')
+    .select('id, leader_id, last_seen_at')
     .eq('token_hash', tokenHash)
     .is('revoked_at', null)
     .maybeSingle();
@@ -143,13 +156,28 @@ export async function getSessionLeader(): Promise<SessionLeader | null> {
   const leader = (data as SessionLeader | null) ?? null;
   if (!isCircleSummaryAccessEnabled(leader)) return null;
 
-  await supabase
-    .from('leader_sessions')
-    .update({ last_seen_at: new Date().toISOString() })
-    .eq('id', session.id);
+  // Fire-and-forget, throttled. The response ships without waiting on this
+  // write, and we skip it entirely when the timestamp is already recent.
+  const lastSeenMs = session.last_seen_at ? new Date(session.last_seen_at).getTime() : 0;
+  if (Date.now() - lastSeenMs > LAST_SEEN_THROTTLE_MS) {
+    const sessionId = session.id;
+    void (async () => {
+      try {
+        const { error } = await supabase
+          .from('leader_sessions')
+          .update({ last_seen_at: new Date().toISOString() })
+          .eq('id', sessionId);
+        if (error && !isMigrationMissingError(error)) {
+          console.warn('[circle-summary] last_seen_at update failed:', error.message);
+        }
+      } catch {
+        // Non-fatal telemetry — never let it surface to the request.
+      }
+    })();
+  }
 
   return leader;
-}
+});
 
 /** Issue the session cookie on a NextResponse. */
 export async function attachSessionCookie(

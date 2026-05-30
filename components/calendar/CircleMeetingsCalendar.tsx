@@ -1021,8 +1021,8 @@ export default function CircleMeetingsCalendar({
 
   /**
    * Silent background sync — fires automatically when the week or leader list
-   * changes. Server-side throttled to 30 min per (week_start, leader set), so
-   * tab refocus / re-renders won't fan out CCB calls.
+   * changes. Server-side throttled to 5 min for the active week and 30 min
+   * for historical weeks, so tab refocus / re-renders won't fan out CCB calls.
    *
    * Conflicts (current state ≠ CCB state) are surfaced in `syncConflicts`
    * but never auto-applied. The admin resolves each conflict via the
