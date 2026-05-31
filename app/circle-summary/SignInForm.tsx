@@ -54,7 +54,12 @@ export default function SignInForm() {
         setError(data.error || 'Invalid code.');
         return;
       }
-      router.replace('/circle-summary/events');
+      // Navigate straight to the group-scoped events page when we know the
+      // group. Falls back to the legacy redirector only if it's missing.
+      const groupId = data.ccbGroupId;
+      router.replace(
+        groupId != null ? `/circle-summary/${groupId}/events` : '/circle-summary/events'
+      );
     } catch {
       setError('Network error — please try again.');
     } finally {

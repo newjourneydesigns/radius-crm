@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { renderMessageHtml } from '../../../../lib/renderMessageHtml';
+import { useMarkCircleAppEntered } from '../../../../lib/circle-summary/appEntered';
 
 type InboxMessage = {
   recipient_id: string;
@@ -23,6 +24,7 @@ function getErrorMessage(error: unknown, fallback: string) {
 }
 
 export default function CircleSummaryInboxPage() {
+  useMarkCircleAppEntered();
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [folder, setFolder] = useState<InboxFolder>('unread');
   const [loading, setLoading] = useState(true);

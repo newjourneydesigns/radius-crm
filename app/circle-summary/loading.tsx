@@ -1,22 +1,11 @@
+import CircleSplash from '../../components/circle-summary/CircleSplash';
+
 /**
  * Full-page green splash shown while the /circle-summary segment resolves —
  * covers both the initial sign-in route's server redirect and any nested
- * route transitions inside the segment.
+ * route transitions inside the segment. Shares one splash component with the
+ * group-level loader so the screen holds solid through the whole entry.
  */
 export default function CircleSummaryLoading() {
-  return (
-    <div
-      className="cs-splash"
-      role="status"
-      aria-live="polite"
-      aria-label="Loading Circle Summary"
-    >
-      <div className="cs-splash-inner">
-        <img src="/Circles Logo V2-White.png" alt="Circles" className="cs-splash-logo" />
-        <h1 className="cs-display cs-splash-title">Circle Summary</h1>
-        <p className="cs-splash-sub">Loading your circle…</p>
-        <div className="cs-splash-spinner" aria-hidden="true" />
-      </div>
-    </div>
-  );
+  return <CircleSplash />;
 }

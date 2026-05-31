@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { renderMessageHtml } from '../../../../lib/renderMessageHtml';
+import { useMarkCircleAppEntered } from '../../../../lib/circle-summary/appEntered';
 
 type Resource = {
   body_html: string;
@@ -13,6 +14,7 @@ function getErrorMessage(error: unknown, fallback: string) {
 }
 
 export default function CircleSummaryResourcesPage() {
+  useMarkCircleAppEntered();
   const [resource, setResource] = useState<Resource | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

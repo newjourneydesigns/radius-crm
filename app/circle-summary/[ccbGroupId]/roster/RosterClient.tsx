@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
+import { useMarkCircleAppEntered } from '../../../../lib/circle-summary/appEntered';
 
 type Participant = {
   id: string;
@@ -174,6 +175,7 @@ export default function RosterClient({
   initialLastAttended: Record<string, string>;
   initialError: string | null;
 }) {
+  useMarkCircleAppEntered();
   const router = useRouter();
   const urlGroupId = groupId;
 

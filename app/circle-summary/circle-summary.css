@@ -34,7 +34,9 @@
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
-  animation: cs-splash-fade-in 220ms ease-out;
+  /* No entrance animation: the loading boundaries remount this same splash as a
+     load progresses (layout → page), so a re-triggered fade would flicker.
+     A solid, instant hold is the goal. */
 }
 .cs-splash-mark {
   margin-bottom: 1rem;
@@ -44,20 +46,27 @@
   height: auto;
   margin-bottom: 1rem;
   object-fit: contain;
+  transform-origin: center;
+  animation: cs-splash-logo-breathe 2.4s ease-in-out infinite;
 }
-.cs-splash-title {
-  font-style: italic;
-  font-weight: 800;
-  text-transform: uppercase;
-  font-size: clamp(2.5rem, 9vw, 4.5rem);
-  line-height: 1;
-  color: #ffffff;
-  margin: 0;
-  text-align: center;
+@keyframes cs-splash-logo-breathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.92;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cs-splash-logo {
+    animation: none;
+  }
 }
 .cs-splash-sub {
   margin: 0.35rem 0 0;
-  color: rgba(255, 255, 255, 0.85);
+  color: #ffffff;
   font-size: 0.95rem;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -74,10 +83,6 @@
 }
 @keyframes cs-splash-spin {
   to { transform: rotate(360deg); }
-}
-@keyframes cs-splash-fade-in {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Force a clean white surface on /circle-summary regardless of the dark

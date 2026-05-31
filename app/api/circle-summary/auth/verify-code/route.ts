@@ -31,7 +31,7 @@ export async function POST(req: Request) {
   // Deterministic ordering so request-code and verify-code pick the same leader
   let leaderQuery = supabase
     .from('circle_leaders')
-    .select('id, name, email, phone, status, circle_summary_access_enabled')
+    .select('id, name, email, phone, status, circle_summary_access_enabled, ccb_group_id')
     .order('id', { ascending: true })
     .limit(10);
   if (isEmail) {
@@ -90,8 +90,16 @@ export async function POST(req: Request) {
     .is('consumed_at', null);
 
   const leader = eligibleLeaders.find((l) => l.id === match.leader_id) || eligibleLeaders[0];
+  // Return the group id so the sign-in form can navigate straight to the
+  // group-scoped events URL, skipping the legacy /circle-summary/events
+  // client redirector (an extra round trip + an extra loader flash).
   return await attachSessionCookie(
-    NextResponse.json({ ok: true, leaderId: leader.id, name: leader.name }),
+    NextResponse.json({
+      ok: true,
+      leaderId: leader.id,
+      name: leader.name,
+      ccbGroupId: leader.ccb_group_id ?? null,
+    }),
     leader.id,
     req
   );

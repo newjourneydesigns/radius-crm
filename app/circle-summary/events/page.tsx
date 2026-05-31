@@ -9,6 +9,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import CircleSplash from '../../../components/circle-summary/CircleSplash';
 
 export default function CircleSummaryEventsRedirect() {
   const router = useRouter();
@@ -45,9 +46,5 @@ export default function CircleSummaryEventsRedirect() {
     };
   }, [router]);
 
-  return (
-    <main className="max-w-2xl mx-auto px-4 py-10">
-      <div className="cs-skeleton h-24 w-full" />
-    </main>
-  );
+  return <CircleSplash />;
 }

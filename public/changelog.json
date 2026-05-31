@@ -1,5 +1,17 @@
 [
   {
+    "date": "2026-05-31",
+    "version": "2.4.5",
+    "date_display": "May 31, 2026",
+    "date_iso": "2026-05-31",
+    "id": "circle-summary-loading-smoothing",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Circle Summary",
+    "description": "Smoothed out the Circle Summary loading experience. Signing in now goes straight to your events with one solid loading screen instead of a chain of loaders flashing in sequence. Once you're in, switching tabs shows a lightweight skeleton that keeps the header and tabs on screen — no more full splash on every tap.",
+    "page": "/circle-summary"
+  },
+  {
     "date": "2026-05-30",
     "version": "2.4.4",
     "date_display": "May 30, 2026",

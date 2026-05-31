@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { renderMessageHtml } from '../../../../lib/renderMessageHtml';
+import { useMarkCircleAppEntered } from '../../../../lib/circle-summary/appEntered';
 import type { CircleEventRow, CircleMessage } from '../../../../lib/circle-summary/events-data';
 
 type EventRow = CircleEventRow;
@@ -38,6 +39,7 @@ export default function EventsClient({
   initialMessages: CenterMessage[];
   initialError: string | null;
 }) {
+  useMarkCircleAppEntered();
   const router = useRouter();
   const [events, setEvents] = useState<EventRow[]>(initialEvents);
   const [messages, setMessages] = useState<CenterMessage[]>(initialMessages);
