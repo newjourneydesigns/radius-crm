@@ -33,6 +33,42 @@ function weekEndOf(weekStart: string): string {
   return DateTime.fromISO(weekStart).plus({ days: 6 }).toISODate()!;
 }
 
+/**
+ * The circle-summary form captures the leader's narrative as configurable
+ * "dynamic questions" (e.g. "Tell us about your Circle gathering"), stored in
+ * circle_event_summaries.dynamic_responses — NOT the base `notes` column, which
+ * holds only the did-not-meet reason. The composed blob is pushed to CCB, but
+ * RADIUS's read path historically returned only `notes`, so submitted summaries
+ * with dynamic answers rendered as "No notes recorded". This rebuilds a display
+ * string from the base notes + dynamic responses so the modal shows the full
+ * write-up the same way CCB does.
+ */
+function composeSubmittedNotes(
+  baseNotes: string | null | undefined,
+  dynamicResponses: unknown
+): string | null {
+  const sections: string[] = [];
+
+  const base = String(baseNotes ?? '').trim();
+  if (base) sections.push(base);
+
+  if (dynamicResponses && typeof dynamicResponses === 'object') {
+    for (const entry of Object.values(dynamicResponses as Record<string, any>)) {
+      const label = String(entry?.label ?? '').trim();
+      const rawValue = entry?.value;
+      const value = Array.isArray(rawValue)
+        ? rawValue.map((v) => String(v).trim()).filter(Boolean).join(', ')
+        : typeof rawValue === 'boolean'
+          ? (rawValue ? 'Yes' : 'No')
+          : String(rawValue ?? '').trim();
+      if (!value) continue;
+      sections.push(label ? `${label}: ${value}` : value);
+    }
+  }
+
+  return sections.length ? sections.join('\n\n') : null;
+}
+
 type Resolved =
   | {
       status: 'submitted';
@@ -78,7 +114,7 @@ async function resolveLeaderWeek(
   const { data: sub } = await supabase
     .from('circle_event_summaries')
     .select(
-      'id, occurrence, did_not_meet, topic, notes, prayer_requests, info, ccb_submitted_at, created_at, reviewed_at, reviewed_by'
+      'id, occurrence, did_not_meet, topic, notes, prayer_requests, info, dynamic_responses, did_not_meet_reason, ccb_submitted_at, created_at, reviewed_at, reviewed_by'
     )
     .eq('leader_id', leaderId)
     .gte('occurrence', `${weekStart}T00:00:00`)
@@ -96,7 +132,15 @@ async function resolveLeaderWeek(
       occurrence: sub.occurrence,
       did_not_meet: !!sub.did_not_meet,
       topic: sub.topic ?? null,
-      notes: sub.notes ?? null,
+      // The leader's narrative lives in dynamic_responses, not the base notes
+      // column. Compose the full displayable write-up so the modal shows it the
+      // same way CCB does. For did-not-meet, prefix the reason.
+      notes: composeSubmittedNotes(
+        sub.did_not_meet
+          ? [(sub as any).did_not_meet_reason, sub.notes].map((s) => String(s ?? '').trim()).filter(Boolean).join('\n\n') || null
+          : sub.notes,
+        (sub as any).dynamic_responses
+      ),
       prayer_requests: sub.prayer_requests ?? null,
       info: sub.info ?? null,
       headcount: null,

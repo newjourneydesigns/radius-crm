@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-05-31",
+    "version": "2.4.7",
+    "date_display": "May 31, 2026",
+    "date_iso": "2026-05-31",
+    "id": "event-summary-notes-dynamic-questions",
+    "type": "fix",
+    "type_display": "Fix",
+    "category": "Event Summary Tracker",
+    "description": "Fixed event summaries showing \"No notes recorded\" even when a leader wrote a full write-up. The leader's narrative is captured through the summary form's questions (e.g. \"Tell us about your Circle gathering\"), and the review modal wasn't surfacing those answers — only the legacy notes field. The modal now displays the complete write-up exactly as it appears in CCB.",
+    "page": "/event-summary-tracker"
+  },
+  {
+    "date": "2026-05-31",
     "version": "2.4.6",
     "date_display": "May 31, 2026",
     "date_iso": "2026-05-31",
