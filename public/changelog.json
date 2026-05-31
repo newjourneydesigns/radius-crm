@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-05-31",
+    "version": "2.4.6",
+    "date_display": "May 31, 2026",
+    "date_iso": "2026-05-31",
+    "id": "roster-remove-from-absent-alert",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Circle Summary",
+    "description": "Added a \"Remove from roster\" button right on the absent-member alerts in your Roster tab. It opens a quick confirmation that encourages keeping your roster focused on who's actually showing up — and reminds you that anyone can be added back anytime if they return to the Circle.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-31",
     "version": "2.4.5",
     "date_display": "May 31, 2026",
     "date_iso": "2026-05-31",

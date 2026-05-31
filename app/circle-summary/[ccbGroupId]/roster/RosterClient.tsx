@@ -193,6 +193,8 @@ export default function RosterClient({
   const searchRequestId = useRef(0);
 
   const [actionSheet, setActionSheet] = useState<{ name: string; phone: string } | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<Participant | null>(null);
+  const [removing, setRemoving] = useState(false);
   const [dismissed, setDismissed] = useState<Record<string, string>>({});
   const [absentDismissed, setAbsentDismissed] = useState<Record<string, string>>({});
   const [mounted, setMounted] = useState(false);
@@ -291,13 +293,13 @@ export default function RosterClient({
   }, [urlGroupId]);
 
   useEffect(() => {
-    if (!actionSheet) return;
+    if (!actionSheet && !removeTarget) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [actionSheet]);
+  }, [actionSheet, removeTarget]);
 
   useEffect(() => {
     try {
@@ -510,26 +512,29 @@ export default function RosterClient({
     } catch {}
   }
 
-  async function removeFromCcb(p: Participant) {
-    const name = p.fullName || `${p.firstName} ${p.lastName}`.trim();
-    if (!confirm(`Remove ${name} from your Circle's roster?\n\nThis only removes them from this group. Their profile is not changed.`)) {
-      return;
+  async function performRemove(p: Participant) {
+    if (removing) return;
+    setRemoving(true);
+    try {
+      const res = await fetch('/api/circle-summary/roster/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ individualId: p.id }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        alert(data.error || 'Could not remove from your Circle.');
+        return;
+      }
+      setParticipants((prev) => {
+        const next = prev.filter((x) => x.id !== p.id);
+        writeRosterCache(urlGroupId, next);
+        return next;
+      });
+      setRemoveTarget(null);
+    } finally {
+      setRemoving(false);
     }
-    const res = await fetch('/api/circle-summary/roster/remove', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ individualId: p.id }),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.ok) {
-      alert(data.error || 'Could not remove from your Circle.');
-      return;
-    }
-    setParticipants((prev) => {
-      const next = prev.filter((x) => x.id !== p.id);
-      writeRosterCache(urlGroupId, next);
-      return next;
-    });
   }
 
   // Compute upcoming birthdays (next 14 days) and filter out ones the leader
@@ -647,28 +652,50 @@ export default function RosterClient({
                   <p className="text-xs text-red-800/80 mt-0.5">
                     Last seen {formatLastAttended(m.lastAttended)}
                   </p>
-                  {m.phone && (
-                    <div className="mt-2 flex gap-2">
-                      <a
-                        href={phoneHref(m.phone, 'sms')}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-red-600 hover:bg-red-700 !text-white hover:!text-white text-xs font-semibold px-3 py-1.5 transition-colors"
-                      >
-                        <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-                          <path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clipRule="evenodd" />
-                        </svg>
-                        Text
-                      </a>
-                      <a
-                        href={phoneHref(m.phone, 'tel')}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-red-300 hover:bg-red-100 text-red-800 text-xs font-semibold px-3 py-1.5 transition-colors"
-                      >
-                        <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-                          <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
-                        </svg>
-                        Call
-                      </a>
-                    </div>
-                  )}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {m.phone && (
+                      <>
+                        <a
+                          href={phoneHref(m.phone, 'sms')}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-red-600 hover:bg-red-700 !text-white hover:!text-white text-xs font-semibold px-3 py-1.5 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                            <path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clipRule="evenodd" />
+                          </svg>
+                          Text
+                        </a>
+                        <a
+                          href={phoneHref(m.phone, 'tel')}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-red-600 hover:bg-red-700 !text-white hover:!text-white text-xs font-semibold px-3 py-1.5 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                            <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+                          </svg>
+                          Call
+                        </a>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setRemoveTarget(
+                          participants.find((x) => x.id === m.id) ?? {
+                            id: m.id,
+                            firstName: '',
+                            lastName: '',
+                            fullName: m.name,
+                            phone: m.phone,
+                          }
+                        )
+                      }
+                      className="cs-remove-roster-btn ml-auto inline-flex items-center gap-1.5 rounded-full bg-white border text-xs font-semibold px-3 py-1.5 shadow-sm transition-colors"
+                    >
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                      </svg>
+                      Remove from roster
+                    </button>
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -789,7 +816,7 @@ export default function RosterClient({
                   {editRoster ? (
                     <button
                       type="button"
-                      onClick={() => removeFromCcb(p)}
+                      onClick={() => setRemoveTarget(p)}
                       className="mt-0.5 w-6 h-6 rounded-full border-2 border-red-300 text-red-500 hover:bg-red-500 hover:border-red-500 hover:text-white group-hover:border-red-400 flex items-center justify-center shrink-0 transition-colors"
                       aria-label={`Remove ${fullName} from Circle`}
                     >
@@ -992,6 +1019,55 @@ export default function RosterClient({
             <button
               type="button"
               onClick={() => setActionSheet(null)}
+              className="cs-sheet-cancel"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Remove-from-roster confirmation — same bottom-sheet idiom as the phone
+          action sheet, with an encouraging note that removals are reversible. */}
+      {mounted && removeTarget && createPortal(
+        <div
+          className="cs-sheet-overlay"
+          onClick={() => !removing && setRemoveTarget(null)}
+        >
+          <div className="cs-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="cs-sheet-handle" />
+            <div className="cs-sheet-header">
+              <p className="cs-sheet-eyebrow">Remove from roster</p>
+              <p className="cs-sheet-phone">
+                {removeTarget.fullName || `${removeTarget.firstName} ${removeTarget.lastName}`.trim()}
+              </p>
+            </div>
+            <p className="cs-sheet-body">
+              Keep your roster focused on who&apos;s actually showing up. If someone is no
+              longer engaged in the Circle, it&apos;s good to remove them.
+            </p>
+            <div className="cs-sheet-note">
+              <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              <span>You can add them back anytime if they return to the Circle.</span>
+            </div>
+            <div className="cs-sheet-actions">
+              <button
+                type="button"
+                onClick={() => performRemove(removeTarget)}
+                disabled={removing}
+                className="cs-sheet-action cs-sheet-action-danger"
+                style={{ opacity: removing ? 0.7 : 1 }}
+              >
+                <span>{removing ? 'Removing…' : 'Remove from roster'}</span>
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setRemoveTarget(null)}
+              disabled={removing}
               className="cs-sheet-cancel"
             >
               Cancel
