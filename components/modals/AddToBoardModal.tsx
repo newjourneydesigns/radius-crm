@@ -10,6 +10,7 @@ interface AddToBoardModalProps {
   leaderId: number;
   leaderName: string;
   followUpDate: string;
+  followUpTime?: string;
 }
 
 interface Board {
@@ -29,6 +30,7 @@ export default function AddToBoardModal({
   leaderId,
   leaderName,
   followUpDate,
+  followUpTime,
 }: AddToBoardModalProps) {
   const [boards, setBoards] = useState<Board[]>([]);
   const [columns, setColumns] = useState<BoardColumn[]>([]);
@@ -108,6 +110,7 @@ export default function AddToBoardModal({
           title: cardTitle.trim(),
           description: `Follow-up scheduled for ${followUpDate}. View leader profile: /circle/${leaderId}`,
           due_date: followUpDate,
+          due_time: followUpTime || null,
           linked_leader_id: leaderId,
           position: maxPos + 1,
           created_by: user?.id || null,

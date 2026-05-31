@@ -74,6 +74,17 @@ const convertAMPMTo24Hour = (time: string | undefined | null): string => {
   return `${hour24.toString().padStart(2, '0')}:${minutes}`;
 };
 
+const TIME_OPTIONS_15_MIN = Array.from({ length: 96 }, (_, index) => {
+  const totalMinutes = index * 15;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hour12 = hours % 12 || 12;
+  const label = `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
+  const value = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  return { label, value };
+});
+
 // Helper function to get follow-up date status
 const getFollowUpStatus = (dateString: string | undefined | null): { 
   isOverdue: boolean; 
@@ -213,9 +224,11 @@ export default function CircleLeaderProfilePage() {
   const [isUpdatingFollowUp, setIsUpdatingFollowUp] = useState(false);
   const [showFollowUpDateModal, setShowFollowUpDateModal] = useState(false);
   const [followUpDateValue, setFollowUpDateValue] = useState('');
+  const [followUpTimeValue, setFollowUpTimeValue] = useState('');
   const [followUpNoteValue, setFollowUpNoteValue] = useState('');
   const [showAddToBoardModal, setShowAddToBoardModal] = useState(false);
   const [savedFollowUpDate, setSavedFollowUpDate] = useState('');
+  const [savedFollowUpTime, setSavedFollowUpTime] = useState('');
   const [showClearFollowUpConfirm, setShowClearFollowUpConfirm] = useState(false);
   const [showAlert, setShowAlert] = useState<{
     isOpen: boolean;
@@ -1266,6 +1279,7 @@ export default function CircleLeaderProfilePage() {
     } else {
       // Not enabled — show date picker to set a follow-up
       setFollowUpDateValue('');
+      setFollowUpTimeValue('');
       setFollowUpNoteValue('');
       setShowFollowUpDateModal(true);
     }
@@ -1281,6 +1295,7 @@ export default function CircleLeaderProfilePage() {
         .update({
           follow_up_required: true,
           follow_up_date: followUpDateValue,
+          follow_up_time: followUpTimeValue || null,
           follow_up_note: followUpNoteValue.trim() || null,
         })
         .eq('id', leaderId);
@@ -1291,6 +1306,7 @@ export default function CircleLeaderProfilePage() {
           ...prev,
           follow_up_required: true,
           follow_up_date: followUpDateValue,
+          follow_up_time: followUpTimeValue || undefined,
           follow_up_note: followUpNoteValue.trim() || undefined,
         } : null);
         setShowFollowUpDateModal(false);
@@ -1354,6 +1370,7 @@ export default function CircleLeaderProfilePage() {
           ]);
 
         setSavedFollowUpDate(followUpDateValue);
+        setSavedFollowUpTime(followUpTimeValue);
         setShowAddToBoardModal(true);
       } else {
         console.error('Error setting follow-up:', error);
@@ -1399,7 +1416,7 @@ export default function CircleLeaderProfilePage() {
     }
   };
 
-  const handleFollowUpDetailsChange = async (newDate: string, newNote: string) => {
+  const handleFollowUpDetailsChange = async (newDate: string, newNote: string, newTime?: string) => {
     if (!leader) return;
 
     try {
@@ -1407,6 +1424,7 @@ export default function CircleLeaderProfilePage() {
         .from('circle_leaders')
         .update({
           follow_up_date: newDate || null,
+          follow_up_time: newTime || null,
           follow_up_note: newNote.trim() || null,
         })
         .eq('id', leaderId);
@@ -1416,6 +1434,7 @@ export default function CircleLeaderProfilePage() {
         setLeader(prev => prev ? {
           ...prev,
           follow_up_date: newDate || undefined,
+          follow_up_time: newTime || undefined,
           follow_up_note: newNote.trim() || undefined,
         } : null);
         setShowFollowUpDateModal(false);
@@ -2143,6 +2162,7 @@ export default function CircleLeaderProfilePage() {
                       onClick={(e) => {
                         e.stopPropagation();
                         setFollowUpDateValue(leader.follow_up_date || '');
+                        setFollowUpTimeValue(leader.follow_up_time || '');
                         setFollowUpNoteValue(leader.follow_up_note || '');
                         setShowFollowUpDateModal(true);
                       }}
@@ -3437,6 +3457,22 @@ export default function CircleLeaderProfilePage() {
               </div>
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Time <span className="text-xs text-slate-400">(optional)</span>
+                </label>
+                <select
+                  value={followUpTimeValue}
+                  onChange={(e) => setFollowUpTimeValue(e.target.value)}
+                  disabled={!followUpDateValue}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500 disabled:opacity-50"
+                >
+                  <option value="">No time</option>
+                  {TIME_OPTIONS_15_MIN.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Follow-up Note
                 </label>
                 <textarea
@@ -3457,7 +3493,7 @@ export default function CircleLeaderProfilePage() {
                   Cancel
                 </button>
                 <button
-                  onClick={leader?.follow_up_required ? () => { handleFollowUpDetailsChange(followUpDateValue, followUpNoteValue); } : handleFollowUpSave}
+                  onClick={leader?.follow_up_required ? () => { handleFollowUpDetailsChange(followUpDateValue, followUpNoteValue, followUpTimeValue || undefined); } : handleFollowUpSave}
                   disabled={!followUpDateValue || isUpdatingFollowUp}
                   className="btn-success flex-1 px-4 py-2 rounded-lg text-sm"
                 >
@@ -3490,6 +3526,7 @@ export default function CircleLeaderProfilePage() {
           leaderId={leaderId}
           leaderName={leader.name}
           followUpDate={savedFollowUpDate}
+          followUpTime={savedFollowUpTime}
         />
       )}
     </ProtectedRoute>

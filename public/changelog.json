@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-05-30",
+    "version": "2.4.4",
+    "date_display": "May 30, 2026",
+    "date_iso": "2026-05-30",
+    "id": "follow-up-time-field",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Follow-Up",
+    "description": "Added optional time field to follow-up modals so you can schedule follow-ups at a specific time of day.",
+    "page": "/dashboard"
+  },
+  {
+    "date": "2026-05-30",
     "version": "2.4.3",
     "date_display": "May 30, 2026",
     "date_iso": "2026-05-30",

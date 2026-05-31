@@ -87,6 +87,22 @@ interface CardDetailDrawerProps {
   onClose: () => void;
 }
 
+const TIME_OPTIONS_15_MIN = Array.from({ length: 96 }, (_, index) => {
+  const totalMinutes = index * 15;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hour12 = hours % 12 || 12;
+  return {
+    value: `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`,
+    label: `${hour12}:${String(minutes).padStart(2, '0')} ${period}`,
+  };
+});
+
+function normalizeTimeValue(value: string | null | undefined): string {
+  return value ? value.slice(0, 5) : '';
+}
+
 export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProps) {
   const { activePage, updateLinkedCard } = useNotebookContext();
   const card = link.board_card;
@@ -96,6 +112,7 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
   const [description, setDescription] = useState(card?.description ?? '');
   const [priority, setPriority] = useState(card?.priority ?? 'medium');
   const [dueDate, setDueDate] = useState(card?.due_date ?? '');
+  const [dueTime, setDueTime] = useState(normalizeTimeValue(card?.due_time));
   const [isComplete, setIsComplete] = useState(card?.is_complete ?? false);
   const [saving, setSaving] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
@@ -127,6 +144,7 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
     setDescription(card.description ?? '');
     setPriority(card.priority);
     setDueDate(card.due_date ?? '');
+    setDueTime(normalizeTimeValue(card.due_time));
     setIsComplete(card.is_complete);
   }, [card, link.card_id]);
 
@@ -155,22 +173,28 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
 
   function handleTitleChange(val: string) {
     setTitle(val);
-    scheduleUpdate({ title: val, description, priority, due_date: dueDate || null });
+    scheduleUpdate({ title: val, description, priority, due_date: dueDate || null, due_time: dueDate ? (dueTime || null) : null });
   }
 
   function handleDescChange(val: string) {
     setDescription(val);
-    scheduleUpdate({ title, description: val, priority, due_date: dueDate || null });
+    scheduleUpdate({ title, description: val, priority, due_date: dueDate || null, due_time: dueDate ? (dueTime || null) : null });
   }
 
   function handlePriorityChange(val: string) {
     setPriority(val as typeof priority);
-    scheduleUpdate({ title, description, priority: val, due_date: dueDate || null });
+    scheduleUpdate({ title, description, priority: val, due_date: dueDate || null, due_time: dueDate ? (dueTime || null) : null });
   }
 
   function handleDueDateChange(val: string) {
     setDueDate(val);
-    scheduleUpdate({ title, description, priority, due_date: val || null });
+    if (!val) setDueTime('');
+    scheduleUpdate({ title, description, priority, due_date: val || null, due_time: val ? (dueTime || null) : null });
+  }
+
+  function handleDueTimeChange(val: string) {
+    setDueTime(val);
+    scheduleUpdate({ title, description, priority, due_date: dueDate || null, due_time: dueDate ? (val || null) : null });
   }
 
   async function handleToggleComplete() {
@@ -465,6 +489,18 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
                 onChange={e => handleDueDateChange(e.target.value)}
                 className="bg-transparent text-xs text-gray-400 border-none outline-none cursor-pointer"
               />
+              <select
+                value={dueTime}
+                onChange={e => handleDueTimeChange(e.target.value)}
+                disabled={!dueDate}
+                title="Due time in Central Time"
+                className="bg-transparent text-xs text-gray-400 border-none outline-none cursor-pointer disabled:opacity-50"
+              >
+                <option value="">No time</option>
+                {TIME_OPTIONS_15_MIN.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
             </div>
           </div>
 

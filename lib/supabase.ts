@@ -95,6 +95,7 @@ export interface CircleLeader {
   event_summary_skipped?: boolean; // Legacy - kept for backwards compatibility
   follow_up_required?: boolean;
   follow_up_date?: string;
+  follow_up_time?: string;
   follow_up_note?: string;
   email_reminders_enabled?: boolean;
   circle_summary_access_enabled?: boolean;
@@ -405,6 +406,7 @@ export interface BoardCard {
   priority: CardPriority;
   start_date?: string;
   due_date?: string;
+  due_time?: string | null;
   assignee?: string;
   created_by?: string;
   is_archived: boolean;
@@ -630,6 +632,7 @@ export interface NotebookPageCard {
     description?: string;
     priority: CardPriority;
     due_date?: string;
+    due_time?: string | null;
     is_complete: boolean;
     board_id: string;
     column_id: string;

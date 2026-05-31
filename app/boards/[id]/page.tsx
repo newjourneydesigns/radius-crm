@@ -43,6 +43,38 @@ const COLUMN_COLORS = [
   '#e11d48', // rose
 ];
 
+const TIME_OPTIONS_15_MIN = Array.from({ length: 96 }, (_, index) => {
+  const totalMinutes = index * 15;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hour12 = hours % 12 || 12;
+  const value = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  return {
+    value,
+    label: `${hour12}:${String(minutes).padStart(2, '0')} ${period}`,
+  };
+});
+
+function normalizeTimeValue(value: string | null | undefined): string {
+  return value ? value.slice(0, 5) : '';
+}
+
+function formatTimeAmPm(value: string | null | undefined): string {
+  const normalized = normalizeTimeValue(value);
+  const option = TIME_OPTIONS_15_MIN.find(item => item.value === normalized);
+  if (option) return option.label;
+
+  const match = /^(\d{2}):(\d{2})/.exec(normalized);
+  if (!match) return '';
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return '';
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hour12 = hours % 12 || 12;
+  return `${hour12}:${String(minutes).padStart(2, '0')} ${period}`;
+}
+
 /* ═══════════════════════════════════════════════════════════
    Priority helpers
    ═══════════════════════════════════════════════════════════ */
@@ -231,6 +263,7 @@ function CardDetailModal({
   const [editPriority, setEditPriority] = useState<CardPriority>(card.priority);
   const [editStartDate, setEditStartDate] = useState(card.start_date || '');
   const [editDueDate, setEditDueDate] = useState(card.due_date || '');
+  const [editDueTime, setEditDueTime] = useState(normalizeTimeValue(card.due_time));
   const [editLabels, setEditLabels] = useState<string[]>((card.labels || []).map(l => l.id));
   const [editRepeatRule, setEditRepeatRule] = useState<TodoRepeatRule>((card.repeat_rule as TodoRepeatRule) || 'none');
   const [editRepeatInterval, setEditRepeatInterval] = useState(card.repeat_interval || 1);
@@ -299,6 +332,7 @@ function CardDetailModal({
         priority: editPriority,
         start_date: editStartDate || null,
         due_date: editDueDate || null,
+        due_time: editDueDate ? (editDueTime || null) : null,
         label_ids: editLabels,
         repeat_rule: editRepeatRule === 'none' ? null : editRepeatRule,
         repeat_interval: editRepeatRule === 'none' ? 1 : editRepeatInterval,
@@ -308,7 +342,7 @@ function CardDetailModal({
       pendingChangesRef.current = false;
     }, 600);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editTitle, editDesc, editPriority, editStartDate, editDueDate, editLabels, editRepeatRule, editRepeatInterval, editRepeatDays, linkedLeaderId]);
+  }, [editTitle, editDesc, editPriority, editStartDate, editDueDate, editDueTime, editLabels, editRepeatRule, editRepeatInterval, editRepeatDays, linkedLeaderId]);
 
   const handleClose = () => {
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
@@ -319,6 +353,7 @@ function CardDetailModal({
         priority: editPriority,
         start_date: editStartDate || null,
         due_date: editDueDate || null,
+        due_time: editDueDate ? (editDueTime || null) : null,
         label_ids: editLabels,
         repeat_rule: editRepeatRule === 'none' ? null : editRepeatRule,
         repeat_interval: editRepeatRule === 'none' ? 1 : editRepeatInterval,
@@ -1406,14 +1441,21 @@ function CardDetailModal({
                   className="kb-input"
                   type="date"
                   value={editDueDate}
-                  onChange={e => setEditDueDate(e.target.value)}
+                  onChange={e => {
+                    const next = e.target.value;
+                    setEditDueDate(next);
+                    if (!next) setEditDueTime('');
+                  }}
                   style={{ flex: 1 }}
                 />
                 {editDueDate && (
                   <button
                     type="button"
                     className="kb-btn kb-btn-ghost kb-btn-sm"
-                    onClick={() => setEditDueDate('')}
+                    onClick={() => {
+                      setEditDueDate('');
+                      setEditDueTime('');
+                    }}
                     title="Clear due date"
                     style={{ flexShrink: 0 }}
                   >
@@ -1421,6 +1463,19 @@ function CardDetailModal({
                   </button>
                 )}
               </div>
+              <select
+                className="kb-input"
+                value={editDueTime}
+                onChange={e => setEditDueTime(e.target.value)}
+                disabled={!editDueDate}
+                title="Due time in Central Time"
+                style={{ marginTop: 6 }}
+              >
+                <option value="">No time</option>
+                {TIME_OPTIONS_15_MIN.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
             </div>
 
             {/* Repeat */}
@@ -1829,7 +1884,10 @@ function KanbanCard({
             )}
             {card.start_date && card.due_date && <span className="kb-card-date-sep">→</span>}
             {card.due_date && (
-              <span>{isOverdue ? 'Overdue' : isDueSoon ? (daysUntilDue === 0 ? 'Today' : daysUntilDue === 1 ? 'Tomorrow' : 'In 2 days') : new Date(card.due_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+              <span>
+                {isOverdue ? 'Overdue' : isDueSoon ? (daysUntilDue === 0 ? 'Today' : daysUntilDue === 1 ? 'Tomorrow' : 'In 2 days') : new Date(card.due_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                {card.due_time && ` · ${formatTimeAmPm(card.due_time)} Central`}
+              </span>
             )}
           </span>
         )}
@@ -2437,7 +2495,7 @@ function ListActionsModal({
                     className="kb-btn kb-btn-primary kb-btn-sm"
                     disabled={!bulkDueDate || applying}
                     onClick={() => apply('Due date', async () => {
-                      for (const card of cards) await onUpdateCard(card.id, { due_date: bulkDueDate });
+                      for (const card of cards) await onUpdateCard(card.id, { due_date: bulkDueDate, due_time: null });
                     })}
                   >
                     Apply
@@ -2453,7 +2511,7 @@ function ListActionsModal({
                     className="kb-btn kb-btn-primary kb-btn-sm"
                     disabled={applying}
                     onClick={() => apply('Strip due date', async () => {
-                      for (const card of cards) await onUpdateCard(card.id, { due_date: null });
+                      for (const card of cards) await onUpdateCard(card.id, { due_date: null, due_time: null });
                     })}
                   >
                     Remove from All
@@ -3324,7 +3382,7 @@ function BoardPage() {
   }, []);
 
   const handleQuickDueDateUpdate = useCallback(async (cardId: string, dueDate: string | null) => {
-    await updateCard(boardId, cardId, { due_date: dueDate });
+    await updateCard(boardId, cardId, dueDate ? { due_date: dueDate } : { due_date: null, due_time: null });
     setDueDateCardId(null);
   }, [boardId, updateCard]);
 
@@ -3549,8 +3607,14 @@ function BoardPage() {
       if (action.type === 'set_assignee')  cardUpdates.assignee    = action.value;
       if (action.type === 'set_labels')    cardUpdates.label_ids   = action.value;
       if (action.type === 'clear_labels')  cardUpdates.label_ids   = [];
-      if (action.type === 'set_due_date')  cardUpdates.due_date    = action.value;
-      if (action.type === 'strip_due_date') cardUpdates.due_date   = null;
+      if (action.type === 'set_due_date') {
+        cardUpdates.due_date = action.value;
+        cardUpdates.due_time = null;
+      }
+      if (action.type === 'strip_due_date') {
+        cardUpdates.due_date = null;
+        cardUpdates.due_time = null;
+      }
     }
     if (Object.keys(cardUpdates).length > 0) {
       await updateCard(boardId, cardId, cardUpdates);
@@ -4007,7 +4071,7 @@ function BoardPage() {
                       {dueDateCardId === card.id && (
                         <div ref={dueDatePickerRef} className="kb-list-row-date-picker">
                           <DueDateQuickPicker
-                            dueDate={card.due_date}
+                            dueDate={card.due_date ?? null}
                             onSave={(dueDate) => handleQuickDueDateUpdate(card.id, dueDate)}
                             onClose={() => setDueDateCardId(null)}
                           />
@@ -4046,6 +4110,7 @@ function BoardPage() {
                                 : new Date(card.due_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
                               : card.start_date && new Date(card.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                             }
+                            {card.due_date && card.due_time && ` · ${formatTimeAmPm(card.due_time)} Central`}
                           </span>
                         )}
                         {comments.length > 0 && (
@@ -4246,7 +4311,7 @@ function BoardPage() {
                       {dueDateCardId === card.id && (
                         <div ref={dueDatePickerRef}>
                           <DueDateQuickPicker
-                            dueDate={card.due_date}
+                            dueDate={card.due_date ?? null}
                             onSave={(dueDate) => handleQuickDueDateUpdate(card.id, dueDate)}
                             onClose={() => setDueDateCardId(null)}
                           />
@@ -4498,6 +4563,7 @@ function BoardPage() {
               priority: activeCard.priority,
               start_date: activeCard.start_date || undefined,
               due_date: activeCard.due_date || undefined,
+              due_time: activeCard.due_time || null,
               label_ids: (activeCard.labels || []).map(l => l.id),
             });
             if (newCard && activeCard.checklists?.length) {

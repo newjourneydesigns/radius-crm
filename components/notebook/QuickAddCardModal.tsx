@@ -19,6 +19,18 @@ function buildNotebookDescription(pageId: string, pageTitle?: string): string {
   return `Created from notebook note: ${title}\n${noteUrl}`;
 }
 
+const TIME_OPTIONS_15_MIN = Array.from({ length: 96 }, (_, index) => {
+  const totalMinutes = index * 15;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hour12 = hours % 12 || 12;
+  return {
+    value: `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`,
+    label: `${hour12}:${String(minutes).padStart(2, '0')} ${period}`,
+  };
+});
+
 export default function QuickAddCardModal({ pageId, pageTitle, onCreated, onClose }: QuickAddCardModalProps) {
   const [title, setTitle] = useState(pageTitle?.trim() || '');
   const [boards, setBoards] = useState<ProjectBoard[]>([]);
@@ -27,6 +39,7 @@ export default function QuickAddCardModal({ pageId, pageTitle, onCreated, onClos
   const [columnId, setColumnId] = useState('');
   const [priority, setPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
   const [dueDate, setDueDate] = useState('');
+  const [dueTime, setDueTime] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const titleRef = useRef<HTMLInputElement>(null);
@@ -92,6 +105,7 @@ export default function QuickAddCardModal({ pageId, pageTitle, onCreated, onClos
           column_id: columnId,
           priority,
           due_date: dueDate || null,
+          due_time: dueDate ? (dueTime || null) : null,
           created_by: user.id,
           position: 0,
         })
@@ -177,7 +191,7 @@ export default function QuickAddCardModal({ pageId, pageTitle, onCreated, onClos
             </select>
           </div>
 
-          {/* Priority + Due date (inline row) */}
+          {/* Priority + Due date/time (inline row) */}
           <div className="flex gap-2">
             <div className="flex-1">
               <label className="text-[11px] text-gray-500 uppercase tracking-wide mb-1 block">Priority</label>
@@ -197,10 +211,30 @@ export default function QuickAddCardModal({ pageId, pageTitle, onCreated, onClos
               <input
                 type="date"
                 value={dueDate}
-                onChange={e => setDueDate(e.target.value)}
+                onChange={e => {
+                  const next = e.target.value;
+                  setDueDate(next);
+                  if (!next) setDueTime('');
+                }}
                 className="w-full bg-white/[0.06] border border-white/[0.1] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-vc-400/60 transition-colors"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="text-[11px] text-gray-500 uppercase tracking-wide mb-1 block">Due time</label>
+            <select
+              value={dueTime}
+              onChange={e => setDueTime(e.target.value)}
+              disabled={!dueDate}
+              title="Due time in Central Time"
+              className="w-full bg-white/[0.06] border border-white/[0.1] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-vc-400/60 transition-colors disabled:opacity-50"
+            >
+              <option value="">No time</option>
+              {TIME_OPTIONS_15_MIN.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
           </div>
 
           {error && <p className="text-xs text-red-400">{error}</p>}

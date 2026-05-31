@@ -126,6 +126,7 @@ interface FollowUpLeader {
   campus: string;
   status: string;
   follow_up_date: string | null;
+  follow_up_time?: string | null;
   last_note: {
     content: string;
     created_at: string;
@@ -451,7 +452,7 @@ export default function FilterPanel({
     setShowFollowUpModal(true);
   }, []);
 
-  const handleFollowUpDateSave = useCallback(async (date: string | null) => {
+  const handleFollowUpDateSave = useCallback(async (date: string | null, time?: string) => {
     if (!selectedLeader?.id) {
       console.error('No leader selected for follow-up date update');
       return;
@@ -466,8 +467,9 @@ export default function FilterPanel({
     try {
       const { error } = await supabase
         .from('circle_leaders')
-        .update({ 
+        .update({
           follow_up_date: date,
+          follow_up_time: time || null,
           follow_up_required: date !== null
         })
         .eq('id', selectedLeader.id);
@@ -478,9 +480,9 @@ export default function FilterPanel({
       }
 
       // Update local state
-      setFollowUpLeaders(prev => prev.map(leader => 
-        leader.id === selectedLeader.id 
-          ? { ...leader, follow_up_date: date }
+      setFollowUpLeaders(prev => prev.map(leader =>
+        leader.id === selectedLeader.id
+          ? { ...leader, follow_up_date: date, follow_up_time: time || null }
           : leader
       ));
 
@@ -491,8 +493,8 @@ export default function FilterPanel({
     }
   }, [selectedLeader]);
 
-  const handleFollowUpDateSaveWrapper = (date: string) => {
-    handleFollowUpDateSave(date);
+  const handleFollowUpDateSaveWrapper = (date: string, time?: string) => {
+    handleFollowUpDateSave(date, time);
   };
 
   const handleFollowUpModalClose = () => {
@@ -1420,6 +1422,7 @@ export default function FilterPanel({
           onConfirm={handleFollowUpDateSaveWrapper}
           leaderName={selectedLeader.name}
           existingDate={selectedLeader.follow_up_date || undefined}
+          existingTime={selectedLeader.follow_up_time || undefined}
           isEditing={true}
         />
       )}

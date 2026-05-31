@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { DateTime } from 'luxon';
 
 function getSupabaseServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -67,6 +68,19 @@ function icsDate(dateStr: string): string {
   return dateStr.replace(/-/g, '');
 }
 
+function icsCentralDateTime(dateStr: string, timeStr: string): string {
+  return DateTime
+    .fromISO(`${dateStr}T${timeStr.slice(0, 5)}`, { zone: 'America/Chicago' })
+    .toFormat("yyyyMMdd'T'HHmmss");
+}
+
+function addCentralHour(dateStr: string, timeStr: string): string {
+  return DateTime
+    .fromISO(`${dateStr}T${timeStr.slice(0, 5)}`, { zone: 'America/Chicago' })
+    .plus({ hours: 1 })
+    .toFormat("yyyyMMdd'T'HHmmss");
+}
+
 // Advance a YYYY-MM-DD date by one day (for exclusive DTEND)
 function nextDay(dateStr: string): string {
   const [y, m, d] = dateStr.split('-').map(Number);
@@ -83,6 +97,7 @@ interface CardRow {
   description: string | null;
   start_date: string | null;
   due_date: string | null;
+  due_time: string | null;
   priority: string | null;
   is_complete: boolean;
   board_id: string;
@@ -145,6 +160,7 @@ function buildIcs(
   ];
 
   for (const card of cards) {
+    const hasDueTime = Boolean(card.due_date && card.due_time);
     const startDate = card.start_date || card.due_date!;
     const endDate   = nextDay(card.due_date || card.start_date!);
     const boardName = stripEmoji(boardMap.get(card.board_id) || 'Board');
@@ -168,8 +184,12 @@ function buildIcs(
       foldLine(`UID:card-${card.id}@radius-crm`),
       `DTSTAMP:${stamp}`,
       foldLine(`SUMMARY:${icsEscape(summary)}${priority}`),
-      foldLine(`DTSTART;VALUE=DATE:${icsDate(startDate)}`),
-      foldLine(`DTEND;VALUE=DATE:${icsDate(endDate)}`),
+      hasDueTime
+        ? foldLine(`DTSTART;TZID=America/Chicago:${icsCentralDateTime(card.due_date!, card.due_time!)}`)
+        : foldLine(`DTSTART;VALUE=DATE:${icsDate(startDate)}`),
+      hasDueTime
+        ? foldLine(`DTEND;TZID=America/Chicago:${addCentralHour(card.due_date!, card.due_time!)}`)
+        : foldLine(`DTEND;VALUE=DATE:${icsDate(endDate)}`),
       foldLine(`DESCRIPTION:${description}`),
       foldLine(`URL:${eventUrl}`),
       `STATUS:${status}`,
@@ -292,7 +312,7 @@ export async function GET(request: NextRequest) {
     const [cardsResult, checklistsResult, columnsResult] = await Promise.all([
       service
         .from('board_cards')
-        .select('id, title, description, start_date, due_date, priority, is_complete, board_id, column_id')
+        .select('id, title, description, start_date, due_date, due_time, priority, is_complete, board_id, column_id')
         .in('board_id', allBoardIds)
         .eq('is_archived', false)
         .or('due_date.not.is.null,start_date.not.is.null'),

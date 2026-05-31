@@ -148,7 +148,7 @@ interface CircleLeaderCardProps {
   onAddNote?: (leaderId: number, name: string) => void;
   onUpdateStatus?: (leaderId: number, newStatus: string, followUpDate?: string) => void;
   onToggleFollowUp?: (leaderId: number, isRequired: boolean) => void;
-  onUpdateFollowUpDate?: (leaderId: number, followUpDate: string) => void;
+  onUpdateFollowUpDate?: (leaderId: number, followUpDate: string, followUpTime?: string) => void;
   onClearFollowUp?: (leaderId: number, name: string) => void;
   statuses: Array<{id: number; value: string}>;
 }
@@ -293,11 +293,11 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
     setShowFollowUpModal(true);
   }, []);
 
-  const handleFollowUpDateConfirm = useCallback((followUpDate: string) => {
+  const handleFollowUpDateConfirm = useCallback((followUpDate: string, followUpTime?: string) => {
     if (!validateLeaderData(leader)) return;
-    
+
     if (editingFollowUpDate && onUpdateFollowUpDate) {
-      onUpdateFollowUpDate(leader.id, followUpDate);
+      onUpdateFollowUpDate(leader.id, followUpDate, followUpTime);
       setEditingFollowUpDate(false);
     } else if (pendingStatus && onUpdateStatus) {
       onUpdateStatus(leader.id, pendingStatus, followUpDate);
@@ -916,6 +916,7 @@ const CircleLeaderCard = memo(function CircleLeaderCard({
         onConfirm={handleFollowUpDateConfirm}
         leaderName={leader.name || 'Unknown'}
         existingDate={editingFollowUpDate ? leader.follow_up_date : undefined}
+        existingTime={editingFollowUpDate ? leader.follow_up_time : undefined}
         isEditing={editingFollowUpDate}
       />
     </div>

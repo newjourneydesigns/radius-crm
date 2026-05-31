@@ -6,6 +6,17 @@ import LeaderCombobox from '../ui/LeaderCombobox';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 
+const TIME_OPTIONS_15_MIN = Array.from({ length: 96 }, (_, index) => {
+  const totalMinutes = index * 15;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hour12 = hours % 12 || 12;
+  const label = `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
+  const value = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  return { label, value };
+});
+
 interface Leader { id: number; name: string; }
 
 interface Props {
@@ -19,6 +30,7 @@ export default function SetFollowUpModal({ isOpen, onClose, onSaved }: Props) {
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [selectedLeaderId, setSelectedLeaderId] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
+  const [followUpTime, setFollowUpTime] = useState('');
   const [followUpNote, setFollowUpNote] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -28,6 +40,7 @@ export default function SetFollowUpModal({ isOpen, onClose, onSaved }: Props) {
     if (!isOpen) return;
     setSelectedLeaderId('');
     setFollowUpDate('');
+    setFollowUpTime('');
     setFollowUpNote('');
     setError('');
     loadLeaders();
@@ -64,6 +77,7 @@ export default function SetFollowUpModal({ isOpen, onClose, onSaved }: Props) {
         .update({
           follow_up_required: true,
           follow_up_date: followUpDate,
+          follow_up_time: followUpTime || null,
           follow_up_note: followUpNote.trim() || null,
         })
         .eq('id', leaderId);
@@ -137,6 +151,23 @@ export default function SetFollowUpModal({ isOpen, onClose, onSaved }: Props) {
             className={inputClass}
             disabled={isSaving}
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Time <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <select
+            value={followUpTime}
+            onChange={e => setFollowUpTime(e.target.value)}
+            className={inputClass}
+            disabled={isSaving || !followUpDate}
+          >
+            <option value="">No time</option>
+            {TIME_OPTIONS_15_MIN.map(option => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
         </div>
 
         <div>

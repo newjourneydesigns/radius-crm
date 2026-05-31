@@ -456,6 +456,7 @@ export function useProjectBoard() {
     priority?: CardPriority;
     start_date?: string;
     due_date?: string;
+    due_time?: string | null;
     assignee?: string;
     label_ids?: string[];
     linked_leader_id?: number | null;
@@ -622,6 +623,7 @@ export function useProjectBoard() {
           priority: card.priority,
           start_date: newStartDate,
           due_date: newDueDate,
+          due_time: card.due_time || null,
           assignee: card.assignee || null,
           created_by: user?.id || null,
           position: maxPos + 1,

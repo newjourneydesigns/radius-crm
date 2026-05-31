@@ -21,6 +21,18 @@ function getStoredCardValue(key: string) {
   return window.localStorage.getItem(key) || '';
 }
 
+const TIME_OPTIONS_15_MIN = Array.from({ length: 96 }, (_, index) => {
+  const totalMinutes = index * 15;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hour12 = hours % 12 || 12;
+  return {
+    value: `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`,
+    label: `${hour12}:${String(minutes).padStart(2, '0')} ${period}`,
+  };
+});
+
 export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
   const { user } = useAuth();
   const [boards, setBoards] = useState<Board[]>([]);
@@ -32,6 +44,7 @@ export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
   const [selectedColumnId, setSelectedColumnId] = useState(() => getStoredCardValue('addCard:lastColumnId'));
   const [selectedLeaderId, setSelectedLeaderId] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [dueTime, setDueTime] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingBoards, setIsLoadingBoards] = useState(false);
   const [isLoadingColumns, setIsLoadingColumns] = useState(false);
@@ -47,6 +60,7 @@ export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
     setSelectedColumnId(getStoredCardValue('addCard:lastColumnId'));
     setSelectedLeaderId('');
     setDueDate('');
+    setDueTime('');
     setError('');
     setSaved(false);
     setSavedTitle('');
@@ -119,6 +133,7 @@ export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
         title: title.trim(),
         description: description.trim() || null,
         due_date: dueDate || null,
+        due_time: dueDate ? (dueTime || null) : null,
         linked_leader_id: selectedLeaderId ? parseInt(selectedLeaderId) : null,
         position: maxPos + 1,
         created_by: user?.id || null,
@@ -258,13 +273,31 @@ export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Due Date <span className="text-gray-400 font-normal">(optional)</span>
           </label>
-          <input
-            type="date"
-            value={dueDate}
-            onChange={e => setDueDate(e.target.value)}
-            className={inputClass}
-            disabled={isSaving}
-          />
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              type="date"
+              value={dueDate}
+              onChange={e => {
+                const next = e.target.value;
+                setDueDate(next);
+                if (!next) setDueTime('');
+              }}
+              className={inputClass}
+              disabled={isSaving}
+            />
+            <select
+              value={dueTime}
+              onChange={e => setDueTime(e.target.value)}
+              className={inputClass}
+              disabled={isSaving || !dueDate}
+              title="Due time in Central Time"
+            >
+              <option value="">No time</option>
+              {TIME_OPTIONS_15_MIN.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="flex justify-end gap-3 pt-2">

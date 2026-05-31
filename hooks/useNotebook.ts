@@ -478,7 +478,7 @@ export function useNotebook() {
           linked_cards:notebook_page_cards(
             *,
             board_card:board_cards(
-              id, title, description, priority, due_date, is_complete, board_id, column_id,
+              id, title, description, priority, due_date, due_time, is_complete, board_id, column_id,
               project_board:project_boards(id, title),
               board_column:board_columns(id, title)
             )
@@ -869,10 +869,10 @@ export function useNotebook() {
     }
   }, []);
 
-  // Update a linked card's fields directly (title, priority, due_date, is_complete, description)
+  // Update a linked card's fields directly (title, priority, due_date, due_time, is_complete, description)
   const updateLinkedCard = useCallback(async (
     cardId: string,
-    updates: Partial<{ title: string; description: string; priority: string; due_date: string | null; is_complete: boolean }>,
+    updates: Partial<{ title: string; description: string; priority: string; due_date: string | null; due_time: string | null; is_complete: boolean }>,
   ) => {
     setError(null);
     try {

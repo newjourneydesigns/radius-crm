@@ -49,7 +49,7 @@ interface NotebookContextType {
   unlinkBoard: (pageId: string, boardId: string) => Promise<void>;
   linkCard: (pageId: string, cardId: string) => Promise<void>;
   unlinkCard: (pageId: string, cardId: string) => Promise<void>;
-  updateLinkedCard: (cardId: string, updates: Partial<{ title: string; description: string; priority: string; due_date: string | null; is_complete: boolean }>) => Promise<void>;
+  updateLinkedCard: (cardId: string, updates: Partial<{ title: string; description: string; priority: string; due_date: string | null; due_time: string | null; is_complete: boolean }>) => Promise<void>;
 }
 
 const NotebookContext = createContext<NotebookContextType | undefined>(undefined);
