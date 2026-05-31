@@ -196,12 +196,19 @@ export async function POST(req: Request) {
   let status: 'submitted' | 'failed' = 'submitted';
 
   try {
+    // CCB's create_event_attendance *sets* (overwrites) the occurrence's
+    // attendance — it does not append. A resubmission must therefore send the
+    // leader's full current selection. Previously a resubmission forced an empty
+    // attendee set (to "avoid double-counting"), but that wiped the already
+    // recorded attendance to 0. Named attendees are idempotent per person, so
+    // re-sending them can never double-count; isCCBResubmission is kept for
+    // logging/telemetry only and no longer gates the attendance payload.
     const ccbAttendancePayload = {
       eventId,
       occurrence,
       didNotMeet,
-      attendeeIds: isCCBResubmission || didNotMeet ? [] : attendeeCcbIds,
-      headCount: isCCBResubmission || didNotMeet ? undefined : manualAttendeesForSubmit.length,
+      attendeeIds: didNotMeet ? [] : attendeeCcbIds,
+      headCount: didNotMeet ? undefined : manualAttendeesForSubmit.length,
       topic: didNotMeet ? undefined : flattenForCCB(topic),
       notes: finalNotes,
       prayerRequests: didNotMeet ? undefined : flattenForCCB(cleanPrayerRequests),

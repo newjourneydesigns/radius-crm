@@ -1,6 +1,32 @@
 [
   {
     "date": "2026-05-30",
+    "version": "2.4.3",
+    "date_display": "May 30, 2026",
+    "date_iso": "2026-05-30",
+    "id": "circle-summary-attendance-resubmit-fix",
+    "type": "fix",
+    "type_display": "Fix",
+    "category": "Circle Summary",
+    "page": "/circle-summary",
+    "title": "Editing a Circle Summary keeps your attendance",
+    "description": "Fixed a bug where editing and resubmitting a Circle Summary reset everyone you'd marked present back to zero in CCB. Resubmitting now keeps your full attendance list intact, so updating your notes or Circle details no longer wipes out who attended."
+  },
+  {
+    "date": "2026-05-30",
+    "version": "2.4.2",
+    "date_display": "May 30, 2026",
+    "date_iso": "2026-05-30",
+    "id": "circle-summary-instant-nav",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Circle Summary",
+    "page": "/circle-summary",
+    "title": "Snappier Circle Summary navigation",
+    "description": "Moving around your Circle now feels instant. Switching between the Events and Roster tabs no longer throws up a full-screen loading splash on every tap — your header and tabs stay put and the content swaps with a light placeholder. And tapping Cancel on a summary returns you straight to your events list instead of reloading it."
+  },
+  {
+    "date": "2026-05-30",
     "version": "2.4.1",
     "date_display": "May 30, 2026",
     "date_iso": "2026-05-30",

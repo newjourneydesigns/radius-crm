@@ -1175,7 +1175,17 @@ export default function CircleSummaryFormPage() {
         <div className="max-w-2xl mx-auto grid grid-cols-[auto,1fr] gap-3">
           <button
             type="button"
-            onClick={() => router.push(`/circle-summary/${urlGroupId}/events`)}
+            onClick={() => {
+              // Prefer an in-app back navigation when possible: it restores the
+              // already-rendered, client-cached events list instantly instead of
+              // forcing a fresh server render of the dynamic events page. `idx`
+              // is the App Router's history position — > 0 means there is an
+              // in-app entry to return to. Fall back to a push for deep links
+              // (magic-link / refresh) where back() would leave the app.
+              const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+              if (idx > 0) router.back();
+              else router.push(`/circle-summary/${urlGroupId}/events`);
+            }}
             disabled={submitting}
             className="rounded-xl border border-white/30 px-5 py-4 text-base font-semibold text-white/90 transition-colors hover:bg-white/10 disabled:opacity-50"
           >
