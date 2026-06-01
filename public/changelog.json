@@ -1,6 +1,30 @@
 [
   {
     "date": "2026-05-31",
+    "version": "2.4.12",
+    "date_display": "May 31, 2026",
+    "date_iso": "2026-05-31",
+    "id": "circle-summary-nav-zero-counts",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Leader Hub",
+    "description": "Cleaned up the navigation badges so a \"0\" no longer shows on the Events or Inbox tabs. A count now appears only when you actually have something waiting — a summary to submit or an unread message — and disappears once you're caught up.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-31",
+    "version": "2.4.11",
+    "date_display": "May 31, 2026",
+    "date_iso": "2026-05-31",
+    "id": "circle-summary-settings-gear-mobile",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Leader Hub",
+    "description": "Gave the header Settings button room to breathe on phones. It now shows as a compact gear icon on mobile so it no longer overlaps your Circle title, and expands back to the full \"Settings\" label on larger screens.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-31",
     "version": "2.4.10",
     "date_display": "May 31, 2026",
     "date_iso": "2026-05-31",

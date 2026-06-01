@@ -96,32 +96,18 @@ export default function CircleTabs({
             >
               <span className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
                 {t.label}
-                {t.key === 'events' && pendingSummaryCount !== null && (
+                {t.key === 'events' && hasPendingSummaries && (
                   <span
-                    aria-label={hasPendingSummaries ? summaryLabel : 'No summaries needed'}
-                    className={
-                      'inline-flex min-w-5 h-5 px-1.5 items-center justify-center rounded-full text-[11px] font-bold leading-none ' +
-                      (hasPendingSummaries
-                        ? 'bg-amber-500 text-white ring-2 ring-white shadow-sm'
-                        : isActive
-                        ? 'bg-neutral-200 text-neutral-700'
-                        : 'bg-white/80 text-neutral-500')
-                    }
+                    aria-label={summaryLabel}
+                    className="inline-flex min-w-5 h-5 px-1.5 items-center justify-center rounded-full text-[11px] font-bold leading-none bg-amber-500 text-white ring-2 ring-white shadow-sm"
                   >
                     {pendingSummaryCount}
                   </span>
                 )}
-                {t.key === 'inbox' && unreadCount !== null && (
+                {t.key === 'inbox' && hasUnreadMessages && (
                   <span
-                    aria-label={hasUnreadMessages ? unreadLabel : 'No unread messages'}
-                    className={
-                      'inline-flex min-w-5 h-5 px-1.5 items-center justify-center rounded-full text-[11px] font-bold leading-none ' +
-                      (hasUnreadMessages
-                        ? 'bg-red-600 text-white ring-2 ring-white shadow-sm animate-pulse'
-                        : isActive
-                        ? 'bg-neutral-200 text-neutral-700'
-                        : 'bg-white/80 text-neutral-500')
-                    }
+                    aria-label={unreadLabel}
+                    className="inline-flex min-w-5 h-5 px-1.5 items-center justify-center rounded-full text-[11px] font-bold leading-none bg-red-600 text-white ring-2 ring-white shadow-sm animate-pulse"
                   >
                     {unreadCount}
                   </span>
