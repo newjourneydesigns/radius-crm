@@ -74,6 +74,7 @@ export default function CircleSummaryInboxPage() {
         )
       );
       window.dispatchEvent(new CustomEvent('circle-summary-inbox-updated'));
+      window.dispatchEvent(new CustomEvent('circle-summary-alerts-updated'));
       setFolder('read');
     } catch (error: unknown) {
       setError(getErrorMessage(error, 'Could not mark message read.'));

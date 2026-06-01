@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import { DateTime } from 'luxon';
+import { setCircleSummaryAppBadge } from '../../../../../../lib/circle-summary/badging';
 
 type Participant = {
   id: string;
@@ -601,6 +602,11 @@ export default function CircleSummaryFormPage() {
       try {
         sessionStorage.setItem(`cs:events:${urlGroupId}:invalidated`, '1');
         localStorage.removeItem(`cs:events:${urlGroupId}`);
+        window.dispatchEvent(new CustomEvent('circle-summary-alerts-updated'));
+        fetch('/api/circle-summary/alerts/', { cache: 'no-store' })
+          .then((response) => (response.ok ? response.json() : null))
+          .then((counts) => setCircleSummaryAppBadge(Number(counts?.totalAlertCount || 0)))
+          .catch(() => {});
       } catch {}
       router.replace(`/circle-summary/success?id=${data.summaryId}`);
     } catch (error: unknown) {

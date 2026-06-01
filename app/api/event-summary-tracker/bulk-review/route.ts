@@ -70,14 +70,19 @@ export async function POST(request: NextRequest) {
     const supabase = getServiceClient();
     const week_end_date = DateTime.fromISO(week_start_date).plus({ days: 6 }).toISODate()!;
     const reviewed_at = new Date().toISOString();
+    // `occurrence` is TIMESTAMPTZ parsed in Central time on submit. Match the CT
+    // week window converted to UTC so a late Saturday-night CT meeting (which
+    // rolls into Sunday UTC) isn't missed by a naive-UTC boundary.
+    const occStartUtc = DateTime.fromISO(week_start_date, { zone: 'America/Chicago' }).startOf('day').toUTC().toISO()!;
+    const occEndExclusiveUtc = DateTime.fromISO(week_end_date, { zone: 'America/Chicago' }).plus({ days: 1 }).startOf('day').toUTC().toISO()!;
 
     // 1. Stamp existing app-submitted summaries
     const submissionsRes = await supabase
       .from('circle_event_summaries')
       .update({ reviewed_at, reviewed_by: userId })
       .in('leader_id', leader_ids)
-      .gte('occurrence', `${week_start_date}T00:00:00Z`)
-      .lte('occurrence', `${week_end_date}T23:59:59Z`)
+      .gte('occurrence', occStartUtc)
+      .lt('occurrence', occEndExclusiveUtc)
       .is('reviewed_at', null)
       .select('id, leader_id, did_not_meet');
 

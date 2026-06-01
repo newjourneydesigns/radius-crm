@@ -1,6 +1,30 @@
 [
   {
     "date": "2026-05-31",
+    "version": "2.4.9",
+    "date_display": "May 31, 2026",
+    "date_iso": "2026-05-31",
+    "id": "circle-summary-settings-header-gear",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Leader Hub",
+    "description": "Moved Settings out of the tab bar and into a gear button in the header, freeing up room for the Events, Roster, Resources, and Inbox tabs. Sign out now lives at the bottom of the Settings page instead of floating in the header.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-31",
+    "version": "2.4.8",
+    "date_display": "May 31, 2026",
+    "date_iso": "2026-05-31",
+    "id": "event-summary-week-boundary-timezone",
+    "type": "fix",
+    "type_display": "Fix",
+    "category": "Event Summary Tracker",
+    "description": "Fixed a rare timezone edge case where a Circle meeting held late on the last night of the week could be matched to the wrong week — making its summary appear missing. Week matching now uses Central time consistently across the tracker list, review modal, and bulk review.",
+    "page": "/event-summary-tracker"
+  },
+  {
+    "date": "2026-05-31",
     "version": "2.4.7",
     "date_display": "May 31, 2026",
     "date_iso": "2026-05-31",

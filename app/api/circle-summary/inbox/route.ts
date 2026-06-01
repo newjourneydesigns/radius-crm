@@ -51,7 +51,7 @@ export async function GET() {
       .from('circle_summary_inbox_messages')
       .select('id, title, body_html, version, created_at, updated_at')
       .in('id', messageIds);
-    messages = fallback.data;
+    messages = (fallback.data || []).map((message: any) => ({ ...message, status: 'sent' }));
     messageError = fallback.error;
   }
 

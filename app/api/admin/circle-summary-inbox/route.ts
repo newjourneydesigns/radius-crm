@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceSupabaseClient, getUserFromAuthHeader } from '../../../../lib/server-supabase';
+import { buildCircleSummaryUrl, deliverLeaderPush } from '../../../../lib/circle-summary/push';
 
 export const dynamic = 'force-dynamic';
 
@@ -144,6 +145,44 @@ async function insertRevision({
       edited_by: editedBy,
     });
   if (error) throw error;
+}
+
+async function sendInboxPushes(message: { id: string; title: string }, recipients: Array<{ id: string; leader_id: number | string }>, leadersById: Map<string, LeaderTarget>) {
+  const supabase = createServiceSupabaseClient();
+  const leaderIds = recipients.map((recipient) => recipient.leader_id);
+  if (leaderIds.length === 0) return;
+
+  const { data: prefs } = await supabase
+    .from('circle_leader_notification_preferences')
+    .select('leader_id, inbox_push_enabled')
+    .in('leader_id', leaderIds)
+    .eq('inbox_push_enabled', true);
+  const enabledLeaderIds = new Set((prefs || []).map((pref: any) => String(pref.leader_id)));
+
+  await Promise.all(
+    recipients
+      .filter((recipient) => enabledLeaderIds.has(String(recipient.leader_id)))
+      .map((recipient) => {
+        const leader = leadersById.get(String(recipient.leader_id));
+        const groupId = leader?.ccb_group_id ? String(leader.ccb_group_id) : 'events';
+        return deliverLeaderPush(
+          {
+            notification_type: 'inbox_message',
+            leader_id: recipient.leader_id,
+            inbox_recipient_id: recipient.id,
+            message_id: message.id,
+          },
+          {
+            title: 'New message in Circle Leader Hub',
+            body: `You have a new message: ${message.title}`,
+            url: buildCircleSummaryUrl(`/circle-summary/${encodeURIComponent(groupId)}/inbox`),
+            tag: `circle-inbox-${recipient.id}`,
+          }
+        ).catch((error) => {
+          console.warn('[circle-summary-inbox] push failed:', error?.message || error);
+        });
+      })
+  );
 }
 
 async function replaceRecipients(messageId: string, leaders: LeaderTarget[]) {
@@ -314,10 +353,14 @@ export async function POST(req: NextRequest) {
       message_id: message.id,
       leader_id: leader.id,
     }));
-    const { error: recipientError } = await supabase
+    const { data: insertedRecipients, error: recipientError } = await supabase
       .from('circle_summary_inbox_recipients')
-      .insert(recipientRows);
+      .insert(recipientRows)
+      .select('id, leader_id');
     if (recipientError) throw recipientError;
+
+    const leadersById = new Map(leaders.map((leader) => [String(leader.id), leader]));
+    await sendInboxPushes(message, insertedRecipients || [], leadersById);
 
     await insertRevision({
       messageId: message.id,
@@ -491,6 +534,12 @@ export async function PATCH(req: NextRequest) {
       if (updateError) throw updateError;
 
       await replaceRecipients(id, leaders);
+      const { data: recipientsForPush } = await supabase
+        .from('circle_summary_inbox_recipients')
+        .select('id, leader_id')
+        .eq('message_id', id);
+      const leadersById = new Map(leaders.map((leader) => [String(leader.id), leader]));
+      await sendInboxPushes({ id, title: fields.title }, recipientsForPush || [], leadersById);
       await insertRevision({
         messageId: id,
         version: nextVersion,

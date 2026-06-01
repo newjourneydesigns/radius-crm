@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { setCircleSummaryAppBadge } from '../../../lib/circle-summary/badging';
 
-type Tab = 'events' | 'roster' | 'inbox' | 'resources';
+type Tab = 'events' | 'roster' | 'inbox' | 'resources' | 'settings';
 
 export default function CircleTabs({
   urlGroupId,
@@ -13,13 +14,32 @@ export default function CircleTabs({
   active: Tab;
 }) {
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
+  const [pendingSummaryCount, setPendingSummaryCount] = useState<number | null>(null);
+  const [totalAlertCount, setTotalAlertCount] = useState<number | null>(null);
 
   const refreshUnread = useCallback(async () => {
     try {
-      const res = await fetch('/api/circle-summary/inbox/', { cache: 'no-store' });
-      if (!res.ok) return;
-      const data = await res.json();
-      setUnreadCount(Number(data.unreadCount || 0));
+      const [inboxRes, alertsRes, settingsRes] = await Promise.all([
+        fetch('/api/circle-summary/inbox/', { cache: 'no-store' }),
+        fetch('/api/circle-summary/alerts/', { cache: 'no-store' }),
+        fetch('/api/circle-summary/notifications/', { cache: 'no-store' }).catch(() => null),
+      ]);
+      if (inboxRes.ok) {
+        const data = await inboxRes.json();
+        setUnreadCount(Number(data.unreadCount || 0));
+      }
+      if (alertsRes.ok) {
+        const alerts = await alertsRes.json();
+        setUnreadCount(Number(alerts.unreadMessages || 0));
+        setPendingSummaryCount(Number(alerts.pendingEventSummaries || 0));
+        setTotalAlertCount(Number(alerts.totalAlertCount || 0));
+        let badgeEnabled = true;
+        if (settingsRes?.ok) {
+          const settings = await settingsRes.json();
+          badgeEnabled = settings.preferences?.badge_count_enabled !== false;
+        }
+        await setCircleSummaryAppBadge(Number(alerts.totalAlertCount || 0), badgeEnabled);
+      }
     } catch {}
   }, []);
 
@@ -30,9 +50,11 @@ export default function CircleTabs({
       if (document.visibilityState === 'visible') refreshUnread();
     };
     window.addEventListener('circle-summary-inbox-updated', onUpdate);
+    window.addEventListener('circle-summary-alerts-updated', onUpdate);
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       window.removeEventListener('circle-summary-inbox-updated', onUpdate);
+      window.removeEventListener('circle-summary-alerts-updated', onUpdate);
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, [refreshUnread]);
@@ -44,7 +66,10 @@ export default function CircleTabs({
     { key: 'inbox', label: 'Inbox', href: `/circle-summary/${urlGroupId}/inbox` },
   ];
   const hasUnreadMessages = unreadCount !== null && unreadCount > 0;
+  const hasPendingSummaries = pendingSummaryCount !== null && pendingSummaryCount > 0;
+  const hasAlerts = totalAlertCount !== null && totalAlertCount > 0;
   const unreadLabel = unreadCount === 1 ? '1 unread message' : `${unreadCount} unread messages`;
+  const summaryLabel = pendingSummaryCount === 1 ? '1 summary needed' : `${pendingSummaryCount || 0} summaries needed`;
 
   return (
     <div className="space-y-3">
@@ -71,6 +96,21 @@ export default function CircleTabs({
             >
               <span className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
                 {t.label}
+                {t.key === 'events' && pendingSummaryCount !== null && (
+                  <span
+                    aria-label={hasPendingSummaries ? summaryLabel : 'No summaries needed'}
+                    className={
+                      'inline-flex min-w-5 h-5 px-1.5 items-center justify-center rounded-full text-[11px] font-bold leading-none ' +
+                      (hasPendingSummaries
+                        ? 'bg-amber-500 text-white ring-2 ring-white shadow-sm'
+                        : isActive
+                        ? 'bg-neutral-200 text-neutral-700'
+                        : 'bg-white/80 text-neutral-500')
+                    }
+                  >
+                    {pendingSummaryCount}
+                  </span>
+                )}
                 {t.key === 'inbox' && unreadCount !== null && (
                   <span
                     aria-label={hasUnreadMessages ? unreadLabel : 'No unread messages'}
@@ -92,9 +132,9 @@ export default function CircleTabs({
         })}
       </div>
 
-      {hasUnreadMessages && active !== 'inbox' && (
+      {hasAlerts && (hasUnreadMessages ? active !== 'inbox' : active !== 'events') && (
         <Link
-          href={`/circle-summary/${urlGroupId}/inbox`}
+          href={hasUnreadMessages ? `/circle-summary/${urlGroupId}/inbox` : `/circle-summary/${urlGroupId}/events`}
           className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 text-neutral-900 shadow-lg ring-2 ring-red-400"
         >
           <span className="flex items-start gap-3 min-w-0">
@@ -104,15 +144,15 @@ export default function CircleTabs({
             </span>
             <span className="min-w-0">
               <span className="block text-sm font-extrabold tracking-tight">
-                You have {unreadLabel}
+                You have {totalAlertCount} alert{totalAlertCount === 1 ? '' : 's'}
               </span>
               <span className="block text-xs text-neutral-600 mt-0.5">
-                Open your inbox to read the latest update from your Circle team.
+                {hasUnreadMessages ? unreadLabel : ''}{hasUnreadMessages && hasPendingSummaries ? ' · ' : ''}{hasPendingSummaries ? summaryLabel : ''}
               </span>
             </span>
           </span>
           <span className="cs-inbox-banner-cta shrink-0 rounded-full bg-[#34B233] px-4 py-2 text-xs font-extrabold text-center shadow-sm">
-            Open Inbox
+            {hasUnreadMessages ? 'Open Inbox' : 'Open Events'}
           </span>
         </Link>
       )}

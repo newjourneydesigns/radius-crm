@@ -34,6 +34,20 @@ function weekEndOf(weekStart: string): string {
 }
 
 /**
+ * Convert a CT week's start/end (YYYY-MM-DD) into the UTC instants used to
+ * match `occurrence` (a TIMESTAMPTZ stored from a Central-time parse). Returns
+ * a half-open window: [start of weekStart in CT, start of the day after weekEnd
+ * in CT). Keeps the read window aligned with how submissions are stored so
+ * meetings near the week boundary aren't dropped.
+ */
+function ctWeekStartUtc(weekStart: string): string {
+  return DateTime.fromISO(weekStart, { zone: 'America/Chicago' }).startOf('day').toUTC().toISO()!;
+}
+function ctWeekEndExclusiveUtc(weekEnd: string): string {
+  return DateTime.fromISO(weekEnd, { zone: 'America/Chicago' }).plus({ days: 1 }).startOf('day').toUTC().toISO()!;
+}
+
+/**
  * The circle-summary form captures the leader's narrative as configurable
  * "dynamic questions" (e.g. "Tell us about your Circle gathering"), stored in
  * circle_event_summaries.dynamic_responses — NOT the base `notes` column, which
@@ -117,8 +131,12 @@ async function resolveLeaderWeek(
       'id, occurrence, did_not_meet, topic, notes, prayer_requests, info, dynamic_responses, did_not_meet_reason, ccb_submitted_at, created_at, reviewed_at, reviewed_by'
     )
     .eq('leader_id', leaderId)
-    .gte('occurrence', `${weekStart}T00:00:00`)
-    .lt('occurrence', `${DateTime.fromISO(weekEnd).plus({ days: 1 }).toISODate()}T00:00:00`)
+    // `occurrence` is a TIMESTAMPTZ parsed in Central time on submit, so match
+    // the CT week window [Sun 00:00 CT, next Sun 00:00 CT) converted to UTC.
+    // A naive-UTC boundary would drop a late Saturday-night CT meeting that
+    // rolls into Sunday UTC.
+    .gte('occurrence', ctWeekStartUtc(weekStart))
+    .lt('occurrence', ctWeekEndExclusiveUtc(weekEnd))
     .eq('status', 'submitted')
     .order('occurrence', { ascending: false })
     .limit(1)

@@ -1,5 +1,5 @@
-const CACHE_NAME = 'radius-v2.1.0';
-const STATIC_CACHE = 'radius-static-v2.1.0';
+const CACHE_NAME = 'radius-v2.2.0';
+const STATIC_CACHE = 'radius-static-v2.2.0';
 
 // Essential files to cache - only truly static assets that won't fail
 const STATIC_FILES = [
@@ -13,7 +13,7 @@ const STATIC_FILES = [
 // IMPORTANT: Do NOT pre-cache HTML pages — they reference hashed JS bundles
 // that change on every deploy, so stale HTML causes blank pages.
 self.addEventListener('install', (event) => {
-  console.log('Service worker installing v2.1.0');
+  console.log('Service worker installing v2.2.0');
   
   event.waitUntil(
     caches.open(STATIC_CACHE)
@@ -47,7 +47,7 @@ self.addEventListener('activate', (event) => {
         })
       );
     }).then(() => {
-      console.log('Service worker v2.1.0 activated - taking control of all clients');
+      console.log('Service worker v2.2.0 activated - taking control of all clients');
       return self.clients.claim();
     })
   );
@@ -132,4 +132,64 @@ self.addEventListener('sync', (event) => {
     console.log('Background sync triggered');
     // Add background sync logic here if needed
   }
+});
+
+// Receive Web Push payloads and display notifications. Payloads are expected
+// from the Radius server and may include { title, body, url, tag, badgeCount }.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (error) {
+    console.warn('Push payload parse failed:', error);
+  }
+
+  const title = data.title || 'Radius';
+  const url = data.url || '/circle-summary';
+  const options = {
+    body: data.body || 'You have a new update.',
+    tag: data.tag || 'radius-circle-summary',
+    data: { url },
+    icon: '/circle-summary-icon-192.png',
+    badge: '/circle-summary-icon-192-maskable.png',
+    renotify: true,
+  };
+
+  event.waitUntil(
+    (async () => {
+      if (typeof data.badgeCount === 'number' && self.navigator && 'setAppBadge' in self.navigator) {
+        try {
+          if (data.badgeCount > 0) await self.navigator.setAppBadge(data.badgeCount);
+          else if ('clearAppBadge' in self.navigator) await self.navigator.clearAppBadge();
+        } catch {}
+      }
+      return self.registration.showNotification(title, options);
+    })()
+  );
+});
+
+// Focus an existing Radius window when possible; otherwise open the route.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const fallbackUrl = new URL('/circle-summary', self.location.origin).href;
+  let targetUrl = fallbackUrl;
+  try {
+    targetUrl = new URL(event.notification.data?.url || '/circle-summary', self.location.origin).href;
+  } catch {}
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        const clientUrl = new URL(client.url);
+        if (clientUrl.origin === self.location.origin && 'focus' in client) {
+          if ('navigate' in client) {
+            return client.navigate(targetUrl).then((navigated) => (navigated || client).focus());
+          }
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
+      return undefined;
+    })
+  );
 });

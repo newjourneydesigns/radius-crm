@@ -43,6 +43,11 @@ export async function GET(request: NextRequest) {
 
     const weekEnd = DateTime.fromISO(weekStart).plus({ days: 6 }).toISODate()!;
     const priorWeekStart = DateTime.fromISO(weekStart).minus({ days: 7 }).toISODate()!;
+    // `occurrence` is TIMESTAMPTZ parsed in Central time on submit. Match the CT
+    // week window converted to UTC instants so a late Saturday-night CT meeting
+    // (which rolls into Sunday UTC) isn't dropped by a naive-UTC boundary.
+    const occStartUtc = DateTime.fromISO(weekStart, { zone: 'America/Chicago' }).startOf('day').toUTC().toISO()!;
+    const occEndExclusiveUtc = DateTime.fromISO(weekEnd, { zone: 'America/Chicago' }).plus({ days: 1 }).startOf('day').toUTC().toISO()!;
     const db = getDB();
 
     const orphansPromise = db
@@ -60,8 +65,8 @@ export async function GET(request: NextRequest) {
     const submissionsPromise = db
       .from('circle_event_summaries')
       .select('leader_id, did_not_meet, reviewed_at, reviewed_by')
-      .gte('occurrence', `${weekStart}T00:00:00Z`)
-      .lte('occurrence', `${weekEnd}T23:59:59Z`)
+      .gte('occurrence', occStartUtc)
+      .lt('occurrence', occEndExclusiveUtc)
       .not('reviewed_at', 'is', null);
 
     const occurrencesPromise = db
