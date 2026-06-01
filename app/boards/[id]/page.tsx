@@ -3275,6 +3275,8 @@ function BoardPage() {
   const filterDropdownRef = useRef<HTMLDivElement>(null);
   const dueDatePickerRef = useRef<HTMLDivElement>(null);
   const [dueDateCardId, setDueDateCardId] = useState<string | null>(null);
+  // Tracks which board id has had its move_completed automations reconciled this session
+  const reconciledBoardRef = useRef<string | null>(null);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -3302,6 +3304,35 @@ function BoardPage() {
       localStorage.setItem('boards-last-route', `/boards/${boardId}`);
     }
   }, [boardId, fetchBoard, fetchChecklistTemplates]);
+
+  // Reconcile move_completed automations on board open.
+  // Cards completed elsewhere (e.g. the Today page) get is_complete=true but
+  // never trigger the board's move_completed rule, so they stay in their old
+  // column. When the board loads, sweep those into their destination column.
+  useEffect(() => {
+    if (!board || reconciledBoardRef.current === board.id) return;
+    reconciledBoardRef.current = board.id;
+
+    const strays = board.cards.filter(card => {
+      if (!card.is_complete) return false;
+      const col = board.columns.find(c => c.id === card.column_id);
+      const moveAction = col?.automations?.find(a => a.type === 'move_completed');
+      if (moveAction?.type !== 'move_completed') return false;
+      // Skip if already in the destination column
+      return moveAction.value !== card.column_id;
+    });
+    if (strays.length === 0) return;
+
+    (async () => {
+      for (const card of strays) {
+        const col = board.columns.find(c => c.id === card.column_id);
+        const moveAction = col?.automations?.find(a => a.type === 'move_completed');
+        if (moveAction?.type === 'move_completed') {
+          await moveCard(boardId, card.id, moveAction.value, 0);
+        }
+      }
+    })();
+  }, [board?.id, board?.cards, board?.columns, boardId, moveCard]);
 
   // Open card from ?card= query param (e.g. deep-linked from Today page)
   useEffect(() => {
