@@ -233,6 +233,10 @@ export default function CircleSummaryFormPage() {
         setQuestions(qData.questions || []);
 
         const draftData = await draftRes.json();
+        if (!draftRes.ok) {
+          setLoadError(draftData?.error || 'Failed to load form.');
+          return;
+        }
         if (draftData?.draft) {
           const d = draftData.draft;
           if (draftData.source === 'submitted' && draftData.updatedAt) {

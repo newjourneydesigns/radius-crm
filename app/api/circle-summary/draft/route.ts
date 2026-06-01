@@ -121,6 +121,42 @@ function isPayloadEmpty(payload: Record<string, unknown> | null | undefined): bo
   return true;
 }
 
+function isMissingIgnoredEventsTableError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const maybe = err as { code?: string; message?: string; details?: string };
+  const text = `${maybe.code || ''} ${maybe.message || ''} ${maybe.details || ''}`.toLowerCase();
+  return (
+    text.includes('circle_summary_ignored_events') ||
+    text.includes('schema cache') ||
+    text.includes('does not exist') ||
+    text.includes('could not find')
+  );
+}
+
+async function isIgnoredEvent(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  leaderId: string | number,
+  eventId: string,
+  occurrence: string
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('circle_summary_ignored_events')
+    .select('id')
+    .eq('leader_id', leaderId)
+    .eq('ccb_event_id', eventId)
+    .eq('occurrence_date', occurrence.slice(0, 10))
+    .maybeSingle();
+
+  if (error) {
+    if (!isMissingIgnoredEventsTableError(error)) {
+      console.warn('[circle-summary/draft] ignored event lookup failed:', error.message);
+    }
+    return false;
+  }
+
+  return !!data;
+}
+
 function draftFromCcbData(ccbData: Awaited<ReturnType<typeof fetchCcbAttendance>>) {
   if (!ccbData) return null;
   const ccbReason = extractDidNotMeetReasonFromNotes(ccbData.notes);
@@ -160,6 +196,13 @@ export async function GET(req: Request) {
   }
 
   const supabase = createServiceSupabaseClient();
+
+  if (await isIgnoredEvent(supabase, leader.id, eventId, occurrence)) {
+    return NextResponse.json(
+      { error: 'This event was removed from the Circle Summary list.' },
+      { status: 410 }
+    );
+  }
 
   // Prefer an in-progress draft if one exists
   const { data: draftRow } = await supabase
@@ -280,6 +323,13 @@ export async function POST(req: Request) {
   }
 
   const supabase = createServiceSupabaseClient();
+  if (await isIgnoredEvent(supabase, leader.id, eventId, occurrence)) {
+    return NextResponse.json(
+      { error: 'This event was removed from the Circle Summary list.' },
+      { status: 410 }
+    );
+  }
+
   // Don't persist an empty auto-save — it would later shadow CCB-prefill or
   // a submitted summary on the next page load.
   if (isPayloadEmpty(payload as Record<string, unknown>)) {

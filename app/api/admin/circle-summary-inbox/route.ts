@@ -105,6 +105,51 @@ async function loadTargetLeaders(targetType: TargetType, targetValue: string | n
   return ((data || []) as LeaderTarget[]).filter(isEligibleLeader);
 }
 
+type PushStatus = 'enabled' | 'pref_off' | 'no_device';
+
+/**
+ * Determines, per leader, whether a sent inbox message would actually fire a
+ * push notification. A push only fires when the leader has inbox_push_enabled
+ * AND at least one enabled device subscription (see lib/circle-summary/push).
+ */
+async function loadPushStatusByLeader(leaderIds: Array<number | string>) {
+  const statusByLeader = new Map<string, PushStatus>();
+  if (leaderIds.length === 0) return statusByLeader;
+
+  const supabase = createServiceSupabaseClient();
+  const [prefsResult, subsResult] = await Promise.all([
+    supabase
+      .from('circle_leader_notification_preferences')
+      .select('leader_id, inbox_push_enabled')
+      .in('leader_id', leaderIds),
+    supabase
+      .from('circle_leader_push_subscriptions')
+      .select('leader_id')
+      .eq('enabled', true)
+      .in('leader_id', leaderIds),
+  ]);
+
+  const inboxEnabled = new Map<string, boolean>();
+  for (const row of prefsResult.data || []) {
+    inboxEnabled.set(String(row.leader_id), row.inbox_push_enabled === true);
+  }
+  const hasDevice = new Set<string>(
+    (subsResult.data || []).map((row: any) => String(row.leader_id))
+  );
+
+  for (const leaderId of leaderIds) {
+    const key = String(leaderId);
+    if (!hasDevice.has(key)) {
+      statusByLeader.set(key, 'no_device');
+    } else if (inboxEnabled.get(key) !== true) {
+      statusByLeader.set(key, 'pref_off');
+    } else {
+      statusByLeader.set(key, 'enabled');
+    }
+  }
+  return statusByLeader;
+}
+
 function pickMessageFields(body: any) {
   const targetType = normalizeTargetType(body.target_type);
   const targetValue =
@@ -173,7 +218,7 @@ async function sendInboxPushes(message: { id: string; title: string }, recipient
             message_id: message.id,
           },
           {
-            title: 'New message in Circle Leader Hub',
+            title: 'New message in Circle Leader Dashboard',
             body: `You have a new message: ${message.title}`,
             url: buildCircleSummaryUrl(`/circle-summary/${encodeURIComponent(groupId)}/inbox`),
             tag: `circle-inbox-${recipient.id}`,
@@ -222,7 +267,21 @@ export async function GET(req: NextRequest) {
 
     try {
       const leaders = await loadTargetLeaders(targetType, targetValue);
-      return NextResponse.json({ recipients: leaders });
+      const pushStatusByLeader = await loadPushStatusByLeader(leaders.map((l) => l.id));
+      const recipients = leaders.map((leader) => ({
+        ...leader,
+        push_status: pushStatusByLeader.get(String(leader.id)) || 'no_device',
+      }));
+      const pushSummary = recipients.reduce(
+        (acc, r) => {
+          if (r.push_status === 'enabled') acc.enabled += 1;
+          else if (r.push_status === 'pref_off') acc.pref_off += 1;
+          else acc.no_device += 1;
+          return acc;
+        },
+        { enabled: 0, pref_off: 0, no_device: 0 }
+      );
+      return NextResponse.json({ recipients, pushSummary });
     } catch (e: any) {
       return NextResponse.json({ error: e.message || 'Failed to preview recipients.' }, { status: 500 });
     }
@@ -320,6 +379,29 @@ export async function POST(req: NextRequest) {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  if (body.action === 'nudge_push') {
+    const leaderIds = Array.isArray(body.leader_ids)
+      ? Array.from(new Set(body.leader_ids.map((id: unknown) => String(id).trim()).filter(Boolean)))
+      : [];
+    if (leaderIds.length === 0) {
+      return NextResponse.json({ error: 'No leaders supplied to nudge.' }, { status: 400 });
+    }
+    const supabase = createServiceSupabaseClient();
+    const now = new Date().toISOString();
+    const { error: nudgeError } = await supabase
+      .from('circle_leader_notification_preferences')
+      .upsert(
+        leaderIds.map((leaderId) => ({
+          leader_id: leaderId,
+          push_nudge_requested_at: now,
+          updated_at: now,
+        })),
+        { onConflict: 'leader_id' }
+      );
+    if (nudgeError) return NextResponse.json({ error: nudgeError.message }, { status: 500 });
+    return NextResponse.json({ nudged: leaderIds.length });
   }
 
   const fields = pickMessageFields(body);

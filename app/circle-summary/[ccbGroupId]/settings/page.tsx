@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
 import { useMarkCircleAppEntered } from '../../../../lib/circle-summary/appEntered';
 import { setCircleSummaryAppBadge } from '../../../../lib/circle-summary/badging';
 
@@ -42,7 +43,7 @@ async function getCurrentPushEndpoint(): Promise<string | null> {
 function getDevicePushNote() {
   if (typeof window === 'undefined') return 'Push notifications are opt-in per browser or installed app.';
   if (/iPad|iPhone|iPod/.test(window.navigator.userAgent)) {
-    return 'On iPhone and iPad, push works only after adding Circle Leader Hub to the Home Screen on iOS/iPadOS 16.4 or newer.';
+    return 'On iPhone and iPad, push works only after adding Circle Leader Dashboard to the Home Screen on iOS/iPadOS 16.4 or newer.';
   }
   if (/Android/i.test(window.navigator.userAgent)) {
     return 'On Android, push works in Chrome and installed PWAs after you allow notifications.';
@@ -53,6 +54,8 @@ function getDevicePushNote() {
 export default function CircleSummaryNotificationSettingsPage() {
   useMarkCircleAppEntered();
   const router = useRouter();
+  const params = useParams<{ ccbGroupId: string }>();
+  const groupId = params?.ccbGroupId ?? '';
   const [preferences, setPreferences] = useState<Preferences | null>(null);
   const [subscriptions, setSubscriptions] = useState<PushSubscriptionInfo[]>([]);
   const [publicKey, setPublicKey] = useState<string | null>(null);
@@ -299,6 +302,20 @@ export default function CircleSummaryNotificationSettingsPage() {
             </>
           )}
         </div>
+      </section>
+
+      <section className="cs-card p-4 sm:p-5">
+        <p className="text-sm font-bold text-neutral-900">Help &amp; guide</p>
+        <p className="text-xs text-neutral-500 mt-0.5">New here, or need a refresher? See step-by-step instructions for everything in the app.</p>
+        <Link
+          href={`/circle-summary/${groupId}/help`}
+          className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-[#34B233]/40 bg-[#34B233]/10 px-5 text-sm font-extrabold text-[#1f7320] transition-colors hover:bg-[#34B233]/15"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-[18px] w-[18px]" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
+          </svg>
+          View the help guide
+        </Link>
       </section>
 
       <section className="cs-card p-4 sm:p-5">

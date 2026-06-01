@@ -27,7 +27,9 @@ type CcbSearchResult = {
 
 const DISMISS_STORAGE_KEY = 'cs:bday-dismiss:v1';
 const ABSENT_DISMISS_STORAGE_KEY = 'cs:absent-dismiss:v1';
+const ABSENT_SNOOZE_STORAGE_KEY = 'cs:absent-snooze:v1';
 const ABSENCE_THRESHOLD_DAYS = 15;
+const SNOOZE_DURATION_DAYS = 7;
 const ROSTER_CACHE_KEY = 'cs:roster-cache:v1';
 const ATTENDANCE_CACHE_KEY = 'cs:attendance-cache:v1';
 
@@ -197,6 +199,10 @@ export default function RosterClient({
   const [removing, setRemoving] = useState(false);
   const [dismissed, setDismissed] = useState<Record<string, string>>({});
   const [absentDismissed, setAbsentDismissed] = useState<Record<string, string>>({});
+  // Snooze hides an absent alert for a fixed window (7 days), then it resurfaces
+  // if the person is still absent. Value is the epoch-ms expiry, paired with the
+  // last-attended date so the snooze auto-voids if they come back and leave again.
+  const [absentSnoozed, setAbsentSnoozed] = useState<Record<string, { until: number; last: string }>>({});
   const [mounted, setMounted] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -300,6 +306,24 @@ export default function RosterClient({
       document.body.style.overflow = prev;
     };
   }, [actionSheet, removeTarget]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(ABSENT_SNOOZE_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Record<string, { until: number; last: string }>;
+      // Drop snoozes whose window has elapsed so the alert can resurface.
+      const now = Date.now();
+      const fresh: Record<string, { until: number; last: string }> = {};
+      for (const [id, entry] of Object.entries(parsed)) {
+        if (entry && entry.until > now) fresh[id] = entry;
+      }
+      setAbsentSnoozed(fresh);
+      if (Object.keys(fresh).length !== Object.keys(parsed).length) {
+        localStorage.setItem(ABSENT_SNOOZE_STORAGE_KEY, JSON.stringify(fresh));
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     try {
@@ -572,6 +596,9 @@ export default function RosterClient({
       const days = daysSince(last);
       if (days < ABSENCE_THRESHOLD_DAYS) continue;
       if (absentDismissed[p.id] === last) continue;
+      // Active snooze for this absence run (same last-attended date) hides it.
+      const snooze = absentSnoozed[p.id];
+      if (snooze && snooze.last === last && snooze.until > Date.now()) continue;
       out.push({
         id: p.id,
         name: p.fullName || `${p.firstName} ${p.lastName}`.trim(),
@@ -582,7 +609,7 @@ export default function RosterClient({
     }
     out.sort((a, b) => b.daysAway - a.daysAway);
     return out;
-  }, [participants, lastAttended, absentDismissed]);
+  }, [participants, lastAttended, absentDismissed, absentSnoozed]);
 
   function dismissAbsent(id: string, lastAttendedDate: string) {
     setAbsentDismissed((prev) => {
@@ -590,6 +617,35 @@ export default function RosterClient({
       try {
         localStorage.setItem(ABSENT_DISMISS_STORAGE_KEY, JSON.stringify(next));
       } catch {}
+      return next;
+    });
+  }
+
+  function persistSnoozed(next: Record<string, { until: number; last: string }>) {
+    try {
+      localStorage.setItem(ABSENT_SNOOZE_STORAGE_KEY, JSON.stringify(next));
+    } catch {}
+  }
+
+  function snoozeAbsent(id: string, lastAttendedDate: string) {
+    const until = Date.now() + SNOOZE_DURATION_DAYS * 24 * 60 * 60 * 1000;
+    setAbsentSnoozed((prev) => {
+      const next = { ...prev, [id]: { until, last: lastAttendedDate } };
+      persistSnoozed(next);
+      return next;
+    });
+  }
+
+  // Global "snooze all" — quiet every currently-visible absent alert for the
+  // same window. New absences that cross the threshold later still surface.
+  function snoozeAllAbsent() {
+    const until = Date.now() + SNOOZE_DURATION_DAYS * 24 * 60 * 60 * 1000;
+    setAbsentSnoozed((prev) => {
+      const next = { ...prev };
+      for (const m of absentMembers) {
+        next[m.id] = { until, last: m.lastAttended };
+      }
+      persistSnoozed(next);
       return next;
     });
   }
@@ -639,74 +695,101 @@ export default function RosterClient({
       <main className="max-w-2xl mx-auto px-4 py-4 pb-32 space-y-4">
         {absentMembers.length > 0 && (
           <div className="space-y-2">
+            {absentMembers.length > 1 && (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={snoozeAllAbsent}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white border border-red-200 text-red-700 hover:bg-red-100 text-xs font-semibold px-3 py-1.5 shadow-sm transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .2.08.39.22.53l3 3a.75.75 0 101.06-1.06L10.75 9.69V5z" clipRule="evenodd" />
+                  </svg>
+                  Snooze all · 7 days
+                </button>
+              </div>
+            )}
             {absentMembers.map((m) => (
               <div
                 key={m.id}
-                className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 shadow-sm"
+                className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 shadow-sm"
               >
-                <span className="text-2xl leading-none" aria-hidden>👀</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-red-900">
-                    {m.name} hasn&apos;t attended in {m.daysAway} days
-                  </p>
-                  <p className="text-xs text-red-800/80 mt-0.5">
-                    Last seen {formatLastAttended(m.lastAttended)}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {m.phone && (
-                      <>
-                        <a
-                          href={phoneHref(m.phone, 'sms')}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-red-600 hover:bg-red-700 !text-white hover:!text-white text-xs font-semibold px-3 py-1.5 transition-colors"
-                        >
-                          <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-                            <path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clipRule="evenodd" />
-                          </svg>
-                          Text
-                        </a>
-                        <a
-                          href={phoneHref(m.phone, 'tel')}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-red-600 hover:bg-red-700 !text-white hover:!text-white text-xs font-semibold px-3 py-1.5 transition-colors"
-                        >
-                          <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-                            <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
-                          </svg>
-                          Call
-                        </a>
-                      </>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setRemoveTarget(
-                          participants.find((x) => x.id === m.id) ?? {
-                            id: m.id,
-                            firstName: '',
-                            lastName: '',
-                            fullName: m.name,
-                            phone: m.phone,
-                          }
-                        )
-                      }
-                      className="cs-remove-roster-btn ml-auto inline-flex items-center gap-1.5 rounded-full bg-white border text-xs font-semibold px-3 py-1.5 shadow-sm transition-colors"
-                    >
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
-                      </svg>
-                      Remove from roster
-                    </button>
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl leading-none" aria-hidden>👀</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-red-900">
+                      {m.name} hasn&apos;t attended in {m.daysAway} days
+                    </p>
+                    <p className="text-xs text-red-800/80 mt-0.5">
+                      Last seen {formatLastAttended(m.lastAttended)}
+                    </p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => dismissAbsent(m.id, m.lastAttended)}
+                    className="shrink-0 text-red-700/70 hover:text-red-900 -mt-0.5 -mr-1 p-1"
+                    aria-label="Dismiss"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => dismissAbsent(m.id, m.lastAttended)}
-                  className="shrink-0 text-red-700/70 hover:text-red-900 -mt-0.5 -mr-1 p-1"
-                  aria-label="Dismiss"
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </button>
+                <div className="mt-2.5 grid grid-cols-2 gap-2">
+                  {m.phone && (
+                    <>
+                      <a
+                        href={phoneHref(m.phone, 'sms')}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-full bg-red-600 hover:bg-red-700 !text-white hover:!text-white text-xs font-semibold px-3 py-2 transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                          <path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clipRule="evenodd" />
+                        </svg>
+                        Text
+                      </a>
+                      <a
+                        href={phoneHref(m.phone, 'tel')}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-full bg-red-600 hover:bg-red-700 !text-white hover:!text-white text-xs font-semibold px-3 py-2 transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                          <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+                        </svg>
+                        Call
+                      </a>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => snoozeAbsent(m.id, m.lastAttended)}
+                    title="Hide this alert for 7 days"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-full bg-white border border-red-200 text-red-700 hover:bg-red-100 text-xs font-semibold px-3 py-2 transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .2.08.39.22.53l3 3a.75.75 0 101.06-1.06L10.75 9.69V5z" clipRule="evenodd" />
+                    </svg>
+                    Snooze
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setRemoveTarget(
+                        participants.find((x) => x.id === m.id) ?? {
+                          id: m.id,
+                          firstName: '',
+                          lastName: '',
+                          fullName: m.name,
+                          phone: m.phone,
+                        }
+                      )
+                    }
+                    className="cs-remove-roster-btn inline-flex items-center justify-center gap-1.5 rounded-full bg-white border text-xs font-semibold px-3 py-2 shadow-sm transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                    </svg>
+                    Remove
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -849,7 +932,7 @@ export default function RosterClient({
                       {p.email ? (
                         <a
                           href={`mailto:${p.email}`}
-                          className="self-start inline-flex items-center gap-1.5 text-[color:var(--cs-green-darker)] hover:underline truncate max-w-full"
+                          className="self-start inline-flex items-center gap-1.5 !text-[color:var(--cs-green-darker)] hover:underline truncate max-w-full"
                         >
                           <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
@@ -861,9 +944,25 @@ export default function RosterClient({
                         <span className="inline-block h-3 w-40 rounded cs-skeleton" />
                       )}
                       {bday ? (
-                        <span className="inline-flex items-center gap-1.5 text-neutral-500">
-                          <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M10 2a2 2 0 00-2 2v1H6a3 3 0 00-3 3v2h14V8a3 3 0 00-3-3h-2V4a2 2 0 00-2-2zM3 11v5a3 3 0 003 3h8a3 3 0 003-3v-5H3z" />
+                        <span className="inline-flex items-center gap-1.5 text-[color:var(--cs-green-darker)]">
+                          <svg
+                            className="w-3.5 h-3.5 shrink-0"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8" />
+                            <path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1" />
+                            <path d="M2 21h20" />
+                            <path d="M7 8v3" />
+                            <path d="M12 8v3" />
+                            <path d="M17 8v3" />
+                            <path d="M7 4h.01" />
+                            <path d="M12 4h.01" />
+                            <path d="M17 4h.01" />
                           </svg>
                           {birthdayLabel(bday)}
                         </span>

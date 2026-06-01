@@ -2074,11 +2074,8 @@ export default function CircleLeaderProfilePage() {
                         className="w-full h-9 flex items-center justify-center gap-2 rounded-lg border border-zinc-600 bg-zinc-700 text-slate-100 text-sm font-medium shadow-sm hover:bg-zinc-600 hover:border-zinc-500 transition-colors disabled:opacity-50"
                         title="Open the leader's Circle Summary page in a new tab (auto sign-in)"
                       >
-                        <svg className="w-3 h-3 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
-                          <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
-                        </svg>
-                        {isOpeningCircleSummary ? 'Opening…' : 'Circle Summary Page'}
+                        <img src="/Circles Logo V2-White.png" alt="" className="w-4 h-4 shrink-0 object-contain" />
+                        {isOpeningCircleSummary ? 'Opening…' : 'Circle Leader Dashboard'}
                       </button>
                     )}
 
@@ -2945,11 +2942,8 @@ export default function CircleLeaderProfilePage() {
                           className="w-full h-9 flex items-center justify-center gap-2 rounded-lg border border-zinc-500 bg-zinc-700 text-slate-100 text-sm font-medium shadow-sm hover:bg-zinc-600 hover:border-zinc-400 transition-colors disabled:opacity-50"
                           title="Open the leader's Circle Summary page in a new tab (auto sign-in)"
                         >
-                          <svg className="w-3 h-3 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
-                            <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
-                          </svg>
-                          {isOpeningCircleSummary ? 'Opening…' : 'Circle Summary Page'}
+                          <img src="/Circles Logo V2-White.png" alt="" className="w-4 h-4 shrink-0 object-contain" />
+                          {isOpeningCircleSummary ? 'Opening…' : 'Circle Leader Dashboard'}
                         </button>
                       )}
 

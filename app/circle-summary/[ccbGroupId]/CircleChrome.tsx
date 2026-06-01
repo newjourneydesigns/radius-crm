@@ -66,9 +66,14 @@ export default function CircleChrome({
 
   return (
     <>
-      <header className="cs-hero px-6 pt-10 pb-8 sm:pt-14 sm:pb-10">
+      <header className="cs-hero px-6 pt-6 pb-8 sm:pt-14 sm:pb-10">
         <div className="max-w-2xl mx-auto relative">
-          <SettingsButton groupId={groupId} active={active} />
+          {/* On mobile the gear sits in its own right-aligned row above the
+              title so it never crowds the wordmark; on sm+ it floats in the
+              top-right corner. */}
+          <div className="flex justify-end mb-3 sm:mb-0 sm:static sm:block">
+            <SettingsButton groupId={groupId} active={active} />
+          </div>
           <div className="flex items-center gap-4 min-w-0">
             <Image
               src="/Circles Logo V2-White.png"
@@ -111,7 +116,7 @@ function SettingsButton({ groupId, active }: { groupId: string; active: ActiveTa
       aria-label="Settings"
       aria-current={isActive ? 'page' : undefined}
       className={
-        'absolute -top-5 right-0 sm:-top-6 inline-flex items-center justify-center gap-1.5 rounded-full ' +
+        'static sm:absolute sm:-top-6 sm:right-0 inline-flex items-center justify-center gap-1.5 rounded-full ' +
         'p-2 sm:px-3 sm:py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors backdrop-blur-sm ' +
         (isActive
           ? 'bg-white text-[#1f7a1f]'

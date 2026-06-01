@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "RADIUS Circle Leader Management",
-  "short_name": "RADIUS",
-  "description": "Circle Leader Management System for RADIUS",
+  "name": "Circle Leader Dashboard",
+  "short_name": "Dashboard",
+  "description": "Circle Leader Dashboard",
   "start_url": "/",
   "display": "standalone",
   "display_override": ["standalone"],

@@ -11,13 +11,13 @@ const openSans = Open_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'Circle Summary — Valley Creek',
+  title: 'Circle Leader Dashboard',
   // Override the root manifest so iOS "Add to Home Screen" launches the
-  // Circle Summary sign-in router instead of the main RADIUS admin app.
+  // Circle Leader Dashboard sign-in router instead of the main RADIUS admin app.
   manifest: '/manifest-circle-summary.json',
   appleWebApp: {
     capable: true,
-    title: 'Circle Summary',
+    title: 'Dashboard',
     statusBarStyle: 'default',
   },
   icons: {

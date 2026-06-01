@@ -25,6 +25,38 @@ type LeaderRow = Leader & {
   circle_summary_access_enabled?: boolean | null;
 };
 
+type PushStatus = 'enabled' | 'pref_off' | 'no_device';
+
+type RecipientLeader = Leader & {
+  push_status?: PushStatus;
+};
+
+type PushSummary = {
+  enabled: number;
+  pref_off: number;
+  no_device: number;
+};
+
+type RecipientFilter = 'all' | 'push' | 'no_push';
+
+const PUSH_BADGE: Record<PushStatus, { label: string; className: string; title: string }> = {
+  enabled: {
+    label: 'Push',
+    className: 'bg-emerald-500/20 text-emerald-300',
+    title: 'Has notifications on and an active device — will get a push.',
+  },
+  pref_off: {
+    label: 'In-app only',
+    className: 'bg-amber-500/20 text-amber-300',
+    title: 'Notifications turned off in their settings — message lands in their inbox, no push.',
+  },
+  no_device: {
+    label: 'In-app only',
+    className: 'bg-amber-500/20 text-amber-300',
+    title: 'No device registered for push — message lands in their inbox, no push.',
+  },
+};
+
 type InboxMessage = {
   id: string;
   title: string;
@@ -70,7 +102,10 @@ export default function LeaderMessagesPage() {
   const [token, setToken] = useState<string | null>(null);
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [leaders, setLeaders] = useState<Leader[]>([]);
-  const [recipients, setRecipients] = useState<Leader[]>([]);
+  const [recipients, setRecipients] = useState<RecipientLeader[]>([]);
+  const [pushSummary, setPushSummary] = useState<PushSummary | null>(null);
+  const [recipientFilter, setRecipientFilter] = useState<RecipientFilter>('all');
+  const [nudging, setNudging] = useState(false);
   const [draft, setDraft] = useState<Draft>(emptyDraft());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -179,6 +214,7 @@ export default function LeaderMessagesPage() {
     if (draft.id && editingMessage?.status !== 'unsent') return;
     if (draft.target_type !== 'all' && !draft.target_value) {
       setRecipients([]);
+      setPushSummary(null);
       return;
     }
 
@@ -199,9 +235,13 @@ export default function LeaderMessagesPage() {
         if (cancelled) return;
         if (!ok) throw new Error(data.error || 'Preview failed.');
         setRecipients(data.recipients || []);
+        setPushSummary(data.pushSummary || null);
       })
       .catch(() => {
-        if (!cancelled) setRecipients([]);
+        if (!cancelled) {
+          setRecipients([]);
+          setPushSummary(null);
+        }
       })
       .finally(() => {
         if (!cancelled) setPreviewing(false);
@@ -216,6 +256,8 @@ export default function LeaderMessagesPage() {
     setEditingId(null);
     setDraft(emptyDraft());
     setRecipients([]);
+    setPushSummary(null);
+    setRecipientFilter('all');
     setError(null);
   }
 
@@ -325,6 +367,46 @@ export default function LeaderMessagesPage() {
       setError(getErrorMessage(error, 'Save failed.'));
     } finally {
       setSaving(false);
+    }
+  }
+
+  const noPushRecipients = useMemo(
+    () => recipients.filter((leader) => leader.push_status !== 'enabled'),
+    [recipients]
+  );
+
+  const filteredRecipients = useMemo(() => {
+    if (recipientFilter === 'push') return recipients.filter((l) => l.push_status === 'enabled');
+    if (recipientFilter === 'no_push') return noPushRecipients;
+    return recipients;
+  }, [recipients, noPushRecipients, recipientFilter]);
+
+  async function nudgeNoPushRecipients() {
+    if (!token || noPushRecipients.length === 0) return;
+    setNudging(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch('/api/admin/circle-summary-inbox', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          action: 'nudge_push',
+          leader_ids: noPushRecipients.map((leader) => String(leader.id)),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Nudge failed.');
+      setSuccess(
+        `Nudged ${data.nudged} leader${data.nudged === 1 ? '' : 's'} to turn on notifications. They'll see a prompt next time they open the Hub.`
+      );
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, 'Nudge failed.'));
+    } finally {
+      setNudging(false);
     }
   }
 
@@ -629,8 +711,9 @@ export default function LeaderMessagesPage() {
           <aside className="bg-zinc-800 border border-zinc-700 rounded-xl p-5 shadow-card-glass lg:sticky lg:top-6 h-fit">
             <h2 className="text-base font-semibold text-white">Recipient preview</h2>
             <p className="text-xs text-slate-400 mt-1">
-              Push subscription status will be added later. This list shows leaders who will receive the inbox message.
+              Everyone here gets the message in their Hub inbox. The badge shows who will also get a push notification.
             </p>
+
             {targetLocked ? (
               <div className="mt-4 rounded-lg bg-zinc-900/60 border border-zinc-700 p-3 text-sm text-slate-300">
                 Recipients are already set for this message.
@@ -640,16 +723,83 @@ export default function LeaderMessagesPage() {
                 Choose a target to see who will receive it.
               </div>
             ) : (
-              <div className="mt-4 max-h-[420px] overflow-auto rounded-lg border border-zinc-700 divide-y divide-zinc-700">
-                {recipients.map((leader) => (
-                  <div key={leader.id} className="p-3 bg-zinc-900/40">
-                    <p className="text-sm font-medium text-slate-100">{leader.name}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {[leader.campus, leader.acpd].filter(Boolean).join(' · ') || 'No campus/ACPD'}
+              <>
+                {pushSummary && (
+                  <div className="mt-4 rounded-lg bg-zinc-900/60 border border-zinc-700 p-3">
+                    <p className="text-sm text-slate-200">
+                      <span className="font-semibold text-emerald-300">{pushSummary.enabled}</span> of{' '}
+                      {recipients.length} will get a push
+                      {noPushRecipients.length > 0 && (
+                        <>
+                          {' · '}
+                          <span className="font-semibold text-amber-300">{noPushRecipients.length}</span> in-app only
+                        </>
+                      )}
                     </p>
+                    {noPushRecipients.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={nudgeNoPushRecipients}
+                        disabled={nudging}
+                        className="mt-2.5 w-full bg-btn-primary text-white px-3 py-2 rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+                      >
+                        {nudging
+                          ? 'Nudging...'
+                          : `Nudge ${noPushRecipients.length} to enable push`}
+                      </button>
+                    )}
                   </div>
-                ))}
-              </div>
+                )}
+
+                {noPushRecipients.length > 0 && (
+                  <div className="mt-3 inline-flex rounded-lg border border-zinc-700 bg-zinc-900/60 p-0.5 text-xs">
+                    {([
+                      ['all', `All ${recipients.length}`],
+                      ['push', `Push ${pushSummary?.enabled ?? 0}`],
+                      ['no_push', `In-app ${noPushRecipients.length}`],
+                    ] as [RecipientFilter, string][]).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setRecipientFilter(value)}
+                        className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                          recipientFilter === value
+                            ? 'bg-vc-500/20 text-vc-200'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-3 max-h-[420px] overflow-auto rounded-lg border border-zinc-700 divide-y divide-zinc-700">
+                  {filteredRecipients.length === 0 ? (
+                    <div className="p-3 bg-zinc-900/40 text-sm text-slate-400">No leaders in this filter.</div>
+                  ) : (
+                    filteredRecipients.map((leader) => {
+                      const badge = PUSH_BADGE[leader.push_status || 'no_device'];
+                      return (
+                        <div key={leader.id} className="p-3 bg-zinc-900/40 flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-100">{leader.name}</p>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              {[leader.campus, leader.acpd].filter(Boolean).join(' · ') || 'No campus/ACPD'}
+                            </p>
+                          </div>
+                          <span
+                            title={badge.title}
+                            className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${badge.className}`}
+                          >
+                            {badge.label}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </>
             )}
           </aside>
         </div>

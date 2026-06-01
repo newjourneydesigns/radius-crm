@@ -15,6 +15,7 @@ type NotificationSettings = {
     inbox_push_enabled: boolean;
     summary_reminder_push_enabled: boolean;
     badge_count_enabled: boolean;
+    push_nudge_requested_at?: string | null;
   };
   subscriptions?: Array<{ id: string; enabled: boolean; endpoint: string }>;
 };
@@ -31,16 +32,21 @@ const INSTALL_DISMISS_KEY = 'circle-summary:onboarding:install-dismissed-at';
 const NOTIFICATION_DISMISS_KEY = 'circle-summary:onboarding:notifications-dismissed-at';
 const DISMISS_DAYS = 14;
 
-function recentlyDismissed(key: string) {
+function dismissedAtMs(key: string): number | null {
   try {
     const value = window.localStorage.getItem(key);
-    if (!value) return false;
+    if (!value) return null;
     const dismissedAt = Number(value);
-    if (!Number.isFinite(dismissedAt)) return false;
-    return Date.now() - dismissedAt < DISMISS_DAYS * 24 * 60 * 60 * 1000;
+    return Number.isFinite(dismissedAt) ? dismissedAt : null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+function recentlyDismissed(key: string) {
+  const dismissedAt = dismissedAtMs(key);
+  if (dismissedAt === null) return false;
+  return Date.now() - dismissedAt < DISMISS_DAYS * 24 * 60 * 60 * 1000;
 }
 
 function markDismissed(key: string) {
@@ -104,7 +110,7 @@ export default function CircleOnboardingPrompts({ groupId }: { groupId: string }
     const onInstalled = () => {
       setInstalled(true);
       setInstallAvailable(false);
-      setMessage('Circle Leader Hub is installed.');
+      setMessage('Circle Leader Dashboard is installed.');
     };
     window.addEventListener('pwaInstallAvailable', onInstallAvailable);
     window.addEventListener('pwaInstalled', onInstalled);
@@ -121,9 +127,22 @@ export default function CircleOnboardingPrompts({ groupId }: { groupId: string }
 
   const hasEnabledServerSubscription = Boolean(settings?.subscriptions?.some((sub) => sub.enabled));
   const notificationPrefsEnabled = settings?.preferences?.inbox_push_enabled !== false || settings?.preferences?.summary_reminder_push_enabled !== false;
+
+  // An admin can "nudge" a leader to enable push from the Leader Messages page.
+  // When the nudge is newer than the leader's local dismissal, re-surface the
+  // prompt (and use stronger wording) even within the 14-day quiet window.
+  const nudgeRequestedAt = settings?.preferences?.push_nudge_requested_at;
+  const nudgeActive = useMemo(() => {
+    if (!nudgeRequestedAt) return false;
+    const nudgedMs = new Date(nudgeRequestedAt).getTime();
+    if (!Number.isFinite(nudgedMs)) return false;
+    const dismissedAt = dismissedAtMs(NOTIFICATION_DISMISS_KEY);
+    return dismissedAt === null || nudgedMs > dismissedAt;
+  }, [nudgeRequestedAt]);
+
   const shouldPromptInstall = !installed && !installDismissed && (installAvailable || isIOS());
   const shouldPromptNotifications =
-    !notificationDismissed &&
+    (!notificationDismissed || nudgeActive) &&
     canAskForNotifications &&
     permission !== 'denied' &&
     (!hasEnabledServerSubscription || !notificationPrefsEnabled);
@@ -140,7 +159,7 @@ export default function CircleOnboardingPrompts({ groupId }: { groupId: string }
       } else if (isIOS()) {
         setMessage('Use Share, then Add to Home Screen.');
       } else {
-        setMessage('Use your browser install button to add Circle Leader Hub.');
+        setMessage('Use your browser install button to add Circle Leader Dashboard.');
       }
     } finally {
       setBusy(null);
@@ -208,7 +227,7 @@ export default function CircleOnboardingPrompts({ groupId }: { groupId: string }
   if (!shouldPromptInstall && !shouldPromptNotifications && !message && !error) return null;
 
   return (
-    <section className="mt-3 space-y-2" aria-label="Circle Leader Hub setup">
+    <section className="mt-3 space-y-2" aria-label="Circle Leader Dashboard setup">
       {message && (
         <div className="rounded-2xl border border-[#34B233]/30 bg-[#34B233]/10 px-4 py-3 text-sm font-semibold text-neutral-800">
           {message}
@@ -223,7 +242,7 @@ export default function CircleOnboardingPrompts({ groupId }: { groupId: string }
         <div className="rounded-2xl border border-neutral-200 bg-white px-4 py-3 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-extrabold text-neutral-900">Install Circle Leader Hub</p>
+              <p className="text-sm font-extrabold text-neutral-900">Install Circle Leader Dashboard</p>
               <p className="text-xs text-neutral-500 mt-0.5">
                 {isIOS() ? 'Add it to your Home Screen for the app experience.' : 'Open it faster from your device.'}
               </p>
@@ -243,8 +262,14 @@ export default function CircleOnboardingPrompts({ groupId }: { groupId: string }
         <div className="rounded-2xl border border-neutral-200 bg-white px-4 py-3 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-extrabold text-neutral-900">Enable notifications</p>
-              <p className="text-xs text-neutral-500 mt-0.5">Get inbox messages and summary reminders on this device.</p>
+              <p className="text-sm font-extrabold text-neutral-900">
+                {nudgeActive ? 'Turn on notifications to stay in the loop' : 'Enable notifications'}
+              </p>
+              <p className="text-xs text-neutral-500 mt-0.5">
+                {nudgeActive
+                  ? 'Your team is sending messages here — turn on notifications so you do not miss them.'
+                  : 'Get inbox messages and summary reminders on this device.'}
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <LinkLikeSettings groupId={groupId} />

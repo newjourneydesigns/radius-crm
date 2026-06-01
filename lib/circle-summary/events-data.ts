@@ -51,11 +51,72 @@ export type LoadEventsResult = {
 // Callers can force a hard bypass with `forceRefresh` (used after a submit and
 // on manual refresh).
 type CacheEntry<T> = { value: T; expiresAt: number };
+type CalendarEvent = {
+  eventId: string;
+  title: string;
+  startDateTime: string;
+  startDate: string;
+  startTime?: string;
+};
+type SubmittedSummaryRow = {
+  ccb_event_id: string;
+  occurrence: string;
+  status: string;
+  did_not_meet: boolean;
+  submitted_via: string | null;
+  created_at: string;
+};
+type IgnoredEventRow = {
+  ccb_event_id: string;
+  occurrence_date: string;
+};
+type MessageRow = {
+  id: string;
+  header: string;
+  body_html: string;
+  url: string | null;
+  url_label: string | null;
+  campus_filter: unknown;
+};
 const CCB_CAL_TTL_MS = 5 * 60_000; // 5 minutes
 const CCB_ATTENDANCE_TTL_MS = 60_000; // 1 minute
-const ccbCalCache = new Map<string, CacheEntry<any[]>>();
-const ccbAttendanceCache = new Map<string, CacheEntry<any>>();
+const ccbCalCache = new Map<string, CacheEntry<CalendarEvent[]>>();
+const ccbAttendanceCache = new Map<string, CacheEntry<unknown>>();
 const DID_NOT_MEET_REASON_PREFIX_RE = /^reason\s+we\s+did(?:n['’]t| not)\s+meet:\s*/i;
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function recordList(value: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(value)) {
+    return value
+      .map(asRecord)
+      .filter((item): item is Record<string, unknown> => item !== null);
+  }
+  const single = asRecord(value);
+  return single ? [single] : [];
+}
+
+function textVal(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  return String(asRecord(value)?.['#text'] ?? '');
+}
+
+function isMissingIgnoredEventsTableError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const maybe = err as { code?: string; message?: string; details?: string };
+  const text = `${maybe.code || ''} ${maybe.message || ''} ${maybe.details || ''}`.toLowerCase();
+  return (
+    text.includes('circle_summary_ignored_events') ||
+    text.includes('schema cache') ||
+    text.includes('does not exist') ||
+    text.includes('could not find')
+  );
+}
 
 function cacheGet<T>(map: Map<string, CacheEntry<T>>, key: string): T | undefined {
   const hit = map.get(key);
@@ -90,13 +151,15 @@ export async function loadLeaderMessages(leader: SessionLeader): Promise<CircleM
   }
 
   const leaderCampus = leader.campus || null;
-  return (data || [])
-    .filter((m: any) => {
-      const filter = Array.isArray(m.campus_filter) ? m.campus_filter : [];
+  return ((data || []) as MessageRow[])
+    .filter((m) => {
+      const filter = Array.isArray(m.campus_filter)
+        ? m.campus_filter.filter((value): value is string => typeof value === 'string')
+        : [];
       if (filter.length === 0) return true;
       return leaderCampus ? filter.includes(leaderCampus) : false;
     })
-    .map((m: any) => ({
+    .map((m) => ({
       id: m.id,
       header: m.header,
       body_html: m.body_html,
@@ -145,7 +208,8 @@ export async function loadLeaderEvents(
     didNotMeet: boolean;
     headCount: number | null;
   }> = [];
-  let submissions: any[] | null = null;
+  let submissions: SubmittedSummaryRow[] = [];
+  let ignoredEvents: IgnoredEventRow[] = [];
 
   try {
     // Three-tier cache: in-memory (per instance) → Supabase ccb_group_events_cache
@@ -162,7 +226,7 @@ export async function loadLeaderEvents(
 
     // Only consult shared cache when in-memory misses AND the caller didn't
     // ask for a forced refresh (post-submit invalidation must hit CCB).
-    let sharedCache: { calendar_events?: any[]; attendance_xml?: any } | null = null;
+    let sharedCache: { calendar_events?: CalendarEvent[]; attendance_xml?: unknown } | null = null;
     if (!forceRefresh && (calCached === undefined || attCached === undefined)) {
       const { data: cacheRow } = await supabase
         .from('ccb_group_events_cache')
@@ -176,7 +240,9 @@ export async function loadLeaderEvents(
         const ageMs = Date.now() - new Date(cacheRow.synced_at).getTime();
         sharedCache = {};
         if (ageMs < SHARED_CAL_CACHE_FRESH_MS) {
-          sharedCache.calendar_events = Array.isArray(cacheRow.calendar_events) ? cacheRow.calendar_events : [];
+          sharedCache.calendar_events = Array.isArray(cacheRow.calendar_events)
+            ? (cacheRow.calendar_events as CalendarEvent[])
+            : [];
         }
         if (ageMs < SHARED_ATTENDANCE_CACHE_FRESH_MS && cacheRow.attendance_xml) {
           sharedCache.attendance_xml = cacheRow.attendance_xml;
@@ -190,7 +256,7 @@ export async function loadLeaderEvents(
     let calFromCcb = false;
     let attFromCcb = false;
 
-    const [calEvents, bulkXml, submissionsRes] = await Promise.all([
+    const [calEvents, bulkXml, submissionsRes, ignoredRes] = await Promise.all([
       calCached
         ? Promise.resolve(calCached)
         : sharedCache?.calendar_events !== undefined
@@ -212,9 +278,9 @@ export async function loadLeaderEvents(
             cacheSet(ccbAttendanceCache, cacheKey, v, CCB_ATTENDANCE_TTL_MS);
             return v;
           })
-        : (ccb as any)
-            .getXml({ srv: 'attendance_profiles', start_date: startStr, end_date: endStr })
-            .then((v: any) => {
+        : ccb
+            .getXml<unknown>({ srv: 'attendance_profiles', start_date: startStr, end_date: endStr })
+            .then((v) => {
               attFromCcb = true;
               cacheSet(ccbAttendanceCache, cacheKey, v, CCB_ATTENDANCE_TTL_MS);
               return v;
@@ -225,7 +291,21 @@ export async function loadLeaderEvents(
         .select('ccb_event_id, occurrence, status, did_not_meet, submitted_via, created_at')
         .eq('leader_id', leader.id)
         .gte('occurrence', start.toISO()!),
+      supabase
+        .from('circle_summary_ignored_events')
+        .select('ccb_event_id, occurrence_date')
+        .eq('leader_id', leader.id)
+        .gte('occurrence_date', startStr)
+        .lte('occurrence_date', endStr),
     ]);
+
+    if (ignoredRes.error) {
+      if (!isMissingIgnoredEventsTableError(ignoredRes.error)) {
+        console.warn('[circle-summary/events] ignored events lookup failed:', ignoredRes.error.message);
+      }
+    } else {
+      ignoredEvents = (ignoredRes.data ?? []) as IgnoredEventRow[];
+    }
 
     // Fire-and-forget write-back: when we just paid for a CCB call AND we have
     // both pieces (calendar + attendance), persist the row so every other
@@ -266,20 +346,15 @@ export async function loadLeaderEvents(
         });
     }
 
-    submissions = submissionsRes.data ?? [];
+    submissions = (submissionsRes.data ?? []) as SubmittedSummaryRow[];
 
     // Build a lookup map: "eventId|YYYY-MM-DD" → { has, dnm }
-    const textVal = (v: any) =>
-      v == null ? '' : typeof v === 'string' ? v : String(v?.['#text'] ?? '');
-
     const attendanceMap = new Map<string, { has: boolean; dnm: boolean; headCount: number | null }>();
     if (bulkXml) {
-      const eventsRoot = bulkXml?.ccb_api?.response?.events ?? null;
-      const rawEvents: any[] = Array.isArray(eventsRoot?.event)
-        ? eventsRoot.event
-        : eventsRoot?.event
-        ? [eventsRoot.event]
-        : [];
+      const ccbRoot = asRecord(bulkXml)?.ccb_api;
+      const response = asRecord(asRecord(ccbRoot)?.response);
+      const eventsRoot = asRecord(response?.events);
+      const rawEvents = recordList(eventsRoot?.event);
 
       for (const ev of rawEvents) {
         const evId = String(ev?.['@_id'] ?? ev?.id ?? '').trim();
@@ -293,9 +368,11 @@ export async function loadLeaderEvents(
           DID_NOT_MEET_REASON_PREFIX_RE.test(notes.trim());
         // Prefer the explicit head_count; fall back to counting attendee rows.
         const rawHeadCount = Number(textVal(ev?.head_count));
-        const attendeeCount = ev?.attendees?.attendee
-          ? Array.isArray(ev.attendees.attendee)
-            ? ev.attendees.attendee.length
+        const attendees = asRecord(ev.attendees);
+        const attendeeNode = attendees?.attendee;
+        const attendeeCount = attendeeNode
+          ? Array.isArray(attendeeNode)
+            ? attendeeNode.length
             : 1
           : 0;
         const headCount = rawHeadCount > 0 ? rawHeadCount : attendeeCount > 0 ? attendeeCount : null;
@@ -310,26 +387,32 @@ export async function loadLeaderEvents(
       }
     }
 
-    events = calEvents.map((e: any) => {
-      const att = attendanceMap.get(`${e.eventId}|${e.startDate}`);
-      return {
-        eventId: e.eventId,
-        occurrenceDate: e.startDate,
-        occurrenceDateTime: e.startDateTime,
-        title: e.title,
-        hasExistingAttendance: att?.has ?? false,
-        didNotMeet: att?.dnm ?? false,
-        headCount: att?.headCount ?? null,
-      };
-    });
-  } catch (e: any) {
+    const ignoredSet = new Set(
+      ignoredEvents.map((row) => `${row.ccb_event_id}|${String(row.occurrence_date).slice(0, 10)}`)
+    );
+
+    events = calEvents
+      .filter((e) => !ignoredSet.has(`${e.eventId}|${e.startDate}`))
+      .map((e) => {
+        const att = attendanceMap.get(`${e.eventId}|${e.startDate}`);
+        return {
+          eventId: e.eventId,
+          occurrenceDate: e.startDate,
+          occurrenceDateTime: e.startDateTime,
+          title: e.title,
+          hasExistingAttendance: att?.has ?? false,
+          didNotMeet: att?.dnm ?? false,
+          headCount: att?.headCount ?? null,
+        };
+      });
+  } catch (e: unknown) {
     console.error('CCB fetch failed for circle-summary events:', e);
     return { events: [], error: 'Could not load events from CCB.' };
   }
 
-  const submittedSet = new Map<string, any>();
-  for (const s of submissions || []) {
-    const key = `${s.ccb_event_id}|${DateTime.fromISO(s.occurrence as any).toFormat('yyyy-LL-dd')}`;
+  const submittedSet = new Map<string, SubmittedSummaryRow>();
+  for (const s of submissions) {
+    const key = `${s.ccb_event_id}|${DateTime.fromISO(s.occurrence).toFormat('yyyy-LL-dd')}`;
     submittedSet.set(key, s);
   }
 

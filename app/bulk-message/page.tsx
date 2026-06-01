@@ -26,6 +26,7 @@ interface Recipient {
   isAdditionalLeader?: boolean;
   isFromCCB?: boolean;
   isFromPaste?: boolean;
+  isFromRoster?: boolean;
   circleLeaderName?: string;
   additionalLeaderName?: string;
   additionalLeaderPhone?: string;
@@ -207,6 +208,14 @@ function BulkMessageContent() {
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
+  // Circle roster state
+  const [rosterQuery, setRosterQuery] = useState('');
+  const [showRosterDropdown, setShowRosterDropdown] = useState(false);
+  const [rosterLoadingId, setRosterLoadingId] = useState<number | null>(null);
+  const [rosterError, setRosterError] = useState<string | null>(null);
+  const [rosterFeedback, setRosterFeedback] = useState<string | null>(null);
+  const rosterContainerRef = useRef<HTMLDivElement>(null);
+
   // Paste import state
   const [showPastePanel, setShowPastePanel] = useState(false);
   const [pasteText, setPasteText] = useState('');
@@ -224,6 +233,9 @@ function BulkMessageContent() {
       if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
         setShowSearchDropdown(false);
       }
+      if (rosterContainerRef.current && !rosterContainerRef.current.contains(e.target as Node)) {
+        setShowRosterDropdown(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -239,13 +251,24 @@ function BulkMessageContent() {
     return fuse.search(searchQuery.trim()).slice(0, 8).map(r => r.item);
   }, [leaders, searchQuery]);
 
+  // Fuse.js search across circles that have a linked CCB group (for roster import)
+  const rosterSearchResults = useMemo(() => {
+    const withGroup = leaders.filter(l => l.ccb_group_id);
+    if (!rosterQuery.trim()) return [];
+    const fuse = new Fuse(withGroup, {
+      keys: ['name', 'campus', 'day'],
+      threshold: 0.35,
+    });
+    return fuse.search(rosterQuery.trim()).slice(0, 8).map(r => r.item);
+  }, [leaders, rosterQuery]);
+
   // ─── Load circle leaders ───────────────────────────────────
   const loadLeaders = useCallback(async () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('circle_leaders')
-        .select('id, name, phone, email, campus, acpd, status, circle_type, day, time, frequency, additional_leader_name, additional_leader_phone')
+        .select('id, name, phone, email, campus, acpd, status, circle_type, day, time, frequency, additional_leader_name, additional_leader_phone, ccb_group_id')
         .order('name');
 
       if (error) throw error;
@@ -535,6 +558,70 @@ function BulkMessageContent() {
   const handleRemoveCCBRecipient = (phone: string) => {
     setCcbRecipients(prev => prev.filter(r => r.phone !== phone));
   };
+
+  // ─── Circle roster helpers ─────────────────────────────────
+  const handleAddCircleRoster = useCallback(async (leader: CircleLeader) => {
+    if (!leader.ccb_group_id) return;
+    setRosterQuery('');
+    setShowRosterDropdown(false);
+    setRosterError(null);
+    setRosterFeedback(null);
+    setRosterLoadingId(leader.id);
+
+    try {
+      const res = await fetch('/api/ccb/group-roster', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId: leader.ccb_group_id }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.details || json.error || 'Failed to load roster');
+      }
+
+      const members: any[] = json.data || [];
+      const mapped = members
+        .map((m): Recipient | null => {
+          const phone = normalizePhone(m.mobilePhone || m.phone || '');
+          if (phone.length < 7) return null;
+          const ccbId = parseInt(m.id, 10);
+          const fullName = (m.fullName || `${m.firstName || ''} ${m.lastName || ''}`).trim() || 'Friend';
+          return {
+            id: isNaN(ccbId) ? -(Date.now() + Math.floor(Math.random() * 100000)) : ccbId,
+            name: fullName,
+            firstName: m.firstName || fullName.split(' ')[0],
+            phone,
+            isFromCCB: true,
+            isFromRoster: true,
+            circleLeaderName: leader.name || '',
+          };
+        })
+        .filter((r): r is Recipient => r !== null);
+
+      let addedCount = 0;
+      setCcbRecipients(prev => {
+        const seen = new Set(prev.map(r => r.phone));
+        const fresh = mapped.filter(r => {
+          if (seen.has(r.phone)) return false;
+          seen.add(r.phone);
+          return true;
+        });
+        addedCount = fresh.length;
+        return [...prev, ...fresh];
+      });
+
+      const skipped = members.length - mapped.length;
+      const dupes = mapped.length - addedCount;
+      const parts = [`Added ${addedCount} from ${leader.name}'s roster`];
+      if (dupes > 0) parts.push(`${dupes} already in list`);
+      if (skipped > 0) parts.push(`${skipped} without phone`);
+      setRosterFeedback(parts.join(' · '));
+    } catch (err) {
+      setRosterError(err instanceof Error ? err.message : 'Failed to load roster');
+    } finally {
+      setRosterLoadingId(null);
+    }
+  }, []);
 
   const handleSaveList = () => {
     if (!listNameInput.trim() || ccbRecipients.length === 0) return;
@@ -1018,6 +1105,83 @@ function BulkMessageContent() {
               </div>
             </section>
 
+            {/* ── Add Circle Roster ── */}
+            <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-lg">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                  </svg>
+                  Add Circle Roster
+                </h2>
+              </div>
+
+              <p className="text-[11px] text-gray-600 mb-3">
+                Search a circle to add everyone on its current CCB roster as recipients.
+              </p>
+
+              {/* Circle search */}
+              <div className="relative" ref={rosterContainerRef}>
+                <input
+                  type="text"
+                  value={rosterQuery}
+                  onChange={(e) => { setRosterQuery(e.target.value); setShowRosterDropdown(true); }}
+                  onFocus={() => setShowRosterDropdown(true)}
+                  placeholder="Search a circle by leader, campus, day..."
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow placeholder:text-gray-600"
+                />
+                {showRosterDropdown && rosterSearchResults.length > 0 && (
+                  <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-gray-800 border border-gray-700 rounded-xl shadow-xl overflow-hidden max-h-60 overflow-y-auto">
+                    {rosterSearchResults.map(l => (
+                      <button
+                        key={l.id}
+                        type="button"
+                        onClick={() => handleAddCircleRoster(l)}
+                        disabled={rosterLoadingId !== null}
+                        className="w-full text-left px-4 py-2.5 hover:bg-gray-700 transition-colors flex items-center justify-between group disabled:opacity-40 disabled:cursor-not-allowed border-b border-gray-700/50 last:border-0"
+                      >
+                        <div>
+                          <span className="text-sm font-medium text-white">{l.name}</span>
+                          <span className="text-xs text-gray-500 ml-2">{l.circle_type || 'Circle'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {l.day && <span className="text-[10px] text-gray-500">{l.day}</span>}
+                          {l.campus && <span className="text-[10px] text-gray-500">{l.campus}</span>}
+                          {rosterLoadingId === l.id
+                            ? <span className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                            : <span className="text-[10px] font-bold text-emerald-400 uppercase opacity-0 group-hover:opacity-100 transition-opacity">Add Roster</span>
+                          }
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {showRosterDropdown && rosterQuery.trim() && rosterSearchResults.length === 0 && (
+                  <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-gray-800 border border-gray-700 rounded-xl shadow-xl px-4 py-3">
+                    <p className="text-xs text-gray-500">No circles with a linked CCB roster match.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Status line */}
+              {rosterLoadingId !== null && (
+                <div className="mt-3 flex items-center gap-2 text-xs text-emerald-400">
+                  <span className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                  Loading roster from CCB...
+                </div>
+              )}
+              {rosterError && (
+                <div className="mt-3 text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
+                  {rosterError}
+                </div>
+              )}
+              {rosterFeedback && !rosterError && (
+                <div className="mt-3 text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
+                  {rosterFeedback}
+                </div>
+              )}
+            </section>
+
             {/* ── Paste Import ── */}
             <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-lg">
               <div className="flex items-center justify-between mb-4">
@@ -1197,11 +1361,14 @@ function BulkMessageContent() {
                               {r.isFromPaste && (
                                 <span className="text-[9px] bg-violet-500/20 text-violet-400 px-1.5 py-0.5 rounded font-bold uppercase">Paste</span>
                               )}
-                              {r.isFromCCB && !r.isFromPaste && (
+                              {r.isFromRoster && (
+                                <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold uppercase">Roster</span>
+                              )}
+                              {r.isFromCCB && !r.isFromPaste && !r.isFromRoster && (
                                 <span className="text-[9px] bg-teal-500/20 text-teal-400 px-1.5 py-0.5 rounded font-bold uppercase">CCB</span>
                               )}
                             </div>
-                            {r.isAdditionalLeader && r.circleLeaderName && (
+                            {(r.isAdditionalLeader || r.isFromRoster) && r.circleLeaderName && (
                               <p className="text-[10px] text-gray-500 mt-0.5">{r.circleLeaderName}&apos;s Circle</p>
                             )}
                           </td>

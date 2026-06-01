@@ -63,6 +63,18 @@ function weekStartFromOccurrence(occurrence: string): string | null {
   return parsed.minus({ days: parsed.weekday % 7 }).toISODate();
 }
 
+function isMissingIgnoredEventsTableError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const maybe = err as { code?: string; message?: string; details?: string };
+  const text = `${maybe.code || ''} ${maybe.message || ''} ${maybe.details || ''}`.toLowerCase();
+  return (
+    text.includes('circle_summary_ignored_events') ||
+    text.includes('schema cache') ||
+    text.includes('does not exist') ||
+    text.includes('could not find')
+  );
+}
+
 export async function POST(req: Request) {
   const leader = await getSessionLeader();
   if (!leader) return unauthorized();
@@ -167,6 +179,23 @@ export async function POST(req: Request) {
   const cleanInfo = normalizeSummaryText(info);
   const manualAttendeesForSubmit = didNotMeet ? [] : cleanManualAttendees(manualAttendees);
   const supabase = createServiceSupabaseClient();
+  const { data: ignoredEvent, error: ignoredError } = await supabase
+    .from('circle_summary_ignored_events')
+    .select('id')
+    .eq('leader_id', leader.id)
+    .eq('ccb_event_id', eventId)
+    .eq('occurrence_date', occurrence.slice(0, 10))
+    .maybeSingle();
+  if (ignoredError && !isMissingIgnoredEventsTableError(ignoredError)) {
+    return NextResponse.json({ error: ignoredError.message }, { status: 500 });
+  }
+  if (ignoredEvent) {
+    return NextResponse.json(
+      { error: 'This event was removed from the Circle Summary list.' },
+      { status: 410 }
+    );
+  }
+
   const { data: existingSummary } = await supabase
     .from('circle_event_summaries')
     .select('status, ccb_submitted_at')

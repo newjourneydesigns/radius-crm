@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { EyeOff } from 'lucide-react';
 import { renderMessageHtml } from '../../../../lib/renderMessageHtml';
 import { useMarkCircleAppEntered } from '../../../../lib/circle-summary/appEntered';
+import { supabase } from '../../../../lib/supabase';
 import type { CircleEventRow, CircleMessage } from '../../../../lib/circle-summary/events-data';
 
 type EventRow = CircleEventRow;
@@ -30,11 +32,13 @@ function parseDateStamp(iso: string) {
  */
 export default function EventsClient({
   groupId,
+  leaderId,
   initialEvents,
   initialMessages,
   initialError,
 }: {
   groupId: string;
+  leaderId: number | string;
   initialEvents: EventRow[];
   initialMessages: CenterMessage[];
   initialError: string | null;
@@ -47,6 +51,8 @@ export default function EventsClient({
   const [refreshing, setRefreshing] = useState(false);
   const [slowLoad, setSlowLoad] = useState(false);
   const [error, setError] = useState<string | null>(initialError);
+  const [isAdminUser, setIsAdminUser] = useState(false);
+  const [ignoreBusyKey, setIgnoreBusyKey] = useState<string | null>(null);
   const inFlightRef = useRef(false);
   const lastLoadAtRef = useRef(Date.now());
 
@@ -130,6 +136,84 @@ export default function EventsClient({
       window.removeEventListener('focus', onFocus);
     };
   }, [invalidationKey, loadEvents]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const userId = sessionData.session?.user?.id;
+        if (!userId) return;
+
+        const { data: profile } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', userId)
+          .maybeSingle();
+
+        if (cancelled) return;
+        const role = String(profile?.role ?? '');
+        setIsAdminUser(role === 'ACPD' || role === 'admin');
+      } catch {
+        if (!cancelled) setIsAdminUser(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const ignoreEvent = useCallback(
+    async (event: EventRow) => {
+      const key = `${event.eventId}|${event.occurrenceDate}`;
+      if (ignoreBusyKey) return;
+
+      const ok = window.confirm(
+        `Hide "${event.title}" for ${event.occurrenceDate}?\n\nUse this only for deleted, duplicate, or test CCB events.`
+      );
+      if (!ok) return;
+
+      setIgnoreBusyKey(key);
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) throw new Error('Admin session required.');
+
+        const res = await fetch('/api/circle-summary/ignored-events', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            leader_id: leaderId,
+            ccb_group_id: groupId,
+            ccb_event_id: event.eventId,
+            occurrence_date: event.occurrenceDate,
+            occurrence_datetime: event.occurrenceDateTime,
+            event_title: event.title,
+            reason: 'Invalid or test CCB event hidden from Circle Summary',
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error || 'Could not hide this event.');
+
+        setEvents((current) =>
+          current.filter((row) => `${row.eventId}|${row.occurrenceDate}` !== key)
+        );
+        try {
+          localStorage.removeItem(cacheKey);
+        } catch {}
+      } catch (err) {
+        alert(err instanceof Error ? err.message : 'Could not hide this event.');
+      } finally {
+        setIgnoreBusyKey(null);
+      }
+    },
+    [cacheKey, groupId, ignoreBusyKey, leaderId]
+  );
 
   const submittedEvents = events.filter((e) => !!e.submittedAt || e.hasExistingAttendance);
   const submitted = submittedEvents.length;
@@ -267,6 +351,9 @@ export default function EventsClient({
             {events.map((e) => {
               const occurEncoded = encodeURIComponent(e.occurrenceDateTime);
               const isSubmitted = !!e.submittedAt || e.hasExistingAttendance;
+              const canIgnore = isAdminUser && !isSubmitted;
+              const eventKey = `${e.eventId}|${e.occurrenceDate}`;
+              const href = `/circle-summary/${groupId}/events/${e.eventId}/${occurEncoded}`;
               const statusClass = isSubmitted && e.didNotMeet
                 ? 'did-not-meet'
                 : isSubmitted
@@ -274,13 +361,8 @@ export default function EventsClient({
                 : 'needs-summary';
               const { dayNum, month, dayName } = parseDateStamp(e.occurrenceDate);
 
-              return (
-                <Link
-                  key={`${e.eventId}-${e.occurrenceDate}`}
-                  href={`/circle-summary/${groupId}/events/${e.eventId}/${occurEncoded}`}
-                  className={`cs-event-row ${statusClass} active:translate-y-[1px]`}
-                  style={{ textDecoration: 'none' }}
-                >
+              const rowContent = (
+                <>
                   {/* Date stamp */}
                   <div className="cs-date-stamp">
                     <span className="day-name">{dayName}</span>
@@ -326,15 +408,64 @@ export default function EventsClient({
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                     </svg>
                   </div>
+                </>
+              );
+
+              if (canIgnore) {
+                return (
+                  <div
+                    key={`${e.eventId}-${e.occurrenceDate}`}
+                    className={`cs-event-row ${statusClass} active:translate-y-[1px]`}
+                  >
+                    <Link
+                      href={href}
+                      className="cs-event-row-link"
+                      style={{ textDecoration: 'none' }}
+                    >
+                      {rowContent}
+                    </Link>
+                    <div className="cs-event-row-admin-actions">
+                      <button
+                        type="button"
+                        onClick={() => ignoreEvent(e)}
+                        disabled={ignoreBusyKey === eventKey}
+                        className="cs-admin-hide-event"
+                        title="Hide invalid event"
+                        aria-label={`Hide ${e.title} on ${e.occurrenceDate}`}
+                      >
+                        <EyeOff className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>{ignoreBusyKey === eventKey ? 'Hiding' : 'Hide'}</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <Link
+                  key={`${e.eventId}-${e.occurrenceDate}`}
+                  href={href}
+                  className={`cs-event-row ${statusClass} active:translate-y-[1px]`}
+                  style={{ textDecoration: 'none' }}
+                >
+                  {rowContent}
                 </Link>
               );
             })}
           </div>
         )}
 
-        <p className="text-center text-xs text-neutral-400 mt-8">
-          Questions? Email us at <a href="mailto:nextsteps@valleycreek.org" className="cs-footer-link">nextsteps@valleycreek.org</a>.
-        </p>
+        <div className="mt-8 text-center space-y-1.5">
+          <p className="text-xs text-neutral-400">
+            New to the app or need a hand?{' '}
+            <Link href={`/circle-summary/${groupId}/help`} className="cs-footer-link font-semibold">
+              View the help guide
+            </Link>
+          </p>
+          <p className="text-xs text-neutral-400">
+            Questions? Email us at <a href="mailto:nextsteps@valleycreek.org" className="cs-footer-link">nextsteps@valleycreek.org</a>.
+          </p>
+        </div>
       </main>
     </>
   );

@@ -1,6 +1,42 @@
 [
   {
     "date": "2026-06-01",
+    "version": "2.4.22",
+    "date_display": "June 1, 2026",
+    "date_iso": "2026-06-01",
+    "id": "circle-dashboard-button-logo",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Circle Profile",
+    "description": "The \"Circle Leader Dashboard\" button on a leader's profile now shows the white Circles logo instead of the generic open-link icon, matching the app's branding.",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-06-01",
+    "version": "2.4.21",
+    "date_display": "June 1, 2026",
+    "date_iso": "2026-06-01",
+    "id": "rename-circle-leader-dashboard",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "App",
+    "description": "Renamed the leader app (formerly \"Circle Leader Hub\") and the admin app to \"Circle Leader Dashboard.\" When you save it to your home screen, it now installs simply as \"Dashboard.\"",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-06-01",
+    "version": "2.4.20",
+    "date_display": "June 1, 2026",
+    "date_iso": "2026-06-01",
+    "id": "circle-leader-help-guide",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Circle Summary",
+    "description": "Added a Help & Guide page to the Circle Leader Dashboard with friendly, step-by-step instructions for everything in the app — submitting summaries, managing your roster, the inbox, resources, and notifications — plus a short why behind each one. You can reach it from a link in the Events footer and from the Settings page.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-06-01",
     "version": "2.4.19",
     "date_display": "June 1, 2026",
     "date_iso": "2026-06-01",
@@ -20,7 +56,7 @@
     "type": "improvement",
     "type_display": "Improvement",
     "category": "Circle Summary",
-    "description": "Swapped the birthday icon on the Circle roster for a clearer birthday-cake glyph, so the date next to each person reads as a birthday at a glance instead of looking like a briefcase.",
+    "description": "Cleaned up the contact lines on the Circle roster: the birthday icon is now a clear birthday-cake glyph instead of looking like a briefcase, and the phone, email, and birthday icons all share the same green so the envelope no longer looks oddly greyed out.",
     "page": "/circle-summary"
   },
   {
@@ -58,18 +94,6 @@
     "category": "Circle Roster",
     "description": "You can now snooze the \"hasn't attended\" alerts on your Circle roster. Tap Snooze on any alert to quiet it for 7 days, or use \"Snooze all · 7 days\" to clear the whole stack at once — the alert comes back if the person still hasn't shown up. The alert cards were also tidied up for mobile, and the header Settings gear no longer crowds the Circle name on smaller screens.",
     "page": "/circle-summary"
-  },
-  {
-    "date": "2026-06-01",
-    "version": "2.4.14",
-    "date_display": "June 1, 2026",
-    "date_iso": "2026-06-01",
-    "id": "rename-circle-leader-dashboard",
-    "type": "improvement",
-    "type_display": "Improvement",
-    "category": "App",
-    "description": "Renamed the app to \"Circle Leader Dashboard.\" When you save it to your home screen, it now installs simply as \"Dashboard.\"",
-    "page": "/"
   },
   {
     "date": "2026-06-01",

@@ -391,7 +391,8 @@ export default function GlobalSearch() {
                   letterSpacing: '0.01em',
                   caretColor: 'rgba(99, 102, 241, 0.9)',
                   lineHeight: 1.4,
-                  padding: '0',
+                  padding: '4px 12px',
+                  borderRadius: '10px',
                 }}
               />
 

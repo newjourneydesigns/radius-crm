@@ -1,8 +1,8 @@
 {
   "id": "/circle-summary?v=2",
-  "name": "Circle Summary",
-  "short_name": "Circle Summary",
-  "description": "Report your Circle event summaries — for Circle Leaders at Valley Creek.",
+  "name": "Circle Leader Dashboard",
+  "short_name": "Dashboard",
+  "description": "Circle Leader Dashboard — for Circle Leaders at Valley Creek.",
   "start_url": "/circle-summary",
   "display": "standalone",
   "display_override": ["standalone"],

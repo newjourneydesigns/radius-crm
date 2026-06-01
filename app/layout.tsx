@@ -2,8 +2,8 @@ import "../styles/globals.css";
 import ClientLayout from "./ClientLayout";
 
 export const metadata = {
-  title: 'RADIUS Circle Leader Management',
-  description: 'Circle Leader Management System for RADIUS',
+  title: 'Circle Leader Dashboard',
+  description: 'Circle Leader Dashboard',
   manifest: '/manifest.json',
   icons: {
     icon: [
@@ -107,10 +107,10 @@ export default function RootLayout({
         <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.20/index.global.min.js" />
 
         {/* PWA Meta Tags */}
-        <meta name="application-name" content="RADIUS" />
+        <meta name="application-name" content="Dashboard" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="RADIUS CRM" />
+        <meta name="apple-mobile-web-app-title" content="Dashboard" />
         <meta name="format-detection" content="telephone=no" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-config" content="/browserconfig.xml" />

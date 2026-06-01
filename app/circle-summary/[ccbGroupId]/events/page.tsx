@@ -26,6 +26,7 @@ export default async function CircleSummaryEventsPage() {
   return (
     <EventsClient
       groupId={groupId}
+      leaderId={leader.id}
       initialEvents={eventsResult.events}
       initialMessages={messages}
       initialError={initialError}
