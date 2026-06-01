@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-05-31",
+    "version": "2.4.10",
+    "date_display": "May 31, 2026",
+    "date_iso": "2026-05-31",
+    "id": "circle-summary-settings-polish",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Leader Hub",
+    "description": "Refreshed the Notification Settings page: the preference toggles now use proper switches instead of plain checkboxes, and the page reflects reality — when push is already on for your browser it shows a \"Push on\" status with a disable option, instead of always offering \"Enable push.\" Browser permission state (Allowed, Blocked, Not set) and your enabled devices are now shown as clear status badges.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-05-31",
     "version": "2.4.9",
     "date_display": "May 31, 2026",
     "date_iso": "2026-05-31",
