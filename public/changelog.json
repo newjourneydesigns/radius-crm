@@ -1,5 +1,53 @@
 [
   {
+    "date": "2026-06-02",
+    "version": "2.4.26",
+    "date_display": "June 2, 2026",
+    "date_iso": "2026-06-02",
+    "id": "prayer-az-jump-and-contact",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Prayer",
+    "description": "Added an A–Z quick-jump rail down the right edge of the Prayer page — tap or drag a letter to jump straight to that leader. Each leader now also has a phone button that opens a Call / Text sheet using their number on file (including the co-leader's number when present).",
+    "page": "/prayer"
+  },
+  {
+    "date": "2026-06-02",
+    "version": "2.4.25",
+    "date_display": "June 2, 2026",
+    "date_iso": "2026-06-02",
+    "id": "circle-summary-splash-pulse",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Circle Leader Dashboard",
+    "description": "Refreshed the loading screen: the Circles logo now sits centered with rings gently pulsing outward from it, replacing the small spinner for a calmer, more branded feel.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-06-02",
+    "version": "2.4.24",
+    "date_display": "June 2, 2026",
+    "date_iso": "2026-06-02",
+    "id": "archived-status-saves",
+    "type": "fix",
+    "type_display": "Fix",
+    "category": "Circle Profile",
+    "description": "Setting a Circle Leader's status to Archived now saves correctly. Previously the database rejected the Archived value, so the change silently failed with a generic error. Archived leaders also now show a muted gray status badge.",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-06-02",
+    "version": "2.4.23",
+    "date_display": "June 2, 2026",
+    "date_iso": "2026-06-02",
+    "id": "circle-summary-splash-steady",
+    "type": "fix",
+    "type_display": "Fix",
+    "category": "Circle Leader Dashboard",
+    "description": "Opening the dashboard now holds a steady green loading screen until your circle is ready — no more flash of a black or white screen between loads. The status bar and browser chrome stay green to match, and the app reaches your events in fewer redirects.",
+    "page": "/circle-summary"
+  },
+  {
     "date": "2026-06-01",
     "version": "2.4.22",
     "date_display": "June 1, 2026",

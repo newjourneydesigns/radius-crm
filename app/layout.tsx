@@ -1,5 +1,19 @@
+import type { Viewport } from "next";
 import "../styles/globals.css";
 import ClientLayout from "./ClientLayout";
+
+// Viewport (incl. theme-color) lives here as a Next export rather than a
+// hardcoded <meta> so nested segments can override individual fields. The
+// /circle-summary segment swaps theme-color to brand green; everything else
+// inherits the dark shell color below.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#0f1117",
+  colorScheme: "dark",
+};
 
 export const metadata = {
   title: 'Circle Leader Dashboard',
@@ -101,8 +115,6 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
-        <meta name="color-scheme" content="dark" />
-
         {/* FullCalendar */}
         <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.20/index.global.min.js" />
 
@@ -116,8 +128,6 @@ export default function RootLayout({
         <meta name="msapplication-config" content="/browserconfig.xml" />
         <meta name="msapplication-TileColor" content="#0f1117" />
         <meta name="msapplication-tap-highlight" content="no" />
-        <meta name="theme-color" content="#0f1117" />
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 
         {/* Force dark theme immediately */}
         <script dangerouslySetInnerHTML={{ __html: darkThemeScript }} />

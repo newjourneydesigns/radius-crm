@@ -9,7 +9,10 @@ import SignInForm from './SignInForm';
 export default async function CircleSummarySignInPage() {
   const leader = await getSessionLeader();
   if (leader?.ccb_group_id != null) {
-    redirect(`/circle-summary/${leader.ccb_group_id}/events`);
+    // Trailing slash matches `trailingSlash: true` in next.config so the browser
+    // lands on the final URL in one hop instead of taking an extra 308 — fewer
+    // blank cross-document frames before the events page paints.
+    redirect(`/circle-summary/${leader.ccb_group_id}/events/`);
   }
 
   return (

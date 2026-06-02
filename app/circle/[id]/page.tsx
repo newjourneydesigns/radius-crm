@@ -1926,6 +1926,7 @@ export default function CircleLeaderProfilePage() {
               'active': 'status-badge status-badge-green',
               'paused': 'status-badge status-badge-yellow',
               'off-boarding': 'status-badge status-badge-red',
+              'archived': 'status-badge status-badge-gray',
             };
             const label = leader.status === 'off-boarding' ? 'Off-boarding' : leader.status.charAt(0).toUpperCase() + leader.status.slice(1);
             return (

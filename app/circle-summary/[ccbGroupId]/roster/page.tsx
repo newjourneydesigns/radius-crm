@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 // then revalidates contact details / attendance in the background.
 export default async function CircleRosterPage() {
   const leader = await getSessionLeader();
-  if (!leader) redirect('/circle-summary');
+  if (!leader) redirect('/circle-summary/');
 
   const groupId = leader.ccb_group_id != null ? String(leader.ccb_group_id) : '';
 

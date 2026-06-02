@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { Plus, Calendar, X, Heart, PenLine } from 'lucide-react';
+import { Plus, Calendar, X, Heart, PenLine, Phone, MessageSquare } from 'lucide-react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import Modal from '../../components/ui/Modal';
 import PrayerToolbar from '../../components/prayer/PrayerToolbar';
 import PrayerSectionHeader from '../../components/prayer/PrayerSectionHeader';
 import PrayerRow, { PrayerRowData } from '../../components/prayer/PrayerRow';
 import PrayerSessionLogList from '../../components/prayer/PrayerSessionLogList';
+import PrayerAlphaIndex from '../../components/prayer/PrayerAlphaIndex';
 import { supabase, PrayerPoint, PrayerSessionLog, PrayerKind } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -25,6 +26,9 @@ interface LeaderPrayerGroup {
   leaderName: string;
   leaderCampus?: string;
   leaderAcpd?: string;
+  leaderPhone?: string;
+  additionalLeaderName?: string;
+  additionalLeaderPhone?: string;
   prayers: PrayerWithLeader[];
 }
 
@@ -33,6 +37,16 @@ interface SimpleLeader {
   name: string;
   campus?: string;
   acpd?: string;
+  phone?: string;
+  additionalLeaderName?: string;
+  additionalLeaderPhone?: string;
+}
+
+interface ContactTarget {
+  name: string;
+  phone?: string;
+  additionalName?: string;
+  additionalPhone?: string;
 }
 
 interface GeneralPrayer {
@@ -83,6 +97,51 @@ function todayISO() {
   return new Date().toISOString().split('T')[0];
 }
 
+function phoneHref(scheme: 'tel' | 'sms', phone: string) {
+  return `${scheme}:${phone.replace(/[^\d+]/g, '')}`;
+}
+
+// First-letter bucket for the A–Z rail ('#' for names that don't start A–Z).
+function alphaBucket(name: string) {
+  const ch = (name.trim()[0] || '').toUpperCase();
+  return /[A-Z]/.test(ch) ? ch : '#';
+}
+
+function ContactRow({
+  name,
+  phone,
+  onAction,
+}: {
+  name: string;
+  phone: string;
+  onAction: () => void;
+}) {
+  return (
+    <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.06] p-3">
+      <div className="mb-2.5 min-w-0">
+        <p className="text-[15px] font-medium text-white truncate">{name}</p>
+        <p className="text-xs text-slate-500">{phone}</p>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <a
+          href={phoneHref('tel', phone)}
+          onClick={onAction}
+          className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold bg-vc-500/15 text-vc-300 ring-1 ring-vc-500/25 hover:bg-vc-500/25 active:scale-95 transition"
+        >
+          <Phone strokeWidth={1.8} className="w-4 h-4" /> Call
+        </a>
+        <a
+          href={phoneHref('sms', phone)}
+          onClick={onAction}
+          className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold bg-white/[0.05] text-slate-200 ring-1 ring-white/[0.1] hover:bg-white/[0.08] active:scale-95 transition"
+        >
+          <MessageSquare strokeWidth={1.8} className="w-4 h-4" /> Text
+        </a>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────
 
 function PrayerListContent() {
@@ -109,7 +168,26 @@ function PrayerListContent() {
     if (typeof window !== 'undefined') return localStorage.getItem('prayer_search') || '';
     return '';
   });
-  const [expandedLeaders, setExpandedLeaders] = useState<Set<number>>(new Set());
+  const [expandedLeaders, setExpandedLeaders] = useState<Set<number>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('prayer_expandedLeaders');
+      if (saved) {
+        try {
+          return new Set<number>(JSON.parse(saved));
+        } catch {
+          /* fall through to default */
+        }
+      }
+    }
+    return new Set();
+  });
+  // Whether the user already had a saved expansion preference at first render —
+  // captured before any effect writes, so the data load knows whether it should
+  // fall back to auto-expanding leaders with prayers (first visit only).
+  const hadSavedExpansionRef = useRef(
+    typeof window !== 'undefined' &&
+      localStorage.getItem('prayer_expandedLeaders') !== null
+  );
   const [filterCampus, setFilterCampus] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('prayer_campus') || '';
     return '';
@@ -118,8 +196,23 @@ function PrayerListContent() {
     if (typeof window !== 'undefined') return localStorage.getItem('prayer_acpd') || '';
     return '';
   });
-  const [generalExpanded, setGeneralExpanded] = useState(true);
-  const [leaderSectionExpanded, setLeaderSectionExpanded] = useState(true);
+  const [generalExpanded, setGeneralExpanded] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('prayer_generalExpanded');
+      if (saved !== null) return saved === 'true';
+    }
+    return true;
+  });
+  const [leaderSectionExpanded, setLeaderSectionExpanded] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('prayer_leaderSectionExpanded');
+      if (saved !== null) return saved === 'true';
+    }
+    return true;
+  });
+
+  // Call/text contact sheet for a leader
+  const [contactModal, setContactModal] = useState<ContactTarget | null>(null);
 
   // Add-prayer state
   const [addingToLeader, setAddingToLeader] = useState<number | null>(null);
@@ -153,6 +246,13 @@ function PrayerListContent() {
     localStorage.setItem('prayer_acpd', filterAcpd);
   }, [sortDir, searchQuery, filterCampus, filterAcpd]);
 
+  // Persist expand/collapse state across loads
+  useEffect(() => {
+    localStorage.setItem('prayer_generalExpanded', String(generalExpanded));
+    localStorage.setItem('prayer_leaderSectionExpanded', String(leaderSectionExpanded));
+    localStorage.setItem('prayer_expandedLeaders', JSON.stringify(Array.from(expandedLeaders)));
+  }, [generalExpanded, leaderSectionExpanded, expandedLeaders]);
+
   // ─── Load data ───
   const loadData = useCallback(async () => {
     if (!currentUserId) return;
@@ -163,7 +263,7 @@ function PrayerListContent() {
       const [leadersRes, prayersRes, generalRes, logsRes] = await Promise.all([
         supabase
           .from('circle_leaders')
-          .select('id, name, campus, acpd')
+          .select('id, name, campus, acpd, phone, additional_leader_name, additional_leader_phone')
           .order('name', { ascending: true }),
         supabase
           .from('acpd_prayer_points')
@@ -195,6 +295,9 @@ function PrayerListContent() {
         name: l.name,
         campus: l.campus || undefined,
         acpd: l.acpd || undefined,
+        phone: l.phone || undefined,
+        additionalLeaderName: l.additional_leader_name || undefined,
+        additionalLeaderPhone: l.additional_leader_phone || undefined,
       }));
 
       const mapped: PrayerWithLeader[] = (prayersRes.data || []).map((p: any) => ({
@@ -209,7 +312,12 @@ function PrayerListContent() {
       setGeneralPrayers(generalRes.data || []);
       setSessionLogs(logsRes.data || []);
 
-      setExpandedLeaders(new Set(mapped.map((p) => p.circle_leader_id)));
+      // First visit only: default to expanding every leader that has prayers.
+      // On later visits we keep whatever the user last left open (restored from
+      // localStorage), so don't override it here.
+      if (!hadSavedExpansionRef.current) {
+        setExpandedLeaders(new Set(mapped.map((p) => p.circle_leader_id)));
+      }
     } catch (err: any) {
       console.error('Error loading prayer data:', err);
       setError(err.message);
@@ -275,6 +383,9 @@ function PrayerListContent() {
       leaderName: leader.name,
       leaderCampus: leader.campus,
       leaderAcpd: leader.acpd,
+      leaderPhone: leader.phone,
+      additionalLeaderName: leader.additionalLeaderName,
+      additionalLeaderPhone: leader.additionalLeaderPhone,
       prayers: prayersByLeader.get(leader.id) || [],
     }));
 
@@ -303,6 +414,31 @@ function PrayerListContent() {
     const q = searchQuery.toLowerCase();
     return generalPrayers.filter((gp) => gp.content.toLowerCase().includes(q));
   }, [generalPrayers, searchQuery]);
+
+  // A–Z jump: available letters + the first leader (in display order) per letter
+  const { alphaLetters, letterToLeaderId } = useMemo(() => {
+    const set = new Set<string>();
+    const map = new Map<string, number>();
+    for (const g of groupedPrayers) {
+      const letter = alphaBucket(g.leaderName);
+      if (!set.has(letter)) {
+        set.add(letter);
+        map.set(letter, g.leaderId);
+      }
+    }
+    return { alphaLetters: set, letterToLeaderId: map };
+  }, [groupedPrayers]);
+
+  const handleAlphaJump = useCallback(
+    (letter: string) => {
+      const id = letterToLeaderId.get(letter);
+      if (id == null) return;
+      document
+        .getElementById(`prayer-leader-${id}`)
+        ?.scrollIntoView({ behavior: 'auto', block: 'start' });
+    },
+    [letterToLeaderId]
+  );
 
   // ─── Stats ───
   const totalPrayers = allPrayers.length;
@@ -627,7 +763,7 @@ function PrayerListContent() {
   // ─── Render ───
   return (
     <div className="min-h-screen bg-[#111318]">
-      <div className="max-w-3xl mx-auto px-4 py-6 pb-32">
+      <div className="max-w-3xl mx-auto px-4 pr-6 sm:pr-4 py-6 pb-32">
         {/* Header */}
         <div className="mb-5">
           <h1 className="text-2xl font-bold text-white tracking-tight">Prayer</h1>
@@ -824,7 +960,11 @@ function PrayerListContent() {
                         .filter(Boolean)
                         .join(' · ') || 'Tap to pray';
                     return (
-                      <div key={group.leaderId} className={isExpanded ? 'bg-white/[0.015]' : ''}>
+                      <div
+                        key={group.leaderId}
+                        id={`prayer-leader-${group.leaderId}`}
+                        className={`scroll-mt-4 ${isExpanded ? 'bg-white/[0.015]' : ''}`}
+                      >
                         <div className="flex items-center gap-3 px-3 py-2.5">
                           <button
                             onClick={() => toggleLeader(group.leaderId)}
@@ -847,6 +987,24 @@ function PrayerListContent() {
                             </span>
                           </button>
                           <div className="flex-shrink-0 flex items-center gap-1.5">
+                            {(group.leaderPhone || group.additionalLeaderPhone) && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setContactModal({
+                                    name: group.leaderName,
+                                    phone: group.leaderPhone,
+                                    additionalName: group.additionalLeaderName,
+                                    additionalPhone: group.additionalLeaderPhone,
+                                  });
+                                }}
+                                className="h-9 w-9 flex items-center justify-center rounded-full ring-1 ring-white/[0.1] text-slate-400 hover:text-vc-300 hover:bg-vc-500/10 hover:ring-vc-500/25 active:scale-95 transition"
+                                aria-label={`Call or text ${group.leaderName}`}
+                                title="Call or text"
+                              >
+                                <Phone strokeWidth={1.8} className="w-4 h-4" />
+                              </button>
+                            )}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1052,6 +1210,39 @@ function PrayerListContent() {
           </p>
         </div>
       </div>
+
+      {/* A–Z quick jump rail */}
+      {leaderSectionExpanded && alphaLetters.size > 0 && (
+        <PrayerAlphaIndex availableLetters={alphaLetters} onJump={handleAlphaJump} />
+      )}
+
+      {/* Call / text a leader */}
+      <Modal
+        isOpen={!!contactModal}
+        onClose={() => setContactModal(null)}
+        title={contactModal ? contactModal.name : 'Contact'}
+        size="sm"
+      >
+        <div className="space-y-3">
+          {contactModal?.phone && (
+            <ContactRow
+              name={contactModal.name}
+              phone={contactModal.phone}
+              onAction={() => setContactModal(null)}
+            />
+          )}
+          {contactModal?.additionalPhone && (
+            <ContactRow
+              name={contactModal.additionalName || 'Additional leader'}
+              phone={contactModal.additionalPhone}
+              onAction={() => setContactModal(null)}
+            />
+          )}
+          {!contactModal?.phone && !contactModal?.additionalPhone && (
+            <p className="text-sm text-slate-500">No phone number on file.</p>
+          )}
+        </div>
+      </Modal>
 
       {/* Save answered prayer as a note */}
       <Modal

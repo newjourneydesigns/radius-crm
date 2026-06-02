@@ -82,7 +82,7 @@ export interface CircleLeader {
   phone?: string;
   campus?: string;
   acpd?: string;
-  status?: 'invited' | 'on-boarding' | 'pipeline' | 'active' | 'paused' | 'off-boarding';
+  status?: 'invited' | 'on-boarding' | 'pipeline' | 'active' | 'paused' | 'off-boarding' | 'archived';
   day?: string;
   time?: string;
   frequency?: string;

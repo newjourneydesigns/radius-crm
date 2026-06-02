@@ -28,68 +28,99 @@
   );
   pointer-events: none;
 }
-.cs-splash-inner {
+/* The logo sits dead-center of the splash; concentric rings pulse outward from
+   it. Because the Circles mark is itself a ring, the pulses read as radiating
+   straight out of the logo. The pulse is the only loading affordance — there is
+   no separate spinner. */
+.cs-splash-logo-wrap {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  /* No entrance animation: the loading boundaries remount this same splash as a
-     load progresses (layout → page), so a re-triggered fade would flicker.
-     A solid, instant hold is the goal. */
-}
-.cs-splash-mark {
-  margin-bottom: 1rem;
+  display: grid;
+  place-items: center;
+  width: 12rem;
+  height: 12rem;
 }
 .cs-splash-logo {
-  width: 10rem;
+  grid-area: 1 / 1;
+  width: 8.5rem;
   height: auto;
-  margin-bottom: 1rem;
   object-fit: contain;
-  transform-origin: center;
-  animation: cs-splash-logo-breathe 2.4s ease-in-out infinite;
+  z-index: 1;
 }
-@keyframes cs-splash-logo-breathe {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 0.92;
+.cs-splash-pulse {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  transform: scale(0.66);
+  opacity: 0;
+  animation: cs-splash-pulse 2.6s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+}
+/* Stagger the three rings by a third of the cycle for a continuous radiate. */
+.cs-splash-pulse:nth-child(2) {
+  animation-delay: 0.87s;
+}
+.cs-splash-pulse:nth-child(3) {
+  animation-delay: 1.73s;
+}
+@keyframes cs-splash-pulse {
+  0% {
+    transform: scale(0.66);
+    opacity: 0;
   }
-  50% {
-    transform: scale(1.06);
-    opacity: 1;
+  15% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .cs-splash-logo {
-    animation: none;
-  }
-}
+
 .cs-splash-sub {
-  margin: 0.35rem 0 0;
-  /* !important so it always beats the section-wide `color: #3E3E3E !important`
-     applied to body:has(.cs-root) — the splash text must read pure white. */
-  color: #ffffff !important;
+  /* Anchored to the lower third so the logo stays at the true center. */
+  position: absolute;
+  left: 50%;
+  bottom: clamp(3.5rem, 14vh, 7rem);
+  transform: translateX(-50%);
+  margin: 0;
   font-size: 0.95rem;
   font-weight: 500;
   letter-spacing: 0.02em;
   text-align: center;
 }
-.cs-splash-spinner {
-  margin-top: 1.5rem;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 3px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #ffffff;
-  animation: cs-splash-spin 0.8s linear infinite;
-}
-@keyframes cs-splash-spin {
-  to { transform: rotate(360deg); }
+/* The splash renders inside .cs-root, so the section-wide `.cs-root p {
+   color:#3E3E3E !important }` reset outranks a bare `.cs-splash-sub` on
+   specificity (!important on both, so specificity decides). Qualify with
+   `.cs-root` so the subtitle reads pure white. */
+.cs-root .cs-splash-sub {
+  color: #ffffff !important;
 }
 
-/* Force a clean white surface on /circle-summary regardless of the dark
-   theme applied by the root layout. Hero text re-overrides to white below. */
-html:has(.cs-root),
+@media (prefers-reduced-motion: reduce) {
+  /* Hold one calm static ring instead of pulsing. */
+  .cs-splash-pulse {
+    animation: none;
+    opacity: 0;
+  }
+  .cs-splash-pulse:nth-child(1) {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+}
+
+/* Force a clean surface on /circle-summary regardless of the dark theme applied
+   by the root layout. The <html> element is painted brand green so the document
+   itself is green during the load seams (the cross-document paint on the sign-in
+   redirect, the pre-layout first paint, and overscroll) — it reads as a
+   continuous hold with the green splash instead of flashing the dark root body
+   or browser white. The <body> carries the real off-white app surface and
+   covers <html> once it lays out. Hero text re-overrides to white below. */
+html:has(.cs-root) {
+  background: #34B233 !important;
+  color: #3E3E3E !important;
+  color-scheme: light;
+}
 body:has(.cs-root) {
   background: #f7f8f6 !important;
   color: #3E3E3E !important;

@@ -1372,6 +1372,11 @@ html {
   color: #fdba74 !important;
   border-color: rgba(249, 115, 22, 0.25) !important;
 }
+.status-badge-gray {
+  background: linear-gradient(135deg, rgba(100, 116, 139, 0.2) 0%, rgba(71, 85, 105, 0.12) 100%) !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(100, 116, 139, 0.22) !important;
+}
 
 /* ═══════════════════════════════════════════════════════════
    Navigation Enhancements

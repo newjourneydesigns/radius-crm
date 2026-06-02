@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Open_Sans } from 'next/font/google';
 import './circle-summary.css';
 
@@ -9,6 +9,22 @@ const openSans = Open_Sans({
   variable: '--font-cs-body',
   display: 'swap',
 });
+
+// Override the dark root theme-color with brand green for the whole segment so
+// the OS/browser chrome (status bar, PWA title bar) matches the splash + hero
+// instead of flashing dark navy on entry. Merges with the root viewport export,
+// so width/scale are inherited.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: '#34B233',
+  // Light canvas for the whole segment so the browser doesn't paint a near-black
+  // document background (the root app is color-scheme: dark) during the load
+  // seams before our CSS applies.
+  colorScheme: 'light',
+};
 
 export const metadata: Metadata = {
   title: 'Circle Leader Dashboard',

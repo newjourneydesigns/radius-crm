@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 // post-submit invalidation and focus revalidation.
 export default async function CircleSummaryEventsPage() {
   const leader = await getSessionLeader();
-  if (!leader) redirect('/circle-summary');
+  if (!leader) redirect('/circle-summary/');
 
   const groupId = leader.ccb_group_id != null ? String(leader.ccb_group_id) : '';
 

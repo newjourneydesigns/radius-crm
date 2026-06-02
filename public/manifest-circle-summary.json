@@ -3,7 +3,7 @@
   "name": "Circle Leader Dashboard",
   "short_name": "Dashboard",
   "description": "Circle Leader Dashboard — for Circle Leaders at Valley Creek.",
-  "start_url": "/circle-summary",
+  "start_url": "/circle-summary/",
   "display": "standalone",
   "display_override": ["standalone"],
   "background_color": "#34B233",
