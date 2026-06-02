@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-02",
+    "version": "2.4.29",
+    "date_display": "June 2, 2026",
+    "date_iso": "2026-06-02",
+    "id": "haptics-stronger-and-test",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "App",
+    "description": "Made haptic feedback noticeably stronger so taps actually register on supported phones, and added a \"Test buzz\" button under Settings → App Management → Haptic Feedback to confirm haptics work on your device. Note: iOS only supports web haptics in Safari (not installed home-screen apps).",
+    "page": "/settings"
+  },
+  {
+    "date": "2026-06-02",
     "version": "2.4.28",
     "date_display": "June 2, 2026",
     "date_iso": "2026-06-02",

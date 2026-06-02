@@ -1458,20 +1458,31 @@ export default function SettingsPage() {
                         : 'Turn on for tactile feedback as you move through the app.'}
                     </p>
                   </div>
-                  <button
-                    onClick={toggleHaptics}
-                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-vc-500 focus:ring-offset-2 ${
-                      hapticsOn ? 'bg-vc-600' : 'bg-gray-300 dark:bg-gray-600'
-                    }`}
-                    role="switch"
-                    aria-checked={hapticsOn}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        hapticsOn ? 'translate-x-5' : 'translate-x-0'
+                  <div className="flex flex-shrink-0 items-center gap-3">
+                    <button
+                      type="button"
+                      data-no-haptic
+                      onClick={() => haptic('heavy')}
+                      disabled={!hapticsOn}
+                      className="rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Test buzz
+                    </button>
+                    <button
+                      onClick={toggleHaptics}
+                      className={`relative inline-flex h-6 w-11 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-vc-500 focus:ring-offset-2 ${
+                        hapticsOn ? 'bg-vc-600' : 'bg-gray-300 dark:bg-gray-600'
                       }`}
-                    />
-                  </button>
+                      role="switch"
+                      aria-checked={hapticsOn}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          hapticsOn ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

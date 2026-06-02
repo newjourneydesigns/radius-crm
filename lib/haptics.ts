@@ -26,15 +26,17 @@ export type HapticPattern =
   | 'warning'
   | 'error';
 
-// Durations/patterns in ms. iOS ignores these (single tick only).
+// Durations/patterns in ms. iOS ignores these (single tick only). Kept above
+// ~15ms because shorter pulses are below the threshold where many phone motors
+// even spin up — a 6ms "tick" is effectively silent on most hardware.
 const VIBRATION_PATTERNS: Record<HapticPattern, number | number[]> = {
-  selection: 6,
-  light: 10,
-  medium: 18,
-  heavy: 32,
-  success: [12, 40, 14],
-  warning: [16, 70, 16],
-  error: [22, 50, 22, 50, 22],
+  selection: 15,
+  light: 20,
+  medium: 30,
+  heavy: 50,
+  success: [20, 45, 35],
+  warning: [25, 70, 25],
+  error: [30, 55, 30, 55, 30],
 };
 
 const STORAGE_KEY = 'radius:haptics';
