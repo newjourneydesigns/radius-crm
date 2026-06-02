@@ -125,6 +125,16 @@ body:has(.cs-root) {
   background: #f7f8f6 !important;
   color: #3E3E3E !important;
 }
+/* While the green splash is mounted, paint the surfaces directly behind it
+   green too. The splash is position:fixed, so on iOS the status-bar safe area
+   sits above its top edge and a 1px seam there exposed the off-white app
+   surface (--cs-bg) as a hairline "white border" framing the green. Greening
+   the body + .cs-root only when .cs-splash is present keeps the loaded app's
+   off-white surface intact while making that seam read as continuous green. */
+body:has(.cs-splash),
+.cs-root:has(.cs-splash) {
+  background: #34B233 !important;
+}
 .cs-hero,
 .cs-hero * {
   color: #ffffff !important;
