@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import { haptic } from '../../lib/haptics';
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
@@ -62,7 +63,7 @@ export default function PrayerAlphaIndex({ availableLetters, onJump }: PrayerAlp
       const target = nearestAvailable(letter);
       if (target) {
         onJump(target);
-        if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(3);
+        haptic('selection');
       }
     },
     [letterFromY, nearestAvailable, onJump]

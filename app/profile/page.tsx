@@ -402,15 +402,15 @@ export default function ProfilePage() {
             <div className="space-y-6">
               {/* Avatar & Name Card */}
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-600 to-blue-500 h-24" />
+                <div className="bg-gradient-to-r from-green-600 to-green-500 h-24" />
                 <div className="px-6 pb-6 -mt-10">
                   <div className="flex items-end gap-4 mb-6">
-                    <div className="w-20 h-20 rounded-full bg-white dark:bg-gray-700 border-4 border-white dark:border-gray-800 shadow-md flex items-center justify-center text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    <div className="w-20 h-20 rounded-full bg-white dark:bg-gray-700 border-4 border-white dark:border-gray-800 shadow-md flex items-center justify-center text-2xl font-bold text-green-600 dark:text-green-400">
                       {getInitials()}
                     </div>
                     <div className="pb-1">
                       <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{name || 'Your Name'}</h2>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">
                         {profile?.role || 'User'}
                       </span>
                     </div>
@@ -474,50 +474,6 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Radius AI Assistant Card */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${aiAssistantEnabled ? 'bg-purple-100 dark:bg-purple-900/40' : 'bg-gray-100 dark:bg-gray-700'} transition-colors`}>
-                      <svg className={`w-5 h-5 ${aiAssistantEnabled ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400 dark:text-gray-500'} transition-colors`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 00.659 1.591L19 14.5M14.25 3.104c.251.023.501.05.75.082M19 14.5l-1.341 4.024A2.25 2.25 0 0115.54 20.5H8.46a2.25 2.25 0 01-2.119-1.476L5 14.5m14 0H5" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Radius AI Assistant</h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Enable the AI assistant to help you manage todos, notes, and more
-                      </p>
-                    </div>
-                  </div>
-                  <ToggleSwitch
-                    checked={aiAssistantEnabled}
-                    onChange={async (val) => {
-                      setAiAssistantEnabled(val);
-                      setIsSavingAi(true);
-                      try {
-                        const { data: { session } } = await supabase.auth.getSession();
-                        const token = session?.access_token;
-                        if (!token) throw new Error('No token');
-                        const response = await fetch('/api/profile', {
-                          method: 'PUT',
-                          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ preferences: { ai_assistant_enabled: val } })
-                        });
-                        if (!response.ok) throw new Error('Failed to save');
-                        await refreshUser();
-                        setShowAlert({ isOpen: true, type: 'success', title: val ? 'AI Assistant Enabled' : 'AI Assistant Disabled', message: val ? 'The Radius AI assistant is now active. Look for the Radius icon in the bottom-right corner.' : 'The AI assistant has been turned off.' });
-                      } catch {
-                        setAiAssistantEnabled(!val); // Revert on error
-                        setShowAlert({ isOpen: true, type: 'error', title: 'Error', message: 'Failed to update AI assistant setting.' });
-                      } finally {
-                        setIsSavingAi(false);
-                      }
-                    }}
-                    disabled={isSavingAi}
-                  />
-                </div>
-              </div>
             </div>
           )}
 

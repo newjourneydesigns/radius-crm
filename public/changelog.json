@@ -1,6 +1,30 @@
 [
   {
     "date": "2026-06-02",
+    "version": "2.4.28",
+    "date_display": "June 2, 2026",
+    "date_iso": "2026-06-02",
+    "id": "profile-header-green-remove-ai-toggle",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Profile",
+    "description": "Updated the profile page header banner to green and removed the Radius AI Assistant toggle.",
+    "page": "/profile"
+  },
+  {
+    "date": "2026-06-02",
+    "version": "2.4.27",
+    "date_display": "June 2, 2026",
+    "date_iso": "2026-06-02",
+    "id": "pwa-haptic-feedback",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "App",
+    "description": "Added haptic feedback throughout the app — buttons, nav, and toggles give a light tap, and completing a checklist item gives a stronger confirmation buzz. Works on most Android phones and newer iPhones (iOS 17.4+); it's a no-op on desktop. You can turn it off anytime under Settings → App Management → Haptic Feedback.",
+    "page": "/settings"
+  },
+  {
+    "date": "2026-06-02",
     "version": "2.4.26",
     "date_display": "June 2, 2026",
     "date_iso": "2026-06-02",

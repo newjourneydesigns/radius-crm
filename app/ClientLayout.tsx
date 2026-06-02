@@ -10,6 +10,7 @@ import { AuthProvider } from "../contexts/AuthContext";
 import { QuickActionsProvider } from "../contexts/QuickActionsContext";
 import NavigationProgress from "../components/layout/NavigationProgress";
 import ProtectedRoute from "../components/ProtectedRoute";
+import HapticsProvider from "../components/HapticsProvider";
 
 // Only these routes are accessible without being signed in.
 // `/auth/*` is required for the Supabase magic-link callback to complete the login flow.
@@ -38,6 +39,9 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      {/* App-wide haptic feedback (PWA) */}
+      <HapticsProvider />
+
       {/* Route transition progress bar */}
       <NavigationProgress />
 

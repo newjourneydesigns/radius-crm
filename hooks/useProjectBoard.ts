@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { haptic } from '../lib/haptics';
 import { nextDueDate, nextDueDateForDays, type TodoRepeatRule } from '../lib/todoRecurrence';
 import type {
   ProjectBoard,
@@ -840,6 +841,9 @@ export function useProjectBoard() {
 
   const toggleChecklistItem = useCallback(async (boardId: string, cardId: string, itemId: string, isCompleted: boolean) => {
     setError(null);
+    // Completing an item gets a satisfying confirmation pulse; the global tap
+    // listener already handles the lighter tick when un-checking.
+    if (isCompleted) haptic('success');
     // Optimistic
     setBoard(prev => {
       if (!prev) return prev;

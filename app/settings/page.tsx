@@ -9,6 +9,7 @@ import ConfirmModal from '../../components/ui/ConfirmModal';
 import AlertModal from '../../components/ui/AlertModal';
 import ServiceWorkerUtils from '../../components/ServiceWorkerUtils';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import { haptic, isHapticsEnabled, setHapticsEnabled } from '../../lib/haptics';
 
 interface Director {
   id: number;
@@ -51,6 +52,18 @@ export default function SettingsPage() {
   const [digestLoading, setDigestLoading] = useState(false);
   const [digestUserId, setDigestUserId] = useState<string | null>(null);
   const [digestFrequencyHours, setDigestFrequencyHours] = useState<number>(24);
+
+  // Haptic feedback (PWA) — client-side preference only, stored in localStorage.
+  const [hapticsOn, setHapticsOn] = useState(true);
+  useEffect(() => {
+    setHapticsOn(isHapticsEnabled());
+  }, []);
+  const toggleHaptics = () => {
+    const next = !hapticsOn;
+    setHapticsEnabled(next);
+    setHapticsOn(next);
+    if (next) haptic('success'); // confirm with a pulse when turning on
+  };
 
   // Host Team Directors state
   const [hostTeamDirectors, setHostTeamDirectors] = useState<Director[]>([]);
@@ -1419,6 +1432,47 @@ export default function SettingsPage() {
                     </a>
                   </div>
                 )}
+              </div>
+
+              {/* Haptic Feedback (PWA) */}
+              <div className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-8">
+                <h3 className="inline-flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-white mb-1">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5.636 18.364a9 9 0 010-12.728M7.757 16.243a6 6 0 010-8.486M16.243 7.757a6 6 0 010 8.486M18.364 5.636a9 9 0 010 12.728M12 11a1 1 0 110 2 1 1 0 010-2z" />
+                  </svg>
+                  Haptic Feedback
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  A subtle vibration when you tap buttons and complete actions. Works on most
+                  Android devices and newer iPhones; does nothing on desktop.
+                </p>
+
+                <div className="flex items-center justify-between rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-5 py-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {hapticsOn ? 'Haptics on' : 'Haptics off'}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {hapticsOn
+                        ? 'Taps and completed actions give a light buzz on supported devices.'
+                        : 'Turn on for tactile feedback as you move through the app.'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={toggleHaptics}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-vc-500 focus:ring-offset-2 ${
+                      hapticsOn ? 'bg-vc-600' : 'bg-gray-300 dark:bg-gray-600'
+                    }`}
+                    role="switch"
+                    aria-checked={hapticsOn}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        hapticsOn ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
               </div>
             </div>
           )}

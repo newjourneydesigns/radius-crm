@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import changelog from '../../public/changelog.json';
+
+const APP_VERSION = (changelog[0] as { version: string }).version;
 
 export default function Footer() {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
@@ -8,8 +11,6 @@ export default function Footer() {
   useEffect(() => {
     setCurrentYear(new Date().getFullYear());
   }, []);
-
-  const version = process.env.NEXT_PUBLIC_APP_VERSION || '0.0.0';
 
   return (
     <footer className="border-t border-gray-800/50 mt-auto">
@@ -29,7 +30,7 @@ export default function Footer() {
             >
               NewJourneyDesigns.co
             </a>
-            {' '}· v{version}
+            {' '}· v{APP_VERSION}
           </p>
 
           {/* Center: Mission (hidden on small screens) */}
