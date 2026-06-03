@@ -22,6 +22,12 @@ type PushSubscriptionInfo = {
   last_failed_delivery_at: string | null;
 };
 
+type MagicLinkInfo = {
+  url: string;
+  expiresAt: string;
+  expiresInDays: number;
+};
+
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -64,6 +70,10 @@ export default function CircleSummaryNotificationSettingsPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [magicLink, setMagicLink] = useState<MagicLinkInfo | null>(null);
+  const [magicLinkBusy, setMagicLinkBusy] = useState(false);
+  const [magicLinkCopied, setMagicLinkCopied] = useState(false);
+  const [magicLinkError, setMagicLinkError] = useState<string | null>(null);
   const [devicePushNote, setDevicePushNote] = useState('Push notifications are opt-in per browser or installed app.');
   const [thisDeviceEnabled, setThisDeviceEnabled] = useState(false);
 
@@ -177,6 +187,42 @@ export default function CircleSummaryNotificationSettingsPage() {
       setError(err instanceof Error ? err.message : 'Could not disable push notifications.');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function copyMagicLink(url: string) {
+    await navigator.clipboard.writeText(url);
+    setMagicLinkCopied(true);
+    window.setTimeout(() => setMagicLinkCopied(false), 2500);
+  }
+
+  async function generateMagicLink() {
+    setMagicLinkBusy(true);
+    setMagicLinkError(null);
+    setMagicLinkCopied(false);
+    try {
+      const res = await fetch('/api/circle-summary/magic-link/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not create a magic link.');
+      if (!data.url) throw new Error('Could not create a magic link.');
+      const nextLink: MagicLinkInfo = {
+        url: data.url,
+        expiresAt: data.expiresAt,
+        expiresInDays: Number(data.expiresInDays || 7),
+      };
+      setMagicLink(nextLink);
+      try {
+        await copyMagicLink(nextLink.url);
+      } catch {
+        setMagicLinkError('Link created. Copy it from the field below.');
+      }
+    } catch (err) {
+      setMagicLinkError(err instanceof Error ? err.message : 'Could not create a magic link.');
+    } finally {
+      setMagicLinkBusy(false);
     }
   }
 
@@ -305,17 +351,60 @@ export default function CircleSummaryNotificationSettingsPage() {
       </section>
 
       <section className="cs-card p-4 sm:p-5">
-        <p className="text-sm font-bold text-neutral-900">Help &amp; guide</p>
-        <p className="text-xs text-neutral-500 mt-0.5">New here, or need a refresher? See step-by-step instructions for everything in the app.</p>
-        <Link
-          href={`/circle-summary/${groupId}/help`}
-          className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-[#34B233]/40 bg-[#34B233]/10 px-5 text-sm font-extrabold text-[#1f7320] transition-colors hover:bg-[#34B233]/15"
+        <p className="text-sm font-bold text-neutral-900">Temporary Circle link</p>
+        <p className="text-xs text-neutral-500 mt-0.5">
+          Create a copyable sign-in link for your Circle. It works for Circle Summary pages only and expires after 7 days, including any device session opened from it.
+        </p>
+        <p className="mt-2 text-[11px] leading-relaxed text-amber-700">
+          Anyone with this link can open your Circle Summary until it expires.
+        </p>
+
+        <button
+          type="button"
+          onClick={generateMagicLink}
+          disabled={magicLinkBusy}
+          className="cs-settings-green-action mt-4"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-[18px] w-[18px]" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
           </svg>
-          View the help guide
-        </Link>
+          {magicLinkBusy ? 'Creating link...' : magicLink ? 'Create new link' : 'Create and copy link'}
+        </button>
+
+        {magicLinkError && (
+          <div className="cs-alert cs-alert-warning mt-3">{magicLinkError}</div>
+        )}
+
+        {magicLink && (
+          <div className="mt-4 rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
+            <label htmlFor="circle-summary-magic-link" className="block text-[11px] font-bold uppercase tracking-wide text-neutral-500">
+              Magic link
+            </label>
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+              <input
+                id="circle-summary-magic-link"
+                value={magicLink.url}
+                readOnly
+                className="min-w-0 flex-1 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#34B233]/30"
+                onFocus={(e) => e.currentTarget.select()}
+              />
+              <button
+                type="button"
+                onClick={() => copyMagicLink(magicLink.url).catch(() => setMagicLinkError('Copy failed. Select the link and copy it manually.'))}
+                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-[#34B233]/40 bg-white px-4 text-xs font-extrabold text-[#1f7320] transition-colors hover:bg-[#34B233]/10"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-4 w-4" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 8h8v8H8z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 14H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1M10 21h7a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2Z" />
+                </svg>
+                {magicLinkCopied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+            <p className="mt-2 text-[11px] text-neutral-500">
+              Expires {new Date(magicLink.expiresAt).toLocaleString()}.
+            </p>
+          </div>
+        )}
       </section>
 
       <section className="cs-card p-4 sm:p-5">
@@ -328,6 +417,20 @@ export default function CircleSummaryNotificationSettingsPage() {
         >
           Sign out
         </button>
+      </section>
+
+      <section className="cs-card p-4 sm:p-5">
+        <p className="text-sm font-bold text-neutral-900">Help &amp; guide</p>
+        <p className="text-xs text-neutral-500 mt-0.5">New here, or need a refresher? See step-by-step instructions for everything in the app.</p>
+        <Link
+          href={`/circle-summary/${groupId}/help`}
+          className="cs-settings-green-action mt-4"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-[18px] w-[18px]" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
+          </svg>
+          View the help guide
+        </Link>
       </section>
     </main>
   );

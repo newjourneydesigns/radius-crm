@@ -1,6 +1,30 @@
 [
   {
     "date": "2026-06-03",
+    "version": "2.6.1",
+    "date_display": "June 3, 2026",
+    "date_iso": "2026-06-03",
+    "id": "circle-summary-report-a-bug",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Circle Leaders",
+    "description": "Added a \"Report a bug\" link to the footer of the Circle Leader Dashboard so leaders can quickly flag anything that isn't working right.",
+    "page": "/circle-summary"
+  },
+  {
+    "date": "2026-06-03",
+    "version": "2.6.0",
+    "date_display": "June 3, 2026",
+    "date_iso": "2026-06-03",
+    "id": "leadership-snapshot",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Circle Leaders",
+    "description": "Introduced the Leadership Snapshot — a self-assessment Circle Leaders take from the new Health tab in their Circle Leader Dashboard to reflect on five areas of leadership health: Personal Spiritual Health, Circle Leadership, Discipleship & Multiplication, Community & Relationships, and Alignment & Support. Each submission is scored by category and paired with an AI-generated summary plus next steps for every area, and leaders can revisit past results and reassess anytime. On the staff side you can review every submission, drill into each category, watch a leader's scores trend over time, edit one entered incorrectly, and revert to any previous version. Staff can also take it from /leadership-snapshot in RADIUS.",
+    "page": "/admin/leadership-snapshots"
+  },
+  {
+    "date": "2026-06-03",
     "version": "2.5.0",
     "date_display": "June 3, 2026",
     "date_iso": "2026-06-03",

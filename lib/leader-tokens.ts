@@ -9,8 +9,9 @@
  *  5. Server issues an opaque persistent session cookie backed by the
  *     leader_sessions table — used as auth on all /api/circle-summary/* routes
  *
- * Magic-link token format: <leader_id_b64>.<expires_ms>.<hmac_sha256_b64>
- * HMAC is over `<leader_id>:<expires_ms>` using LEADER_SESSION_SECRET.
+ * Magic-link token format: <payload_b64>.<expires_ms>.<hmac_sha256_b64>
+ * Payload is the leader id, optionally with signed session metadata.
+ * HMAC is over `<payload>:<expires_ms>` using LEADER_SESSION_SECRET.
  */
 
 import { createHmac, createHash, randomBytes, randomInt, timingSafeEqual } from 'crypto';
@@ -20,6 +21,9 @@ export const SESSION_COOKIE_NAME = 'radius_leader_session';
 // Browsers may cap persistent cookies, so this is refreshed on /circle-summary page loads.
 export const SESSION_COOKIE_MAX_AGE_SECONDS = 400 * 24 * 60 * 60;
 export const MAGIC_LINK_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+// Radius-issued leader links are intentionally long-lived; access is still
+// revoked centrally when Circle Summary is disabled or the leader is archived.
+export const RADIUS_LINK_TTL_MS = 100 * 365 * 24 * 60 * 60 * 1000;
 export const OTP_TTL_MS = 10 * 60 * 1000; // 10min
 export const OTP_MAX_ATTEMPTS = 5;
 
@@ -57,42 +61,66 @@ export function hashOtpCode(code: string): string {
 
 // ---- Session cookie ----
 
-function signSession(leaderId: string, expiresMs: number): string {
+function signSession(payload: string, expiresMs: number): string {
   return b64urlEncode(
     createHmac('sha256', getSessionSecret())
-      .update(`${leaderId}:${expiresMs}`)
+      .update(`${payload}:${expiresMs}`)
       .digest()
   );
 }
 
-export function createSessionToken(leaderId: string | number, ttlMs = MAGIC_LINK_TTL_MS): string {
+export function createSessionToken(
+  leaderId: string | number,
+  ttlMs = MAGIC_LINK_TTL_MS,
+  options?: { sessionMaxAgeSeconds?: number }
+): string {
   const id = String(leaderId);
+  const sessionMaxAgeSeconds = options?.sessionMaxAgeSeconds;
+  const payload = sessionMaxAgeSeconds && sessionMaxAgeSeconds > 0
+    ? `${id}:sessionMaxAge=${Math.floor(sessionMaxAgeSeconds)}`
+    : id;
   const expiresMs = Date.now() + ttlMs;
-  return `${b64urlEncode(id)}.${expiresMs}.${signSession(id, expiresMs)}`;
+  return `${b64urlEncode(payload)}.${expiresMs}.${signSession(payload, expiresMs)}`;
 }
 
-export function verifySessionToken(token: string | undefined | null): { leaderId: string } | null {
+export function verifySessionToken(token: string | undefined | null): {
+  leaderId: string;
+  expiresMs: number;
+  sessionMaxAgeSeconds?: number;
+} | null {
   if (!token || typeof token !== 'string') return null;
   const parts = token.split('.');
   if (parts.length !== 3) return null;
 
-  let leaderId: string;
+  let payload: string;
   try {
-    leaderId = b64urlDecode(parts[0]).toString('utf8');
+    payload = b64urlDecode(parts[0]).toString('utf8');
   } catch {
     return null;
   }
+  const [leaderId, ...payloadParts] = payload.split(':');
   const expiresMs = Number(parts[1]);
   if (!leaderId || !Number.isFinite(expiresMs)) return null;
   if (Date.now() > expiresMs) return null;
 
-  const expected = signSession(leaderId, expiresMs);
+  const expected = signSession(payload, expiresMs);
   const a = Buffer.from(expected);
   const b = Buffer.from(parts[2]);
   if (a.length !== b.length) return null;
   if (!timingSafeEqual(a, b)) return null;
 
-  return { leaderId };
+  const sessionMaxAgePart = payloadParts.find((part) => part.startsWith('sessionMaxAge='));
+  const sessionMaxAgeSeconds = sessionMaxAgePart
+    ? Number(sessionMaxAgePart.replace('sessionMaxAge=', ''))
+    : undefined;
+
+  return {
+    leaderId,
+    expiresMs,
+    ...(sessionMaxAgeSeconds && Number.isFinite(sessionMaxAgeSeconds) && sessionMaxAgeSeconds > 0
+      ? { sessionMaxAgeSeconds }
+      : {}),
+  };
 }
 
 /** Normalize a phone number for comparison: digits only, last 10. */

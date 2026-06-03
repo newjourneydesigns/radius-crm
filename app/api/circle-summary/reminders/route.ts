@@ -16,7 +16,7 @@ import { NextResponse } from 'next/server';
 import { DateTime } from 'luxon';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
-import { createSessionToken } from '../../../../lib/leader-tokens';
+import { createSessionToken, RADIUS_LINK_TTL_MS } from '../../../../lib/leader-tokens';
 import { sendReminderEmail } from '../../../../lib/circle-summary/email';
 import { getCircleSummaryBaseUrl } from '../../../../lib/circle-summary/links';
 
@@ -24,7 +24,6 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const TZ = 'America/Chicago';
-const MAGIC_LINK_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const PRE_MEETING_WINDOW_MIN = 45;
 const PRE_MEETING_WINDOW_MAX = 75;
 const FOLLOW_UP_HOUR_START = 8;  // 8am local
@@ -33,7 +32,7 @@ const FOLLOW_UP_LOOKBACK_DAYS = 7;
 
 function buildMagicLinkUrl(leaderId: number | string, next: string): string {
   const appUrl = getCircleSummaryBaseUrl();
-  const token = createSessionToken(leaderId, MAGIC_LINK_TTL_MS);
+  const token = createSessionToken(leaderId, RADIUS_LINK_TTL_MS);
   const url = new URL('/api/circle-summary/auth/link', appUrl);
   url.searchParams.set('t', token);
   url.searchParams.set('next', next);

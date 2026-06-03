@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { setCircleSummaryAppBadge } from '../../../lib/circle-summary/badging';
 
-type Tab = 'events' | 'roster' | 'inbox' | 'resources' | 'settings';
+type Tab = 'events' | 'roster' | 'inbox' | 'resources' | 'health' | 'settings';
 
 export default function CircleTabs({
   urlGroupId,
@@ -63,6 +63,7 @@ export default function CircleTabs({
     { key: 'events', label: 'Events', href: `/circle-summary/${urlGroupId}/events` },
     { key: 'roster', label: 'Roster', href: `/circle-summary/${urlGroupId}/roster` },
     { key: 'resources', label: 'Resources', href: `/circle-summary/${urlGroupId}/resources` },
+    { key: 'health', label: 'Health', href: `/circle-summary/${urlGroupId}/health` },
     { key: 'inbox', label: 'Inbox', href: `/circle-summary/${urlGroupId}/inbox` },
   ];
   const hasUnreadMessages = unreadCount !== null && unreadCount > 0;

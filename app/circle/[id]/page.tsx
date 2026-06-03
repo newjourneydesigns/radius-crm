@@ -23,6 +23,9 @@ import AddToBoardModal from '../../../components/modals/AddToBoardModal';
 
 import AttendanceTrends from '../../../components/circle/AttendanceTrends';
 import CircleLeaderProfileSkeleton from '../../../components/circle/CircleLeaderProfileSkeleton';
+import { useLeadershipSnapshots } from '../../../hooks/useLeadershipSnapshots';
+import { formatRating } from '../../../lib/leadershipSnapshot';
+import type { LeadershipSnapshot } from '../../../lib/supabase';
 import { useRealtimeSubscription, RealtimeSubscriptionConfig } from '../../../hooks/useRealtimeSubscription';
 import { getEventSummaryButtonLabel, getEventSummaryColors, getEventSummaryState } from '../../../lib/event-summary-utils';
 import { calculateSuggestedScore, getFinalScore } from '../../../lib/evaluationQuestions';
@@ -206,11 +209,20 @@ type CircleSummaryAccessStatus = {
 const errorMessage = (error: unknown, fallback: string): string =>
   error instanceof Error ? error.message : fallback;
 
+/** Rating scale max a snapshot was scored on (frozen, or inferred). */
+const snapMax = (snap: LeadershipSnapshot): number =>
+  snap.template?.scale?.length || (snap.template_version === 1 ? 4 : 5);
+
 export default function CircleLeaderProfilePage() {
   const params = useParams();
   const leaderId = params?.id ? parseInt(params.id as string) : 0;
   const { user, isAdmin } = useAuth();
   const [scorecardSummary, setScorecardSummary] = useState<{ reach: number; connect: number; disciple: number; develop: number; average: number } | null>(null);
+  const { snapshots: healthSnapshots, loadForLeader: loadHealthSnapshots } = useLeadershipSnapshots();
+  const latestHealth = healthSnapshots[0] ?? null;
+  useEffect(() => {
+    if (leaderId) loadHealthSnapshots(leaderId);
+  }, [leaderId, loadHealthSnapshots]);
 
   const [leader, setLeader] = useState<CircleLeader | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -2248,7 +2260,7 @@ export default function CircleLeaderProfilePage() {
           {/* Main Profile Info */}
           <div className="lg:col-span-2 flex flex-col gap-6">
             {/* Circle / Team Info */}
-            <div className="order-3 lg:order-1 bg-brand-dark border border-zinc-700 rounded-xl shadow-card-glass">
+            <div className="order-3 lg:order-2 lg:flex-1 bg-brand-dark border border-zinc-700 rounded-xl shadow-card-glass">
               <div className="px-6 py-4 border-b border-zinc-700">
                 <h2 className="text-base font-semibold text-white">{isHostTeam ? 'Team Info' : 'Circle Info'}</h2>
               </div>
@@ -2568,7 +2580,7 @@ export default function CircleLeaderProfilePage() {
             </div>
 
             {/* Primary Leader */}
-            <div className="order-1 lg:order-2 bg-brand-dark border border-zinc-700 rounded-xl shadow-card-glass">
+            <div className="order-1 lg:order-1 bg-brand-dark border border-zinc-700 rounded-xl shadow-card-glass">
               <div className="px-6 py-4 border-b border-zinc-700">
                 <h2 className="text-base font-semibold text-white">Primary Leader</h2>
               </div>
@@ -3108,6 +3120,53 @@ export default function CircleLeaderProfilePage() {
               </div>
             </div>
 
+            {/* Leader Health Snapshot - Desktop sidebar (circle leaders only) */}
+            {!isHostTeam && (() => {
+              const overallPct = latestHealth?.overall_score ?? null;
+              const max = latestHealth ? snapMax(latestHealth) : 5;
+              const numColor = overallPct == null ? 'text-white'
+                : overallPct >= 70 ? 'text-emerald-400'
+                : overallPct >= 50 ? 'text-amber-400'
+                : 'text-red-400';
+              return (
+                <div className="hidden lg:flex lg:flex-col bg-brand-dark border border-zinc-700 rounded-xl shadow-card-glass overflow-hidden">
+                  <div className="px-4 py-3 border-b border-zinc-700 flex items-center justify-between">
+                    <Link href={`/circle/${leaderId}/leadership-snapshot`} className="text-xs font-semibold uppercase tracking-wide text-slate-500 hover:text-emerald-400 transition-colors">Health Snapshot</Link>
+                    {overallPct != null && (
+                      <span className={`text-sm font-bold ${numColor}`}>
+                        {formatRating(overallPct, max)}<span className="text-xs font-normal text-slate-500">/{max}</span>
+                      </span>
+                    )}
+                  </div>
+                  {latestHealth ? (
+                    <Link href={`/circle/${leaderId}/leadership-snapshot`} className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-zinc-700/40 transition-colors">
+                      <div className="min-w-0">
+                        <div className="flex items-baseline gap-1">
+                          <span className={`text-2xl font-bold leading-none ${numColor}`}>{formatRating(overallPct!, max)}</span>
+                          <span className="text-xs font-normal text-slate-500">/ {max} overall</span>
+                        </div>
+                        <div className="text-xs text-slate-500 mt-1">
+                          Last taken {new Date(latestHealth.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </div>
+                      </div>
+                      <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </Link>
+                  ) : (
+                    <div className="px-4 py-3">
+                      <Link href={`/circle/${leaderId}/leadership-snapshot`} className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors">
+                        No snapshot yet — view page
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Scorecard Summary - Desktop sidebar (circle leaders only) */}
             {!isHostTeam && (() => {
               const scores = scorecardSummary;
@@ -3211,6 +3270,53 @@ export default function CircleLeaderProfilePage() {
 
 
         </div>
+
+        {/* Leader Health Snapshot - Mobile (circle leaders only) */}
+        {!isHostTeam && (() => {
+          const overallPct = latestHealth?.overall_score ?? null;
+          const max = latestHealth ? snapMax(latestHealth) : 5;
+          const numColor = overallPct == null ? 'text-white'
+            : overallPct >= 70 ? 'text-emerald-400'
+            : overallPct >= 50 ? 'text-amber-400'
+            : 'text-red-400';
+          return (
+            <div className="lg:hidden max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+              <div className="bg-brand-dark border border-zinc-700 rounded-xl shadow-card-glass overflow-hidden">
+                <div className="px-4 py-3 border-b border-zinc-700 flex items-center justify-between">
+                  <Link href={`/circle/${leaderId}/leadership-snapshot`} className="text-xs font-semibold uppercase tracking-wide text-slate-500 hover:text-emerald-400 transition-colors">Health Snapshot</Link>
+                  {overallPct != null && (
+                    <span className={`text-sm font-bold ${numColor}`}>
+                      {formatRating(overallPct, max)}<span className="text-xs font-normal text-slate-500">/{max}</span>
+                    </span>
+                  )}
+                </div>
+                {latestHealth ? (
+                  <Link href={`/circle/${leaderId}/leadership-snapshot`} className="flex items-center justify-between px-4 py-3 hover:bg-zinc-700/40 transition-colors">
+                    <div className="min-w-0">
+                      <div className="flex items-baseline gap-1">
+                        <span className={`text-2xl font-bold leading-none ${numColor}`}>{formatRating(overallPct!, max)}</span>
+                        <span className="text-xs font-normal text-slate-500">/ {max} overall</span>
+                      </div>
+                      <div className="text-xs text-slate-500 mt-1">
+                        Last taken {new Date(latestHealth.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </div>
+                    </div>
+                    <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                ) : (
+                  <Link href={`/circle/${leaderId}/leadership-snapshot`} className="flex items-center justify-between px-4 py-3 hover:bg-zinc-700/50 transition-colors">
+                    <span className="text-sm text-slate-400">No snapshot yet — tap to view</span>
+                    <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Scorecard Summary - Mobile (bottom of page, circle leaders only) */}
         {!isHostTeam && (() => {

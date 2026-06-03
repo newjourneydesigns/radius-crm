@@ -106,8 +106,10 @@ async function sendBrandedEmail(opts: {
   if (!process.env.RESEND_API_KEY) {
     return { success: false, error: 'RESEND_API_KEY not configured' };
   }
-  const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev';
-  const fromName = process.env.EMAIL_FROM_NAME || 'Valley Creek Circles';
+  // Circle Summary emails send from the church's own identity, distinct from the
+  // Radius CRM sender (EMAIL_FROM / EMAIL_FROM_NAME) used by digests and access links.
+  const fromEmail = process.env.CIRCLE_SUMMARY_EMAIL_FROM || 'nextsteps@valleycreek.org';
+  const fromName = process.env.CIRCLE_SUMMARY_EMAIL_FROM_NAME || 'Valley Creek Church';
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',

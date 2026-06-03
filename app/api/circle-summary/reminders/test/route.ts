@@ -11,7 +11,7 @@ import { DateTime } from 'luxon';
 import { verifyAdminAccess } from '../../../../../lib/auth-middleware';
 import { createServiceSupabaseClient } from '../../../../../lib/server-supabase';
 import { createCCBClient } from '../../../../../lib/ccb/ccb-client';
-import { createSessionToken } from '../../../../../lib/leader-tokens';
+import { createSessionToken, RADIUS_LINK_TTL_MS } from '../../../../../lib/leader-tokens';
 import { sendReminderEmail } from '../../../../../lib/circle-summary/email';
 import { isCircleSummaryAccessEnabled } from '../../../../../lib/circle-summary/session';
 import { getCircleSummaryBaseUrl } from '../../../../../lib/circle-summary/links';
@@ -19,8 +19,6 @@ import { getCircleSummaryBaseUrl } from '../../../../../lib/circle-summary/links
 export const dynamic = 'force-dynamic';
 
 const TZ = 'America/Chicago';
-const MAGIC_LINK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-
 export async function POST(req: NextRequest) {
   // Accept either admin session token or CRON_SECRET (dev convenience)
   const auth = req.headers.get('authorization') || '';
@@ -95,7 +93,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const token = createSessionToken(leader.id, MAGIC_LINK_TTL_MS);
+  const token = createSessionToken(leader.id, RADIUS_LINK_TTL_MS);
   const magicUrl = new URL('/api/circle-summary/auth/link', getCircleSummaryBaseUrl(req));
   magicUrl.searchParams.set('t', token);
   magicUrl.searchParams.set('next', '/circle-summary/events');

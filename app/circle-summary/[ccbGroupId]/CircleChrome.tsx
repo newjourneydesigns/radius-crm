@@ -15,7 +15,7 @@ export type HeaderLeader = {
   ccb_group_id: string | number | null;
 };
 
-type ActiveTab = 'events' | 'roster' | 'inbox' | 'resources' | 'settings';
+type ActiveTab = 'events' | 'roster' | 'inbox' | 'resources' | 'health' | 'settings';
 
 /**
  * Client chrome for the Circle group pages. The leader comes from the
@@ -44,6 +44,7 @@ export default function CircleChrome({
     : tail === 'roster' ? 'roster'
     : tail === 'inbox' ? 'inbox'
     : tail === 'resources' ? 'resources'
+    : tail === 'health' ? 'health'
     : tail === 'settings' ? 'settings'
     : null;
   const isEventSummaryForm = pathname.startsWith(`${base}/events/`);

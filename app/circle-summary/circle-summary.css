@@ -176,6 +176,37 @@ body:has(.cs-splash),
 .cs-root button.cs-remove-roster-btn:hover {
   background: #fef2f2 !important;
 }
+.cs-root .cs-settings-green-action {
+  display: inline-flex !important;
+  height: 2.75rem !important;
+  width: 100% !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+  border-radius: 9999px !important;
+  border: 1px solid rgba(44, 165, 43, 0.2) !important;
+  background: #34B233 !important;
+  padding: 0 1.25rem !important;
+  color: #ffffff !important;
+  font-size: 0.875rem !important;
+  font-weight: 800 !important;
+  line-height: 1.25rem !important;
+  text-decoration: none !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  transition: background-color 160ms ease, opacity 160ms ease !important;
+}
+.cs-root .cs-settings-green-action:hover:not(:disabled) {
+  background: #2fa62e !important;
+  color: #ffffff !important;
+}
+.cs-root .cs-settings-green-action:disabled {
+  cursor: not-allowed !important;
+  opacity: 0.6 !important;
+}
+.cs-root .cs-settings-green-action,
+.cs-root .cs-settings-green-action * {
+  color: #ffffff !important;
+}
 /* Buttons keep their own color */
 .cs-root .cs-btn-primary {
   color: #ffffff !important;
@@ -957,6 +988,30 @@ a.cs-button:active {
   color: var(--cs-muted);
   margin-top: 0.3rem;
 }
+.cs-root .cs-help-quick-link,
+.cs-root .cs-help-quick-link:visited {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid rgba(52, 178, 51, 0.35);
+  background: rgba(52, 178, 51, 0.08);
+  padding: 0.5rem 0.75rem;
+  color: var(--cs-green-darker) !important;
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1rem;
+  text-align: center;
+  text-decoration: none !important;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+.cs-root .cs-help-quick-link:hover,
+.cs-root .cs-help-quick-link:focus-visible {
+  border-color: var(--cs-green);
+  background: rgba(52, 178, 51, 0.16);
+  color: var(--cs-green-darker) !important;
+}
 
 .cs-check {
   appearance: none !important;
@@ -1214,3 +1269,56 @@ a.cs-button:active {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* ─── Leadership Snapshot (Health tab) ─────────────────────────── */
+/* Rating option pill (1–4 scale). */
+.cs-root .cs-rate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0.6rem 0.25rem;
+  border: 1.5px solid var(--cs-border);
+  border-radius: 0.625rem;
+  background: #ffffff;
+  color: var(--cs-ink-soft) !important;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.cs-root .cs-rate:hover:not(.is-selected) {
+  border-color: var(--cs-green);
+  background: #f5fbf5;
+}
+.cs-root .cs-rate.is-selected,
+.cs-root .cs-rate.is-selected * {
+  background: var(--cs-green);
+  border-color: var(--cs-green);
+  color: #ffffff !important;
+}
+.cs-rate-num { font-size: 1.05rem; font-weight: 800; line-height: 1; }
+.cs-rate-label { font-size: 0.62rem; font-weight: 600; line-height: 1.1; }
+
+/* Score readouts colored by band. !important to beat the .cs-root reset. */
+.cs-score-strong { color: var(--cs-green-darker) !important; }
+.cs-score-warn { color: #b45309 !important; }
+.cs-score-low { color: #b91c1c !important; }
+
+/* Score card on the results view. */
+.cs-score-card {
+  border: 1px solid var(--cs-border);
+  border-radius: 0.75rem;
+  padding: 0.85rem 0.5rem;
+  text-align: center;
+  background: #ffffff;
+}
+.cs-score-card.strength { border-color: #bbf7d0; background: #f0fdf4; }
+.cs-score-card.growth { border-color: #fde68a; background: #fffbeb; }
+
+/* Category drill-down row. */
+.cs-drill {
+  border: 1px solid var(--cs-border);
+  border-radius: 0.625rem;
+  overflow: hidden;
+}
+.cs-drill + .cs-drill { margin-top: 0.5rem; }

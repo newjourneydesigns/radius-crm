@@ -1,8 +1,10 @@
 /**
  * GET /api/circle-summary/auth/link?t=TOKEN
  *
- * Sign-in via HMAC-signed magic link. Used by reminder emails and the admin
- * "Text Circle Summary link" button. The token has a 7-day TTL embedded.
+ * Sign-in via HMAC-signed magic link. Used by reminder emails, admin
+ * "Text Circle Summary link" links, and leader-generated temporary share links.
+ * Radius-issued links are long-lived; temporary share links carry a 7-day TTL
+ * plus a matching temporary session max-age.
  *
  * Implementation note: we used to do `NextResponse.redirect(...)` while
  * attaching the session cookie in the same response. Some Netlify / edge
@@ -23,6 +25,12 @@ import { createServiceSupabaseClient } from '../../../../../lib/server-supabase'
 
 export const dynamic = 'force-dynamic';
 
+function safeCircleSummaryPath(path: string | null): string {
+  if (!path || !path.startsWith('/') || path.startsWith('//')) return '/circle-summary/events';
+  if (path === '/circle-summary' || path.startsWith('/circle-summary/')) return path;
+  return '/circle-summary/events';
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -35,18 +43,14 @@ function escapeHtml(s: string): string {
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const token = url.searchParams.get('t') || '';
-  const rawNext = url.searchParams.get('next') || '/circle-summary/events';
-  // Only allow same-origin paths
-  const next =
-    rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/circle-summary/events';
+  const next = safeCircleSummaryPath(url.searchParams.get('next'));
 
   const supabase = createServiceSupabaseClient();
   const verified = verifySessionToken(token);
 
   // Token expired/invalid: fall back to the existing leader session cookie
-  // if one is present. This covers the bookmark case — the magic-link token
-  // is only valid 7 days, but the session cookie persists much longer, so
-  // bookmarking the link URL shouldn't force a re-auth.
+  // if one is present. This covers bookmark cases where a leader already has
+  // a valid Circle Summary session on this browser.
   if (!verified?.leaderId) {
     const existingLeaderId = await getSessionLeaderId();
     if (existingLeaderId) {
@@ -123,5 +127,9 @@ export async function GET(req: Request) {
     status: 200,
     headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
   });
-  return await attachSessionCookie(res, verified.leaderId, req);
+  const remainingTokenSeconds = Math.max(1, Math.floor((verified.expiresMs - Date.now()) / 1000));
+  const maxAgeSeconds = verified.sessionMaxAgeSeconds
+    ? Math.min(verified.sessionMaxAgeSeconds, remainingTokenSeconds)
+    : undefined;
+  return await attachSessionCookie(res, verified.leaderId, req, { maxAgeSeconds });
 }

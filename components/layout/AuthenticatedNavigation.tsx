@@ -147,6 +147,7 @@ const primaryNavItems = [
 ];
 
 const toolsNavItems = [
+  { href: '/leadership-snapshot', label: 'Leadership Snapshot', Icon: LayoutListIcon },
   { href: '/progress',      label: 'Progress',        Icon: ChartIcon },
   { href: '/person-lookup', label: 'Person Lookup',   Icon: SearchNavIcon },
   { href: '/birthday-list', label: 'Birthday List',   Icon: BirthdayCakeIcon },
@@ -162,6 +163,8 @@ const circleSummaryNavItems = [
 ];
 
 const adminToolsNavItems = [
+  { href: '/admin/leadership-snapshots', label: 'Leadership Snapshots',  Icon: ChartIcon, adminOnly: true },
+  { href: '/admin/leadership-snapshots/questions', label: 'Health Questions', Icon: LayoutListIcon, adminOnly: true },
   { href: '/ccb-usage',              label: 'CCB Usage',                Icon: ChartIcon },
   { href: '/add-leader',             label: 'Add Circle/Leader',        Icon: UserPlusIcon },
   { href: '/import-circles',         label: 'Import Circles',           Icon: ImportCirclesIcon },

@@ -3,20 +3,18 @@
  * Body: { leader_id }
  *
  * Admin-only. Returns a magic-link URL the admin can text or share to a
- * Circle Leader. When the leader taps the link, they are auto-signed-in to
- * /circle-summary/events.
+ * Circle Leader. Radius-issued links are long-lived; access is revoked through
+ * Circle Summary access controls or archived leader status.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdminAccess } from '../../../../lib/auth-middleware';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
-import { createSessionToken } from '../../../../lib/leader-tokens';
+import { createSessionToken, RADIUS_LINK_TTL_MS } from '../../../../lib/leader-tokens';
 import { isCircleSummaryAccessEnabled } from '../../../../lib/circle-summary/session';
 import { getCircleSummaryBaseUrl } from '../../../../lib/circle-summary/links';
 
 export const dynamic = 'force-dynamic';
-
-const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export async function POST(req: NextRequest) {
   try {
@@ -46,7 +44,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Circle Summary access is disabled for this leader.' }, { status: 403 });
     }
 
-    const token = createSessionToken(leader.id, TTL_MS);
+    const token = createSessionToken(leader.id, RADIUS_LINK_TTL_MS);
     const url = new URL('/api/circle-summary/auth/link', getCircleSummaryBaseUrl(req));
     url.searchParams.set('t', token);
     url.searchParams.set('next', '/circle-summary/events');
@@ -59,7 +57,7 @@ export async function POST(req: NextRequest) {
       phone: leader.phone || null,
       email: leader.email || null,
       smsBody: messageBody,
-      expiresInDays: 7,
+      permanent: true,
     });
   } catch (err: unknown) {
     console.error('[admin-magic-link] error:', err);

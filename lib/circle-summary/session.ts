@@ -30,6 +30,7 @@ export type SessionLeader = {
 };
 
 const INELIGIBLE_STATUSES = new Set(['archive', 'archived']);
+const TEMP_SESSION_EXPIRES_COOKIE_NAME = `${SESSION_COOKIE_NAME}_expires`;
 
 // `last_seen_at` is telemetry, not auth state — don't block the request on it.
 // We only bother writing when the stored value is older than this, which keeps
@@ -73,7 +74,45 @@ function isMigrationMissingError(err: unknown): boolean {
   );
 }
 
-function setSessionCookie(res: NextResponse, token: string): NextResponse {
+function getTemporarySessionExpiresMs(): number | null {
+  const raw = cookies().get(TEMP_SESSION_EXPIRES_COOKIE_NAME)?.value ?? null;
+  if (!raw) return null;
+  const expiresMs = Number(raw);
+  return Number.isFinite(expiresMs) ? expiresMs : null;
+}
+
+function setTemporarySessionExpiresCookie(res: NextResponse, expiresMs: number, maxAgeSeconds: number): NextResponse {
+  res.cookies.set({
+    name: TEMP_SESSION_EXPIRES_COOKIE_NAME,
+    value: String(expiresMs),
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: maxAgeSeconds,
+  });
+  return res;
+}
+
+function clearTemporarySessionExpiresCookie(res: NextResponse): NextResponse {
+  res.cookies.set({
+    name: TEMP_SESSION_EXPIRES_COOKIE_NAME,
+    value: '',
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 0,
+  });
+  return res;
+}
+
+function isTemporarySessionExpired(): boolean {
+  const expiresMs = getTemporarySessionExpiresMs();
+  return expiresMs !== null && Date.now() >= expiresMs;
+}
+
+function setSessionCookie(res: NextResponse, token: string, maxAgeSeconds = SESSION_COOKIE_MAX_AGE_SECONDS): NextResponse {
   res.cookies.set({
     name: SESSION_COOKIE_NAME,
     value: token,
@@ -81,7 +120,7 @@ function setSessionCookie(res: NextResponse, token: string): NextResponse {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: SESSION_COOKIE_MAX_AGE_SECONDS,
+    maxAge: maxAgeSeconds,
   });
   return res;
 }
@@ -90,6 +129,7 @@ function setSessionCookie(res: NextResponse, token: string): NextResponse {
 export async function getSessionLeaderId(): Promise<string | null> {
   const c = getSessionCookieValue();
   if (!c) return null;
+  if (isTemporarySessionExpired()) return null;
 
   const tokenHash = hashSessionToken(c);
   const supabase = createServiceSupabaseClient();
@@ -120,6 +160,7 @@ export async function getSessionLeaderId(): Promise<string | null> {
 export const getSessionLeader = cache(async function getSessionLeader(): Promise<SessionLeader | null> {
   const token = getSessionCookieValue();
   if (!token) return null;
+  if (isTemporarySessionExpired()) return null;
 
   const supabase = createServiceSupabaseClient();
   const tokenHash = hashSessionToken(token);
@@ -183,9 +224,13 @@ export const getSessionLeader = cache(async function getSessionLeader(): Promise
 export async function attachSessionCookie(
   res: NextResponse,
   leaderId: string | number,
-  req?: Request
+  req?: Request,
+  options?: { maxAgeSeconds?: number }
 ): Promise<NextResponse> {
   const token = createOpaqueSessionToken();
+  const maxAgeSeconds = options?.maxAgeSeconds && options.maxAgeSeconds > 0
+    ? Math.floor(options.maxAgeSeconds)
+    : SESSION_COOKIE_MAX_AGE_SECONDS;
   const supabase = createServiceSupabaseClient();
   const { error } = await supabase.from('leader_sessions').insert({
     leader_id: leaderId,
@@ -198,13 +243,27 @@ export async function attachSessionCookie(
     throw new Error('Could not create leader session.');
   }
 
-  return setSessionCookie(res, token);
+  setSessionCookie(res, token, maxAgeSeconds);
+  if (maxAgeSeconds < SESSION_COOKIE_MAX_AGE_SECONDS) {
+    setTemporarySessionExpiresCookie(res, Date.now() + maxAgeSeconds * 1000, maxAgeSeconds);
+  } else {
+    clearTemporarySessionExpiresCookie(res);
+  }
+  return res;
 }
 
 /** Refresh the persistent cookie max-age for the current request token. */
 export function refreshSessionCookie(res: NextResponse): NextResponse {
   const token = getSessionCookieValue();
   if (!token) return res;
+  const temporaryExpiresMs = getTemporarySessionExpiresMs();
+  if (temporaryExpiresMs !== null) {
+    const remainingSeconds = Math.max(0, Math.floor((temporaryExpiresMs - Date.now()) / 1000));
+    if (remainingSeconds <= 0) return clearSessionCookie(res);
+    setSessionCookie(res, token, remainingSeconds);
+    setTemporarySessionExpiresCookie(res, temporaryExpiresMs, remainingSeconds);
+    return res;
+  }
   return setSessionCookie(res, token);
 }
 
@@ -244,6 +303,7 @@ export function clearSessionCookie(res: NextResponse): NextResponse {
     path: '/',
     maxAge: 0,
   });
+  clearTemporarySessionExpiresCookie(res);
   return res;
 }
 

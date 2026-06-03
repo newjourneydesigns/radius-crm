@@ -36,7 +36,7 @@ const LOCKED_TYPE: Array<FormField['maps_to']> = ['priority', 'due_date', 'assig
 type Member = { id: string; name: string };
 
 const inputCls =
-  'w-full rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 text-base sm:text-sm text-white placeholder-slate-400 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500';
+  'w-full rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 text-base sm:text-sm text-white placeholder-slate-400 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-slate-500';
 const labelCls = 'mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-400';
 
 let nextFieldNum = 100;
@@ -223,7 +223,7 @@ function FormEditorInner() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-slate-900">
+      <div className="min-h-screen bg-[#0f1117]">
         <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
           <div className="h-8 w-40 animate-pulse rounded bg-slate-800" />
           <div className="mt-6 h-64 animate-pulse rounded-xl bg-slate-800" />
@@ -234,7 +234,7 @@ function FormEditorInner() {
 
   if (error && !form) {
     return (
-      <div className="min-h-screen bg-slate-900">
+      <div className="min-h-screen bg-[#0f1117]">
         <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
           <p className="mt-20 text-center text-sm text-red-400">{error}</p>
         </div>
@@ -252,7 +252,7 @@ function FormEditorInner() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="min-h-screen bg-[#0f1117]">
       <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
         {/* Header */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -264,17 +264,17 @@ function FormEditorInner() {
             >
               <ArrowLeft className="h-5 w-5" strokeWidth={1.8} />
             </button>
-            <FileText className="h-6 w-6 text-indigo-400" strokeWidth={1.8} />
+            <FileText className="h-6 w-6 text-brand-light" strokeWidth={1.8} />
             <h1 className="truncate text-xl font-semibold tracking-tight text-white">Edit Form</h1>
           </div>
           <div className="flex items-center gap-2">
             {form && (
-              <button
-                onClick={() => window.open(`/f/${form.slug}`, '_blank')}
+              <a
+                href={`/f/${form.slug}`}
                 className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
               >
                 <Eye className="h-4 w-4" strokeWidth={1.8} /> Preview
-              </button>
+              </a>
             )}
             <button
               onClick={handleSave}
@@ -294,7 +294,7 @@ function FormEditorInner() {
               onClick={() => setActiveTab(t)}
               className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                 activeTab === t
-                  ? 'border-indigo-500 text-indigo-300'
+                  ? 'border-slate-500 text-slate-200'
                   : 'border-transparent text-slate-400 hover:text-white'
               }`}
             >
@@ -323,7 +323,7 @@ function FormEditorInner() {
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-[340px_1fr] md:items-start">
             {/* Settings */}
-            <div className="rounded-xl border border-slate-700 bg-slate-800 p-5 shadow-card-glass">
+            <div className="rounded-xl border border-zinc-700 bg-brand-dark p-5 shadow-card-glass">
               <h2 className="mb-4 text-xs font-semibold uppercase tracking-wide text-slate-300">Settings</h2>
 
               <div className="mb-4">
@@ -362,7 +362,7 @@ function FormEditorInner() {
                       key={String(val)}
                       onClick={() => setIsActive(val)}
                       className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-                        isActive === val ? 'bg-indigo-500 text-white' : 'bg-slate-700 text-slate-400 hover:text-white'
+                        isActive === val ? 'bg-brand-mid text-white' : 'bg-slate-700 text-slate-400 hover:text-white'
                       }`}
                     >
                       {val ? 'Active' : 'Inactive'}
@@ -375,7 +375,7 @@ function FormEditorInner() {
                 <div>
                   <label className={labelCls}>Public Link</label>
                   <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2">
-                    <span className="flex-1 select-all truncate text-xs text-indigo-300">{publicUrl}</span>
+                    <span className="flex-1 select-all truncate text-xs text-slate-300">{publicUrl}</span>
                     <button
                       onClick={copyLink}
                       title="Copy link"
@@ -389,7 +389,7 @@ function FormEditorInner() {
             </div>
 
             {/* Fields */}
-            <div className="rounded-xl border border-slate-700 bg-slate-800 p-5 shadow-card-glass">
+            <div className="rounded-xl border border-zinc-700 bg-brand-dark p-5 shadow-card-glass">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-300">Fields</h2>
                 <button
@@ -421,7 +421,7 @@ function FormEditorInner() {
                         }}
                         onDragEnd={() => setDragIdx(null)}
                         className={`rounded-lg border bg-slate-900/50 transition-colors ${
-                          expanded ? 'border-indigo-500' : 'border-slate-700 hover:border-slate-600'
+                          expanded ? 'border-slate-500' : 'border-slate-700 hover:border-slate-600'
                         } ${dragIdx === idx ? 'opacity-50' : ''}`}
                       >
                         <div
@@ -442,7 +442,7 @@ function FormEditorInner() {
                               </span>
                             )}
                             {field.maps_to && (
-                              <span className="rounded bg-indigo-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-300">
+                              <span className="rounded bg-slate-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-slate-300">
                                 → {field.maps_to}
                               </span>
                             )}
@@ -547,7 +547,7 @@ function FormEditorInner() {
                                   onClick={() => updateField(field.id, { required: !field.required })}
                                   className={`w-full rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
                                     field.required
-                                      ? 'border-transparent bg-indigo-500 text-white'
+                                      ? 'border-transparent bg-brand-mid text-white'
                                       : 'border-slate-600 bg-slate-700 text-slate-400 hover:text-white'
                                   }`}
                                 >
@@ -591,7 +591,7 @@ function AssigneeSubEditor({
           <button
             onClick={() => updateField(field.id, { assignee_visible: true, assignee_default_id: undefined })}
             className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-              !hidden ? 'bg-indigo-500 text-white' : 'bg-slate-700 text-slate-400 hover:text-white'
+              !hidden ? 'bg-brand-mid text-white' : 'bg-slate-700 text-slate-400 hover:text-white'
             }`}
           >
             Visible
@@ -599,7 +599,7 @@ function AssigneeSubEditor({
           <button
             onClick={() => updateField(field.id, { assignee_visible: false, assignee_options: [] })}
             className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-              hidden ? 'bg-indigo-500 text-white' : 'bg-slate-700 text-slate-400 hover:text-white'
+              hidden ? 'bg-brand-mid text-white' : 'bg-slate-700 text-slate-400 hover:text-white'
             }`}
           >
             Hidden
@@ -643,7 +643,7 @@ function AssigneeSubEditor({
                     assignee_options: allChecked ? [] : boardMembers.map((m) => ({ id: m.id, name: m.name })),
                   })
                 }
-                className="rounded-md px-2 py-1 text-xs font-medium text-indigo-300 transition-colors hover:bg-slate-700"
+                className="rounded-md px-2 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
               >
                 {allChecked ? 'Deselect all' : 'Select all'}
               </button>
@@ -668,7 +668,7 @@ function AssigneeSubEditor({
                             : [...current, { id: m.id, name: m.name }],
                         });
                       }}
-                      className="h-4 w-4 rounded border-slate-600 bg-slate-700 text-indigo-500 focus:ring-indigo-500"
+                      className="h-4 w-4 rounded border-slate-600 bg-slate-700 text-slate-400 focus:ring-slate-500"
                     />
                     <span className="text-sm text-slate-200">{m.name}</span>
                   </label>
@@ -714,7 +714,7 @@ function SubmissionsPanel({
   const titleField = fields.find((f) => f.maps_to === 'title');
 
   return (
-    <div className="rounded-xl border border-slate-700 bg-slate-800 p-5 shadow-card-glass">
+    <div className="rounded-xl border border-zinc-700 bg-brand-dark p-5 shadow-card-glass">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-base font-semibold text-white">
           {loadingSubs ? 'Loading…' : `${submissions.length} Submission${submissions.length !== 1 ? 's' : ''}`}
@@ -726,7 +726,7 @@ function SubmissionsPanel({
               value={subsSearch}
               onChange={(e) => setSubsSearch(e.target.value)}
               placeholder="Search submissions…"
-              className="w-full rounded-lg border border-slate-600 bg-slate-700 py-2 pl-9 pr-3 text-sm text-white placeholder-slate-400 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-slate-600 bg-slate-700 py-2 pl-9 pr-3 text-sm text-white placeholder-slate-400 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-slate-500"
             />
           </div>
           <button
@@ -812,7 +812,7 @@ function SubRow({ label, value }: { label: string; value: string }) {
 
 export default function FormEditorPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-900" />}>
+    <Suspense fallback={<div className="min-h-screen bg-[#0f1117]" />}>
       <FormEditorInner />
     </Suspense>
   );

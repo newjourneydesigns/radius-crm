@@ -10,6 +10,7 @@ const TABS = [
   { label: 'Profile',   route: (id: string) => `/circle/${id}` },
   { label: 'Notes',     route: (id: string) => `/circle/${id}/notes` },
   { label: 'Scorecard', route: (id: string) => `/circle/${id}/scorecard`,     circleOnly: true },
+  { label: 'Snapshot',  route: (id: string) => `/circle/${id}/leadership-snapshot`, adminOnly: true },
   { label: 'Care',      route: (id: string) => `/circle/${id}/care`,          adminOnly: true },
 ] as const;
 
@@ -199,7 +200,7 @@ export default function CircleLeaderLayout({
   };
 
   const tabClass = (active: boolean) =>
-    `flex-1 text-center whitespace-nowrap py-3 text-sm font-medium transition-colors border-b-2 ${
+    `flex-1 text-center whitespace-nowrap px-1 py-3 text-xs sm:text-sm font-medium transition-colors border-b-2 ${
       active
         ? 'border-vc-500 text-white'
         : 'border-transparent text-gray-300 hover:text-white hover:border-vc-700'

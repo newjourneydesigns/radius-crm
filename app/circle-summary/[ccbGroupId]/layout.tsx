@@ -18,6 +18,10 @@ export default async function CircleGroupLayout({
 }) {
   const leader = await getSessionLeader();
   if (!leader) redirect('/circle-summary/');
+  const leaderGroupId = leader.ccb_group_id != null ? String(leader.ccb_group_id) : null;
+  if (leaderGroupId && leaderGroupId !== params.ccbGroupId) {
+    redirect(`/circle-summary/${leaderGroupId}/events`);
+  }
 
   return (
     <CircleChrome

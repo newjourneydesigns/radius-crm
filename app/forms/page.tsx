@@ -210,7 +210,7 @@ function FormsListInner() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="min-h-screen bg-[#0f1117]">
       <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between gap-3">
@@ -222,7 +222,7 @@ function FormsListInner() {
             >
               <ArrowLeft className="h-5 w-5" strokeWidth={1.8} />
             </button>
-            <FileText className="h-6 w-6 text-indigo-400" strokeWidth={1.8} />
+            <FileText className="h-6 w-6 text-brand-light" strokeWidth={1.8} />
             <h1 className="truncate text-xl font-semibold tracking-tight text-white">Forms</h1>
           </div>
           <button
@@ -243,7 +243,7 @@ function FormsListInner() {
                   key={s}
                   onClick={() => setFilterStatus(s)}
                   className={`rounded-md px-3 py-1.5 text-sm font-medium capitalize transition-colors ${
-                    filterStatus === s ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-white'
+                    filterStatus === s ? 'bg-brand-mid text-white' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   {s}
@@ -253,7 +253,7 @@ function FormsListInner() {
             <select
               value={filterBoardId}
               onChange={(e) => setFilterBoardId(e.target.value)}
-              className="rounded-lg border border-slate-600 bg-slate-700 px-3 py-1.5 text-sm text-white transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="rounded-lg border border-slate-600 bg-slate-700 px-3 py-1.5 text-sm text-white transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-slate-500"
             >
               <option value="">All boards</option>
               {boards.map((b) => (
@@ -269,11 +269,11 @@ function FormsListInner() {
         {loading ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="h-36 animate-pulse rounded-xl border border-slate-700 bg-slate-800" />
+              <div key={i} className="h-36 animate-pulse rounded-xl border border-zinc-700 bg-brand-dark" />
             ))}
           </div>
         ) : forms.length === 0 ? (
-          <div className="rounded-xl border border-slate-700 bg-slate-800 py-16 text-center shadow-card-glass">
+          <div className="rounded-xl border border-zinc-700 bg-brand-dark py-16 text-center shadow-card-glass">
             <FileText className="mx-auto mb-3 h-10 w-10 text-slate-600" strokeWidth={1.5} />
             <p className="text-sm text-slate-300">No forms yet</p>
             <p className="mx-auto mt-1 max-w-sm text-xs text-slate-500">
@@ -291,10 +291,10 @@ function FormsListInner() {
             {visibleForms.map((form) => (
               <div
                 key={form.id}
-                className="flex flex-col rounded-xl border border-slate-700 bg-slate-800 p-5 shadow-card-glass transition-colors hover:border-indigo-500/60"
+                className="flex flex-col rounded-xl border border-zinc-700 bg-brand-dark p-5 shadow-card-glass transition-colors hover:border-slate-500"
               >
                 <div className="mb-2 flex items-start gap-2.5">
-                  <FileText className="mt-0.5 h-5 w-5 shrink-0 text-indigo-400" strokeWidth={1.8} />
+                  <FileText className="mt-0.5 h-5 w-5 shrink-0 text-slate-400" strokeWidth={1.8} />
                   <h3 className="min-w-0 flex-1 truncate text-base font-semibold text-white">{form.title}</h3>
                   <button
                     onClick={() => handleToggleActive(form)}
@@ -335,9 +335,9 @@ function FormsListInner() {
                         <Link2 className="h-4 w-4" strokeWidth={1.8} />
                       )}
                     </IconBtn>
-                    <IconBtn title="Preview form" onClick={() => window.open(`/f/${form.slug}`, '_blank')}>
+                    <IconLink title="Preview form" href={`/f/${form.slug}`}>
                       <Eye className="h-4 w-4" strokeWidth={1.8} />
-                    </IconBtn>
+                    </IconLink>
                     <IconBtn
                       title="View submissions"
                       onClick={() => router.push(`/forms/${form.id}/edit?tab=submissions`)}
@@ -369,7 +369,7 @@ function FormsListInner() {
               onChange={(e) => setNewTitle(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
               placeholder="e.g. Prayer Request Intake"
-              className="w-full rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-white placeholder-slate-400 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-white placeholder-slate-400 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-slate-500"
             />
           </div>
 
@@ -378,7 +378,7 @@ function FormsListInner() {
             <select
               value={newBoardId}
               onChange={(e) => setNewBoardId(e.target.value)}
-              className="w-full rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-white transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-white transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-slate-500"
             >
               <option value="">Select a board…</option>
               {boards.map((b) => (
@@ -397,7 +397,7 @@ function FormsListInner() {
                   onClick={() =>
                     setAssigneeOptions(allChecked ? [] : members.map((m) => ({ id: m.id, name: m.name })))
                   }
-                  className="rounded-md px-2 py-1 text-xs font-medium text-indigo-300 transition-colors hover:bg-slate-700"
+                  className="rounded-md px-2 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
                 >
                   {allChecked ? 'Deselect all' : 'Select all'}
                 </button>
@@ -415,7 +415,7 @@ function FormsListInner() {
                             checked ? prev.filter((o) => o.id !== m.id) : [...prev, { id: m.id, name: m.name }]
                           )
                         }
-                        className="h-4 w-4 rounded border-slate-600 bg-slate-700 text-indigo-500 focus:ring-indigo-500"
+                        className="h-4 w-4 rounded border-slate-600 bg-slate-700 text-slate-400 focus:ring-slate-500"
                       />
                       <span className="text-sm text-slate-200">{m.name}</span>
                     </label>
@@ -501,9 +501,30 @@ function IconBtn({
   );
 }
 
+function IconLink({
+  children,
+  title,
+  href,
+}: {
+  children: React.ReactNode;
+  title: string;
+  href: string;
+}) {
+  return (
+    <a
+      title={title}
+      aria-label={title}
+      href={href}
+      className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
+    >
+      {children}
+    </a>
+  );
+}
+
 export default function FormsPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-900" />}>
+    <Suspense fallback={<div className="min-h-screen bg-[#0f1117]" />}>
       <FormsListInner />
     </Suspense>
   );

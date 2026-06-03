@@ -294,6 +294,62 @@ export interface ScorecardRating {
   created_at: string;
 }
 
+// ── Leadership Snapshot (Circle Leader self-assessment) ──
+export interface LeadershipSnapshotCategoryScore {
+  id: string;        // cat1..cat5
+  label: string;
+  score: number;     // 0-100
+  isStrength: boolean;
+}
+
+export interface LeadershipSnapshotTemplate {
+  version: number;
+  scale: { value: number; label: string }[];
+  categories: Array<{
+    id: string;
+    label: string;
+    subtitle: string;
+    reflectionId: string;
+    reflectionPrompt: string;
+    questions: { id: string; stem: string }[];
+  }>;
+}
+
+export interface LeadershipSnapshot {
+  id: string;
+  circle_leader_id: number | null;
+  leader_link_confirmed: boolean;
+  submitted_by: string | null;
+  respondent_name: string | null;
+  respondent_email: string | null;
+  respondent_phone: string | null;
+  role: string | null;
+  campus: string | null;
+  circle_type: string | null;
+  group_size: string | null;
+  answers: Record<string, number>;
+  reflections: Record<string, string>;
+  category_scores: LeadershipSnapshotCategoryScore[];
+  overall_score: number;
+  ai_summary: string | null;
+  ai_category_next_steps: Record<string, string> | null;
+  template: LeadershipSnapshotTemplate | null;
+  template_version: number;
+  version: number;
+  created_at: string;
+  updated_at: string;
+  updated_by: string | null;
+}
+
+export interface LeadershipSnapshotRevision {
+  id: string;
+  snapshot_id: string;
+  version: number;
+  data: Record<string, any>;
+  edited_by: string | null;
+  created_at: string;
+}
+
 export interface PrayerPoint {
   id: number;
   circle_leader_id: number;

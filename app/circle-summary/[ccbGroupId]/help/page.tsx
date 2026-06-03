@@ -65,7 +65,7 @@ export default function CircleSummaryHelpPage({
             organized throughout the semester. Whether you&apos;re submitting weekly
             attendance, updating your roster, or accessing leader resources,
             everything you need is in one simple experience designed to support you
-            as you lead people into godly relationships.
+            as you lead your Circle.
           </p>
           <p className="mt-3 text-sm leading-relaxed text-neutral-600">
             This guide walks through every part of the app, step by step. Use the
@@ -85,7 +85,7 @@ export default function CircleSummaryHelpPage({
               <a
                 key={l.href}
                 href={l.href}
-                className="rounded-full border border-[color:var(--cs-border)] bg-white px-3 py-2 text-center text-xs font-semibold text-[color:var(--cs-green-darker)] transition-colors hover:border-[color:var(--cs-green)] hover:bg-[color:var(--cs-bg-soft)]"
+                className="cs-help-quick-link"
               >
                 {l.label}
               </a>
