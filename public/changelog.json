@@ -1,5 +1,17 @@
 [
   {
+    "date": "2026-06-03",
+    "version": "2.5.0",
+    "date_display": "June 3, 2026",
+    "date_iso": "2026-06-03",
+    "id": "public-forms-to-cards",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Boards",
+    "description": "Added public intake Forms for boards. Build a form, map its fields to a card's title, description, priority, due date, and assignee, then share a public link (/f/your-form) that anyone can fill out without logging in. Each submission automatically creates a card in the column you choose, and you can review every submission, jump to the card it created, search them, and export to CSV.",
+    "page": "/forms"
+  },
+  {
     "date": "2026-06-02",
     "version": "2.4.29",
     "date_display": "June 2, 2026",

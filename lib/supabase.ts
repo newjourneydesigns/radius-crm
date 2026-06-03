@@ -483,6 +483,45 @@ export interface CardAssignment {
   users?: { name: string; email: string };
 }
 
+// ---- Board Forms (public intake → card) Types ----
+export type FormFieldType = 'text' | 'textarea' | 'email' | 'url' | 'number' | 'date' | 'select';
+
+export interface FormField {
+  id: string;                 // stable per-field key, used as the submission data key
+  type: FormFieldType;
+  label: string;
+  required: boolean;
+  placeholder?: string;
+  options?: string[];         // for 'select'
+  maps_to?: 'title' | 'description' | 'priority' | 'due_date' | 'assignee';
+  // assignee config:
+  assignee_options?: { id: string; name: string }[]; // members shown in the dropdown
+  assignee_visible?: boolean;    // true/undefined = shown on form; false = hidden, auto-applied
+  assignee_default_id?: string;  // applied server-side when assignee_visible === false
+}
+
+export interface BoardForm {
+  id: string;
+  user_id: string;
+  board_id: string;
+  column_id: string;
+  title: string;
+  description?: string;
+  slug: string;
+  fields: FormField[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FormSubmission {
+  id: string;
+  form_id: string;
+  data: Record<string, string>;
+  card_id?: string;
+  submitted_at: string;
+}
+
 // ---- AI Assistant Types ----
 
 export interface AIConversationMessage {

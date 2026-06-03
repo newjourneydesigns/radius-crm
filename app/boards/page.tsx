@@ -22,6 +22,7 @@ import {
   Search,
   X,
   GripVertical,
+  FileText,
 } from '../../components/icons/BoardIcons';
 
 type SortMode = 'new-old' | 'a-z' | 'last-updated' | 'custom';
@@ -354,6 +355,10 @@ function BoardsListPage() {
               <button className="kb-view-btn" onClick={() => router.push('/boards/calendar')}>
                 <Calendar size={15} />
                 Calendar
+              </button>
+              <button className="kb-view-btn" onClick={() => router.push('/forms')}>
+                <FileText size={15} />
+                Forms
               </button>
             </div>
             <button className="kb-btn kb-btn-primary" onClick={() => setShowCreate(true)}>
