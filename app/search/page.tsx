@@ -12,6 +12,8 @@ import { useAuth } from '../../contexts/AuthContext';
 interface CircleSearchResult {
   id: number;
   name: string;
+  email?: string;
+  phone?: string;
   campus: string;
   day: string;
   time: string;
@@ -23,6 +25,12 @@ interface CircleSearchResult {
   location?: string;
   acpd?: string;
 }
+
+type CircleLeadersSearchQuery = {
+  select: (columns: string) => {
+    order: (column: string) => Promise<{ data: CircleSearchResult[] | null; error: unknown }>;
+  };
+};
 
 const ROSTER_COUNT_PAGE_SIZE = 1000;
 
@@ -149,18 +157,25 @@ export default function SearchPage() {
       setError(null);
 
       try {
-        const { data: allData, error: allError } = await supabase
-          .from('circle_leaders')
-          .select('id, name, campus, day, time, circle_type, status, ccb_group_id, leader_type, frequency, location, acpd')
+        const selectFields = signedIn
+          ? 'id, name, email, phone, campus, day, time, circle_type, status, ccb_group_id, leader_type, frequency, location, acpd'
+          : 'id, name, campus, day, time, circle_type, status, ccb_group_id, leader_type, frequency, location, acpd';
+
+        const leadersQuery = supabase.from('circle_leaders') as unknown as CircleLeadersSearchQuery;
+
+        const { data: allDataRaw, error: allError } = await leadersQuery
+          .select(selectFields)
           .order('name');
 
         if (allError) {
           throw allError;
         }
 
+        const allData = allDataRaw || [];
+
         // Public visitors only see active circles. Signed-in RADIUS users can filter by status.
-        const activeCircles = allData?.filter(circle => normalizeStatus(circle.status) === 'active') || [];
-        const visibleCircles = signedIn ? (allData || []) : activeCircles;
+        const activeCircles = allData.filter(circle => normalizeStatus(circle.status) === 'active');
+        const visibleCircles = signedIn ? allData : activeCircles;
 
         setCircles(visibleCircles);
         setFilteredCircles(visibleCircles);
