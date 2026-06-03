@@ -26,6 +26,10 @@ function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
+function fmtDateStr(d: string): string {
+  return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
 /** Template a given snapshot was taken under (frozen), or the default. */
 function snapTemplate(snap: LeadershipSnapshot): SnapshotTemplate {
   return (snap.template as SnapshotTemplate) || DEFAULT_TEMPLATE;
@@ -42,6 +46,11 @@ export default function CircleSummaryHealthPage() {
   const [loading, setLoading] = useState(true);
   const [snapshots, setSnapshots] = useState<LeadershipSnapshot[]>([]);
   const [template, setTemplate] = useState<SnapshotTemplate>(DEFAULT_TEMPLATE);
+  const [formWindow, setFormWindow] = useState<{ isOpen: boolean; opensOn: string | null; closesOn: string | null }>({
+    isOpen: true,
+    opensOn: null,
+    closesOn: null,
+  });
   const [view, setView] = useState<View>('overview');
   const [catIndex, setCatIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
@@ -64,6 +73,7 @@ export default function CircleSummaryHealthPage() {
         const data = await res.json();
         setSnapshots(data.snapshots || []);
         if (data.template) setTemplate(data.template);
+        if (data.window) setFormWindow(data.window);
       }
     } catch {
       /* non-fatal */
@@ -77,6 +87,7 @@ export default function CircleSummaryHealthPage() {
   }, []);
 
   function startAssessment() {
+    if (!formWindow.isOpen) return;
     setAnswers({});
     setReflections({});
     setMissingQs([]);
@@ -141,6 +152,13 @@ export default function CircleSummaryHealthPage() {
 
   const liveScores = useMemo(() => computeCategoryScores(answers, template), [answers, template]);
 
+  // Closed-window messaging (server is the source of truth for isOpen).
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const reopensOn = formWindow.opensOn && formWindow.opensOn > todayStr ? formWindow.opensOn : null;
+  const closedNote = reopensOn
+    ? `The Leadership Snapshot reopens ${fmtDateStr(reopensOn)}.`
+    : 'The Leadership Snapshot is currently closed.';
+
   if (loading) {
     return (
       <main className="max-w-2xl mx-auto px-4 py-6">
@@ -174,9 +192,13 @@ export default function CircleSummaryHealthPage() {
                 Take a few honest minutes to reflect on {categories.length} areas of leadership health. You&apos;ll get a
                 personalized summary and next steps to spark a great conversation with your campus leader.
               </p>
-              <button onClick={startAssessment} className="cs-btn cs-btn-primary mt-5 w-full">
-                Start my Snapshot
-              </button>
+              {formWindow.isOpen ? (
+                <button onClick={startAssessment} className="cs-btn cs-btn-primary mt-5 w-full">
+                  Start my Snapshot
+                </button>
+              ) : (
+                <div className="cs-alert cs-alert-warning mt-5 text-left">{closedNote} Check back when it opens.</div>
+              )}
             </div>
           ) : (
             <>
@@ -187,10 +209,18 @@ export default function CircleSummaryHealthPage() {
                     Last taken {fmtDate(snapshots[0].created_at)}
                   </p>
                 </div>
-                <button onClick={startAssessment} className="cs-btn cs-btn-outline" style={{ padding: '0.6rem 1rem', fontSize: '0.85rem' }}>
-                  Reassess
-                </button>
+                {formWindow.isOpen ? (
+                  <button onClick={startAssessment} className="cs-btn cs-btn-outline" style={{ padding: '0.6rem 1rem', fontSize: '0.85rem' }}>
+                    Reassess
+                  </button>
+                ) : (
+                  <span className="cs-badge cs-badge-muted shrink-0">Closed</span>
+                )}
               </div>
+
+              {!formWindow.isOpen && (
+                <div className="cs-alert cs-alert-warning">{closedNote} You can still review your results below.</div>
+              )}
 
               <ResultsBlock snap={snapshots[0]} />
 

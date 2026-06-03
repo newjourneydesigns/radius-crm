@@ -3,6 +3,7 @@
 // Summary route (/api/circle-summary/health). Keeps scoring, AI generation, and
 // the version-1 revision write identical across both entry points.
 
+import { DateTime } from 'luxon';
 import { createServiceSupabaseClient } from './server-supabase';
 import {
   computeCategoryScores,
@@ -12,6 +13,72 @@ import {
   type SnapshotTemplate,
 } from './leadershipSnapshot';
 import { generateSnapshotInsights } from './leadershipSnapshotAi';
+
+export interface SnapshotWindow {
+  opensOn: string | null;  // YYYY-MM-DD, inclusive
+  closesOn: string | null; // YYYY-MM-DD, inclusive
+  isOpen: boolean;
+  status: 'scheduled' | 'open' | 'closed';
+}
+
+export function normalizeSnapshotDate(value: unknown): string | null {
+  if (value == null) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+
+  const us = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (us) {
+    const date = DateTime.fromObject(
+      { year: Number(us[3]), month: Number(us[1]), day: Number(us[2]) },
+      { zone: 'America/Chicago' }
+    );
+    return date.isValid ? date.toISODate() : null;
+  }
+
+  return null;
+}
+
+export function snapshotWindowStatus(
+  today: string,
+  opensOn: string | null,
+  closesOn: string | null
+): SnapshotWindow['status'] {
+  if (opensOn && today < opensOn) return 'scheduled';
+  if (closesOn && today > closesOn) return 'closed';
+  return 'open';
+}
+
+function buildSnapshotWindow(opensOn: string | null, closesOn: string | null): SnapshotWindow {
+  const today = DateTime.now().setZone('America/Chicago').toISODate() || new Date().toISOString().slice(0, 10);
+  const status = snapshotWindowStatus(today, opensOn, closesOn);
+  return { opensOn, closesOn, isOpen: status === 'open', status };
+}
+
+/**
+ * The current submission window. Open when today (church-local) falls within
+ * [opensOn, closesOn]; NULL bounds are treated as unbounded. Fails OPEN if the
+ * settings table doesn't exist yet, so the form isn't accidentally locked.
+ */
+export async function getSnapshotWindow(): Promise<SnapshotWindow> {
+  try {
+    const supabase = createServiceSupabaseClient();
+    const { data, error } = await supabase
+      .from('leadership_snapshot_settings')
+      .select('opens_on, closes_on')
+      .eq('id', 1)
+      .maybeSingle();
+    if (error) return buildSnapshotWindow(null, null);
+
+    const opensOn = normalizeSnapshotDate(data?.opens_on);
+    const closesOn = normalizeSnapshotDate(data?.closes_on);
+    return buildSnapshotWindow(opensOn, closesOn);
+  } catch {
+    return buildSnapshotWindow(null, null);
+  }
+}
 
 /** The active (admin-edited) template, or the built-in default if none exists. */
 export async function getActiveTemplate(): Promise<SnapshotTemplate> {
@@ -58,8 +125,30 @@ export interface CreateSnapshotInput {
   template?: SnapshotTemplate;
 }
 
+type SnapshotPayload = {
+  circle_leader_id: number | null;
+  respondent_name: string | null;
+  respondent_email: string | null;
+  respondent_phone: string | null;
+  role: string | null;
+  campus: string | null;
+  circle_type: string | null;
+  group_size: string | null;
+  answers: Record<string, number>;
+  reflections: Record<string, string>;
+  category_scores: unknown[];
+  overall_score: number;
+  ai_summary: string | null;
+  ai_category_next_steps: Record<string, string> | null;
+};
+
+type SnapshotRow = Partial<SnapshotPayload> & {
+  id?: string;
+  ai_category_next_steps?: Record<string, string> | null;
+};
+
 /** The editable content of a snapshot — what we copy into each revision. */
-export function buildSnapshotPayload(row: any) {
+export function buildSnapshotPayload(row: SnapshotRow): SnapshotPayload {
   return {
     circle_leader_id: row.circle_leader_id ?? null,
     respondent_name: row.respondent_name ?? null,
@@ -78,7 +167,7 @@ export function buildSnapshotPayload(row: any) {
   };
 }
 
-export async function insertRevision(snapshotId: string, version: number, payload: any, editedBy: string | null) {
+export async function insertRevision(snapshotId: string, version: number, payload: SnapshotPayload, editedBy: string | null) {
   const supabase = createServiceSupabaseClient();
   const { error } = await supabase.from('leadership_snapshot_revisions').insert({
     snapshot_id: snapshotId,
@@ -95,7 +184,7 @@ export async function insertRevision(snapshotId: string, version: number, payloa
  */
 export async function createSnapshot(
   input: CreateSnapshotInput
-): Promise<{ snapshot?: any; error?: string; status?: number }> {
+): Promise<{ snapshot?: SnapshotRow; error?: string; status?: number }> {
   const answers = input.answers || {};
   const reflections = input.reflections || {};
   const template = input.template || (await getActiveTemplate());
@@ -147,12 +236,14 @@ export async function createSnapshot(
     .single();
 
   if (error) return { error: error.message, status: 500 };
+  const snapshotRow = snapshot as SnapshotRow;
 
   try {
-    await insertRevision(snapshot.id, 1, buildSnapshotPayload(snapshot), input.submittedBy);
-  } catch (e: any) {
-    return { error: e.message || 'Failed to record initial revision.', status: 500 };
+    await insertRevision(String(snapshotRow.id), 1, buildSnapshotPayload(snapshotRow), input.submittedBy);
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Failed to record initial revision.';
+    return { error: message, status: 500 };
   }
 
-  return { snapshot };
+  return { snapshot: snapshotRow };
 }

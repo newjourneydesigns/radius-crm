@@ -10,6 +10,9 @@ type Q = { id: string; stem: string };
 type Cat = { id: string; label: string; subtitle: string; reflectionId: string; reflectionPrompt: string; questions: Q[] };
 type ScalePt = { value: number; label: string };
 type Template = { version?: number; scale: ScalePt[]; categories: Cat[] };
+type WindowStatus = 'scheduled' | 'open' | 'closed';
+type SnapshotWindow = { isOpen: boolean; status?: WindowStatus; opensOn: string | null; closesOn: string | null };
+type CatTextKey = Exclude<keyof Cat, 'questions'>;
 
 const newId = (p: string) => `${p}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -19,12 +22,51 @@ async function authHeaders(): Promise<Record<string, string>> {
   return { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
 }
 
+function formatWindowDate(date: string | null): string {
+  if (!date) return '';
+  const d = new Date(`${date}T00:00:00`);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function windowLabel(win: SnapshotWindow): string {
+  const status = win.status || (win.isOpen ? 'open' : 'closed');
+  if (status === 'scheduled') return 'Scheduled';
+  if (status === 'open') return 'Open now';
+  return 'Closed';
+}
+
+function windowBadgeClass(win: SnapshotWindow): string {
+  const status = win.status || (win.isOpen ? 'open' : 'closed');
+  if (status === 'scheduled') return 'bg-sky-500/20 text-sky-300';
+  if (status === 'open') return 'bg-emerald-500/20 text-emerald-300';
+  return 'bg-amber-500/20 text-amber-300';
+}
+
+function windowSavedMessage(win: SnapshotWindow): string {
+  const status = win.status || (win.isOpen ? 'open' : 'closed');
+  if (status === 'scheduled') return `Saved - the assessment opens on ${formatWindowDate(win.opensOn)}.`;
+  if (status === 'open') return 'Saved - the assessment is open to leaders.';
+  if (win.closesOn) return `Saved - the assessment closed on ${formatWindowDate(win.closesOn)}.`;
+  return 'Saved - the assessment is closed to leaders.';
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Save failed.';
+}
+
 export default function HealthQuestionsEditorPage() {
   const { isAdmin } = useAuth();
   const [tpl, setTpl] = useState<Template | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  // Submission window
+  const [win, setWin] = useState<SnapshotWindow | null>(null);
+  const [opensOn, setOpensOn] = useState('');
+  const [closesOn, setClosesOn] = useState('');
+  const [savingWin, setSavingWin] = useState(false);
+  const [winMsg, setWinMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -36,7 +78,43 @@ export default function HealthQuestionsEditorPage() {
         setLoading(false);
       }
     })();
+    (async () => {
+      try {
+        const res = await fetch('/api/leadership-snapshot/settings', { headers: await authHeaders() });
+        const json = await res.json();
+        if (res.ok && json.window) {
+          setWin(json.window);
+          setOpensOn(json.window.opensOn || '');
+          setClosesOn(json.window.closesOn || '');
+        }
+      } catch {
+        /* settings table may not exist yet */
+      }
+    })();
   }, []);
+
+  async function saveWindow() {
+    setSavingWin(true);
+    setWinMsg(null);
+    try {
+      const res = await fetch('/api/leadership-snapshot/settings', {
+        method: 'PUT',
+        headers: await authHeaders(),
+        body: JSON.stringify({ opens_on: opensOn || null, closes_on: closesOn || null }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setWinMsg({ type: 'err', text: json.error || 'Save failed.' });
+      } else {
+        setWin(json.window);
+        setWinMsg({ type: 'ok', text: windowSavedMessage(json.window) });
+      }
+    } catch (e: unknown) {
+      setWinMsg({ type: 'err', text: errorMessage(e) });
+    } finally {
+      setSavingWin(false);
+    }
+  }
 
   function patch(updater: (t: Template) => Template) {
     setTpl((t) => (t ? updater(structuredClone(t)) : t));
@@ -61,7 +139,7 @@ export default function HealthQuestionsEditorPage() {
     [t.categories[ci], t.categories[j]] = [t.categories[j], t.categories[ci]];
     return t;
   });
-  const setCat = (ci: number, key: keyof Cat, val: string) => patch((t) => { (t.categories[ci] as any)[key] = val; return t; });
+  const setCat = (ci: number, key: CatTextKey, val: string) => patch((t) => { t.categories[ci][key] = val; return t; });
 
   // ── Question ops ──
   const addQuestion = (ci: number) => patch((t) => { t.categories[ci].questions.push({ id: newId('q'), stem: '' }); return t; });
@@ -91,8 +169,8 @@ export default function HealthQuestionsEditorPage() {
         setTpl(json.template);
         setMsg({ type: 'ok', text: `Saved as version ${json.template.version}. New submissions use these questions; past results are unchanged.` });
       }
-    } catch (e: any) {
-      setMsg({ type: 'err', text: e.message || 'Save failed.' });
+    } catch (e: unknown) {
+      setMsg({ type: 'err', text: errorMessage(e) });
     } finally {
       setSaving(false);
     }
@@ -133,6 +211,40 @@ export default function HealthQuestionsEditorPage() {
               {msg.text}
             </div>
           )}
+
+          {/* Submission window */}
+          <div className="mb-5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-5 shadow-card-glass">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-semibold text-white">Submission window</h2>
+              {win && (
+                <span className={`text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${windowBadgeClass(win)}`}>
+                  {windowLabel(win)}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-400 mb-3">
+              Leaders can take or reassess only between these dates. Leave a field blank for no limit. When closed, leaders can still view past results, and you can always add or edit submissions on the back end.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-400 block mb-1">Opens on</label>
+                <input type="date" value={opensOn} onChange={(e) => setOpensOn(e.target.value)} className={inp} />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-400 block mb-1">Closes on</label>
+                <input type="date" value={closesOn} onChange={(e) => setClosesOn(e.target.value)} className={inp} />
+              </div>
+            </div>
+            {winMsg && <div className={`mt-3 text-xs ${winMsg.type === 'ok' ? 'text-emerald-300' : 'text-red-300'}`}>{winMsg.text}</div>}
+            <div className="mt-3 flex items-center gap-3">
+              <button onClick={saveWindow} disabled={savingWin} className="bg-btn-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
+                {savingWin ? 'Saving…' : 'Save window'}
+              </button>
+              {(opensOn || closesOn) && (
+                <button onClick={() => { setOpensOn(''); setClosesOn(''); }} className="text-xs text-slate-400 hover:text-white transition-colors">Clear dates</button>
+              )}
+            </div>
+          </div>
 
           {loading || !tpl ? (
             <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-slate-600 border-t-indigo-500 rounded-full animate-spin" /></div>

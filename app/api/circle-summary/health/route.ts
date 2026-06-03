@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionLeader, unauthorized } from '../../../../lib/circle-summary/session';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
-import { createSnapshot, getActiveTemplate } from '../../../../lib/leadershipSnapshotServer';
+import { createSnapshot, getActiveTemplate, getSnapshotWindow } from '../../../../lib/leadershipSnapshotServer';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,17 +18,18 @@ export async function GET() {
   if (!leader) return unauthorized();
 
   const supabase = createServiceSupabaseClient();
-  const [{ data, error }, template] = await Promise.all([
+  const [{ data, error }, template, window] = await Promise.all([
     supabase
       .from('leadership_snapshots')
       .select('*')
       .eq('circle_leader_id', Number(leader.id))
       .order('created_at', { ascending: false }),
     getActiveTemplate(),
+    getSnapshotWindow(),
   ]);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ snapshots: data || [], template });
+  return NextResponse.json({ snapshots: data || [], template, window });
 }
 
 // POST — submit a new self-assessment for the signed-in leader.
@@ -36,7 +37,16 @@ export async function POST(req: NextRequest) {
   const leader = await getSessionLeader();
   if (!leader) return unauthorized();
 
-  let body: any = {};
+  // Submissions are only accepted while the window is open.
+  const window = await getSnapshotWindow();
+  if (!window.isOpen) {
+    return NextResponse.json(
+      { error: 'The Leadership Snapshot is currently closed.', window },
+      { status: 403 }
+    );
+  }
+
+  let body: Record<string, unknown> = {};
   try {
     body = await req.json();
   } catch {

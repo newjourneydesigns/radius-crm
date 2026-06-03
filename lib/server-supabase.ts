@@ -1,4 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
+import WebSocket from 'ws';
+
+type SupabaseWebSocketTransport = typeof globalThis.WebSocket;
+const websocketTransport = WebSocket as unknown as SupabaseWebSocketTransport;
 
 export function createServiceSupabaseClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -12,6 +16,9 @@ export function createServiceSupabaseClient() {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
+    },
+    realtime: {
+      transport: websocketTransport,
     },
   });
 }
@@ -28,6 +35,9 @@ export function createAnonSupabaseClient() {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
+    },
+    realtime: {
+      transport: websocketTransport,
     },
   });
 }

@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { Download } from 'lucide-react';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import { useAuth } from '../../../contexts/AuthContext';
 import { supabase } from '../../../lib/supabase';
 import { useLeadershipSnapshots } from '../../../hooks/useLeadershipSnapshots';
-import { STRENGTH_THRESHOLD, CAMPUS_OPTIONS, formatRating } from '../../../lib/leadershipSnapshot';
+import { STRENGTH_THRESHOLD, CAMPUS_OPTIONS, DEFAULT_TEMPLATE, formatRating } from '../../../lib/leadershipSnapshot';
 import type { LeadershipSnapshot } from '../../../lib/supabase';
 
 function snapMax(snap: LeadershipSnapshot): number {
@@ -25,6 +26,20 @@ function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function csvValue(value: unknown): string {
+  const text = value == null ? '' : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function dateInputToRange(date: string, boundary: 'start' | 'end'): Date | null {
+  if (!date) return null;
+  return new Date(`${date}T${boundary === 'start' ? '00:00:00.000' : '23:59:59.999'}`);
+}
+
+function filenameDate(date: string): string {
+  return date || 'all';
+}
+
 export default function AdminLeadershipSnapshotsPage() {
   const { isAdmin } = useAuth();
   const { snapshots, isLoading, loadAll, confirmLink } = useLeadershipSnapshots();
@@ -32,6 +47,9 @@ export default function AdminLeadershipSnapshotsPage() {
   const [tab, setTab] = useState<'all' | 'needs'>('all');
   const [search, setSearch] = useState('');
   const [campus, setCampus] = useState('');
+  const [exportStartDate, setExportStartDate] = useState('');
+  const [exportEndDate, setExportEndDate] = useState('');
+  const [exportError, setExportError] = useState('');
   const [leaders, setLeaders] = useState<LeaderLite[]>([]);
   const [linkChoice, setLinkChoice] = useState<Record<string, number | ''>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -72,6 +90,105 @@ export default function AdminLeadershipSnapshotsPage() {
     await confirmLink(snapshotId, leaderId);
     await loadAll();
     setBusyId(null);
+  }
+
+  function exportCsv() {
+    setExportError('');
+    const start = dateInputToRange(exportStartDate, 'start');
+    const end = dateInputToRange(exportEndDate, 'end');
+
+    if (start && end && start.getTime() > end.getTime()) {
+      setExportError('Start date must be before end date.');
+      return;
+    }
+
+    const exportRows = snapshots.filter((snap) => {
+      const created = new Date(snap.created_at);
+      if (start && created < start) return false;
+      if (end && created > end) return false;
+      return true;
+    });
+
+    if (exportRows.length === 0) {
+      setExportError('No submissions found in that date range.');
+      return;
+    }
+
+    const templates = exportRows.map((snap) => snap.template || DEFAULT_TEMPLATE);
+    const questionMap = new Map<string, string>();
+    const reflectionMap = new Map<string, string>();
+    const categoryMap = new Map<string, string>();
+
+    for (const template of templates) {
+      for (const category of template.categories || []) {
+        categoryMap.set(category.id, category.label);
+        reflectionMap.set(category.reflectionId, `${category.label} Reflection`);
+        for (const question of category.questions || []) {
+          questionMap.set(question.id, `${category.label} - ${question.stem}`);
+        }
+      }
+    }
+
+    const questionIds = Array.from(questionMap.keys()).sort();
+    const reflectionIds = Array.from(reflectionMap.keys()).sort();
+    const categoryIds = Array.from(categoryMap.keys()).sort();
+
+    const headers = [
+      'Submission ID',
+      'Submitted At',
+      'Respondent Name',
+      'Respondent Email',
+      'Respondent Phone',
+      'Role',
+      'Campus',
+      'Circle Type',
+      'Group Size',
+      'Linked Circle Leader ID',
+      'Linked Circle Leader',
+      'Leader Link Confirmed',
+      'Overall Rating',
+      'Overall Score %',
+      ...categoryIds.map((id) => `${categoryMap.get(id) || id} Score %`),
+      ...questionIds.map((id) => questionMap.get(id) || id),
+      ...reflectionIds.map((id) => reflectionMap.get(id) || id),
+      'AI Summary',
+    ];
+
+    const rows = exportRows.map((snap) => {
+      const linkedLeader = snap.circle_leader_id ? leaderById.get(snap.circle_leader_id) : null;
+      const categoryScores = new Map((snap.category_scores || []).map((score) => [score.id, score.score]));
+      return [
+        snap.id,
+        new Date(snap.created_at).toLocaleString('en-US'),
+        snap.respondent_name || '',
+        snap.respondent_email || '',
+        snap.respondent_phone || '',
+        snap.role || '',
+        snap.campus || '',
+        snap.circle_type || '',
+        snap.group_size || '',
+        snap.circle_leader_id || '',
+        linkedLeader?.name || '',
+        snap.leader_link_confirmed ? 'Yes' : 'No',
+        formatRating(snap.overall_score, snapMax(snap)),
+        snap.overall_score,
+        ...categoryIds.map((id) => categoryScores.get(id) ?? ''),
+        ...questionIds.map((id) => snap.answers?.[id] ?? ''),
+        ...reflectionIds.map((id) => snap.reflections?.[id] || ''),
+        snap.ai_summary || '',
+      ];
+    });
+
+    const csv = [headers, ...rows].map((row) => row.map(csvValue).join(',')).join('\n');
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `leadership-snapshots-${filenameDate(exportStartDate)}-to-${filenameDate(exportEndDate)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   }
 
   if (!isAdmin()) {
@@ -115,6 +232,39 @@ export default function AdminLeadershipSnapshotsPage() {
             >
               Needs confirmation ({needsCount})
             </button>
+          </div>
+
+          {/* Export */}
+          <div className="mb-4 rounded-lg border border-slate-700 bg-slate-900/40 p-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <label className="flex-1 min-w-0">
+                <span className="mb-1 block text-xs font-medium text-slate-400">From</span>
+                <input
+                  type="date"
+                  value={exportStartDate}
+                  onChange={(e) => setExportStartDate(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </label>
+              <label className="flex-1 min-w-0">
+                <span className="mb-1 block text-xs font-medium text-slate-400">To</span>
+                <input
+                  type="date"
+                  value={exportEndDate}
+                  onChange={(e) => setExportEndDate(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </label>
+              <button
+                onClick={exportCsv}
+                disabled={isLoading || snapshots.length === 0}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Download className="h-4 w-4" strokeWidth={1.8} />
+                Export CSV
+              </button>
+            </div>
+            {exportError && <p className="mt-2 text-xs text-amber-300">{exportError}</p>}
           </div>
 
           {/* Filters */}
