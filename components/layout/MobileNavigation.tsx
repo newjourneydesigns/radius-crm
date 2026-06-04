@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { DateTime } from "luxon";
 import { useAuth } from "../../contexts/AuthContext";
-import { useQuickActions } from "../../contexts/QuickActionsContext";
+import { useQuickActions, type QuickActionId, type QuickActionMeta } from "../../contexts/QuickActionsContext";
 import GlobalSearch from './GlobalSearch';
 
 /* ─────────────────────────────────────────────────────────
@@ -190,6 +190,9 @@ const ChevronRightIcon = () => (
   </svg>
 );
 
+/* Tap-priority order for the mobile Quick Add sheet (distinct from the desktop FAB). */
+const MOBILE_QUICK_ACTION_ORDER: QuickActionId[] = ['card', 'prayer', 'followup', 'note', 'connection'];
+
 /* ─────────────────────────────────────────────────────────
    Component
    ───────────────────────────────────────────────────────── */
@@ -204,6 +207,14 @@ export default function MobileNavigation() {
   const pathname = usePathname();
   const { user, signOut, isAuthenticated, isAdmin } = useAuth();
   const { open: openQuickAction, actions: quickActions } = useQuickActions();
+
+  /* Mobile-specific ordering; any action not listed falls back to its original position. */
+  const orderedQuickActions: QuickActionMeta[] = [
+    ...MOBILE_QUICK_ACTION_ORDER
+      .map((id) => quickActions.find((a) => a.id === id))
+      .filter((a): a is QuickActionMeta => Boolean(a)),
+    ...quickActions.filter((a) => !MOBILE_QUICK_ACTION_ORDER.includes(a.id)),
+  ];
 
   const triggerSearch = useCallback(() => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }));
@@ -421,11 +432,11 @@ export default function MobileNavigation() {
           <div className="mobile-sheet-section">
             <p className="mobile-sheet-section-title">Quick Add</p>
             <div className="mobile-sheet-group">
-              {quickActions.map((action, i) => (
+              {orderedQuickActions.map((action, i) => (
                 <button
                   key={action.id}
                   onClick={() => runQuickAction(action.id)}
-                  className={`mobile-sheet-row ${i < quickActions.length - 1 ? 'bordered' : ''}`}
+                  className={`mobile-sheet-row ${i < orderedQuickActions.length - 1 ? 'bordered' : ''}`}
                 >
                   <span className="mobile-sheet-row-icon action">{action.icon}</span>
                   <span className="mobile-sheet-row-label">{action.label}</span>

@@ -6,7 +6,7 @@ const handler = schedule('*/5 * * * *', async () => {
   const cronSecret = process.env.CRON_SECRET;
 
   try {
-    const response = await fetch(`${appUrl}/api/circle-summary/summary-push-reminders`, {
+    const response = await fetch(`${appUrl}/api/circle-leader-toolkit/summary-push-reminders`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

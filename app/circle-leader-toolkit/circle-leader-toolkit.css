@@ -1,0 +1,1331 @@
+/* Valley Creek brand palette for the public Circle Summary section. */
+
+/* ─── Full-page green splash (loading.tsx) ─────────────────────
+   Lives outside .cs-root so we can't rely on the --cs-* vars. */
+.cs-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #34B233;
+  color: #ffffff;
+  overflow: hidden;
+  font-family: 'Open Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  padding: 24px;
+}
+.cs-splash::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 14px,
+    rgba(0, 0, 0, 0.045) 14px,
+    rgba(0, 0, 0, 0.045) 15px
+  );
+  pointer-events: none;
+}
+/* The logo sits dead-center of the splash; concentric rings pulse outward from
+   it. Because the Circles mark is itself a ring, the pulses read as radiating
+   straight out of the logo. The pulse is the only loading affordance — there is
+   no separate spinner. */
+.cs-splash-logo-wrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 12rem;
+  height: 12rem;
+}
+.cs-splash-logo {
+  grid-area: 1 / 1;
+  width: 8.5rem;
+  height: auto;
+  object-fit: contain;
+  z-index: 1;
+}
+.cs-splash-pulse {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  transform: scale(0.66);
+  opacity: 0;
+  animation: cs-splash-pulse 2.6s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+}
+/* Stagger the three rings by a third of the cycle for a continuous radiate. */
+.cs-splash-pulse:nth-child(2) {
+  animation-delay: 0.87s;
+}
+.cs-splash-pulse:nth-child(3) {
+  animation-delay: 1.73s;
+}
+@keyframes cs-splash-pulse {
+  0% {
+    transform: scale(0.66);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.cs-splash-sub {
+  /* Anchored to the lower third so the logo stays at the true center. */
+  position: absolute;
+  left: 50%;
+  bottom: clamp(3.5rem, 14vh, 7rem);
+  transform: translateX(-50%);
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+/* The splash renders inside .cs-root, so the section-wide `.cs-root p {
+   color:#3E3E3E !important }` reset outranks a bare `.cs-splash-sub` on
+   specificity (!important on both, so specificity decides). Qualify with
+   `.cs-root` so the subtitle reads pure white. */
+.cs-root .cs-splash-sub {
+  color: #ffffff !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Hold one calm static ring instead of pulsing. */
+  .cs-splash-pulse {
+    animation: none;
+    opacity: 0;
+  }
+  .cs-splash-pulse:nth-child(1) {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+}
+
+/* Force a clean surface on /circle-summary regardless of the dark theme applied
+   by the root layout. The <html> element is painted brand green so the document
+   itself is green during the load seams (the cross-document paint on the sign-in
+   redirect, the pre-layout first paint, and overscroll) — it reads as a
+   continuous hold with the green splash instead of flashing the dark root body
+   or browser white. The <body> carries the real off-white app surface and
+   covers <html> once it lays out. Hero text re-overrides to white below. */
+html:has(.cs-root) {
+  background: #34B233 !important;
+  color: #3E3E3E !important;
+  color-scheme: light;
+}
+body:has(.cs-root) {
+  background: #f7f8f6 !important;
+  color: #3E3E3E !important;
+}
+/* While the green splash is mounted, paint the surfaces directly behind it
+   green too. The splash is position:fixed, so on iOS the status-bar safe area
+   sits above its top edge and a 1px seam there exposed the off-white app
+   surface (--cs-bg) as a hairline "white border" framing the green. Greening
+   the body + .cs-root only when .cs-splash is present keeps the loaded app's
+   off-white surface intact while making that seam read as continuous green. */
+body:has(.cs-splash),
+.cs-root:has(.cs-splash) {
+  background: #34B233 !important;
+}
+.cs-hero,
+.cs-hero * {
+  color: #ffffff !important;
+}
+.cs-dark,
+.cs-dark * {
+  color: #ffffff !important;
+}
+
+.cs-root,
+.cs-root .cs-card,
+.cs-root span,
+.cs-root p,
+.cs-root label,
+.cs-root h1,
+.cs-root h2,
+.cs-root h3,
+.cs-root h4,
+.cs-root input,
+.cs-root textarea,
+.cs-root select,
+.cs-root button {
+  color: #3E3E3E !important;
+}
+/* Hero / dark sections re-override (must come after the rule above) */
+.cs-root .cs-hero,
+.cs-root .cs-hero *,
+.cs-root .cs-dark,
+.cs-root .cs-dark * {
+  color: #ffffff !important;
+}
+/* Remove-from-roster pill — needs class+element specificity to beat the
+   `.cs-root button { color: #3E3E3E !important }` reset above (a single-class
+   Tailwind utility, even `!important`, loses the specificity battle). */
+.cs-root button.cs-remove-roster-btn {
+  color: #dc2626 !important;
+  border-color: #ef4444 !important;
+}
+.cs-root button.cs-remove-roster-btn:hover {
+  background: #fef2f2 !important;
+}
+.cs-root .cs-settings-green-action {
+  display: inline-flex !important;
+  height: 2.75rem !important;
+  width: 100% !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+  border-radius: 9999px !important;
+  border: 1px solid rgba(44, 165, 43, 0.2) !important;
+  background: #34B233 !important;
+  padding: 0 1.25rem !important;
+  color: #ffffff !important;
+  font-size: 0.875rem !important;
+  font-weight: 800 !important;
+  line-height: 1.25rem !important;
+  text-decoration: none !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  transition: background-color 160ms ease, opacity 160ms ease !important;
+}
+.cs-root .cs-settings-green-action:hover:not(:disabled) {
+  background: #2fa62e !important;
+  color: #ffffff !important;
+}
+.cs-root .cs-settings-green-action:disabled {
+  cursor: not-allowed !important;
+  opacity: 0.6 !important;
+}
+.cs-root .cs-settings-green-action,
+.cs-root .cs-settings-green-action * {
+  color: #ffffff !important;
+}
+/* Buttons keep their own color */
+.cs-root .cs-btn-primary {
+  color: #ffffff !important;
+}
+.cs-root .cs-btn-outline {
+  color: var(--cs-green-dark) !important;
+}
+.cs-root .cs-btn-outline:hover:not(:disabled) {
+  color: #ffffff !important;
+}
+.cs-root .cs-tab-active,
+.cs-root .cs-tab-active * {
+  color: #ffffff !important;
+  background: var(--cs-green);
+}
+.cs-root .cs-tab-inactive,
+.cs-root .cs-tab-inactive * {
+  color: #5a5a5a !important;
+  background: transparent;
+}
+.cs-root .cs-tab-inactive:hover,
+.cs-root .cs-tab-inactive:hover * {
+  color: #1c1c1c !important;
+  background: rgba(255, 255, 255, 0.6);
+}
+/* Notification dots sit inside the tab buttons, so they must opt out of the
+   broad .cs-tab-active/.cs-tab-inactive descendant background overrides
+   (which would otherwise turn them green on the active tab / transparent on
+   inactive ones). */
+.cs-root .cs-tab-badge-red {
+  background: #dc2626 !important;
+}
+.cs-root .cs-inbox-folder-tab {
+  border: 1px solid transparent;
+}
+.cs-root .cs-inbox-folder-tab-active,
+.cs-root .cs-inbox-folder-tab-active * {
+  background: var(--cs-green);
+  border-color: var(--cs-green);
+  color: #ffffff !important;
+  box-shadow: 0 8px 18px -10px rgba(52, 178, 51, 0.8);
+}
+.cs-root .cs-inbox-folder-tab-inactive,
+.cs-root .cs-inbox-folder-tab-inactive * {
+  color: #5a5a5a !important;
+}
+.cs-root .cs-inbox-folder-tab-inactive:hover,
+.cs-root .cs-inbox-folder-tab-inactive:hover * {
+  color: #1c1c1c !important;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+/* ─── Phone action sheet ───────────────────────────────────────
+   Portaled to <body>, so we use literal brand colors instead of
+   the --cs-* variables (which are scoped to .cs-root). */
+.cs-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(15, 23, 18, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: cs-sheet-fade 160ms ease-out;
+}
+.cs-sheet {
+  width: 100%;
+  max-width: 28rem;
+  background: #ffffff;
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.25);
+  padding: 8px 16px max(20px, env(safe-area-inset-bottom)) 16px;
+  animation: cs-sheet-slide 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: 'Open Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+.cs-sheet-handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: #d4d4d8;
+  margin: 0 auto 12px;
+}
+.cs-sheet-header {
+  text-align: center;
+  padding: 4px 8px 18px;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 14px;
+}
+.cs-sheet-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #7A7A7A;
+  margin: 0 0 6px;
+}
+.cs-sheet-phone {
+  font-family: 'Anton', Impact, system-ui, sans-serif;
+  font-size: 30px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: #1c1c1c;
+  margin: 0;
+  line-height: 1.05;
+}
+.cs-sheet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.cs-sheet-action {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 600;
+  transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease, background-color 120ms ease, border-color 120ms ease;
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+.cs-sheet-action svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.cs-sheet-action:active {
+  transform: scale(0.985);
+}
+.cs-sheet-action-primary {
+  background: #34B233;
+  color: #ffffff;
+  box-shadow: 0 8px 18px -8px rgba(52, 178, 51, 0.7);
+}
+.cs-sheet-action-primary:hover {
+  background: #2a9329;
+}
+.cs-sheet-action-primary svg,
+.cs-sheet-action-primary span {
+  color: #ffffff;
+}
+.cs-sheet-action-secondary {
+  background: #f0f1ef;
+  color: #1c1c1c;
+  border-color: #e5e7eb;
+}
+.cs-sheet-action-secondary:hover {
+  border-color: #34B233;
+  background: #ffffff;
+}
+.cs-sheet-action-secondary svg {
+  color: #1f7320;
+}
+.cs-sheet-action-secondary span {
+  color: #1c1c1c;
+}
+.cs-sheet-cancel {
+  width: 100%;
+  padding: 14px;
+  border-radius: 16px;
+  background: transparent;
+  color: #7A7A7A;
+  font-size: 15px;
+  font-weight: 600;
+  border: 0;
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+.cs-sheet-cancel:hover {
+  color: #1c1c1c;
+  background: #f0f1ef;
+}
+.cs-sheet-action-danger {
+  background: #dc2626;
+  color: #ffffff;
+  box-shadow: 0 8px 18px -8px rgba(220, 38, 38, 0.7);
+  justify-content: center;
+}
+.cs-sheet-action-danger:hover {
+  background: #b91c1c;
+}
+.cs-sheet-action-danger svg,
+.cs-sheet-action-danger span {
+  color: #ffffff;
+}
+.cs-sheet-body {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #3f3f46;
+  margin: 0 0 16px;
+  text-align: center;
+}
+.cs-sheet-body strong {
+  color: #1c1c1c;
+  font-weight: 700;
+}
+.cs-sheet-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #166534;
+  margin: 0 0 16px;
+  text-align: left;
+}
+.cs-sheet-note svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #16a34a;
+}
+@keyframes cs-sheet-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes cs-sheet-slide {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.cs-root {
+  min-height: 100vh;
+  --cs-green: #34B233;
+  --cs-green-dark: #2a9329;
+  --cs-green-darker: #1f7320;
+  --cs-ink: #3E3E3E;
+  --cs-ink-soft: #5a5a5a;
+  --cs-muted: #7A7A7A;
+  --cs-border: #e5e7eb;
+  --cs-bg: #f7f8f6;
+  --cs-bg-soft: #f0f1ef;
+  --cs-dark: #1c1c1c;
+
+  font-family: var(--font-cs-body), 'Open Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-weight: 400;
+  color: var(--cs-ink);
+  background: var(--cs-bg);
+}
+
+.cs-spin-reverse {
+  animation: cs-spin-reverse 1s linear infinite;
+}
+
+@keyframes cs-spin-reverse {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+.cs-display {
+  font-family: var(--font-cs-body), 'Open Sans', sans-serif;
+  font-style: italic;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  line-height: 1;
+  font-stretch: condensed;
+}
+
+/* Hero — diagonal stripe texture gives depth without competing with content */
+.cs-hero {
+  background: var(--cs-green);
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
+}
+.cs-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 14px,
+    rgba(0, 0, 0, 0.045) 14px,
+    rgba(0, 0, 0, 0.045) 15px
+  );
+  pointer-events: none;
+}
+.cs-hero > * {
+  position: relative;
+}
+
+/* "VC" emblem shown in hero on the sign-in page */
+.cs-vc-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  border: 2.5px solid rgba(255, 255, 255, 0.55);
+  font-family: var(--font-cs-body), 'Open Sans', sans-serif;
+  font-style: italic;
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  margin-bottom: 0.85rem;
+}
+
+.cs-dark {
+  background: var(--cs-dark);
+  color: #ffffff;
+}
+
+.cs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 15px 30px;
+  font-family: var(--font-cs-body), 'Open Sans', sans-serif;
+  font-style: normal;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 16px;
+  line-height: 1;
+  border-radius: 4px;
+  transition: background-color 120ms ease, color 120ms ease, transform 60ms ease, opacity 120ms ease;
+  cursor: pointer;
+  border: 3px solid transparent;
+}
+.cs-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.cs-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.cs-btn-primary {
+  background: var(--cs-green);
+  color: #ffffff;
+  border-color: var(--cs-green);
+}
+.cs-btn-primary:hover:not(:disabled) {
+  background: var(--cs-green-dark);
+  border-color: var(--cs-green-dark);
+}
+
+.cs-btn-outline {
+  background: transparent;
+  color: var(--cs-green-dark);
+  border-color: var(--cs-green);
+}
+.cs-btn-outline:hover:not(:disabled) {
+  background: var(--cs-green);
+  color: #ffffff;
+}
+
+.cs-btn-ghost {
+  background: transparent;
+  color: var(--cs-ink-soft);
+}
+.cs-btn-ghost:hover:not(:disabled) {
+  color: var(--cs-ink);
+}
+
+.cs-card {
+  background: #ffffff;
+  border: 1px solid var(--cs-border);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.cs-previous-notes {
+  background: linear-gradient(180deg, #ffffff 0%, #f5fbf5 100%);
+  border-color: #cbe7cb;
+  border-left: 4px solid var(--cs-green);
+}
+
+.cs-previous-notes-label {
+  color: var(--cs-green-darker) !important;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.cs-previous-notes-help {
+  color: var(--cs-ink-soft) !important;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  margin-top: 0.35rem;
+}
+
+.cs-previous-notes-body {
+  color: var(--cs-ink) !important;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  margin-top: 1rem;
+  white-space: pre-wrap;
+}
+
+/* Circle Leader Resources — content rendered from admin-edited HTML */
+.cs-resources {
+  color: var(--cs-ink);
+  font-size: 0.975rem;
+  line-height: 1.65;
+}
+.cs-resources > *:first-child { margin-top: 0; }
+.cs-resources > *:last-child { margin-bottom: 0; }
+.cs-resources h1,
+.cs-resources h2,
+.cs-resources h3 {
+  color: var(--cs-ink);
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 1.5rem 0 0.5rem;
+}
+.cs-resources h1 { font-size: 1.5rem; }
+.cs-resources h2 { font-size: 1.25rem; }
+.cs-resources h3 { font-size: 1.1rem; }
+.cs-resources p { margin: 0.75rem 0; }
+/* Preserve blank lines the admin pressed Enter for — empty <p> tags normally
+   collapse to zero height in the browser. */
+.cs-resources p:empty { min-height: 1em; }
+.cs-resources ul,
+.cs-resources ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+.cs-resources ul { list-style: disc; }
+.cs-resources ol { list-style: decimal; }
+.cs-resources li { margin: 0.25rem 0; }
+/* Overrides the global `a { color: #94a3b8 !important; }` rule in globals.css */
+.cs-resources a,
+.cs-resources a:visited {
+  color: var(--cs-green) !important;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--cs-green);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  transition: color 120ms ease, text-decoration-color 120ms ease;
+}
+.cs-resources a:hover {
+  color: var(--cs-green-dark) !important;
+  text-decoration-color: var(--cs-green-dark);
+}
+/* Buttons override the underline + weight from the generic anchor rule */
+.cs-resources a.cs-button,
+.cs-resources a.cs-button:visited,
+.cs-resources a.cs-button:hover {
+  color: #ffffff !important;
+  text-decoration: none;
+}
+.cs-resources hr {
+  border: none;
+  border-top: 1px solid var(--cs-border);
+  margin: 1.5rem 0;
+}
+.cs-resources img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+.cs-resources .cs-youtube-embed {
+  margin: 1rem 0;
+}
+.cs-resources .cs-youtube-embed iframe {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 0.75rem;
+  background: #111827;
+}
+.cs-resources .cs-youtube-embed a {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+
+/* Inline button helper — admins can paste <a class="cs-button" href="...">Label</a> */
+.cs-resources a.cs-button,
+a.cs-button {
+  display: inline-block;
+  background: var(--cs-green);
+  color: #ffffff !important;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: 9999px;
+  border: 1px solid var(--cs-green);
+  transition: background 150ms ease, border-color 150ms ease, transform 100ms ease;
+  margin: 0.25rem 0.35rem 0.25rem 0;
+}
+.cs-resources a.cs-button:hover,
+a.cs-button:hover {
+  background: var(--cs-green-dark);
+  border-color: var(--cs-green-dark);
+}
+.cs-resources a.cs-button:active,
+a.cs-button:active {
+  transform: translateY(1px);
+}
+
+/* Event row cards — left border communicates status without relying solely on badge text */
+.cs-event-row {
+  background: #ffffff;
+  border: 1px solid var(--cs-border);
+  border-left-width: 3px;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  transition: box-shadow 150ms ease, border-color 150ms ease;
+  text-decoration: none;
+  color: inherit;
+}
+.cs-event-row:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+.cs-event-row-link {
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+.cs-event-row-admin-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0 0.75rem 0 0.25rem;
+  border-left: 1px solid #f3f4f6;
+  background: rgba(255, 255, 255, 0.75);
+}
+.cs-root button.cs-admin-hide-event {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-width: 4.3rem;
+  height: 2rem;
+  padding: 0 0.6rem;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #6b7280 !important;
+  font-size: 0.72rem;
+  font-weight: 700;
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+}
+.cs-root button.cs-admin-hide-event:hover:not(:disabled) {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  color: #92400e !important;
+}
+.cs-root button.cs-admin-hide-event:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.cs-event-row.needs-summary { border-left-color: #f59e0b; }
+.cs-event-row.submitted     { border-left-color: var(--cs-green); }
+.cs-event-row.did-not-meet  { border-left-color: #dc2626; background: #fef2f2; }
+
+/* Date stamp column inside event rows */
+.cs-date-stamp {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.5rem;
+  padding: 0.75rem 0.5rem;
+  background: var(--cs-bg);
+  border-right: 1px solid var(--cs-border);
+  flex-shrink: 0;
+  gap: 0.05rem;
+}
+.cs-date-stamp .day-num {
+  font-family: var(--font-cs-body), 'Open Sans', sans-serif;
+  font-style: italic;
+  font-weight: 800;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--cs-ink);
+}
+.cs-date-stamp .day-name,
+.cs-date-stamp .month {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cs-muted);
+}
+
+/* Section step header used in the form */
+.cs-step {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+.cs-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: var(--cs-green);
+  font-family: var(--font-cs-body), 'Open Sans', sans-serif;
+  font-style: italic;
+  font-weight: 800;
+  font-size: 0.75rem;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+.cs-step-title {
+  font-family: var(--font-cs-body), 'Open Sans', sans-serif;
+  font-style: italic;
+  font-weight: 800;
+  font-size: 1.25rem;
+  text-transform: uppercase;
+  line-height: 1;
+  color: var(--cs-ink);
+}
+
+/* Attendee pill in the roster */
+.cs-attendee-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0;
+  cursor: pointer;
+}
+.cs-attendee-avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--cs-bg-soft);
+  border: 1.5px solid var(--cs-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--cs-muted);
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.cs-attendee-avatar.selected {
+  background: rgba(52, 178, 51, 0.12);
+  border-color: var(--cs-green);
+  color: var(--cs-green-dark);
+}
+
+.cs-input,
+.cs-textarea,
+.cs-select {
+  width: 100%;
+  border: 1.5px solid #d1d5db !important;
+  background: #ffffff;
+  color: var(--cs-ink);
+  border-radius: 0.5rem;
+  padding: 0.7rem 0.85rem;
+  font-size: 1rem;
+  line-height: 1.4;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.cs-input:focus,
+.cs-textarea:focus,
+.cs-select:focus {
+  outline: none;
+  border-color: var(--cs-green) !important;
+  box-shadow: 0 0 0 3px rgba(52, 178, 51, 0.15);
+}
+.cs-textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+}
+
+.cs-input::placeholder,
+.cs-textarea::placeholder {
+  color: #6b7280;
+  opacity: 1;
+}
+
+.cs-search-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.cs-search-field-label {
+  color: var(--cs-ink-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.cs-search-results-shell {
+  position: relative;
+  min-height: 4.75rem;
+  max-height: 14rem;
+  overflow-y: auto;
+  overflow-anchor: none;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  border: 1px solid var(--cs-border);
+  transition: min-height 160ms ease, opacity 160ms ease, border-color 160ms ease;
+}
+.cs-search-results-shell.is-searching {
+  border-color: rgba(52, 178, 51, 0.28);
+}
+.cs-search-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.35rem;
+  transition: opacity 140ms ease;
+}
+.cs-search-results-shell.is-searching .cs-search-results-list {
+  opacity: 0.72;
+}
+.cs-search-result-item {
+  width: 100%;
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid #e5e7eb;
+  background: #ffffff !important;
+  font-size: 0.875rem;
+  color: var(--cs-ink);
+  transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+.cs-search-result-item:hover,
+.cs-search-result-item:focus,
+.cs-search-result-item:active {
+  background: #f5fbf5 !important;
+  border-color: rgba(52, 178, 51, 0.35);
+  box-shadow: 0 0 0 2px rgba(52, 178, 51, 0.1);
+  outline: none;
+}
+.cs-search-results-empty {
+  min-height: 4.75rem;
+  display: flex;
+  align-items: center;
+  padding: 0 0.8rem;
+  color: var(--cs-muted) !important;
+  font-size: 0.78rem;
+}
+.cs-search-results-status {
+  position: sticky;
+  bottom: 0;
+  padding: 0.35rem 0.75rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0), #ffffff 38%);
+  color: var(--cs-muted) !important;
+  font-size: 0.72rem;
+}
+
+.cs-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--cs-ink);
+  margin-bottom: 0.35rem;
+}
+.cs-help {
+  font-size: 0.8rem;
+  color: var(--cs-muted);
+  margin-top: 0.3rem;
+}
+.cs-root .cs-help-quick-link,
+.cs-root .cs-help-quick-link:visited {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid rgba(52, 178, 51, 0.35);
+  background: rgba(52, 178, 51, 0.08);
+  padding: 0.5rem 0.75rem;
+  color: var(--cs-green-darker) !important;
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1rem;
+  text-align: center;
+  text-decoration: none !important;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+.cs-root .cs-help-quick-link:hover,
+.cs-root .cs-help-quick-link:focus-visible {
+  border-color: var(--cs-green);
+  background: rgba(52, 178, 51, 0.16);
+  color: var(--cs-green-darker) !important;
+}
+
+.cs-check {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px;
+  min-height: 24px;
+  border: 2px solid #d1d5db !important;
+  border-radius: 4px;
+  background: #ffffff;
+  display: inline-block;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  margin: 0;
+  vertical-align: middle;
+  transition: border-color 100ms ease, background 100ms ease;
+}
+.cs-check:hover:not(:checked) {
+  border-color: var(--cs-green) !important;
+}
+.cs-check:checked {
+  background: var(--cs-green) !important;
+  border-color: var(--cs-green) !important;
+}
+.cs-check:checked::after {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 3px;
+  width: 6px;
+  height: 11px;
+  border: solid #ffffff;
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg);
+  box-sizing: content-box;
+}
+
+.cs-radio {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px;
+  min-height: 22px;
+  border: 2px solid #d1d5db !important;
+  border-radius: 50%;
+  background: #ffffff;
+  display: inline-block;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  margin: 0;
+  vertical-align: middle;
+  transition: border-color 100ms ease;
+}
+.cs-radio:hover:not(:checked) {
+  border-color: var(--cs-green) !important;
+}
+.cs-radio:checked {
+  border-color: var(--cs-green) !important;
+}
+.cs-radio:checked::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  right: 3px;
+  bottom: 3px;
+  border-radius: 50%;
+  background: var(--cs-green);
+}
+
+.cs-toggle {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 3.25rem !important;
+  height: 1.75rem !important;
+  background: #d1d5db !important;
+  border: none !important;
+  border-radius: 999px !important;
+  position: relative;
+  cursor: pointer;
+  transition: background 140ms ease;
+  flex-shrink: 0;
+  padding: 0;
+  margin: 0;
+  vertical-align: middle;
+}
+.cs-toggle::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 1.25rem;
+  height: 1.25rem;
+  background: #ffffff;
+  border-radius: 50%;
+  transition: transform 140ms ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+.cs-toggle:checked {
+  background: var(--cs-green) !important;
+}
+.cs-toggle:checked::after {
+  transform: translateX(1.45rem);
+}
+
+.cs-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.cs-badge-warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+.cs-badge-success {
+  background: #dcfce7;
+  color: #166534;
+}
+.cs-badge-muted {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+.cs-badge-danger {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.cs-badge-new {
+  background: rgba(52, 178, 51, 0.12);
+  color: var(--cs-green-darker);
+}
+
+.cs-alert {
+  padding: 0.85rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  border: 1px solid transparent;
+}
+.cs-alert-error {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+.cs-alert-info {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e3a8a;
+}
+.cs-alert-warning {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.cs-root .cs-footer-link {
+  color: #6b7280 !important;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 120ms ease;
+}
+.cs-root .cs-footer-link:hover,
+.cs-root .cs-footer-link:focus-visible {
+  color: var(--cs-green-darker) !important;
+}
+
+/* Message Center CTA button — !important needed to beat .cs-root inherited color */
+.cs-root .cs-message-cta,
+.cs-root .cs-message-cta * {
+  color: #ffffff !important;
+}
+.cs-root .cs-inbox-banner-cta,
+.cs-root .cs-inbox-banner-cta * {
+  color: #ffffff !important;
+}
+.cs-message-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  background: var(--cs-green);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: background-color 0.15s ease;
+}
+.cs-message-cta:hover {
+  background: var(--cs-green-dark);
+}
+
+/* Message Center body — rich-text rendered with dangerouslySetInnerHTML */
+.cs-message-body a {
+  color: #047857;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.cs-message-body a:hover {
+  color: #065f46;
+}
+.cs-message-body p { margin: 0 0 0.5rem; }
+.cs-message-body p:last-child { margin-bottom: 0; }
+.cs-message-body ul,
+.cs-message-body ol {
+  margin: 0.25rem 0 0.5rem;
+  padding-left: 1.25rem;
+}
+.cs-message-body ul { list-style: disc; }
+.cs-message-body ol { list-style: decimal; }
+.cs-message-body strong { font-weight: 600; }
+.cs-message-body em { font-style: italic; }
+.cs-message-body h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0.5rem 0 0.25rem;
+}
+
+.cs-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--cs-muted);
+  font-size: 0.75rem;
+  margin: 0.5rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.cs-divider::before,
+.cs-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--cs-border);
+}
+
+.cs-skeleton {
+  background: linear-gradient(90deg, #f0f1ef 0%, #e5e7e3 50%, #f0f1ef 100%);
+  background-size: 200% 100%;
+  animation: cs-shimmer 1.2s ease-in-out infinite;
+  border-radius: 0.5rem;
+}
+@keyframes cs-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ─── Leadership Snapshot (Health tab) ─────────────────────────── */
+/* Rating option pill (1–4 scale). */
+.cs-root .cs-rate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0.6rem 0.25rem;
+  border: 1.5px solid var(--cs-border);
+  border-radius: 0.625rem;
+  background: #ffffff;
+  color: var(--cs-ink-soft) !important;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.cs-root .cs-rate:hover:not(.is-selected) {
+  border-color: var(--cs-green);
+  background: #f5fbf5;
+}
+.cs-root .cs-rate.is-selected,
+.cs-root .cs-rate.is-selected * {
+  background: var(--cs-green);
+  border-color: var(--cs-green);
+  color: #ffffff !important;
+}
+.cs-rate-num { font-size: 1.05rem; font-weight: 800; line-height: 1; }
+.cs-rate-label { font-size: 0.62rem; font-weight: 600; line-height: 1.1; }
+
+/* Score readouts colored by band. !important to beat the .cs-root reset. */
+.cs-score-strong { color: var(--cs-green-darker) !important; }
+.cs-score-warn { color: #b45309 !important; }
+.cs-score-low { color: #b91c1c !important; }
+
+/* Score card on the results view. */
+.cs-score-card {
+  border: 1px solid var(--cs-border);
+  border-radius: 0.75rem;
+  padding: 0.85rem 0.5rem;
+  text-align: center;
+  background: #ffffff;
+}
+.cs-score-card.strength { border-color: #bbf7d0; background: #f0fdf4; }
+.cs-score-card.growth { border-color: #fde68a; background: #fffbeb; }
+
+/* Category drill-down row. */
+.cs-drill {
+  border: 1px solid var(--cs-border);
+  border-radius: 0.625rem;
+  overflow: hidden;
+}
+.cs-drill + .cs-drill { margin-top: 0.5rem; }

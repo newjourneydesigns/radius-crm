@@ -1,6 +1,6 @@
 // Shared server-side logic for creating Leadership Snapshots, used by both the
 // RADIUS staff route (/api/leadership-snapshot) and the leader-facing Circle
-// Summary route (/api/circle-summary/health). Keeps scoring, AI generation, and
+// Summary route (/api/circle-leader-toolkit/health). Keeps scoring, AI generation, and
 // the version-1 revision write identical across both entry points.
 
 import { DateTime } from 'luxon';

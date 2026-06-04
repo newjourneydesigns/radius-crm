@@ -66,7 +66,7 @@ These are capabilities CCB was never designed for. They're the reason RADIUS exi
 | **ACPD dashboard** | Campus/status filters + follow-up tracking across a director's whole portfolio | Nothing falls through the cracks |
 | **Scorecards** | Structured evaluations of leader development over time | Makes "how is this leader growing?" measurable |
 | **Event Summary Tracker** | Surfaces which leaders submitted/skipped their weekly circle report | Turns CCB attendance data into a weekly accountability view |
-| **Circle Leader Dashboard (PWA)** | A separate installable app the leaders themselves use — submit weekly summaries, manage their roster, get messages, see resources, receive push notifications | Two-way engagement; leaders aren't just data points |
+| **Circle Leader Toolkit (PWA)** | A separate installable app the leaders themselves use — submit weekly summaries, manage their roster, get messages, see resources, receive push notifications | Two-way engagement; leaders aren't just data points |
 | **Boards & forms** | Kanban + project boards with checklists and due dates; public intake forms that create cards | Manages the *work* of leadership development, not just the people |
 | **AI assist** | Meeting prep, note summarization, dictation, weekly summaries | Cuts the admin time per leader |
 | **Messaging + daily emails** | Targeted leader messages with push delivery, plus scheduled daily summary emails to ACPDs | Proactive, not "log in and go look" |

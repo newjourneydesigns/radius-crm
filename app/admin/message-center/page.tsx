@@ -107,7 +107,7 @@ function MessagesPanel({ token }: { token: string | null }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/admin/circle-summary-messages', {
+      const res = await fetch('/api/admin/circle-leader-toolkit-messages', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = (await res.json()) as { messages?: Message[]; error?: string };
@@ -185,7 +185,7 @@ function MessagesPanel({ token }: { token: string | null }) {
     try {
       const isEdit = !!(draft as Message).id;
       const method = isEdit ? 'PUT' : 'POST';
-      const res = await fetch('/api/admin/circle-summary-messages', {
+      const res = await fetch('/api/admin/circle-leader-toolkit-messages', {
         method,
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
@@ -205,7 +205,7 @@ function MessagesPanel({ token }: { token: string | null }) {
       ];
 
       if (orderedIds.length > 1) {
-        await fetch('/api/admin/circle-summary-messages', {
+        await fetch('/api/admin/circle-leader-toolkit-messages', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ orderedIds }),
@@ -229,7 +229,7 @@ function MessagesPanel({ token }: { token: string | null }) {
 
   async function remove(id: string) {
     if (!confirm('Delete this message? Leaders will stop seeing it immediately.')) return;
-    const res = await fetch(`/api/admin/circle-summary-messages?id=${encodeURIComponent(id)}`, {
+    const res = await fetch(`/api/admin/circle-leader-toolkit-messages?id=${encodeURIComponent(id)}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });

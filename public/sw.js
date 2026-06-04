@@ -145,7 +145,7 @@ self.addEventListener('push', (event) => {
   }
 
   const title = data.title || 'Radius';
-  const url = data.url || '/circle-summary';
+  const url = data.url || '/circle-leader-toolkit';
   const options = {
     body: data.body || 'You have a new update.',
     tag: data.tag || 'radius-circle-summary',
@@ -171,10 +171,10 @@ self.addEventListener('push', (event) => {
 // Focus an existing Radius window when possible; otherwise open the route.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const fallbackUrl = new URL('/circle-summary', self.location.origin).href;
+  const fallbackUrl = new URL('/circle-leader-toolkit', self.location.origin).href;
   let targetUrl = fallbackUrl;
   try {
-    targetUrl = new URL(event.notification.data?.url || '/circle-summary', self.location.origin).href;
+    targetUrl = new URL(event.notification.data?.url || '/circle-leader-toolkit', self.location.origin).href;
   } catch {}
 
   event.waitUntil(

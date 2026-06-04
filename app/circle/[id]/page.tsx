@@ -1049,7 +1049,7 @@ export default function CircleLeaderProfilePage() {
       const token = await getAdminToken();
       if (!token) return;
 
-      const res = await fetch(`/api/circle-summary/sessions?leader_id=${leaderId}`, {
+      const res = await fetch(`/api/circle-leader-toolkit/sessions?leader_id=${leaderId}`, {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
       });
@@ -1101,7 +1101,7 @@ export default function CircleLeaderProfilePage() {
         return;
       }
 
-      const res = await fetch('/api/circle-summary/sessions', {
+      const res = await fetch('/api/circle-leader-toolkit/sessions', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ leader_id: leader.id, enabled: next }),
@@ -1154,7 +1154,7 @@ export default function CircleLeaderProfilePage() {
     const token = sess?.session?.access_token;
     if (!token) throw new Error('Please sign in again.');
 
-    const res = await fetch('/api/circle-summary/admin-magic-link', {
+    const res = await fetch('/api/circle-leader-toolkit/admin-magic-link', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ leader_id: leader.id }),
@@ -1247,7 +1247,7 @@ export default function CircleLeaderProfilePage() {
         setShowAlert({ isOpen: true, type: 'error', title: 'Not signed in', message: 'Please sign in again.' });
         return;
       }
-      const res = await fetch('/api/circle-summary/admin-magic-link', {
+      const res = await fetch('/api/circle-leader-toolkit/admin-magic-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ leader_id: leader.id }),
@@ -2088,7 +2088,7 @@ export default function CircleLeaderProfilePage() {
                         title="Open the leader's Circle Summary page in a new tab (auto sign-in)"
                       >
                         <img src="/Circles Logo V2-White.png" alt="" className="w-4 h-4 shrink-0 object-contain" />
-                        {isOpeningCircleSummary ? 'Opening…' : 'Circle Leader Dashboard'}
+                        {isOpeningCircleSummary ? 'Opening…' : 'Circle Leader Toolkit'}
                       </button>
                     )}
 
@@ -2956,7 +2956,7 @@ export default function CircleLeaderProfilePage() {
                           title="Open the leader's Circle Summary page in a new tab (auto sign-in)"
                         >
                           <img src="/Circles Logo V2-White.png" alt="" className="w-4 h-4 shrink-0 object-contain" />
-                          {isOpeningCircleSummary ? 'Opening…' : 'Circle Leader Dashboard'}
+                          {isOpeningCircleSummary ? 'Opening…' : 'Circle Leader Toolkit'}
                         </button>
                       )}
 

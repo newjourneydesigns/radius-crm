@@ -4,7 +4,7 @@ import { schedule } from '@netlify/functions';
  * Netlify Scheduled Function — Daily CCB bulk sync.
  *
  * Runs once a day at 09:00 UTC (~4 AM CDT / 3 AM CST). Calls
- * /api/circle-summary/prewarm which makes ONE bulk attendance_profiles call
+ * /api/circle-leader-toolkit/prewarm which makes ONE bulk attendance_profiles call
  * plus per-group calendar events, and writes them to `ccb_group_events_cache`.
  *
  * Reads (Circle Summary, dashboard auto-update) serve from that cache by
@@ -25,7 +25,7 @@ const handler = schedule('0 9 * * *', async () => {
       return { statusCode: 500, body: JSON.stringify({ error: 'CRON_SECRET missing' }) };
     }
 
-    const response = await fetch(`${appUrl}/api/circle-summary/prewarm`, {
+    const response = await fetch(`${appUrl}/api/circle-leader-toolkit/prewarm`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

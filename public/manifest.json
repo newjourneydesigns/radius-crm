@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Circle Leader Dashboard",
-  "short_name": "Dashboard",
-  "description": "Circle Leader Dashboard",
+  "name": "Circle Leader Toolkit",
+  "short_name": "Toolkit",
+  "description": "Circle Leader Toolkit",
   "start_url": "/",
   "display": "standalone",
   "display_override": ["standalone"],

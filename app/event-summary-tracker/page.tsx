@@ -696,7 +696,7 @@ export default function EventSummaryTrackerPage() {
     (async () => {
       try {
         const res = await fetch(
-          `/api/circle-summary/leader-week-summary?leader_id=${reviewRow.leader.id}&week_start=${weekStart}&peek=1&force=1`
+          `/api/circle-leader-toolkit/leader-week-summary?leader_id=${reviewRow.leader.id}&week_start=${weekStart}&peek=1&force=1`
         );
         if (!res.ok) throw new Error('peek failed');
         const json = await res.json();
@@ -1007,7 +1007,7 @@ export default function EventSummaryTrackerPage() {
     }
 
     const headers = { 'Content-Type': 'application/json', ...(await authHeader()) };
-    const res = await fetch('/api/circle-summary/leader-week-summary', {
+    const res = await fetch('/api/circle-leader-toolkit/leader-week-summary', {
       method: 'POST',
       headers,
       body: JSON.stringify({ action, leader_id: leaderId, week_start_date: weekStart }),

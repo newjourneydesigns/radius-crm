@@ -3,11 +3,10 @@ import { schedule } from '@netlify/functions';
 /**
  * Netlify Scheduled Function — Circle Summary reminders.
  *
- * Runs every 15 minutes. Sends:
- *   - "1 hour before your Circle" emails (caught in a 45-75 min window)
- *   - Morning follow-up emails for un-submitted past meetings (8-10am CST)
+ * Runs every 15 minutes. Sends a single reminder email ~30 minutes after each
+ * Circle starts, nudging the leader to submit their summary.
  *
- * Idempotent: backed by the circle_reminder_sends table.
+ * Idempotent: backed by the circle_reminder_sends table (one email per occurrence).
  */
 const handler = schedule('*/15 * * * *', async () => {
   console.log('[circle-reminders] tick');
@@ -17,7 +16,7 @@ const handler = schedule('*/15 * * * *', async () => {
   const cronSecret = process.env.CRON_SECRET;
 
   try {
-    const response = await fetch(`${appUrl}/api/circle-summary/reminders`, {
+    const response = await fetch(`${appUrl}/api/circle-leader-toolkit/reminders`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

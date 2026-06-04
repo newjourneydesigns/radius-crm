@@ -4,7 +4,7 @@ import ClientLayout from "./ClientLayout";
 
 // Viewport (incl. theme-color) lives here as a Next export rather than a
 // hardcoded <meta> so nested segments can override individual fields. The
-// /circle-summary segment swaps theme-color to brand green; everything else
+// /circle-leader-toolkit segment swaps theme-color to brand green; everything else
 // inherits the dark shell color below.
 export const viewport: Viewport = {
   width: "device-width",
@@ -16,8 +16,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata = {
-  title: 'Circle Leader Dashboard',
-  description: 'Circle Leader Dashboard',
+  title: 'Circle Leader Toolkit',
+  description: 'Circle Leader Toolkit',
   manifest: '/manifest.json',
   icons: {
     icon: [
@@ -71,7 +71,7 @@ export default function RootLayout({
   ] : [
     'if ("serviceWorker" in navigator) {',
     '  window.addEventListener("load", function() {',
-    '    if (window.location.pathname.indexOf("/circle-summary") === 0) return;',
+    '    if (window.location.pathname.indexOf("/circle-leader-toolkit") === 0) return;',
     '    navigator.serviceWorker.getRegistrations().then(function(registrations) {',
     '      registrations.forEach(function(registration) { registration.unregister(); });',
     '    });',
@@ -119,10 +119,10 @@ export default function RootLayout({
         <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.20/index.global.min.js" />
 
         {/* PWA Meta Tags */}
-        <meta name="application-name" content="Dashboard" />
+        <meta name="application-name" content="Toolkit" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="Dashboard" />
+        <meta name="apple-mobile-web-app-title" content="Toolkit" />
         <meta name="format-detection" content="telephone=no" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-config" content="/browserconfig.xml" />

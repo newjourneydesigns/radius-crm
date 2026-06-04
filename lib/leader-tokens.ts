@@ -7,7 +7,7 @@
  *  3. Resend delivers the code to the leader's email
  *  4. Leader enters code → server hashes, compares, marks consumed
  *  5. Server issues an opaque persistent session cookie backed by the
- *     leader_sessions table — used as auth on all /api/circle-summary/* routes
+ *     leader_sessions table — used as auth on all /api/circle-leader-toolkit/* routes
  *
  * Magic-link token format: <payload_b64>.<expires_ms>.<hmac_sha256_b64>
  * Payload is the leader id, optionally with signed session metadata.
@@ -18,7 +18,7 @@ import { createHmac, createHash, randomBytes, randomInt, timingSafeEqual } from 
 
 const SESSION_SECRET_ENV = 'LEADER_SESSION_SECRET';
 export const SESSION_COOKIE_NAME = 'radius_leader_session';
-// Browsers may cap persistent cookies, so this is refreshed on /circle-summary page loads.
+// Browsers may cap persistent cookies, so this is refreshed on /circle-leader-toolkit page loads.
 export const SESSION_COOKIE_MAX_AGE_SECONDS = 400 * 24 * 60 * 60;
 export const MAGIC_LINK_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 // Radius-issued leader links are intentionally long-lived; access is still

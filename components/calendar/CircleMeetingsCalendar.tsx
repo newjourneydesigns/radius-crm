@@ -1179,7 +1179,7 @@ export default function CircleMeetingsCalendar({
       const { data: { session } } = await supabase.auth.getSession();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
-      const res = await fetch('/api/circle-summary/leader-week-summary', {
+      const res = await fetch('/api/circle-leader-toolkit/leader-week-summary', {
         method: 'POST',
         headers,
         body: JSON.stringify({

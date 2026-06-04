@@ -6,7 +6,7 @@
 
 > RADIUS is actually **two connected apps**:
 > 1. **The ACPD / Admin app** — used by directors and coaches to track and develop Circle Leaders.
-> 2. **The Circle Leader Dashboard** — a separate installable app the leaders themselves use to submit weekly summaries, manage their roster, and stay connected.
+> 2. **The Circle Leader Toolkit** — a separate installable app the leaders themselves use to submit weekly summaries, manage their roster, and stay connected.
 >
 > Both run on the same data and both build on top of CCB (see the Assessment doc).
 
@@ -52,7 +52,7 @@
 - **Check-in cadence** — visualizes how regularly the leader is being connected with.
 - **Progress timeline** — a chronological view of the leader's development.
 - **Suggested next steps** — recommended actions based on the leader's current state.
-- **Link to Circle Leader Dashboard** — jump to the leader-facing app for that person.
+- **Link to Circle Leader Toolkit** — jump to the leader-facing app for that person.
 
 ---
 
@@ -155,7 +155,7 @@
 
 ---
 
-## 14. Circle Leader Dashboard (the leader-facing app)
+## 14. Circle Leader Toolkit (the leader-facing app)
 
 A separate, installable PWA used by the Circle Leaders themselves.
 
@@ -303,4 +303,4 @@ A separate, installable PWA used by the Circle Leaders themselves.
 | Component areas | 18 |
 | Tracked changes (changelog) | 200+ |
 
-Two app surfaces (ACPD admin + Circle Leader Dashboard), one shared data layer, all built on top of CCB.
+Two app surfaces (ACPD admin + Circle Leader Toolkit), one shared data layer, all built on top of CCB.

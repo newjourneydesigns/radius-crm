@@ -96,7 +96,7 @@ export default function EventSummaryModal({ open, onClose, leaderId, leaderName,
     if (!leaderId || !weekStartDate) return;
     setLoadingDb(true);
     try {
-      const url = `/api/circle-summary/leader-week-summary?leader_id=${leaderId}&week_start=${weekStartDate}`;
+      const url = `/api/circle-leader-toolkit/leader-week-summary?leader_id=${leaderId}&week_start=${weekStartDate}`;
       const res = await fetch(url, { headers: await authHeaders() });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Failed to load');
@@ -160,7 +160,7 @@ export default function EventSummaryModal({ open, onClose, leaderId, leaderName,
         };
       }
 
-      const res = await fetch('/api/circle-summary/leader-week-summary', {
+      const res = await fetch('/api/circle-leader-toolkit/leader-week-summary', {
         method: 'POST',
         headers: await authHeaders(),
         body: JSON.stringify({

@@ -388,13 +388,10 @@ export async function DELETE(request: NextRequest) {
       });
     }
 
-    // Delete user from auth.users — ignore error if they don't exist there
-    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
-    if (authError) {
-      console.warn('Auth user not found or could not be deleted (may be orphaned profile):', authError.message);
-    }
-
-    // Always delete from public.users regardless of auth result
+    // Delete the public.users profile row FIRST. The profile's primary key is a
+    // foreign key to auth.users(id) with no ON DELETE CASCADE, so deleting the
+    // auth user while this row still exists fails with a FK violation. Removing
+    // the profile first clears that reference so the auth delete can succeed.
     const { error: profileError } = await supabaseAdmin
       .from('users')
       .delete()
@@ -403,6 +400,18 @@ export async function DELETE(request: NextRequest) {
     if (profileError) {
       console.error('Error deleting user profile:', profileError);
       return NextResponse.json({ error: 'Failed to delete user profile' }, { status: 500 });
+    }
+
+    // Now delete the login account from auth.users. Treat "not found" (404) as
+    // success so re-deleting an already-orphaned auth user is idempotent, but
+    // surface any other failure instead of silently reporting success.
+    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+    if (authError && authError.status !== 404) {
+      console.error('Error deleting auth user:', authError);
+      return NextResponse.json(
+        { error: `Profile removed, but the login account could not be deleted: ${authError.message}` },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({

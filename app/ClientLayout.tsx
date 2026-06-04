@@ -21,7 +21,7 @@ function isPublicRoute(pathname: string) {
     p === '/login' ||
     p === '/search' ||
     p.startsWith('/auth') ||
-    p.startsWith('/circle-summary') ||
+    p.startsWith('/circle-leader-toolkit') ||
     // Public intake forms — anyone can fill these out without signing in.
     p === '/f' ||
     p.startsWith('/f/')
@@ -34,7 +34,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   const hideChrome =
     pathname === '/login' ||
     pathname.startsWith('/auth') ||
-    pathname.startsWith('/circle-summary') ||
+    pathname.startsWith('/circle-leader-toolkit') ||
     pathname === '/f' ||
     pathname.startsWith('/f/');
   const isBoardDetailPage = /^\/boards\/[^/]+/.test(pathname);

@@ -63,7 +63,7 @@ export const QUICK_ACTIONS: QuickActionMeta[] = [
   },
   {
     id: 'card',
-    label: 'Add Board Card',
+    label: 'Add a Card',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="3" width="7" height="9" rx="1.5" />

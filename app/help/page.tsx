@@ -440,7 +440,7 @@ const ARTICLES: Article[] = [
         </Para>
       </>
     ),
-    tryIt: { label: 'Open Circle Summary', href: '/circle-summary' },
+    tryIt: { label: 'Open Circle Summary', href: '/circle-leader-toolkit' },
   },
 
   // ─── Scorecards ───

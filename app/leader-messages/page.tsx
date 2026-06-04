@@ -169,7 +169,7 @@ export default function LeaderMessagesPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/admin/circle-summary-inbox', {
+      const res = await fetch('/api/admin/circle-leader-toolkit-inbox', {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
       });
@@ -226,7 +226,7 @@ export default function LeaderMessagesPage() {
     });
     if (draft.target_value) params.set('target_value', draft.target_value);
 
-    fetch(`/api/admin/circle-summary-inbox?${params.toString()}`, {
+    fetch(`/api/admin/circle-leader-toolkit-inbox?${params.toString()}`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: 'no-store',
     })
@@ -336,7 +336,7 @@ export default function LeaderMessagesPage() {
       const isEdit = !!draft.id;
       const editingMessage = draft.id ? messages.find((m) => m.id === draft.id) : null;
       const isResend = editingMessage?.status === 'unsent';
-      const res = await fetch('/api/admin/circle-summary-inbox', {
+      const res = await fetch('/api/admin/circle-leader-toolkit-inbox', {
         method: isResend ? 'PATCH' : isEdit ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -387,7 +387,7 @@ export default function LeaderMessagesPage() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch('/api/admin/circle-summary-inbox', {
+      const res = await fetch('/api/admin/circle-leader-toolkit-inbox', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -421,7 +421,7 @@ export default function LeaderMessagesPage() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch('/api/admin/circle-summary-inbox', {
+      const res = await fetch('/api/admin/circle-leader-toolkit-inbox', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -448,7 +448,7 @@ export default function LeaderMessagesPage() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch(`/api/admin/circle-summary-inbox?id=${encodeURIComponent(message.id)}`, {
+      const res = await fetch(`/api/admin/circle-leader-toolkit-inbox?id=${encodeURIComponent(message.id)}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

@@ -1,5 +1,101 @@
 [
   {
+    "date": "2026-06-04",
+    "version": "2.6.9",
+    "date_display": "June 4, 2026",
+    "date_iso": "2026-06-04",
+    "id": "rename-circle-leader-toolkit",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Circle Leader Toolkit",
+    "description": "Renamed the leader-facing app from \"Circle Leader Dashboard\" to \"Circle Leader Toolkit\" everywhere it appears — the app title, install/home-screen name, Help & Guide header, notifications, and the link from a leader's profile. When you add it to your home screen it now installs as \"Toolkit.\" The web address also moved to /circle-leader-toolkit — your existing links, bookmarks, and home-screen app keep working and forward to the new address automatically.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-06-04",
+    "version": "2.6.8",
+    "date_display": "June 4, 2026",
+    "date_iso": "2026-06-04",
+    "id": "tools-menu-add-leader-mass-update",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Tools",
+    "description": "Moved Add Circle/Leader and Mass Update up into the Tools section of the menu so the most-used admin actions are easier to reach. They remain admin-only.",
+    "page": "/add-leader"
+  },
+  {
+    "date": "2026-06-04",
+    "version": "2.6.7",
+    "date_display": "June 4, 2026",
+    "date_iso": "2026-06-04",
+    "id": "fix-user-deletion-auth-account",
+    "type": "fix",
+    "type_display": "Fix",
+    "category": "User Management",
+    "description": "Deleting a user now actually removes their login account. Previously the app reported \"successfully deleted\" but the person's sign-in account stayed behind in the background, so they could still receive magic links. Deletion now removes both the profile and the login account, and reports a real error if the login account can't be removed.",
+    "page": "/users"
+  },
+  {
+    "date": "2026-06-04",
+    "version": "2.6.6",
+    "date_display": "June 4, 2026",
+    "date_iso": "2026-06-04",
+    "id": "tools-menu-circle-leader-toolkit",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Navigation",
+    "description": "Reorganized the Tools menu — Leadership Snapshots and Health Questions now live under the renamed \"Circle Leader Toolkit\" section, grouping the leader-facing tools together instead of splitting them between sections.",
+    "page": "/event-summary-tracker"
+  },
+  {
+    "date": "2026-06-04",
+    "version": "2.6.5",
+    "date_display": "June 4, 2026",
+    "date_iso": "2026-06-04",
+    "id": "circle-summary-single-reminder",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Circle Leaders",
+    "description": "Simplified Circle Summary reminder emails. Instead of a reminder before your Circle plus repeated morning nudges afterward, you now get a single email about 30 minutes after your Circle starts, reminding you to tell us how it went. One tap signs you in and takes you straight to your summary.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-06-04",
+    "version": "2.6.4",
+    "date_display": "June 4, 2026",
+    "date_iso": "2026-06-04",
+    "id": "circle-summary-email-delivery-fix",
+    "type": "fix",
+    "type_display": "Fix",
+    "category": "Circle Leaders",
+    "description": "Fixed Circle Summary emails — sign-in codes and meeting reminders — that had stopped being delivered. They are now sent from a verified address again so they reach your inbox.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-06-04",
+    "version": "2.6.3",
+    "date_display": "June 4, 2026",
+    "date_iso": "2026-06-04",
+    "id": "remove-leadership-snapshot-tool",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Tools",
+    "description": "Removed the standalone Leadership Snapshot tool from the Tools menu. Leadership health snapshots still live on each circle leader's profile and in the admin Leadership Snapshots view.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-06-04",
+    "version": "2.6.2",
+    "date_display": "June 4, 2026",
+    "date_iso": "2026-06-04",
+    "id": "birthday-banner-contact-button",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Circle Leaders",
+    "description": "Added a contact button to the birthday reminders on your roster. When someone's birthday is coming up, tap the phone icon on the reminder to instantly call or text them a happy birthday — no need to scroll down and find them in the list.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
     "date": "2026-06-03",
     "version": "2.6.1",
     "date_display": "June 3, 2026",
@@ -9,7 +105,7 @@
     "type_display": "Improvement",
     "category": "Circle Leaders",
     "description": "Added a \"Report a bug\" link to the footer of the Circle Leader Dashboard so leaders can quickly flag anything that isn't working right.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-06-03",
@@ -91,9 +187,9 @@
     "id": "circle-summary-splash-pulse",
     "type": "improvement",
     "type_display": "Improvement",
-    "category": "Circle Leader Dashboard",
+    "category": "Circle Leader Toolkit",
     "description": "Refreshed the loading screen: the Circles logo now sits centered with rings gently pulsing outward from it, replacing the small spinner for a calmer, more branded feel.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-06-02",
@@ -115,9 +211,9 @@
     "id": "circle-summary-splash-steady",
     "type": "fix",
     "type_display": "Fix",
-    "category": "Circle Leader Dashboard",
+    "category": "Circle Leader Toolkit",
     "description": "Opening the dashboard now holds a steady green loading screen until your circle is ready — no more flash of a black or white screen between loads. The status bar and browser chrome stay green to match, and the app reaches your events in fewer redirects.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-06-01",
@@ -141,7 +237,7 @@
     "type_display": "Improvement",
     "category": "App",
     "description": "Renamed the leader app (formerly \"Circle Leader Hub\") and the admin app to \"Circle Leader Dashboard.\" When you save it to your home screen, it now installs simply as \"Dashboard.\"",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-06-01",
@@ -153,7 +249,7 @@
     "type_display": "Feature",
     "category": "Circle Summary",
     "description": "Added a Help & Guide page to the Circle Leader Dashboard with friendly, step-by-step instructions for everything in the app — submitting summaries, managing your roster, the inbox, resources, and notifications — plus a short why behind each one. You can reach it from a link in the Events footer and from the Settings page.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-06-01",
@@ -177,7 +273,7 @@
     "type_display": "Improvement",
     "category": "Circle Summary",
     "description": "Cleaned up the contact lines on the Circle roster: the birthday icon is now a clear birthday-cake glyph instead of looking like a briefcase, and the phone, email, and birthday icons all share the same green so the envelope no longer looks oddly greyed out.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-06-01",
@@ -213,7 +309,7 @@
     "type_display": "Feature",
     "category": "Circle Roster",
     "description": "You can now snooze the \"hasn't attended\" alerts on your Circle roster. Tap Snooze on any alert to quiet it for 7 days, or use \"Snooze all · 7 days\" to clear the whole stack at once — the alert comes back if the person still hasn't shown up. The alert cards were also tidied up for mobile, and the header Settings gear no longer crowds the Circle name on smaller screens.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-06-01",
@@ -237,7 +333,7 @@
     "type_display": "Improvement",
     "category": "Leader Hub",
     "description": "Cleaned up the navigation badges so a \"0\" no longer shows on the Events or Inbox tabs. A count now appears only when you actually have something waiting — a summary to submit or an unread message — and disappears once you're caught up.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-31",
@@ -249,7 +345,7 @@
     "type_display": "Improvement",
     "category": "Leader Hub",
     "description": "Gave the header Settings button room to breathe on phones. It now shows as a compact gear icon on mobile so it no longer overlaps your Circle title, and expands back to the full \"Settings\" label on larger screens.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-31",
@@ -261,7 +357,7 @@
     "type_display": "Improvement",
     "category": "Leader Hub",
     "description": "Refreshed the Notification Settings page: the preference toggles now use proper switches instead of plain checkboxes, and the page reflects reality — when push is already on for your browser it shows a \"Push on\" status with a disable option, instead of always offering \"Enable push.\" Browser permission state (Allowed, Blocked, Not set) and your enabled devices are now shown as clear status badges.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-31",
@@ -273,7 +369,7 @@
     "type_display": "Improvement",
     "category": "Leader Hub",
     "description": "Moved Settings out of the tab bar and into a gear button in the header, freeing up room for the Events, Roster, Resources, and Inbox tabs. Sign out now lives at the bottom of the Settings page instead of floating in the header.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-31",
@@ -309,7 +405,7 @@
     "type_display": "Feature",
     "category": "Circle Summary",
     "description": "Added a \"Remove from roster\" button right on the absent-member alerts in your Roster tab. It opens a quick confirmation that encourages keeping your roster focused on who's actually showing up — and reminds you that anyone can be added back anytime if they return to the Circle.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-31",
@@ -321,7 +417,7 @@
     "type_display": "Improvement",
     "category": "Circle Summary",
     "description": "Smoothed out the Circle Summary loading experience. Signing in now goes straight to your events with one solid loading screen instead of a chain of loaders flashing in sequence. Once you're in, switching tabs shows a lightweight skeleton that keeps the header and tabs on screen — no more full splash on every tap.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-30",
@@ -344,7 +440,7 @@
     "type": "fix",
     "type_display": "Fix",
     "category": "Circle Summary",
-    "page": "/circle-summary",
+    "page": "/circle-leader-toolkit",
     "title": "Editing a Circle Summary keeps your attendance",
     "description": "Fixed a bug where editing and resubmitting a Circle Summary reset everyone you'd marked present back to zero in CCB. Resubmitting now keeps your full attendance list intact, so updating your notes or Circle details no longer wipes out who attended."
   },
@@ -357,7 +453,7 @@
     "type": "improvement",
     "type_display": "Improvement",
     "category": "Circle Summary",
-    "page": "/circle-summary",
+    "page": "/circle-leader-toolkit",
     "title": "Snappier Circle Summary navigation",
     "description": "Moving around your Circle now feels instant. Switching between the Events and Roster tabs no longer throws up a full-screen loading splash on every tap — your header and tabs stay put and the content swaps with a light placeholder. And tapping Cancel on a summary returns you straight to your events list instead of reloading it."
   },
@@ -370,7 +466,7 @@
     "type": "improvement",
     "type_display": "Improvement",
     "category": "Circle Summary",
-    "page": "/circle-summary",
+    "page": "/circle-leader-toolkit",
     "title": "Faster Circle Summary loads",
     "description": "Your Circle pages now load noticeably faster. The events and roster tabs render with your data already in place instead of flashing a spinner first, the header name appears instantly, and behind the scenes we cut several redundant lookups on every page so things feel snappier — without changing any of your data."
   },
@@ -389,13 +485,13 @@
   {
     "date": "2026-05-30",
     "type": "improvement",
-    "page": "/circle-summary",
+    "page": "/circle-leader-toolkit",
     "description": "Each meeting in your Circle's Events list now shows how many people attended right next to \"Summary on file,\" so you can see turnout at a glance without opening each meeting."
   },
   {
     "date": "2026-05-30",
     "type": "improvement",
-    "page": "/circle-summary",
+    "page": "/circle-leader-toolkit",
     "description": "Your Circle roster now loads attendance info instantly. Previously the names appeared first and then the \"Last attended\" tags and the absent-member alerts popped in a moment later. Those values are now remembered between visits and shown right away, with a brief placeholder on the very first load so the list no longer jumps around."
   },
   {
@@ -455,7 +551,7 @@
   {
     "date": "2026-05-27",
     "type": "improvement",
-    "page": "/circle-summary",
+    "page": "/circle-leader-toolkit",
     "description": "Circle Summary events list now goes back 12 weeks instead of 8, so leaders can see and back-fill summaries further into the semester. The roster page's 'last attended' badges now read from the same shared cache as the events list, so opening the roster no longer triggers a fresh CCB pull every visit."
   },
   {
@@ -509,7 +605,7 @@
   {
     "date": "2026-05-26",
     "type": "feature",
-    "page": "/circle-summary",
+    "page": "/circle-leader-toolkit",
     "description": "If someone on your Circle roster hasn't attended in 15+ days, the roster page now shows a red banner at the top with quick Text and Call buttons so you can reach out right away. Dismiss the banner if you've already followed up — it'll come back automatically the next time they miss after attending again."
   },
   {
@@ -521,13 +617,13 @@
   {
     "date": "2026-05-26",
     "type": "feature",
-    "page": "/circle-summary",
+    "page": "/circle-leader-toolkit",
     "description": "Each person on the Circle Leader roster now shows their last attended date, pulled from CCB attendance. If it's been more than 14 days since they attended, the row gets a red 'last attended … Xd ago' badge so leaders can spot members drifting away."
   },
   {
     "date": "2026-05-26",
     "type": "improvement",
-    "page": "/circle-summary",
+    "page": "/circle-leader-toolkit",
     "description": "Circle Leader events list now flags 'Did Not Meet' submissions in red — red left border, light red row background, a red 'Did Not Meet' badge, and a semester-level count chip at the top — so leaders can see at a glance how many weeks they didn't meet."
   },
   {
@@ -569,7 +665,7 @@
   {
     "date": "2026-05-26",
     "type": "improvement",
-    "page": "/circle-summary",
+    "page": "/circle-leader-toolkit",
     "description": "Message Center banners on the Circle Summary events page now render YouTube links as inline video embeds, matching how the Inbox and Resources pages already handle them."
   },
   {
@@ -593,14 +689,14 @@
   {
     "date": "2026-05-25",
     "type": "improvement",
-    "page": "/circle-summary",
+    "page": "/circle-leader-toolkit",
     "description": "Faster Circle Summary roster: the page now loads from a server-side roster cache instead of waiting on a live CCB call every time. Add/remove actions update the cache instantly so changes appear immediately, and the cache transparently re-syncs from CCB in the background after 15 minutes."
   },
   {
     "date": "2026-05-25",
     "type": "improvement",
-    "page": "/circle-summary",
-    "description": "Circle Summary now installs as its own PWA with a dedicated icon: the white Circles logo centered on the page's signature green. Adding /circle-summary to your home screen launches straight into the Circle Summary sign-in flow, not the main RADIUS app. Magic-link previews in iMessage now show 'Circle Summary' as the title instead of 'Signing you in…'."
+    "page": "/circle-leader-toolkit",
+    "description": "Circle Summary now installs as its own PWA with a dedicated icon: the white Circles logo centered on the page's signature green. Adding /circle-leader-toolkit to your home screen launches straight into the Circle Summary sign-in flow, not the main RADIUS app. Magic-link previews in iMessage now show 'Circle Summary' as the title instead of 'Signing you in…'."
   },
   {
     "date": "2026-05-25",
@@ -671,7 +767,7 @@
   {
     "date": "2026-05-21",
     "type": "improvement",
-    "page": "/circle-summary/success",
+    "page": "/circle-leader-toolkit/success",
     "description": "Cleaned up the Circle summary thank-you page by removing the redundant checkmark icon — the Circles logo and headline now stand on their own."
   },
   {
@@ -720,7 +816,7 @@
     "date": "2026-05-20",
     "type": "fix",
     "description": "Disabled the every-10-minute Circle Summary CCB prewarm job, which was burning through our CCB API rate limit (~200 requests every 10 minutes across all active groups). The scheduled function is now gated behind an env flag (CIRCLE_SUMMARY_PREWARM_ENABLED) and defaults to off. Circle Summary will fall back to its previous on-demand fetch path until we redesign the warmer to be lazy / scoped / off-peak.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-19",
@@ -732,55 +828,55 @@
     "date": "2026-05-19",
     "type": "improvement",
     "description": "Personalized the Circle Summary header — the title now reads \"[Leader's first name]'s Circle\" (and \"…'s Roster\") instead of a generic \"Your Circle.\" Removed the small \"Valley Creek Church\" label, lifted SIGN OUT into the top corner, and made the title font fluid so longer names stay on a single line.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-19",
     "type": "improvement",
     "description": "Circle Summary events now serve from a shared cache that's refreshed every 10 minutes in the background. Leaders no longer wait for CCB on first visit, on cold starts, or after switching devices — the page loads with up-to-date events almost instantly.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-19",
     "type": "improvement",
     "description": "Made Circle Summary noticeably faster. Leaders who are already signed in now skip straight to their events page with no flash of the sign-in form, and the events list pulls less frequently from CCB so repeat navigations feel instant. A full-page green splash with the Circle Summary mark now shows during loading transitions instead of a half-rendered page.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-19",
     "type": "improvement",
     "description": "Added the Circles logo to the Circle Summary headers and made it the home-screen icon when leaders install Circle Summary as a PWA.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-18",
     "type": "improvement",
     "description": "The Refresh button on the Circle Summary events page now hides itself when it's not doing anything. It only appears as a 'Refreshing…' indicator while a background refresh is in flight, then disappears.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-18",
     "type": "feature",
     "description": "Added a Refresh button to the Circle Summary Roster. If someone's phone, email, or birthday changes in CCB, tap Refresh to pull the latest data right away instead of waiting for the daily background sync.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-18",
     "type": "improvement",
     "description": "The Circle Summary Roster now loads almost instantly. Member details (phone, email, birthday) are cached on the server and shown immediately from your last visit, then refreshed in the background. The previous one-by-one CCB lookups have been replaced with a single batched request, so even the first load is significantly faster.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-18",
     "type": "improvement",
     "description": "Polished the Circle Summary Roster experience: the Events/Roster tab switcher now uses a clear green active state that matches the hero, and the phone Call/Text action sheet was rebuilt with the Circle Summary design language — bold Anton-styled phone number, on-brand action buttons, and proper contrast that no longer washes out behind the dark theme.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-18",
     "type": "feature",
     "description": "Circle Summary now has a Roster tab. Leaders can view everyone on their Circle, tap a phone number to choose Call or Text, tap an email to send a message, and see upcoming birthdays. A friendly banner highlights any birthdays in the next 14 days (dismissable per-person until the birthday passes). Add/remove uses the same flow as the events form.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-18",
@@ -792,25 +888,25 @@
     "date": "2026-05-18",
     "type": "fix",
     "description": "Restored the Circle Summary Page admin button so it auto-signs the leader in again. The magic-link route now verifies the fresh token first and only falls back to an existing session when the token is missing or expired (the bookmark case).",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-18",
     "type": "fix",
     "description": "Adding the Circle Summary to your home screen now opens directly into Circle Summary instead of the main RADIUS login. The Circle Summary now ships its own web-app manifest so iOS treats it as a standalone leader app.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-18",
     "type": "fix",
     "description": "Bookmarking your Circle Summary magic link now keeps you signed in. The link route checks for an active leader session before re-verifying the token, so the bookmark works even after the 7-day token has expired.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-18",
     "type": "improvement",
     "description": "Polished the Update Roster UI on the Circle Summary — clearer Edit/Done toggle with icons, softer warning banner, restyled remove buttons with hover states, and cleaner alignment for newly added attendees.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-18",
@@ -834,49 +930,49 @@
     "date": "2026-05-17",
     "type": "fix",
     "description": "Circle Summary now shows CCB notes consistently even when a local draft exists for that event; CCB notes are returned as dedicated reference notes instead of being hidden by draft source handling.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-17",
     "type": "fix",
     "description": "Circle Summary now also checks CCB for the composed previous notes when a submitted RADIUS summary has its answer stored in dynamic responses instead of the legacy notes field.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-17",
     "type": "feature",
     "description": "The \"Notes from your last summary\" card on Circle Summary now has an \"Edit these notes\" button that drops the previous notes into the gathering textarea so you can update them in place.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-17",
     "type": "improvement",
     "description": "Clearer wording on the \"previously saved notes\" reference card in Circle Summary — now explains the notes are just for reference and don't need to be retyped.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-17",
     "type": "fix",
     "description": "Circle Summary now reliably pulls in notes and attendees that were entered directly in CCB — an empty auto-saved draft from a previous visit no longer hides the prefilled data.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-17",
     "type": "improvement",
     "description": "Notes fields on the Circle Summary form now auto-expand as you type, so longer reflections are easy to read without scrolling inside a tiny box.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-17",
     "type": "improvement",
     "description": "Message Center announcements now only appear on the Circle Summary events list — they no longer clutter the individual summary submission page.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-17",
     "type": "improvement",
     "description": "Renamed the third step of the Circle Summary form from \"A few more things\" to \"Tell us more\" — a friendlier prompt for sharing notes about the gathering.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-17",
@@ -888,7 +984,7 @@
     "date": "2026-05-17",
     "type": "improvement",
     "description": "Circle Summary events list is now bulletproof on accuracy: after you submit a summary, the list force-refreshes from CCB instead of showing a cached \"Pending\" badge. Added a Refresh button in the header with a live \"Refreshing…\" indicator, automatic refresh when you switch back to the tab, and a shorter server-side cache so CCB-direct edits surface within seconds.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-17",
@@ -930,43 +1026,43 @@
     "date": "2026-05-14",
     "type": "improvement",
     "description": "Circle Summary reminder emails: follow-up emails now use warm, inviting language (\"we'd love to hear about your Circle\") instead of deficit framing. Magic link now lands on the events list page so leaders always land on a working screen. Footer now says \"staff contact\" instead of referencing ACPDs.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-14",
     "type": "improvement",
     "description": "Circle Summary → CCB: when a leader adds new people via \"Add to roster\", those pending names are now also counted as guests on the CCB event summary. So 7 checked roster attendees + 2 pending adds shows as 9 total attendance in CCB (7 attendees + 2 guests).",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-14",
     "type": "improvement",
     "description": "Circle Summary events page: cached events list now persists across browser sessions so repeat visits paint instantly, and the loading state shows \"Loading your Circle events…\" — escalating to \"Still loading — pulling the latest from Church Community Builder\" after 5 seconds so leaders know the page isn't stuck.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-14",
     "type": "improvement",
     "description": "Circle Summary → CCB: the notes pushed to CCB now preserve the line breaks leaders type (paragraph breaks, lists) instead of being flattened into one line. Dynamic question answers each appear on their own block with the question as a heading; the \"Additional questions —\" prefix is gone.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-14",
     "type": "improvement",
     "description": "Circle Summary: \"Add someone to my Circle\" requests are now appended to the bottom of the notes pushed to CCB (one blank line before each block, format: \"Add New Person to Roster:\" then name, phone, email on their own lines) — making it easy for ACPDs to spot and process them. The pending entries no longer go through a separate roster-request flow.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-14",
     "type": "improvement",
     "description": "Circle Summary attendance: pending \"add to roster\" requests now have always-visible Edit and Remove actions on each row, so leaders can fix a typo or remove someone they added by mistake before submitting.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-14",
     "type": "fix",
     "description": "Circle Summary → CCB push: literal \\n\\n characters no longer appear in Event Notes when the leader includes line breaks in dynamic question responses, the topic, prayer requests, or info fields. All text headed to CCB is now flattened to a single line with \" || \" between paragraph breaks.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-14",
@@ -978,31 +1074,31 @@
     "date": "2026-05-14",
     "type": "improvement",
     "description": "Circle Summary attendance: roster removal is now behind an Edit toggle — tap Edit to reveal a red minus on each removable person, with a clear instruction line warning that the action removes them from the Circle's roster. Tap Done to return to taking attendance.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-14",
     "type": "improvement",
     "description": "Circle Summary Thank You page now uses leader-friendly language (\"Your Circle summary has been submitted.\") and no longer shows an internal reference code.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-14",
     "type": "improvement",
     "description": "Circle Summary sign-in now asks for email only — phone number is no longer offered as an identifier, simplifying the leader login flow.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-14",
     "type": "improvement",
     "description": "Circle Summary: removed the \"VC\" emblem from the sign-in hero for a cleaner header.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-14",
     "type": "improvement",
     "description": "Circle Summary: the SMS sent from the admin magic-link tool now reads as friendly end-user copy — \"here's your link to report your Circle event summary\" — instead of the technical sign-in phrasing.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-14",
@@ -1014,25 +1110,25 @@
     "date": "2026-05-14",
     "type": "improvement",
     "description": "Circle Summary loads noticeably faster: the events page paints the header instantly while CCB data loads in the background, CCB results are cached for 60 seconds, and the events list is remembered so navigating back from an event is near-instant. The sign-in page no longer flashes for already-signed-in leaders.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-14",
     "type": "fix",
     "description": "Fixed odd characters (literal \\n\\n) appearing in CCB Event Notes when a Circle Summary included line breaks. Paragraph breaks are now displayed cleanly as \" || \" separators.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-14",
     "type": "improvement",
     "description": "Circle Summary form now shows only dynamic questions with no extra static fields. Inputs and radio buttons have a more visible border for easier tapping and typing.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-14",
     "type": "feature",
     "description": "Circle Leaders can now remove someone from their roster on the Circle Summary attendance page. The Remove action only takes the person out of the Circle's CCB group — their CCB profile is not changed.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-14",
@@ -1050,7 +1146,7 @@
     "date": "2026-05-14",
     "type": "fix",
     "description": "Circle Summary magic links now reliably sign leaders in. The auth handler sets the session cookie on a 200 page and then navigates, avoiding a hosting quirk that was dropping the cookie on the redirect and bouncing leaders back to the sign-in screen.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-14",
@@ -1074,7 +1170,7 @@
     "date": "2026-05-13",
     "type": "improvement",
     "description": "Circle Summary reflection step is now a single open-ended prompt — \"Tell us about your Circle\" — instead of four separate fields. Less friction, more room for whatever the leader wants to share.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-13",
@@ -1091,8 +1187,8 @@
   {
     "date": "2026-05-13",
     "type": "improvement",
-    "description": "Circle Summary URLs now include the leader's CCB group ID (e.g. /circle-summary/12345/events) so you can tell which Circle you're looking at. The events list and submission form always show the logged-in leader's own Circle — manually changing the group ID in the URL redirects you back to your own Circle, and all data still comes from the session, so other Circles' data can't be reached.",
-    "page": "/circle-summary"
+    "description": "Circle Summary URLs now include the leader's CCB group ID (e.g. /circle-leader-toolkit/12345/events) so you can tell which Circle you're looking at. The events list and submission form always show the logged-in leader's own Circle — manually changing the group ID in the URL redirects you back to your own Circle, and all data still comes from the session, so other Circles' data can't be reached.",
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-13",
@@ -1104,7 +1200,7 @@
     "date": "2026-05-13",
     "type": "feature",
     "description": "Circle Summary is live: leaders sign in with a 6-digit code emailed to them, see their last 8 weeks of Circle meetings, and submit topic, notes, prayer requests, attendees, and follow-up items in one tap. Submissions push straight into CCB and email the ACPD automatically. Editing a previously submitted summary pre-fills the form so corrections don't need to be retyped.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-13",
@@ -1116,7 +1212,7 @@
     "date": "2026-05-13",
     "type": "fix",
     "description": "Circle Summary 'Did your Circle meet?' toggle now reliably renders as a green pill switch when on, instead of falling back to a default checkbox in some browsers.",
-    "page": "/circle-summary"
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-05-11",
