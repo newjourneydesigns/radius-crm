@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { createClient } from '@supabase/supabase-js';
 import { useMarkCircleAppEntered } from '../../../../lib/circle-leader-toolkit/appEntered';
 import { setCircleSummaryAppBadge } from '../../../../lib/circle-leader-toolkit/badging';
 
@@ -76,6 +77,8 @@ export default function CircleSummaryNotificationSettingsPage() {
   const [magicLinkError, setMagicLinkError] = useState<string | null>(null);
   const [devicePushNote, setDevicePushNote] = useState('Push notifications are opt-in per browser or installed app.');
   const [thisDeviceEnabled, setThisDeviceEnabled] = useState(false);
+  const [testPushLoading, setTestPushLoading] = useState(false);
+  const [testEmailLoading, setTestEmailLoading] = useState(false);
 
   const pushAvailable = useMemo(() => {
     return typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && Boolean(publicKey);
@@ -229,6 +232,64 @@ export default function CircleSummaryNotificationSettingsPage() {
   async function signOut() {
     await fetch('/api/circle-leader-toolkit/auth/logout/', { method: 'POST' });
     router.replace('/circle-leader-toolkit');
+  }
+
+  async function sendTestPush() {
+    setTestPushLoading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) throw new Error('Authentication required');
+
+      const res = await fetch('/api/circle-leader-toolkit/notifications/test', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send test push');
+      setMessage('Test push notification sent! Check your enabled devices.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send test push');
+    } finally {
+      setTestPushLoading(false);
+    }
+  }
+
+  async function sendTestEmail() {
+    setTestEmailLoading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) throw new Error('Authentication required');
+
+      const res = await fetch('/api/circle-leader-toolkit/notifications/test-email', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send test email');
+      setMessage('Test email sent! Check your inbox.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send test email');
+    } finally {
+      setTestEmailLoading(false);
+    }
   }
 
   const toggles: Array<{ key: keyof Preferences; title: string; desc: string }> = [
@@ -405,6 +466,35 @@ export default function CircleSummaryNotificationSettingsPage() {
             </p>
           </div>
         )}
+      </section>
+
+      <section className="cs-card p-4 sm:p-5">
+        <p className="text-sm font-bold text-neutral-900">Test notifications</p>
+        <p className="text-xs text-neutral-500 mt-0.5">Send yourself a test push notification or email to verify they're working.</p>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={sendTestPush}
+            disabled={testPushLoading}
+            className="flex-1 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-[#34B233]/40 bg-white px-4 text-sm font-extrabold text-[#1f7320] transition-colors hover:bg-[#34B233]/10 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-4 w-4" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+            </svg>
+            {testPushLoading ? 'Sending...' : 'Test push'}
+          </button>
+          <button
+            type="button"
+            onClick={sendTestEmail}
+            disabled={testEmailLoading}
+            className="flex-1 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-[#34B233]/40 bg-white px-4 text-sm font-extrabold text-[#1f7320] transition-colors hover:bg-[#34B233]/10 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-4 w-4" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25H4.5a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.972l-7.5 4.5m0 0l-7.5-4.5a2.25 2.25 0 0 1-1.07-1.972V6.75" />
+            </svg>
+            {testEmailLoading ? 'Sending...' : 'Test email'}
+          </button>
+        </div>
       </section>
 
       <section className="cs-card p-4 sm:p-5">

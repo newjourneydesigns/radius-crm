@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-04",
+    "version": "2.7.0",
+    "date_display": "June 4, 2026",
+    "date_iso": "2026-06-04",
+    "id": "test-notifications",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Circle Leader Toolkit",
+    "description": "Added test buttons on the Settings page to verify push notifications and email are working. Click \"Test push\" or \"Test email\" to send yourself sample messages and confirm your notification preferences are set up correctly.",
+    "page": "/circle-leader-toolkit/settings"
+  },
+  {
+    "date": "2026-06-04",
     "version": "2.6.9",
     "date_display": "June 4, 2026",
     "date_iso": "2026-06-04",
