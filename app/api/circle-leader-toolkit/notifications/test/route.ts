@@ -1,77 +1,61 @@
 /**
  * POST /api/circle-leader-toolkit/notifications/test
- * Sends a test push notification to the current user's subscriptions.
+ * Sends a test push notification to the current leader's enabled subscriptions.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { deliverLeaderPush } from '../../../../../lib/circle-leader-toolkit/push';
+import { NextResponse } from 'next/server';
+import { getSessionLeader, unauthorized } from '../../../../../lib/circle-leader-toolkit/session';
+import { sendWebPush } from '../../../../../lib/circle-leader-toolkit/push';
+import { createServiceSupabaseClient } from '../../../../../lib/server-supabase';
 
-export async function POST(req: NextRequest) {
-  try {
-    // Authenticate via Bearer token
-    const authHeader = req.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+export const dynamic = 'force-dynamic';
 
-    const anonClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { auth: { persistSession: false } }
-    );
-    const { data: { user }, error: authError } = await anonClient.auth.getUser(token);
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+export async function POST() {
+  const leader = await getSessionLeader();
+  if (!leader) return unauthorized();
 
-    // Get the leader record for this user (leader_id is the circle leader's ID, not the user)
-    const serviceClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } }
-    );
+  const supabase = createServiceSupabaseClient();
+  const { data: subscriptions, error } = await supabase
+    .from('circle_leader_push_subscriptions')
+    .select('id, leader_id, endpoint, p256dh, auth, failure_count')
+    .eq('leader_id', leader.id)
+    .eq('enabled', true);
 
-    const { data: profile } = await serviceClient
-      .from('circle_leaders')
-      .select('id')
-      .eq('email', user.email)
-      .single();
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
-    if (!profile) {
-      return NextResponse.json(
-        { error: 'No circle leader profile found for this email' },
-        { status: 404 }
-      );
-    }
-
-    const leaderId = profile.id;
-
-    // Send test push
-    const result = await deliverLeaderPush(
-      {
-        notification_type: 'inbox_message',
-        leader_id: leaderId,
-      },
-      {
-        title: 'Test Notification',
-        body: 'This is a test notification from Circle Leader Toolkit.',
-        url: '/circle-leader-toolkit',
-        tag: 'test-notification',
-      }
-    );
-
-    return NextResponse.json({
-      ok: true,
-      message: 'Test push sent',
-      result,
-    });
-  } catch (error: any) {
-    console.error('Error sending test push:', error);
+  if (!subscriptions || subscriptions.length === 0) {
     return NextResponse.json(
-      { error: error.message || 'Failed to send test push' },
+      { error: 'No enabled push subscriptions found. Enable push on this device first.' },
+      { status: 400 }
+    );
+  }
+
+  const payload = {
+    title: 'Test Notification',
+    body: 'This is a test push notification from Circle Leader Toolkit.',
+    url: '/circle-leader-toolkit',
+    tag: 'test-notification',
+  };
+
+  let sent = 0;
+  const errors: string[] = [];
+  for (const sub of subscriptions) {
+    try {
+      await sendWebPush(sub, payload);
+      sent++;
+    } catch (e: any) {
+      errors.push(e?.message || 'Push send failed');
+    }
+  }
+
+  if (sent === 0) {
+    return NextResponse.json(
+      { error: errors.join('; ') || 'Failed to send push notification' },
       { status: 500 }
     );
   }
+
+  return NextResponse.json({ ok: true, sent, message: 'Test push sent' });
 }

@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
 import { useMarkCircleAppEntered } from '../../../../lib/circle-leader-toolkit/appEntered';
 import { setCircleSummaryAppBadge } from '../../../../lib/circle-leader-toolkit/badging';
 
@@ -239,23 +238,10 @@ export default function CircleSummaryNotificationSettingsPage() {
     setError(null);
     setMessage(null);
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) throw new Error('Authentication required');
-
-      const res = await fetch('/api/circle-leader-toolkit/notifications/test', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const res = await fetch('/api/circle-leader-toolkit/notifications/test', { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to send test push');
-      setMessage('Test push notification sent! Check your enabled devices.');
+      setMessage('Test push sent! Check your enabled devices.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send test push');
     } finally {
@@ -268,20 +254,7 @@ export default function CircleSummaryNotificationSettingsPage() {
     setError(null);
     setMessage(null);
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) throw new Error('Authentication required');
-
-      const res = await fetch('/api/circle-leader-toolkit/notifications/test-email', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const res = await fetch('/api/circle-leader-toolkit/notifications/test-email', { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to send test email');
       setMessage('Test email sent! Check your inbox.');
@@ -300,6 +273,63 @@ export default function CircleSummaryNotificationSettingsPage() {
 
   return (
     <main className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+      <section className="cs-card p-4 sm:p-5">
+        <p className="text-sm font-bold text-neutral-900">Temporary Circle link</p>
+        <p className="text-xs text-neutral-500 mt-0.5">
+          Create a copyable sign-in link for your Circle. It works for Circle Summary pages only and expires after 7 days, including any device session opened from it.
+        </p>
+        <p className="mt-2 text-[11px] leading-relaxed text-amber-700">
+          Anyone with this link can open your Circle Summary until it expires.
+        </p>
+
+        <button
+          type="button"
+          onClick={generateMagicLink}
+          disabled={magicLinkBusy}
+          className="cs-settings-green-action mt-4"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-[18px] w-[18px]" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+          </svg>
+          {magicLinkBusy ? 'Creating link...' : magicLink ? 'Create new link' : 'Create and copy link'}
+        </button>
+
+        {magicLinkError && (
+          <div className="cs-alert cs-alert-warning mt-3">{magicLinkError}</div>
+        )}
+
+        {magicLink && (
+          <div className="mt-4 rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
+            <label htmlFor="circle-summary-magic-link" className="block text-[11px] font-bold uppercase tracking-wide text-neutral-500">
+              Magic link
+            </label>
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+              <input
+                id="circle-summary-magic-link"
+                value={magicLink.url}
+                readOnly
+                className="min-w-0 flex-1 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#34B233]/30"
+                onFocus={(e) => e.currentTarget.select()}
+              />
+              <button
+                type="button"
+                onClick={() => copyMagicLink(magicLink.url).catch(() => setMagicLinkError('Copy failed. Select the link and copy it manually.'))}
+                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-[#34B233]/40 bg-white px-4 text-xs font-extrabold text-[#1f7320] transition-colors hover:bg-[#34B233]/10"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-4 w-4" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 8h8v8H8z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 14H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1M10 21h7a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2Z" />
+                </svg>
+                {magicLinkCopied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+            <p className="mt-2 text-[11px] text-neutral-500">
+              Expires {new Date(magicLink.expiresAt).toLocaleString()}.
+            </p>
+          </div>
+        )}
+      </section>
+
       <section className="cs-card p-0 overflow-hidden">
         <div className="border-b border-neutral-100 px-5 py-4">
           <div className="flex items-center gap-2.5">
@@ -381,6 +411,31 @@ export default function CircleSummaryNotificationSettingsPage() {
                 ))}
               </div>
 
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={sendTestPush}
+                  disabled={testPushLoading}
+                  className="flex-1 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-[#34B233]/40 bg-white px-4 text-sm font-extrabold text-[#1f7320] transition-colors hover:bg-[#34B233]/10 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-4 w-4" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+                  </svg>
+                  {testPushLoading ? 'Sending...' : 'Test push'}
+                </button>
+                <button
+                  type="button"
+                  onClick={sendTestEmail}
+                  disabled={testEmailLoading}
+                  className="flex-1 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-[#34B233]/40 bg-white px-4 text-sm font-extrabold text-[#1f7320] transition-colors hover:bg-[#34B233]/10 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-4 w-4" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25H4.5a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.972l-7.5 4.5m0 0l-7.5-4.5a2.25 2.25 0 0 1-1.07-1.972V6.75" />
+                  </svg>
+                  {testEmailLoading ? 'Sending...' : 'Test email'}
+                </button>
+              </div>
+
               <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
                 <p className="text-sm font-bold text-neutral-900">Enabled devices</p>
                 <div className="mt-3 space-y-2">
@@ -408,92 +463,6 @@ export default function CircleSummaryNotificationSettingsPage() {
               </div>
             </>
           )}
-        </div>
-      </section>
-
-      <section className="cs-card p-4 sm:p-5">
-        <p className="text-sm font-bold text-neutral-900">Temporary Circle link</p>
-        <p className="text-xs text-neutral-500 mt-0.5">
-          Create a copyable sign-in link for your Circle. It works for Circle Summary pages only and expires after 7 days, including any device session opened from it.
-        </p>
-        <p className="mt-2 text-[11px] leading-relaxed text-amber-700">
-          Anyone with this link can open your Circle Summary until it expires.
-        </p>
-
-        <button
-          type="button"
-          onClick={generateMagicLink}
-          disabled={magicLinkBusy}
-          className="cs-settings-green-action mt-4"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-[18px] w-[18px]" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
-          </svg>
-          {magicLinkBusy ? 'Creating link...' : magicLink ? 'Create new link' : 'Create and copy link'}
-        </button>
-
-        {magicLinkError && (
-          <div className="cs-alert cs-alert-warning mt-3">{magicLinkError}</div>
-        )}
-
-        {magicLink && (
-          <div className="mt-4 rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
-            <label htmlFor="circle-summary-magic-link" className="block text-[11px] font-bold uppercase tracking-wide text-neutral-500">
-              Magic link
-            </label>
-            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-              <input
-                id="circle-summary-magic-link"
-                value={magicLink.url}
-                readOnly
-                className="min-w-0 flex-1 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#34B233]/30"
-                onFocus={(e) => e.currentTarget.select()}
-              />
-              <button
-                type="button"
-                onClick={() => copyMagicLink(magicLink.url).catch(() => setMagicLinkError('Copy failed. Select the link and copy it manually.'))}
-                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-[#34B233]/40 bg-white px-4 text-xs font-extrabold text-[#1f7320] transition-colors hover:bg-[#34B233]/10"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-4 w-4" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 8h8v8H8z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 14H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1M10 21h7a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2Z" />
-                </svg>
-                {magicLinkCopied ? 'Copied' : 'Copy'}
-              </button>
-            </div>
-            <p className="mt-2 text-[11px] text-neutral-500">
-              Expires {new Date(magicLink.expiresAt).toLocaleString()}.
-            </p>
-          </div>
-        )}
-      </section>
-
-      <section className="cs-card p-4 sm:p-5">
-        <p className="text-sm font-bold text-neutral-900">Test notifications</p>
-        <p className="text-xs text-neutral-500 mt-0.5">Send yourself a test push notification or email to verify they're working.</p>
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-          <button
-            type="button"
-            onClick={sendTestPush}
-            disabled={testPushLoading}
-            className="flex-1 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-[#34B233]/40 bg-white px-4 text-sm font-extrabold text-[#1f7320] transition-colors hover:bg-[#34B233]/10 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-4 w-4" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
-            </svg>
-            {testPushLoading ? 'Sending...' : 'Test push'}
-          </button>
-          <button
-            type="button"
-            onClick={sendTestEmail}
-            disabled={testEmailLoading}
-            className="flex-1 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-[#34B233]/40 bg-white px-4 text-sm font-extrabold text-[#1f7320] transition-colors hover:bg-[#34B233]/10 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-4 w-4" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25H4.5a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.972l-7.5 4.5m0 0l-7.5-4.5a2.25 2.25 0 0 1-1.07-1.972V6.75" />
-            </svg>
-            {testEmailLoading ? 'Sending...' : 'Test email'}
-          </button>
         </div>
       </section>
 
