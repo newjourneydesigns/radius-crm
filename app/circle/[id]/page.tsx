@@ -7,7 +7,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Cake, Lightbulb } from 'lucide-react';
-import { supabase, type CircleLeader, type EventSummaryState } from '../../../lib/supabase';
+import { supabase, type CircleLeader } from '../../../lib/supabase';
 import { useAuth } from '../../../contexts/AuthContext';
 import AlertModal from '../../../components/ui/AlertModal';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
@@ -27,7 +27,6 @@ import { useLeadershipSnapshots } from '../../../hooks/useLeadershipSnapshots';
 import { formatRating } from '../../../lib/leadershipSnapshot';
 import type { LeadershipSnapshot } from '../../../lib/supabase';
 import { useRealtimeSubscription, RealtimeSubscriptionConfig } from '../../../hooks/useRealtimeSubscription';
-import { getEventSummaryButtonLabel, getEventSummaryColors, getEventSummaryState } from '../../../lib/event-summary-utils';
 import { calculateSuggestedScore, getFinalScore } from '../../../lib/evaluationQuestions';
 import { extractCcbGroupId } from '../../../lib/ccbGroupId';
 
@@ -227,7 +226,6 @@ export default function CircleLeaderProfilePage() {
   const [leader, setLeader] = useState<CircleLeader | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [isUpdatingEventSummary, setIsUpdatingEventSummary] = useState(false);
   const [isSendingMagicLink, setIsSendingMagicLink] = useState(false);
   const [isOpeningCircleSummary, setIsOpeningCircleSummary] = useState(false);
   const [circleSummaryAccess, setCircleSummaryAccess] = useState<CircleSummaryAccessStatus | null>(null);
@@ -264,8 +262,6 @@ export default function CircleLeaderProfilePage() {
   const [showEventSummaryReminderModal, setShowEventSummaryReminderModal] = useState(false);
   const [showEventExplorerModal, setShowEventExplorerModal] = useState(false);
   const [sentReminderMessages, setSentReminderMessages] = useState<number[]>([]);
-  const [eventSummaryEnumAvailable, setEventSummaryEnumAvailable] = useState<boolean | null>(null);
-  const [eventSummaryEnumWarningShown, setEventSummaryEnumWarningShown] = useState(false);
   const [phoneActionModal, setPhoneActionModal] = useState<{ phone: string; name: string } | null>(null);
   
   // Key to force AttendanceTrends refresh after pulling event summaries
@@ -872,149 +868,6 @@ export default function CircleLeaderProfilePage() {
       handleSendEmail();
     } else if (hasAnyPhone) {
       handleCallLeader();
-    }
-  };
-
-  const handleSetEventSummaryState = async (nextState: EventSummaryState) => {
-    if (!leader) return;
-
-    setIsUpdatingEventSummary(true);
-    const legacyPayload: Record<string, boolean> = {
-      event_summary_received: nextState === 'received',
-      // Legacy had only one "did not meet" state via event_summary_skipped.
-      // Map both did_not_meet and skipped into the legacy skipped flag.
-      event_summary_skipped: nextState === 'did_not_meet' || nextState === 'skipped',
-    };
-
-    try {
-      // Prefer the new enum column when present, but also keep legacy columns in sync.
-      let { error } = await supabase
-        .from('circle_leaders')
-        .update({ event_summary_state: nextState, ...legacyPayload })
-        .eq('id', leaderId);
-
-      // Backward-compat: if event_summary_state doesn't exist yet, fall back to legacy booleans.
-      if (error && /event_summary_state/i.test(error.message || '')) {
-        setEventSummaryEnumAvailable(false);
-
-        // The legacy schema cannot distinguish 'did_not_meet' vs 'skipped'.
-        // To avoid a misleading UI state, treat 'skipped' as 'did_not_meet' until the migration is applied.
-        if (nextState === 'skipped') {
-          nextState = 'did_not_meet';
-          legacyPayload.event_summary_received = false;
-          legacyPayload.event_summary_skipped = true;
-
-          if (!eventSummaryEnumWarningShown) {
-            setEventSummaryEnumWarningShown(true);
-            setShowAlert({
-              isOpen: true,
-              type: 'warning',
-              title: 'Skipped not enabled yet',
-              message: "Your database hasn't been migrated to the new 4-state event summary system yet. For now, 'Skipped' behaves like 'Did Not Meet'. Run the Supabase migration to fully enable Skipped."
-            });
-          }
-        } else if ((nextState === 'did_not_meet') && !eventSummaryEnumWarningShown) {
-          setEventSummaryEnumWarningShown(true);
-          setShowAlert({
-            isOpen: true,
-            type: 'warning',
-            title: '4-state migration needed',
-            message: "Your database hasn't been migrated to the new 4-state event summary system yet. 'Did Not Meet' will work, but 'Skipped' can't be stored separately until you run the Supabase migration."
-          });
-        }
-
-        ({ error } = await supabase
-          .from('circle_leaders')
-          .update(legacyPayload)
-          .eq('id', leaderId));
-
-        // If the legacy skipped column doesn't exist yet, retry without it.
-        if (error && /event_summary_skipped/i.test(error.message || '')) {
-          if (nextState === 'did_not_meet') {
-            throw new Error('Did Not Meet/Skipped is not enabled yet. Apply the event summary migrations to your Supabase database first.');
-          }
-
-          ({ error } = await supabase
-            .from('circle_leaders')
-            .update({ event_summary_received: nextState === 'received' })
-            .eq('id', leaderId));
-        }
-      }
-
-      if (!error) {
-        setEventSummaryEnumAvailable(true);
-      }
-
-      if (!error) {
-        setLeader(prev => prev ? {
-          ...prev,
-          event_summary_state: nextState,
-          ...legacyPayload,
-        } : null);
-
-        // Clear sent reminder messages when status changes to received or skipped
-        if (nextState !== 'not_received') {
-          setSentReminderMessages([]);
-        }
-
-        const statusText = nextState === 'received'
-          ? 'marked as received'
-          : nextState === 'did_not_meet'
-            ? 'marked as did not meet'
-            : nextState === 'skipped'
-              ? 'marked as skipped'
-              : 'marked as not received';
-
-        await supabase
-          .from('notes')
-          .insert([
-            {
-              circle_leader_id: leaderId,
-              content: `Event summary status ${statusText}.`,
-              created_by: user?.id || null
-            }
-          ]);
-
-        // When marked as "Yes" (received), sync last 3 weeks of attendance + roster from CCB
-        if (nextState === 'received' && leader.ccb_group_id) {
-          fetch('/api/ccb/sync-leader-attendance', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ leaderId }),
-          })
-            .then((res) => res.json())
-            .then((result) => {
-              if (result.success) {
-                console.log(`✅ CCB sync complete for ${leader.name}: ${result.synced} events, roster=${result.rosterCount}`);
-                // Refresh attendance graph
-                setAttendanceRefreshKey((k) => k + 1);
-                // Refresh roster count
-                if (result.rosterRefreshed && result.rosterCount > 0) {
-                  setRosterCount(result.rosterCount);
-                }
-              }
-            })
-            .catch((err) => console.warn('CCB sync after event summary failed (non-blocking):', err));
-        }
-      } else {
-        console.error('Error updating event summary status:', error);
-        setShowAlert({
-          isOpen: true,
-          type: 'error',
-          title: 'Update Failed',
-          message: 'Failed to update event summary status. Please try again.'
-        });
-      }
-    } catch (error) {
-      console.error('Error updating event summary status:', error);
-      setShowAlert({
-        isOpen: true,
-        type: 'error',
-        title: 'Update Failed',
-        message: 'Failed to update event summary status. Please try again.'
-      });
-    } finally {
-      setIsUpdatingEventSummary(false);
     }
   };
 
@@ -1995,76 +1848,16 @@ export default function CircleLeaderProfilePage() {
 
         {/* Mobile Quick Actions - Show on mobile only, right after the name */}
         <div className="lg:hidden mb-6 space-y-4">
-          {/* Event Summary - Mobile (circle leaders only) */}
+          {/* Circle Leader Toolkit - Mobile (circle leaders only) */}
           {!isHostTeam && <div className="bg-brand-dark border border-zinc-700 rounded-xl shadow-card-glass overflow-hidden">
             <div className="px-4 py-3 border-b border-zinc-700 flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Event Summary</span>
-              {(() => {
-                const state = getEventSummaryState(leader);
-                const colors = getEventSummaryColors(state);
-                return (
-                  <span className={`text-xs font-medium ${colors.text}`}>{isUpdatingEventSummary ? 'Updating...' : colors.label}</span>
-                );
-              })()}
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Circle Leader Toolkit</span>
             </div>
             <div className="p-4">
 
               {(() => {
-                const eventSummaryState = getEventSummaryState(leader);
-                const disabledCls = isUpdatingEventSummary ? 'opacity-50 cursor-not-allowed' : '';
-
-                const activeColors = {
-                  not_received: 'bg-zinc-600 border-zinc-500 text-white',
-                  received:     'bg-green-500 border-green-400 text-white',
-                  did_not_meet: 'bg-blue-500 border-blue-400 text-white',
-                  skipped:      'bg-amber-500 border-amber-400 text-white',
-                };
-
-                const btn = (kind: EventSummaryState) => {
-                  const active = eventSummaryState === kind;
-                  const base = `w-full h-9 flex items-center justify-center gap-1.5 rounded-lg border text-sm font-medium transition-colors focus:outline-none ${disabledCls}`;
-                  return active
-                    ? `${base} ${activeColors[kind]} shadow-sm`
-                    : `${base} bg-zinc-700/50 border-zinc-600 text-slate-400 hover:bg-zinc-700 hover:text-slate-200`;
-                };
-
-                const labels = {
-                  not_received: 'No',
-                  received:     'Yes',
-                  did_not_meet: "Didn't Meet",
-                  skipped:      'Skip',
-                };
-
                 return (
                   <div className="space-y-2">
-                    {eventSummaryEnumAvailable === false && (
-                      <div className="text-xs text-amber-400">
-                        Skipped isn't enabled until the Supabase migration runs.
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-2 gap-2">
-                      {(['not_received', 'received', 'did_not_meet', 'skipped'] as EventSummaryState[]).map((kind) => (
-                        <button
-                          key={kind}
-                          onClick={() => handleSetEventSummaryState(kind)}
-                          disabled={isUpdatingEventSummary || (kind === 'skipped' && eventSummaryEnumAvailable === false)}
-                          className={btn(kind)}
-                          title={kind === 'skipped' && eventSummaryEnumAvailable === false ? 'Run DB migration to enable Skipped' : labels[kind]}
-                          aria-pressed={eventSummaryState === kind}
-                        >
-                          {eventSummaryState === kind && (
-                            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M16.704 5.292a1 1 0 010 1.416l-7.25 7.25a1 1 0 01-1.416 0l-3.25-3.25a1 1 0 011.416-1.416l2.542 2.542 6.542-6.542a1 1 0 011.416 0z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                          {labels[kind]}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="border-t border-zinc-700/80 pt-2" />
-
                     <button
                       type="button"
                       onClick={handleSendMagicLink}
@@ -2076,7 +1869,7 @@ export default function CircleLeaderProfilePage() {
                         <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
                         <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
                       </svg>
-                      {isSendingMagicLink ? 'Generating link…' : 'Text Circle Summary link'}
+                      {isSendingMagicLink ? 'Generating link…' : 'Text Circle Toolkit link'}
                     </button>
 
                     {leader.ccb_group_id && (
@@ -2088,7 +1881,7 @@ export default function CircleLeaderProfilePage() {
                         title="Open the leader's Circle Summary page in a new tab (auto sign-in)"
                       >
                         <img src="/Circles Logo V2-White.png" alt="" className="w-4 h-4 shrink-0 object-contain" />
-                        {isOpeningCircleSummary ? 'Opening…' : 'Circle Leader Toolkit'}
+                        {isOpeningCircleSummary ? 'Opening…' : 'Open Toolkit'}
                       </button>
                     )}
 
@@ -2864,75 +2657,16 @@ export default function CircleLeaderProfilePage() {
 
           {/* Sidebar */}
           <div className="flex flex-col gap-6 h-full">
-            {/* Event Summary - Desktop Only (circle leaders only) */}
+            {/* Circle Leader Toolkit - Desktop Only (circle leaders only) */}
             {!isHostTeam && <div className="hidden lg:block bg-brand-dark border border-zinc-700 rounded-xl shadow-card-glass overflow-hidden">
               <div className="px-4 py-3 border-b border-zinc-700 flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Event Summary</span>
-                {(() => {
-                  const state = getEventSummaryState(leader);
-                  const colors = getEventSummaryColors(state);
-                  return (
-                    <span className={`text-xs font-medium ${colors.text}`}>{isUpdatingEventSummary ? 'Updating...' : colors.label}</span>
-                  );
-                })()}
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Circle Leader Toolkit</span>
               </div>
               <div className="p-4">
 
                 {(() => {
-                  const eventSummaryState = getEventSummaryState(leader);
-                  const disabledCls = isUpdatingEventSummary ? 'opacity-50 cursor-not-allowed' : '';
-
-                  const activeColors: Record<EventSummaryState, string> = {
-                    not_received: 'bg-zinc-600 border-zinc-500 text-white',
-                    received:     'bg-green-500 border-green-400 text-white',
-                    did_not_meet: 'bg-blue-500 border-blue-400 text-white',
-                    skipped:      'bg-amber-500 border-amber-400 text-white',
-                  };
-
-                  const btn = (kind: EventSummaryState) => {
-                    const active = eventSummaryState === kind;
-                    const base = `w-full h-9 flex items-center justify-center gap-1.5 rounded-lg border text-sm font-medium transition-colors focus:outline-none ${disabledCls}`;
-                    return active
-                      ? `${base} ${activeColors[kind]} shadow-sm`
-                      : `${base} bg-zinc-700/50 border-zinc-600 text-slate-400 hover:bg-zinc-700 hover:text-slate-200`;
-                  };
-
-                  const labels: Record<EventSummaryState, string> = {
-                    not_received: 'No',
-                    received:     'Yes',
-                    did_not_meet: "Didn't Meet",
-                    skipped:      'Skip',
-                  };
-
                   return (
                     <div className="space-y-2">
-                      {eventSummaryEnumAvailable === false && (
-                        <div className="text-xs text-amber-400">
-                          Skipped isn't enabled until the Supabase migration runs.
-                        </div>
-                      )}
-                      <div className="grid grid-cols-2 gap-2">
-                        {(['not_received', 'received', 'did_not_meet', 'skipped'] as EventSummaryState[]).map((kind) => (
-                          <button
-                            key={kind}
-                            onClick={() => handleSetEventSummaryState(kind)}
-                            disabled={isUpdatingEventSummary || (kind === 'skipped' && eventSummaryEnumAvailable === false)}
-                            className={btn(kind)}
-                            title={kind === 'skipped' && eventSummaryEnumAvailable === false ? 'Run DB migration to enable Skipped' : labels[kind]}
-                            aria-pressed={eventSummaryState === kind}
-                          >
-                            {eventSummaryState === kind && (
-                              <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M16.704 5.292a1 1 0 010 1.416l-7.25 7.25a1 1 0 01-1.416 0l-3.25-3.25a1 1 0 011.416-1.416l2.542 2.542 6.542-6.542a1 1 0 011.416 0z" clipRule="evenodd" />
-                              </svg>
-                            )}
-                            {labels[kind]}
-                          </button>
-                        ))}
-                      </div>
-
-                      <div className="border-t border-zinc-700/80 pt-2" />
-
                       <button
                         type="button"
                         onClick={handleSendMagicLink}
@@ -2944,7 +2678,7 @@ export default function CircleLeaderProfilePage() {
                           <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
                           <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
                         </svg>
-                        {isSendingMagicLink ? 'Generating link…' : 'Text Circle Summary link'}
+                        {isSendingMagicLink ? 'Generating link…' : 'Text Circle Toolkit link'}
                       </button>
 
                       {leader.ccb_group_id && (
@@ -2956,7 +2690,7 @@ export default function CircleLeaderProfilePage() {
                           title="Open the leader's Circle Summary page in a new tab (auto sign-in)"
                         >
                           <img src="/Circles Logo V2-White.png" alt="" className="w-4 h-4 shrink-0 object-contain" />
-                          {isOpeningCircleSummary ? 'Opening…' : 'Circle Leader Toolkit'}
+                          {isOpeningCircleSummary ? 'Opening…' : 'Open Toolkit'}
                         </button>
                       )}
 

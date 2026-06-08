@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>RADIUS — Executive Leave-Behind</title>
+<style>
+  :root{
+    --vc-500:#33B233; --vc-600:#2a9329; --vc-700:#237821; --vc-800:#1f5f1e; --vc-900:#1b4e1b; --vc-950:#0a2c0a;
+    --vc-50:#f0fbed; --vc-100:#d9f5d2; --vc-200:#b3eaa6; --vc-400:#56c93f;
+    --slate-950:#0d0f12; --slate-900:#161820; --slate-700:#3d4351; --slate-400:#94a3b8;
+    --ink:#1b2330; --muted:#5b6573; --line:#e3e8e2;
+  }
+  *{box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
+  @page{ size:Letter; margin:0; }
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    color:var(--ink);
+    background:#fff;
+    -webkit-font-smoothing:antialiased;
+  }
+  .page{ width:8.5in; min-height:11in; margin:0 auto; display:flex; flex-direction:column; }
+
+  /* ---------- Header ---------- */
+  header{
+    background:linear-gradient(135deg,var(--vc-950) 0%, var(--vc-800) 42%, var(--vc-600) 100%);
+    color:#fff; padding:0.42in 0.5in 0.34in; position:relative; overflow:hidden;
+  }
+  header::after{
+    content:""; position:absolute; right:-1.1in; top:-1.1in; width:3.4in; height:3.4in;
+    border-radius:50%; border:1.5px solid rgba(255,255,255,.10);
+    box-shadow:0 0 0 24px rgba(255,255,255,.04), 0 0 0 60px rgba(255,255,255,.03);
+  }
+  .brandrow{display:flex; align-items:baseline; gap:14px; position:relative; z-index:1;}
+  .wordmark{ font-size:34px; font-weight:800; letter-spacing:.26em; }
+  .wordmark .dot{ color:var(--vc-400); }
+  .pillline{ display:flex; gap:8px; margin-left:auto; }
+  .pill{ font-size:9.5px; font-weight:700; letter-spacing:.13em; text-transform:uppercase;
+    border:1px solid rgba(255,255,255,.28); color:#eafbe6; padding:4px 9px; border-radius:999px; }
+  .tag{ position:relative; z-index:1; margin-top:11px; font-size:13.5px; font-weight:600; letter-spacing:.02em; color:#eafbe6; }
+  .tag b{ color:#fff; }
+  .lede{ position:relative; z-index:1; margin-top:6px; font-size:11px; line-height:1.5; color:#cdeac4; max-width:6.6in; }
+
+  /* ---------- Section labels ---------- */
+  .body{ padding:0.26in 0.5in 0.16in; flex:1; }
+  .sec-h{ display:flex; align-items:center; gap:9px; margin:0 0 11px; }
+  .sec-h .kicker{ font-size:11.5px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--vc-700); }
+  .sec-h .rule{ flex:1; height:1px; background:var(--line); }
+  .sec-sub{ font-size:10px; color:var(--muted); font-weight:600; }
+
+  /* ---------- Three purposes ---------- */
+  .triad{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:11px; }
+  .card{ background:var(--vc-50); border:1px solid var(--vc-100); border-radius:11px; padding:12px 12px 11px; }
+  .card .top{ display:flex; align-items:center; gap:9px; margin-bottom:7px; }
+  .icn{ width:27px; height:27px; border-radius:8px; background:linear-gradient(135deg,var(--vc-600),var(--vc-400));
+    display:flex; align-items:center; justify-content:center; flex:0 0 auto; box-shadow:0 2px 6px rgba(42,147,41,.35); }
+  .icn svg{ width:15px; height:15px; stroke:#fff; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .card h3{ margin:0; font-size:15px; font-weight:800; color:var(--vc-900); letter-spacing:.04em; text-transform:uppercase; }
+  .card .promise{ font-size:10px; font-weight:700; color:var(--vc-700); margin:0 0 8px; }
+  ul.feat{ margin:0; padding:0; list-style:none; }
+  ul.feat li{ position:relative; padding-left:14px; font-size:10px; line-height:1.42; color:var(--ink); margin-bottom:5px; }
+  ul.feat li:last-child{ margin-bottom:0; }
+  ul.feat li::before{ content:""; position:absolute; left:0; top:5px; width:6px; height:6px; border-radius:50%;
+    background:var(--vc-500); box-shadow:0 0 0 2px var(--vc-100); }
+  ul.feat li b{ color:var(--vc-800); font-weight:700; }
+
+  /* ---------- Toolkit band ---------- */
+  .toolkit{ margin-top:17px; background:var(--slate-950); border-radius:13px; padding:15px 16px 14px; color:#e7ecf3; }
+  .tk-head{ display:flex; align-items:center; gap:11px; margin-bottom:11px; }
+  .tk-badge{ font-size:9px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--vc-950);
+    background:var(--vc-400); padding:4px 9px; border-radius:999px; }
+  .tk-head h2{ margin:0; font-size:16px; font-weight:800; letter-spacing:.01em; color:#fff; }
+  .tk-head .sub{ font-size:10px; color:var(--slate-400); margin-left:auto; font-weight:600; max-width:2.7in; text-align:right; }
+  .tk-grid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:9px 16px; }
+  .tk-item{ display:flex; gap:9px; align-items:flex-start; }
+  .tk-ic{ width:21px; height:21px; border-radius:6px; background:rgba(86,201,63,.14); border:1px solid rgba(86,201,63,.3);
+    display:flex; align-items:center; justify-content:center; flex:0 0 auto; margin-top:1px; }
+  .tk-ic svg{ width:12px; height:12px; stroke:var(--vc-400); fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .tk-item .txt{ font-size:9.7px; line-height:1.34; color:#cdd5e0; }
+  .tk-item .txt b{ color:#fff; font-weight:700; display:block; font-size:10.3px; margin-bottom:1px; letter-spacing:.01em; }
+
+  /* ---------- Footer / buy-in ---------- */
+  .why{ margin-top:16px; display:grid; grid-template-columns:1.35fr 1fr; gap:16px; align-items:stretch; }
+  .why-card{ border:1px solid var(--line); border-radius:11px; padding:12px 13px; }
+  .why-card .lbl{ font-size:10px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--vc-700); margin-bottom:7px; }
+  .why-card p{ margin:0; font-size:10.5px; line-height:1.5; color:var(--ink); }
+  .why-card p b{ color:var(--vc-800); }
+  .steps{ display:flex; flex-direction:column; gap:8px; }
+  .step{ display:flex; gap:9px; align-items:flex-start; }
+  .step .n{ width:19px; height:19px; border-radius:50%; background:var(--vc-600); color:#fff; font-size:10px; font-weight:800;
+    display:flex; align-items:center; justify-content:center; flex:0 0 auto; margin-top:1px; }
+  .step .s{ font-size:10px; line-height:1.36; color:var(--ink); }
+  .step .s b{ color:var(--vc-800); }
+
+  /* ---------- bottom strip ---------- */
+  footer{ margin-top:auto; background:var(--vc-50); border-top:2px solid var(--vc-500); padding:9px 0.5in; }
+  .strip{ display:flex; align-items:center; gap:0; justify-content:space-between; }
+  .strip .chip{ font-size:9.5px; font-weight:700; color:var(--vc-800); letter-spacing:.02em; display:flex; align-items:center; gap:6px; }
+  .strip .chip svg{ width:12px; height:12px; stroke:var(--vc-600); fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .strip .sep{ width:1px; height:14px; background:var(--vc-200); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="brandrow">
+      <div class="wordmark">RADIUS<span class="dot">.</span></div>
+      <div class="pillline">
+        <span class="pill">Pray</span>
+        <span class="pill">Encourage</span>
+        <span class="pill">Coach</span>
+      </div>
+    </div>
+    <div class="tag">A shepherding platform for Valley Creek <b>Associate Campus Pastors &amp; Directors</b> — and the Circle Leaders they serve.</div>
+    <div class="lede">One place to live out the ACPD calling, and a leader-facing toolkit that empowers every Circle Leader to lead well. Everything runs on your existing CCB data — nothing to re-enter, nothing to migrate.</div>
+  </header>
+
+  <div class="body">
+
+    <div class="sec-h">
+      <span class="kicker">The ACPD Calling, In One App</span>
+      <span class="rule"></span>
+      <span class="sec-sub">three purposes &middot; one workflow</span>
+    </div>
+
+    <div class="triad">
+
+      <!-- PRAY -->
+      <div class="card">
+        <div class="top">
+          <div class="icn"><svg viewBox="0 0 24 24"><path d="M12 21s-6.5-4.3-9-8.5C1.2 9.4 2.6 6 6 6c2 0 3.2 1.1 4 2.3C10.8 7.1 12 6 14 6c3.4 0 4.8 3.4 3 6.5C18.5 16.7 12 21 12 21z"/></svg></div>
+          <h3>Pray</h3>
+        </div>
+        <p class="promise">Carry your leaders before God.</p>
+        <ul class="feat">
+          <li>Pray through your roster <b>one tap at a time</b></li>
+          <li>A–Z rail jumps to any leader instantly</li>
+          <li>Mark a prayer answered → <b>save it as a note</b> on their profile</li>
+          <li>Every prayer session is logged — no one slips through</li>
+          <li>Call or text a leader right from the prayer screen</li>
+        </ul>
+      </div>
+
+      <!-- ENCOURAGE -->
+      <div class="card">
+        <div class="top">
+          <div class="icn"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4L3 21l1.1-3.2A8.4 8.4 0 1 1 21 11.5z"/><path d="M8.5 12h7M8.5 9h4"/></svg></div>
+          <h3>Encourage</h3>
+        </div>
+        <p class="promise">Make every leader feel seen.</p>
+        <ul class="feat">
+          <li><b>Call, text, or email</b> from any profile in one tap</li>
+          <li>Send messages with <b>push notifications</b> — instantly</li>
+          <li>Message an entire circle's roster in one click</li>
+          <li>Birthday list so you never miss a moment</li>
+          <li>Follow-up tracking flags who's overdue for a touch</li>
+        </ul>
+      </div>
+
+      <!-- COACH -->
+      <div class="card">
+        <div class="top">
+          <div class="icn"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l3.5-4 3 2.5L21 6"/></svg></div>
+          <h3>Coach</h3>
+        </div>
+        <p class="promise">Develop leaders on purpose.</p>
+        <ul class="feat">
+          <li><b>Scorecards</b> track each leader's growth over time</li>
+          <li><b>AI meeting prep</b> before every one-on-one</li>
+          <li>Notes with dictation &amp; AI summaries — synced to CCB</li>
+          <li>Circle visits &amp; live attendance trends from CCB</li>
+          <li>Tracker shows who's reporting &amp; who's slipping</li>
+          <li>Your <b>Today</b> page surfaces the Big 3 that need you now</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <!-- TOOLKIT -->
+    <div class="toolkit">
+      <div class="tk-head">
+        <span class="tk-badge">The other side</span>
+        <h2>The Circle Leader Toolkit</h2>
+        <span class="sub">A separate, installable app the Circle Leaders use themselves.</span>
+      </div>
+      <div class="tk-grid">
+        <div class="tk-item">
+          <div class="tk-ic"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+          <div class="txt"><b>Passwordless sign-in</b>A one-time code — no passwords to forget.</div>
+        </div>
+        <div class="tk-item">
+          <div class="tk-ic"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+          <div class="txt"><b>Weekly summary in a minute</b>How did the circle go? Done in under 60 seconds.</div>
+        </div>
+        <div class="tk-item">
+          <div class="tk-ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/></svg></div>
+          <div class="txt"><b>A roster they own</b>Add or remove members anytime — synced to CCB.</div>
+        </div>
+        <div class="tk-item">
+          <div class="tk-ic"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg></div>
+          <div class="txt"><b>Absence alerts</b>See who's drifting before they're gone.</div>
+        </div>
+        <div class="tk-item">
+          <div class="tk-ic"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+          <div class="txt"><b>Resources &amp; inbox</b>Staff guidance and messages, in their pocket.</div>
+        </div>
+        <div class="tk-item">
+          <div class="tk-ic"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9z"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+          <div class="txt"><b>Push &amp; built-in guide</b>Never stuck, always connected to their ACPD.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WHY NOW -->
+    <div class="why">
+      <div class="why-card">
+        <div class="lbl">Why it matters</div>
+        <p>Radius turns <b>pray, encourage, coach</b> from a good intention into a weekly rhythm. The result: <b>consistent shepherding</b>, leaders who feel genuinely cared for, and <b>nothing falling through the cracks</b> — all from data Valley Creek already keeps in CCB.</p>
+      </div>
+      <div class="why-card">
+        <div class="lbl">What rollout looks like</div>
+        <div class="steps">
+          <div class="step"><div class="n">1</div><div class="s"><b>ACPDs onboard</b> in minutes — their leaders are already there.</div></div>
+          <div class="step"><div class="n">2</div><div class="s"><b>Leaders install the Toolkit</b> with a single code.</div></div>
+          <div class="step"><div class="n">3</div><div class="s">A weekly rhythm of <b>pray, encourage, coach</b> begins.</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <div class="strip">
+      <span class="chip"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Two connected apps</span>
+      <span class="sep"></span>
+      <span class="chip"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"/><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/></svg>One shared data layer</span>
+      <span class="sep"></span>
+      <span class="chip"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/><path d="M2 12h20M12 2c2.5 2.7 4 6.3 4 10s-1.5 7.3-4 10c-2.5-2.7-4-6.3-4-10s1.5-7.3 4-10z"/></svg>Built on CCB</span>
+      <span class="sep"></span>
+      <span class="chip"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Already built &amp; deployed</span>
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>
