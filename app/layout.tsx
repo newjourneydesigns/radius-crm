@@ -16,8 +16,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata = {
-  title: 'Circle Leader Toolkit',
-  description: 'Circle Leader Toolkit',
+  title: 'Radius',
+  description: 'Radius',
   manifest: '/manifest.json',
   icons: {
     icon: [
@@ -119,10 +119,10 @@ export default function RootLayout({
         <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.20/index.global.min.js" />
 
         {/* PWA Meta Tags */}
-        <meta name="application-name" content="Toolkit" />
+        <meta name="application-name" content="Radius" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="Toolkit" />
+        <meta name="apple-mobile-web-app-title" content="Radius" />
         <meta name="format-detection" content="telephone=no" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-config" content="/browserconfig.xml" />

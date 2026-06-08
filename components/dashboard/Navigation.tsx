@@ -62,8 +62,8 @@ export default function Navigation() {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
             <div className="flex-shrink-0 flex items-center">
-              <Image src="/icons/icon-32x32.png" alt="RADIUS Logo" width={32} height={32} className="mr-3" />
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">RADIUS</h1>
+              <Image src="/icons/icon-32x32.png" alt="Radius Logo" width={32} height={32} className="mr-3" />
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Radius</h1>
             </div>
           </div>
           

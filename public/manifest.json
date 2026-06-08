@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Circle Leader Toolkit",
-  "short_name": "Toolkit",
-  "description": "Circle Leader Toolkit",
+  "name": "Radius",
+  "short_name": "Radius",
+  "description": "Radius",
   "start_url": "/",
   "display": "standalone",
   "display_override": ["standalone"],

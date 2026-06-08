@@ -23,9 +23,9 @@ export default async function CircleSummarySignInPage() {
           alt="Circles"
           className="mx-auto h-24 sm:h-32 w-auto mb-6"
         />
-        <h1 className="cs-display text-5xl sm:text-7xl">Circle Summary</h1>
+        <h1 className="cs-display text-5xl sm:text-7xl">Circle Leader Toolkit</h1>
         <p className="mt-3 text-white/85 text-sm sm:text-base font-medium tracking-wide">
-          For Circle Leaders at Valley Creek
+          For Circle Leaders
         </p>
       </header>
 

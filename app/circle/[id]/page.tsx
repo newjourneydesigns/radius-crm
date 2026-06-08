@@ -2510,7 +2510,7 @@ export default function CircleLeaderProfilePage() {
                             className="w-full px-3 py-1 text-sm border border-zinc-600 rounded-md bg-zinc-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent"
                           />
                           <p className="mt-1.5 text-xs text-slate-500">
-                            RADIUS normally finds this circle&apos;s attendance and calendar in CCB using the leader&apos;s name. If the group is saved under a different name in CCB, type that exact name here so the data lines up. Leave blank to use the leader&apos;s name.
+                            Radius normally finds this circle&apos;s attendance and calendar in CCB using the leader&apos;s name. If the group is saved under a different name in CCB, type that exact name here so the data lines up. Leave blank to use the leader&apos;s name.
                           </p>
                         </>
                       ) : (

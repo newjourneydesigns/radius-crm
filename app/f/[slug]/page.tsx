@@ -279,7 +279,7 @@ export default function PublicFormPage() {
                   </button>
                 </form>
               </div>
-              <p className="mt-5 text-center text-xs text-slate-600">Powered by RADIUS</p>
+              <p className="mt-5 text-center text-xs text-slate-600">Powered by Radius</p>
             </>
           )
         )}

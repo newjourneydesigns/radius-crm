@@ -85,6 +85,9 @@ export default function CircleChrome({
               className="h-16 sm:h-20 w-auto shrink-0"
             />
             <div className="min-w-0 flex-1">
+              <p className="mb-1 text-xs font-bold uppercase text-white/75">
+                Circle Leader Toolkit
+              </p>
               <h1 className="cs-display whitespace-nowrap text-[clamp(1.75rem,8.5vw,3rem)] leading-tight">
                 {firstName ? `${firstName}'s` : 'Your'} Circle
               </h1>

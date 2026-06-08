@@ -470,7 +470,7 @@ export default function LeaderMessagesPage() {
         <div className="max-w-xl mx-auto bg-zinc-800 border border-zinc-700 rounded-xl p-6 shadow-card-glass">
           <h1 className="text-xl font-semibold text-white tracking-tight">Leader Messages</h1>
           <p className="text-sm text-slate-400 mt-2">
-            Sign in to RADIUS before sending messages to Circle Leaders.
+            Sign in to Radius before sending messages to Circle Leaders.
           </p>
           <a
             href="/login/"

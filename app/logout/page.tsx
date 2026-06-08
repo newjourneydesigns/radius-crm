@@ -54,8 +54,8 @@ export default function LogoutPage() {
           
           <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
             {isLoggingOut 
-              ? 'Please wait while we securely sign you out of RADIUS.'
-              : 'You have been successfully signed out of RADIUS.'
+              ? 'Please wait while we securely sign you out of Radius.'
+              : 'You have been successfully signed out of Radius.'
             }
           </p>
         </div>
@@ -64,7 +64,7 @@ export default function LogoutPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
             <div className="text-center">
               <p className="text-gray-600 dark:text-gray-400 mb-6">
-                Thank you for using RADIUS. Your session has been ended securely.
+                Thank you for using Radius. Your session has been ended securely.
               </p>
               
               <div className="space-y-3">

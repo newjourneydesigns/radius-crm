@@ -254,8 +254,8 @@ export default function AuthenticatedNavigation() {
 
           {/* ── Left: Brand ── */}
           <Link href="/event-summary-tracker" className="flex items-center space-x-2 shrink-0 group">
-            <Image src="/icon-32x32.png" alt="RADIUS" width={28} height={28} className="rounded-lg group-hover:scale-105 transition-transform" />
-            <span className="text-base font-bold text-white tracking-tight">RADIUS</span>
+            <Image src="/icon-32x32.png" alt="Radius" width={28} height={28} className="rounded-lg group-hover:scale-105 transition-transform" />
+            <span className="text-base font-bold text-white tracking-tight">Radius</span>
           </Link>
 
           {/* ── Center: Primary nav ── */}

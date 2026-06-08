@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
 
     // Send via Resend
     const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev';
-    const fromName = process.env.EMAIL_FROM_NAME || 'RADIUS';
+    const fromName = process.env.EMAIL_FROM_NAME || 'Radius';
 
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -92,17 +92,17 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         from: `${fromName} <${fromEmail}>`,
         to: [normalizedEmail],
-        subject: 'Your RADIUS access link',
+        subject: 'Your Radius access link',
         html: `
           <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
-            <h2 style="margin-bottom: 8px;">Sign in to RADIUS</h2>
+            <h2 style="margin-bottom: 8px;">Sign in to Radius</h2>
             <p style="color: #555; margin-bottom: 24px;">
               Click the button below to sign in. This link expires in 1 hour.
             </p>
             <a href="${magicLink}"
               style="display: inline-block; padding: 12px 24px; background: #2563eb; color: white;
                      text-decoration: none; border-radius: 8px; font-weight: 600;">
-              Sign in to RADIUS
+              Sign in to Radius
             </a>
             <p style="color: #999; font-size: 12px; margin-top: 24px;">
               If you didn't request this, you can safely ignore this email.

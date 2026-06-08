@@ -63,7 +63,7 @@ function ResetPasswordContent() {
       <div className="max-w-sm w-full space-y-6">
         <div className="text-center">
           <div className="mx-auto h-20 w-20 flex items-center justify-center">
-            <Image src="/icon-192x192.png" alt="RADIUS Logo" width={80} height={80}
+            <Image src="/icon-192x192.png" alt="Radius Logo" width={80} height={80}
               className="rounded-2xl shadow-lg shadow-blue-900/30" priority />
           </div>
           <h2 className="mt-5 text-2xl font-bold text-white tracking-tight">Set new password</h2>

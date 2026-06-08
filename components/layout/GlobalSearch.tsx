@@ -665,7 +665,7 @@ export default function GlobalSearch() {
                 <div style={{ padding: '32px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '16px' }}>
                   <Image
                     src="/icon-32x32.png"
-                    alt="RADIUS"
+                    alt="Radius"
                     width={28}
                     height={28}
                     style={{ opacity: 0.12 }}

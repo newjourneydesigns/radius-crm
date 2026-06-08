@@ -23,13 +23,13 @@ export default function PublicNavigation() {
             <Link href="/" className="flex items-center space-x-2.5">
               <Image
                 src="/icon-32x32.png"
-                alt="RADIUS Logo"
+                alt="Radius Logo"
                 width={32}
                 height={32}
                 className="rounded-lg"
               />
               <span className="text-lg font-bold text-white tracking-tight">
-                RADIUS
+                Radius
               </span>
             </Link>
           </div>

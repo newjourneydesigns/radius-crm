@@ -105,7 +105,7 @@ const ARTICLES: Article[] = [
   // ─── Getting Started ───
   {
     id: 'what-is-radius',
-    title: 'What is RADIUS?',
+    title: 'What is Radius?',
     category: 'Getting Started',
     level: 'beginner',
     tags: ['intro', 'overview', 'first time'],
@@ -113,7 +113,7 @@ const ARTICLES: Article[] = [
     body: (
       <>
         <Para>
-          RADIUS is Valley Creek&apos;s internal tool for caring for <strong>Circle Leaders</strong> — the people running our
+          Radius is Valley Creek&apos;s internal tool for caring for <strong>Circle Leaders</strong> — the people running our
           small groups. It pulls roster and event data from <strong>CCB</strong>, layers on pastoral context (notes,
           prayers, to-dos, encouragements, scorecards), and surfaces what needs your attention this week.
         </Para>
@@ -139,12 +139,12 @@ const ARTICLES: Article[] = [
     category: 'Getting Started',
     level: 'beginner',
     tags: ['login', 'magic link', 'auth', 'sign in', 'password'],
-    snippet: 'RADIUS uses passwordless magic-link login. Enter your email, click the link, you’re in.',
+    snippet: 'Radius uses passwordless magic-link login. Enter your email, click the link, you’re in.',
     body: (
       <>
         <OL>
           <li>Go to the login page and enter the email your admin added you with.</li>
-          <li>Check your inbox — you&apos;ll get a one-time magic link from RADIUS.</li>
+          <li>Check your inbox — you&apos;ll get a one-time magic link from Radius.</li>
           <li>Click the link on the device you want to be signed in on. Done.</li>
         </OL>
         <Callout tone="warn" title="No link arriving?">
@@ -220,7 +220,7 @@ const ARTICLES: Article[] = [
       <>
         <OL>
           <li>Open <strong>Circle Summary</strong> from the leader profile or the Circle Summary page.</li>
-          <li>Pick the event date — RADIUS pulls attendees and any CCB notes automatically.</li>
+          <li>Pick the event date — Radius pulls attendees and any CCB notes automatically.</li>
           <li>Answer the dynamic questions. The form auto-saves a draft as you type.</li>
           <li>Submit — the event marks as &quot;Received&quot; and updates the Progress charts.</li>
         </OL>
@@ -422,7 +422,7 @@ const ARTICLES: Article[] = [
     body: (
       <>
         <OL>
-          <li>Pick the event date — RADIUS pulls attendees and CCB notes automatically.</li>
+          <li>Pick the event date — Radius pulls attendees and CCB notes automatically.</li>
           <li>The dynamic questions adapt to your campus configuration.</li>
           <li>The form auto-saves a draft every few seconds.</li>
           <li>Submit to mark the summary received — Progress page updates immediately.</li>
@@ -473,7 +473,7 @@ const ARTICLES: Article[] = [
     category: 'CCB & Lookup',
     level: 'power',
     tags: ['ccb', 'church community builder', 'admin'],
-    snippet: 'Browse CCB profiles without leaving RADIUS. Admin-only.',
+    snippet: 'Browse CCB profiles without leaving Radius. Admin-only.',
     body: (
       <>
         <UL>
@@ -575,7 +575,7 @@ const ARTICLES: Article[] = [
         <UL>
           <li>Open <strong>Bulk Message</strong> from the sidebar</li>
           <li>Apply filters to scope your audience (campus, status, etc.)</li>
-          <li>Compose once; RADIUS handles the send</li>
+          <li>Compose once; Radius handles the send</li>
           <li>Each send is logged as a connection on every recipient</li>
         </UL>
         <Callout tone="warn" title="Send carefully">
@@ -617,7 +617,7 @@ const ARTICLES: Article[] = [
     body: (
       <>
         <Para>
-          Open a leader profile and click <strong>AI Meeting Prep</strong>. RADIUS pulls the last several months of
+          Open a leader profile and click <strong>AI Meeting Prep</strong>. Radius pulls the last several months of
           notes, recent connections, open to-dos, and pending follow-ups, then drafts a structured prep doc you can
           skim in two minutes.
         </Para>
@@ -633,7 +633,7 @@ const ARTICLES: Article[] = [
     category: 'AI Tools',
     level: 'intermediate',
     tags: ['ai', 'dictation', 'voice', 'transcribe'],
-    snippet: 'Talk; RADIUS transcribes. Faster than typing on a phone after a circle visit.',
+    snippet: 'Talk; Radius transcribes. Faster than typing on a phone after a circle visit.',
     body: (
       <>
         <UL>
@@ -648,11 +648,11 @@ const ARTICLES: Article[] = [
   // ─── Mobile & PWA ───
   {
     id: 'pwa-install',
-    title: 'Install RADIUS on your phone or desktop',
+    title: 'Install Radius on your phone or desktop',
     category: 'Mobile & PWA',
     level: 'beginner',
     tags: ['pwa', 'install', 'iphone', 'android', 'home screen'],
-    snippet: 'RADIUS is a Progressive Web App — install it for a native-feeling experience and offline basics.',
+    snippet: 'Radius is a Progressive Web App — install it for a native-feeling experience and offline basics.',
     body: (
       <>
         <H>iPhone (Safari)</H>
@@ -714,7 +714,7 @@ const ARTICLES: Article[] = [
   },
   {
     id: 'manage-users',
-    title: 'Managing RADIUS users (admin)',
+    title: 'Managing Radius users (admin)',
     category: 'Admin',
     level: 'power',
     tags: ['users', 'admin', 'roles', 'acpd'],
@@ -812,7 +812,7 @@ const ARTICLES: Article[] = [
         <UL>
           <li>Roster: tap <strong>Refresh</strong> on the Circle Roster page — it re-pulls from CCB and updates the sync time</li>
           <li>CCB Explorer always fetches live; nothing is cached there</li>
-          <li>If a person genuinely missing from CCB, fix it in CCB first — RADIUS will sync next time</li>
+          <li>If a person genuinely missing from CCB, fix it in CCB first — Radius will sync next time</li>
         </UL>
       </>
     ),
@@ -827,7 +827,7 @@ const ARTICLES: Article[] = [
     body: (
       <>
         <Para>
-          Open the leader profile and edit directly. If the leader is in CCB, also update them in CCB — RADIUS treats
+          Open the leader profile and edit directly. If the leader is in CCB, also update them in CCB — Radius treats
           CCB as the long-term source of truth for contact info.
         </Para>
       </>
@@ -854,27 +854,27 @@ const ARTICLES: Article[] = [
 // ────────────────────────────────────────────────────────────────────
 
 const GLOSSARY: { term: string; def: string }[] = [
-  { term: 'ACPD', def: 'Associate Campus Pastor / Director — the staff member assigned to coach a circle leader. In RADIUS, the ACPD role is the admin role.' },
+  { term: 'ACPD', def: 'Associate Campus Pastor / Director — the staff member assigned to coach a circle leader. In Radius, the ACPD role is the admin role.' },
   { term: 'Active', def: 'A leader currently running a circle. The default audience for most filtered views.' },
   { term: 'Archived', def: 'A leader who is no longer leading but is kept in the system for historical record.' },
   { term: 'Board', def: 'A kanban project — columns of cards used for tracking cross-leader work like onboarding or events.' },
   { term: 'Bulk Message', def: 'A message sent to a filtered group of leaders at once. Each recipient gets it logged as a connection.' },
   { term: 'Campus', def: 'A physical Valley Creek location used as the primary geographic filter.' },
-  { term: 'CCB', def: 'Church Community Builder — the church management system. RADIUS reads roster, attendance, and event data from CCB via XML API.' },
+  { term: 'CCB', def: 'Church Community Builder — the church management system. Radius reads roster, attendance, and event data from CCB via XML API.' },
   { term: 'Circle', def: 'A small group. Has a leader, members, a meeting day/time, and (usually) a CCB group ID.' },
-  { term: 'Circle Leader', def: 'The person running a circle. The primary entity in RADIUS.' },
+  { term: 'Circle Leader', def: 'The person running a circle. The primary entity in Radius.' },
   { term: 'Circle Summary', def: 'A submitted summary of what happened at a specific circle meeting — attendees, notes, dynamic question answers.' },
-  { term: 'Circle Visit', def: 'A pastoral visit to a circle while it&apos;s meeting. Scheduled and logged in RADIUS.' },
+  { term: 'Circle Visit', def: 'A pastoral visit to a circle while it&apos;s meeting. Scheduled and logged in Radius.' },
   { term: 'Connection', def: 'Any logged interaction with a leader — call, text, email, or in-person.' },
   { term: 'Encouragement', def: 'A specific kind of intentional pastoral touch, optionally including scripture. Tracked separately on the scorecard.' },
   { term: 'Event Summary', def: 'The CCB-side concept that maps to a Circle Summary — &quot;Received&quot;, &quot;Skipped&quot;, or &quot;Did Not Meet&quot;.' },
   { term: 'Follow-Up Required', def: 'A flag on a leader (or a note&apos;s follow-up date) marking them as needing pastoral attention.' },
   { term: 'Invited', def: 'Status for someone who has been asked to lead but hasn&apos;t fully onboarded yet.' },
-  { term: 'Magic Link', def: 'The passwordless email link used to sign in to RADIUS. Single use, time-limited.' },
+  { term: 'Magic Link', def: 'The passwordless email link used to sign in to Radius. Single use, time-limited.' },
   { term: 'Off-boarding', def: 'Status for a leader who is winding down — exit conversations in progress.' },
   { term: 'On-boarding', def: 'Status for a leader in training/setup, not yet leading.' },
   { term: 'Paused', def: 'Status for a leader temporarily not meeting (sabbatical, vacation, life season).' },
-  { term: 'PWA', def: 'Progressive Web App — install RADIUS on your phone or desktop for a native-feeling experience.' },
+  { term: 'PWA', def: 'Progressive Web App — install Radius on your phone or desktop for a native-feeling experience.' },
   { term: 'Roster', def: 'The list of members in a circle, pulled from CCB.' },
   { term: 'Scorecard', def: 'A rubric-based evaluation of a leader&apos;s development across multiple dimensions.' },
   { term: 'Status', def: 'Where a leader is in their lifecycle: Invited, On-boarding, Active, Paused, Off-boarding, Archived.' },
@@ -972,7 +972,7 @@ export default function HelpPage() {
               <h1 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">Help Center</h1>
             </div>
             <p className="text-sm text-slate-400">
-              Everything you need to use RADIUS — from the first login to the deep-cut power moves.
+              Everything you need to use Radius — from the first login to the deep-cut power moves.
               <span className="hidden sm:inline"> Press <Kbd>/</Kbd> to jump to search.</span>
             </p>
           </div>

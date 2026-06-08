@@ -243,7 +243,7 @@ function LoginContent() {
           {/* Brand */}
           <div className="text-center">
             <div className="mx-auto h-16 w-16 flex items-center justify-center">
-              <Image src="/icon-192x192.png" alt="RADIUS" width={64} height={64} className="rounded-2xl" priority />
+              <Image src="/icon-192x192.png" alt="Radius" width={64} height={64} className="rounded-2xl" priority />
             </div>
             <h2 className="mt-4 text-xl font-bold text-white tracking-tight">Check your email</h2>
             <p className="mt-1 text-sm text-slate-400">
@@ -323,9 +323,9 @@ function LoginContent() {
         {/* Brand */}
         <div className="text-center">
           <div className="mx-auto h-16 w-16 flex items-center justify-center">
-            <Image src="/icon-192x192.png" alt="RADIUS" width={64} height={64} className="rounded-2xl" priority />
+            <Image src="/icon-192x192.png" alt="Radius" width={64} height={64} className="rounded-2xl" priority />
           </div>
-          <h2 className="mt-4 text-xl font-bold text-white tracking-tight">Welcome to RADIUS</h2>
+          <h2 className="mt-4 text-xl font-bold text-white tracking-tight">Welcome to Radius</h2>
           <p className="mt-1 text-sm text-slate-400">Circle Leader Management</p>
         </div>
 
