@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   const result = await sendReminderEmail({
     to: leader.email,
     leaderName: leader.name || 'Leader',
-    kind: 'follow_up',
+    kind: 'summary_reminder',
     meetingDateLabel: 'your next Circle meeting',
     magicLinkUrl: magicUrl.toString(),
   });

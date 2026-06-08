@@ -1,6 +1,6 @@
 /**
  * POST /api/circle-leader-toolkit/reminders/test
- * Body: { leader_id, kind? }
+ * Body: { leader_id }
  *
  * Admin-only. Sends a one-off test reminder email to a specific leader.
  * Does NOT write to circle_reminder_sends — purely for testing.
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     if (!isAdmin) return NextResponse.json({ error: error || 'Forbidden' }, { status: 403 });
   }
 
-  let body: { leader_id?: number | string; kind?: string } = {};
+  let body: { leader_id?: number | string } = {};
   try {
     body = await req.json();
   } catch {
@@ -38,9 +38,6 @@ export async function POST(req: NextRequest) {
   if (!body.leader_id) {
     return NextResponse.json({ error: 'leader_id is required.' }, { status: 400 });
   }
-
-  const kind: 'pre_meeting' | 'follow_up' =
-    body.kind === 'pre_meeting' ? 'pre_meeting' : 'follow_up';
 
   const supabase = createServiceSupabaseClient();
   const { data: leader, error: lookupError } = await supabase
@@ -70,7 +67,7 @@ export async function POST(req: NextRequest) {
       const ccb = createCCBClient();
       const events = await ccb.getGroupCalendarEvents(String(leader.ccb_group_id), calStart, calEnd);
 
-      // For follow_up: pick most recent past event; for pre_meeting: next upcoming
+      // Match the production reminder: use the most recent past event label.
       const now2 = DateTime.now().setZone(TZ);
       const parsed = events
         .map((e) => ({
@@ -79,10 +76,9 @@ export async function POST(req: NextRequest) {
         }))
         .filter((e) => e.dt.isValid);
 
-      const target =
-        kind === 'follow_up'
-          ? parsed.filter((e) => e.dt <= now2).sort((a, b) => b.dt.toMillis() - a.dt.toMillis())[0]
-          : parsed.filter((e) => e.dt > now2).sort((a, b) => a.dt.toMillis() - b.dt.toMillis())[0];
+      const target = parsed
+        .filter((e) => e.dt <= now2)
+        .sort((a, b) => b.dt.toMillis() - a.dt.toMillis())[0];
 
       if (target) {
         meetingDateLabel =
@@ -101,7 +97,7 @@ export async function POST(req: NextRequest) {
   const result = await sendReminderEmail({
     to: leader.email,
     leaderName: leader.name,
-    kind,
+    kind: 'summary_reminder',
     meetingDateLabel,
     magicLinkUrl: magicUrl.toString(),
   });
@@ -114,7 +110,7 @@ export async function POST(req: NextRequest) {
     ok: true,
     sentTo: leader.email,
     leaderName: leader.name,
-    kind,
+    kind: 'summary_reminder',
     meetingDateLabel,
     magicLinkUrl: magicUrl.toString(),
   });

@@ -26,6 +26,8 @@ const TZ = 'America/Chicago';
 // circle_reminder_sends check below guarantees exactly one email per occurrence.
 const POST_MEETING_MIN_MINUTES = 30;
 const POST_MEETING_MAX_MINUTES = 50;
+const REMINDER_KIND = 'summary_reminder';
+const LEGACY_REMINDER_KINDS = ['follow_up', 'pre_meeting'];
 
 function buildMagicLinkUrl(leaderId: number | string, next: string): string {
   const appUrl = getCircleSummaryBaseUrl();
@@ -104,11 +106,13 @@ export async function POST(req: Request) {
         if (submitted) continue;
 
         // Already reminded for this occurrence? One email only — never repeat.
+        // Include legacy kinds so previously sent rows still dedupe after the
+        // reminder was renamed to summary_reminder.
         const { data: alreadySent } = await supabase
           .from('circle_reminder_sends')
           .select('id')
           .eq('leader_id', leader.id)
-          .eq('kind', 'follow_up')
+          .in('kind', [REMINDER_KIND, ...LEGACY_REMINDER_KINDS])
           .eq('ccb_event_id', e.eventId)
           .eq('occurrence_date', e.startDate)
           .maybeSingle();
@@ -118,7 +122,7 @@ export async function POST(req: Request) {
         const result = await sendReminderEmail({
           to: leader.email!,
           leaderName: leader.name,
-          kind: 'follow_up',
+          kind: REMINDER_KIND,
           meetingDateLabel: formatMeetingLabel(startDt),
           magicLinkUrl: magicUrl,
         });
@@ -128,11 +132,11 @@ export async function POST(req: Request) {
         }
         await supabase.from('circle_reminder_sends').insert({
           leader_id: leader.id,
-          kind: 'follow_up',
+          kind: REMINDER_KIND,
           ccb_event_id: e.eventId,
           occurrence_date: e.startDate,
         });
-        sent.push({ leaderId: leader.id, kind: 'follow_up', eventId: e.eventId, date: e.startDate });
+        sent.push({ leaderId: leader.id, kind: REMINDER_KIND, eventId: e.eventId, date: e.startDate });
       }
     } catch (e: unknown) {
       errors.push({ leaderId: leader.id, error: e instanceof Error ? e.message : 'CCB fetch failed' });

@@ -137,31 +137,19 @@ async function sendBrandedEmail(opts: {
 export async function sendReminderEmail(opts: {
   to: string;
   leaderName: string;
-  kind: 'pre_meeting' | 'follow_up';
+  kind?: 'summary_reminder';
   meetingDateLabel: string;
   magicLinkUrl: string;
 }): Promise<{ success: boolean; error?: string }> {
-  const { to, leaderName, kind, meetingDateLabel, magicLinkUrl } = opts;
+  const { to, leaderName, meetingDateLabel, magicLinkUrl } = opts;
 
   const heroTitle = 'Circle Summary';
-  const heroSubtitle =
-    kind === 'pre_meeting'
-      ? `Coming up: ${meetingDateLabel}`
-      : `How did your Circle go on ${meetingDateLabel}?`;
-  const subject =
-    kind === 'pre_meeting'
-      ? `Your Circle meets soon — submit your summary here`
-      : `We'd love to hear about your Circle — ${meetingDateLabel}`;
-  const preheader =
-    kind === 'pre_meeting'
-      ? `One tap to submit your Circle summary.`
-      : `Tell us how your Circle gathering went.`;
+  const heroSubtitle = `How did your Circle go on ${meetingDateLabel}?`;
+  const subject = `We'd love to hear about your Circle — ${meetingDateLabel}`;
+  const preheader = `Tell us how your Circle gathering went.`;
 
   const greeting = `<p style="margin:0 0 12px 0;">Hi ${escapeHtml(leaderName.split(' ')[0] || 'there')},</p>`;
-  const lead =
-    kind === 'pre_meeting'
-      ? `<p style="margin:0 0 12px 0;">Your Circle is meeting <strong>${escapeHtml(meetingDateLabel)}</strong>. After you gather, tap below to send your summary in under a minute — attendance and what stood out.</p>`
-      : `<p style="margin:0 0 12px 0;">We'd love to hear about your Circle from <strong>${escapeHtml(meetingDateLabel)}</strong>. It only takes a minute — tap below to share what God did in your gathering.</p>`;
+  const lead = `<p style="margin:0 0 12px 0;">We'd love to hear about your Circle from <strong>${escapeHtml(meetingDateLabel)}</strong>. It only takes a minute — tap below to share what God did in your gathering.</p>`;
   const note = `<p style="margin:12px 0 0 0;color:#7A7A7A;font-size:14px;">Tapping the button signs you in automatically — no password needed.</p>`;
 
   const html = emailShell({
