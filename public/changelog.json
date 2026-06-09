@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-08",
+    "version": "2.7.2",
+    "date_display": "June 8, 2026",
+    "date_iso": "2026-06-08",
+    "id": "inbox-stats-security-invoker",
+    "type": "fix",
+    "type_display": "Fix",
+    "category": "Security",
+    "description": "Closed a database access gap on the Leader Messages stats view. The recipient/read/unread counts view ran with elevated privileges that bypassed row-level security, so it could have exposed message stats to roles that have no access to the underlying inbox tables. The view now enforces the same access rules as those tables, with client roles explicitly revoked. No change to how the page works — admin access flows through secure server routes as before.",
+    "page": "/leader-messages"
+  },
+  {
+    "date": "2026-06-08",
     "version": "2.7.1",
     "date_display": "June 8, 2026",
     "date_iso": "2026-06-08",
