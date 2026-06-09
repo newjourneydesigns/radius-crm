@@ -102,7 +102,7 @@ export default function Modal({
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-white/[0.07] sticky top-0 bg-[rgba(22,24,32,0.95)] backdrop-blur-sm z-10 rounded-t-xl">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-white/[0.07] sticky top-0 bg-[rgba(22,24,32,0.97)] z-10 rounded-t-xl">
           <h2 
             id="modal-title"
             className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white tracking-tight pr-2"

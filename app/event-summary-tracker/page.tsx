@@ -1659,7 +1659,7 @@ function ReviewModal({
         )}
 
         <div
-          className="flex items-center justify-end gap-2 sticky bottom-0 -mx-4 sm:-mx-6 -mb-3 sm:-mb-4 px-4 sm:px-6 py-3 sm:py-4 border-t border-zinc-700/60 bg-[rgba(9,27,52,0.95)] backdrop-blur-sm"
+          className="flex items-center justify-end gap-2 sticky bottom-0 -mx-4 sm:-mx-6 -mb-3 sm:-mb-4 px-4 sm:px-6 py-3 sm:py-4 border-t border-zinc-700/60 bg-[rgba(9,27,52,0.97)]"
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
         >
           {ccbUrl && (
