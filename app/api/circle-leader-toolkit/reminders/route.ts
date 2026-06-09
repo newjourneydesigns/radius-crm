@@ -12,7 +12,7 @@
 import { NextResponse } from 'next/server';
 import { DateTime } from 'luxon';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
-import { createCCBClient } from '../../../../lib/ccb/ccb-client';
+import { loadCachedCalendarByGroup } from '../../../../lib/circle-leader-toolkit/reminder-calendar';
 import { createSessionToken, RADIUS_LINK_TTL_MS } from '../../../../lib/leader-tokens';
 import { sendReminderEmail } from '../../../../lib/circle-leader-toolkit/email';
 import { getCircleSummaryBaseUrl } from '../../../../lib/circle-leader-toolkit/links';
@@ -68,19 +68,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, eligibleLeaders: 0, sent, skipped, errors });
   }
 
-  // We only care about Circles that started within the last hour, so a tight
-  // calendar window (yesterday → tomorrow, to stay safe across the date line) is plenty.
-  const calStart = now.minus({ days: 1 }).toFormat('yyyy-LL-dd');
-  const calEnd = now.plus({ days: 1 }).toFormat('yyyy-LL-dd');
+  // We only care about Circles that started within the last hour. Read each
+  // leader's calendar from the shared ccb_group_events_cache (warmed daily by
+  // the prewarm job) instead of calling CCB live per leader — this cron fires
+  // every 15 minutes, and per-leader CCB calls here were a top quota burner.
+  const calendarByGroup = await loadCachedCalendarByGroup(
+    supabase,
+    leaders.map((l) => l.ccb_group_id).filter((id): id is number | string => id != null)
+  );
 
   for (const leader of leaders) {
     try {
-      const ccb = createCCBClient();
-      const calendarEvents = await ccb.getGroupCalendarEvents(
-        String(leader.ccb_group_id),
-        calStart,
-        calEnd
-      );
+      const calendarEvents = calendarByGroup.get(String(leader.ccb_group_id)) ?? [];
 
       for (const e of calendarEvents) {
         const startDt = DateTime.fromFormat(e.startDateTime, 'yyyy-LL-dd HH:mm:ss', {

@@ -40,6 +40,13 @@ export type LoadEventsResult = {
   events: CircleEventRow[];
   error?: string;
   message?: string;
+  /**
+   * Set when CCB attendance couldn't be fetched live (e.g. CCB's daily quota
+   * was reached). `'stale'` means we fell back to cached attendance, so status
+   * is still accurate; `'unavailable'` means we have no attendance to show, so
+   * already-reported summaries may render as "Pending" until CCB recovers.
+   */
+  ccbAttendanceDegraded?: 'stale' | 'unavailable';
 };
 
 // In-memory TTL cache for CCB calls. The same (groupId, start, end) tuple is
@@ -210,6 +217,11 @@ export async function loadLeaderEvents(
   }> = [];
   let submissions: SubmittedSummaryRow[] = [];
   let ignoredEvents: IgnoredEventRow[] = [];
+  // Tracks whether the live CCB attendance call failed (vs. simply returned no
+  // rows) so we can fall back to cached attendance instead of silently showing
+  // every reported summary as "Pending".
+  let attendanceFetchFailed = false;
+  let ccbAttendanceDegraded: 'stale' | 'unavailable' | null = null;
 
   try {
     // Three-tier cache: in-memory (per instance) → Supabase ccb_group_events_cache
@@ -285,7 +297,14 @@ export async function loadLeaderEvents(
               cacheSet(ccbAttendanceCache, cacheKey, v, CCB_ATTENDANCE_TTL_MS);
               return v;
             })
-            .catch(() => null),
+            .catch((e) => {
+              attendanceFetchFailed = true;
+              console.warn(
+                '[circle-summary/events] attendance fetch failed:',
+                e instanceof Error ? e.message : e
+              );
+              return null;
+            }),
       supabase
         .from('circle_event_summaries')
         .select('ccb_event_id, occurrence, status, did_not_meet, submitted_via, created_at')
@@ -348,10 +367,31 @@ export async function loadLeaderEvents(
 
     submissions = (submissionsRes.data ?? []) as SubmittedSummaryRow[];
 
+    // If the live attendance call failed (e.g. CCB daily quota reached), fall
+    // back to the most recent cached attendance for this group — even if it's
+    // older than the normal freshness window. Showing slightly stale "received"
+    // status beats flipping every already-reported summary to "Pending".
+    let bulkXmlResolved = bulkXml;
+    if (bulkXmlResolved == null && attendanceFetchFailed) {
+      const { data: fallbackRow } = await supabase
+        .from('ccb_group_events_cache')
+        .select('attendance_xml')
+        .eq('group_id', String(leader.ccb_group_id))
+        .order('synced_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (fallbackRow?.attendance_xml) {
+        bulkXmlResolved = fallbackRow.attendance_xml;
+        ccbAttendanceDegraded = 'stale';
+      } else {
+        ccbAttendanceDegraded = 'unavailable';
+      }
+    }
+
     // Build a lookup map: "eventId|YYYY-MM-DD" → { has, dnm }
     const attendanceMap = new Map<string, { has: boolean; dnm: boolean; headCount: number | null }>();
-    if (bulkXml) {
-      const ccbRoot = asRecord(bulkXml)?.ccb_api;
+    if (bulkXmlResolved) {
+      const ccbRoot = asRecord(bulkXmlResolved)?.ccb_api;
       const response = asRecord(asRecord(ccbRoot)?.response);
       const eventsRoot = asRecord(response?.events);
       const rawEvents = recordList(eventsRoot?.event);
@@ -431,5 +471,8 @@ export async function loadLeaderEvents(
     })
     .sort((a, b) => (a.occurrenceDate < b.occurrenceDate ? 1 : -1));
 
-  return { events: enriched };
+  return {
+    events: enriched,
+    ...(ccbAttendanceDegraded ? { ccbAttendanceDegraded } : {}),
+  };
 }

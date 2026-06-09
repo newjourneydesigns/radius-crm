@@ -30,6 +30,7 @@ export default async function CircleSummaryEventsPage() {
       initialEvents={eventsResult.events}
       initialMessages={messages}
       initialError={initialError}
+      initialCcbDegraded={eventsResult.ccbAttendanceDegraded ?? null}
     />
   );
 }

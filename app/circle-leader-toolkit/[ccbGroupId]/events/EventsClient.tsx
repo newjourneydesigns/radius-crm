@@ -35,12 +35,14 @@ export default function EventsClient({
   initialEvents,
   initialMessages,
   initialError,
+  initialCcbDegraded = null,
 }: {
   groupId: string;
   leaderId: number | string;
   initialEvents: EventRow[];
   initialMessages: CenterMessage[];
   initialError: string | null;
+  initialCcbDegraded?: 'stale' | 'unavailable' | null;
 }) {
   useMarkCircleAppEntered();
   const router = useRouter();
@@ -50,6 +52,7 @@ export default function EventsClient({
   const [refreshing, setRefreshing] = useState(false);
   const [slowLoad, setSlowLoad] = useState(false);
   const [error, setError] = useState<string | null>(initialError);
+  const [ccbDegraded, setCcbDegraded] = useState<'stale' | 'unavailable' | null>(initialCcbDegraded);
   const inFlightRef = useRef(false);
   const lastLoadAtRef = useRef(Date.now());
 
@@ -84,6 +87,7 @@ export default function EventsClient({
 
         setEvents(data.events || []);
         if (Array.isArray(data.messages)) setMessages(data.messages);
+        setCcbDegraded(data.ccbAttendanceDegraded ?? null);
         if (data.error) setError(data.error);
         else if (data.message && !data.events?.length) setError(data.message);
         else setError(null);
@@ -185,6 +189,18 @@ export default function EventsClient({
       )}
 
       <main className="max-w-2xl mx-auto px-4 py-6">
+        {ccbDegraded === 'unavailable' && (
+          <div className="mb-4 flex items-start gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 shadow-sm">
+            <svg className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.008M10.34 3.34l-8.07 13.97A1.5 1.5 0 003.57 19.5h16.86a1.5 1.5 0 001.3-2.19L13.66 3.34a1.5 1.5 0 00-2.62 0z" />
+            </svg>
+            <p className="text-sm leading-relaxed text-amber-900">
+              <span className="font-semibold">We can’t reach Church Community Builder right now.</span>{' '}
+              Summaries you’ve already submitted may temporarily show as “Pending” until it
+              reconnects — nothing was lost, and there’s no need to resubmit.
+            </p>
+          </div>
+        )}
         {!loading && events.length > 0 && (
           <div className="mb-4 flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-1.5 bg-white border border-neutral-200 rounded-full px-3 py-1 shadow-sm">

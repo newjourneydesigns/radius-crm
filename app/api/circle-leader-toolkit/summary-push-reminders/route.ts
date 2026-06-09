@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { DateTime } from 'luxon';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
-import { createCCBClient } from '../../../../lib/ccb/ccb-client';
+import { loadCachedCalendarByGroup } from '../../../../lib/circle-leader-toolkit/reminder-calendar';
 import { buildCircleSummaryUrl, deliverLeaderPush, parseCcbDateTime } from '../../../../lib/circle-leader-toolkit/push';
 
 export const dynamic = 'force-dynamic';
@@ -19,8 +19,6 @@ export async function POST(req: Request) {
 
   const supabase = createServiceSupabaseClient();
   const now = DateTime.now().setZone(TZ);
-  const calStart = now.minus({ hours: LOOKBACK_HOURS }).toFormat('yyyy-LL-dd');
-  const calEnd = now.toFormat('yyyy-LL-dd');
   const sent: any[] = [];
   const skipped: any[] = [];
   const errors: any[] = [];
@@ -42,11 +40,19 @@ export async function POST(req: Request) {
     : { data: [] as any[] };
   const enabledLeaderIds = new Set((prefs || []).map((pref: any) => String(pref.leader_id)));
 
-  for (const leader of leaders || []) {
-    if (!enabledLeaderIds.has(String(leader.id))) continue;
+  // Read calendars from the shared ccb_group_events_cache (warmed daily by the
+  // prewarm job) instead of calling CCB live per leader. This cron fires every
+  // 5 minutes; per-leader live CCB calls here were the single biggest consumer
+  // of CCB's daily quota.
+  const enabledLeaders = (leaders || []).filter((leader: any) => enabledLeaderIds.has(String(leader.id)));
+  const calendarByGroup = await loadCachedCalendarByGroup(
+    supabase,
+    enabledLeaders.map((leader: any) => leader.ccb_group_id).filter((id: any) => id != null)
+  );
+
+  for (const leader of enabledLeaders) {
     try {
-      const ccb = createCCBClient();
-      const events = await ccb.getGroupCalendarEvents(String(leader.ccb_group_id), calStart, calEnd);
+      const events = calendarByGroup.get(String(leader.ccb_group_id)) ?? [];
       for (const event of events || []) {
         const start = parseCcbDateTime(event.startDateTime);
         if (!start) continue;

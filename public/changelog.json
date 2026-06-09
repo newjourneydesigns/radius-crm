@@ -1,5 +1,17 @@
 [
   {
+    "date": "2026-06-08",
+    "version": "2.7.1",
+    "date_display": "June 8, 2026",
+    "date_iso": "2026-06-08",
+    "id": "ccb-quota-pending-fix",
+    "type": "fix",
+    "type_display": "Fix",
+    "category": "Event Summaries",
+    "description": "Fixed already-reported event summaries showing as \"Pending.\" The cause was Church Community Builder's daily API limit being used up, which left Radius unable to read attendance. The reminder system was the main culprit — it was calling CCB live for every leader every few minutes; it now reads from the once-a-day cache instead, cutting that traffic by ~95%. We also added a hard daily ceiling so automated jobs can never exhaust the CCB quota again, and the events page now shows a clear \"can't reach CCB right now\" note (and falls back to the last known status) instead of silently marking submitted summaries as Pending.",
+    "page": "/event-summary-tracker"
+  },
+  {
     "date": "2026-06-04",
     "version": "2.7.0",
     "date_display": "June 4, 2026",

@@ -8,7 +8,9 @@ import axios, { AxiosRequestConfig } from "axios";
 import { XMLParser } from "fast-xml-parser";
 import type { CCBGroup } from "../ccb-types";
 import { DateTime, Interval } from "luxon";
-import { recordCCBApiTelemetry, recordCCBDailyStatus, type CCBApiRequestContext } from "./ccb-api-gateway";
+import { recordCCBApiTelemetry, recordCCBDailyStatus, reserveCCBDailyBudget, type CCBApiRequestContext } from "./ccb-api-gateway";
+
+export { CCBDailyBudgetError } from "./ccb-api-gateway";
 
 const IS_DEV = process.env.NODE_ENV === 'development';
 const DID_NOT_MEET_REASON_PREFIX_RE = /^reason\s+we\s+did(?:n['’]t| not)\s+meet:\s*/i;
@@ -192,6 +194,11 @@ export class CCBClient {
     // Throws CCBCircuitBreakerError; callers should fall through to cache
     // (or surface a "rate-limited, try again later" error to the user).
     ccbBreakerCheckAndRecord();
+
+    // Shared daily budget ceiling across all serverless instances. Throws
+    // CCBDailyBudgetError once today's call count hits the configured cap, so
+    // automated jobs can never exhaust CCB's hard 10,000/day quota again.
+    await reserveCCBDailyBudget();
 
     if (IS_DEV) {
       console.log(`🔍 CCB API Call: ${JSON.stringify(params)}`);

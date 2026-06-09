@@ -33,5 +33,6 @@ export async function GET(req: Request) {
     messages,
     ...(eventsResult.error ? { error: eventsResult.error } : {}),
     ...(eventsResult.message ? { message: eventsResult.message } : {}),
+    ...(eventsResult.ccbAttendanceDegraded ? { ccbAttendanceDegraded: eventsResult.ccbAttendanceDegraded } : {}),
   });
 }
