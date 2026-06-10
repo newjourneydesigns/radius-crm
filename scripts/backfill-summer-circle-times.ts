@@ -20,6 +20,11 @@ import 'dotenv/config';
 import axios from 'axios';
 import { XMLParser } from 'fast-xml-parser';
 import { createClient } from '@supabase/supabase-js';
+import WS from 'ws';
+
+if (typeof globalThis.WebSocket === 'undefined') {
+  (globalThis as any).WebSocket = WS;
+}
 
 const APPLY = process.argv.includes('--apply');
 
