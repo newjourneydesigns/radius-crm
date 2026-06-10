@@ -20,6 +20,7 @@ import 'dotenv/config';
 import axios from 'axios';
 import { XMLParser } from 'fast-xml-parser';
 import { createClient } from '@supabase/supabase-js';
+import { DateTime } from 'luxon';
 import WS from 'ws';
 
 if (typeof globalThis.WebSocket === 'undefined') {
@@ -91,7 +92,7 @@ function the24Match(raw: string): boolean {
   return /^\d{1,2}:\d{2}(:\d{2})?$/.test(raw) && !/AM|PM/i.test(raw);
 }
 
-async function fetchMeetingTimeFromCCB(groupId: string): Promise<string | null> {
+async function fetchGroupInfo(groupId: string): Promise<{ time: string | null; calendarFeed: string | null }> {
   try {
     const res = await axios.get(`https://${sub}.ccbchurch.com/api.php`, {
       params: { srv: 'group_profile_from_id', id: groupId, include_participants: 'false' },
@@ -101,9 +102,53 @@ async function fetchMeetingTimeFromCCB(groupId: string): Promise<string | null> 
     const data = parser.parse(res.data);
     const g = data?.ccb_api?.response?.groups?.group;
     const rawTime = String(g?.meeting_time?.['#text'] ?? g?.meeting_time ?? '').trim();
-    return convertCCBTimeToHHMM(rawTime);
+    const calendarFeed = String(g?.calendar_feed ?? '').trim() || null;
+    return { time: convertCCBTimeToHHMM(rawTime), calendarFeed };
   } catch (err: any) {
     console.warn(`  CCB lookup failed for group ${groupId}: ${err.message}`);
+    return { time: null, calendarFeed: null };
+  }
+}
+
+// One recurring meeting event parsed out of an iCal feed.
+interface IcsEvent {
+  dtstart: string; // YYYYMMDDTHHMMSS, local wall-clock time
+  until?: string; // YYYYMMDD, end of recurrence (if any)
+  created?: string; // YYYYMMDDTHHMMSS
+}
+
+function parseIcsEvents(ics: string): IcsEvent[] {
+  const events: IcsEvent[] = [];
+  for (const block of ics.split('BEGIN:VEVENT').slice(1)) {
+    const dtstart = block.match(/DTSTART(?:;[^:\r\n]*)?:(\d{8}T\d{6})/)?.[1];
+    if (!dtstart) continue;
+    const until = block.match(/RRULE:[^\r\n]*UNTIL=(\d{8})/)?.[1];
+    const created = block.match(/CREATED:(\d{8}T\d{6})/)?.[1];
+    events.push({ dtstart, until, created });
+  }
+  return events;
+}
+
+// Picks the event whose recurrence covers today, falling back to the
+// most recently created event if none are currently active.
+function pickBestEvent(events: IcsEvent[]): IcsEvent | null {
+  if (events.length === 0) return null;
+  const today = DateTime.now().toFormat('yyyyMMdd');
+  const active = events.filter((e) => e.dtstart.slice(0, 8) <= today && today <= (e.until || '99991231'));
+  const pool = active.length > 0 ? active : events;
+  return pool.reduce((best, cur) => ((cur.created || cur.dtstart) > (best.created || best.dtstart) ? cur : best));
+}
+
+async function fetchMeetingTimeFromIcs(feedUrl: string): Promise<string | null> {
+  try {
+    const httpsUrl = feedUrl.replace(/^webcal:/, 'https:');
+    const res = await axios.get(httpsUrl, { auth: { username: user!, password: pass! } });
+    const best = pickBestEvent(parseIcsEvents(String(res.data)));
+    if (!best) return null;
+    const time = best.dtstart.split('T')[1];
+    return `${time.slice(0, 2)}:${time.slice(2, 4)}:${time.slice(4, 6)}`;
+  } catch (err: any) {
+    console.warn(`  iCal lookup failed: ${err.message}`);
     return null;
   }
 }
@@ -143,7 +188,8 @@ async function main() {
       continue;
     }
 
-    const time = await fetchMeetingTimeFromCCB(groupId);
+    const { time: ccbTime, calendarFeed } = await fetchGroupInfo(groupId);
+    const time = ccbTime || (calendarFeed ? await fetchMeetingTimeFromIcs(calendarFeed) : null);
     if (!time) {
       console.log(`NO CCB TIME: "${row.circle_name || row.name}" (ccb_group_id=${groupId})`);
       noTimeFromCcb++;
