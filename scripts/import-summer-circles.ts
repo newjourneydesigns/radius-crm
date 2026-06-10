@@ -247,6 +247,11 @@ async function main() {
   let ambiguous = 0;
   let unchanged = 0;
 
+  // Tracks existing record IDs already matched in this run, so two CSV rows
+  // for the same person (e.g. a leader running two circles) can't collapse
+  // onto a single record via the name+campus fallback.
+  const claimedIds = new Set<number>();
+
   for (const row of parsed) {
     if (!row.leaderName) continue;
 
@@ -255,6 +260,7 @@ async function main() {
     if (matches.length === 0) {
       matches = (existing || []).filter(
         (l) =>
+          !claimedIds.has(l.id) &&
           l.name?.trim().toLowerCase() === row.leaderName!.toLowerCase() &&
           (l.campus || '').trim().toLowerCase() === (row.campus || '').trim().toLowerCase()
       );
@@ -291,6 +297,7 @@ async function main() {
 
     if (matches.length === 1) {
       const existingRow = matches[0] as Record<string, any>;
+      claimedIds.add(existingRow.id);
       const patch: Record<string, any> = {};
 
       for (const field of FILL_GAP_FIELDS) {
