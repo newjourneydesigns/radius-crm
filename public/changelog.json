@@ -1,5 +1,17 @@
 [
   {
+    "date": "2026-06-10",
+    "version": "2.8.0",
+    "date_display": "June 10, 2026",
+    "date_iso": "2026-06-10",
+    "id": "circle-leader-toolkit-dedicated-domain",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Circle Leader Toolkit",
+    "description": "The Circle Leader Toolkit can now be reached at its own dedicated web address, separate from the Radius admin app, with no Radius branding or admin pages visible. Sign-in links and reminder emails sent to leaders now point to that address. Leader-facing toolkit emails also send through their own dedicated email account, kept separate from Radius's internal admin emails.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
     "date": "2026-06-08",
     "version": "2.7.2",
     "date_display": "June 8, 2026",

@@ -1,4 +1,5 @@
 export function getCircleSummaryBaseUrl(req?: Request): string {
+  const toolkitHost = process.env.LEADER_TOOLKIT_HOST;
   const configuredUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.URL;
 
   // In dev, prefer the actual request origin so magic links match whatever
@@ -8,6 +9,10 @@ export function getCircleSummaryBaseUrl(req?: Request): string {
   if (process.env.NODE_ENV !== 'production' && req) {
     return new URL(req.url).origin;
   }
+
+  // Once the toolkit has its own dedicated subdomain, leader-facing links
+  // (magic links, push deep links) should point there instead of the RADIUS domain.
+  if (toolkitHost) return `https://${toolkitHost}`;
 
   if (configuredUrl) return configuredUrl;
   if (req) return new URL(req.url).origin;

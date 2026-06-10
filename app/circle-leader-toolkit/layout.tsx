@@ -28,6 +28,8 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: 'Circle Leader Toolkit',
+  // Private leader portal — keep it out of search results.
+  robots: { index: false, follow: false },
   // Override the root manifest so iOS "Add to Home Screen" launches the
   // Circle Leader Toolkit sign-in router instead of the main RADIUS admin app.
   manifest: '/manifest-circle-leader-toolkit.json',
