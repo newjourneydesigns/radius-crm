@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { exchangeCodeForTokens, saveTokens } from '../../../../../lib/ccb/ccb-oauth';
+import { exchangeCodeForToken, saveTokens } from '../../../../../lib/ccb/ccb-oauth';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,8 +30,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const tokens = await exchangeCodeForTokens(code);
-    await saveTokens(tokens);
+    const tokens = await exchangeCodeForToken(code);
+    await saveTokens(code, tokens);
   } catch (err: any) {
     console.error('CCB OAuth callback error:', err);
     return redirectWithStatus(request, 'error', 'token_exchange_failed');
