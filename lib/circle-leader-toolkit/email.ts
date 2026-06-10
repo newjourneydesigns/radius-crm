@@ -103,18 +103,20 @@ async function sendBrandedEmail(opts: {
   subject: string;
   html: string;
 }): Promise<{ success: boolean; error?: string }> {
-  if (!process.env.RESEND_API_KEY) {
+  // Leader-facing toolkit emails use their own dedicated Resend account, kept
+  // separate from RADIUS's internal admin emails. Falls back to the RADIUS
+  // RESEND_API_KEY/EMAIL_FROM if the dedicated account isn't configured yet.
+  const resendApiKey = process.env.LEADER_TOOLKIT_RESEND_API_KEY || process.env.RESEND_API_KEY;
+  if (!resendApiKey) {
     return { success: false, error: 'RESEND_API_KEY not configured' };
   }
-  // Send from the verified Radius CRM sender. (A church-branded sender via
-  // CIRCLE_SUMMARY_EMAIL_FROM is parked until valleycreek.org is verified in Resend.)
-  const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev';
-  const fromName = process.env.EMAIL_FROM_NAME || 'Valley Creek Circles';
+  const fromEmail = process.env.LEADER_TOOLKIT_EMAIL_FROM || process.env.EMAIL_FROM || 'onboarding@resend.dev';
+  const fromName = process.env.LEADER_TOOLKIT_EMAIL_FROM_NAME || process.env.EMAIL_FROM_NAME || 'Valley Creek Circles';
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        Authorization: `Bearer ${resendApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
