@@ -3,15 +3,22 @@
 // Format time to AM/PM display format
 export const formatTimeToAMPM = (time: string | undefined | null): string => {
   if (!time) return '';
+
+  const trimmed = time.trim();
+  if (!trimmed) return '';
   
   // If already in AM/PM format, return as is
-  if (time.includes('AM') || time.includes('PM')) {
-    return time;
+  if (/\b(?:AM|PM)\b/i.test(trimmed)) {
+    return trimmed;
   }
+
+  const match = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (!match) return trimmed;
   
   // Convert 24-hour format to 12-hour format
-  const [hours, minutes] = time.split(':');
-  const hour24 = parseInt(hours);
+  const hour24 = parseInt(match[1], 10);
+  const minutes = match[2];
+  if (Number.isNaN(hour24) || hour24 < 0 || hour24 > 23) return trimmed;
   
   if (hour24 === 0) {
     return `12:${minutes} AM`;

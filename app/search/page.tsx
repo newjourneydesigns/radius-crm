@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 import { CircleLeader } from '../../lib/supabase';
+import { formatTimeToAMPM } from '../../lib/timeUtils';
 import DashboardFilterAdapter from '../../components/dashboard/DashboardFilterAdapter';
 import ExportModal from '../../components/dashboard/ExportModal';
 import InviteToCircleModal from '../../components/modals/InviteToCircleModal';
@@ -243,7 +244,7 @@ export default function SearchPage() {
       filtered = filtered.filter(circle => {
         if (!circle.time) return false;
         
-        const formattedTime = formatTime(circle.time);
+        const formattedTime = formatTimeToAMPM(circle.time);
         return formattedTime.toLowerCase().includes(filters.timeOfDay.toLowerCase());
       });
     }
@@ -349,36 +350,6 @@ export default function SearchPage() {
       ...prev,
       acpd: value === 'all' ? [] : [value],
     }));
-  };
-
-  // Format time display - convert 24hr to 12hr AM/PM format
-  const formatTime = (time: string | null | undefined): string => {
-    if (!time) return '';
-    
-    // If already in AM/PM format, return as is
-    if (time.toLowerCase().includes('am') || time.toLowerCase().includes('pm')) {
-      return time;
-    }
-    
-    // Handle 24-hour format (HH:MM)
-    const timeMatch = time.match(/^(\d{1,2}):(\d{2})$/);
-    if (timeMatch) {
-      let hours = parseInt(timeMatch[1]);
-      const minutes = timeMatch[2];
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      
-      // Convert to 12-hour format
-      if (hours === 0) {
-        hours = 12; // 00:xx becomes 12:xx AM
-      } else if (hours > 12) {
-        hours = hours - 12; // 13:xx becomes 1:xx PM
-      }
-      
-      return `${hours}:${minutes} ${ampm}`;
-    }
-    
-    // If format is not recognized, return as is
-    return time;
   };
 
   if (error) {
@@ -686,7 +657,7 @@ export default function SearchPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 dark:text-white">
-                          {formatTime(circle.time) || '-'}
+                          {formatTimeToAMPM(circle.time) || '-'}
                         </div>
                       </td>
                       <td className="px-6 py-4">
