@@ -15,7 +15,8 @@
     "version:major": "npm version major",
     "ccb:test": "npx ts-node app/ccb/ccb-attendance-events-notes.ts --group 12345 --start 2025-08-01 --end 2025-09-01",
     "ccb:test-notes": "npx ts-node app/ccb/ccb-attendance-events-notes.ts --group 12345 --start 2025-08-01 --end 2025-09-01 --withNotes",
-    "ccb:test-full": "npx ts-node app/ccb/ccb-attendance-events-notes.ts --group 12345 --start 2025-08-01 --end 2025-09-01 --withNotes --includeAttendees"
+    "ccb:test-full": "npx ts-node app/ccb/ccb-attendance-events-notes.ts --group 12345 --start 2025-08-01 --end 2025-09-01 --withNotes --includeAttendees",
+    "import:summer-circles": "npx ts-node scripts/import-summer-circles.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
