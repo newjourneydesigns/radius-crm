@@ -6,8 +6,9 @@ import 'dotenv/config';
   const sub = process.env.CCB_SUBDOMAIN;
   const u = process.env.CCB_API_USERNAME;
   const p = process.env.CCB_API_PASSWORD;
+  const groupId = process.argv[2] || '3850';
   const res = await axios.get(`https://${sub}.ccbchurch.com/api.php`, {
-    params: { srv: 'group_profile_from_id', id: 3850, include_participants: 'false' },
+    params: { srv: 'group_profile_from_id', id: groupId, include_participants: 'false' },
     auth: { username: u!, password: p! },
   });
   const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
@@ -17,6 +18,7 @@ import 'dotenv/config';
   console.log('calendar_feed:', JSON.stringify(g?.calendar_feed));
   console.log('meeting_day:', JSON.stringify(g?.meeting_day));
   console.log('meeting_time:', JSON.stringify(g?.meeting_time));
+  console.log('full group object:', JSON.stringify(g, null, 2));
 
   // Try fetching the iCal feed if we got a URL
   const feedUrl = (typeof g?.calendar_feed === 'string' ? g.calendar_feed : g?.calendar_feed?.['#text']) || '';
