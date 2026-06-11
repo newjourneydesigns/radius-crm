@@ -11,6 +11,7 @@ export interface CalendarEventItem {
   color: string;
   title: string;
   location?: string;
+  description?: string;
   start: string; // ISO, with zone offset
   end: string;   // ISO, with zone offset
   all_day: boolean;
@@ -56,6 +57,7 @@ type VEvent = {
   uid?: string;
   summary?: string;
   location?: string;
+  description?: string;
   start?: Date & { dateOnly?: boolean };
   end?: Date & { dateOnly?: boolean };
   datetype?: string;
@@ -75,6 +77,7 @@ function eventsForDay(parsed: Record<string, unknown>, dayStart: DateTime, dayEn
       id: `${ev.uid || ev.summary || 'event'}${keySuffix}`,
       title: ev.summary || '(untitled)',
       location: ev.location || undefined,
+      description: ev.description || undefined,
       start: DateTime.fromJSDate(start).setZone(APP_ZONE).toISO() || '',
       end: DateTime.fromJSDate(end).setZone(APP_ZONE).toISO() || '',
       all_day: allDay,

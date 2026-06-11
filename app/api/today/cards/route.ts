@@ -226,7 +226,12 @@ export async function GET(request: NextRequest) {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
     const supabase        = getSupabaseServiceClient();
     const anonClient      = createClient(supabaseUrl, supabaseAnonKey);
-    const today           = getTodayDate();
+
+    // Optional ?date=YYYY-MM-DD renders the digest for another day (day paging);
+    // ?fresh=1 skips the response cache (used right after a mutation).
+    const dateParam = request.nextUrl.searchParams.get('date');
+    const today = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : getTodayDate();
+    const fresh = request.nextUrl.searchParams.get('fresh') === '1';
 
     const optimisticId = extractSubFromToken(token);
 
@@ -244,15 +249,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const cached = responseCache.get(`cards:${userProfile.id}`);
-    if (cached && Date.now() - cached.cachedAt < RESPONSE_CACHE_TTL) {
+    const cacheKey = `cards:${userProfile.id}:${today}`;
+    const cached = responseCache.get(cacheKey);
+    if (!fresh && cached && Date.now() - cached.cachedAt < RESPONSE_CACHE_TTL) {
       return NextResponse.json(cached.payload, { headers: { 'X-Cache': 'HIT' } });
     }
 
     const user    = { id: userProfile.id, name: userProfile.name, email: userProfile.email };
     const payload = await buildCardsData(supabase, user, today);
 
-    responseCache.set(`cards:${userProfile.id}`, { payload, cachedAt: Date.now() });
+    responseCache.set(cacheKey, { payload, cachedAt: Date.now() });
 
     return NextResponse.json(payload, {
       headers: { 'X-Cache': 'MISS', 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' },

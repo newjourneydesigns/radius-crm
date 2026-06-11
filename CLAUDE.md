@@ -195,6 +195,9 @@ Never assume a push is enough. Always follow through to redeploy.
 | `LEADER_TOOLKIT_HOST` | Dedicated hostname (e.g. `leaders.example.org`) for the Circle Leader Toolkit. When set, middleware serves the toolkit at this host's root and magic links point here. | No |
 | `LEADER_TOOLKIT_RESEND_API_KEY` | Resend API key for leader-facing toolkit emails (separate from RADIUS's `RESEND_API_KEY`). Falls back to `RESEND_API_KEY` if unset. | Yes |
 | `LEADER_TOOLKIT_EMAIL_FROM` / `LEADER_TOOLKIT_EMAIL_FROM_NAME` | Sender address/name for leader-facing toolkit emails. Falls back to `EMAIL_FROM`/`EMAIL_FROM_NAME` if unset. | No |
+| `NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` | VAPID public key for Web Push — shared by the Circle Leader Toolkit and Today-page reminders | No |
+| `WEB_PUSH_VAPID_PRIVATE_KEY` | VAPID private key for Web Push | Yes |
+| `WEB_PUSH_VAPID_SUBJECT` | VAPID subject (`mailto:` or URL). Falls back to `NEXT_PUBLIC_APP_URL` | No |
 
 All secrets live in `.env.local` — never hardcode them.
 
