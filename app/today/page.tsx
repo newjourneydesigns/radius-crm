@@ -26,9 +26,15 @@ import type { BigThreeBoard, BigThreeCard, BigThreeSlot } from '../../hooks/useB
 import { useRandomLoadingMessage } from '../../hooks/useRandomLoadingMessage';
 import { useTodayData } from '../../hooks/useTodayData';
 import { useTodayCalendars } from '../../hooks/useTodayCalendars';
-import DayTimeline, { type TimelineEvent } from '../../components/today/DayTimeline';
+import type { CalendarEventItem } from '../../hooks/useTodayCalendars';
+import DayTimeline, {
+  setScheduleDragPayload,
+  type ScheduleDragPayload,
+  type TimelineEvent,
+} from '../../components/today/DayTimeline';
 import TodayCardModal from '../../components/today/TodayCardModal';
 import type { TodayData } from '../../hooks/useTodayData';
+import { supabase } from '../../lib/supabase';
 import type {
   EncouragementItem,
   FollowUpItem,
@@ -580,6 +586,8 @@ function BigThreeSection({
                         e.preventDefault();
                         onOpenCard(card.board_id, card.id);
                       }}
+                      draggable
+                      onDragStart={e => setScheduleDragPayload(e.dataTransfer, { type: 'card', cardId: card.id })}
                       style={{ flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit' }}
                       className="today-big3-card"
                     >
@@ -926,7 +934,11 @@ function TodaySections({
         sectionKey="focusCards" isOpen={isOpen('focusCards')} onToggle={() => toggle('focusCards')} accentColor="#f59e0b">
         {(data.focusCards ?? []).map((c: CardDigestItem) => (
           <Item key={c.id} accentColor="#f59e0b">
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{ flex: 1, minWidth: 0 }}
+              draggable
+              onDragStart={e => setScheduleDragPayload(e.dataTransfer, { type: 'card', cardId: c.id })}
+            >
               <Link href={`/boards/${c.board_id}?card=${c.id}`} onClick={cardClick(c.board_id, c.id)}
                 style={{ fontSize: 13, fontWeight: 600, color: T.text, textDecoration: 'none', display: 'block', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
                 className="today-leader-link">
@@ -1227,7 +1239,11 @@ const FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-
 const MOBILE_TAB_KEY = 'today_mobile_tab';
 
 export default function TodayPage() {
-  const { data, isLoading, isFetching, isCardsLoading, error, fetchData, markEncouragementSent, clearFollowUp, markCardComplete, markChecklistDone } = useTodayData();
+  const {
+    data, isLoading, isFetching, isCardsLoading, error, fetchData,
+    markEncouragementSent, clearFollowUp, markCardComplete, markChecklistDone,
+    scheduleCard, scheduleFollowUp, quickAddCard,
+  } = useTodayData();
   const bigThree = useBigThree();
   const calendars = useTodayCalendars();
   const { isOpen, toggle } = useVisibility();
@@ -1276,25 +1292,125 @@ export default function TodayPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchData]);
 
+  // ── Day paging — the day view can show any date; the rail always shows today ──
+  const [viewDate, setViewDate] = useState<string | null>(null); // null = today
+  const [dayData, setDayData] = useState<TodayData | null>(null);
+  const [dayCalEvents, setDayCalEvents] = useState<CalendarEventItem[]>([]);
+  const [dayLoading, setDayLoading] = useState(false);
+
+  const isViewToday = !viewDate || viewDate === data?.today;
+  const activeDate = isViewToday ? (data?.today ?? null) : viewDate;
+
+  const fetchDay = useCallback(async (date: string, fresh = false) => {
+    setDayLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+      const headers = { Authorization: `Bearer ${session.access_token}` };
+      const freshParam = fresh ? '&fresh=1' : '';
+      const [coreRes, cardsRes, calRes] = await Promise.all([
+        fetch(`/api/today/core?date=${date}${freshParam}`, { headers }),
+        fetch(`/api/today/cards?date=${date}${freshParam}`, { headers }),
+        fetch(`/api/calendar-events?date=${date}`, { headers }),
+      ]);
+      const core = coreRes.ok ? await coreRes.json() : null;
+      const cards = cardsRes.ok ? await cardsRes.json() : null;
+      const cal = calRes.ok ? await calRes.json() : { events: [] };
+      if (core) {
+        setDayData({
+          ...core,
+          ...(cards || { cards: { dueToday: [], overdue: [] }, focusCards: [], checklistItems: { dueToday: [], overdue: [] } }),
+        });
+      }
+      setDayCalEvents(cal.events || []);
+    } catch {
+      // Leave the previous day data in place; the loading flag clears below
+    } finally {
+      setDayLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!viewDate || viewDate === data?.today) {
+      setDayData(null);
+      setDayCalEvents([]);
+      return;
+    }
+    fetchDay(viewDate);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewDate, data?.today, fetchDay]);
+
+  const pageDay = useCallback((delta: number) => {
+    const base = (isViewToday ? data?.today : viewDate) ?? DateTime.now().toISODate();
+    const next = DateTime.fromISO(base as string).plus({ days: delta }).toISODate();
+    if (next) setViewDate(next);
+  }, [isViewToday, data?.today, viewDate]);
+
+  // ── Drag-to-schedule + quick add (one-hour blocks) ──
+  const findCardInfo = useCallback((cardId: string): CardDigestItem | undefined => {
+    const lists = data ? [...data.cards.dueToday, ...data.cards.overdue, ...(data.focusCards || [])] : [];
+    const hit = lists.find(c => c.id === cardId);
+    if (hit) return hit;
+    const big = bigThree.slots.find(s => s.card?.id === cardId)?.card;
+    if (!big) return undefined;
+    return {
+      id: big.id, title: big.title, due_date: big.due_date, due_time: null,
+      board_name: big.board_name, board_id: big.board_id, column_name: big.column_name,
+      assignees: big.assignees, priority: big.priority, labels: big.labels,
+      checklist_total: big.checklist_total, checklist_done: big.checklist_done,
+    };
+  }, [data, bigThree.slots]);
+
+  const handleScheduleDrop = useCallback(async (payload: ScheduleDragPayload, minutes: number) => {
+    if (!activeDate) return;
+    const time = `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+    if (payload.type === 'card') {
+      await scheduleCard(payload.cardId, activeDate, time, findCardInfo(payload.cardId));
+      if (bigThree.slots.some(s => s.card?.id === payload.cardId)) bigThree.load();
+    } else {
+      await scheduleFollowUp(payload.leaderId, activeDate, time);
+    }
+    if (!isViewToday && viewDate) fetchDay(viewDate, true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDate, isViewToday, viewDate, scheduleCard, scheduleFollowUp, findCardInfo, fetchDay]);
+
+  const handleQuickAdd = useCallback(async (title: string, boardId: string, minutes: number) => {
+    if (!activeDate) return false;
+    const time = `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+    const boardName = bigThree.boards.find(b => b.id === boardId)?.title || 'Board';
+    const ok = await quickAddCard(title, boardId, boardName, activeDate, time);
+    if (ok && !isViewToday && viewDate) fetchDay(viewDate, true);
+    return ok;
+  }, [activeDate, isViewToday, viewDate, quickAddCard, bigThree.boards, fetchDay]);
+
   // ── Timeline events (must be computed before early returns) ──
+  // Built from today's data, or from the paged day's data when browsing.
+  // Overdue groups only appear on today — they'd be noise on a future day plan.
   const timelineEvents = useMemo<TimelineEvent[]>(() => {
-    if (!data) return [];
+    const srcData = isViewToday ? data : dayData;
+    const calEvents = isViewToday ? calendars.events : dayCalEvents;
+    if (!srcData) return [];
+    const includeOverdue = isViewToday;
     const evts: TimelineEvent[] = [];
     const open = (boardId: string, cardId: string) => () => setOpenCard({ boardId, cardId });
 
     const pushCard = (c: CardDigestItem, overdue: boolean) => {
+      // Scheduled cards occupy one-hour blocks; an overdue card's time belongs
+      // to a past day, so it stays in the all-day strip until rescheduled.
+      const startMin = overdue ? null : parseTimeToMin(c.due_time);
       evts.push({
         key: `card-${c.id}`, kind: 'card',
         title: c.title,
         subtitle: `${c.board_name}${c.column_name ? ` · ${c.column_name}` : ''}`,
-        // An overdue card's time belongs to a past day — keep it in the all-day strip
-        startMin: overdue ? null : parseTimeToMin(c.due_time),
+        startMin,
+        endMin: startMin !== null ? startMin + 60 : null,
         color: overdue ? T.red : T.amber, overdue,
         onOpen: open(c.board_id, c.id),
+        dragPayload: { type: 'card', cardId: c.id },
       });
     };
-    data.cards.dueToday.forEach(c => pushCard(c, false));
-    data.cards.overdue.forEach(c => pushCard(c, true));
+    srcData.cards.dueToday.forEach(c => pushCard(c, false));
+    if (includeOverdue) srcData.cards.overdue.forEach(c => pushCard(c, true));
 
     const pushChecklist = (cl: ChecklistDigestItem, overdue: boolean) => {
       evts.push({
@@ -1306,21 +1422,24 @@ export default function TodayPage() {
         onOpen: open(cl.board_id, cl.card_id),
       });
     };
-    data.checklistItems.dueToday.forEach(cl => pushChecklist(cl, false));
-    data.checklistItems.overdue.forEach(cl => pushChecklist(cl, true));
+    srcData.checklistItems.dueToday.forEach(cl => pushChecklist(cl, false));
+    if (includeOverdue) srcData.checklistItems.overdue.forEach(cl => pushChecklist(cl, true));
 
     const pushFollowUp = (f: FollowUpItem, overdue: boolean) => {
+      const startMin = overdue ? null : parseTimeToMin(f.follow_up_time);
       evts.push({
         key: `fu-${f.id}`, kind: 'followup',
         title: `Follow up · ${f.name}`,
         subtitle: f.campus || undefined,
-        startMin: overdue ? null : parseTimeToMin(f.follow_up_time),
+        startMin,
+        endMin: startMin !== null ? startMin + 60 : null,
         color: overdue ? T.red : T.amber, overdue,
         href: `/circle/${f.id}`,
+        dragPayload: { type: 'followup', leaderId: f.id },
       });
     };
-    data.followUps.dueToday.forEach(f => pushFollowUp(f, false));
-    data.followUps.overdue.forEach(f => pushFollowUp(f, true));
+    srcData.followUps.dueToday.forEach(f => pushFollowUp(f, false));
+    if (includeOverdue) srcData.followUps.overdue.forEach(f => pushFollowUp(f, true));
 
     const pushEnc = (e: EncouragementItem, overdue: boolean) => {
       evts.push({
@@ -1332,10 +1451,10 @@ export default function TodayPage() {
         href: `/circle/${e.circle_leader_id}`,
       });
     };
-    data.encouragements.dueToday.forEach(e => pushEnc(e, false));
-    data.encouragements.overdue.forEach(e => pushEnc(e, true));
+    srcData.encouragements.dueToday.forEach(e => pushEnc(e, false));
+    if (includeOverdue) srcData.encouragements.overdue.forEach(e => pushEnc(e, true));
 
-    data.circleVisits.today.forEach((v: VisitItem) => {
+    srcData.circleVisits.today.forEach((v: VisitItem) => {
       const startMin = parseTimeToMin(v.circle_time);
       evts.push({
         key: `visit-${v.id}`, kind: 'visit',
@@ -1348,7 +1467,7 @@ export default function TodayPage() {
       });
     });
 
-    data.birthdays.forEach((b: BirthdayItem) => {
+    srcData.birthdays.forEach((b: BirthdayItem) => {
       evts.push({
         key: `bday-${b.id}`, kind: 'birthday',
         title: `🎂 ${b.name}`,
@@ -1369,10 +1488,10 @@ export default function TodayPage() {
         href: p.circle_leader_id ? `/circle/${p.circle_leader_id}` : '/prayer',
       });
     };
-    (data.prayerRequests?.dueToday || []).forEach(p => pushPrayer(p, false));
-    (data.prayerRequests?.overdue || []).forEach(p => pushPrayer(p, true));
+    (srcData.prayerRequests?.dueToday || []).forEach(p => pushPrayer(p, false));
+    if (includeOverdue) (srcData.prayerRequests?.overdue || []).forEach(p => pushPrayer(p, true));
 
-    calendars.events.forEach(ev => {
+    calEvents.forEach(ev => {
       if (ev.all_day) {
         evts.push({
           key: `evt-${ev.subscription_id}-${ev.id}`, kind: 'calendar',
@@ -1380,6 +1499,7 @@ export default function TodayPage() {
           subtitle: ev.calendar_name,
           startMin: null,
           color: ev.color,
+          calendarEvent: ev,
         });
         return;
       }
@@ -1388,21 +1508,22 @@ export default function TodayPage() {
       const start = DateTime.fromISO(ev.start, { setZone: true });
       const end = DateTime.fromISO(ev.end, { setZone: true });
       if (!start.isValid) return;
-      const startsBeforeToday = start.toISODate() !== data.today && start < DateTime.fromISO(data.today);
-      const endsAfterToday = end.isValid && end.toISODate() !== data.today && end > start;
-      const startMin = startsBeforeToday ? 0 : start.hour * 60 + start.minute;
-      const endMin = !end.isValid ? null : (endsAfterToday ? 24 * 60 : end.hour * 60 + end.minute);
+      const startsBeforeDay = start.toISODate() !== srcData.today && start < DateTime.fromISO(srcData.today);
+      const endsAfterDay = end.isValid && end.toISODate() !== srcData.today && end > start;
+      const startMin = startsBeforeDay ? 0 : start.hour * 60 + start.minute;
+      const endMin = !end.isValid ? null : (endsAfterDay ? 24 * 60 : end.hour * 60 + end.minute);
       evts.push({
         key: `evt-${ev.subscription_id}-${ev.id}`, kind: 'calendar',
         title: ev.title,
         subtitle: [ev.calendar_name, ev.location].filter(Boolean).join(' · '),
         startMin, endMin,
         color: ev.color,
+        calendarEvent: ev,
       });
     });
 
     return evts;
-  }, [data, calendars.events]);
+  }, [data, dayData, isViewToday, calendars.events, dayCalEvents]);
 
   // ── Loading ──
   if (isLoading || !layoutReady) return <TodaySkeleton />;
@@ -1484,6 +1605,15 @@ export default function TodayPage() {
       onToggleCalendar={calendars.toggleSubscription}
       onRemoveCalendar={calendars.removeSubscription}
       hourHeight={isDesktop ? 64 : 56}
+      dateLabel={activeDate ? formatDate(activeDate) : ''}
+      isToday={isViewToday}
+      dayLoading={dayLoading}
+      onPrevDay={() => pageDay(-1)}
+      onNextDay={() => pageDay(1)}
+      onGoToday={() => setViewDate(null)}
+      boards={bigThree.boards}
+      onScheduleDrop={handleScheduleDrop}
+      onQuickAdd={handleQuickAdd}
     />
   );
 
