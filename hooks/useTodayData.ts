@@ -7,8 +7,8 @@ import type { TodayCardsData } from '../app/api/today/cards/route';
 
 export type TodayData = TodayCoreData & TodayCardsData;
 
-const CORE_CACHE_KEY  = 'today_core_cache_v1';
-const CARDS_CACHE_KEY = 'today_cards_cache_v1';
+const CORE_CACHE_KEY  = 'today_core_cache_v2';
+const CARDS_CACHE_KEY = 'today_cards_cache_v2';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 const EMPTY_CARDS: TodayCardsData = {

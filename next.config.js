@@ -14,6 +14,11 @@ const nextConfig = {
   images: {
     unoptimized: true
   },
+  experimental: {
+    // node-ical (ICS calendar parsing) doesn't survive webpack bundling —
+    // load it from node_modules at runtime instead.
+    serverComponentsExternalPackages: ['node-ical']
+  },
   env: {
     // Exposed to the browser at build time
     NEXT_PUBLIC_APP_VERSION:

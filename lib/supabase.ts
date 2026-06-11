@@ -539,6 +539,16 @@ export interface CardAssignment {
   users?: { name: string; email: string };
 }
 
+export interface CalendarSubscription {
+  id: string;
+  user_id: string;
+  name: string;
+  url: string;
+  color: string;
+  is_enabled: boolean;
+  created_at: string;
+}
+
 // ---- Board Forms (public intake → card) Types ----
 export type FormFieldType = 'text' | 'textarea' | 'email' | 'url' | 'number' | 'date' | 'select';
 

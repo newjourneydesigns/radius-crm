@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import Link from 'next/link';
+import { DateTime } from 'luxon';
 import {
   AlertTriangle,
   BellRing,
@@ -24,6 +25,10 @@ import { useBigThree } from '../../hooks/useBigThree';
 import type { BigThreeBoard, BigThreeCard, BigThreeSlot } from '../../hooks/useBigThree';
 import { useRandomLoadingMessage } from '../../hooks/useRandomLoadingMessage';
 import { useTodayData } from '../../hooks/useTodayData';
+import { useTodayCalendars } from '../../hooks/useTodayCalendars';
+import DayTimeline, { type TimelineEvent } from '../../components/today/DayTimeline';
+import TodayCardModal from '../../components/today/TodayCardModal';
+import type { TodayData } from '../../hooks/useTodayData';
 import type {
   EncouragementItem,
   FollowUpItem,
@@ -116,6 +121,20 @@ function methodLabel(m: string) {
   return ({ text:'Text', email:'Email', call:'Call', 'in-person':'In Person', card:'Card', other:'Other' })[m] || m;
 }
 
+/** Tolerant time-of-day parser: "18:30", "18:30:00", "6:30 PM", "6pm" → minutes since midnight */
+function parseTimeToMin(s?: string | null): number | null {
+  if (!s) return null;
+  const m = s.trim().match(/^(\d{1,2})(?::(\d{2}))?(?::\d{2})?\s*(a\.?m\.?|p\.?m\.?)?$/i);
+  if (!m) return null;
+  let h = parseInt(m[1], 10);
+  const min = m[2] ? parseInt(m[2], 10) : 0;
+  const period = m[3]?.toLowerCase();
+  if (period?.startsWith('p') && h < 12) h += 12;
+  if (period?.startsWith('a') && h === 12) h = 0;
+  if (h > 23 || min > 59) return null;
+  return h * 60 + min;
+}
+
 // ─── Scoreboard ───────────────────────────────────────────────────────────────
 
 function scrollToSection(href: string) {
@@ -155,15 +174,16 @@ function ScoreRow({ row }: { row: { label: string; count: number; color: string;
   );
 }
 
-function Scoreboard({ rows }: {
+function Scoreboard({ rows, flush = false }: {
   rows: { label: string; count: number; color: string; href: string }[];
+  flush?: boolean;
 }) {
   const total = rows.reduce((s, r) => s + r.count, 0);
 
   return (
     <div style={{
       background: T.cardBg, border: `1px solid ${T.cardBorder}`,
-      borderRadius: 14, overflow: 'hidden', marginBottom: 24,
+      borderRadius: 14, overflow: 'hidden', marginBottom: flush ? 0 : 24,
     }}>
       <div style={{
         padding: '10px 14px 8px', borderBottom: `1px solid ${T.cardBorder}`,
@@ -397,6 +417,7 @@ function BigThreeSection({
   onAssignExisting,
   onDone,
   onClear,
+  onOpenCard,
 }: {
   slots: BigThreeSlot[];
   boards: BigThreeBoard[];
@@ -408,6 +429,7 @@ function BigThreeSection({
   onAssignExisting: (slotNumber: 1 | 2 | 3, card: BigThreeCard) => Promise<boolean>;
   onDone: (cardId: string) => Promise<void>;
   onClear: (slotNumber: 1 | 2 | 3) => Promise<void>;
+  onOpenCard?: (boardId: string, cardId: string) => void;
 }) {
   const [drafts, setDrafts] = useState<Record<number, { title: string; boardId: string }>>({});
   const [searches, setSearches] = useState<Record<number, { query: string; results: BigThreeCard[]; isSearching: boolean; hasSearched: boolean }>>({});
@@ -553,6 +575,11 @@ function BigThreeSection({
                   <>
                     <Link
                       href={`/boards/${card.board_id}?card=${card.id}`}
+                      onClick={e => {
+                        if (!onOpenCard || e.metaKey || e.ctrlKey) return;
+                        e.preventDefault();
+                        onOpenCard(card.board_id, card.id);
+                      }}
                       style={{ flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit' }}
                       className="today-big3-card"
                     >
@@ -855,15 +882,530 @@ function TodaySkeleton() {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+// ─── Sections (shared between mobile list and desktop rail) ───────────────────
+
+function TodaySections({
+  data, hasAnything, isOpen, toggle,
+  markEncouragementSent, clearFollowUp, markCardComplete, markChecklistDone,
+  onOpenCard,
+}: {
+  data: TodayData;
+  hasAnything: boolean;
+  isOpen: (key: string) => boolean;
+  toggle: (key: string) => void;
+  markEncouragementSent: (id: number) => void;
+  clearFollowUp: (id: number) => void;
+  markCardComplete: (id: string) => void;
+  markChecklistDone: (id: string) => void;
+  onOpenCard: (boardId: string, cardId: string) => void;
+}) {
+  const totalFocus = (data.focusCards ?? []).length;
+
+  const cardClick = (boardId: string, cardId: string) => (e: React.MouseEvent) => {
+    if (e.metaKey || e.ctrlKey) return;
+    e.preventDefault();
+    onOpenCard(boardId, cardId);
+  };
+
+  return (
+    <>
+      {/* ── All clear ── */}
+      {!hasAnything && (
+        <div style={{
+          background: `${T.green}0f`, border: `1px solid ${T.green}25`,
+          borderRadius: 14, padding: '32px 24px', textAlign: 'center', marginBottom: 16,
+        }}>
+          <p style={{ fontSize: 28, marginBottom: 8, display: 'flex', justifyContent: 'center' }}><Check className="h-7 w-7" /></p>
+          <p style={{ fontSize: 15, fontWeight: 600, color: T.green, margin: 0 }}>You&apos;re all caught up!</p>
+          <p style={{ fontSize: 12, color: T.textMuted, marginTop: 4 }}>Nothing urgent for today.</p>
+        </div>
+      )}
+
+      {/* ── Focus Cards ── */}
+      <Section id="focus-cards" title="Focus Cards" icon={<Star className="h-4 w-4" />} count={totalFocus}
+        sectionKey="focusCards" isOpen={isOpen('focusCards')} onToggle={() => toggle('focusCards')} accentColor="#f59e0b">
+        {(data.focusCards ?? []).map((c: CardDigestItem) => (
+          <Item key={c.id} accentColor="#f59e0b">
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Link href={`/boards/${c.board_id}?card=${c.id}`} onClick={cardClick(c.board_id, c.id)}
+                style={{ fontSize: 13, fontWeight: 600, color: T.text, textDecoration: 'none', display: 'block', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                className="today-leader-link">
+                {c.title}
+              </Link>
+              <Sub>{c.board_name}{c.column_name ? ` · ${c.column_name}` : ''}</Sub>
+              <CardMeta card={c} />
+            </div>
+            {c.due_date && <DateBadge date={formatShort(c.due_date)} color="#f59e0b" />}
+          </Item>
+        ))}
+      </Section>
+
+      {/* ── Birthdays ── */}
+      <Section id="birthdays" title="Birthdays" icon={<Cake className="h-4 w-4" />} count={data.birthdays.length}
+        sectionKey="birthdays" isOpen={isOpen('birthdays')} onToggle={() => toggle('birthdays')} accentColor={T.violet}>
+        {data.birthdays.map((b: BirthdayItem) => (
+          <Item key={b.id} accentColor={T.violet}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <LeaderLink id={b.id} name={b.name} />
+              {b.campus && <Sub>{b.campus}</Sub>}
+            </div>
+            {b.phone && (
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                <a href={`tel:${b.phone}`} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  padding: '5px 10px', borderRadius: 7, fontSize: 11, fontWeight: 600,
+                  background: `${T.violet}15`, color: T.violet,
+                  border: `1px solid ${T.violet}30`, textDecoration: 'none', whiteSpace: 'nowrap',
+                }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.63A2 2 0 012 .18h3a2 2 0 012 1.72c.13 1.05.39 2.08.76 3.07a2 2 0 01-.45 2.11L6.09 8.3a16 16 0 006.61 6.61l1.22-1.22a2 2 0 012.11-.45c.99.37 2.02.63 3.07.76A2 2 0 0122 16.92z" />
+                  </svg>
+                  Call
+                </a>
+                <a href={`sms:${b.phone}`} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  padding: '5px 10px', borderRadius: 7, fontSize: 11, fontWeight: 600,
+                  background: `${T.violet}15`, color: T.violet,
+                  border: `1px solid ${T.violet}30`, textDecoration: 'none', whiteSpace: 'nowrap',
+                }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                  </svg>
+                  Text
+                </a>
+              </div>
+            )}
+          </Item>
+        ))}
+      </Section>
+
+      {/* ── Circle Visits Today ── */}
+      <Section id="visits-today" title="Circle Visits Today" icon={<CalendarDays className="h-4 w-4" />} count={data.circleVisits.today.length}
+        sectionKey="circleVisitsToday" isOpen={isOpen('circleVisitsToday')} onToggle={() => toggle('circleVisitsToday')} accentColor={T.neutral}>
+        {data.circleVisits.today.map((v: VisitItem) => (
+          <Item key={v.id} accentColor={T.neutral}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <LeaderLink id={v.leader_id} name={v.leader_name} />
+              <Sub>{[v.leader_campus, v.previsit_note].filter(Boolean).join(' · ')}</Sub>
+            </div>
+          </Item>
+        ))}
+      </Section>
+
+      {/* ── Encouragements Due Today ── */}
+      <Section id="encs-today" title="Encouragements Due Today" icon={<PartyPopper className="h-4 w-4" />} count={data.encouragements.dueToday.length}
+        sectionKey="encouragementsToday" isOpen={isOpen('encouragementsToday')} onToggle={() => toggle('encouragementsToday')} accentColor={T.amber}>
+        {data.encouragements.dueToday.map((e: EncouragementItem) => (
+          <Item key={e.id} accentColor={T.amber}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <LeaderLink id={e.circle_leader_id} name={e.leader_name} />
+              <Sub>{[e.leader_campus, methodLabel(e.encourage_method), e.note].filter(Boolean).join(' · ')}</Sub>
+            </div>
+            <ActionBtn onClick={() => markEncouragementSent(e.id)} color={T.green}>Sent</ActionBtn>
+          </Item>
+        ))}
+      </Section>
+
+      {/* ── Follow-Ups Due Today ── */}
+      <Section id="follow-ups" title="Follow-Ups Due Today" icon={<BellRing className="h-4 w-4" />} count={data.followUps.dueToday.length}
+        sectionKey="followUps" isOpen={isOpen('followUps')} onToggle={() => toggle('followUps')} accentColor={T.amber}>
+        {data.followUps.dueToday.map((f: FollowUpItem) => (
+          <Item key={f.id} accentColor={T.amber}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <LeaderLink id={f.id} name={f.name} />
+              <Sub>{f.campus}</Sub>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {f.follow_up_date && <DateBadge date={`Due ${formatShort(f.follow_up_date)}`} color={T.amber} />}
+              <ActionBtn onClick={() => clearFollowUp(f.id)} color={T.green}>Clear</ActionBtn>
+            </div>
+          </Item>
+        ))}
+      </Section>
+
+      {/* ── Cards Due Today ── */}
+      <Section id="cards-today" title="Cards Due Today" icon={<ClipboardList className="h-4 w-4" />} count={data.cards.dueToday.length}
+        sectionKey="cardsToday" isOpen={isOpen('cardsToday')} onToggle={() => toggle('cardsToday')} accentColor={T.amber}>
+        {data.cards.dueToday.map((c: CardDigestItem) => (
+          <Item key={c.id} accentColor={T.amber}>
+            <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+              <Link href={`/boards/${c.board_id}?card=${c.id}`} onClick={cardClick(c.board_id, c.id)}
+                style={{ fontSize: 13, fontWeight: 600, color: T.text, textDecoration: 'none', display: 'block', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                className="today-leader-link">
+                {c.title}
+              </Link>
+              <Sub>{c.board_name} · {c.column_name}</Sub>
+              <CardMeta card={c} />
+            </div>
+            <ActionBtn onClick={() => markCardComplete(c.id)} color={T.green}>Done</ActionBtn>
+          </Item>
+        ))}
+      </Section>
+
+      {/* ── Overdue Cards ── */}
+      <Section id="overdue-cards" title="Overdue Cards" icon={<AlertTriangle className="h-4 w-4" />} count={data.cards.overdue.length}
+        sectionKey="overdueCards" isOpen={isOpen('overdueCards')} onToggle={() => toggle('overdueCards')} accentColor={T.red}>
+        {data.cards.overdue.map((c: CardDigestItem) => (
+          <Item key={c.id} accentColor={T.red}>
+            <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+              <Link href={`/boards/${c.board_id}?card=${c.id}`} onClick={cardClick(c.board_id, c.id)}
+                style={{ fontSize: 13, fontWeight: 600, color: T.text, textDecoration: 'none', display: 'block', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                className="today-leader-link">
+                {c.title}
+              </Link>
+              <Sub>{c.board_name} · {c.column_name}</Sub>
+              <CardMeta card={c} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+              {c.due_date && <DateBadge date={formatShort(c.due_date)} color={T.red} />}
+              <ActionBtn onClick={() => markCardComplete(c.id)} color={T.green}>Done</ActionBtn>
+            </div>
+          </Item>
+        ))}
+      </Section>
+
+      {/* ── Checklist Items Due Today ── */}
+      <Section id="checklists-today" title="Checklist Items Due Today" icon={<CheckSquare className="h-4 w-4" />} count={data.checklistItems.dueToday.length}
+        sectionKey="checklistsToday" isOpen={isOpen('checklistsToday')} onToggle={() => toggle('checklistsToday')} accentColor={T.amber}>
+        {data.checklistItems.dueToday.map((cl: ChecklistDigestItem) => (
+          <Item key={cl.id} accentColor={T.amber}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: T.text, margin: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{cl.text}</p>
+              <Sub>
+                <Link href={`/boards/${cl.board_id}?card=${cl.card_id}`} onClick={cardClick(cl.board_id, cl.card_id)}
+                  style={{ color: T.textMuted, textDecoration: 'none' }} className="today-leader-link">
+                  {cl.card_title} · {cl.board_name}
+                </Link>
+              </Sub>
+            </div>
+            <ActionBtn onClick={() => markChecklistDone(cl.id)} color={T.green}>Done</ActionBtn>
+          </Item>
+        ))}
+      </Section>
+
+      {/* ── Overdue Checklist Items ── */}
+      <Section id="overdue-checklists" title="Overdue Checklist Items" icon={<AlertTriangle className="h-4 w-4" />} count={data.checklistItems.overdue.length}
+        sectionKey="overdueChecklists" isOpen={isOpen('overdueChecklists')} onToggle={() => toggle('overdueChecklists')} accentColor={T.red}>
+        {data.checklistItems.overdue.map((cl: ChecklistDigestItem) => (
+          <Item key={cl.id} accentColor={T.red}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: T.text, margin: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{cl.text}</p>
+              <Sub><Link href={`/boards/${cl.board_id}?card=${cl.card_id}`} onClick={cardClick(cl.board_id, cl.card_id)}
+                style={{ color: 'inherit', textDecoration: 'none' }} className="today-leader-link">{cl.card_title} · {cl.board_name}</Link></Sub>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {cl.due_date && <DateBadge date={`Due ${formatShort(cl.due_date)}`} color={T.red} />}
+              <ActionBtn onClick={() => markChecklistDone(cl.id)} color={T.green}>Done</ActionBtn>
+            </div>
+          </Item>
+        ))}
+      </Section>
+
+      {/* ── Overdue Encouragements ── */}
+      <Section id="overdue-encs" title="Overdue Encouragements" icon="⏰" count={data.encouragements.overdue.length}
+        sectionKey="overdueEncouragements" isOpen={isOpen('overdueEncouragements')} onToggle={() => toggle('overdueEncouragements')} accentColor={T.red}>
+        {data.encouragements.overdue.map((e: EncouragementItem) => (
+          <Item key={e.id} accentColor={T.red}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <LeaderLink id={e.circle_leader_id} name={e.leader_name} />
+              <Sub>{methodLabel(e.encourage_method)}</Sub>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {e.message_date && <DateBadge date={`Due ${formatShort(e.message_date)}`} color={T.red} />}
+              <ActionBtn onClick={() => markEncouragementSent(e.id)} color={T.green}>Sent</ActionBtn>
+            </div>
+          </Item>
+        ))}
+      </Section>
+
+      {/* ── Overdue Follow-Ups ── */}
+      <Section id="overdue-followups" title="Overdue Follow-Ups" icon={<Pin className="h-4 w-4" />} count={data.followUps.overdue.length}
+        sectionKey="overdueFollowUps" isOpen={isOpen('overdueFollowUps')} onToggle={() => toggle('overdueFollowUps')} accentColor={T.red}>
+        {data.followUps.overdue.map((f: FollowUpItem) => (
+          <Item key={f.id} accentColor={T.red}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <LeaderLink id={f.id} name={f.name} />
+              <Sub>{f.campus || 'No campus'}</Sub>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {f.follow_up_date
+                ? <DateBadge date={`Due ${formatShort(f.follow_up_date)}`} color={T.red} />
+                : <DateBadge date="No due date" color={T.textFaint} />}
+              <ActionBtn onClick={() => clearFollowUp(f.id)} color={T.green}>Clear</ActionBtn>
+            </div>
+          </Item>
+        ))}
+      </Section>
+
+      {/* ── Prayer Requests Today ── */}
+      <Section id="prayers-today" title="Prayer Requests Today" icon={<Heart className="h-4 w-4" />} count={data.prayerRequests?.dueToday?.length || 0}
+        sectionKey="prayersToday" isOpen={isOpen('prayersToday')} onToggle={() => toggle('prayersToday')} accentColor={T.amber}>
+        {(data.prayerRequests?.dueToday || []).map((p: PrayerRequestItem) => (
+          <Item key={p.id} accentColor={T.amber}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {p.circle_leader_id && p.leader_name
+                ? <><LeaderLink id={p.circle_leader_id} name={p.leader_name} />{p.leader_campus && <Sub>{p.leader_campus}</Sub>}</>
+                : <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600 }}>General Prayer</span>
+              }
+              <p style={{ margin: '4px 0 0', fontSize: 13, color: T.text, lineHeight: 1.5 }}>{p.content}</p>
+            </div>
+            <DateBadge date={`Pray ${formatShort(p.pray_date)}`} color={T.amber} />
+          </Item>
+        ))}
+      </Section>
+
+      {/* ── Overdue Prayer Requests ── */}
+      <Section id="prayers-overdue" title="Overdue Prayer Requests" icon={<Heart className="h-4 w-4" />} count={data.prayerRequests?.overdue?.length || 0}
+        sectionKey="prayersOverdue" isOpen={isOpen('prayersOverdue')} onToggle={() => toggle('prayersOverdue')} accentColor={T.red}>
+        {(data.prayerRequests?.overdue || []).map((p: PrayerRequestItem) => (
+          <Item key={p.id} accentColor={T.red}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {p.circle_leader_id && p.leader_name
+                ? <><LeaderLink id={p.circle_leader_id} name={p.leader_name} />{p.leader_campus && <Sub>{p.leader_campus}</Sub>}</>
+                : <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600 }}>General Prayer</span>
+              }
+              <p style={{ margin: '4px 0 0', fontSize: 13, color: T.text, lineHeight: 1.5 }}>{p.content}</p>
+            </div>
+            <DateBadge date={`Due ${formatShort(p.pray_date)}`} color={T.red} />
+          </Item>
+        ))}
+      </Section>
+
+      {/* ── Circle Visits This Week ── */}
+      <Section id="visits-week" title="Circle Visits This Week" icon={<CalendarRange className="h-4 w-4" />} count={data.circleVisits.thisWeek.length}
+        sectionKey="circleVisitsWeek" isOpen={isOpen('circleVisitsWeek')} onToggle={() => toggle('circleVisitsWeek')} accentColor={T.neutral}>
+        {data.circleVisits.thisWeek.map((v: VisitItem) => (
+          <Item key={v.id} accentColor={T.neutral}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <LeaderLink id={v.leader_id} name={v.leader_name} />
+              {v.leader_campus && <Sub>{v.leader_campus}</Sub>}
+            </div>
+            <DateBadge date={formatShort(v.visit_date)} color={T.neutral} />
+          </Item>
+        ))}
+      </Section>
+
+      {/* ── Upcoming Scheduled Visits ── */}
+      <Section id="upcoming-visits" title="Upcoming Scheduled Visits" icon={<CalendarRange className="h-4 w-4" />} count={data.upcomingVisits.length}
+        sectionKey="upcomingVisits" isOpen={isOpen('upcomingVisits')} onToggle={() => toggle('upcomingVisits')} accentColor={T.neutral}>
+        {data.upcomingVisits.map((v: VisitItem) => (
+          <Item key={v.id} accentColor={T.neutral}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <LeaderLink id={v.leader_id} name={v.leader_name} />
+              {v.leader_campus && <Sub>{v.leader_campus}</Sub>}
+            </div>
+            <DateBadge date={formatShort(v.visit_date)} color={T.neutral} />
+          </Item>
+        ))}
+      </Section>
+
+      {/* ── Recent Notes ── */}
+      <Section id="recent-notes" title="Recent Notes" icon={<NotebookPen className="h-4 w-4" />} count={data.recentNotes.length}
+        sectionKey="recentNotes" isOpen={isOpen('recentNotes')} onToggle={() => toggle('recentNotes')} accentColor={T.textMuted}>
+        {data.recentNotes.map((n: NoteItem) => (
+          <Item key={n.id}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <LeaderLink id={n.circle_leader_id} name={n.leader_name} />
+              <p style={{ fontSize: 11, color: T.textMuted, margin: '3px 0 0', lineHeight: 1.4,
+                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' } as React.CSSProperties}>
+                {n.content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()}
+              </p>
+            </div>
+            <span style={{ fontSize: 10, color: T.textFaint, whiteSpace: 'nowrap', marginLeft: 8, flexShrink: 0 }}>
+              {new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </span>
+          </Item>
+        ))}
+      </Section>
+    </>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+const FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif';
+const MOBILE_TAB_KEY = 'today_mobile_tab';
+
 export default function TodayPage() {
   const { data, isLoading, isFetching, isCardsLoading, error, fetchData, markEncouragementSent, clearFollowUp, markCardComplete, markChecklistDone } = useTodayData();
   const bigThree = useBigThree();
+  const calendars = useTodayCalendars();
   const { isOpen, toggle } = useVisibility();
 
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [layoutReady, setLayoutReady] = useState(false);
+  const [mobileTab, setMobileTabState] = useState<'list' | 'day'>('list');
+  const [openCard, setOpenCard] = useState<{ boardId: string; cardId: string } | null>(null);
+
+  const { fetchAll: fetchCalendars } = calendars;
+
   useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchCalendars(); }, [fetchCalendars]);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1100px)');
+    const update = () => setIsDesktop(mq.matches);
+    update();
+    setLayoutReady(true);
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(MOBILE_TAB_KEY);
+      if (stored === 'day' || stored === 'list') setMobileTabState(stored);
+    } catch {}
+  }, []);
+
+  const setMobileTab = (tab: 'list' | 'day') => {
+    setMobileTabState(tab);
+    try { localStorage.setItem(MOBILE_TAB_KEY, tab); } catch {}
+  };
+
+  const handleOpenCard = useCallback((boardId: string, cardId: string) => {
+    setOpenCard({ boardId, cardId });
+  }, []);
+
+  const handleModalClose = useCallback((didChange: boolean) => {
+    setOpenCard(null);
+    if (didChange) {
+      fetchData();
+      bigThree.load();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchData]);
+
+  // ── Timeline events (must be computed before early returns) ──
+  const timelineEvents = useMemo<TimelineEvent[]>(() => {
+    if (!data) return [];
+    const evts: TimelineEvent[] = [];
+    const open = (boardId: string, cardId: string) => () => setOpenCard({ boardId, cardId });
+
+    const pushCard = (c: CardDigestItem, overdue: boolean) => {
+      evts.push({
+        key: `card-${c.id}`, kind: 'card',
+        title: c.title,
+        subtitle: `${c.board_name}${c.column_name ? ` · ${c.column_name}` : ''}`,
+        // An overdue card's time belongs to a past day — keep it in the all-day strip
+        startMin: overdue ? null : parseTimeToMin(c.due_time),
+        color: overdue ? T.red : T.amber, overdue,
+        onOpen: open(c.board_id, c.id),
+      });
+    };
+    data.cards.dueToday.forEach(c => pushCard(c, false));
+    data.cards.overdue.forEach(c => pushCard(c, true));
+
+    const pushChecklist = (cl: ChecklistDigestItem, overdue: boolean) => {
+      evts.push({
+        key: `cl-${cl.id}`, kind: 'checklist',
+        title: cl.text,
+        subtitle: `${cl.card_title} · ${cl.board_name}`,
+        startMin: null,
+        color: overdue ? T.red : T.amber, overdue,
+        onOpen: open(cl.board_id, cl.card_id),
+      });
+    };
+    data.checklistItems.dueToday.forEach(cl => pushChecklist(cl, false));
+    data.checklistItems.overdue.forEach(cl => pushChecklist(cl, true));
+
+    const pushFollowUp = (f: FollowUpItem, overdue: boolean) => {
+      evts.push({
+        key: `fu-${f.id}`, kind: 'followup',
+        title: `Follow up · ${f.name}`,
+        subtitle: f.campus || undefined,
+        startMin: overdue ? null : parseTimeToMin(f.follow_up_time),
+        color: overdue ? T.red : T.amber, overdue,
+        href: `/circle/${f.id}`,
+      });
+    };
+    data.followUps.dueToday.forEach(f => pushFollowUp(f, false));
+    data.followUps.overdue.forEach(f => pushFollowUp(f, true));
+
+    const pushEnc = (e: EncouragementItem, overdue: boolean) => {
+      evts.push({
+        key: `enc-${e.id}`, kind: 'encouragement',
+        title: `Encourage · ${e.leader_name}`,
+        subtitle: methodLabel(e.encourage_method),
+        startMin: null,
+        color: overdue ? T.red : T.amber, overdue,
+        href: `/circle/${e.circle_leader_id}`,
+      });
+    };
+    data.encouragements.dueToday.forEach(e => pushEnc(e, false));
+    data.encouragements.overdue.forEach(e => pushEnc(e, true));
+
+    data.circleVisits.today.forEach((v: VisitItem) => {
+      const startMin = parseTimeToMin(v.circle_time);
+      evts.push({
+        key: `visit-${v.id}`, kind: 'visit',
+        title: `Circle visit · ${v.leader_name}`,
+        subtitle: [v.leader_campus, v.previsit_note].filter(Boolean).join(' · ') || undefined,
+        startMin,
+        endMin: startMin !== null ? startMin + 90 : null,
+        color: '#60a5fa',
+        href: `/circle/${v.leader_id}`,
+      });
+    });
+
+    data.birthdays.forEach((b: BirthdayItem) => {
+      evts.push({
+        key: `bday-${b.id}`, kind: 'birthday',
+        title: `🎂 ${b.name}`,
+        subtitle: b.campus || undefined,
+        startMin: null,
+        color: T.violet,
+        href: `/circle/${b.id}`,
+      });
+    });
+
+    const pushPrayer = (p: PrayerRequestItem, overdue: boolean) => {
+      evts.push({
+        key: `prayer-${p.id}-${p.is_general ? 'g' : 'l'}`, kind: 'prayer',
+        title: p.leader_name ? `Pray · ${p.leader_name}` : 'Pray · General',
+        subtitle: p.content,
+        startMin: null,
+        color: overdue ? T.red : T.amber, overdue,
+        href: p.circle_leader_id ? `/circle/${p.circle_leader_id}` : '/prayer',
+      });
+    };
+    (data.prayerRequests?.dueToday || []).forEach(p => pushPrayer(p, false));
+    (data.prayerRequests?.overdue || []).forEach(p => pushPrayer(p, true));
+
+    calendars.events.forEach(ev => {
+      if (ev.all_day) {
+        evts.push({
+          key: `evt-${ev.subscription_id}-${ev.id}`, kind: 'calendar',
+          title: ev.title,
+          subtitle: ev.calendar_name,
+          startMin: null,
+          color: ev.color,
+        });
+        return;
+      }
+      // setZone keeps the feed's wall-clock time (API returns America/Chicago
+      // offsets) so events land at the right hour regardless of device timezone
+      const start = DateTime.fromISO(ev.start, { setZone: true });
+      const end = DateTime.fromISO(ev.end, { setZone: true });
+      if (!start.isValid) return;
+      const startsBeforeToday = start.toISODate() !== data.today && start < DateTime.fromISO(data.today);
+      const endsAfterToday = end.isValid && end.toISODate() !== data.today && end > start;
+      const startMin = startsBeforeToday ? 0 : start.hour * 60 + start.minute;
+      const endMin = !end.isValid ? null : (endsAfterToday ? 24 * 60 : end.hour * 60 + end.minute);
+      evts.push({
+        key: `evt-${ev.subscription_id}-${ev.id}`, kind: 'calendar',
+        title: ev.title,
+        subtitle: [ev.calendar_name, ev.location].filter(Boolean).join(' · '),
+        startMin, endMin,
+        color: ev.color,
+      });
+    });
+
+    return evts;
+  }, [data, calendars.events]);
 
   // ── Loading ──
-  if (isLoading) return <TodaySkeleton />;
+  if (isLoading || !layoutReady) return <TodaySkeleton />;
 
   if (error || !data) {
     return (
@@ -888,388 +1430,198 @@ export default function TodayPage() {
   const totalBigThree  = bigThree.slots.filter(slot => slot.card).length;
   const hasAnything    = data.birthdays.length + data.circleVisits.today.length + totalEncs + totalFU + totalCards + totalChecklists + totalFocus + totalPrayers > 0 || isCardsLoading;
 
+  const scoreboardRows = [
+    { label: 'Big 3',           count: totalBigThree,                  color: T.green,   href: '#big-three' },
+    { label: 'Focus Cards',     count: totalFocus,                     color: T.amber,   href: '#focus-cards' },
+    { label: 'Birthdays',       count: data.birthdays.length,          color: T.violet,  href: '#birthdays' },
+    { label: 'Overdue Items',   count: totalOverdue,                   color: T.red,     href: '#overdue-cards' },
+    { label: 'Follow-Ups',      count: totalFU,                        color: T.amber,   href: '#follow-ups' },
+    { label: 'Prayers',         count: totalPrayers,                   color: T.amber,   href: '#prayers-today' },
+    { label: 'Cards Due',       count: totalCards,                     color: T.amber,   href: '#cards-today' },
+    { label: 'Encouragements',  count: totalEncs,                      color: T.amber,   href: '#encs-today' },
+    { label: 'Checklist Tasks', count: totalChecklists,                color: T.amber,   href: '#checklists-today' },
+    { label: 'Circle Visits',   count: data.circleVisits.today.length, color: T.neutral, href: '#visits-today' },
+  ];
+
+  const bigThreeEl = (
+    <BigThreeSection
+      slots={bigThree.slots}
+      boards={bigThree.boards}
+      isLoading={bigThree.isLoading}
+      isSaving={bigThree.isSaving}
+      error={bigThree.error}
+      onCreate={bigThree.createCard}
+      onSearch={bigThree.searchExistingCards}
+      onAssignExisting={bigThree.assignExistingCard}
+      onDone={bigThree.markDone}
+      onClear={bigThree.clearSlot}
+      onOpenCard={handleOpenCard}
+    />
+  );
+
+  const sectionsEl = (
+    <TodaySections
+      data={data}
+      hasAnything={hasAnything}
+      isOpen={isOpen}
+      toggle={toggle}
+      markEncouragementSent={markEncouragementSent}
+      clearFollowUp={clearFollowUp}
+      markCardComplete={markCardComplete}
+      markChecklistDone={markChecklistDone}
+      onOpenCard={handleOpenCard}
+    />
+  );
+
+  const dayViewEl = (
+    <DayTimeline
+      events={timelineEvents}
+      subscriptions={calendars.subscriptions}
+      calendarsSaving={calendars.isSaving}
+      calendarsError={calendars.error}
+      feedErrors={calendars.feedErrors}
+      onAddCalendar={calendars.addSubscription}
+      onToggleCalendar={calendars.toggleSubscription}
+      onRemoveCalendar={calendars.removeSubscription}
+      hourHeight={isDesktop ? 64 : 56}
+    />
+  );
+
+  const refreshBtn = (
+    <button
+      onClick={fetchData}
+      disabled={isFetching}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        padding: '7px 14px', borderRadius: 9, fontSize: 12, fontWeight: 600,
+        background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.cardBorder}`,
+        color: isFetching ? T.textFaint : T.textMuted,
+        cursor: isFetching ? 'default' : 'pointer', transition: 'all 0.15s',
+      }}
+    >
+      <span style={{ display: 'inline-flex', animation: isFetching ? 'spin 1s linear infinite' : 'none' }}>
+        <RefreshIcon />
+      </span>
+      {isFetching ? 'Refreshing…' : 'Refresh'}
+    </button>
+  );
+
+  const globalCss = `
+    .today-page-bg { position: fixed; inset: 0; background: ${T.pageBg}; z-index: 0; pointer-events: none; }
+    .today-page-content { position: relative; z-index: 1; }
+    .today-item:last-child { border-bottom: none !important; }
+    .today-leader-link:hover { color: ${T.textMuted} !important; }
+    .today-action-btn:hover { filter: brightness(1.1); }
+    .today-score-row:hover .today-score-inner { background: rgba(255,255,255,0.02); }
+    .today-big3-card:hover p { color: ${T.textMuted} !important; }
+    .today-rail::-webkit-scrollbar { width: 6px; }
+    .today-rail::-webkit-scrollbar-thumb { background: ${T.cardBorder}; border-radius: 3px; }
+    @media (max-width: 560px) {
+      .today-big3-empty-form { grid-template-columns: 1fr !important; }
+    }
+    @media (max-width: 440px) {
+      .today-big3-row { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
+      .today-big3-actions { justify-content: flex-end !important; }
+    }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  `;
+
+  // ── Desktop: full-screen two-pane layout ──
+  if (isDesktop) {
+    return (
+      <>
+        <style>{globalCss}</style>
+        <div className="today-page-bg" />
+        {openCard && (
+          <TodayCardModal boardId={openCard.boardId} cardId={openCard.cardId} onClose={handleModalClose} />
+        )}
+
+        <div className="today-page-content" style={{
+          height: 'calc(100vh - 56px)',
+          display: 'grid', gridTemplateColumns: 'minmax(380px, 440px) 1fr', gap: 16,
+          padding: '16px 20px', fontFamily: FONT,
+        }}>
+          {/* ── Left rail: today's work ── */}
+          <aside style={{ display: 'flex', flexDirection: 'column', minHeight: 0, gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div>
+                <h1 style={{ fontSize: 22, fontWeight: 700, color: '#f9fafb', margin: 0, lineHeight: 1.1 }}>Today</h1>
+                <p style={{ fontSize: 12, color: T.textMuted, marginTop: 3 }}>{formatDate(data.today)}</p>
+              </div>
+              {refreshBtn}
+            </div>
+
+            <div className="today-rail" style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingRight: 2 }}>
+              {bigThreeEl}
+              {sectionsEl}
+            </div>
+
+            <div style={{ flexShrink: 0 }}>
+              <Scoreboard rows={scoreboardRows} flush />
+            </div>
+          </aside>
+
+          {/* ── Right pane: chronological day ── */}
+          <main style={{ minHeight: 0, minWidth: 0 }}>
+            {dayViewEl}
+          </main>
+        </div>
+      </>
+    );
+  }
+
+  // ── Mobile / tablet: tabbed list + day views ──
   return (
     <>
-      <style>{`
-        .today-page-bg { position: fixed; inset: 0; background: ${T.pageBg}; z-index: 0; pointer-events: none; }
-        .today-page-content { position: relative; z-index: 1; }
-        .today-item:last-child { border-bottom: none !important; }
-        .today-leader-link:hover { color: ${T.textMuted} !important; }
-        .today-action-btn:hover { filter: brightness(1.1); }
-        .today-score-row:hover .today-score-inner { background: rgba(255,255,255,0.02); }
-        .today-big3-card:hover p { color: ${T.textMuted} !important; }
-        @media (max-width: 560px) {
-          .today-big3-empty-form { grid-template-columns: 1fr !important; }
-        }
-        @media (max-width: 440px) {
-          .today-big3-row { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
-          .today-big3-actions { justify-content: flex-end !important; }
-        }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-      `}</style>
-
+      <style>{globalCss}</style>
       <div className="today-page-bg" />
+      {openCard && (
+        <TodayCardModal boardId={openCard.boardId} cardId={openCard.cardId} onClose={handleModalClose} />
+      )}
 
-      <div className="today-page-content" style={{ maxWidth: 720, margin: '0 auto', padding: '20px 16px 100px', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif' }}>
+      <div className="today-page-content" style={{ maxWidth: 720, margin: '0 auto', padding: '20px 16px 100px', fontFamily: FONT }}>
 
         {/* ── Header ── */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
           <div>
             <h1 style={{ fontSize: 26, fontWeight: 700, color: '#f9fafb', margin: 0, lineHeight: 1.1 }}>Today</h1>
             <p style={{ fontSize: 13, color: T.textMuted, marginTop: 4 }}>{formatDate(data.today)}</p>
           </div>
-          <button
-            onClick={fetchData}
-            disabled={isFetching}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '7px 14px', borderRadius: 9, fontSize: 12, fontWeight: 600,
-              background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.cardBorder}`,
-              color: isFetching ? T.textFaint : T.textMuted,
-              cursor: isFetching ? 'default' : 'pointer', transition: 'all 0.15s',
-            }}
-          >
-            <span style={{ display: 'inline-flex', animation: isFetching ? 'spin 1s linear infinite' : 'none' }}>
-              <RefreshIcon />
-            </span>
-            {isFetching ? 'Refreshing…' : 'Refresh'}
-          </button>
+          {refreshBtn}
         </div>
 
-        {/* ── Scoreboard ── */}
-        <Scoreboard
-          rows={[
-            { label: 'Big 3',           count: totalBigThree,                  color: T.green,   href: '#big-three' },
-            { label: 'Focus Cards',     count: totalFocus,                     color: T.amber,   href: '#focus-cards' },
-            { label: 'Birthdays',       count: data.birthdays.length,          color: T.violet,  href: '#birthdays' },
-            { label: 'Overdue Items',   count: totalOverdue,                   color: T.red,     href: '#overdue-cards' },
-            { label: 'Follow-Ups',      count: totalFU,                        color: T.amber,   href: '#follow-ups' },
-            { label: 'Prayers',         count: totalPrayers,                   color: T.amber,   href: '#prayers-today' },
-            { label: 'Cards Due',       count: totalCards,                     color: T.amber,   href: '#cards-today' },
-            { label: 'Encouragements',  count: totalEncs,                      color: T.amber,   href: '#encs-today' },
-            { label: 'Checklist Tasks', count: totalChecklists,                color: T.amber,   href: '#checklists-today' },
-            { label: 'Circle Visits',   count: data.circleVisits.today.length, color: T.neutral, href: '#visits-today' },
-          ]}
-        />
+        {/* ── View toggle ── */}
+        <div style={{
+          display: 'flex', background: T.cardBg, border: `1px solid ${T.cardBorder}`,
+          borderRadius: 10, padding: 3, marginBottom: 16,
+        }}>
+          {([['list', 'List'], ['day', 'Day']] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setMobileTab(key)}
+              style={{
+                flex: 1, height: 32, borderRadius: 8, fontSize: 12, fontWeight: 700,
+                border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                background: mobileTab === key ? 'rgba(255,255,255,0.07)' : 'transparent',
+                color: mobileTab === key ? T.text : T.textFaint,
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
-        <BigThreeSection
-          slots={bigThree.slots}
-          boards={bigThree.boards}
-          isLoading={bigThree.isLoading}
-          isSaving={bigThree.isSaving}
-          error={bigThree.error}
-          onCreate={bigThree.createCard}
-          onSearch={bigThree.searchExistingCards}
-          onAssignExisting={bigThree.assignExistingCard}
-          onDone={bigThree.markDone}
-          onClear={bigThree.clearSlot}
-        />
-
-        {/* ── All clear ── */}
-        {!hasAnything && (
-          <div style={{
-            background: `${T.green}0f`, border: `1px solid ${T.green}25`,
-            borderRadius: 14, padding: '32px 24px', textAlign: 'center', marginBottom: 16,
-          }}>
-            <p style={{ fontSize: 28, marginBottom: 8, display: 'flex', justifyContent: 'center' }}><Check className="h-7 w-7" /></p>
-            <p style={{ fontSize: 15, fontWeight: 600, color: T.green, margin: 0 }}>You&apos;re all caught up!</p>
-            <p style={{ fontSize: 12, color: T.textMuted, marginTop: 4 }}>Nothing urgent for today.</p>
+        {mobileTab === 'list' ? (
+          <>
+            <Scoreboard rows={scoreboardRows} />
+            {bigThreeEl}
+            {sectionsEl}
+          </>
+        ) : (
+          <div style={{ height: 'calc(100vh - 250px)', minHeight: 480 }}>
+            {dayViewEl}
           </div>
         )}
-
-        {/* ── Focus Cards ── */}
-        <Section id="focus-cards" title="Focus Cards" icon={<Star className="h-4 w-4" />} count={totalFocus}
-          sectionKey="focusCards" isOpen={isOpen('focusCards')} onToggle={() => toggle('focusCards')} accentColor="#f59e0b">
-          {(data.focusCards ?? []).map((c: CardDigestItem) => (
-            <Item key={c.id} accentColor="#f59e0b">
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <Link href={`/boards/${c.board_id}?card=${c.id}`}
-                  style={{ fontSize: 13, fontWeight: 600, color: T.text, textDecoration: 'none', display: 'block', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
-                  className="today-leader-link">
-                  {c.title}
-                </Link>
-                <Sub>{c.board_name}{c.column_name ? ` · ${c.column_name}` : ''}</Sub>
-                <CardMeta card={c} />
-              </div>
-              {c.due_date && <DateBadge date={formatShort(c.due_date)} color="#f59e0b" />}
-            </Item>
-          ))}
-        </Section>
-
-        {/* ── Birthdays ── */}
-        <Section id="birthdays" title="Birthdays" icon={<Cake className="h-4 w-4" />} count={data.birthdays.length}
-          sectionKey="birthdays" isOpen={isOpen('birthdays')} onToggle={() => toggle('birthdays')} accentColor={T.violet}>
-          {data.birthdays.map((b: BirthdayItem) => (
-            <Item key={b.id} accentColor={T.violet}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <LeaderLink id={b.id} name={b.name} />
-                {b.campus && <Sub>{b.campus}</Sub>}
-              </div>
-              {b.phone && (
-                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                  <a href={`tel:${b.phone}`} style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    padding: '5px 10px', borderRadius: 7, fontSize: 11, fontWeight: 600,
-                    background: `${T.violet}15`, color: T.violet,
-                    border: `1px solid ${T.violet}30`, textDecoration: 'none', whiteSpace: 'nowrap',
-                  }}>
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.63A2 2 0 012 .18h3a2 2 0 012 1.72c.13 1.05.39 2.08.76 3.07a2 2 0 01-.45 2.11L6.09 8.3a16 16 0 006.61 6.61l1.22-1.22a2 2 0 012.11-.45c.99.37 2.02.63 3.07.76A2 2 0 0122 16.92z" />
-                    </svg>
-                    Call
-                  </a>
-                  <a href={`sms:${b.phone}`} style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    padding: '5px 10px', borderRadius: 7, fontSize: 11, fontWeight: 600,
-                    background: `${T.violet}15`, color: T.violet,
-                    border: `1px solid ${T.violet}30`, textDecoration: 'none', whiteSpace: 'nowrap',
-                  }}>
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-                    </svg>
-                    Text
-                  </a>
-                </div>
-              )}
-            </Item>
-          ))}
-        </Section>
-
-        {/* ── Circle Visits Today ── */}
-        <Section id="visits-today" title="Circle Visits Today" icon={<CalendarDays className="h-4 w-4" />} count={data.circleVisits.today.length}
-          sectionKey="circleVisitsToday" isOpen={isOpen('circleVisitsToday')} onToggle={() => toggle('circleVisitsToday')} accentColor={T.neutral}>
-          {data.circleVisits.today.map((v: VisitItem) => (
-            <Item key={v.id} accentColor={T.neutral}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <LeaderLink id={v.leader_id} name={v.leader_name} />
-                <Sub>{[v.leader_campus, v.previsit_note].filter(Boolean).join(' · ')}</Sub>
-              </div>
-            </Item>
-          ))}
-        </Section>
-
-        {/* ── Encouragements Due Today ── */}
-        <Section id="encs-today" title="Encouragements Due Today" icon={<PartyPopper className="h-4 w-4" />} count={data.encouragements.dueToday.length}
-          sectionKey="encouragementsToday" isOpen={isOpen('encouragementsToday')} onToggle={() => toggle('encouragementsToday')} accentColor={T.amber}>
-          {data.encouragements.dueToday.map((e: EncouragementItem) => (
-            <Item key={e.id} accentColor={T.amber}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <LeaderLink id={e.circle_leader_id} name={e.leader_name} />
-                <Sub>{[e.leader_campus, methodLabel(e.encourage_method), e.note].filter(Boolean).join(' · ')}</Sub>
-              </div>
-              <ActionBtn onClick={() => markEncouragementSent(e.id)} color={T.green}>Sent</ActionBtn>
-            </Item>
-          ))}
-        </Section>
-
-        {/* ── Follow-Ups Due Today ── */}
-        <Section id="follow-ups" title="Follow-Ups Due Today" icon={<BellRing className="h-4 w-4" />} count={data.followUps.dueToday.length}
-          sectionKey="followUps" isOpen={isOpen('followUps')} onToggle={() => toggle('followUps')} accentColor={T.amber}>
-          {data.followUps.dueToday.map((f: FollowUpItem) => (
-            <Item key={f.id} accentColor={T.amber}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <LeaderLink id={f.id} name={f.name} />
-                <Sub>{f.campus}</Sub>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {f.follow_up_date && <DateBadge date={`Due ${formatShort(f.follow_up_date)}`} color={T.amber} />}
-                <ActionBtn onClick={() => clearFollowUp(f.id)} color={T.green}>Clear</ActionBtn>
-              </div>
-            </Item>
-          ))}
-        </Section>
-
-        {/* ── Cards Due Today ── */}
-        <Section id="cards-today" title="Cards Due Today" icon={<ClipboardList className="h-4 w-4" />} count={data.cards.dueToday.length}
-          sectionKey="cardsToday" isOpen={isOpen('cardsToday')} onToggle={() => toggle('cardsToday')} accentColor={T.amber}>
-          {data.cards.dueToday.map((c: CardDigestItem) => (
-            <Item key={c.id} accentColor={T.amber}>
-              <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                <Link href={`/boards/${c.board_id}?card=${c.id}`} style={{ fontSize: 13, fontWeight: 600, color: T.text, textDecoration: 'none', display: 'block', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
-                  className="today-leader-link">
-                  {c.title}
-                </Link>
-                <Sub>{c.board_name} · {c.column_name}</Sub>
-                <CardMeta card={c} />
-              </div>
-              <ActionBtn onClick={() => markCardComplete(c.id)} color={T.green}>Done</ActionBtn>
-            </Item>
-          ))}
-        </Section>
-
-        {/* ── Overdue Cards ── */}
-        <Section id="overdue-cards" title="Overdue Cards" icon={<AlertTriangle className="h-4 w-4" />} count={data.cards.overdue.length}
-          sectionKey="overdueCards" isOpen={isOpen('overdueCards')} onToggle={() => toggle('overdueCards')} accentColor={T.red}>
-          {data.cards.overdue.map((c: CardDigestItem) => (
-            <Item key={c.id} accentColor={T.red}>
-              <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                <Link href={`/boards/${c.board_id}?card=${c.id}`} style={{ fontSize: 13, fontWeight: 600, color: T.text, textDecoration: 'none', display: 'block', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
-                  className="today-leader-link">
-                  {c.title}
-                </Link>
-                <Sub>{c.board_name} · {c.column_name}</Sub>
-                <CardMeta card={c} />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                {c.due_date && <DateBadge date={formatShort(c.due_date)} color={T.red} />}
-                <ActionBtn onClick={() => markCardComplete(c.id)} color={T.green}>Done</ActionBtn>
-              </div>
-            </Item>
-          ))}
-        </Section>
-
-        {/* ── Checklist Items Due Today ── */}
-        <Section id="checklists-today" title="Checklist Items Due Today" icon={<CheckSquare className="h-4 w-4" />} count={data.checklistItems.dueToday.length}
-          sectionKey="checklistsToday" isOpen={isOpen('checklistsToday')} onToggle={() => toggle('checklistsToday')} accentColor={T.amber}>
-          {data.checklistItems.dueToday.map((cl: ChecklistDigestItem) => (
-            <Item key={cl.id} accentColor={T.amber}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 13, fontWeight: 600, color: T.text, margin: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{cl.text}</p>
-                <Sub>
-                  <Link href={`/boards/${cl.board_id}?card=${cl.card_id}`} style={{ color: T.textMuted, textDecoration: 'none' }} className="today-leader-link">
-                    {cl.card_title} · {cl.board_name}
-                  </Link>
-                </Sub>
-              </div>
-              <ActionBtn onClick={() => markChecklistDone(cl.id)} color={T.green}>Done</ActionBtn>
-            </Item>
-          ))}
-        </Section>
-
-        {/* ── Overdue Checklist Items ── */}
-        <Section id="overdue-checklists" title="Overdue Checklist Items" icon={<AlertTriangle className="h-4 w-4" />} count={data.checklistItems.overdue.length}
-          sectionKey="overdueChecklists" isOpen={isOpen('overdueChecklists')} onToggle={() => toggle('overdueChecklists')} accentColor={T.red}>
-          {data.checklistItems.overdue.map((cl: ChecklistDigestItem) => (
-            <Item key={cl.id} accentColor={T.red}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 13, fontWeight: 600, color: T.text, margin: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{cl.text}</p>
-                <Sub><Link href={`/boards/${cl.board_id}?card=${cl.card_id}`} style={{ color: 'inherit', textDecoration: 'none' }} className="today-leader-link">{cl.card_title} · {cl.board_name}</Link></Sub>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {cl.due_date && <DateBadge date={`Due ${formatShort(cl.due_date)}`} color={T.red} />}
-                <ActionBtn onClick={() => markChecklistDone(cl.id)} color={T.green}>Done</ActionBtn>
-              </div>
-            </Item>
-          ))}
-        </Section>
-
-        {/* ── Overdue Encouragements ── */}
-        <Section id="overdue-encs" title="Overdue Encouragements" icon="⏰" count={data.encouragements.overdue.length}
-          sectionKey="overdueEncouragements" isOpen={isOpen('overdueEncouragements')} onToggle={() => toggle('overdueEncouragements')} accentColor={T.red}>
-          {data.encouragements.overdue.map((e: EncouragementItem) => (
-            <Item key={e.id} accentColor={T.red}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <LeaderLink id={e.circle_leader_id} name={e.leader_name} />
-                <Sub>{methodLabel(e.encourage_method)}</Sub>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {e.message_date && <DateBadge date={`Due ${formatShort(e.message_date)}`} color={T.red} />}
-                <ActionBtn onClick={() => markEncouragementSent(e.id)} color={T.green}>Sent</ActionBtn>
-              </div>
-            </Item>
-          ))}
-        </Section>
-
-        {/* ── Overdue Follow-Ups ── */}
-        <Section id="overdue-followups" title="Overdue Follow-Ups" icon={<Pin className="h-4 w-4" />} count={data.followUps.overdue.length}
-          sectionKey="overdueFollowUps" isOpen={isOpen('overdueFollowUps')} onToggle={() => toggle('overdueFollowUps')} accentColor={T.red}>
-          {data.followUps.overdue.map((f: FollowUpItem) => (
-            <Item key={f.id} accentColor={T.red}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <LeaderLink id={f.id} name={f.name} />
-                <Sub>{f.campus || 'No campus'}</Sub>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {f.follow_up_date
-                  ? <DateBadge date={`Due ${formatShort(f.follow_up_date)}`} color={T.red} />
-                  : <DateBadge date="No due date" color={T.textFaint} />}
-                <ActionBtn onClick={() => clearFollowUp(f.id)} color={T.green}>Clear</ActionBtn>
-              </div>
-            </Item>
-          ))}
-        </Section>
-
-        {/* ── Prayer Requests Today ── */}
-        <Section id="prayers-today" title="Prayer Requests Today" icon={<Heart className="h-4 w-4" />} count={data.prayerRequests?.dueToday?.length || 0}
-          sectionKey="prayersToday" isOpen={isOpen('prayersToday')} onToggle={() => toggle('prayersToday')} accentColor={T.amber}>
-          {(data.prayerRequests?.dueToday || []).map((p: PrayerRequestItem) => (
-            <Item key={p.id} accentColor={T.amber}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {p.circle_leader_id && p.leader_name
-                  ? <><LeaderLink id={p.circle_leader_id} name={p.leader_name} />{p.leader_campus && <Sub>{p.leader_campus}</Sub>}</>
-                  : <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600 }}>General Prayer</span>
-                }
-                <p style={{ margin: '4px 0 0', fontSize: 13, color: T.text, lineHeight: 1.5 }}>{p.content}</p>
-              </div>
-              <DateBadge date={`Pray ${formatShort(p.pray_date)}`} color={T.amber} />
-            </Item>
-          ))}
-        </Section>
-
-        {/* ── Overdue Prayer Requests ── */}
-        <Section id="prayers-overdue" title="Overdue Prayer Requests" icon={<Heart className="h-4 w-4" />} count={data.prayerRequests?.overdue?.length || 0}
-          sectionKey="prayersOverdue" isOpen={isOpen('prayersOverdue')} onToggle={() => toggle('prayersOverdue')} accentColor={T.red}>
-          {(data.prayerRequests?.overdue || []).map((p: PrayerRequestItem) => (
-            <Item key={p.id} accentColor={T.red}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {p.circle_leader_id && p.leader_name
-                  ? <><LeaderLink id={p.circle_leader_id} name={p.leader_name} />{p.leader_campus && <Sub>{p.leader_campus}</Sub>}</>
-                  : <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600 }}>General Prayer</span>
-                }
-                <p style={{ margin: '4px 0 0', fontSize: 13, color: T.text, lineHeight: 1.5 }}>{p.content}</p>
-              </div>
-              <DateBadge date={`Due ${formatShort(p.pray_date)}`} color={T.red} />
-            </Item>
-          ))}
-        </Section>
-
-        {/* ── Circle Visits This Week ── */}
-        <Section id="visits-week" title="Circle Visits This Week" icon={<CalendarRange className="h-4 w-4" />} count={data.circleVisits.thisWeek.length}
-          sectionKey="circleVisitsWeek" isOpen={isOpen('circleVisitsWeek')} onToggle={() => toggle('circleVisitsWeek')} accentColor={T.neutral}>
-          {data.circleVisits.thisWeek.map((v: VisitItem) => (
-            <Item key={v.id} accentColor={T.neutral}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <LeaderLink id={v.leader_id} name={v.leader_name} />
-                {v.leader_campus && <Sub>{v.leader_campus}</Sub>}
-              </div>
-              <DateBadge date={formatShort(v.visit_date)} color={T.neutral} />
-            </Item>
-          ))}
-        </Section>
-
-        {/* ── Upcoming Scheduled Visits ── */}
-        <Section id="upcoming-visits" title="Upcoming Scheduled Visits" icon={<CalendarRange className="h-4 w-4" />} count={data.upcomingVisits.length}
-          sectionKey="upcomingVisits" isOpen={isOpen('upcomingVisits')} onToggle={() => toggle('upcomingVisits')} accentColor={T.neutral}>
-          {data.upcomingVisits.map((v: VisitItem) => (
-            <Item key={v.id} accentColor={T.neutral}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <LeaderLink id={v.leader_id} name={v.leader_name} />
-                {v.leader_campus && <Sub>{v.leader_campus}</Sub>}
-              </div>
-              <DateBadge date={formatShort(v.visit_date)} color={T.neutral} />
-            </Item>
-          ))}
-        </Section>
-
-        {/* ── Recent Notes ── */}
-        <Section id="recent-notes" title="Recent Notes" icon={<NotebookPen className="h-4 w-4" />} count={data.recentNotes.length}
-          sectionKey="recentNotes" isOpen={isOpen('recentNotes')} onToggle={() => toggle('recentNotes')} accentColor={T.textMuted}>
-          {data.recentNotes.map((n: NoteItem) => (
-            <Item key={n.id}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <LeaderLink id={n.circle_leader_id} name={n.leader_name} />
-                <p style={{ fontSize: 11, color: T.textMuted, margin: '3px 0 0', lineHeight: 1.4,
-                  display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' } as React.CSSProperties}>
-                  {n.content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()}
-                </p>
-              </div>
-              <span style={{ fontSize: 10, color: T.textFaint, whiteSpace: 'nowrap', marginLeft: 8, flexShrink: 0 }}>
-                {new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-              </span>
-            </Item>
-          ))}
-        </Section>
-
       </div>
     </>
   );
