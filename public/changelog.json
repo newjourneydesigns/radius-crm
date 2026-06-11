@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-11",
+    "version": "2.12.0",
+    "date_display": "June 11, 2026",
+    "date_iso": "2026-06-11",
+    "id": "today-app-icon-badge",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Today",
+    "description": "The RADIUS app icon now shows a badge with how many cards and follow-ups are still open today (including overdue). Reminder notifications update the badge even while the app is closed, and it ticks down live as you complete items with the app open. Works on installed RADIUS apps — home screen on iPhone, dock or taskbar on desktop.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-11",
     "version": "2.11.0",
     "date_display": "June 11, 2026",
     "date_iso": "2026-06-11",

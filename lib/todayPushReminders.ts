@@ -28,6 +28,8 @@ type ReminderPayload = {
   url: string;
   tag: string;
   icon?: string;
+  /** App-icon badge — the service worker applies it when the push arrives */
+  badgeCount?: number;
 };
 
 type TimedItem = {
@@ -94,7 +96,7 @@ async function collectDueItems(
   user: { id: string; name: string },
   now: DateTime,
   today: string
-): Promise<TimedItem[]> {
+): Promise<{ items: TimedItem[]; badgeCount: number }> {
   const items: TimedItem[] = [];
 
   const inWindow = (dueAt: DateTime) => {
@@ -103,6 +105,10 @@ async function collectDueItems(
   };
 
   // ── Board cards: user's own boards + cards assigned to them ──
+  // Queries cover everything due today or overdue: timed cards due today feed
+  // the reminders; the full set feeds the app-icon badge count, which must
+  // match what the Today page computes client-side (cards + follow-ups,
+  // due today or overdue).
   const [{ data: boardsRaw }, { data: assignmentsRaw }] = await Promise.all([
     supabase.from('project_boards').select('id, title').eq('user_id', user.id),
     supabase.from('card_assignments').select('card_id').eq('user_id', user.id),
@@ -112,18 +118,18 @@ async function collectDueItems(
   const boardIds = boards.map(b => b.id);
   const assignedIds = ((assignmentsRaw || []) as { card_id: string }[]).map(a => a.card_id);
 
-  type CardRow = { id: string; title: string; due_date: string; due_time: string; board_id: string | null };
+  type CardRow = { id: string; title: string; due_date: string; due_time: string | null; board_id: string | null };
   const cardSelect = 'id, title, due_date, due_time, board_id';
   const [ownedCards, assignedCards] = await Promise.all([
     boardIds.length > 0
       ? supabase.from('board_cards').select(cardSelect)
           .in('board_id', boardIds).eq('is_complete', false)
-          .eq('due_date', today).not('due_time', 'is', null)
+          .not('due_date', 'is', null).lte('due_date', today)
       : Promise.resolve({ data: [] as CardRow[] }),
     assignedIds.length > 0
       ? supabase.from('board_cards').select(cardSelect)
           .in('id', assignedIds).eq('is_complete', false)
-          .eq('due_date', today).not('due_time', 'is', null)
+          .not('due_date', 'is', null).lte('due_date', today)
       : Promise.resolve({ data: [] as CardRow[] }),
   ]);
 
@@ -133,6 +139,7 @@ async function collectDueItems(
   }
 
   for (const card of Array.from(cardRows.values())) {
+    if (card.due_date !== today || !card.due_time) continue;
     const dueAt = parseDueAt(card.due_date, card.due_time);
     if (!dueAt || !inWindow(dueAt)) continue;
     items.push({
@@ -148,16 +155,18 @@ async function collectDueItems(
     });
   }
 
-  // ── Follow-ups with times for this user's leaders ──
+  // ── Follow-ups for this user's leaders (due today or overdue) ──
   const { data: followUpsRaw } = await supabase
     .from('circle_leaders')
     .select('id, name, campus, follow_up_date, follow_up_time')
     .eq('acpd', user.name)
     .eq('follow_up_required', true)
-    .eq('follow_up_date', today)
-    .not('follow_up_time', 'is', null);
+    .or(`follow_up_date.lte.${today},follow_up_date.is.null`);
 
-  for (const f of (followUpsRaw || []) as { id: number; name: string; campus?: string | null; follow_up_date: string; follow_up_time: string }[]) {
+  const followUps = (followUpsRaw || []) as { id: number; name: string; campus?: string | null; follow_up_date?: string | null; follow_up_time?: string | null }[];
+
+  for (const f of followUps) {
+    if (f.follow_up_date !== today || !f.follow_up_time) continue;
     const dueAt = parseDueAt(f.follow_up_date, f.follow_up_time);
     if (!dueAt || !inWindow(dueAt)) continue;
     items.push({
@@ -173,7 +182,7 @@ async function collectDueItems(
     });
   }
 
-  return items;
+  return { items, badgeCount: cardRows.size + followUps.length };
 }
 
 export type ReminderRunResult = {
@@ -225,8 +234,9 @@ export async function runUserTimedReminders(): Promise<ReminderRunResult> {
   for (const user of users) {
     result.usersChecked += 1;
     try {
-      const items = await collectDueItems(supabase, user, now, today);
+      const { items, badgeCount } = await collectDueItems(supabase, user, now, today);
       for (const item of items) {
+        item.payload.badgeCount = badgeCount;
         // Claim the delivery first — the unique (user_id, item_key) constraint
         // makes this run-once even across overlapping cron invocations.
         const { data: delivery, error: claimError } = await supabase

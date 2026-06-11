@@ -28,6 +28,7 @@ import { useTodayData } from '../../hooks/useTodayData';
 import { useTodayCalendars } from '../../hooks/useTodayCalendars';
 import type { CalendarEventItem } from '../../hooks/useTodayCalendars';
 import { usePushReminders } from '../../hooks/usePushReminders';
+import { syncAppBadge } from '../../lib/appBadge';
 import DayTimeline, {
   setScheduleDragPayload,
   type ScheduleDragPayload,
@@ -1526,6 +1527,18 @@ export default function TodayPage() {
 
     return evts;
   }, [data, dayData, isViewToday, calendars.events, dayCalEvents]);
+
+  // ── App-icon badge: cards + follow-ups still open today (or overdue).
+  // Same formula the push cron sends with reminders, so the badge a closed
+  // app shows matches what the open app computes. Re-runs on every optimistic
+  // update, so completing items ticks the badge down live.
+  useEffect(() => {
+    if (!data) return;
+    syncAppBadge(
+      data.cards.dueToday.length + data.cards.overdue.length +
+      data.followUps.dueToday.length + data.followUps.overdue.length
+    );
+  }, [data]);
 
   // ── Loading ──
   if (isLoading || !layoutReady) return <TodaySkeleton />;
