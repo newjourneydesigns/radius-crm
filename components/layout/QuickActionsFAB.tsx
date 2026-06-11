@@ -6,7 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useQuickActions } from '../../contexts/QuickActionsContext';
 
 /**
- * Desktop-only quick-add speed dial (bottom-left). On mobile the same actions
+ * Desktop-only quick-add speed dial (bottom-right). On mobile the same actions
  * live in the tab bar's "More" sheet, so this is hidden below `md`.
  */
 export default function QuickActionsFAB() {
@@ -35,9 +35,9 @@ export default function QuickActionsFAB() {
         />
       )}
 
-      <div className="hidden md:flex fixed left-6 bottom-6 z-[10002] flex-col items-start gap-2 pointer-events-none">
+      <div className="hidden md:flex fixed right-6 bottom-6 z-[10002] flex-col items-end gap-2 pointer-events-none">
         {/* Speed-dial items */}
-        <div className={`flex flex-col-reverse items-start gap-2 ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
+        <div className={`flex flex-col-reverse items-end gap-2 ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
           {actions.map((action, i) => (
             <button
               key={action.id}

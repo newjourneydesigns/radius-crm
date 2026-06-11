@@ -315,6 +315,7 @@ export default function MobileNavigation() {
   const browseItems = [
     { href: '/person-lookup', label: 'Person Lookup', Icon: PersonSearchIcon },
     { href: '/search',        label: 'Circle List',   Icon: FindCircleIcon },
+    { href: '/circle-reporting', label: 'Circle Reporting', Icon: ChartIcon },
     { href: '/notebook',      label: 'Notebook',      Icon: NotebookIcon },
     { href: '/prayer',        label: 'Prayer',        Icon: PrayerIcon },
     { href: '/progress',      label: 'Progress',      Icon: ChartIcon },

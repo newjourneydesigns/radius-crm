@@ -515,9 +515,7 @@ export default function GlobalSearch() {
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <span style={{ fontSize: '14px', fontWeight: 500, color: isSelected ? '#eef4ed' : 'rgba(238, 244, 237, 0.85)', lineHeight: '1.3', transition: 'color 0.12s ease' }}>
-                                  {(leader as any).leader_type === 'host_team'
-                                    ? ((leader as any).team_name || leader.name)
-                                    : ((leader as any).circle_name || leader.name)}
+                                  {leader.name}
                                 </span>
                                 {(leader as any).leader_type === 'host_team' && (
                                   <span style={{ fontSize: '10px', fontWeight: 600, padding: '1px 6px', borderRadius: '99px', background: 'rgba(139, 92, 246, 0.2)', color: 'rgba(167, 139, 250, 0.9)', border: '1px solid rgba(139, 92, 246, 0.3)', lineHeight: '1.6', whiteSpace: 'nowrap' }}>
@@ -527,8 +525,9 @@ export default function GlobalSearch() {
                               </div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px', fontSize: '12px', color: 'rgba(255, 255, 255, 0.45)', lineHeight: '1.3' }}>
                                 <span>
-                                  {leader.name}
-                                  {(leader as any).additional_leader_name ? ` · ${(leader as any).additional_leader_name}` : ''}
+                                  {(leader as any).leader_type === 'host_team'
+                                    ? ((leader as any).team_name || 'Team')
+                                    : `${(leader as any).circle_name || leader.name}${(leader as any).additional_leader_name ? ` · ${(leader as any).additional_leader_name}` : ''}`}
                                 </span>
                                 {leader.campus && (
                                   <>

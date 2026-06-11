@@ -147,6 +147,7 @@ const primaryNavItems = [
 ];
 
 const toolsNavItems = [
+  { href: '/circle-reporting', label: 'Circle Reporting', Icon: ChartIcon },
   { href: '/progress',      label: 'Progress',        Icon: ChartIcon },
   { href: '/person-lookup', label: 'Person Lookup',   Icon: SearchNavIcon },
   { href: '/birthday-list', label: 'Birthday List',   Icon: BirthdayCakeIcon },

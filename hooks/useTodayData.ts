@@ -114,6 +114,7 @@ export function useTodayData() {
           if (!res.ok) {
             const body = await res.json();
             setError(body.error || 'Failed to load today data');
+            setIsLoading(false);
             return;
           }
           freshCore = await res.json();

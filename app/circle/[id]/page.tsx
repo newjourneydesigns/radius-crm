@@ -1751,12 +1751,14 @@ export default function CircleLeaderProfilePage() {
 
           {/* Name + status */}
           <h1 className="text-xl sm:text-2xl font-bold text-brand-light leading-snug mt-1">
-            {isHostTeam ? (leader.team_name || leader.name) : (leader.circle_name || leader.name)}
+            {leader.name}
           </h1>
           {(isHostTeam ? leader.team_name : leader.circle_name) && (
             <div className="mt-0.5">
               <span className="text-sm text-slate-400">
-                {leader.name}{!isHostTeam && leader.additional_leader_name ? ` · ${leader.additional_leader_name}` : ''}
+                {isHostTeam
+                  ? leader.team_name
+                  : `${leader.circle_name}${leader.additional_leader_name ? ` · ${leader.additional_leader_name}` : ''}`}
               </span>
             </div>
           )}
@@ -1998,29 +2000,33 @@ export default function CircleLeaderProfilePage() {
               </div>
             </button>
             
-            <button
-              onClick={() => setShowConnectPersonModal(true)}
-              className="w-full flex items-center px-4 py-3 text-slate-200 hover:bg-zinc-700/50 text-sm transition-colors"
-            >
-              <div className="flex items-center gap-2.5">
-                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                </svg>
-                Connect New Person
-              </div>
-            </button>
+            {!isHostTeam && (
+              <button
+                onClick={() => setShowConnectPersonModal(true)}
+                className="w-full flex items-center px-4 py-3 text-slate-200 hover:bg-zinc-700/50 text-sm transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                  </svg>
+                  Connect New Person
+                </div>
+              </button>
+            )}
 
-            <button
-              onClick={() => setShowInvitePersonModal(true)}
-              className="w-full flex items-center px-4 py-3 text-slate-200 hover:bg-zinc-700/50 text-sm transition-colors"
-            >
-              <div className="flex items-center gap-2.5">
-                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                </svg>
-                Invite a Person
-              </div>
-            </button>
+            {!isHostTeam && (
+              <button
+                onClick={() => setShowInvitePersonModal(true)}
+                className="w-full flex items-center px-4 py-3 text-slate-200 hover:bg-zinc-700/50 text-sm transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                  Invite a Person
+                </div>
+              </button>
+            )}
 
             {/* View Roster Link */}
             {leader?.ccb_group_id && (
@@ -2255,7 +2261,7 @@ export default function CircleLeaderProfilePage() {
                       )}
                     </dd>
                   </div>
-                  <div className="sm:col-span-2">
+                  {!isHostTeam && <div className="sm:col-span-2">
                     <dt className="text-sm font-medium text-slate-400">Location</dt>
                     <dd className="mt-1">
                       {isEditing ? (
@@ -2270,7 +2276,7 @@ export default function CircleLeaderProfilePage() {
                         <span className="text-sm text-slate-200">{leader.location || 'Not specified'}</span>
                       )}
                     </dd>
-                  </div>
+                  </div>}
                   {!isHostTeam && <div>
                     <dt className="text-sm font-medium text-slate-400">CCB Group ID</dt>
                     <dd className="mt-1">
@@ -2805,29 +2811,33 @@ export default function CircleLeaderProfilePage() {
                   </div>
                 </button>
                 
-                <button
-                  onClick={() => setShowConnectPersonModal(true)}
-                  className="w-full flex items-center px-4 py-3 text-slate-200 hover:bg-zinc-700/50 text-sm transition-colors"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                    </svg>
-                    Connect New Person
-                  </div>
-                </button>
+                {!isHostTeam && (
+                  <button
+                    onClick={() => setShowConnectPersonModal(true)}
+                    className="w-full flex items-center px-4 py-3 text-slate-200 hover:bg-zinc-700/50 text-sm transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                      </svg>
+                      Connect New Person
+                    </div>
+                  </button>
+                )}
 
-                <button
-                  onClick={() => setShowInvitePersonModal(true)}
-                  className="w-full flex items-center px-4 py-3 text-slate-200 hover:bg-zinc-700/50 text-sm transition-colors"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                    </svg>
-                    Invite a Person
-                  </div>
-                </button>
+                {!isHostTeam && (
+                  <button
+                    onClick={() => setShowInvitePersonModal(true)}
+                    className="w-full flex items-center px-4 py-3 text-slate-200 hover:bg-zinc-700/50 text-sm transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                      </svg>
+                      Invite a Person
+                    </div>
+                  </button>
+                )}
 
                 {/* View Roster Link */}
                 {leader?.ccb_group_id && (
