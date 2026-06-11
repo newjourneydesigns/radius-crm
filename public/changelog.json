@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-11",
+    "version": "2.13.0",
+    "date_display": "June 11, 2026",
+    "date_iso": "2026-06-11",
+    "id": "today-morning-digest-push",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Today",
+    "description": "Start the day with a morning digest. Around 7 AM, devices with reminders on get one notification summarizing your plate — cards due today, anything overdue, follow-ups, and your first timed item — and it refreshes the app-icon badge for the day. Quiet when you have nothing open.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-11",
     "version": "2.12.0",
     "date_display": "June 11, 2026",
     "date_iso": "2026-06-11",

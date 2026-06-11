@@ -13,6 +13,12 @@ const GRACE_MINUTES = 10;    // still notify if a cron run was missed
 const PUSH_TTL_SECONDS = 60 * 60; // reminders are stale after an hour
 const DELIVERY_LOG_RETENTION_DAYS = 14;
 
+// Morning digest: one push at this hour (Central) with the day's open-item
+// count — keeps the app-icon badge fresh from the start of the day even if
+// no timed reminders fire. Skipped when the user has nothing open.
+const MORNING_DIGEST_HOUR = 7;
+const MORNING_DIGEST_GRACE_MINUTES = 90;
+
 type SubscriptionRow = {
   id: string;
   user_id: string;
@@ -37,6 +43,37 @@ type TimedItem = {
   dueAt: DateTime;
   payload: ReminderPayload;
 };
+
+type DaySummary = {
+  cardsDueToday: number;
+  cardsOverdue: number;
+  followUps: number;
+  firstTimed: { title: string; dueAt: DateTime } | null;
+};
+
+function buildMorningDigest(badgeCount: number, summary: DaySummary, morningAt: DateTime, today: string): TimedItem {
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  const parts: string[] = [];
+  if (summary.cardsDueToday > 0) parts.push(`${plural(summary.cardsDueToday, 'card')} due today`);
+  if (summary.cardsOverdue > 0) parts.push(`${plural(summary.cardsOverdue, 'card')} overdue`);
+  if (summary.followUps > 0) parts.push(plural(summary.followUps, 'follow-up'));
+  let body = parts.join(' · ');
+  if (summary.firstTimed) {
+    body += `${body ? '. ' : ''}First up: ${summary.firstTimed.title} at ${formatTime(summary.firstTimed.dueAt)}.`;
+  }
+  return {
+    itemKey: `morning:${today}`,
+    dueAt: morningAt,
+    payload: {
+      title: `Good morning — ${badgeCount} on your plate today`,
+      body: body || 'Open RADIUS to see your day.',
+      url: '/today',
+      tag: 'today-morning',
+      icon: '/apple-touch-icon.png',
+      badgeCount,
+    },
+  };
+}
 
 function configureWebPush(): boolean {
   const subject = process.env.WEB_PUSH_VAPID_SUBJECT || process.env.NEXT_PUBLIC_APP_URL || 'mailto:admin@example.com';
@@ -96,12 +133,19 @@ async function collectDueItems(
   user: { id: string; name: string },
   now: DateTime,
   today: string
-): Promise<{ items: TimedItem[]; badgeCount: number }> {
+): Promise<{ items: TimedItem[]; badgeCount: number; summary: DaySummary }> {
   const items: TimedItem[] = [];
 
   const inWindow = (dueAt: DateTime) => {
     const fireAt = dueAt.minus({ minutes: LEAD_MINUTES });
     return now >= fireAt && now <= dueAt.plus({ minutes: GRACE_MINUTES });
+  };
+
+  // Earliest upcoming timed item today — used by the morning digest copy
+  let firstTimed: { title: string; dueAt: DateTime } | null = null;
+  const considerFirstTimed = (title: string, dueAt: DateTime) => {
+    if (dueAt < now) return;
+    if (!firstTimed || dueAt < firstTimed.dueAt) firstTimed = { title, dueAt };
   };
 
   // ── Board cards: user's own boards + cards assigned to them ──
@@ -141,7 +185,9 @@ async function collectDueItems(
   for (const card of Array.from(cardRows.values())) {
     if (card.due_date !== today || !card.due_time) continue;
     const dueAt = parseDueAt(card.due_date, card.due_time);
-    if (!dueAt || !inWindow(dueAt)) continue;
+    if (!dueAt) continue;
+    considerFirstTimed(card.title, dueAt);
+    if (!inWindow(dueAt)) continue;
     items.push({
       itemKey: `card:${card.id}:${today}`,
       dueAt,
@@ -168,7 +214,9 @@ async function collectDueItems(
   for (const f of followUps) {
     if (f.follow_up_date !== today || !f.follow_up_time) continue;
     const dueAt = parseDueAt(f.follow_up_date, f.follow_up_time);
-    if (!dueAt || !inWindow(dueAt)) continue;
+    if (!dueAt) continue;
+    considerFirstTimed(`Follow up · ${f.name}`, dueAt);
+    if (!inWindow(dueAt)) continue;
     items.push({
       itemKey: `followup:${f.id}:${today}`,
       dueAt,
@@ -182,7 +230,17 @@ async function collectDueItems(
     });
   }
 
-  return { items, badgeCount: cardRows.size + followUps.length };
+  const cardsDueToday = Array.from(cardRows.values()).filter(c => c.due_date === today).length;
+  return {
+    items,
+    badgeCount: cardRows.size + followUps.length,
+    summary: {
+      cardsDueToday,
+      cardsOverdue: cardRows.size - cardsDueToday,
+      followUps: followUps.length,
+      firstTimed,
+    },
+  };
 }
 
 export type ReminderRunResult = {
@@ -231,10 +289,17 @@ export async function runUserTimedReminders(): Promise<ReminderRunResult> {
     .in('id', userIds);
   const users = (usersRaw || []) as { id: string; name: string }[];
 
+  const morningAt = now.set({ hour: MORNING_DIGEST_HOUR, minute: 0, second: 0, millisecond: 0 });
+  const inMorningWindow = now >= morningAt && now <= morningAt.plus({ minutes: MORNING_DIGEST_GRACE_MINUTES });
+
   for (const user of users) {
     result.usersChecked += 1;
     try {
-      const { items, badgeCount } = await collectDueItems(supabase, user, now, today);
+      const { items, badgeCount, summary } = await collectDueItems(supabase, user, now, today);
+      if (inMorningWindow && badgeCount > 0) {
+        // Duplicate sends are prevented by the delivery-log claim below
+        items.unshift(buildMorningDigest(badgeCount, summary, morningAt, today));
+      }
       for (const item of items) {
         item.payload.badgeCount = badgeCount;
         // Claim the delivery first — the unique (user_id, item_key) constraint
