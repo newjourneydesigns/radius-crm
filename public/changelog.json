@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-11",
+    "version": "2.11.0",
+    "date_display": "June 11, 2026",
+    "date_iso": "2026-06-11",
+    "id": "today-push-reminders",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Today",
+    "description": "Reminders now reach your phone even when the app is closed. Turning on the bell on the Today timeline registers this device for push notifications — about 10 minutes before each card or follow-up with a time, a notification arrives, and tapping it opens your Today page. Works on any device where you've installed RADIUS; each device you enable gets its own reminders.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-11",
     "version": "2.10.0",
     "date_display": "June 11, 2026",
     "date_iso": "2026-06-11",

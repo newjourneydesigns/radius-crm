@@ -150,7 +150,7 @@ self.addEventListener('push', (event) => {
     body: data.body || 'You have a new update.',
     tag: data.tag || 'radius-circle-summary',
     data: { url },
-    icon: '/circle-summary-icon-192.png',
+    icon: data.icon || '/circle-summary-icon-192.png',
     badge: '/circle-summary-icon-192-maskable.png',
     renotify: true,
   };

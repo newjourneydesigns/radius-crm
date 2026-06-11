@@ -723,6 +723,10 @@ export default function DayTimeline({
   boards,
   onScheduleDrop,
   onQuickAdd,
+  pushSupported = false,
+  pushSubscribed = false,
+  onEnablePush,
+  onDisablePush,
 }: {
   events: TimelineEvent[];
   subscriptions: CalendarSubscription[];
@@ -742,6 +746,10 @@ export default function DayTimeline({
   boards: { id: string; title: string }[];
   onScheduleDrop: (payload: ScheduleDragPayload, minutes: number) => void;
   onQuickAdd: (title: string, boardId: string, minutes: number) => Promise<boolean>;
+  pushSupported?: boolean;
+  pushSubscribed?: boolean;
+  onEnablePush?: () => Promise<boolean>;
+  onDisablePush?: () => Promise<void>;
 }) {
   const [filters, setFilters] = useState<Record<string, boolean>>({});
   const [showCalendars, setShowCalendars] = useState(false);
@@ -782,6 +790,7 @@ export default function DayTimeline({
     if (remindersOn) {
       setRemindersOn(false);
       try { localStorage.setItem(REMINDERS_KEY, 'false'); } catch {}
+      if (pushSubscribed && onDisablePush) await onDisablePush();
       return;
     }
     let permission = Notification.permission;
@@ -789,6 +798,8 @@ export default function DayTimeline({
     if (permission === 'granted') {
       setRemindersOn(true);
       try { localStorage.setItem(REMINDERS_KEY, 'true'); } catch {}
+      // With push registered, reminders arrive even when the app is closed
+      if (pushSupported && onEnablePush) await onEnablePush();
     }
   };
 
@@ -811,7 +822,9 @@ export default function DayTimeline({
       .sort((a, b) => a.startMin - b.startMin)[0] || null;
   }, [timed, nowMin, isToday]);
 
-  useEventReminders(timed, remindersOn, isToday);
+  // In-app timers are the fallback; once this device has a push subscription,
+  // the server cron owns reminders (and works with the app closed).
+  useEventReminders(timed, remindersOn && !pushSubscribed, isToday);
 
   // Pack overlapping events into columns
   const packed = useMemo(() => packColumns(
@@ -889,7 +902,11 @@ export default function DayTimeline({
             <HeaderBtn
               onClick={toggleReminders}
               active={remindersOn}
-              title={remindersOn ? 'Reminders on — 10 min before each timed item' : 'Turn on reminders (10 min before timed items)'}
+              title={remindersOn
+                ? (pushSubscribed
+                  ? 'Reminders on — pushed to this device 10 min before timed items, even when the app is closed'
+                  : 'Reminders on — 10 min before each timed item while the app is open')
+                : 'Turn on reminders (10 min before timed items)'}
             >
               {remindersOn ? <Bell className="h-3.5 w-3.5" /> : <BellOff className="h-3.5 w-3.5" />}
             </HeaderBtn>

@@ -27,6 +27,7 @@ import { useRandomLoadingMessage } from '../../hooks/useRandomLoadingMessage';
 import { useTodayData } from '../../hooks/useTodayData';
 import { useTodayCalendars } from '../../hooks/useTodayCalendars';
 import type { CalendarEventItem } from '../../hooks/useTodayCalendars';
+import { usePushReminders } from '../../hooks/usePushReminders';
 import DayTimeline, {
   setScheduleDragPayload,
   type ScheduleDragPayload,
@@ -1246,6 +1247,7 @@ export default function TodayPage() {
   } = useTodayData();
   const bigThree = useBigThree();
   const calendars = useTodayCalendars();
+  const pushReminders = usePushReminders();
   const { isOpen, toggle } = useVisibility();
 
   const [isDesktop, setIsDesktop] = useState(false);
@@ -1614,6 +1616,10 @@ export default function TodayPage() {
       boards={bigThree.boards}
       onScheduleDrop={handleScheduleDrop}
       onQuickAdd={handleQuickAdd}
+      pushSupported={pushReminders.isSupported}
+      pushSubscribed={pushReminders.isSubscribed}
+      onEnablePush={pushReminders.enable}
+      onDisablePush={pushReminders.disable}
     />
   );
 
