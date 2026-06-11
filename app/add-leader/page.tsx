@@ -69,6 +69,7 @@ export default function AddLeaderPage() {
     circleType: '',
     ccbProfileLink: '',
     leaderCcbProfileLink: '',
+    ccbIndividualId: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -132,7 +133,11 @@ export default function AddLeaderPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+      ...(name === 'leaderCcbProfileLink' ? { ccbIndividualId: '' } : {}),
+    }));
   };
 
   const resetForm = () => {
@@ -153,6 +158,7 @@ export default function AddLeaderPage() {
       circleType: '',
       ccbProfileLink: '',
       leaderCcbProfileLink: '',
+      ccbIndividualId: '',
     });
   };
 
@@ -190,7 +196,8 @@ export default function AddLeaderPage() {
           circle_type: !isHostTeam ? (formData.circleType || null) : null,
           ccb_profile_link: !isHostTeam ? (formData.ccbProfileLink || null) : null,
           ccb_group_id: !isHostTeam ? ccbGroupId : null,
-          leader_ccb_profile_link: !isHostTeam ? (formData.leaderCcbProfileLink || null) : null,
+          leader_ccb_profile_link: formData.leaderCcbProfileLink || null,
+          ccb_individual_id: formData.ccbIndividualId || null,
           // Host team-specific fields
           team_name: isHostTeam ? (formData.teamName || null) : null,
           director: isHostTeam ? (formData.hostTeamDirector || null) : null,
@@ -205,8 +212,8 @@ export default function AddLeaderPage() {
       setSuccess(true);
       resetForm();
       setTimeout(() => { router.push('/boards'); }, 2000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to add leader. Please try again.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to add leader. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -288,6 +295,7 @@ export default function AddLeaderPage() {
                       phone: person.mobilePhone || person.phone || prev.phone,
                       email: person.email || prev.email,
                       leaderCcbProfileLink: person.profileLink || prev.leaderCcbProfileLink,
+                      ccbIndividualId: person.id || prev.ccbIndividualId,
                     }));
                   }}
                 />

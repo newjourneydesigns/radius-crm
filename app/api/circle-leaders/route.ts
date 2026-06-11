@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../../../lib/supabase';
 import { verifyAdminAccessDemo } from '../../../lib/auth-middleware';
 import { extractCcbGroupId } from '../../../lib/ccbGroupId';
+import { createCCBClient } from '../../../lib/ccb/ccb-client';
+import { getCCBRequestContext } from '../../../lib/ccb/ccb-api-gateway';
 
 const VALID_STATUSES = ['invited', 'pipeline', 'on-boarding', 'active', 'paused', 'off-boarding'] as const;
 
@@ -10,6 +12,12 @@ function normalizeString(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function extractCcbIndividualId(profileLink: string | null): string | null {
+  if (!profileLink) return null;
+  const match = profileLink.match(/\/individuals\/(\d+)/);
+  return match ? match[1] : null;
 }
 
 function getServiceClient() {
@@ -49,7 +57,7 @@ export async function POST(request: NextRequest) {
     const isHostTeam = circleLeader.leader_type === 'host_team';
 
     // Clean up the data
-    const cleanData: Record<string, any> = {
+    const cleanData: Record<string, unknown> = {
       leader_type: isHostTeam ? 'host_team' : 'circle',
       name,
       // Set default status if none provided
@@ -65,6 +73,27 @@ export async function POST(request: NextRequest) {
 
     const campus = normalizeString(circleLeader.campus);
     if (campus) cleanData.campus = campus;
+
+    const leaderCcbProfileLink = normalizeString(circleLeader.leader_ccb_profile_link);
+    if (leaderCcbProfileLink) cleanData.leader_ccb_profile_link = leaderCcbProfileLink;
+
+    const ccbIndividualId =
+      normalizeString(circleLeader.ccb_individual_id) ||
+      extractCcbIndividualId(leaderCcbProfileLink);
+    if (ccbIndividualId && /^\d+$/.test(ccbIndividualId)) {
+      try {
+        const ccb = createCCBClient(await getCCBRequestContext(request, {
+          module: 'Add Leader',
+          action: 'Fetch Person Birthday',
+          direction: 'pull',
+        }));
+        const profile = await ccb.getIndividualProfile(ccbIndividualId);
+        const birthday = normalizeString(profile?.birthday);
+        if (birthday) cleanData.birthday = birthday;
+      } catch (error) {
+        console.warn('CCB birthday enrichment failed while adding leader:', error);
+      }
+    }
 
     const statusValue = normalizeString(circleLeader.status);
     if (statusValue) {
@@ -107,8 +136,6 @@ export async function POST(request: NextRequest) {
           : extractCcbGroupId(ccbProfileLink);
       if (ccbGroupId) cleanData.ccb_group_id = ccbGroupId;
 
-      const leaderCcbProfileLink = normalizeString(circleLeader.leader_ccb_profile_link);
-      if (leaderCcbProfileLink) cleanData.leader_ccb_profile_link = leaderCcbProfileLink;
     } else {
       const teamName = normalizeString(circleLeader.team_name);
       if (teamName) cleanData.team_name = teamName;
@@ -174,7 +201,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
     return NextResponse.json({ circleLeaders: data }, { status: 200 });
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
