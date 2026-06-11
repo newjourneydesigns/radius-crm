@@ -22,10 +22,10 @@ export interface TodayCoreData {
 }
 
 type UserProfile = { id: string; name: string; email: string };
-type LeaderSummary = { name?: string | null; campus?: string | null };
+type LeaderSummary = { name?: string | null; campus?: string | null; time?: string | null };
 type VisitRow = { id: string; visit_date: string; leader_id: number; previsit_note?: string | null; circle_leaders?: LeaderSummary | LeaderSummary[] | null };
 type EncouragementRow = { id: number; circle_leader_id: number; encourage_method: string; message_date: string; note?: string | null; circle_leaders?: LeaderSummary | LeaderSummary[] | null };
-type FollowUpRow = { id: number; name: string; campus?: string | null; follow_up_date?: string | null };
+type FollowUpRow = { id: number; name: string; campus?: string | null; follow_up_date?: string | null; follow_up_time?: string | null };
 type BirthdayLeaderRow = { id: number; name: string; campus?: string | null; birthday?: string | null; phone?: string | null };
 type NoteRow = { id: number; circle_leader_id: number; content: string; created_at: string; circle_leaders?: LeaderSummary | LeaderSummary[] | null };
 type LeaderPrayerRow = { id: number; content: string; pray_date: string; circle_leader_id: number; circle_leaders?: LeaderSummary | LeaderSummary[] | null };
@@ -119,13 +119,13 @@ export async function GET(request: NextRequest) {
       { data: generalPrayersRaw },
     ] = await Promise.all([
       supabase.from('circle_visits')
-        .select('id, visit_date, leader_id, previsit_note, circle_leaders!inner(name, campus)')
+        .select('id, visit_date, leader_id, previsit_note, circle_leaders!inner(name, campus, time)')
         .eq('scheduled_by', user.id).eq('status', 'scheduled')
         .gte('visit_date', today).lte('visit_date', weekEnd)
         .order('visit_date', { ascending: true }),
 
       supabase.from('circle_visits')
-        .select('id, visit_date, leader_id, previsit_note, circle_leaders!inner(name, campus)')
+        .select('id, visit_date, leader_id, previsit_note, circle_leaders!inner(name, campus, time)')
         .eq('scheduled_by', user.id).eq('status', 'scheduled')
         .gte('visit_date', afterWeek).lte('visit_date', monthEnd)
         .order('visit_date', { ascending: true }).limit(10),
@@ -136,7 +136,7 @@ export async function GET(request: NextRequest) {
         .lte('message_date', today).order('message_date', { ascending: true }),
 
       supabase.from('circle_leaders')
-        .select('id, name, campus, follow_up_date')
+        .select('id, name, campus, follow_up_date, follow_up_time')
         .eq('acpd', user.name)
         .eq('follow_up_required', true)
         .or(`follow_up_date.lte.${today},follow_up_date.is.null`)
@@ -188,6 +188,7 @@ export async function GET(request: NextRequest) {
         leader_name: leader?.name ?? 'Unknown',
         leader_campus: leader?.campus ?? undefined,
         previsit_note: v.previsit_note ?? undefined,
+        circle_time: leader?.time ?? undefined,
       };
     };
     const toEnc = (e: EncouragementRow): EncouragementItem => {
@@ -200,7 +201,9 @@ export async function GET(request: NextRequest) {
       };
     };
     const toFU = (f: FollowUpRow): FollowUpItem => ({
-      id: f.id, name: f.name, campus: f.campus ?? undefined, follow_up_date: f.follow_up_date ?? undefined,
+      id: f.id, name: f.name, campus: f.campus ?? undefined,
+      follow_up_date: f.follow_up_date ?? undefined,
+      follow_up_time: f.follow_up_time ?? undefined,
     });
 
     const todayDate  = new Date(today + 'T00:00:00');

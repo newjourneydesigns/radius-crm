@@ -4,6 +4,7 @@ export interface CardDigestItem {
   id: string;
   title: string;
   due_date: string | null;
+  due_time?: string | null;
   board_name: string;
   board_id: string;
   column_name: string;
@@ -31,6 +32,7 @@ export interface VisitItem {
   leader_name: string;
   leader_campus?: string;
   previsit_note?: string | null;
+  circle_time?: string | null;
 }
 
 export interface EncouragementItem {
@@ -48,6 +50,7 @@ export interface FollowUpItem {
   name: string;
   campus?: string;
   follow_up_date?: string | null;
+  follow_up_time?: string | null;
 }
 
 export interface NoteItem {
