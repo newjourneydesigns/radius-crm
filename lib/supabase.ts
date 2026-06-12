@@ -435,6 +435,16 @@ export interface ProjectBoard {
   updated_at: string;
 }
 
+export interface BoardMember {
+  id: string;
+  board_id: string;
+  user_id: string;
+  added_by?: string | null;
+  created_at: string;
+  // Enriched client-side from public.users
+  users?: { name: string; email: string } | null;
+}
+
 export interface BoardColumn {
   id: string;
   board_id: string;

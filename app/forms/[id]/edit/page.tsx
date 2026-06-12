@@ -5,7 +5,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { DateTime } from 'luxon';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { supabase } from '../../../../lib/supabase';
-import type { BoardForm, FormField, FormFieldType, BoardColumn, FormSubmission } from '../../../../lib/supabase';
+import type { BoardForm, FormField, FormFieldType, BoardColumn, FormSubmission, ProjectBoard } from '../../../../lib/supabase';
 import {
   ArrowLeft, Plus, Trash2, GripVertical, ChevronDown,
   Eye, Link2, Check, FileText, Download, Search,
@@ -41,6 +41,13 @@ const labelCls = 'mb-1.5 block text-xs font-medium uppercase tracking-wide text-
 
 let nextFieldNum = 100;
 
+function parseOptionLines(value: string) {
+  return value
+    .split('\n')
+    .map((option) => option.trim())
+    .filter(Boolean);
+}
+
 function FormEditorInner() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -49,15 +56,18 @@ function FormEditorInner() {
   const formId = params.id as string;
 
   const [form, setForm] = useState<BoardForm | null>(null);
+  const [boards, setBoards] = useState<ProjectBoard[]>([]);
   const [columns, setColumns] = useState<BoardColumn[]>([]);
   const [boardMembers, setBoardMembers] = useState<Member[]>([]);
   const [fields, setFields] = useState<FormField[]>([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [boardId, setBoardId] = useState('');
   const [columnId, setColumnId] = useState('');
   const [isActive, setIsActive] = useState(true);
 
   const [loading, setLoading] = useState(true);
+  const [loadingColumns, setLoadingColumns] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +75,7 @@ function FormEditorInner() {
 
   const [expandedField, setExpandedField] = useState<string | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [optionDrafts, setOptionDrafts] = useState<Record<string, string>>({});
 
   const [activeTab, setActiveTab] = useState<'edit' | 'submissions'>(
     searchParams.get('tab') === 'submissions' ? 'submissions' : 'edit'
@@ -73,6 +84,28 @@ function FormEditorInner() {
   const [loadingSubs, setLoadingSubs] = useState(false);
   const [expandedSub, setExpandedSub] = useState<string | null>(null);
   const [subsSearch, setSubsSearch] = useState('');
+
+  const loadColumns = useCallback(async (targetBoardId: string, preferredColumnId?: string) => {
+    setLoadingColumns(true);
+    try {
+      const { data: cols, error: err } = await supabase
+        .from('board_columns')
+        .select('*')
+        .eq('board_id', targetBoardId)
+        .order('position');
+      if (err) throw err;
+
+      const nextColumns = cols || [];
+      setColumns(nextColumns);
+      setColumnId(
+        preferredColumnId && nextColumns.some((col) => col.id === preferredColumnId)
+          ? preferredColumnId
+          : nextColumns[0]?.id || ''
+      );
+    } finally {
+      setLoadingColumns(false);
+    }
+  }, []);
 
   const fetchForm = useCallback(async () => {
     if (!formId) return;
@@ -84,16 +117,26 @@ function FormEditorInner() {
       setForm(data);
       setTitle(data.title);
       setDescription(data.description || '');
+      setBoardId(data.board_id);
       setColumnId(data.column_id);
       setIsActive(data.is_active);
       setFields(data.fields || []);
+      setOptionDrafts(
+        Object.fromEntries(
+          ((data.fields || []) as FormField[])
+            .filter((field) => field.type === 'select' && field.maps_to !== 'priority' && field.maps_to !== 'assignee')
+            .map((field) => [field.id, (field.options || []).join('\n')])
+        )
+      );
 
-      const { data: cols } = await supabase
-        .from('board_columns')
+      const { data: boardsData } = await supabase
+        .from('project_boards')
         .select('*')
-        .eq('board_id', data.board_id)
-        .order('position');
-      if (cols) setColumns(cols);
+        .eq('is_archived', false)
+        .order('title');
+      if (boardsData) setBoards(boardsData);
+
+      await loadColumns(data.board_id, data.column_id);
 
       // Radius boards are team-shared (no team_id) — every user is a possible
       // assignee, same source the board assignee picker uses (public.users).
@@ -104,7 +147,7 @@ function FormEditorInner() {
     } finally {
       setLoading(false);
     }
-  }, [formId]);
+  }, [formId, loadColumns]);
 
   useEffect(() => {
     if (user) fetchForm();
@@ -134,20 +177,32 @@ function FormEditorInner() {
 
   const handleSave = async () => {
     if (!form) return;
+    if (!boardId || !columnId) {
+      setError('Choose a target board and column before saving.');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
+      const sanitizedFields = fields.map((field) =>
+        field.type === 'select' && field.maps_to !== 'priority' && field.maps_to !== 'assignee'
+          ? { ...field, options: parseOptionLines(optionDrafts[field.id] ?? (field.options || []).join('\n')) }
+          : field
+      );
       const { error: err } = await supabase
         .from('board_forms')
         .update({
           title: title.trim(),
           description: description.trim() || null,
+          board_id: boardId,
           column_id: columnId,
           is_active: isActive,
-          fields,
+          fields: sanitizedFields,
         })
         .eq('id', form.id);
       if (err) throw err;
+      setFields(sanitizedFields);
+      setForm((prev) => (prev ? { ...prev, title: title.trim(), description: description.trim() || undefined, board_id: boardId, column_id: columnId, is_active: isActive, fields: sanitizedFields } : prev));
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
@@ -170,6 +225,11 @@ function FormEditorInner() {
 
   const removeField = (fieldId: string) => {
     setFields((prev) => prev.filter((f) => f.id !== fieldId));
+    setOptionDrafts((prev) => {
+      const next = { ...prev };
+      delete next[fieldId];
+      return next;
+    });
     if (expandedField === fieldId) setExpandedField(null);
   };
 
@@ -193,6 +253,18 @@ function FormEditorInner() {
       updateField(field.id, { maps_to: mapping, type: 'select', assignee_options: boardMembers });
     } else {
       updateField(field.id, { maps_to: mapping });
+    }
+  };
+
+  const handleBoardChange = async (nextBoardId: string) => {
+    setBoardId(nextBoardId);
+    setError(null);
+    try {
+      await loadColumns(nextBoardId);
+    } catch (err) {
+      setColumns([]);
+      setColumnId('');
+      setError(err instanceof Error ? err.message : 'Could not load columns for that board');
     }
   };
 
@@ -278,7 +350,7 @@ function FormEditorInner() {
             )}
             <button
               onClick={handleSave}
-              disabled={saving || !title.trim()}
+              disabled={saving || !title.trim() || !boardId || !columnId}
               className="flex items-center gap-1.5 rounded-lg bg-btn-primary px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saving ? 'Saving…' : saved ? (<><Check className="h-4 w-4" strokeWidth={2} /> Saved</>) : 'Save'}
@@ -343,32 +415,50 @@ function FormEditorInner() {
               </div>
 
               <div className="mb-4">
+                <label className={labelCls}>Target Board</label>
+                <select className={inputCls} value={boardId} onChange={(e) => handleBoardChange(e.target.value)}>
+                  {boards.map((board) => (
+                    <option key={board.id} value={board.id}>
+                      {board.title}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1.5 text-xs text-slate-500">Choose which board this form creates cards on.</p>
+              </div>
+
+              <div className="mb-4">
                 <label className={labelCls}>Target Column</label>
-                <select className={inputCls} value={columnId} onChange={(e) => setColumnId(e.target.value)}>
+                <select
+                  className={inputCls}
+                  value={columnId}
+                  onChange={(e) => setColumnId(e.target.value)}
+                  disabled={loadingColumns || columns.length === 0}
+                >
                   {columns.map((col) => (
                     <option key={col.id} value={col.id}>
                       {col.title}
                     </option>
                   ))}
                 </select>
-                <p className="mt-1.5 text-xs text-slate-500">New cards from submissions land in this column.</p>
+                <p className={`mt-1.5 text-xs ${columns.length === 0 ? 'text-amber-400' : 'text-slate-500'}`}>
+                  {loadingColumns
+                    ? 'Loading columns…'
+                    : columns.length === 0
+                      ? 'Selected board has no columns. Add a column before saving.'
+                      : 'New cards from submissions land in this column.'}
+                </p>
               </div>
 
               <div className="mb-4">
                 <label className={labelCls}>Status</label>
-                <div className="flex overflow-hidden rounded-lg border border-slate-600">
-                  {([true, false] as const).map((val) => (
-                    <button
-                      key={String(val)}
-                      onClick={() => setIsActive(val)}
-                      className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-                        isActive === val ? 'bg-brand-mid text-white' : 'bg-slate-700 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      {val ? 'Active' : 'Inactive'}
-                    </button>
-                  ))}
-                </div>
+                <BinaryChoice
+                  checked={isActive}
+                  onChange={setIsActive}
+                  checkedText="Active"
+                  uncheckedText="Inactive"
+                  checkedDescription="Public form is open and accepting submissions."
+                  uncheckedDescription="Public form is closed to new submissions."
+                />
               </div>
 
               {form && (
@@ -507,10 +597,12 @@ function FormEditorInner() {
                                 <textarea
                                   className={`${inputCls} resize-y`}
                                   rows={4}
-                                  value={(field.options || []).join('\n')}
-                                  onChange={(e) =>
-                                    updateField(field.id, { options: e.target.value.split('\n').filter(Boolean) })
-                                  }
+                                  value={optionDrafts[field.id] ?? (field.options || []).join('\n')}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    setOptionDrafts((prev) => ({ ...prev, [field.id]: value }));
+                                    updateField(field.id, { options: parseOptionLines(value) });
+                                  }}
                                   placeholder={'Option 1\nOption 2\nOption 3'}
                                 />
                               </div>
@@ -587,29 +679,21 @@ function AssigneeSubEditor({
     <div className="space-y-3 rounded-lg border border-slate-700 bg-slate-900/40 p-3">
       <div>
         <label className={labelCls}>Visibility on public form</label>
-        <div className="flex overflow-hidden rounded-lg border border-slate-600">
-          <button
-            onClick={() => updateField(field.id, { assignee_visible: true, assignee_default_id: undefined })}
-            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-              !hidden ? 'bg-brand-mid text-white' : 'bg-slate-700 text-slate-400 hover:text-white'
-            }`}
-          >
-            Visible
-          </button>
-          <button
-            onClick={() => updateField(field.id, { assignee_visible: false, assignee_options: [] })}
-            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-              hidden ? 'bg-brand-mid text-white' : 'bg-slate-700 text-slate-400 hover:text-white'
-            }`}
-          >
-            Hidden
-          </button>
-        </div>
-        <p className="mt-1.5 text-xs text-slate-500">
-          {hidden
-            ? 'Field is hidden from submitters. A default assignee is applied to every submission.'
-            : 'Submitters choose from the checked members below.'}
-        </p>
+        <BinaryChoice
+          checked={!hidden}
+          onChange={(checked) =>
+            updateField(
+              field.id,
+              checked
+                ? { assignee_visible: true, assignee_default_id: undefined }
+                : { assignee_visible: false, assignee_options: [] }
+            )
+          }
+          checkedText="Visible"
+          uncheckedText="Hidden"
+          checkedDescription="Submitters choose from the checked members below."
+          uncheckedDescription="Submitters do not see this field. The default assignee is applied automatically."
+        />
       </div>
 
       {hidden ? (
@@ -683,6 +767,62 @@ function AssigneeSubEditor({
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+function BinaryChoice({
+  checked,
+  onChange,
+  checkedText,
+  uncheckedText,
+  checkedDescription,
+  uncheckedDescription,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  checkedText: string;
+  uncheckedText: string;
+  checkedDescription: string;
+  uncheckedDescription: string;
+}) {
+  const options = [
+    { value: true, label: checkedText, description: checkedDescription },
+    { value: false, label: uncheckedText, description: uncheckedDescription },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      {options.map((option) => {
+        const selected = checked === option.value;
+        return (
+          <button
+            key={option.label}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => onChange(option.value)}
+            className={`min-h-[76px] rounded-lg border px-3 py-2.5 text-left transition-colors ${
+              selected
+                ? 'border-green-400 bg-green-500/15 text-white shadow-[0_0_0_1px_rgba(74,222,128,0.28)]'
+                : 'border-slate-600 bg-slate-800 text-slate-300 hover:border-slate-500 hover:bg-slate-700'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <span
+                className={`flex h-5 w-5 items-center justify-center rounded-full border ${
+                  selected ? 'border-green-300 bg-green-400 text-slate-950' : 'border-slate-500'
+                }`}
+              >
+                {selected && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+              </span>
+              <span className="text-sm font-semibold">{option.label}</span>
+            </span>
+            <span className={`mt-1.5 block text-xs leading-snug ${selected ? 'text-green-100' : 'text-slate-400'}`}>
+              {option.description}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }

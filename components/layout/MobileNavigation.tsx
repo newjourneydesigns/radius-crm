@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { DateTime } from "luxon";
+import { Bug, Lightbulb } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useQuickActions, type QuickActionId, type QuickActionMeta } from "../../contexts/QuickActionsContext";
 import GlobalSearch from './GlobalSearch';
@@ -150,6 +151,14 @@ const UpdateLogIcon = () => (
   </svg>
 );
 
+const BugReportIcon = () => (
+  <Bug width="20" height="20" strokeWidth={1.6} />
+);
+
+const IdeaIcon = () => (
+  <Lightbulb width="20" height="20" strokeWidth={1.6} />
+);
+
 const LogoutIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
     <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
@@ -258,8 +267,9 @@ export default function MobileNavigation() {
   }, []);
 
   const handleInstallClick = () => {
-    if (typeof window !== 'undefined' && (window as any).installPWA) {
-      (window as any).installPWA();
+    if (typeof window !== 'undefined') {
+      const pwaWindow = window as Window & { installPWA?: () => void };
+      pwaWindow.installPWA?.();
     }
   };
 
@@ -335,6 +345,11 @@ export default function MobileNavigation() {
     { href: '/settings',   label: 'Settings',       Icon: CogIcon },
     { href: '/help',       label: 'Help & Support', Icon: QuestionIcon },
     { href: '/update-log', label: 'Update Log',     Icon: UpdateLogIcon },
+  ];
+
+  const feedbackItems = [
+    { href: '/f/i-have-an-idea-yyjiwi', label: 'Share Your Idea', Icon: IdeaIcon },
+    { href: 'https://vccradius.netlify.app/f/circles-toolkit-bug-report-copy-7o4vfp', label: 'Report A Bug', Icon: BugReportIcon },
   ];
 
   return (
@@ -494,6 +509,21 @@ export default function MobileNavigation() {
                       </span>
                     )}
                   </span>
+                  <ChevronRightIcon />
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* Feedback */}
+          <div className="mobile-sheet-section">
+            <p className="mobile-sheet-section-title">Feedback</p>
+            <div className="mobile-sheet-group">
+              {feedbackItems.map(({ href, label, Icon }, i) => (
+                <Link key={href} href={href}
+                  className={`mobile-sheet-row ${isActive(href) ? 'active' : ''} ${i < feedbackItems.length - 1 ? 'bordered' : ''}`}>
+                  <span className="mobile-sheet-row-icon"><Icon /></span>
+                  <span className="mobile-sheet-row-label">{label}</span>
                   <ChevronRightIcon />
                 </Link>
               ))}

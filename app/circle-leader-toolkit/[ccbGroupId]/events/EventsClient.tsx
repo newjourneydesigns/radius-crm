@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { renderMessageHtml } from '../../../../lib/renderMessageHtml';
 import { useMarkCircleAppEntered } from '../../../../lib/circle-leader-toolkit/appEntered';
-import { supabase } from '../../../../lib/supabase';
 import type { CircleEventRow, CircleMessage } from '../../../../lib/circle-leader-toolkit/events-data';
 
 type EventRow = CircleEventRow;
@@ -31,7 +30,6 @@ function parseDateStamp(iso: string) {
  */
 export default function EventsClient({
   groupId,
-  leaderId,
   initialEvents,
   initialMessages,
   initialError,
@@ -371,7 +369,7 @@ export default function EventsClient({
           <p className="text-xs text-neutral-400">
             Found something broken?{' '}
             <a
-              href="https://vccradius.netlify.app/f/circle-leader-dashboard-bug-report-2ixp15"
+              href="https://vccradius.netlify.app/f/circles-toolkit-bug-report-copy-iajgcu"
               target="_blank"
               rel="noopener noreferrer"
               className="cs-footer-link font-semibold"

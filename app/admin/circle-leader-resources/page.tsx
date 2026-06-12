@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import RichTextEditor from '../../../components/notes/RichTextEditor';
+import ToolkitContentPreview from '../../../components/circle-leader-toolkit/ToolkitContentPreview';
+import { csOpenSans } from '../../../lib/circle-leader-toolkit/csFont';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -173,7 +175,7 @@ export default function CircleLeaderResourcesAdminPage() {
   }, [dirty]);
 
   return (
-    <div className="min-h-screen bg-[#0f1117] p-4 sm:p-6 lg:p-8">
+    <div className={`min-h-screen bg-[#0f1117] p-4 sm:p-6 lg:p-8 ${csOpenSans.variable}`}>
       <div className="max-w-4xl mx-auto">
         <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
           <div>
@@ -210,8 +212,11 @@ export default function CircleLeaderResourcesAdminPage() {
                 placeholder="Add helpful resources, links, and instructions for your Circle Leaders…"
                 minHeight="320px"
                 allowButton
+                toolkitSurface
               />
             </div>
+
+            <ToolkitContentPreview variant="resources" bodyHtml={bodyHtml} className="mt-5" />
 
             <div className="flex items-center gap-3 mt-4">
               <button

@@ -184,8 +184,10 @@ export function CardDetailModal({
   const [targetSuggestionGroupId, setTargetSuggestionGroupId] = useState<string>('__new__');
   const [convertingItemId, setConvertingItemId] = useState<string | null>(null);
   const [convertColumnId, setConvertColumnId] = useState(card.column_id);
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
   const titleRef = useRef<HTMLInputElement>(null);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const copyStatusTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialRef = useRef(true);
   const pendingChangesRef = useRef(false);
   const overlayMouseDownRef = useRef(false);
@@ -197,6 +199,12 @@ export function CardDetailModal({
   useEffect(() => {
     supabase.from('circle_leaders').select('id, name, ccb_group_id').order('name')
       .then(({ data }) => { if (data) setAllLeaders(data as { id: number; name: string; ccb_group_id?: string | null }[]); });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (copyStatusTimerRef.current) clearTimeout(copyStatusTimerRef.current);
+    };
   }, []);
 
   // Auto-save: debounce 600ms after any field change
@@ -425,6 +433,120 @@ export function CardDetailModal({
       .replace(/<\/h[1-6]>/gi, '\n').replace(/<li[^>]*>/gi, '• ').replace(/<[^>]+>/g, '')
       .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"')
       .replace(/\n{3,}/g, '\n\n').trim();
+
+  const formatCopyDate = (date: string | null | undefined) => {
+    if (!date) return '';
+    const parsed = DateTime.fromISO(date);
+    return parsed.isValid ? parsed.toLocaleString(DateTime.DATE_MED) : date;
+  };
+
+  const buildAiCopyText = () => {
+    const selectedLabels = editLabels
+      .map(labelId => board.labels.find(label => label.id === labelId)?.name)
+      .filter((label): label is string => Boolean(label));
+    const assignees = (card.assignments || [])
+      .map(assignment => assignment.users?.name || assignment.users?.email)
+      .filter((name): name is string => Boolean(name));
+    const leader = linkedLeaderId ? allLeaders.find(item => item.id === linkedLeaderId) : null;
+    const cardUrl = typeof window !== 'undefined'
+      ? `${window.location.origin}/boards/${board.id}?card=${card.id}`
+      : '';
+    const dueParts = [
+      formatCopyDate(editDueDate),
+      editDueDate && editDueTime ? formatTimeAmPm(editDueTime) : '',
+    ].filter(Boolean);
+    const repeatLabel = editRepeatRule === 'none'
+      ? ''
+      : editRepeatRule === 'daily'
+        ? (editRepeatDays.length > 0
+          ? `Repeats on ${editRepeatDays.map(day => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][day]).join(', ')}`
+          : 'Repeats daily')
+        : buildRepeatLabel(editRepeatRule, editRepeatInterval);
+    const metaLines = [
+      `Board: ${board.title}`,
+      `List: ${column?.title || 'Unknown'}`,
+      `Status: ${card.is_complete ? 'Complete' : 'Open'}`,
+      `Priority: ${PRIORITY_CONFIG[editPriority]?.label || editPriority}`,
+      `Focused: ${isFocused ? 'Yes' : 'No'}`,
+      editStartDate ? `Start date: ${formatCopyDate(editStartDate)}` : null,
+      dueParts.length ? `Due: ${dueParts.join(' at ')}` : null,
+      repeatLabel ? `Repeat: ${repeatLabel}` : null,
+      selectedLabels.length ? `Labels: ${selectedLabels.join(', ')}` : null,
+      assignees.length ? `Assignees: ${assignees.join(', ')}` : null,
+      linkedLeaderId ? `Circle Leader: ${leader?.name || `Leader #${linkedLeaderId}`}` : null,
+      cardUrl ? `Card link: ${cardUrl}` : null,
+    ].filter(Boolean);
+
+    const sections = [
+      `# ${editTitle.trim() || card.title}`,
+      metaLines.join('\n'),
+    ];
+
+    const description = htmlToPlainText(editDesc);
+    if (description) sections.push(`## Description\n${description}`);
+
+    if (checklists.length > 0) {
+      const checklistSections: string[] = [];
+      const renderChecklistLines = (items: NonNullable<typeof checklists>) => items.map(item => {
+        const details = [
+          item.due_date ? `Due: ${formatCopyDate(item.due_date)}` : '',
+          item.url ? `Link: ${item.url}` : '',
+        ].filter(Boolean);
+        return `- [${item.is_completed ? 'x' : ' '}] ${item.title}${details.length ? ` (${details.join('; ')})` : ''}`;
+      }).join('\n');
+
+      if (ungroupedItems.length > 0) {
+        checklistSections.push(`### Checklist\n${renderChecklistLines(ungroupedItems)}`);
+      }
+      checklistGroups.forEach(group => {
+        const groupItems = checklists.filter(item => item.group_id === group.id);
+        if (groupItems.length > 0) {
+          checklistSections.push(`### ${group.title || 'Checklist'}\n${renderChecklistLines(groupItems)}`);
+        }
+      });
+      sections.push(`## Checklists (${completedCount}/${checklists.length} complete)\n${checklistSections.join('\n\n')}`);
+    }
+
+    if ((card.comments || []).length > 0) {
+      const comments = (card.comments || []).map(comment => {
+        const author = comment.users?.name || 'Unknown';
+        const created = DateTime.fromISO(comment.created_at);
+        const dateLabel = created.isValid ? created.toFormat('LLL d, yyyy h:mm a') : comment.created_at;
+        return `- ${author} (${dateLabel}): ${comment.content.trim()}`;
+      }).join('\n');
+      sections.push(`## Comments\n${comments}`);
+    }
+
+    return sections.join('\n\n').trim();
+  };
+
+  const writeClipboardText = async (text: string) => {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.top = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    if (!copied) throw new Error('Clipboard copy failed');
+  };
+
+  const handleCopyCardForAi = async () => {
+    try {
+      await writeClipboardText(buildAiCopyText());
+      setCopyStatus('copied');
+    } catch {
+      setCopyStatus('error');
+    }
+    if (copyStatusTimerRef.current) clearTimeout(copyStatusTimerRef.current);
+    copyStatusTimerRef.current = setTimeout(() => setCopyStatus('idle'), 2200);
+  };
 
   const suggestChecklistItems = async () => {
     if (isSuggesting) return;
@@ -1565,6 +1687,15 @@ export function CardDetailModal({
 
             {/* Actions */}
             <div style={{ borderTop: '1px solid #2a2d3a', paddingTop: 16, marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button
+                className={`kb-btn ${copyStatus === 'copied' ? 'kb-btn-primary' : 'kb-btn-ghost'}`}
+                onClick={handleCopyCardForAi}
+                style={{ width: '100%', justifyContent: 'center' }}
+                title="Copy this card as formatted text for an AI chat"
+              >
+                {copyStatus === 'copied' ? <Check size={13} /> : <Copy size={13} />}
+                {copyStatus === 'copied' ? 'Copied for AI' : copyStatus === 'error' ? 'Copy Failed' : 'Copy content'}
+              </button>
               <button
                 className="kb-btn kb-btn-ghost"
                 onClick={async () => {

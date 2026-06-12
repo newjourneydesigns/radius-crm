@@ -1539,6 +1539,67 @@ a, button, input, select, textarea {
   height: 0;
 }
 
+.notebook-card-desc-editor {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.notebook-card-desc-editor > div:first-child > div:first-child {
+  background: #101219 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.notebook-card-desc-editor > div:first-child > div:first-child button {
+  color: #9ca3af !important;
+}
+
+.notebook-card-desc-editor > div:first-child > div:first-child button:hover {
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: #e5e7eb !important;
+}
+
+.notebook-card-desc-editor > div:first-child > div:not(:first-child):not(.rte-editor) {
+  background: #11131a !important;
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.notebook-card-desc-editor > div:first-child > div:not(:first-child):not(.rte-editor) label,
+.notebook-card-desc-editor > div:first-child > div:not(:first-child):not(.rte-editor) button {
+  color: #9ca3af !important;
+}
+
+.notebook-card-desc-editor > div:first-child > div:not(:first-child):not(.rte-editor) input {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #f3f4f6 !important;
+}
+
+.notebook-card-desc-editor .rte-editor {
+  background: transparent !important;
+  color: #d1d5db !important;
+}
+
+.notebook-card-desc-editor .rte-editor .ProseMirror {
+  color: #d1d5db !important;
+  line-height: 1.625;
+}
+
+.notebook-card-desc-editor .rte-editor .ProseMirror a {
+  color: #56c93f !important;
+  text-decoration: underline;
+}
+
+.notebook-card-desc-editor .rte-editor .ProseMirror h3 {
+  color: #f3f4f6 !important;
+}
+
+.notebook-card-desc-editor .rte-editor .ProseMirror ul,
+.notebook-card-desc-editor .rte-editor .ProseMirror ol {
+  color: #d1d5db !important;
+}
+
 /* ═══════════════════════════════════════════════════════════
    Rich Text Note Display — rendered HTML from note content
    ═══════════════════════════════════════════════════════════ */
@@ -1555,3 +1616,192 @@ a, button, input, select, textarea {
 .rte-display li { margin-bottom: 0.1em; display: list-item; }
 .rte-display a, .rte-display a.rte-link { color: #60a5fa !important; text-decoration: underline; }
 .rte-display a:hover, .rte-display a.rte-link:hover { color: #93c5fd !important; }
+
+/* ═══════════════════════════════════════════════════════════
+   Circle Leader Toolkit canvas — WYSIWYG editors + live previews
+   ───────────────────────────────────────────────────────────
+   `.cs-canvas` reproduces the light, leader-facing toolkit look on the dark
+   RADIUS admin pages so message/resource editors show what leaders actually
+   see. These rules are a self-contained mirror of the toolkit content styles in
+   app/circle-leader-toolkit/circle-leader-toolkit.css (source of truth — keep in
+   sync). We deliberately DO NOT reuse `.cs-root` here: its `html:has(.cs-root)` /
+   `body:has(.cs-root)` rules would repaint the whole dark admin page light.
+   ═══════════════════════════════════════════════════════════ */
+
+.cs-canvas {
+  --cs-green: #34B233;
+  --cs-green-dark: #2a9329;
+  --cs-green-darker: #1f7320;
+  --cs-ink: #3E3E3E;
+  --cs-ink-soft: #5a5a5a;
+  --cs-muted: #7A7A7A;
+  --cs-border: #e5e7eb;
+  --cs-bg: #f7f8f6;
+  --cs-bg-soft: #f0f1ef;
+
+  font-family: var(--font-cs-body), 'Open Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  color: var(--cs-ink);
+}
+
+.cs-canvas .cs-card {
+  background: #ffffff;
+  border: 1px solid var(--cs-border);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Resources / inbox body — rendered admin HTML */
+.cs-canvas .cs-resources {
+  color: var(--cs-ink);
+  font-size: 0.975rem;
+  line-height: 1.65;
+}
+.cs-canvas .cs-resources > *:first-child { margin-top: 0; }
+.cs-canvas .cs-resources > *:last-child { margin-bottom: 0; }
+.cs-canvas .cs-resources h1,
+.cs-canvas .cs-resources h2,
+.cs-canvas .cs-resources h3 {
+  color: var(--cs-ink);
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 1.5rem 0 0.5rem;
+}
+.cs-canvas .cs-resources h1 { font-size: 1.5rem; }
+.cs-canvas .cs-resources h2 { font-size: 1.25rem; }
+.cs-canvas .cs-resources h3 { font-size: 1.1rem; }
+.cs-canvas .cs-resources p { margin: 0.75rem 0; }
+.cs-canvas .cs-resources p:empty { min-height: 1em; }
+.cs-canvas .cs-resources ul,
+.cs-canvas .cs-resources ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+.cs-canvas .cs-resources ul { list-style: disc; }
+.cs-canvas .cs-resources ol { list-style: decimal; }
+.cs-canvas .cs-resources li { margin: 0.25rem 0; }
+.cs-canvas .cs-resources a,
+.cs-canvas .cs-resources a:visited {
+  color: var(--cs-green) !important;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--cs-green);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+.cs-canvas .cs-resources a:hover {
+  color: var(--cs-green-dark) !important;
+  text-decoration-color: var(--cs-green-dark);
+}
+.cs-canvas .cs-resources hr {
+  border: none;
+  border-top: 1px solid var(--cs-border);
+  margin: 1.5rem 0;
+}
+.cs-canvas .cs-resources img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+.cs-canvas .rte-dialog-input,
+.cs-canvas .rte-dialog-input:hover {
+  color-scheme: light !important;
+  background-color: #ffffff !important;
+  color: var(--cs-ink) !important;
+  border-color: #d1d5db !important;
+  -webkit-text-fill-color: var(--cs-ink) !important;
+}
+
+.cs-canvas .rte-dialog-input:focus {
+  background-color: #ffffff !important;
+  color: var(--cs-ink) !important;
+  border-color: var(--cs-green) !important;
+  box-shadow: 0 0 0 3px rgba(52, 178, 51, 0.16) !important;
+  -webkit-text-fill-color: var(--cs-ink) !important;
+}
+
+.cs-canvas .rte-dialog-input::placeholder {
+  color: #9ca3af !important;
+  -webkit-text-fill-color: #9ca3af !important;
+}
+
+/* Pill call-to-action button (BTN toolbar action / pasted cs-button) */
+.cs-canvas a.cs-button,
+.cs-canvas .cs-resources a.cs-button,
+.cs-canvas .cs-resources a.cs-button:visited {
+  display: inline-block;
+  background: var(--cs-green);
+  color: #ffffff !important;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: 9999px;
+  border: 1px solid var(--cs-green);
+  margin: 0.25rem 0.35rem 0.25rem 0;
+}
+.cs-canvas a.cs-button:hover,
+.cs-canvas .cs-resources a.cs-button:hover {
+  background: var(--cs-green-dark);
+  border-color: var(--cs-green-dark);
+  color: #ffffff !important;
+}
+
+/* YouTube embeds rendered by renderMessageHtml() */
+.cs-canvas .cs-youtube-embed { margin: 1rem 0; }
+.cs-canvas .cs-youtube-embed iframe {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 0.75rem;
+  background: #111827;
+}
+.cs-canvas .cs-youtube-embed a {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+
+/* Message Center (events page) body + CTA */
+.cs-canvas .cs-message-body { color: #374151; }
+.cs-canvas .cs-message-body a {
+  color: #047857 !important;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 400;
+}
+.cs-canvas .cs-message-body a:hover { color: #065f46 !important; }
+.cs-canvas .cs-message-body p { margin: 0 0 0.5rem; }
+.cs-canvas .cs-message-body p:last-child { margin-bottom: 0; }
+.cs-canvas .cs-message-body ul,
+.cs-canvas .cs-message-body ol { margin: 0.25rem 0 0.5rem; padding-left: 1.25rem; }
+.cs-canvas .cs-message-body ul { list-style: disc; }
+.cs-canvas .cs-message-body ol { list-style: decimal; }
+.cs-canvas .cs-message-body strong { font-weight: 600; }
+.cs-canvas .cs-message-body em { font-style: italic; }
+.cs-canvas .cs-message-body h3 { font-size: 0.95rem; font-weight: 600; margin: 0.5rem 0 0.25rem; }
+.cs-canvas .cs-message-cta,
+.cs-canvas .cs-message-cta:visited {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  background: var(--cs-green);
+  color: #ffffff !important;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+.cs-canvas .cs-message-cta:hover { background: var(--cs-green-dark); color: #ffffff !important; }
+
+/* WYSIWYG editable area: the ProseMirror content carries `cs-resources`, so the
+   rules above style it. Only the Tiptap placeholder needs a light-surface color. */
+.cs-canvas .rte-editor .ProseMirror p.is-editor-empty:first-child::before {
+  color: var(--cs-muted);
+}

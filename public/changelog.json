@@ -1,5 +1,41 @@
 [
   {
+    "date": "2026-06-12",
+    "version": "2.16.0",
+    "date_display": "June 12, 2026",
+    "date_iso": "2026-06-12",
+    "id": "leader-messages-scheduled-delivery",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Circle Leader Toolkit",
+    "description": "You can now schedule when a Leader Message lands in Circle Leaders' Toolkit inboxes. When composing, choose \"Schedule for later\" and pick a date and time — the message stays hidden until then, when it drops into inboxes and fires its push automatically. Scheduled messages show a \"scheduled\" badge with their delivery time, and you can edit them, change the time or recipients, or hit \"Send now\" to deliver early. All times are church (Central) time.",
+    "page": "/leader-messages"
+  },
+  {
+    "date": "2026-06-12",
+    "version": "2.15.0",
+    "date_display": "June 12, 2026",
+    "date_iso": "2026-06-12",
+    "id": "wysiwyg-toolkit-editors-preview",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Circle Leader Toolkit",
+    "description": "The Message Center, Leader Messages, and Circle Leader Resources editors are now true WYSIWYG. As you type, the editor itself matches the leader-facing look (white card, Open Sans, green links and buttons), and a new live \"Preview — what leaders see\" pane below renders the exact toolkit card, including YouTube embeds and styled call-to-action buttons. No more guessing how a message will look once it reaches leaders.",
+    "page": "/admin/message-center"
+  },
+  {
+    "date": "2026-06-12",
+    "version": "2.14.1",
+    "date_display": "June 12, 2026",
+    "date_iso": "2026-06-12",
+    "id": "today-badge-completed-cards-fix",
+    "type": "fix",
+    "type_display": "Fix",
+    "category": "Today",
+    "description": "The app-icon badge now clears correctly when you finish a card that's due today. Previously, completed cards due today still counted toward the badge, so the number on the home-screen icon could stay stuck even after everything was done. Cleared follow-ups now drop out of the count too.",
+    "page": "/today"
+  },
+  {
     "date": "2026-06-11",
     "version": "2.14.0",
     "date_display": "June 11, 2026",

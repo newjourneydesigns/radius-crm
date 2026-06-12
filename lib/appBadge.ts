@@ -14,6 +14,24 @@ export function isAppBadgeSupported(): boolean {
   return typeof navigator !== 'undefined' && 'setAppBadge' in navigator;
 }
 
+// The number the badge should show: cards + follow-ups that are still open.
+// Completed items linger in the Today lists (struck-through, with Undo) rather
+// than vanishing, so a finished card-due-today would keep the badge stuck
+// unless we drop it here. Both signals of "done" are excluded — the persisted
+// `is_complete` flag and the in-session `completed` marks — matching the
+// open-items formula the push cron sends, so the closed-app and open-app
+// counts always agree.
+export function computeOpenBadgeCount(
+  cards: { id: string; is_complete?: boolean }[],
+  followUps: { id: number }[],
+  completedCardIds: Set<string>,
+  completedFollowUpIds: Set<number>,
+): number {
+  const openCards = cards.filter(c => !c.is_complete && !completedCardIds.has(c.id)).length;
+  const openFollowUps = followUps.filter(f => !completedFollowUpIds.has(f.id)).length;
+  return openCards + openFollowUps;
+}
+
 export function syncAppBadge(count: number): void {
   if (typeof navigator === 'undefined') return;
   const nav = navigator as BadgeNavigator;

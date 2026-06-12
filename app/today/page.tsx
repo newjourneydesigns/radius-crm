@@ -29,7 +29,7 @@ import type { TodayCompleted } from '../../hooks/useTodayData';
 import { useTodayCalendars } from '../../hooks/useTodayCalendars';
 import type { CalendarEventItem } from '../../hooks/useTodayCalendars';
 import { usePushReminders } from '../../hooks/usePushReminders';
-import { syncAppBadge } from '../../lib/appBadge';
+import { syncAppBadge, computeOpenBadgeCount } from '../../lib/appBadge';
 import DayTimeline, {
   setScheduleDragPayload,
   type ScheduleDragPayload,
@@ -1610,15 +1610,20 @@ export default function TodayPage() {
 
   // ── App-icon badge: cards + follow-ups still open today (or overdue).
   // Same formula the push cron sends with reminders, so the badge a closed
-  // app shows matches what the open app computes. Re-runs on every optimistic
-  // update, so completing items ticks the badge down live.
+  // app shows matches what the open app computes. Completed items linger in
+  // the lists (struck-through, with Undo), so they must be excluded here or a
+  // finished card-due-today keeps the badge stuck — hence the `completed`
+  // session marks and `is_complete` flag both drop out of the count. Re-runs
+  // on every optimistic update, so completing items ticks the badge down live.
   useEffect(() => {
     if (!data) return;
-    syncAppBadge(
-      data.cards.dueToday.length + data.cards.overdue.length +
-      data.followUps.dueToday.length + data.followUps.overdue.length
-    );
-  }, [data]);
+    syncAppBadge(computeOpenBadgeCount(
+      [...data.cards.dueToday, ...data.cards.overdue],
+      [...data.followUps.dueToday, ...data.followUps.overdue],
+      completed.cards,
+      completed.followUps,
+    ));
+  }, [data, completed]);
 
   // ── Loading ──
   if (isLoading || !layoutReady) return <TodaySkeleton />;

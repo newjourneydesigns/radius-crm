@@ -3,35 +3,38 @@
  *
  * Any signed-in RADIUS user can send/edit messages. Delivery creates
  * per-leader recipient rows so leaders keep a durable read/unread history.
+ *
+ * Messages can also be scheduled: a future scheduled_at stores the message with
+ * status='scheduled' and no recipients until the delivery worker
+ * (/api/circle-leader-toolkit/deliver-scheduled-inbox) sends it.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { DateTime } from 'luxon';
 import { createServiceSupabaseClient, getUserFromAuthHeader } from '../../../../lib/server-supabase';
-import { buildCircleSummaryUrl, deliverLeaderPush } from '../../../../lib/circle-leader-toolkit/push';
+import {
+  TargetType,
+  deliverToLeaders,
+  insertRevision,
+  loadTargetLeaders,
+  parseLeaderTargetIds,
+} from '../../../../lib/circle-leader-toolkit/inbox-delivery';
 
 export const dynamic = 'force-dynamic';
 
-type TargetType = 'all' | 'campus' | 'acpd' | 'leader';
-
-type LeaderTarget = {
-  id: number | string;
-  name: string;
-  campus: string | null;
-  acpd: string | null;
-  ccb_group_id: string | number | null;
-  status: string | null;
-  circle_summary_access_enabled?: boolean | null;
-};
-
 const TARGET_TYPES = new Set(['all', 'campus', 'acpd', 'leader']);
-const INELIGIBLE_STATUSES = new Set(['archive', 'archived']);
 
-function isMissingStatusColumn(error: unknown): boolean {
+/** True when an error is a "column does not exist" for status/scheduled_at,
+ *  i.e. a Supabase instance that hasn't run the inbox unsend/scheduling migrations. */
+function isMissingMigrationColumn(error: unknown): boolean {
   const text =
     error && typeof error === 'object' && 'message' in error
-      ? String((error as { message?: unknown }).message || '')
+      ? String((error as { message?: unknown }).message || '').toLowerCase()
       : '';
-  return text.toLowerCase().includes('status') && text.toLowerCase().includes('does not exist');
+  return (
+    text.includes('does not exist') &&
+    (text.includes('status') || text.includes('scheduled_at'))
+  );
 }
 
 async function requireRadiusUser(req: NextRequest) {
@@ -65,44 +68,17 @@ function normalizeTargetType(value: unknown): TargetType | null {
   return TARGET_TYPES.has(type) ? (type as TargetType) : null;
 }
 
-function isEligibleLeader(leader: LeaderTarget): boolean {
-  const status = (leader.status || '').trim().toLowerCase();
-  if (INELIGIBLE_STATUSES.has(status)) return false;
-  if (leader.circle_summary_access_enabled === false) return false;
-  return true;
-}
-
-function parseLeaderTargetIds(value: string | null | undefined): string[] {
-  if (!value) return [];
-  return value
-    .split(',')
-    .map((id) => id.trim())
-    .filter(Boolean);
-}
-
-async function loadTargetLeaders(targetType: TargetType, targetValue: string | null) {
-  const supabase = createServiceSupabaseClient();
-  let query = supabase
-    .from('circle_leaders')
-    .select('id, name, campus, acpd, ccb_group_id, status, circle_summary_access_enabled')
-    .order('name');
-
-  if (targetType === 'campus') {
-    if (!targetValue) return [];
-    query = query.eq('campus', targetValue);
-  } else if (targetType === 'acpd') {
-    if (!targetValue) return [];
-    query = query.eq('acpd', targetValue);
-  } else if (targetType === 'leader') {
-    const ids = parseLeaderTargetIds(targetValue);
-    if (ids.length === 0) return [];
-    query = query.in('id', ids);
-  }
-
-  const { data, error } = await query;
-  if (error) throw error;
-
-  return ((data || []) as LeaderTarget[]).filter(isEligibleLeader);
+/**
+ * Parses an inbound scheduled_at. The composer sends a UTC ISO string (it anchors
+ * the chosen wall-clock time to America/Chicago, then converts to UTC). Returns
+ * iso=null for "send now" (blank/missing) and flags whether it is a valid future time.
+ */
+function parseScheduledAt(value: unknown): { iso: string | null; valid: boolean; future: boolean } {
+  if (value == null || value === '') return { iso: null, valid: true, future: false };
+  const dt = DateTime.fromISO(String(value));
+  if (!dt.isValid) return { iso: null, valid: false, future: false };
+  const iso = dt.toUTC().toISO();
+  return { iso, valid: true, future: dt.toUTC() > DateTime.utc() };
 }
 
 type PushStatus = 'enabled' | 'pref_off' | 'no_device';
@@ -166,90 +142,6 @@ function pickMessageFields(body: any) {
   };
 }
 
-async function insertRevision({
-  messageId,
-  version,
-  title,
-  bodyHtml,
-  editedBy,
-}: {
-  messageId: string;
-  version: number;
-  title: string;
-  bodyHtml: string;
-  editedBy: string;
-}) {
-  const supabase = createServiceSupabaseClient();
-  const { error } = await supabase
-    .from('circle_summary_inbox_message_revisions')
-    .insert({
-      message_id: messageId,
-      version,
-      title,
-      body_html: bodyHtml,
-      edited_by: editedBy,
-    });
-  if (error) throw error;
-}
-
-async function sendInboxPushes(message: { id: string; title: string }, recipients: Array<{ id: string; leader_id: number | string }>, leadersById: Map<string, LeaderTarget>) {
-  const supabase = createServiceSupabaseClient();
-  const leaderIds = recipients.map((recipient) => recipient.leader_id);
-  if (leaderIds.length === 0) return;
-
-  const { data: prefs } = await supabase
-    .from('circle_leader_notification_preferences')
-    .select('leader_id, inbox_push_enabled')
-    .in('leader_id', leaderIds)
-    .eq('inbox_push_enabled', true);
-  const enabledLeaderIds = new Set((prefs || []).map((pref: any) => String(pref.leader_id)));
-
-  await Promise.all(
-    recipients
-      .filter((recipient) => enabledLeaderIds.has(String(recipient.leader_id)))
-      .map((recipient) => {
-        const leader = leadersById.get(String(recipient.leader_id));
-        const groupId = leader?.ccb_group_id ? String(leader.ccb_group_id) : 'events';
-        return deliverLeaderPush(
-          {
-            notification_type: 'inbox_message',
-            leader_id: recipient.leader_id,
-            inbox_recipient_id: recipient.id,
-            message_id: message.id,
-          },
-          {
-            title: 'New message in Circle Leader Toolkit',
-            body: `You have a new message: ${message.title}`,
-            url: buildCircleSummaryUrl(`/circle-leader-toolkit/${encodeURIComponent(groupId)}/inbox`),
-            tag: `circle-inbox-${recipient.id}`,
-          }
-        ).catch((error) => {
-          console.warn('[circle-summary-inbox] push failed:', error?.message || error);
-        });
-      })
-  );
-}
-
-async function replaceRecipients(messageId: string, leaders: LeaderTarget[]) {
-  const supabase = createServiceSupabaseClient();
-  const { error: deleteError } = await supabase
-    .from('circle_summary_inbox_recipients')
-    .delete()
-    .eq('message_id', messageId);
-  if (deleteError) throw deleteError;
-
-  if (leaders.length === 0) return;
-
-  const recipientRows = leaders.map((leader) => ({
-    message_id: messageId,
-    leader_id: leader.id,
-  }));
-  const { error: recipientError } = await supabase
-    .from('circle_summary_inbox_recipients')
-    .insert(recipientRows);
-  if (recipientError) throw recipientError;
-}
-
 export async function GET(req: NextRequest) {
   const auth = await requireRadiusUser(req);
   if (auth.response) return auth.response;
@@ -290,15 +182,15 @@ export async function GET(req: NextRequest) {
   const supabase = createServiceSupabaseClient();
   let { data: messages, error } = await supabase
     .from('circle_summary_inbox_messages')
-    .select('id, title, body_html, target_type, target_value, status, version, created_by, edited_by, created_at, updated_at, unsent_at, resent_at')
+    .select('id, title, body_html, target_type, target_value, status, scheduled_at, version, created_by, edited_by, created_at, updated_at, unsent_at, resent_at')
     .order('updated_at', { ascending: false });
 
-  if (error && isMissingStatusColumn(error)) {
+  if (error && isMissingMigrationColumn(error)) {
     const fallback = await supabase
       .from('circle_summary_inbox_messages')
       .select('id, title, body_html, target_type, target_value, version, created_by, edited_by, created_at, updated_at')
       .order('updated_at', { ascending: false });
-    messages = (fallback.data || []).map((message: any) => ({ ...message, status: 'sent' }));
+    messages = (fallback.data || []).map((message: any) => ({ ...message, status: 'sent', scheduled_at: null }));
     error = fallback.error;
   }
 
@@ -413,7 +305,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Target value is required.' }, { status: 400 });
   }
 
+  const scheduled = parseScheduledAt(body.scheduled_at);
+  if (!scheduled.valid) {
+    return NextResponse.json({ error: 'Invalid scheduled time.' }, { status: 400 });
+  }
+  const isScheduled = scheduled.iso != null && scheduled.future;
+
   try {
+    // Validate the target resolves to at least one eligible leader at compose time.
     const leaders = await loadTargetLeaders(fields.target_type, fields.target_value);
     if (leaders.length === 0) {
       return NextResponse.json({ error: 'No eligible leaders match that target.' }, { status: 400 });
@@ -424,6 +323,8 @@ export async function POST(req: NextRequest) {
       .from('circle_summary_inbox_messages')
       .insert({
         ...fields,
+        status: isScheduled ? 'scheduled' : 'sent',
+        scheduled_at: isScheduled ? scheduled.iso : null,
         created_by: auth.user!.id,
         edited_by: auth.user!.id,
       })
@@ -431,18 +332,9 @@ export async function POST(req: NextRequest) {
       .single();
     if (messageError) throw messageError;
 
-    const recipientRows = leaders.map((leader) => ({
-      message_id: message.id,
-      leader_id: leader.id,
-    }));
-    const { data: insertedRecipients, error: recipientError } = await supabase
-      .from('circle_summary_inbox_recipients')
-      .insert(recipientRows)
-      .select('id, leader_id');
-    if (recipientError) throw recipientError;
-
-    const leadersById = new Map(leaders.map((leader) => [String(leader.id), leader]));
-    await sendInboxPushes(message, insertedRecipients || [], leadersById);
+    if (!isScheduled) {
+      await deliverToLeaders(message, leaders);
+    }
 
     await insertRevision({
       messageId: message.id,
@@ -452,7 +344,12 @@ export async function POST(req: NextRequest) {
       editedBy: auth.user!.id,
     });
 
-    return NextResponse.json({ message, recipients: leaders });
+    return NextResponse.json({
+      message,
+      recipients: isScheduled ? [] : leaders,
+      scheduled: isScheduled,
+      scheduled_at: isScheduled ? scheduled.iso : null,
+    });
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Send failed.' }, { status: 500 });
   }
@@ -481,7 +378,7 @@ export async function PUT(req: NextRequest) {
     .select('id, version, status')
     .eq('id', id)
     .maybeSingle();
-  if (loadError && isMissingStatusColumn(loadError)) {
+  if (loadError && isMissingMigrationColumn(loadError)) {
     const fallback = await supabase
       .from('circle_summary_inbox_messages')
       .select('id, version')
@@ -493,8 +390,66 @@ export async function PUT(req: NextRequest) {
   if (loadError) return NextResponse.json({ error: loadError.message }, { status: 500 });
   if (!existing) return NextResponse.json({ error: 'Message not found.' }, { status: 404 });
 
-  const nextVersion = Number(existing.version || 1) + 1;
   const now = new Date().toISOString();
+
+  // Editing a scheduled (undelivered) message: recipients aren't created yet, so
+  // the target and the scheduled time stay editable and the version is not bumped.
+  if (existing.status === 'scheduled') {
+    const fields = pickMessageFields(body);
+    if (!fields.target_type) {
+      return NextResponse.json({ error: 'Valid target_type is required.' }, { status: 400 });
+    }
+    if (fields.target_type !== 'all' && !fields.target_value) {
+      return NextResponse.json({ error: 'Target value is required.' }, { status: 400 });
+    }
+
+    const scheduled = parseScheduledAt(body.scheduled_at);
+    if (!scheduled.valid) {
+      return NextResponse.json({ error: 'Invalid scheduled time.' }, { status: 400 });
+    }
+    const stillScheduled = scheduled.iso != null && scheduled.future;
+
+    try {
+      const leaders = await loadTargetLeaders(fields.target_type, fields.target_value);
+      if (leaders.length === 0) {
+        return NextResponse.json({ error: 'No eligible leaders match that target.' }, { status: 400 });
+      }
+
+      const { data: message, error: updateError } = await supabase
+        .from('circle_summary_inbox_messages')
+        .update({
+          ...fields,
+          title,
+          body_html: bodyHtml,
+          status: stillScheduled ? 'scheduled' : 'sent',
+          scheduled_at: stillScheduled ? scheduled.iso : null,
+          edited_by: auth.user!.id,
+          updated_at: now,
+        })
+        .eq('id', id)
+        .select()
+        .single();
+      if (updateError) throw updateError;
+
+      // If they cleared the schedule (or set it to now), deliver immediately.
+      if (!stillScheduled) {
+        await deliverToLeaders({ id, title }, leaders);
+      }
+
+      return NextResponse.json({
+        message,
+        recipients: stillScheduled ? [] : leaders,
+        scheduled: stillScheduled,
+        delivered: !stillScheduled,
+      });
+    } catch (e: any) {
+      return NextResponse.json({ error: e.message || 'Update failed.' }, { status: 500 });
+    }
+  }
+
+  // Editing an already-sent (or unsent) message: bump version so recipients see it
+  // as unread again. Target stays locked (recipients already exist).
+  const nextVersion = Number(existing.version || 1) + 1;
 
   const { data: message, error: updateError } = await supabase
     .from('circle_summary_inbox_messages')
@@ -546,9 +501,9 @@ export async function PATCH(req: NextRequest) {
     .select('id, title, body_html, target_type, target_value, version, status')
     .eq('id', id)
     .maybeSingle();
-  if (loadError && isMissingStatusColumn(loadError)) {
+  if (loadError && isMissingMigrationColumn(loadError)) {
     return NextResponse.json(
-      { error: 'Run the circle_summary_inbox_unsend migration before using Unsend/Resend.' },
+      { error: 'Run the circle_summary_inbox migrations before using these actions.' },
       { status: 500 }
     );
   }
@@ -556,6 +511,41 @@ export async function PATCH(req: NextRequest) {
   if (!existing) return NextResponse.json({ error: 'Message not found.' }, { status: 404 });
 
   const now = new Date().toISOString();
+
+  // Deliver a scheduled message right now instead of waiting for its scheduled time.
+  if (action === 'send_now') {
+    if (existing.status !== 'scheduled') {
+      return NextResponse.json({ error: 'Only scheduled messages can be sent now.' }, { status: 400 });
+    }
+    if (!existing.target_type) {
+      return NextResponse.json({ error: 'Valid target_type is required.' }, { status: 400 });
+    }
+
+    try {
+      const leaders = await loadTargetLeaders(existing.target_type as TargetType, existing.target_value);
+      if (leaders.length === 0) {
+        return NextResponse.json({ error: 'No eligible leaders match that target.' }, { status: 400 });
+      }
+
+      const { data: message, error: updateError } = await supabase
+        .from('circle_summary_inbox_messages')
+        .update({
+          status: 'sent',
+          scheduled_at: null,
+          edited_by: auth.user!.id,
+          updated_at: now,
+        })
+        .eq('id', id)
+        .select()
+        .single();
+      if (updateError) throw updateError;
+
+      await deliverToLeaders({ id, title: existing.title }, leaders);
+      return NextResponse.json({ message, recipients: leaders });
+    } catch (e: any) {
+      return NextResponse.json({ error: e.message || 'Send failed.' }, { status: 500 });
+    }
+  }
 
   if (action === 'unsend') {
     const { data: message, error: updateError } = await supabase
@@ -615,13 +605,7 @@ export async function PATCH(req: NextRequest) {
         .single();
       if (updateError) throw updateError;
 
-      await replaceRecipients(id, leaders);
-      const { data: recipientsForPush } = await supabase
-        .from('circle_summary_inbox_recipients')
-        .select('id, leader_id')
-        .eq('message_id', id);
-      const leadersById = new Map(leaders.map((leader) => [String(leader.id), leader]));
-      await sendInboxPushes({ id, title: fields.title }, recipientsForPush || [], leadersById);
+      await deliverToLeaders({ id, title: fields.title }, leaders);
       await insertRevision({
         messageId: id,
         version: nextVersion,

@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { useNotebookContext } from '../../contexts/NotebookContext';
 import type { NotebookPageCard, CardChecklist, CardComment } from '../../lib/supabase';
 import { buildTimeOptions15Min } from '../../lib/timeUtils';
+import RichTextEditor from '../notes/RichTextEditor';
 
 interface ChecklistSuggestion {
   text: string;
@@ -107,7 +108,6 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
   const [isComplete, setIsComplete] = useState(card?.is_complete ?? false);
   const [saving, setSaving] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
-  const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backdropMouseDown = useRef(false);
 
@@ -499,22 +499,33 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
           <div>
             <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1.5">Description</p>
             {isEditingDescription || !description ? (
-              <textarea
-                ref={descriptionRef}
-                value={description}
-                onChange={e => handleDescChange(e.target.value)}
-                onBlur={() => setIsEditingDescription(false)}
-                rows={4}
-                placeholder="Add a description…"
-                autoFocus={isEditingDescription}
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-vc-400/40 resize-none transition-colors leading-relaxed"
-              />
+              <div className="notebook-card-desc-editor">
+                <RichTextEditor
+                  value={description}
+                  onChange={handleDescChange}
+                  onEscape={() => setIsEditingDescription(false)}
+                  onSubmit={() => setIsEditingDescription(false)}
+                  placeholder="Add a description…"
+                  minHeight="104px"
+                  borderless
+                  autoFocus={isEditingDescription}
+                />
+                <div className="flex justify-end border-t border-white/[0.06] bg-[#101219] px-2 py-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingDescription(false)}
+                    className="rounded-md px-2 py-1 text-[11px] font-medium text-gray-400 transition-colors hover:bg-white/[0.06] hover:text-gray-200"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
             ) : descriptionLooksLikeHtml(description) ? (
               <div
                 role="button"
                 tabIndex={0}
                 onClick={() => setIsEditingDescription(true)}
-                onKeyDown={e => { if (e.key === 'Enter') setIsEditingDescription(true); }}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setIsEditingDescription(true); }}
                 className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-gray-300 leading-relaxed cursor-text hover:border-white/[0.12] transition-colors [&_a]:text-vc-400 [&_a]:underline [&_a:hover]:text-vc-300 [&_p]:mb-2 [&_p:last-child]:mb-0"
                 dangerouslySetInnerHTML={{ __html: sanitizeDescriptionHtml(description) }}
               />
@@ -523,7 +534,7 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
                 role="button"
                 tabIndex={0}
                 onClick={() => setIsEditingDescription(true)}
-                onKeyDown={e => { if (e.key === 'Enter') setIsEditingDescription(true); }}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setIsEditingDescription(true); }}
                 className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-gray-300 leading-relaxed cursor-text hover:border-white/[0.12] transition-colors whitespace-pre-wrap break-words"
               >
                 {description}

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import RichTextEditor from '../../../components/notes/RichTextEditor';
+import ToolkitContentPreview from '../../../components/circle-leader-toolkit/ToolkitContentPreview';
+import { csOpenSans } from '../../../lib/circle-leader-toolkit/csFont';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -67,7 +69,7 @@ export default function MessageCenterAdminPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#0f1117] p-4 sm:p-6 lg:p-8">
+    <div className={`min-h-screen bg-[#0f1117] p-4 sm:p-6 lg:p-8 ${csOpenSans.variable}`}>
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-white tracking-tight">Message Center</h1>
@@ -279,14 +281,13 @@ function MessagesPanel({ token }: { token: string | null }) {
             </Field>
 
             <Field label="Message" hint="Rich text - supports bold, italics, lists, and inline links.">
-              <div className="rte-on-dark">
-                <RichTextEditor
-                  value={draft.body_html || ''}
-                  onChange={(html) => setDraft({ ...draft, body_html: html })}
-                  placeholder="What do you want leaders to know?"
-                  minHeight="120px"
-                />
-              </div>
+              <RichTextEditor
+                value={draft.body_html || ''}
+                onChange={(html) => setDraft({ ...draft, body_html: html })}
+                placeholder="What do you want leaders to know?"
+                minHeight="120px"
+                toolkitSurface
+              />
             </Field>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -428,6 +429,14 @@ function MessagesPanel({ token }: { token: string | null }) {
                 </Field>
               );
             })()}
+
+            <ToolkitContentPreview
+              variant="events"
+              header={draft.header}
+              bodyHtml={draft.body_html || ''}
+              url={draft.url}
+              urlLabel={draft.url_label}
+            />
 
             <div className="flex gap-2 pt-2">
               <button

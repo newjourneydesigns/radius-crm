@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useProjectBoard, FullBoard } from '../../../hooks/useProjectBoard';
 import { useAuth } from '../../../contexts/AuthContext';
 import ProtectedRoute from '../../../components/ProtectedRoute';
-import type { BoardCard, BoardColumn, BoardLabel, CardChecklistGroup, CardPriority, ChecklistTemplate, ColumnAutomationAction, ProjectBoard } from '../../../lib/supabase';
+import type { BoardCard, BoardColumn, BoardLabel, BoardMember, CardChecklistGroup, CardPriority, ChecklistTemplate, ColumnAutomationAction, ProjectBoard } from '../../../lib/supabase';
 import {
   Plus, ArrowLeft, Search, MoreHorizontal, Trash2, Edit3,
   GripVertical, MessageSquare, CheckSquare, CalendarDays, Tag,
@@ -1563,6 +1563,7 @@ function BoardPage() {
     checklistTemplates,
     addLabel, updateLabel, deleteLabel,
     assignCard, unassignCard, fetchSystemUsers,
+    fetchBoardMembers, shareBoardWithUsers, unshareBoardUser,
     loading, setBoard,
     createNextRepeatCard,
   } = useProjectBoard();
@@ -1581,6 +1582,7 @@ function BoardPage() {
   const [showBoardMenu, setShowBoardMenu] = useState(false);
   const [editingBoardTitle, setEditingBoardTitle] = useState(false);
   const [showLabelManager, setShowLabelManager] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [showNotePanel, setShowNotePanel] = useState(false);
   const [noteFormats, setNoteFormats] = useState({ bold: false, italic: false, underline: false, strikeThrough: false, heading: false, unorderedList: false, orderedList: false });
   const [showImportModal, setShowImportModal] = useState(false);

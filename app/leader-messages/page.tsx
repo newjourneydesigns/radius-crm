@@ -2,13 +2,48 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { DateTime } from 'luxon';
 import RichTextEditor from '../../components/notes/RichTextEditor';
+import ToolkitContentPreview from '../../components/circle-leader-toolkit/ToolkitContentPreview';
+import { csOpenSans } from '../../lib/circle-leader-toolkit/csFont';
 import { renderMessageHtml } from '../../lib/renderMessageHtml';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
+
+// Scheduled delivery times are anchored to church (Central) time regardless of
+// the sender's device timezone.
+const CHURCH_TZ = 'America/Chicago';
+
+/** Stored UTC ISO → value for an <input type="datetime-local"> in church time. */
+function isoToLocalInput(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const dt = DateTime.fromISO(iso, { zone: 'utc' }).setZone(CHURCH_TZ);
+  return dt.isValid ? dt.toFormat("yyyy-LL-dd'T'HH:mm") : '';
+}
+
+/** datetime-local wall-clock (church time) → UTC ISO for the API. */
+function localInputToUtcIso(local: string): string | null {
+  if (!local) return null;
+  const dt = DateTime.fromISO(local, { zone: CHURCH_TZ });
+  return dt.isValid ? dt.toUTC().toISO() : null;
+}
+
+/** Human-friendly church-time label for a stored UTC ISO. */
+function formatChurchTime(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const dt = DateTime.fromISO(iso, { zone: 'utc' }).setZone(CHURCH_TZ);
+  return dt.isValid ? dt.toFormat("ccc, LLL d 'at' h:mm a 'CT'") : '';
+}
+
+/** True when a datetime-local value (church time) is in the future. */
+function isFutureLocal(local: string): boolean {
+  if (!local) return false;
+  const dt = DateTime.fromISO(local, { zone: CHURCH_TZ });
+  return dt.isValid && dt > DateTime.now().setZone(CHURCH_TZ);
+}
 
 type TargetType = 'all' | 'campus' | 'acpd' | 'leader';
 
@@ -64,7 +99,8 @@ type InboxMessage = {
   target_type: TargetType;
   target_value: string | null;
   target_label?: string | null;
-  status: 'sent' | 'unsent';
+  status: 'sent' | 'unsent' | 'scheduled';
+  scheduled_at?: string | null;
   version: number;
   created_at: string;
   updated_at: string;
@@ -83,6 +119,8 @@ type Draft = {
   body_html: string;
   target_type: TargetType;
   target_value: string;
+  /** datetime-local wall-clock string (church time); '' when sending now. */
+  scheduled_at: string;
 };
 
 function emptyDraft(): Draft {
@@ -91,6 +129,7 @@ function emptyDraft(): Draft {
     body_html: '',
     target_type: 'leader',
     target_value: '',
+    scheduled_at: '',
   };
 }
 
@@ -116,6 +155,7 @@ export default function LeaderMessagesPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [leaderSearch, setLeaderSearch] = useState('');
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const editorSectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -211,7 +251,7 @@ export default function LeaderMessagesPage() {
   useEffect(() => {
     if (!token) return;
     const editingMessage = draft.id ? messages.find((m) => m.id === draft.id) : null;
-    if (draft.id && editingMessage?.status !== 'unsent') return;
+    if (draft.id && editingMessage?.status !== 'unsent' && editingMessage?.status !== 'scheduled') return;
     if (draft.target_type !== 'all' && !draft.target_value) {
       setRecipients([]);
       setPushSummary(null);
@@ -255,6 +295,7 @@ export default function LeaderMessagesPage() {
   function resetDraft() {
     setEditingId(null);
     setDraft(emptyDraft());
+    setScheduleEnabled(false);
     setRecipients([]);
     setPushSummary(null);
     setRecipientFilter('all');
@@ -262,6 +303,7 @@ export default function LeaderMessagesPage() {
   }
 
   function startEdit(message: InboxMessage) {
+    const scheduledLocal = message.status === 'scheduled' ? isoToLocalInput(message.scheduled_at) : '';
     setEditingId(message.id);
     setDraft({
       id: message.id,
@@ -269,7 +311,9 @@ export default function LeaderMessagesPage() {
       body_html: message.body_html,
       target_type: message.target_type,
       target_value: message.target_value || '',
+      scheduled_at: scheduledLocal,
     });
+    setScheduleEnabled(message.status === 'scheduled' && !!scheduledLocal);
     setRecipients([]);
     setError(null);
     setSuccess(null);
@@ -282,7 +326,9 @@ export default function LeaderMessagesPage() {
       body_html: message.body_html,
       target_type: 'leader',
       target_value: '',
+      scheduled_at: '',
     });
+    setScheduleEnabled(false);
     setRecipients([]);
     setLeaderSearch('');
     setError(null);
@@ -328,14 +374,29 @@ export default function LeaderMessagesPage() {
       return;
     }
 
+    const editingMessage = draft.id ? messages.find((m) => m.id === draft.id) : null;
+    const isResend = editingMessage?.status === 'unsent';
+    const canSchedule = !draft.id || editingMessage?.status === 'scheduled';
+    const scheduling = canSchedule && scheduleEnabled;
+
+    if (scheduling) {
+      if (!draft.scheduled_at) {
+        setError('Pick a delivery date and time, or switch to “Send now”.');
+        return;
+      }
+      if (!isFutureLocal(draft.scheduled_at)) {
+        setError('Choose a delivery time in the future.');
+        return;
+      }
+    }
+    const scheduledIso = scheduling ? localInputToUtcIso(draft.scheduled_at) : null;
+
     setSaving(true);
     setError(null);
     setSuccess(null);
 
     try {
       const isEdit = !!draft.id;
-      const editingMessage = draft.id ? messages.find((m) => m.id === draft.id) : null;
-      const isResend = editingMessage?.status === 'unsent';
       const res = await fetch('/api/admin/circle-leader-toolkit-inbox', {
         method: isResend ? 'PATCH' : isEdit ? 'PUT' : 'POST',
         headers: {
@@ -349,18 +410,25 @@ export default function LeaderMessagesPage() {
           body_html: draft.body_html,
           target_type: draft.target_type,
           target_value: draft.target_type === 'all' ? null : draft.target_value,
+          scheduled_at: scheduledIso,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || (isEdit ? 'Edit failed.' : 'Send failed.'));
 
-      setSuccess(
-        isResend
-          ? `Message resent to ${data.recipients?.length || 0} leader${data.recipients?.length === 1 ? '' : 's'}.`
-          : isEdit
-          ? 'Message updated. Leaders will see it as unread again.'
-          : `Message sent to ${data.recipients?.length || 0} leader${data.recipients?.length === 1 ? '' : 's'}.`
-      );
+      const recipientCount = data.recipients?.length || 0;
+      const plural = recipientCount === 1 ? '' : 's';
+      if (scheduling) {
+        setSuccess(`Message scheduled for ${formatChurchTime(scheduledIso)}.`);
+      } else if (isResend) {
+        setSuccess(`Message resent to ${recipientCount} leader${plural}.`);
+      } else if (isEdit && editingMessage?.status === 'scheduled') {
+        setSuccess(`Schedule cleared — message sent now to ${recipientCount} leader${plural}.`);
+      } else if (isEdit) {
+        setSuccess('Message updated. Leaders will see it as unread again.');
+      } else {
+        setSuccess(`Message sent to ${recipientCount} leader${plural}.`);
+      }
       resetDraft();
       await loadMessages();
     } catch (error: unknown) {
@@ -412,7 +480,37 @@ export default function LeaderMessagesPage() {
 
   const editingMessage = editingId ? messages.find((m) => m.id === editingId) : null;
   const editingUnsent = editingMessage?.status === 'unsent';
-  const targetLocked = !!editingId && !editingUnsent;
+  const editingScheduled = editingMessage?.status === 'scheduled';
+  const targetLocked = !!editingId && editingMessage?.status === 'sent';
+  const canSchedule = !editingId || editingScheduled;
+
+  async function sendNow(message: InboxMessage) {
+    if (!token) return;
+    if (!confirm('Send this scheduled message now instead of waiting?')) return;
+    setActingId(message.id);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch('/api/admin/circle-leader-toolkit-inbox', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ id: message.id, action: 'send_now' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Send failed.');
+      const count = data.recipients?.length || 0;
+      setSuccess(`Message sent now to ${count} leader${count === 1 ? '' : 's'}.`);
+      if (editingId === message.id) resetDraft();
+      await loadMessages();
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, 'Send failed.'));
+    } finally {
+      setActingId(null);
+    }
+  }
 
   async function unsendMessage(message: InboxMessage) {
     if (!token) return;
@@ -484,7 +582,7 @@ export default function LeaderMessagesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0f1117] p-4 sm:p-6 lg:p-8">
+    <div className={`min-h-screen bg-[#0f1117] p-4 sm:p-6 lg:p-8 ${csOpenSans.variable}`}>
       <div className="max-w-6xl mx-auto">
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-white tracking-tight">Leader Messages</h1>
@@ -512,7 +610,13 @@ export default function LeaderMessagesPage() {
             <div className="flex items-center justify-between gap-4 mb-4">
               <div>
                 <h2 className="text-base font-semibold text-white">
-                  {editingUnsent ? 'Edit and resend message' : editingId ? 'Edit sent message' : 'Compose message'}
+                  {editingUnsent
+                    ? 'Edit and resend message'
+                    : editingScheduled
+                    ? 'Edit scheduled message'
+                    : editingId
+                    ? 'Edit sent message'
+                    : 'Compose message'}
                 </h2>
                 {editingMessage?.status === 'sent' && (
                   <p className="text-xs text-amber-300 mt-1">
@@ -522,6 +626,11 @@ export default function LeaderMessagesPage() {
                 {editingUnsent && (
                   <p className="text-xs text-amber-300 mt-1">
                     This message is unsent and is not visible to leaders until you resend it.
+                  </p>
+                )}
+                {editingScheduled && (
+                  <p className="text-xs text-indigo-300 mt-1">
+                    This message is scheduled and is not visible to leaders until it is delivered.
                   </p>
                 )}
               </div>
@@ -546,16 +655,17 @@ export default function LeaderMessagesPage() {
               </Field>
 
               <Field label="Message" hint="Rich text supports headings, links, bold, italics, and lists.">
-                <div className="rte-on-dark">
-                  <RichTextEditor
-                    value={draft.body_html}
-                    onChange={(html) => setDraft({ ...draft, body_html: html })}
-                    placeholder="Write the message leaders should see..."
-                    minHeight="180px"
-                    allowButton
-                  />
-                </div>
+                <RichTextEditor
+                  value={draft.body_html}
+                  onChange={(html) => setDraft({ ...draft, body_html: html })}
+                  placeholder="Write the message leaders should see..."
+                  minHeight="180px"
+                  allowButton
+                  toolkitSurface
+                />
               </Field>
+
+              <ToolkitContentPreview variant="inbox" title={draft.title} bodyHtml={draft.body_html} />
 
               <Field
                 label="Target"
@@ -689,15 +799,68 @@ export default function LeaderMessagesPage() {
                 )}
               </Field>
 
+              {canSchedule && (
+                <Field
+                  label="Delivery"
+                  hint={
+                    scheduleEnabled
+                      ? 'Time is church (Central) time. The message lands in inboxes and sends its push at the scheduled moment.'
+                      : undefined
+                  }
+                >
+                  <div className="inline-flex rounded-lg border border-zinc-600 bg-zinc-700/50 p-0.5 mb-3">
+                    {([
+                      [false, 'Send now'],
+                      [true, 'Schedule for later'],
+                    ] as [boolean, string][]).map(([value, label]) => (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => setScheduleEnabled(value)}
+                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                          scheduleEnabled === value
+                            ? 'bg-vc-500/20 text-vc-200'
+                            : 'text-slate-300 hover:text-white'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {scheduleEnabled && (
+                    <input
+                      type="datetime-local"
+                      value={draft.scheduled_at}
+                      min={DateTime.now().setZone(CHURCH_TZ).toFormat("yyyy-LL-dd'T'HH:mm")}
+                      onChange={(e) => setDraft({ ...draft, scheduled_at: e.target.value })}
+                      className="w-full bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 [color-scheme:dark]"
+                    />
+                  )}
+                </Field>
+              )}
+
               <div className="flex items-center gap-3 pt-1">
                 <button
                   onClick={save}
                   disabled={saving}
                   className="bg-btn-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
-                  {saving ? 'Saving...' : editingUnsent ? 'Resend message' : editingId ? 'Update message' : 'Send message'}
+                  {saving
+                    ? 'Saving...'
+                    : editingUnsent
+                    ? 'Resend message'
+                    : canSchedule && scheduleEnabled
+                    ? editingScheduled
+                      ? 'Update schedule'
+                      : 'Schedule message'
+                    : editingScheduled
+                    ? 'Send now'
+                    : editingId
+                    ? 'Update message'
+                    : 'Send message'}
                 </button>
-                {(!editingId || editingUnsent) && (
+                {(!editingId || editingUnsent || editingScheduled) && (
                   <span className="text-xs text-slate-500">
                     {previewing
                       ? 'Checking recipients...'
@@ -806,7 +969,7 @@ export default function LeaderMessagesPage() {
 
         <section className="mt-6">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-white">Sent messages</h2>
+            <h2 className="text-base font-semibold text-white">Messages</h2>
             <button
               onClick={loadMessages}
               disabled={loading}
@@ -839,10 +1002,12 @@ export default function LeaderMessagesPage() {
                         className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                           message.status === 'unsent'
                             ? 'bg-amber-500/20 text-amber-300'
+                            : message.status === 'scheduled'
+                            ? 'bg-indigo-500/20 text-indigo-300'
                             : 'bg-emerald-500/20 text-emerald-300'
                         }`}
                       >
-                        {message.status === 'unsent' ? 'unsent' : 'sent'}
+                        {message.status}
                       </span>
                       {message.version > 1 && (
                         <span className="bg-amber-500/20 text-amber-300 text-xs font-medium px-2 py-0.5 rounded-full">
@@ -856,15 +1021,26 @@ export default function LeaderMessagesPage() {
                         dangerouslySetInnerHTML={{ __html: renderMessageHtml(message.body_html) }}
                       />
                     )}
-                    <p className="text-xs text-slate-500 mt-2">
-                      {message.stats?.recipients || 0} recipient{message.stats?.recipients === 1 ? '' : 's'}
-                      {' · '}
-                      {message.stats?.unread || 0} unread
-                      {' · '}
-                      {message.stats?.read || 0} read
-                      {' · '}
-                      Updated {new Date(message.updated_at).toLocaleString()}
-                    </p>
+                    {message.status === 'scheduled' ? (
+                      <p className="text-xs mt-2">
+                        <span className="text-indigo-300 font-medium">
+                          Scheduled for {formatChurchTime(message.scheduled_at) || 'a later time'}
+                        </span>
+                        {message.target_label && (
+                          <span className="text-slate-500"> · {message.target_label}</span>
+                        )}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-slate-500 mt-2">
+                        {message.stats?.recipients || 0} recipient{message.stats?.recipients === 1 ? '' : 's'}
+                        {' · '}
+                        {message.stats?.unread || 0} unread
+                        {' · '}
+                        {message.stats?.read || 0} read
+                        {' · '}
+                        Updated {new Date(message.updated_at).toLocaleString()}
+                      </p>
+                    )}
                   </div>
                   <div className="shrink-0 flex items-center gap-2 flex-wrap justify-end">
                     <button
@@ -881,6 +1057,15 @@ export default function LeaderMessagesPage() {
                     >
                       Edit
                     </button>
+                    {message.status === 'scheduled' && (
+                      <button
+                        onClick={() => sendNow(message)}
+                        disabled={actingId === message.id}
+                        className="text-indigo-300 hover:text-indigo-200 hover:bg-indigo-500/10 px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50"
+                      >
+                        Send now
+                      </button>
+                    )}
                     {message.status === 'sent' && (
                       <button
                         onClick={() => unsendMessage(message)}

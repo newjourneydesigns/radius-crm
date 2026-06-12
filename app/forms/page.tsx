@@ -9,7 +9,7 @@ import type { BoardForm, ProjectBoard } from '../../lib/supabase';
 import Modal from '../../components/ui/Modal';
 import {
   FileText, Plus, Trash2, Pencil, Calendar, Link2,
-  Eye, ToggleLeft, ToggleRight, FolderKanban, ArrowLeft, List, Check,
+  Eye, ToggleLeft, ToggleRight, FolderKanban, ArrowLeft, List, Check, Copy,
 } from 'lucide-react';
 
 type FormWithBoard = BoardForm & { board_title?: string };
@@ -51,6 +51,7 @@ function FormsListInner() {
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState<FormWithBoard | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   const fetchForms = useCallback(async () => {
     if (!user) return;
@@ -189,6 +190,38 @@ function FormsListInner() {
     await supabase.from('board_forms').delete().eq('id', deleteTarget.id);
     setForms((prev) => prev.filter((f) => f.id !== deleteTarget.id));
     setDeleteTarget(null);
+  };
+
+  const handleDuplicate = async (sourceForm: FormWithBoard) => {
+    if (!user || duplicatingId) return;
+    setDuplicatingId(sourceForm.id);
+    setError(null);
+    try {
+      const title = `${sourceForm.title} Copy`;
+      const { data: duplicated, error: err } = await supabase
+        .from('board_forms')
+        .insert([
+          {
+            user_id: user.id,
+            board_id: sourceForm.board_id,
+            column_id: sourceForm.column_id,
+            title,
+            description: sourceForm.description || null,
+            slug: generateSlug(title),
+            fields: JSON.parse(JSON.stringify(sourceForm.fields || [])),
+            is_active: sourceForm.is_active,
+          },
+        ])
+        .select()
+        .single();
+
+      if (err) throw err;
+      if (duplicated) router.push(`/forms/${duplicated.id}/edit`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not duplicate form');
+    } finally {
+      setDuplicatingId(null);
+    }
   };
 
   const publicUrl = (slug: string) =>
@@ -344,6 +377,13 @@ function FormsListInner() {
                     >
                       <List className="h-4 w-4" strokeWidth={1.8} />
                     </IconBtn>
+                    <IconBtn
+                      title={duplicatingId === form.id ? 'Duplicating…' : 'Duplicate form'}
+                      onClick={() => handleDuplicate(form)}
+                      disabled={!!duplicatingId}
+                    >
+                      <Copy className="h-4 w-4" strokeWidth={1.8} />
+                    </IconBtn>
                     <IconBtn title="Edit form" onClick={() => router.push(`/forms/${form.id}/edit`)}>
                       <Pencil className="h-4 w-4" strokeWidth={1.8} />
                     </IconBtn>
@@ -482,21 +522,32 @@ function IconBtn({
   title,
   onClick,
   danger,
+  disabled,
 }: {
   children: React.ReactNode;
   title: string;
   onClick: () => void;
   danger?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
-      title={title}
+      type="button"
+      aria-label={title}
       onClick={onClick}
-      className={`rounded-lg p-2 text-slate-400 transition-colors ${
-        danger ? 'hover:bg-red-500/15 hover:text-red-400' : 'hover:bg-slate-700 hover:text-white'
+      disabled={disabled}
+      className={`group relative rounded-lg p-2 text-slate-400 transition-colors ${
+        disabled
+          ? 'cursor-not-allowed opacity-40'
+          : danger
+            ? 'hover:bg-red-500/15 hover:text-red-400'
+            : 'hover:bg-slate-700 hover:text-white'
       }`}
     >
       {children}
+      <span className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs font-medium text-slate-100 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+        {title}
+      </span>
     </button>
   );
 }
@@ -512,12 +563,14 @@ function IconLink({
 }) {
   return (
     <a
-      title={title}
       aria-label={title}
       href={href}
-      className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
+      className="group relative rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
     >
       {children}
+      <span className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs font-medium text-slate-100 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+        {title}
+      </span>
     </a>
   );
 }

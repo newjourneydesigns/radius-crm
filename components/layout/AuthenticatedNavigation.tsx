@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { DateTime } from "luxon";
+import { Bug, Lightbulb } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import GlobalSearch from './GlobalSearch';
 
@@ -59,6 +60,14 @@ const UpdateLogIcon = () => (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
   </svg>
+);
+
+const BugReportIcon = () => (
+  <Bug className="w-4 h-4" strokeWidth={1.8} />
+);
+
+const IdeaIcon = () => (
+  <Lightbulb className="w-4 h-4" strokeWidth={1.8} />
 );
 
 const BirthdayCakeIcon = () => (
@@ -170,6 +179,11 @@ const adminToolsNavItems = [
   { href: '/ccb-usage',              label: 'CCB Usage',                Icon: ChartIcon },
   { href: '/import-circles',         label: 'Import Circles',           Icon: ImportCirclesIcon },
   { href: '/users',                  label: 'Manage Users',             Icon: UsersIcon },
+];
+
+const feedbackNavItems = [
+  { href: '/f/i-have-an-idea-yyjiwi', label: 'Share Your Idea', Icon: IdeaIcon },
+  { href: 'https://vccradius.netlify.app/f/circles-toolkit-bug-report-copy-7o4vfp', label: 'Report A Bug', Icon: BugReportIcon },
 ];
 
 export default function AuthenticatedNavigation() {
@@ -332,6 +346,16 @@ export default function AuthenticatedNavigation() {
                       </div>
                     </>
                   )}
+                  <div className="border-t border-white/[0.06] px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Feedback</p>
+                  </div>
+                  <div className="py-1">
+                    {feedbackNavItems.map(({ href, label, Icon }) => (
+                      <Link key={href} href={href} onClick={closeAll} className={dropdownLinkClass(href)}>
+                        <Icon /> {label}
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

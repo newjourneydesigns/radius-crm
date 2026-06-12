@@ -15,6 +15,7 @@ import type {
   CardPriority,
   ChecklistTemplate,
   CardAssignment,
+  BoardMember,
 } from '../lib/supabase';
 
 // ── Full board shape ──
@@ -1354,6 +1355,63 @@ export function useProjectBoard() {
     }
   }, []);
 
+  // ─── Board Members (sharing) ───────────────────────────────
+  const fetchBoardMembers = useCallback(async (boardId: string): Promise<BoardMember[]> => {
+    try {
+      const { data, error: err } = await supabase
+        .from('board_members')
+        .select('*')
+        .eq('board_id', boardId)
+        .order('created_at', { ascending: true });
+      if (err) throw err;
+      const rows = data || [];
+      if (rows.length === 0) return [];
+      // Enrich with user name/email from public.users
+      const userIds = [...new Set(rows.map((m: any) => m.user_id))];
+      const { data: usersData } = await supabase.from('users').select('id, name, email').in('id', userIds);
+      const usersMap = new Map((usersData || []).map((u: any) => [u.id, { name: u.name, email: u.email }]));
+      return rows.map((m: any) => ({ ...m, users: usersMap.get(m.user_id) || null })) as BoardMember[];
+    } catch (err: any) {
+      setError(err.message);
+      return [];
+    }
+  }, []);
+
+  const shareBoardWithUsers = useCallback(async (boardId: string, userIds: string[]): Promise<boolean> => {
+    setError(null);
+    if (userIds.length === 0) return true;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+      const rows = userIds.map(uid => ({ board_id: boardId, user_id: uid, added_by: user.id }));
+      // Ignore rows that already exist (board_id + user_id is unique)
+      const { error: err } = await supabase
+        .from('board_members')
+        .upsert(rows, { onConflict: 'board_id,user_id', ignoreDuplicates: true });
+      if (err) throw err;
+      return true;
+    } catch (err: any) {
+      setError(err.message);
+      return false;
+    }
+  }, []);
+
+  const unshareBoardUser = useCallback(async (boardId: string, userId: string): Promise<boolean> => {
+    setError(null);
+    try {
+      const { error: err } = await supabase
+        .from('board_members')
+        .delete()
+        .eq('board_id', boardId)
+        .eq('user_id', userId);
+      if (err) throw err;
+      return true;
+    } catch (err: any) {
+      setError(err.message);
+      return false;
+    }
+  }, []);
+
   return {
     boards, board, loading, error, checklistTemplates,
     fetchBoards, createBoard, fetchBoard, fetchAllBoardsFull, updateBoard, deleteBoard,
@@ -1365,6 +1423,7 @@ export function useProjectBoard() {
     fetchChecklistTemplates, saveChecklistTemplate, deleteChecklistTemplate, applyChecklistTemplate,
     addLabel, updateLabel, deleteLabel,
     assignCard, unassignCard, fetchSystemUsers,
+    fetchBoardMembers, shareBoardWithUsers, unshareBoardUser,
     setBoard,
   };
 }

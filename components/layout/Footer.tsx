@@ -43,7 +43,7 @@ export default function Footer() {
             <a href="/privacy-policy" className="hover:text-gray-400 transition-colors">Privacy</a>
             <a href="/terms" className="hover:text-gray-400 transition-colors">Terms</a>
             <a
-              href="https://forms.gle/sPGuywb28E2sn8gF7"
+              href="https://vccradius.netlify.app/f/circles-toolkit-bug-report-copy-7o4vfp"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-gray-400 transition-colors"
