@@ -309,6 +309,7 @@ export default function CircleLeaderProfilePage() {
               .from('circle_roster_cache')
               .select('id', { count: 'exact', head: true })
               .eq('circle_leader_id', leaderId)
+              .eq('is_active', true)
               .then(({ count }) => {
                 if (count !== null) setRosterCount(count);
               });

@@ -14,6 +14,70 @@ export { CCBDailyBudgetError } from "./ccb-api-gateway";
 
 const IS_DEV = process.env.NODE_ENV === 'development';
 const DID_NOT_MEET_REASON_PREFIX_RE = /^reason\s+we\s+did(?:n['’]t| not)\s+meet:\s*/i;
+const INACTIVE_PROFILE_STATUS_RE = /^(inactive|removed|archived)$/i;
+
+function ccbText(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value).trim();
+  }
+  const rec = value as Record<string, unknown>;
+  return String(rec['#text'] ?? rec.text ?? '').trim();
+}
+
+function ccbBoolean(value: unknown): boolean | null {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') {
+    if (value === 1) return true;
+    if (value === 0) return false;
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y'].includes(normalized)) return true;
+    if (['false', '0', 'no', 'n'].includes(normalized)) return false;
+  }
+  return null;
+}
+
+function ccbStatusFields(record: Record<string, unknown>): {
+  status: string;
+  statusId: string;
+  isActive: boolean;
+} {
+  const statusValue = record.status ?? record.profile_status ?? record.individual_status;
+  const statusRecord =
+    statusValue && typeof statusValue === 'object'
+      ? (statusValue as Record<string, unknown>)
+      : {};
+  const status = ccbText(statusValue);
+  const statusId = String(
+    statusRecord['@_id'] ??
+    record.status_id ??
+    record.statusId ??
+    ''
+  ).trim();
+
+  const inactive = ccbBoolean(
+    record.inactive ??
+    record.is_inactive ??
+    record['@_inactive'] ??
+    record['@_is_inactive']
+  );
+  const active = ccbBoolean(
+    record.active ??
+    record.is_active ??
+    record['@_active'] ??
+    record['@_is_active']
+  );
+
+  return {
+    status,
+    statusId,
+    isActive: inactive === true || active === false || INACTIVE_PROFILE_STATUS_RE.test(status)
+      ? false
+      : true,
+  };
+}
 
 // ---- Hard rate-limit circuit breaker ----
 //
@@ -2114,6 +2178,9 @@ ${attendeesBlock}
     email: string;
     phone: string;
     mobilePhone: string;
+    status: string;
+    statusId: string;
+    isActive: boolean;
     profileLink: string;
   }>> {
     const trimmed = query.trim();
@@ -2164,6 +2231,7 @@ ${attendeesBlock}
         const firstName = String(ind.first_name || '').trim();
         const lastName = String(ind.last_name || '').trim();
         const email = String(ind.email || '').trim();
+        const statusFields = ccbStatusFields(ind);
 
         // CCB returns phones as: { phones: { phone: [ { "#text": "...", "@_type": "mobile" }, ... ] } }
         const phonesContainer = ind.phones || {};
@@ -2197,9 +2265,10 @@ ${attendeesBlock}
           email,
           phone,
           mobilePhone,
+          ...statusFields,
           profileLink: `https://valleycreekchurch.ccbchurch.com/goto/individuals/${String(ind['@_id'] || ind.id || '').trim()}`,
         };
-      }).filter((p: any) => p.id && p.fullName);
+      }).filter((p: any) => p.id && p.fullName && p.isActive !== false);
     } catch (error) {
       console.error('CCB individual search failed:', error);
       throw new Error(`Failed to search individuals: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -2218,6 +2287,9 @@ ${attendeesBlock}
     email: string;
     phone: string;
     mobilePhone: string;
+    status: string;
+    statusId: string;
+    isActive: boolean;
   }[]> {
     if (!groupId) throw new Error('Group ID is required');
 
@@ -2256,6 +2328,7 @@ ${attendeesBlock}
         const firstName = String(p.first_name || p.name?.first || '').trim();
         const lastName = String(p.last_name || p.name?.last || '').trim();
         const email = String(p.email || '').trim();
+        const statusFields = ccbStatusFields(p);
 
         // Phone parsing — same structure as individual search
         const phonesContainer = p.phones || {};
@@ -2289,8 +2362,9 @@ ${attendeesBlock}
           email,
           phone,
           mobilePhone,
+          ...statusFields,
         };
-      }).filter((p: any) => p.id && p.fullName);
+      }).filter((p: any) => p.id && p.fullName && p.isActive !== false);
     } catch (error) {
       console.error('CCB group participants fetch failed:', error);
       throw new Error(`Failed to fetch group participants: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -2324,6 +2398,9 @@ ${attendeesBlock}
     phone: string;
     mobilePhone: string;
     birthday: string;
+    status: string;
+    statusId: string;
+    isActive: boolean;
   } | null> {
     if (!individualId) return null;
 
@@ -2346,6 +2423,7 @@ ${attendeesBlock}
       const lastName = String(ind.last_name || '').trim();
       const email = String(ind.email || '').trim();
       const birthday = String(ind.birthday || '').trim();
+      const statusFields = ccbStatusFields(ind);
 
       const phonesContainer = ind.phones || {};
       const phoneEntries = Array.isArray(phonesContainer.phone)
@@ -2379,6 +2457,7 @@ ${attendeesBlock}
         phone,
         mobilePhone,
         birthday,
+        ...statusFields,
       };
     } catch (error) {
       console.error(`CCB individual profile fetch failed for ID ${individualId}:`, error);
@@ -2400,6 +2479,9 @@ ${attendeesBlock}
       email: string;
       phone: string;
       mobilePhone: string;
+      status?: string;
+      statusId?: string;
+      isActive?: boolean;
     }>,
     throttleMs: number = 500,
   ): Promise<Array<{
@@ -2411,13 +2493,16 @@ ${attendeesBlock}
     phone: string;
     mobilePhone: string;
     birthday: string;
+    status?: string;
+    statusId?: string;
+    isActive?: boolean;
   }>> {
     const enriched = roster.map((p) => ({ ...p, birthday: '' }));
     const needsEnrichment = enriched.filter((p) => !p.phone && !p.mobilePhone);
 
     if (needsEnrichment.length === 0) {
       if (IS_DEV) console.log('✅ All roster members already have phone data');
-      return enriched;
+      return enriched.filter((p) => p.isActive !== false);
     }
 
     if (IS_DEV) {
@@ -2431,6 +2516,9 @@ ${attendeesBlock}
 
       const profile = await this.getIndividualProfile(member.id);
       if (profile) {
+        member.isActive = profile.isActive;
+        member.status = profile.status || member.status;
+        member.statusId = profile.statusId || member.statusId;
         member.phone = profile.phone || member.phone;
         member.mobilePhone = profile.mobilePhone || member.mobilePhone;
         member.birthday = profile.birthday || '';
@@ -2440,7 +2528,7 @@ ${attendeesBlock}
       }
     }
 
-    return enriched;
+    return enriched.filter((p) => p.isActive !== false);
   }
 
   /** Fetch all individuals in a process queue step by its step ID */

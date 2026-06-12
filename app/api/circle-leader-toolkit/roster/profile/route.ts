@@ -27,7 +27,7 @@ export async function GET(req: Request) {
 
   try {
     const profile = await ccb.getIndividualProfile(id);
-    if (!profile) {
+    if (!profile || profile.isActive === false) {
       return NextResponse.json({ profile: null }, { status: 404 });
     }
     return NextResponse.json({

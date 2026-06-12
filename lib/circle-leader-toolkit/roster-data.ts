@@ -34,6 +34,9 @@ export type RosterParticipant = {
   phone: string;
   birthday: string;
   detailsLoaded: boolean;
+  status?: string;
+  statusId?: string;
+  isActive?: boolean;
 };
 
 export type LoadRosterResult = {
@@ -44,7 +47,26 @@ export type LoadRosterResult = {
   error?: string;
 };
 
-type ProfileCacheEntry = { phone: string; email: string; birthday: string; syncedAt: string };
+type ProfileCacheEntry = {
+  phone: string;
+  email: string;
+  birthday: string;
+  syncedAt: string;
+  status?: string;
+  statusId?: string;
+  isActive?: boolean | null;
+};
+
+type ProfileCacheRow = {
+  ccb_individual_id: string | number;
+  phone?: string | null;
+  email?: string | null;
+  birthday?: string | null;
+  synced_at: string;
+  status?: string | null;
+  status_id?: string | null;
+  is_active?: boolean | null;
+};
 
 type RosterCacheRow = {
   ccb_individual_id: string | number;
@@ -56,6 +78,9 @@ type RosterCacheRow = {
   mobile_phone?: string | null;
   birthday?: string | null;
   fetched_at?: string | null;
+  status?: string | null;
+  status_id?: string | null;
+  is_active?: boolean | null;
 };
 
 type CcbParticipant = {
@@ -66,6 +91,9 @@ type CcbParticipant = {
   email?: string | null;
   phone?: string | null;
   mobilePhone?: string | null;
+  status?: string | null;
+  statusId?: string | null;
+  isActive?: boolean | null;
 };
 
 function rowToParticipant(row: RosterCacheRow): RosterParticipant {
@@ -78,14 +106,71 @@ function rowToParticipant(row: RosterCacheRow): RosterParticipant {
     phone: row.phone || row.mobile_phone || '',
     birthday: row.birthday || '',
     detailsLoaded: !!(row.email || row.phone || row.mobile_phone || row.birthday),
+    status: row.status || '',
+    statusId: row.status_id || '',
+    isActive: row.is_active ?? undefined,
   };
+}
+
+async function loadActiveCachedRows(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  leader: SessionLeader
+): Promise<RosterCacheRow[]> {
+  const withStatus = await supabase
+    .from('circle_roster_cache')
+    .select('ccb_individual_id, first_name, last_name, full_name, email, phone, mobile_phone, birthday, fetched_at, status, status_id, is_active')
+    .eq('circle_leader_id', leader.id)
+    .eq('ccb_group_id', String(leader.ccb_group_id))
+    .eq('is_active', true)
+    .order('full_name', { ascending: true });
+
+  if (!withStatus.error) return (withStatus.data || []) as RosterCacheRow[];
+
+  const legacy = await supabase
+    .from('circle_roster_cache')
+    .select('ccb_individual_id, first_name, last_name, full_name, email, phone, mobile_phone, birthday, fetched_at')
+    .eq('circle_leader_id', leader.id)
+    .eq('ccb_group_id', String(leader.ccb_group_id))
+    .order('full_name', { ascending: true });
+
+  return (legacy.data || []) as RosterCacheRow[];
+}
+
+async function upsertRosterRows(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  rows: Array<Record<string, unknown>>
+) {
+  if (rows.length === 0) return;
+
+  const { error } = await supabase
+    .from('circle_roster_cache')
+    .upsert(rows, { onConflict: 'circle_leader_id,ccb_individual_id' });
+
+  if (!error) return;
+
+  const fallbackRows = rows.map((row) => {
+    const copy = { ...row };
+    delete copy.status;
+    delete copy.status_id;
+    delete copy.is_active;
+    return copy;
+  });
+  await supabase
+    .from('circle_roster_cache')
+    .upsert(fallbackRows, { onConflict: 'circle_leader_id,ccb_individual_id' });
 }
 
 function mergeProfileCache(participants: CcbParticipant[], cacheByID: Map<string, ProfileCacheEntry>) {
   const now = Date.now();
   const staleIds: string[] = [];
 
-  const merged = participants.map((p) => {
+  const activeParticipants = participants.filter((p) => {
+    if (p.isActive === false) return false;
+    const cached = cacheByID.get(String(p.id));
+    return cached?.isActive !== false;
+  });
+
+  const merged = activeParticipants.map((p) => {
     const id = String(p.id);
     const cached = cacheByID.get(id);
     const rosterPhone = p.phone || p.mobilePhone || '';
@@ -116,6 +201,9 @@ function mergeProfileCache(participants: CcbParticipant[], cacheByID: Map<string
       phone,
       birthday,
       detailsLoaded,
+      status: p.status || cached?.status || '',
+      statusId: p.statusId || cached?.statusId || '',
+      isActive: p.isActive ?? cached?.isActive ?? true,
     };
   });
 
@@ -134,12 +222,7 @@ export async function loadLeaderRoster(
   const supabase = createServiceSupabaseClient();
 
   if (!forceRefresh) {
-    const { data: cachedRows } = await supabase
-      .from('circle_roster_cache')
-      .select('ccb_individual_id, first_name, last_name, full_name, email, phone, mobile_phone, birthday, fetched_at')
-      .eq('circle_leader_id', leader.id)
-      .eq('ccb_group_id', String(leader.ccb_group_id))
-      .order('full_name', { ascending: true });
+    const cachedRows = await loadActiveCachedRows(supabase, leader);
 
     if (cachedRows && cachedRows.length > 0) {
       const rows = cachedRows as RosterCacheRow[];
@@ -168,16 +251,29 @@ export async function loadLeaderRoster(
 
     const cacheByID = new Map<string, ProfileCacheEntry>();
     if (ids.length > 0) {
-      const { data } = await supabase
+      const primary = await supabase
         .from('ccb_individual_profiles')
-        .select('ccb_individual_id, phone, email, birthday, synced_at')
+        .select('ccb_individual_id, phone, email, birthday, synced_at, status, status_id, is_active')
         .in('ccb_individual_id', ids);
+      let data = (primary.data || null) as ProfileCacheRow[] | null;
+
+      if (primary.error) {
+        const fallback = await supabase
+          .from('ccb_individual_profiles')
+          .select('ccb_individual_id, phone, email, birthday, synced_at')
+          .in('ccb_individual_id', ids);
+        data = (fallback.data || null) as ProfileCacheRow[] | null;
+      }
+
       for (const row of data || []) {
         cacheByID.set(String(row.ccb_individual_id), {
           phone: row.phone || '',
           email: row.email || '',
           birthday: row.birthday || '',
           syncedAt: row.synced_at,
+          status: row.status || '',
+          statusId: row.status_id || '',
+          isActive: row.is_active ?? null,
         });
       }
     }
@@ -194,7 +290,8 @@ export async function loadLeaderRoster(
     if (merged.length > 0) {
       await staleCacheDelete.not('ccb_individual_id', 'in', `(${merged.map((p) => `"${p.id}"`).join(',')})`);
 
-      await supabase.from('circle_roster_cache').upsert(
+      await upsertRosterRows(
+        supabase,
         merged.map((p) => ({
           circle_leader_id: leader.id,
           ccb_group_id: String(leader.ccb_group_id),
@@ -206,9 +303,11 @@ export async function loadLeaderRoster(
           phone: p.phone,
           mobile_phone: p.phone,
           birthday: p.birthday,
+          status: p.status || '',
+          status_id: p.statusId || '',
+          is_active: p.isActive !== false,
           fetched_at: nowIso,
-        })),
-        { onConflict: 'circle_leader_id,ccb_individual_id' }
+        }))
       );
     } else {
       await staleCacheDelete;

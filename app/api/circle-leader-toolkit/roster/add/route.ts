@@ -48,6 +48,29 @@ export async function POST(req: Request) {
       // ignore
     }
 
+    if (profile?.isActive === false) {
+      try {
+        await ccb.removeIndividualFromGroup(individualId, leader.ccb_group_id);
+      } catch {
+        // Best effort rollback; the cache delete below still prevents display.
+      }
+      try {
+        const supabase = createServiceSupabaseClient();
+        await supabase
+          .from('circle_roster_cache')
+          .delete()
+          .eq('circle_leader_id', leader.id)
+          .eq('ccb_group_id', String(leader.ccb_group_id))
+          .eq('ccb_individual_id', String(individualId));
+      } catch {
+        // ignore
+      }
+      return NextResponse.json(
+        { ok: false, error: 'Inactive profiles cannot be added to the roster.' },
+        { status: 400 }
+      );
+    }
+
     try {
       const supabase = createServiceSupabaseClient();
       const row: Record<string, any> = {
@@ -61,14 +84,21 @@ export async function POST(req: Request) {
         phone: profile?.mobilePhone || profile?.phone || '',
         mobile_phone: profile?.mobilePhone || '',
         birthday: profile?.birthday || '',
+        status: profile?.status || '',
+        status_id: profile?.statusId || '',
+        is_active: profile?.isActive !== false,
         fetched_at: new Date().toISOString(),
       };
       const { error: upsertErr } = await supabase
         .from('circle_roster_cache')
         .upsert(row, { onConflict: 'circle_leader_id,ccb_individual_id' });
       if (upsertErr) {
-        // Retry without birthday in case migration hasn't run.
-        const { birthday: _b, ...rowNoBirthday } = row;
+        // Retry without newer cache columns in case migrations have not run.
+        const rowNoBirthday = { ...row };
+        delete rowNoBirthday.birthday;
+        delete rowNoBirthday.status;
+        delete rowNoBirthday.status_id;
+        delete rowNoBirthday.is_active;
         await supabase
           .from('circle_roster_cache')
           .upsert(rowNoBirthday, { onConflict: 'circle_leader_id,ccb_individual_id' });

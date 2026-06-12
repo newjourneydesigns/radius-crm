@@ -268,7 +268,8 @@ export async function GET(request: NextRequest) {
     const { count: rosterCount } = await supabase
       .from('circle_roster_cache')
       .select('*', { count: 'exact', head: true })
-      .eq('circle_leader_id', leaderId);
+      .eq('circle_leader_id', leaderId)
+      .eq('is_active', true);
     if (typeof rosterCount === 'number' && rosterCount > 0) {
       rosterSize = rosterCount;
     }

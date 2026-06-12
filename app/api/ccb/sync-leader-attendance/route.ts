@@ -183,6 +183,9 @@ export async function POST(request: NextRequest) {
               email: p.email,
               phone: p.phone,
               mobile_phone: p.mobilePhone,
+              status: p.status || '',
+              status_id: p.statusId || '',
+              is_active: p.isActive !== false,
               fetched_at: now,
             })),
             { onConflict: 'circle_leader_id,ccb_individual_id' }

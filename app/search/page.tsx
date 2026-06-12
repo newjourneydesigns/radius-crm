@@ -66,6 +66,7 @@ const loadRosterCounts = async () => {
     const { data, error } = await supabase
       .from('circle_roster_cache')
       .select('circle_leader_id')
+      .eq('is_active', true)
       .range(from, from + ROSTER_COUNT_PAGE_SIZE - 1);
 
     if (error) {

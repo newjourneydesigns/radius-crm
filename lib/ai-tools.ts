@@ -1355,6 +1355,7 @@ export async function executeTool(
         .from('circle_roster_cache')
         .select('full_name, first_name, last_name, email, phone, mobile_phone, birthday')
         .eq('circle_leader_id', leader.id)
+        .eq('is_active', true)
         .order('full_name');
 
       if (rosterErr) return { toolName: name, result: { error: rosterErr.message } };

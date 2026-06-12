@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '../../../../lib/supabase';
 
@@ -14,6 +14,9 @@ interface RosterPerson {
   phone: string;
   mobilePhone: string;
   birthday: string;
+  status?: string;
+  statusId?: string;
+  isActive?: boolean;
 }
 
 interface CachedRosterPerson {
@@ -25,12 +28,14 @@ interface CachedRosterPerson {
   phone: string;
   mobile_phone: string;
   birthday: string;
+  status?: string;
+  status_id?: string;
+  is_active?: boolean;
 }
 
 export default function CircleRosterPage() {
   const params = useParams();
-  const router = useRouter();
-  const leaderId = params.id as string;
+  const leaderId = String(params?.id || '');
 
   const [leaderName, setLeaderName] = useState('');
   const [ccbGroupId, setCcbGroupId] = useState<string | null>(null);
@@ -77,12 +82,13 @@ export default function CircleRosterPage() {
         // Try with birthday column first
         const result1 = await supabase
           .from('circle_roster_cache')
-          .select('ccb_individual_id, first_name, last_name, full_name, email, phone, mobile_phone, birthday, fetched_at')
+          .select('ccb_individual_id, first_name, last_name, full_name, email, phone, mobile_phone, birthday, fetched_at, status, status_id, is_active')
           .eq('circle_leader_id', leaderId)
+          .eq('is_active', true)
           .order('full_name');
 
         if (result1.error) {
-          // Birthday column may not exist — retry without it
+          // Newer cache columns may not exist — retry with the legacy shape.
           const result2 = await supabase
             .from('circle_roster_cache')
             .select('ccb_individual_id, first_name, last_name, full_name, email, phone, mobile_phone, fetched_at')
@@ -106,6 +112,9 @@ export default function CircleRosterPage() {
               phone: c.phone || '',
               mobilePhone: c.mobile_phone || '',
               birthday: c.birthday || '',
+              status: c.status || '',
+              statusId: c.status_id || '',
+              isActive: c.is_active ?? true,
             }))
           );
           setLastFetched(cached[0]?.fetched_at || null);
@@ -139,7 +148,7 @@ export default function CircleRosterPage() {
       }
 
       const data = await res.json();
-      const people: RosterPerson[] = data.data || [];
+      const people: RosterPerson[] = (data.data || []).filter((p: RosterPerson) => p.isActive !== false);
 
       // Save to Supabase cache
       // First delete old cache for this leader
@@ -161,6 +170,9 @@ export default function CircleRosterPage() {
           email: p.email || '',
           phone: p.phone || '',
           mobile_phone: p.mobilePhone || '',
+          status: p.status || '',
+          status_id: p.statusId || '',
+          is_active: p.isActive !== false,
           fetched_at: now,
         }));
 
@@ -175,11 +187,18 @@ export default function CircleRosterPage() {
           .insert(rowsWithBirthday);
 
         if (insertErr) {
-          // Birthday column may not exist yet — retry without it
-          console.warn('Insert with birthday failed, retrying without:', insertErr.message);
+          // Newer cache columns may not exist yet — retry with the legacy shape.
+          console.warn('Insert with newer roster cache columns failed, retrying without:', insertErr.message);
+          const legacyRows = baseRows.map((row) => {
+            const copy: Record<string, unknown> = { ...row };
+            delete copy.status;
+            delete copy.status_id;
+            delete copy.is_active;
+            return copy;
+          });
           const { error: retryErr } = await supabase
             .from('circle_roster_cache')
-            .insert(baseRows);
+            .insert(legacyRows);
           if (retryErr) {
             console.error('Failed to cache roster:', retryErr);
           }

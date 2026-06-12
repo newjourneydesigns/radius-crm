@@ -191,6 +191,9 @@ export async function POST(request: NextRequest) {
         phone: p.phone || '',
         mobile_phone: p.mobilePhone || '',
         birthday: (p as any).birthday || '',
+        status: p.status || '',
+        status_id: p.statusId || '',
+        is_active: p.isActive !== false,
         fetched_at: now,
       }));
 
@@ -200,8 +203,15 @@ export async function POST(request: NextRequest) {
         .upsert(rows, { onConflict: 'circle_leader_id,ccb_individual_id' });
 
       if (upsertErr) {
-        // Retry without birthday column in case migration hasn't run
-        const rowsNoBirthday = rows.map(({ birthday: _b, ...r }) => r);
+        // Retry without newer cache columns in case migrations have not run.
+        const rowsNoBirthday = rows.map((row) => {
+          const copy: Record<string, unknown> = { ...row };
+          delete copy.birthday;
+          delete copy.status;
+          delete copy.status_id;
+          delete copy.is_active;
+          return copy;
+        });
         const { error: retryErr } = await supabase
           .from('circle_roster_cache')
           .upsert(rowsNoBirthday, { onConflict: 'circle_leader_id,ccb_individual_id' });

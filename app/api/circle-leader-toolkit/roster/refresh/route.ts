@@ -37,7 +37,25 @@ export async function POST(req: Request) {
     await getCCBRequestContext(req, { module: 'circle-summary', action: 'roster_profile_batch' })
   );
 
-  type Result = { id: string; firstName: string; lastName: string; fullName: string; email: string; phone: string; birthday: string };
+  type Result = {
+    id: string;
+    firstName: string;
+    lastName: string;
+    fullName: string;
+    email: string;
+    phone: string;
+    birthday: string;
+    status: string;
+    statusId: string;
+    isActive: boolean;
+  };
+  const withoutStatusColumns = <T extends Record<string, unknown>>(row: T) => {
+    const copy = { ...row };
+    delete copy.status;
+    delete copy.status_id;
+    delete copy.is_active;
+    return copy;
+  };
   const results: Result[] = [];
 
   // Run with bounded concurrency to stay friendly to CCB's rate limits.
@@ -57,6 +75,9 @@ export async function POST(req: Request) {
             email: profile.email || '',
             phone: profile.mobilePhone || profile.phone || '',
             birthday: profile.birthday || '',
+            status: profile.status || '',
+            statusId: profile.statusId || '',
+            isActive: profile.isActive !== false,
           });
         }
       } catch {
@@ -72,8 +93,7 @@ export async function POST(req: Request) {
   if (supabaseUrl && serviceKey && results.length > 0) {
     const admin = createClient(supabaseUrl, serviceKey);
     const nowIso = new Date().toISOString();
-    await admin.from('ccb_individual_profiles').upsert(
-      results.map((r) => ({
+    const profileRows = results.map((r) => ({
         ccb_individual_id: r.id,
         first_name: r.firstName,
         last_name: r.lastName,
@@ -81,14 +101,34 @@ export async function POST(req: Request) {
         email: r.email,
         phone: r.phone,
         birthday: r.birthday,
+        status: r.status,
+        status_id: r.statusId,
+        is_active: r.isActive,
         synced_at: nowIso,
-      })),
-      { onConflict: 'ccb_individual_id' }
-    );
+      }));
+    const { error: profileUpsertError } = await admin
+      .from('ccb_individual_profiles')
+      .upsert(profileRows, { onConflict: 'ccb_individual_id' });
+
+    if (profileUpsertError) {
+      await admin.from('ccb_individual_profiles').upsert(
+        profileRows.map(withoutStatusColumns),
+        { onConflict: 'ccb_individual_id' }
+      );
+    }
 
     if (leader.ccb_group_id) {
-      await admin.from('circle_roster_cache').upsert(
-        results.map((r) => ({
+      const inactiveIds = results.filter((r) => !r.isActive).map((r) => r.id);
+      if (inactiveIds.length > 0) {
+        await admin
+          .from('circle_roster_cache')
+          .delete()
+          .eq('circle_leader_id', leader.id)
+          .eq('ccb_group_id', String(leader.ccb_group_id))
+          .in('ccb_individual_id', inactiveIds);
+      }
+
+      const activeRows = results.filter((r) => r.isActive).map((r) => ({
           circle_leader_id: leader.id,
           ccb_group_id: String(leader.ccb_group_id),
           ccb_individual_id: r.id,
@@ -99,12 +139,26 @@ export async function POST(req: Request) {
           phone: r.phone,
           mobile_phone: r.phone,
           birthday: r.birthday,
+          status: r.status,
+          status_id: r.statusId,
+          is_active: true,
           fetched_at: nowIso,
-        })),
-        { onConflict: 'circle_leader_id,ccb_individual_id' }
-      );
+        }));
+
+      if (activeRows.length > 0) {
+        const { error: rosterUpsertError } = await admin
+          .from('circle_roster_cache')
+          .upsert(activeRows, { onConflict: 'circle_leader_id,ccb_individual_id' });
+
+        if (rosterUpsertError) {
+          await admin.from('circle_roster_cache').upsert(
+            activeRows.map(withoutStatusColumns),
+            { onConflict: 'circle_leader_id,ccb_individual_id' }
+          );
+        }
+      }
     }
   }
 
-  return NextResponse.json({ profiles: results });
+  return NextResponse.json({ profiles: results.filter((r) => r.isActive) });
 }
