@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import type { TodayCoreData } from '../app/api/today/core/route';
 import type { TodayCardsData } from '../app/api/today/cards/route';
-import type { CardDigestItem } from '../lib/emailService';
+import type { CardDigestItem, ChecklistDigestItem } from '../lib/emailService';
 
 export type TodayData = TodayCoreData & TodayCardsData;
 
@@ -36,6 +36,25 @@ const EMPTY_CARDS: TodayCardsData = {
   checklistItems: { dueToday: [], overdue: [] },
 };
 
+function arrayOrEmpty<T>(value: unknown): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
+export function normalizeTodayCardsData(value: unknown): TodayCardsData {
+  const data = value && typeof value === 'object' ? value as Partial<TodayCardsData> : {};
+  return {
+    cards: {
+      dueToday: arrayOrEmpty<CardDigestItem>(data.cards?.dueToday),
+      overdue: arrayOrEmpty<CardDigestItem>(data.cards?.overdue),
+    },
+    focusCards: arrayOrEmpty<CardDigestItem>(data.focusCards),
+    checklistItems: {
+      dueToday: arrayOrEmpty<ChecklistDigestItem>(data.checklistItems?.dueToday),
+      overdue: arrayOrEmpty<ChecklistDigestItem>(data.checklistItems?.overdue),
+    },
+  };
+}
+
 type CacheResult = {
   data: TodayData | null;
   hasCore: boolean;
@@ -66,7 +85,7 @@ function readTodayCache(): CacheResult {
       const { data, timestamp } = JSON.parse(rawCards);
       if (Date.now() - timestamp < CACHE_TTL) {
         hasCards = true;
-        cachedCards = data;
+        cachedCards = normalizeTodayCardsData(data);
       }
     }
 
@@ -154,7 +173,7 @@ export function useTodayData() {
         try {
           const res = await fetch('/api/today/cards', { headers });
           if (!res.ok) { setIsCardsLoading(false); return; }
-          freshCards = await res.json();
+          freshCards = normalizeTodayCardsData(await res.json());
           setIsCardsLoading(false);
           applyData();
           try { localStorage.setItem(CARDS_CACHE_KEY, JSON.stringify({ data: freshCards, timestamp: Date.now() })); } catch {}
@@ -328,31 +347,27 @@ export function useTodayData() {
     }
   }, []);
 
-  // Create a card directly from the timeline (click an empty slot).
-  // Mirrors the Big 3 create flow: first column of the board, appended position.
+  // Create a card directly from the timeline (click an empty slot), appended
+  // to the selected board list.
   const quickAddCard = useCallback(async (
-    title: string, boardId: string, boardName: string, dueDate: string, dueTime: string
+    title: string,
+    boardId: string,
+    boardName: string,
+    columnId: string,
+    columnName: string,
+    dueDate: string,
+    dueTime: string
   ): Promise<boolean> => {
     const cleanTitle = title.trim();
-    if (!cleanTitle || !boardId) return false;
+    if (!cleanTitle || !boardId || !columnId) return false;
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { data: columns, error: columnsError } = await supabase
-        .from('board_columns')
-        .select('id, title')
-        .eq('board_id', boardId)
-        .order('position')
-        .limit(1);
-      if (columnsError) throw columnsError;
-      const column = columns?.[0];
-      if (!column) throw new Error('Selected board has no columns.');
-
       const { data: latestCard, error: positionError } = await supabase
         .from('board_cards')
         .select('position')
-        .eq('column_id', column.id)
+        .eq('column_id', columnId)
         .order('position', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -363,7 +378,7 @@ export function useTodayData() {
         .insert({
           title: cleanTitle,
           board_id: boardId,
-          column_id: column.id,
+          column_id: columnId,
           priority: 'medium',
           position: (latestCard?.position ?? -1) + 1,
           created_by: user.id,
@@ -383,7 +398,7 @@ export function useTodayData() {
           due_time: dueTime,
           board_name: boardName,
           board_id: boardId,
-          column_name: column.title || '',
+          column_name: columnName,
           assignees: [],
           priority: 'medium',
           labels: [],

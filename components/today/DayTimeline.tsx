@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { DateTime } from 'luxon';
 import { Plus, Trash2, X, CalendarDays, Check, Bell, BellOff, ChevronLeft, ChevronRight, MapPin, AlignLeft } from 'lucide-react';
 import type { CalendarSubscription } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import type { CalendarEventItem } from '../../hooks/useTodayCalendars';
 
 // ─── Theme (mirrors app/today/page.tsx) ──────────────────────────────────────
@@ -91,6 +92,7 @@ const FILTERS_KEY = 'today_timeline_filters_v1';
 const REMINDERS_KEY = 'today_timeline_reminders_v1';
 const REMINDERS_FIRED_KEY = 'today_timeline_reminders_fired_v1';
 const QUICK_ADD_BOARD_KEY = 'today_quick_add_board_id';
+const QUICK_ADD_COLUMN_KEY = 'today_quick_add_column_by_board';
 const REMINDER_LEAD_MIN = 10;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -471,7 +473,7 @@ function QuickAddDialog({ minutes, dateLabel, boards, onCreate, onClose }: {
   minutes: number;
   dateLabel: string;
   boards: { id: string; title: string }[];
-  onCreate: (title: string, boardId: string, minutes: number) => Promise<boolean>;
+  onCreate: (title: string, boardId: string, columnId: string, columnName: string, minutes: number) => Promise<boolean>;
   onClose: () => void;
 }) {
   const defaultBoardId = (() => {
@@ -484,6 +486,10 @@ function QuickAddDialog({ minutes, dateLabel, boards, onCreate, onClose }: {
 
   const [title, setTitle] = useState('');
   const [boardId, setBoardId] = useState(defaultBoardId);
+  const [columns, setColumns] = useState<{ id: string; title: string }[]>([]);
+  const [columnId, setColumnId] = useState('');
+  const [columnsLoading, setColumnsLoading] = useState(false);
+  const [columnsError, setColumnsError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   // Only dismiss when a press both starts and ends on the backdrop — stops a
@@ -492,16 +498,61 @@ function QuickAddDialog({ minutes, dateLabel, boards, onCreate, onClose }: {
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    const loadColumns = async () => {
+      setColumns([]);
+      setColumnId('');
+      setColumnsError(null);
+      if (!boardId) return;
+
+      setColumnsLoading(true);
+      const { data, error } = await supabase
+        .from('board_columns')
+        .select('id, title')
+        .eq('board_id', boardId)
+        .order('position');
+
+      if (cancelled) return;
+      setColumnsLoading(false);
+
+      if (error) {
+        setColumnsError('Could not load lists.');
+        return;
+      }
+
+      const list = (data || []) as { id: string; title: string }[];
+      setColumns(list);
+      try {
+        const savedByBoard = JSON.parse(localStorage.getItem(QUICK_ADD_COLUMN_KEY) || '{}') as Record<string, string>;
+        const saved = savedByBoard[boardId];
+        setColumnId(saved && list.some(column => column.id === saved) ? saved : (list[0]?.id || ''));
+      } catch {
+        setColumnId(list[0]?.id || '');
+      }
+    };
+
+    loadColumns();
+    return () => { cancelled = true; };
+  }, [boardId]);
+
   const submit = async () => {
-    if (!title.trim() || !boardId || saving) return;
+    if (!title.trim() || !boardId || !columnId || saving || columnsLoading) return;
     setSaving(true);
-    const ok = await onCreate(title, boardId, minutes);
+    const columnName = columns.find(column => column.id === columnId)?.title || '';
+    const ok = await onCreate(title, boardId, columnId, columnName, minutes);
     setSaving(false);
     if (ok) {
       try { localStorage.setItem(QUICK_ADD_BOARD_KEY, boardId); } catch {}
+      try {
+        const savedByBoard = JSON.parse(localStorage.getItem(QUICK_ADD_COLUMN_KEY) || '{}') as Record<string, string>;
+        localStorage.setItem(QUICK_ADD_COLUMN_KEY, JSON.stringify({ ...savedByBoard, [boardId]: columnId }));
+      } catch {}
       onClose();
     }
   };
+
+  const canSubmit = Boolean(title.trim() && boardId && columnId && !saving && !columnsLoading);
 
   return (
     <div
@@ -553,6 +604,23 @@ function QuickAddDialog({ minutes, dateLabel, boards, onCreate, onClose }: {
               ? <option value="">No boards</option>
               : boards.map(b => <option key={b.id} value={b.id}>{b.title}</option>)}
           </select>
+          <select
+            value={columnId}
+            onChange={e => setColumnId(e.target.value)}
+            disabled={!boardId || columnsLoading || columns.length === 0}
+            style={{
+              height: 32, borderRadius: 8, border: `1px solid ${T.cardBorder}`,
+              background: '#1c1f2a', color: T.textMuted, padding: '0 8px', fontSize: 12, outline: 'none',
+              opacity: !boardId || columnsLoading || columns.length === 0 ? 0.6 : 1,
+            }}
+          >
+            {columnsLoading
+              ? <option value="">Loading lists...</option>
+              : columns.length === 0
+                ? <option value="">No lists</option>
+                : columns.map(column => <option key={column.id} value={column.id}>{column.title}</option>)}
+          </select>
+          {columnsError && <p style={{ margin: 0, fontSize: 11, color: T.red }}>{columnsError}</p>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 2 }}>
             <button
               onClick={onClose}
@@ -566,13 +634,13 @@ function QuickAddDialog({ minutes, dateLabel, boards, onCreate, onClose }: {
             </button>
             <button
               onClick={submit}
-              disabled={saving || !title.trim() || !boardId}
+              disabled={!canSubmit}
               style={{
                 height: 30, borderRadius: 7, padding: '0 12px', fontSize: 12, fontWeight: 700,
                 display: 'inline-flex', alignItems: 'center', gap: 5,
                 background: `${T.green}14`, border: `1px solid ${T.green}35`, color: T.green,
-                cursor: saving || !title.trim() ? 'default' : 'pointer',
-                opacity: saving || !title.trim() || !boardId ? 0.5 : 1,
+                cursor: canSubmit ? 'pointer' : 'default',
+                opacity: canSubmit ? 1 : 0.5,
               }}
             >
               <Plus className="h-3.5 w-3.5" />
@@ -751,7 +819,7 @@ export default function DayTimeline({
   onGoToday: () => void;
   boards: { id: string; title: string }[];
   onScheduleDrop: (payload: ScheduleDragPayload, minutes: number) => void;
-  onQuickAdd: (title: string, boardId: string, minutes: number) => Promise<boolean>;
+  onQuickAdd: (title: string, boardId: string, columnId: string, columnName: string, minutes: number) => Promise<boolean>;
   pushSupported?: boolean;
   pushSubscribed?: boolean;
   onEnablePush?: () => Promise<boolean>;

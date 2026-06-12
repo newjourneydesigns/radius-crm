@@ -24,7 +24,7 @@ import {
 import { useBigThree } from '../../hooks/useBigThree';
 import type { BigThreeBoard, BigThreeCard, BigThreeSlot } from '../../hooks/useBigThree';
 import { useRandomLoadingMessage } from '../../hooks/useRandomLoadingMessage';
-import { useTodayData } from '../../hooks/useTodayData';
+import { normalizeTodayCardsData, useTodayData } from '../../hooks/useTodayData';
 import type { TodayCompleted } from '../../hooks/useTodayData';
 import { useTodayCalendars } from '../../hooks/useTodayCalendars';
 import type { CalendarEventItem } from '../../hooks/useTodayCalendars';
@@ -929,7 +929,7 @@ function TodaySections({
   markEncouragementSent, undoEncouragementSent,
   clearFollowUp, undoFollowUp,
   markCardComplete, undoCardComplete,
-  markChecklistDone, undoChecklistDone,
+  markChecklistDone,
   onOpenCard,
 }: {
   data: TodayData;
@@ -944,7 +944,6 @@ function TodaySections({
   markCardComplete: (id: string) => void;
   undoCardComplete: (id: string) => void;
   markChecklistDone: (id: string) => void;
-  undoChecklistDone: (id: string) => void;
   onOpenCard: (boardId: string, cardId: string) => void;
 }) {
   const totalFocus = (data.focusCards ?? []).length;
@@ -1300,7 +1299,11 @@ const MOBILE_TAB_KEY = 'today_mobile_tab';
 export default function TodayPage() {
   const {
     data, isLoading, isFetching, isCardsLoading, error, fetchData,
-    markEncouragementSent, clearFollowUp, markCardComplete, markChecklistDone,
+    completed,
+    markEncouragementSent, undoEncouragementSent,
+    clearFollowUp, undoFollowUp,
+    markCardComplete, undoCardComplete,
+    markChecklistDone,
     scheduleCard, scheduleFollowUp, quickAddCard,
   } = useTodayData();
   const bigThree = useBigThree();
@@ -1379,7 +1382,7 @@ export default function TodayPage() {
       if (core) {
         setDayData({
           ...core,
-          ...(cards || { cards: { dueToday: [], overdue: [] }, focusCards: [], checklistItems: { dueToday: [], overdue: [] } }),
+          ...normalizeTodayCardsData(cards),
         });
       }
       setDayCalEvents(cal.events || []);
@@ -1434,11 +1437,17 @@ export default function TodayPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeDate, isViewToday, viewDate, scheduleCard, scheduleFollowUp, findCardInfo, fetchDay]);
 
-  const handleQuickAdd = useCallback(async (title: string, boardId: string, minutes: number) => {
+  const handleQuickAdd = useCallback(async (
+    title: string,
+    boardId: string,
+    columnId: string,
+    columnName: string,
+    minutes: number
+  ) => {
     if (!activeDate) return false;
     const time = `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
     const boardName = bigThree.boards.find(b => b.id === boardId)?.title || 'Board';
-    const ok = await quickAddCard(title, boardId, boardName, activeDate, time);
+    const ok = await quickAddCard(title, boardId, boardName, columnId, columnName, activeDate, time);
     if (ok && !isViewToday && viewDate) fetchDay(viewDate, true);
     return ok;
   }, [activeDate, isViewToday, viewDate, quickAddCard, bigThree.boards, fetchDay]);
@@ -1655,12 +1664,16 @@ export default function TodayPage() {
   const sectionsEl = (
     <TodaySections
       data={data}
+      completed={completed}
       hasAnything={hasAnything}
       isOpen={isOpen}
       toggle={toggle}
       markEncouragementSent={markEncouragementSent}
+      undoEncouragementSent={undoEncouragementSent}
       clearFollowUp={clearFollowUp}
+      undoFollowUp={undoFollowUp}
       markCardComplete={markCardComplete}
+      undoCardComplete={undoCardComplete}
       markChecklistDone={markChecklistDone}
       onOpenCard={handleOpenCard}
     />
