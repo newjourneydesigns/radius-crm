@@ -25,6 +25,7 @@ import { useBigThree } from '../../hooks/useBigThree';
 import type { BigThreeBoard, BigThreeCard, BigThreeSlot } from '../../hooks/useBigThree';
 import { useRandomLoadingMessage } from '../../hooks/useRandomLoadingMessage';
 import { useTodayData } from '../../hooks/useTodayData';
+import type { TodayCompleted } from '../../hooks/useTodayData';
 import { useTodayCalendars } from '../../hooks/useTodayCalendars';
 import type { CalendarEventItem } from '../../hooks/useTodayCalendars';
 import { usePushReminders } from '../../hooks/usePushReminders';
@@ -304,12 +305,41 @@ function ActionBtn({ onClick, color, children }: { onClick: () => void; color?: 
   );
 }
 
+// ─── Undo button (shown on completed items) ──────────────────────────────────
+
+function UndoBtn({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      title="Undo"
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px',
+        borderRadius: 7, border: `1px solid ${T.cardBorder}`, background: 'rgba(255,255,255,0.03)',
+        color: T.textMuted, fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+        transition: 'all 0.15s',
+      }}
+      className="today-action-btn"
+    >
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 14L4 9l5-5" />
+        <path d="M4 9h11a5 5 0 010 10h-1" />
+      </svg>
+      Undo
+    </button>
+  );
+}
+
+/** Title styling for a completed item — struck through and dimmed. */
+const doneTitle = (done: boolean): React.CSSProperties =>
+  done ? { color: T.textFaint, textDecoration: 'line-through' } : { color: T.text, textDecoration: 'none' };
+
 // ─── Leader link ─────────────────────────────────────────────────────────────
 
-function LeaderLink({ id, name }: { id: number | string; name: string }) {
+function LeaderLink({ id, name, done = false }: { id: number | string; name: string; done?: boolean }) {
   return (
     <Link href={`/circle/${id}`} style={{
-      color: T.text, fontSize: 13, fontWeight: 600, textDecoration: 'none',
+      color: done ? T.textFaint : T.text, fontSize: 13, fontWeight: 600,
+      textDecoration: done ? 'line-through' : 'none',
       display: 'inline-flex', alignItems: 'center', gap: 4,
     }}
       className="today-leader-link"
@@ -895,18 +925,26 @@ function TodaySkeleton() {
 // ─── Sections (shared between mobile list and desktop rail) ───────────────────
 
 function TodaySections({
-  data, hasAnything, isOpen, toggle,
-  markEncouragementSent, clearFollowUp, markCardComplete, markChecklistDone,
+  data, completed, hasAnything, isOpen, toggle,
+  markEncouragementSent, undoEncouragementSent,
+  clearFollowUp, undoFollowUp,
+  markCardComplete, undoCardComplete,
+  markChecklistDone, undoChecklistDone,
   onOpenCard,
 }: {
   data: TodayData;
+  completed: TodayCompleted;
   hasAnything: boolean;
   isOpen: (key: string) => boolean;
   toggle: (key: string) => void;
   markEncouragementSent: (id: number) => void;
+  undoEncouragementSent: (id: number) => void;
   clearFollowUp: (id: number) => void;
+  undoFollowUp: (id: number) => void;
   markCardComplete: (id: string) => void;
+  undoCardComplete: (id: string) => void;
   markChecklistDone: (id: string) => void;
+  undoChecklistDone: (id: string) => void;
   onOpenCard: (boardId: string, cardId: string) => void;
 }) {
   const totalFocus = (data.focusCards ?? []).length;
@@ -1009,51 +1047,70 @@ function TodaySections({
       {/* ── Encouragements Due Today ── */}
       <Section id="encs-today" title="Encouragements Due Today" icon={<PartyPopper className="h-4 w-4" />} count={data.encouragements.dueToday.length}
         sectionKey="encouragementsToday" isOpen={isOpen('encouragementsToday')} onToggle={() => toggle('encouragementsToday')} accentColor={T.amber}>
-        {data.encouragements.dueToday.map((e: EncouragementItem) => (
-          <Item key={e.id} accentColor={T.amber}>
+        {data.encouragements.dueToday.map((e: EncouragementItem) => {
+          const done = completed.encouragements.has(e.id);
+          return (
+          <Item key={e.id} accentColor={done ? T.green : T.amber}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <LeaderLink id={e.circle_leader_id} name={e.leader_name} />
+              <LeaderLink id={e.circle_leader_id} name={e.leader_name} done={done} />
               <Sub>{[e.leader_campus, methodLabel(e.encourage_method), e.note].filter(Boolean).join(' · ')}</Sub>
             </div>
-            <ActionBtn onClick={() => markEncouragementSent(e.id)} color={T.green}>Sent</ActionBtn>
+            {done ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                <DateBadge date="Sent" color={T.green} />
+                <UndoBtn onClick={() => undoEncouragementSent(e.id)} />
+              </div>
+            ) : (
+              <ActionBtn onClick={() => markEncouragementSent(e.id)} color={T.green}>Sent</ActionBtn>
+            )}
           </Item>
-        ))}
+          );
+        })}
       </Section>
 
       {/* ── Follow-Ups Due Today ── */}
       <Section id="follow-ups" title="Follow-Ups Due Today" icon={<BellRing className="h-4 w-4" />} count={data.followUps.dueToday.length}
         sectionKey="followUps" isOpen={isOpen('followUps')} onToggle={() => toggle('followUps')} accentColor={T.amber}>
-        {data.followUps.dueToday.map((f: FollowUpItem) => (
-          <Item key={f.id} accentColor={T.amber}>
+        {data.followUps.dueToday.map((f: FollowUpItem) => {
+          const done = completed.followUps.has(f.id);
+          return (
+          <Item key={f.id} accentColor={done ? T.green : T.amber}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <LeaderLink id={f.id} name={f.name} />
+              <LeaderLink id={f.id} name={f.name} done={done} />
               <Sub>{f.campus}</Sub>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              {f.follow_up_date && <DateBadge date={`Due ${formatShort(f.follow_up_date)}`} color={T.amber} />}
-              <ActionBtn onClick={() => clearFollowUp(f.id)} color={T.green}>Clear</ActionBtn>
+              {done
+                ? <><DateBadge date="Cleared" color={T.green} /><UndoBtn onClick={() => undoFollowUp(f.id)} /></>
+                : <>{f.follow_up_date && <DateBadge date={`Due ${formatShort(f.follow_up_date)}`} color={T.amber} />}<ActionBtn onClick={() => clearFollowUp(f.id)} color={T.green}>Clear</ActionBtn></>}
             </div>
           </Item>
-        ))}
+          );
+        })}
       </Section>
 
       {/* ── Cards Due Today ── */}
       <Section id="cards-today" title="Cards Due Today" icon={<ClipboardList className="h-4 w-4" />} count={data.cards.dueToday.length}
         sectionKey="cardsToday" isOpen={isOpen('cardsToday')} onToggle={() => toggle('cardsToday')} accentColor={T.amber}>
-        {data.cards.dueToday.map((c: CardDigestItem) => (
-          <Item key={c.id} accentColor={T.amber}>
+        {data.cards.dueToday.map((c: CardDigestItem) => {
+          const done = completed.cards.has(c.id);
+          return (
+          <Item key={c.id} accentColor={done ? T.green : T.amber}>
             <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
               <Link href={`/boards/${c.board_id}?card=${c.id}`} onClick={cardClick(c.board_id, c.id)}
-                style={{ fontSize: 13, fontWeight: 600, color: T.text, textDecoration: 'none', display: 'block', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                style={{ fontSize: 13, fontWeight: 600, ...doneTitle(done), display: 'block', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
                 className="today-leader-link">
                 {c.title}
               </Link>
               <Sub>{c.board_name} · {c.column_name}</Sub>
-              <CardMeta card={c} />
+              {!done && <CardMeta card={c} />}
             </div>
-            <ActionBtn onClick={() => markCardComplete(c.id)} color={T.green}>Done</ActionBtn>
+            {done
+              ? <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}><DateBadge date="Done" color={T.green} /><UndoBtn onClick={() => undoCardComplete(c.id)} /></div>
+              : <ActionBtn onClick={() => markCardComplete(c.id)} color={T.green}>Done</ActionBtn>}
           </Item>
-        ))}
+          );
+        })}
       </Section>
 
       {/* ── Overdue Cards ── */}

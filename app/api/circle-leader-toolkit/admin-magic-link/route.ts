@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     const supabase = createServiceSupabaseClient();
     const { data: leader, error: lookupError } = await supabase
       .from('circle_leaders')
-      .select('id, name, phone, email, status, circle_summary_access_enabled')
+      .select('id, name, phone, email, status, ccb_group_id, circle_summary_access_enabled')
       .eq('id', body.leader_id)
       .single();
     if (lookupError || !leader) {
@@ -45,15 +45,19 @@ export async function POST(req: NextRequest) {
     }
 
     const token = createSessionToken(leader.id, RADIUS_LINK_TTL_MS);
+    const targetPath = leader.ccb_group_id
+      ? `/circle-leader-toolkit/${encodeURIComponent(String(leader.ccb_group_id))}/events/`
+      : '/circle-leader-toolkit/events';
     const url = new URL('/api/circle-leader-toolkit/auth/link', getCircleSummaryBaseUrl(req));
     url.searchParams.set('t', token);
-    url.searchParams.set('next', '/circle-leader-toolkit/events');
+    url.searchParams.set('next', targetPath);
 
     const messageBody = `Hi ${leader.name?.split(' ')[0] || 'there'}, here's your link to report your Circle event summary: ${url.toString()}`;
 
     return NextResponse.json({
       ok: true,
       url: url.toString(),
+      targetPath,
       phone: leader.phone || null,
       email: leader.email || null,
       smsBody: messageBody,

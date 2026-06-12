@@ -1,5 +1,7 @@
+const DEFAULT_LEADER_TOOLKIT_HOST = 'circlestoolkit.netlify.app';
+
 export function getCircleSummaryBaseUrl(req?: Request): string {
-  const toolkitHost = process.env.LEADER_TOOLKIT_HOST;
+  const toolkitHost = process.env.LEADER_TOOLKIT_HOST || DEFAULT_LEADER_TOOLKIT_HOST;
   const configuredUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.URL;
 
   // In dev, prefer the actual request origin so magic links match whatever

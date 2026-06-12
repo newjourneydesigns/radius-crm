@@ -8,6 +8,24 @@ import type { CardDigestItem } from '../lib/emailService';
 
 export type TodayData = TodayCoreData & TodayCardsData;
 
+// Session-only record of items completed on the Today page this visit.
+// Completed items stay visible (struck-through with an Undo) instead of
+// vanishing; this resets on refresh, when the freshly-fetched data no longer
+// includes them (cards/checklists are filtered to incomplete server-side).
+export interface TodayCompleted {
+  cards: Set<string>;
+  checklists: Set<string>;
+  followUps: Set<number>;
+  encouragements: Set<number>;
+}
+
+const emptyCompleted = (): TodayCompleted => ({
+  cards: new Set(),
+  checklists: new Set(),
+  followUps: new Set(),
+  encouragements: new Set(),
+});
+
 const CORE_CACHE_KEY  = 'today_core_cache_v2';
 const CARDS_CACHE_KEY = 'today_cards_cache_v2';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -72,10 +90,14 @@ export function useTodayData() {
   const [isFetching, setIsFetching] = useState(false);
   const [isCardsLoading, setIsCardsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [completed, setCompleted] = useState<TodayCompleted>(emptyCompleted);
 
   const fetchData = useCallback(async () => {
     setError(null);
     setIsFetching(true);
+    // A refresh clears the session's done-marks; the fresh data won't include
+    // truly-completed cards/checklists, so there's nothing left to strike out.
+    setCompleted(emptyCompleted());
 
     // Load cached data immediately so the page renders without a spinner
     const cached = readTodayCache();
@@ -151,92 +173,99 @@ export function useTodayData() {
     }
   }, []);
 
-  // Mark an encouragement as sent — removes from local state optimistically
-  const markEncouragementSent = useCallback(async (id: number) => {
-    setData(prev => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        encouragements: {
-          dueToday: prev.encouragements.dueToday.filter(e => e.id !== id),
-          overdue: prev.encouragements.overdue.filter(e => e.id !== id),
-        },
-      };
-    });
-    try {
-      await fetch(`/api/acpd-tracking?type=encourage&id=${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message_type: 'sent' }),
-      });
-    } catch (err) {
-      console.error('Failed to mark encouragement sent:', err);
-    }
+  // Completion handlers keep the item in place (the page strikes it through and
+  // offers Undo) rather than removing it, so you can see what you've finished.
+  // Each mark/undo pair writes the underlying flag both ways.
+
+  // Encouragement: planned ⇄ sent
+  const markEncouragementSent = useCallback((id: number) => {
+    setCompleted(prev => ({ ...prev, encouragements: new Set(prev.encouragements).add(id) }));
+    fetch(`/api/acpd-tracking?type=encourage&id=${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message_type: 'sent' }),
+    }).catch(err => console.error('Failed to mark encouragement sent:', err));
   }, []);
 
-  // Clear a follow-up — removes from local state optimistically
-  const clearFollowUp = useCallback(async (leaderId: number) => {
-    setData(prev => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        followUps: {
-          dueToday: prev.followUps.dueToday.filter(f => f.id !== leaderId),
-          overdue: prev.followUps.overdue.filter(f => f.id !== leaderId),
-        },
-      };
+  const undoEncouragementSent = useCallback((id: number) => {
+    setCompleted(prev => {
+      const next = new Set(prev.encouragements);
+      next.delete(id);
+      return { ...prev, encouragements: next };
     });
+    fetch(`/api/acpd-tracking?type=encourage&id=${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message_type: 'planned' }),
+    }).catch(err => console.error('Failed to undo encouragement:', err));
+  }, []);
+
+  // Follow-up: follow_up_required false (cleared) ⇄ true
+  const clearFollowUp = useCallback(async (leaderId: number) => {
+    setCompleted(prev => ({ ...prev, followUps: new Set(prev.followUps).add(leaderId) }));
     try {
-      await supabase
-        .from('circle_leaders')
-        .update({ follow_up_required: false })
-        .eq('id', leaderId);
+      await supabase.from('circle_leaders').update({ follow_up_required: false }).eq('id', leaderId);
     } catch (err) {
       console.error('Failed to clear follow-up:', err);
     }
   }, []);
 
-  // Mark a board card as complete — removes from local state optimistically
-  const markCardComplete = useCallback(async (cardId: string) => {
-    setData(prev => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        cards: {
-          dueToday: prev.cards.dueToday.filter(c => c.id !== cardId),
-          overdue: prev.cards.overdue.filter(c => c.id !== cardId),
-        },
-      };
+  const undoFollowUp = useCallback(async (leaderId: number) => {
+    setCompleted(prev => {
+      const next = new Set(prev.followUps);
+      next.delete(leaderId);
+      return { ...prev, followUps: next };
     });
     try {
-      await supabase
-        .from('board_cards')
-        .update({ is_complete: true })
-        .eq('id', cardId);
+      await supabase.from('circle_leaders').update({ follow_up_required: true }).eq('id', leaderId);
+    } catch (err) {
+      console.error('Failed to undo follow-up:', err);
+    }
+  }, []);
+
+  // Board card: is_complete ⇄
+  const markCardComplete = useCallback(async (cardId: string) => {
+    setCompleted(prev => ({ ...prev, cards: new Set(prev.cards).add(cardId) }));
+    try {
+      await supabase.from('board_cards').update({ is_complete: true }).eq('id', cardId);
     } catch (err) {
       console.error('Failed to mark card complete:', err);
     }
   }, []);
 
-  // Mark a checklist item as done — removes from local state optimistically
-  const markChecklistDone = useCallback(async (itemId: string) => {
-    setData(prev => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        checklistItems: {
-          dueToday: prev.checklistItems.dueToday.filter(c => c.id !== itemId),
-          overdue: prev.checklistItems.overdue.filter(c => c.id !== itemId),
-        },
-      };
+  const undoCardComplete = useCallback(async (cardId: string) => {
+    setCompleted(prev => {
+      const next = new Set(prev.cards);
+      next.delete(cardId);
+      return { ...prev, cards: next };
     });
     try {
-      await supabase
-        .from('card_checklists')
-        .update({ is_completed: true })
-        .eq('id', itemId);
+      await supabase.from('board_cards').update({ is_complete: false }).eq('id', cardId);
+    } catch (err) {
+      console.error('Failed to undo card:', err);
+    }
+  }, []);
+
+  // Checklist item: is_completed ⇄
+  const markChecklistDone = useCallback(async (itemId: string) => {
+    setCompleted(prev => ({ ...prev, checklists: new Set(prev.checklists).add(itemId) }));
+    try {
+      await supabase.from('card_checklists').update({ is_completed: true }).eq('id', itemId);
     } catch (err) {
       console.error('Failed to mark checklist item done:', err);
+    }
+  }, []);
+
+  const undoChecklistDone = useCallback(async (itemId: string) => {
+    setCompleted(prev => {
+      const next = new Set(prev.checklists);
+      next.delete(itemId);
+      return { ...prev, checklists: next };
+    });
+    try {
+      await supabase.from('card_checklists').update({ is_completed: false }).eq('id', itemId);
+    } catch (err) {
+      console.error('Failed to undo checklist item:', err);
     }
   }, []);
 
@@ -372,15 +401,20 @@ export function useTodayData() {
 
   return {
     data,
+    completed,
     isLoading,
     isFetching,
     isCardsLoading,
     error,
     fetchData,
     markEncouragementSent,
+    undoEncouragementSent,
     clearFollowUp,
+    undoFollowUp,
     markCardComplete,
+    undoCardComplete,
     markChecklistDone,
+    undoChecklistDone,
     scheduleCard,
     scheduleFollowUp,
     quickAddCard,
