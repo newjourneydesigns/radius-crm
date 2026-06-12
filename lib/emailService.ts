@@ -5,6 +5,7 @@ export interface CardDigestItem {
   title: string;
   due_date: string | null;
   due_time?: string | null;
+  is_complete?: boolean;
   board_name: string;
   board_id: string;
   column_name: string;
@@ -582,9 +583,8 @@ export async function sendPersonalDigestEmail(
 
     console.log(`Digest sent to ${data.user.email}:`, result.id);
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error sending digest email:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
-

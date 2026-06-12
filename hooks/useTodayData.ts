@@ -103,6 +103,18 @@ function getErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'Unknown error';
 }
 
+function setCardCompleteFlag(data: TodayData, cardId: string, isComplete: boolean): TodayData {
+  const update = (card: CardDigestItem) => card.id === cardId ? { ...card, is_complete: isComplete } : card;
+  return {
+    ...data,
+    cards: {
+      dueToday: data.cards.dueToday.map(update),
+      overdue: data.cards.overdue.map(update),
+    },
+    focusCards: (data.focusCards || []).map(update),
+  };
+}
+
 export function useTodayData() {
   const [data, setData] = useState<TodayData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -114,8 +126,9 @@ export function useTodayData() {
   const fetchData = useCallback(async () => {
     setError(null);
     setIsFetching(true);
-    // A refresh clears the session's done-marks; the fresh data won't include
-    // truly-completed cards/checklists, so there's nothing left to strike out.
+    // A refresh clears the session's done-marks. Completed cards still come
+    // back from the API with is_complete=true; checklist items remain filtered
+    // to open items server-side.
     setCompleted(emptyCompleted());
 
     // Load cached data immediately so the page renders without a spinner
@@ -171,7 +184,7 @@ export function useTodayData() {
 
       const cardsPromise = (async () => {
         try {
-          const res = await fetch('/api/today/cards', { headers });
+          const res = await fetch('/api/today/cards?fresh=1', { headers });
           if (!res.ok) { setIsCardsLoading(false); return; }
           freshCards = normalizeTodayCardsData(await res.json());
           setIsCardsLoading(false);
@@ -245,6 +258,7 @@ export function useTodayData() {
   // Board card: is_complete ⇄
   const markCardComplete = useCallback(async (cardId: string) => {
     setCompleted(prev => ({ ...prev, cards: new Set(prev.cards).add(cardId) }));
+    setData(prev => prev ? setCardCompleteFlag(prev, cardId, true) : prev);
     try {
       await supabase.from('board_cards').update({ is_complete: true }).eq('id', cardId);
     } catch (err) {
@@ -258,6 +272,7 @@ export function useTodayData() {
       next.delete(cardId);
       return { ...prev, cards: next };
     });
+    setData(prev => prev ? setCardCompleteFlag(prev, cardId, false) : prev);
     try {
       await supabase.from('board_cards').update({ is_complete: false }).eq('id', cardId);
     } catch (err) {
@@ -396,6 +411,7 @@ export function useTodayData() {
           title: cleanTitle,
           due_date: dueDate,
           due_time: dueTime,
+          is_complete: false,
           board_name: boardName,
           board_id: boardId,
           column_name: columnName,

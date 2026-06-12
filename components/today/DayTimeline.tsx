@@ -61,6 +61,7 @@ export interface TimelineEvent {
   endMin?: number | null;
   color: string;
   overdue?: boolean;
+  completed?: boolean;
   onOpen?: () => void;
   href?: string;
   /** Present when the item can be dragged onto an hour to (re)schedule it */
@@ -659,9 +660,9 @@ function eventInner(ev: TimelineEvent, compact: boolean) {
   return (
     <>
       <span style={{
-        fontSize: 11, fontWeight: 650, color: T.text, lineHeight: 1.25,
+        fontSize: 11, fontWeight: 650, color: ev.completed ? T.textMuted : T.text, lineHeight: 1.25,
         display: '-webkit-box', WebkitLineClamp: compact ? 1 : 2, WebkitBoxOrient: 'vertical',
-        overflow: 'hidden',
+        overflow: 'hidden', textDecoration: ev.completed ? 'line-through' : 'none',
       } as React.CSSProperties}>
         {ev.title}
       </span>
@@ -669,6 +670,7 @@ function eventInner(ev: TimelineEvent, compact: boolean) {
         <span style={{
           fontSize: 10, color: T.textMuted, lineHeight: 1.3,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block',
+          textDecoration: ev.completed ? 'line-through' : 'none',
         }}>
           {ev.subtitle}
         </span>
@@ -705,6 +707,7 @@ function EventBlock({ ev, top, height, leftPct, widthPct, onOpen }: {
     textAlign: 'left',
     display: 'flex', flexDirection: 'column', justifyContent: compact ? 'center' : 'flex-start',
     textDecoration: 'none',
+    opacity: ev.completed ? 0.72 : 1,
   };
   const open = onOpen || ev.onOpen;
   if (ev.href && !open) {
@@ -723,16 +726,23 @@ function AllDayChip({ ev, onOpen }: { ev: TimelineEvent; onOpen?: () => void }) 
     padding: '4px 10px', borderRadius: 999, maxWidth: '100%',
     background: `${ev.color}12`, border: `1px solid ${ev.color}2e`,
     cursor: ev.dragPayload ? 'grab' : 'pointer', textDecoration: 'none',
+    opacity: ev.completed ? 0.72 : 1,
   };
   const inner = (
     <>
       <span style={{ width: 6, height: 6, borderRadius: '50%', background: ev.color, flexShrink: 0 }} />
       <span style={{
-        fontSize: 11, fontWeight: 600, color: T.text,
+        fontSize: 11, fontWeight: 600, color: ev.completed ? T.textMuted : T.text,
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        textDecoration: ev.completed ? 'line-through' : 'none',
       }}>
         {ev.title}
       </span>
+      {ev.completed && (
+        <span style={{ fontSize: 9, fontWeight: 700, color: T.green, flexShrink: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          done
+        </span>
+      )}
       {ev.overdue && (
         <span style={{ fontSize: 9, fontWeight: 700, color: T.red, flexShrink: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           overdue
@@ -892,7 +902,7 @@ export default function DayTimeline({
   const nextUp = useMemo(() => {
     if (!isToday) return null;
     return timed
-      .filter(e => e.startMin >= nowMin)
+      .filter(e => e.startMin >= nowMin && !e.completed)
       .sort((a, b) => a.startMin - b.startMin)[0] || null;
   }, [timed, nowMin, isToday]);
 

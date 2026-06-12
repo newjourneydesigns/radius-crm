@@ -21,6 +21,7 @@ type RawCard = {
   title: string;
   due_date: string | null;
   due_time?: string | null;
+  is_complete?: boolean | null;
   priority?: string | null;
   board_id: string | null;
   column_id?: string | null;
@@ -68,7 +69,7 @@ const RESPONSE_CACHE_TTL = 60_000;
 // Fetches labels, checklist progress, and assignees in the same round-trip as the card row —
 // eliminating the separate Phase 4 enrichment queries from the old waterfall approach.
 const CARD_SELECT = `
-  id, title, due_date, due_time, priority, board_id, column_id,
+  id, title, due_date, due_time, is_complete, priority, board_id, column_id,
   board_columns(id, title),
   card_label_assignments(board_labels(name, color)),
   card_checklists(is_completed),
@@ -83,6 +84,7 @@ function mapCard(c: RawCard, boardMap: Map<string, string>): CardDigestItem {
     title: c.title,
     due_date: c.due_date,
     due_time: c.due_time ?? null,
+    is_complete: Boolean(c.is_complete),
     board_name: boardMap.get(c.board_id || '') || 'Unknown Board',
     board_id: c.board_id || '',
     column_name: col?.title || '',
@@ -130,7 +132,6 @@ async function buildCardsData(
       ? supabase.from('board_cards')
           .select(CARD_SELECT)
           .in('board_id', boardIds)
-          .eq('is_complete', false)
           .not('due_date', 'is', null)
           .lte('due_date', today)
       : Promise.resolve({ data: [] as RawCard[] }),
@@ -140,7 +141,6 @@ async function buildCardsData(
       ? supabase.from('board_cards')
           .select(CARD_SELECT)
           .in('id', assignedCardIds)
-          .eq('is_complete', false)
           .not('due_date', 'is', null)
           .lte('due_date', today)
       : Promise.resolve({ data: [] as RawCard[] }),

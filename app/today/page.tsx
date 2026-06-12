@@ -1092,7 +1092,7 @@ function TodaySections({
       <Section id="cards-today" title="Cards Due Today" icon={<ClipboardList className="h-4 w-4" />} count={data.cards.dueToday.length}
         sectionKey="cardsToday" isOpen={isOpen('cardsToday')} onToggle={() => toggle('cardsToday')} accentColor={T.amber}>
         {data.cards.dueToday.map((c: CardDigestItem) => {
-          const done = completed.cards.has(c.id);
+          const done = Boolean(c.is_complete) || completed.cards.has(c.id);
           return (
           <Item key={c.id} accentColor={done ? T.green : T.amber}>
             <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
@@ -1115,23 +1115,30 @@ function TodaySections({
       {/* ── Overdue Cards ── */}
       <Section id="overdue-cards" title="Overdue Cards" icon={<AlertTriangle className="h-4 w-4" />} count={data.cards.overdue.length}
         sectionKey="overdueCards" isOpen={isOpen('overdueCards')} onToggle={() => toggle('overdueCards')} accentColor={T.red}>
-        {data.cards.overdue.map((c: CardDigestItem) => (
-          <Item key={c.id} accentColor={T.red}>
+        {data.cards.overdue.map((c: CardDigestItem) => {
+          const done = Boolean(c.is_complete) || completed.cards.has(c.id);
+          return (
+          <Item key={c.id} accentColor={done ? T.green : T.red}>
             <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
               <Link href={`/boards/${c.board_id}?card=${c.id}`} onClick={cardClick(c.board_id, c.id)}
-                style={{ fontSize: 13, fontWeight: 600, color: T.text, textDecoration: 'none', display: 'block', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                style={{ fontSize: 13, fontWeight: 600, ...doneTitle(done), display: 'block', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
                 className="today-leader-link">
                 {c.title}
               </Link>
               <Sub>{c.board_name} · {c.column_name}</Sub>
-              <CardMeta card={c} />
+              {!done && <CardMeta card={c} />}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-              {c.due_date && <DateBadge date={formatShort(c.due_date)} color={T.red} />}
-              <ActionBtn onClick={() => markCardComplete(c.id)} color={T.green}>Done</ActionBtn>
-            </div>
+            {done
+              ? <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}><DateBadge date="Done" color={T.green} /><UndoBtn onClick={() => undoCardComplete(c.id)} /></div>
+              : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                  {c.due_date && <DateBadge date={formatShort(c.due_date)} color={T.red} />}
+                  <ActionBtn onClick={() => markCardComplete(c.id)} color={T.green}>Done</ActionBtn>
+                </div>
+              )}
           </Item>
-        ))}
+          );
+        })}
       </Section>
 
       {/* ── Checklist Items Due Today ── */}
@@ -1464,18 +1471,25 @@ export default function TodayPage() {
     const open = (boardId: string, cardId: string) => () => setOpenCard({ boardId, cardId });
 
     const pushCard = (c: CardDigestItem, overdue: boolean) => {
+      const done = Boolean(c.is_complete) || (isViewToday && completed.cards.has(c.id));
       // Scheduled cards occupy one-hour blocks; an overdue card's time belongs
       // to a past day, so it stays in the all-day strip until rescheduled.
       const startMin = overdue ? null : parseTimeToMin(c.due_time);
+      // Completed cards are still available in the Today card lists. Keep the
+      // timeline focused by only showing completed cards there when they had a
+      // specific scheduled time block to cross out.
+      if (done && startMin === null) return;
       evts.push({
         key: `card-${c.id}`, kind: 'card',
         title: c.title,
-        subtitle: `${c.board_name}${c.column_name ? ` · ${c.column_name}` : ''}`,
+        subtitle: `${c.board_name}${c.column_name ? ` · ${c.column_name}` : ''}${done ? ' · Done' : ''}`,
         startMin,
         endMin: startMin !== null ? startMin + 60 : null,
-        color: overdue ? T.red : T.amber, overdue,
+        color: done ? T.green : overdue ? T.red : T.amber,
+        overdue: overdue && !done,
+        completed: done,
         onOpen: open(c.board_id, c.id),
-        dragPayload: { type: 'card', cardId: c.id },
+        dragPayload: done ? undefined : { type: 'card', cardId: c.id },
       });
     };
     srcData.cards.dueToday.forEach(c => pushCard(c, false));
@@ -1592,7 +1606,7 @@ export default function TodayPage() {
     });
 
     return evts;
-  }, [data, dayData, isViewToday, calendars.events, dayCalEvents]);
+  }, [data, dayData, isViewToday, completed, calendars.events, dayCalEvents]);
 
   // ── App-icon badge: cards + follow-ups still open today (or overdue).
   // Same formula the push cron sends with reminders, so the badge a closed
