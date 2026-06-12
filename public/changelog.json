@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-11",
+    "version": "2.14.0",
+    "date_display": "June 11, 2026",
+    "date_iso": "2026-06-11",
+    "id": "circle-leader-toolkit-dedicated-site",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Circle Leader Toolkit",
+    "description": "The Circle Leader Toolkit now has its own home at circlestoolkit.netlify.app — a clean, dedicated site for leaders with a tidy address bar (no more long /circle-leader-toolkit paths). Reminder emails and notifications point there too. It still opens from the main app, so nothing you've bookmarked breaks.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-06-11",
     "version": "2.13.1",
     "date_display": "June 11, 2026",
     "date_iso": "2026-06-11",

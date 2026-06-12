@@ -1,7 +1,11 @@
 import { schedule } from '@netlify/functions';
+import { scheduledFunctionsDisabled } from '../../lib/netlify/scheduledFunctionsDisabled';
 
 /** Netlify Scheduled Function — push reminders for timed Today items. */
 const handler = schedule('*/5 * * * *', async () => {
+  if (scheduledFunctionsDisabled()) {
+    return { statusCode: 200, body: 'scheduled functions disabled on this site' };
+  }
   const appUrl = process.env.URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   const cronSecret = process.env.CRON_SECRET;
 

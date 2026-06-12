@@ -1,4 +1,5 @@
 import { schedule } from '@netlify/functions';
+import { scheduledFunctionsDisabled } from '../../lib/netlify/scheduledFunctionsDisabled';
 
 /**
  * Netlify Scheduled Function - Personal Daily Digest
@@ -9,6 +10,9 @@ import { schedule } from '@netlify/functions';
  * whose current time slot matches their configured frequency.
  */
 const handler = schedule('0 * * * *', async (event) => {
+  if (scheduledFunctionsDisabled()) {
+    return { statusCode: 200, body: 'scheduled functions disabled on this site' };
+  }
   console.log('Running personal digest scheduled function (hourly check)...');
 
   try {

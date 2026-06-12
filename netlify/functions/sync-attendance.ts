@@ -1,4 +1,5 @@
 import { schedule } from '@netlify/functions';
+import { scheduledFunctionsDisabled } from '../../lib/netlify/scheduledFunctionsDisabled';
 
 /**
  * Netlify Scheduled Function — Sync Circle Attendance from CCB
@@ -9,6 +10,9 @@ import { schedule } from '@netlify/functions';
  * circle_meeting_occurrences table. 1 CCB API call.
  */
 const handler = schedule('0 11 * * *', async (event) => {
+  if (scheduledFunctionsDisabled()) {
+    return { statusCode: 200, body: 'scheduled functions disabled on this site' };
+  }
   console.log('Running circle attendance sync...');
 
   try {

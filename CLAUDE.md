@@ -192,7 +192,9 @@ Never assume a push is enough. Always follow through to redeploy.
 | `RESEND_API_KEY` | Email service | Yes |
 | `CRON_SECRET` | Netlify cron auth | Yes |
 | `NEXT_PUBLIC_APP_URL` | Production domain | No |
-| `LEADER_TOOLKIT_HOST` | Dedicated hostname (e.g. `leaders.example.org`) for the Circle Leader Toolkit. When set, middleware serves the toolkit at this host's root and magic links point here. | No |
+| `LEADER_SESSION_SECRET` | HMAC secret (min 32 chars) signing leader magic-link/session tokens. **Must be byte-identical on the main and toolkit Netlify sites** — links are signed on main, verified on the toolkit. | Yes |
+| `LEADER_TOOLKIT_HOST` | Dedicated hostname (e.g. `circlestoolkit.netlify.app`) for the Circle Leader Toolkit. When set, middleware serves the toolkit at this host's root and magic links point here. Set on **both** Netlify sites in production. | No |
+| `DISABLE_SCHEDULED_FUNCTIONS` | Set `true` on the dedicated toolkit Netlify site so scheduled (cron) functions run only on the main RADIUS site (no duplicate reminders/syncs). Leave unset on the main site. The toolkit site also auto-disables cron when its own URL matches `LEADER_TOOLKIT_HOST`. | No |
 | `LEADER_TOOLKIT_RESEND_API_KEY` | Resend API key for leader-facing toolkit emails (separate from RADIUS's `RESEND_API_KEY`). Falls back to `RESEND_API_KEY` if unset. | Yes |
 | `LEADER_TOOLKIT_EMAIL_FROM` / `LEADER_TOOLKIT_EMAIL_FROM_NAME` | Sender address/name for leader-facing toolkit emails. Falls back to `EMAIL_FROM`/`EMAIL_FROM_NAME` if unset. | No |
 | `NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` | VAPID public key for Web Push — shared by the Circle Leader Toolkit and Today-page reminders | No |

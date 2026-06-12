@@ -1,4 +1,5 @@
 import { schedule } from '@netlify/functions';
+import { scheduledFunctionsDisabled } from '../../lib/netlify/scheduledFunctionsDisabled';
 
 /**
  * Netlify Scheduled Function — Circle Summary reminders.
@@ -9,6 +10,9 @@ import { schedule } from '@netlify/functions';
  * Idempotent: backed by the circle_reminder_sends table (one email per occurrence).
  */
 const handler = schedule('*/15 * * * *', async () => {
+  if (scheduledFunctionsDisabled()) {
+    return { statusCode: 200, body: 'scheduled functions disabled on this site' };
+  }
   console.log('[circle-reminders] tick');
 
   const appUrl =

@@ -17,8 +17,19 @@ export function middleware(request: NextRequest) {
   if (toolkitHost && hostname === toolkitHost) {
     const { pathname } = request.nextUrl;
 
-    if (pathname.startsWith('/api/') || pathname.startsWith('/_next/') || STATIC_FILE_RE.test(pathname)) {
+    // _next assets and static files (icons, manifest, sw.js, …) always pass through.
+    if (pathname.startsWith('/_next/') || STATIC_FILE_RE.test(pathname)) {
       return NextResponse.next();
+    }
+
+    // On the toolkit host, only the toolkit's own API is reachable. Every other
+    // API route in this repo is admin/internal and must not be exposed on the
+    // public leader domain (and any new route added later stays hidden too).
+    if (pathname.startsWith('/api/')) {
+      if (pathname.startsWith('/api/circle-leader-toolkit/')) {
+        return NextResponse.next();
+      }
+      return new NextResponse('Not found', { status: 404 });
     }
 
     // Visible URLs on the toolkit domain never show the /circle-leader-toolkit

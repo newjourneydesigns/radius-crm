@@ -1,4 +1,5 @@
 import { schedule } from '@netlify/functions';
+import { scheduledFunctionsDisabled } from '../../lib/netlify/scheduledFunctionsDisabled';
 
 /**
  * Netlify Scheduled Function — Daily CCB bulk sync.
@@ -14,6 +15,9 @@ import { schedule } from '@netlify/functions';
  * 2026-05-20 after that incident.
  */
 const handler = schedule('0 9 * * *', async () => {
+  if (scheduledFunctionsDisabled()) {
+    return { statusCode: 200, body: 'scheduled functions disabled on this site' };
+  }
   console.log('Running daily CCB bulk sync...');
 
   try {
