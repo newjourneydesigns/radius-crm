@@ -1,15 +1,15 @@
 {
-  "id": "/circle-leader-toolkit?v=2",
+  "id": "/circle-leader-toolkit?v=3",
   "name": "Circle Leader Toolkit",
   "short_name": "Toolkit",
   "description": "Circle Leader Toolkit — for Circle Leaders at Valley Creek.",
-  "start_url": "/circle-leader-toolkit/",
+  "start_url": "/",
   "display": "standalone",
   "display_override": ["standalone"],
   "background_color": "#34B233",
   "theme_color": "#34B233",
   "orientation": "portrait-primary",
-  "scope": "/circle-leader-toolkit",
+  "scope": "/",
   "lang": "en-US",
   "icons": [
     {

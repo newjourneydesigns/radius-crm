@@ -22,10 +22,10 @@ export interface TodayCoreData {
 }
 
 type UserProfile = { id: string; name: string; email: string };
-type LeaderSummary = { name?: string | null; campus?: string | null };
+type LeaderSummary = { name?: string | null; campus?: string | null; time?: string | null };
 type VisitRow = { id: string; visit_date: string; leader_id: number; previsit_note?: string | null; circle_leaders?: LeaderSummary | LeaderSummary[] | null };
 type EncouragementRow = { id: number; circle_leader_id: number; encourage_method: string; message_date: string; note?: string | null; circle_leaders?: LeaderSummary | LeaderSummary[] | null };
-type FollowUpRow = { id: number; name: string; campus?: string | null; follow_up_date?: string | null };
+type FollowUpRow = { id: number; name: string; campus?: string | null; follow_up_date?: string | null; follow_up_time?: string | null };
 type BirthdayLeaderRow = { id: number; name: string; campus?: string | null; birthday?: string | null; phone?: string | null };
 type NoteRow = { id: number; circle_leader_id: number; content: string; created_at: string; circle_leaders?: LeaderSummary | LeaderSummary[] | null };
 type LeaderPrayerRow = { id: number; content: string; pray_date: string; circle_leader_id: number; circle_leaders?: LeaderSummary | LeaderSummary[] | null };
@@ -76,7 +76,12 @@ export async function GET(request: NextRequest) {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
     const supabase        = getSupabaseServiceClient();
     const anonClient      = createClient(supabaseUrl, supabaseAnonKey);
-    const today           = getTodayDate();
+
+    // Optional ?date=YYYY-MM-DD renders the digest for another day (day paging);
+    // ?fresh=1 skips the response cache (used right after a mutation).
+    const dateParam = request.nextUrl.searchParams.get('date');
+    const today = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : getTodayDate();
+    const fresh = request.nextUrl.searchParams.get('fresh') === '1';
 
     const optimisticId = extractSubFromToken(token);
 
@@ -96,8 +101,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const cached = responseCache.get(`core:${userProfile.id}`);
-    if (cached && Date.now() - cached.cachedAt < RESPONSE_CACHE_TTL) {
+    const cacheKey = `core:${userProfile.id}:${today}`;
+    const cached = responseCache.get(cacheKey);
+    if (!fresh && cached && Date.now() - cached.cachedAt < RESPONSE_CACHE_TTL) {
       return NextResponse.json(cached.payload, { headers: { 'X-Cache': 'HIT' } });
     }
 
@@ -119,13 +125,13 @@ export async function GET(request: NextRequest) {
       { data: generalPrayersRaw },
     ] = await Promise.all([
       supabase.from('circle_visits')
-        .select('id, visit_date, leader_id, previsit_note, circle_leaders!inner(name, campus)')
+        .select('id, visit_date, leader_id, previsit_note, circle_leaders!inner(name, campus, time)')
         .eq('scheduled_by', user.id).eq('status', 'scheduled')
         .gte('visit_date', today).lte('visit_date', weekEnd)
         .order('visit_date', { ascending: true }),
 
       supabase.from('circle_visits')
-        .select('id, visit_date, leader_id, previsit_note, circle_leaders!inner(name, campus)')
+        .select('id, visit_date, leader_id, previsit_note, circle_leaders!inner(name, campus, time)')
         .eq('scheduled_by', user.id).eq('status', 'scheduled')
         .gte('visit_date', afterWeek).lte('visit_date', monthEnd)
         .order('visit_date', { ascending: true }).limit(10),
@@ -136,7 +142,7 @@ export async function GET(request: NextRequest) {
         .lte('message_date', today).order('message_date', { ascending: true }),
 
       supabase.from('circle_leaders')
-        .select('id, name, campus, follow_up_date')
+        .select('id, name, campus, follow_up_date, follow_up_time')
         .eq('acpd', user.name)
         .eq('follow_up_required', true)
         .or(`follow_up_date.lte.${today},follow_up_date.is.null`)
@@ -188,6 +194,7 @@ export async function GET(request: NextRequest) {
         leader_name: leader?.name ?? 'Unknown',
         leader_campus: leader?.campus ?? undefined,
         previsit_note: v.previsit_note ?? undefined,
+        circle_time: leader?.time ?? undefined,
       };
     };
     const toEnc = (e: EncouragementRow): EncouragementItem => {
@@ -200,7 +207,9 @@ export async function GET(request: NextRequest) {
       };
     };
     const toFU = (f: FollowUpRow): FollowUpItem => ({
-      id: f.id, name: f.name, campus: f.campus ?? undefined, follow_up_date: f.follow_up_date ?? undefined,
+      id: f.id, name: f.name, campus: f.campus ?? undefined,
+      follow_up_date: f.follow_up_date ?? undefined,
+      follow_up_time: f.follow_up_time ?? undefined,
     });
 
     const todayDate  = new Date(today + 'T00:00:00');
@@ -261,7 +270,7 @@ export async function GET(request: NextRequest) {
       })),
     };
 
-    responseCache.set(`core:${userProfile.id}`, { payload, cachedAt: Date.now() });
+    responseCache.set(cacheKey, { payload, cachedAt: Date.now() });
 
     return NextResponse.json(payload, {
       headers: { 'X-Cache': 'MISS', 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' },

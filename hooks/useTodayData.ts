@@ -4,11 +4,12 @@ import { useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import type { TodayCoreData } from '../app/api/today/core/route';
 import type { TodayCardsData } from '../app/api/today/cards/route';
+import type { CardDigestItem } from '../lib/emailService';
 
 export type TodayData = TodayCoreData & TodayCardsData;
 
-const CORE_CACHE_KEY  = 'today_core_cache_v1';
-const CARDS_CACHE_KEY = 'today_cards_cache_v1';
+const CORE_CACHE_KEY  = 'today_core_cache_v2';
+const CARDS_CACHE_KEY = 'today_cards_cache_v2';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 const EMPTY_CARDS: TodayCardsData = {
@@ -239,6 +240,136 @@ export function useTodayData() {
     }
   }, []);
 
+  // Schedule (or reschedule) a board card — sets due_date + due_time.
+  // `cardInfo` lets callers schedule cards that aren't in today's lists yet
+  // (e.g. a Big 3 card with no due date dragged onto the timeline).
+  const scheduleCard = useCallback(async (cardId: string, dueDate: string, dueTime: string | null, cardInfo?: CardDigestItem) => {
+    setData(prev => {
+      if (!prev) return prev;
+      const existing =
+        prev.cards.dueToday.find(c => c.id === cardId) ||
+        prev.cards.overdue.find(c => c.id === cardId) ||
+        (prev.focusCards || []).find(c => c.id === cardId) ||
+        cardInfo;
+      const strip = (list: CardDigestItem[]) => list.filter(c => c.id !== cardId);
+      const dueToday = strip(prev.cards.dueToday);
+      if (existing && dueDate === prev.today) {
+        dueToday.push({ ...existing, due_date: dueDate, due_time: dueTime });
+      }
+      return {
+        ...prev,
+        cards: { dueToday, overdue: strip(prev.cards.overdue) },
+        focusCards: (prev.focusCards || []).map(c =>
+          c.id === cardId ? { ...c, due_date: dueDate, due_time: dueTime } : c),
+      };
+    });
+    try {
+      await supabase
+        .from('board_cards')
+        .update({ due_date: dueDate, due_time: dueTime })
+        .eq('id', cardId);
+    } catch (err) {
+      console.error('Failed to schedule card:', err);
+    }
+  }, []);
+
+  // Schedule (or reschedule) a follow-up — sets follow_up_date + follow_up_time.
+  const scheduleFollowUp = useCallback(async (leaderId: number, date: string, time: string | null) => {
+    setData(prev => {
+      if (!prev) return prev;
+      const existing =
+        prev.followUps.dueToday.find(f => f.id === leaderId) ||
+        prev.followUps.overdue.find(f => f.id === leaderId);
+      const dueToday = prev.followUps.dueToday.filter(f => f.id !== leaderId);
+      if (existing && date === prev.today) {
+        dueToday.push({ ...existing, follow_up_date: date, follow_up_time: time });
+      }
+      return {
+        ...prev,
+        followUps: { dueToday, overdue: prev.followUps.overdue.filter(f => f.id !== leaderId) },
+      };
+    });
+    try {
+      await supabase
+        .from('circle_leaders')
+        .update({ follow_up_date: date, follow_up_time: time })
+        .eq('id', leaderId);
+    } catch (err) {
+      console.error('Failed to schedule follow-up:', err);
+    }
+  }, []);
+
+  // Create a card directly from the timeline (click an empty slot).
+  // Mirrors the Big 3 create flow: first column of the board, appended position.
+  const quickAddCard = useCallback(async (
+    title: string, boardId: string, boardName: string, dueDate: string, dueTime: string
+  ): Promise<boolean> => {
+    const cleanTitle = title.trim();
+    if (!cleanTitle || !boardId) return false;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data: columns, error: columnsError } = await supabase
+        .from('board_columns')
+        .select('id, title')
+        .eq('board_id', boardId)
+        .order('position')
+        .limit(1);
+      if (columnsError) throw columnsError;
+      const column = columns?.[0];
+      if (!column) throw new Error('Selected board has no columns.');
+
+      const { data: latestCard, error: positionError } = await supabase
+        .from('board_cards')
+        .select('position')
+        .eq('column_id', column.id)
+        .order('position', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (positionError) throw positionError;
+
+      const { data: card, error: cardError } = await supabase
+        .from('board_cards')
+        .insert({
+          title: cleanTitle,
+          board_id: boardId,
+          column_id: column.id,
+          priority: 'medium',
+          position: (latestCard?.position ?? -1) + 1,
+          created_by: user.id,
+          due_date: dueDate,
+          due_time: dueTime,
+        })
+        .select('id')
+        .single();
+      if (cardError) throw cardError;
+
+      setData(prev => {
+        if (!prev || dueDate !== prev.today) return prev;
+        const item: CardDigestItem = {
+          id: card.id,
+          title: cleanTitle,
+          due_date: dueDate,
+          due_time: dueTime,
+          board_name: boardName,
+          board_id: boardId,
+          column_name: column.title || '',
+          assignees: [],
+          priority: 'medium',
+          labels: [],
+          checklist_total: 0,
+          checklist_done: 0,
+        };
+        return { ...prev, cards: { ...prev.cards, dueToday: [...prev.cards.dueToday, item] } };
+      });
+      return true;
+    } catch (err) {
+      console.error('Failed to quick-add card:', err);
+      return false;
+    }
+  }, []);
+
   return {
     data,
     isLoading,
@@ -250,5 +381,8 @@ export function useTodayData() {
     clearFollowUp,
     markCardComplete,
     markChecklistDone,
+    scheduleCard,
+    scheduleFollowUp,
+    quickAddCard,
   };
 }
