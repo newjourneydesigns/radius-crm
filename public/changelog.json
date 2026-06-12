@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-11",
+    "version": "2.13.1",
+    "date_display": "June 11, 2026",
+    "date_iso": "2026-06-11",
+    "id": "today-timeline-quick-add-mobile-fix",
+    "type": "fix",
+    "type_display": "Fix",
+    "category": "Today",
+    "description": "Fixed adding a card from the Today timeline on mobile. Tapping an empty slot now opens the quick-add dialog near the top of the screen so the keyboard no longer hides the Add card button, and the dialog no longer closes from a stray tap before your card is saved.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-11",
     "version": "2.13.0",
     "date_display": "June 11, 2026",
     "date_iso": "2026-06-11",

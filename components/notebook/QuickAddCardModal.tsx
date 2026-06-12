@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import type { ProjectBoard, BoardColumn } from '../../lib/supabase';
+import { buildTimeOptions15Min } from '../../lib/timeUtils';
 
 interface QuickAddCardModalProps {
   pageId: string;
@@ -19,17 +20,7 @@ function buildNotebookDescription(pageId: string, pageTitle?: string): string {
   return `Created from notebook note: ${title}\n${noteUrl}`;
 }
 
-const TIME_OPTIONS_15_MIN = Array.from({ length: 96 }, (_, index) => {
-  const totalMinutes = index * 15;
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  const period = hours >= 12 ? 'PM' : 'AM';
-  const hour12 = hours % 12 || 12;
-  return {
-    value: `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`,
-    label: `${hour12}:${String(minutes).padStart(2, '0')} ${period}`,
-  };
-});
+const TIME_OPTIONS_15_MIN = buildTimeOptions15Min('08:00');
 
 export default function QuickAddCardModal({ pageId, pageTitle, onCreated, onClose }: QuickAddCardModalProps) {
   const [title, setTitle] = useState(pageTitle?.trim() || '');

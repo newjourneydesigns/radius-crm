@@ -5,6 +5,7 @@ import Modal from '../ui/Modal';
 import LeaderCombobox from '../ui/LeaderCombobox';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { buildTimeOptions15Min } from '../../lib/timeUtils';
 
 interface Leader { id: number; name: string; }
 interface Board { id: string; title: string; }
@@ -21,17 +22,7 @@ function getStoredCardValue(key: string) {
   return window.localStorage.getItem(key) || '';
 }
 
-const TIME_OPTIONS_15_MIN = Array.from({ length: 96 }, (_, index) => {
-  const totalMinutes = index * 15;
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  const period = hours >= 12 ? 'PM' : 'AM';
-  const hour12 = hours % 12 || 12;
-  return {
-    value: `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`,
-    label: `${hour12}:${String(minutes).padStart(2, '0')} ${period}`,
-  };
-});
+const TIME_OPTIONS_15_MIN = buildTimeOptions15Min('08:00');
 
 export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
   const { user } = useAuth();

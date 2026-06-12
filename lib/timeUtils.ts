@@ -1,5 +1,28 @@
 // Utility functions for time formatting
 
+export type TimeOption = {
+  value: string;
+  label: string;
+};
+
+export const buildTimeOptions15Min = (startAt: string = '08:00'): TimeOption[] => {
+  const options = Array.from({ length: 96 }, (_, index) => {
+    const totalMinutes = index * 15;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 || 12;
+    return {
+      value: `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`,
+      label: `${hour12}:${String(minutes).padStart(2, '0')} ${period}`,
+    };
+  });
+
+  const startIndex = options.findIndex(option => option.value === startAt);
+  if (startIndex <= 0) return options;
+  return [...options.slice(startIndex), ...options.slice(0, startIndex)];
+};
+
 // Format time to AM/PM display format
 export const formatTimeToAMPM = (time: string | undefined | null): string => {
   if (!time) return '';

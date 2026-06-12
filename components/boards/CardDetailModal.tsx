@@ -12,24 +12,14 @@ import {
 } from '../icons/BoardIcons';
 import { supabase } from '../../lib/supabase';
 import { buildRepeatLabel, type TodoRepeatRule } from '../../lib/todoRecurrence';
+import { buildTimeOptions15Min } from '../../lib/timeUtils';
 import { DateTime } from 'luxon';
 import AssigneePicker from './AssigneePicker';
 import RichTextEditor from '../notes/RichTextEditor';
 import DictateAndSummarize from '../notes/DictateAndSummarize';
 import { extractTextContacts, type TextContact } from '../../lib/textContacts';
 
-export const TIME_OPTIONS_15_MIN = Array.from({ length: 96 }, (_, index) => {
-  const totalMinutes = index * 15;
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  const period = hours >= 12 ? 'PM' : 'AM';
-  const hour12 = hours % 12 || 12;
-  const value = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-  return {
-    value,
-    label: `${hour12}:${String(minutes).padStart(2, '0')} ${period}`,
-  };
-});
+export const TIME_OPTIONS_15_MIN = buildTimeOptions15Min('08:00');
 
 export function normalizeTimeValue(value: string | null | undefined): string {
   return value ? value.slice(0, 5) : '';

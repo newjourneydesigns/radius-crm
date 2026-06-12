@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 import { useNotebookContext } from '../../contexts/NotebookContext';
 import type { NotebookPageCard, CardChecklist, CardComment } from '../../lib/supabase';
+import { buildTimeOptions15Min } from '../../lib/timeUtils';
 
 interface ChecklistSuggestion {
   text: string;
@@ -87,17 +88,7 @@ interface CardDetailDrawerProps {
   onClose: () => void;
 }
 
-const TIME_OPTIONS_15_MIN = Array.from({ length: 96 }, (_, index) => {
-  const totalMinutes = index * 15;
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  const period = hours >= 12 ? 'PM' : 'AM';
-  const hour12 = hours % 12 || 12;
-  return {
-    value: `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`,
-    label: `${hour12}:${String(minutes).padStart(2, '0')} ${period}`,
-  };
-});
+const TIME_OPTIONS_15_MIN = buildTimeOptions15Min('08:00');
 
 function normalizeTimeValue(value: string | null | undefined): string {
   return value ? value.slice(0, 5) : '';

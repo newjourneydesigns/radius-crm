@@ -486,6 +486,9 @@ function QuickAddDialog({ minutes, dateLabel, boards, onCreate, onClose }: {
   const [boardId, setBoardId] = useState(defaultBoardId);
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Only dismiss when a press both starts and ends on the backdrop — stops a
+  // mobile tap meant for the keyboard/buttons from closing without saving.
+  const downOnBackdrop = useRef(false);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
@@ -502,11 +505,14 @@ function QuickAddDialog({ minutes, dateLabel, boards, onCreate, onClose }: {
 
   return (
     <div
-      onClick={onClose}
+      onPointerDown={e => { downOnBackdrop.current = e.target === e.currentTarget; }}
+      onClick={e => { if (e.target === e.currentTarget && downOnBackdrop.current) onClose(); }}
       style={{
         position: 'fixed', inset: 0, zIndex: 200,
         background: 'rgba(6,8,12,0.6)', backdropFilter: 'blur(2px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+        // Anchor near the top so the on-screen keyboard can't cover the buttons.
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        padding: 16, paddingTop: 'max(56px, 10vh)', overflowY: 'auto',
       }}
     >
       <div

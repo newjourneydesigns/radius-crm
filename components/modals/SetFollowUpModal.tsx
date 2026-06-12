@@ -5,17 +5,9 @@ import Modal from '../ui/Modal';
 import LeaderCombobox from '../ui/LeaderCombobox';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { buildTimeOptions15Min } from '../../lib/timeUtils';
 
-const TIME_OPTIONS_15_MIN = Array.from({ length: 96 }, (_, index) => {
-  const totalMinutes = index * 15;
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  const period = hours >= 12 ? 'PM' : 'AM';
-  const hour12 = hours % 12 || 12;
-  const label = `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
-  const value = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-  return { label, value };
-});
+const TIME_OPTIONS_15_MIN = buildTimeOptions15Min('08:00');
 
 interface Leader { id: number; name: string; }
 

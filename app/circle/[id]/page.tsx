@@ -29,6 +29,7 @@ import type { LeadershipSnapshot } from '../../../lib/supabase';
 import { useRealtimeSubscription, RealtimeSubscriptionConfig } from '../../../hooks/useRealtimeSubscription';
 import { calculateSuggestedScore, getFinalScore } from '../../../lib/evaluationQuestions';
 import { extractCcbGroupId } from '../../../lib/ccbGroupId';
+import { buildTimeOptions15Min } from '../../../lib/timeUtils';
 
 // Helper function to format time to AM/PM
 const formatTimeToAMPM = (time: string | undefined | null): string => {
@@ -76,16 +77,7 @@ const convertAMPMTo24Hour = (time: string | undefined | null): string => {
   return `${hour24.toString().padStart(2, '0')}:${minutes}`;
 };
 
-const TIME_OPTIONS_15_MIN = Array.from({ length: 96 }, (_, index) => {
-  const totalMinutes = index * 15;
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  const period = hours >= 12 ? 'PM' : 'AM';
-  const hour12 = hours % 12 || 12;
-  const label = `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
-  const value = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-  return { label, value };
-});
+const TIME_OPTIONS_15_MIN = buildTimeOptions15Min('08:00');
 
 // Helper function to get follow-up date status
 const getFollowUpStatus = (dateString: string | undefined | null): { 
