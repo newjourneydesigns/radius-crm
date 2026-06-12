@@ -3,7 +3,7 @@ const { createClient } = require('@supabase/supabase-js');
 // Create Supabase client with service role key for admin operations
 const supabase = createClient(
   'https://pvjdsfhhcugnrzmibhab.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB2amRzZmhoY3VnbnJ6bWliaGFiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzcwNDA2MSwiZXhwIjoyMDY5MjgwMDYxfQ._J-wcd2ahBrFvn3CqoOqi4zkPS44SR2GwYeG0UMFki4'
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 async function runMigration() {

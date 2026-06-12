@@ -52,7 +52,7 @@ node test-email.js
 
 ```bash
 curl -X POST http://localhost:3000/api/daily-summary \
-  -H "Authorization: Bearer 103d4341c6c684e7c8890aca6c608d0b90c852a8c4ee0a49203b7ff308242234" \
+  -H "Authorization: Bearer $CRON_SECRET" \
   -H "Content-Type: application/json"
 ```
 
