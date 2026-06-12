@@ -207,7 +207,7 @@ async function buildCardsData(
   return {
     cards: {
       dueToday: allCards.filter(c => c.due_date === today),
-      overdue:  allCards.filter(c => c.due_date != null && c.due_date < today),
+      overdue:  allCards.filter(c => !c.is_complete && c.due_date != null && c.due_date < today),
     },
     focusCards,
     checklistItems: {

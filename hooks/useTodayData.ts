@@ -109,7 +109,7 @@ function setCardCompleteFlag(data: TodayData, cardId: string, isComplete: boolea
     ...data,
     cards: {
       dueToday: data.cards.dueToday.map(update),
-      overdue: data.cards.overdue.map(update),
+      overdue: data.cards.overdue.map(update).filter(card => !card.is_complete),
     },
     focusCards: (data.focusCards || []).map(update),
   };
