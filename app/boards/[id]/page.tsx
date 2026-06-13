@@ -1298,6 +1298,7 @@ function ColumnAutomationsModal({
     move_completed: 'Move completed cards',
     set_due_date: 'Set due date',
     strip_due_date: 'Strip due date',
+    move_on_due_date: 'Move when due date set',
   };
 
   const formatValue = (action: ColumnAutomationAction): string => {
@@ -1321,6 +1322,9 @@ function ColumnAutomationsModal({
     }
     if (action.type === 'set_due_date') return action.value;
     if (action.type === 'strip_due_date') return 'Remove due date';
+    if (action.type === 'move_on_due_date') {
+      return columns.find(c => c.id === action.value)?.title ?? action.value;
+    }
     return '';
   };
 
@@ -1346,6 +1350,8 @@ function ColumnAutomationsModal({
       action = { type: 'set_due_date', value: newValue };
     } else if (newType === 'strip_due_date') {
       action = { type: 'strip_due_date', value: true };
+    } else if (newType === 'move_on_due_date') {
+      action = { type: 'move_on_due_date', value: newValue };
     } else {
       action = { type: 'add_checklist', value: newValue ? newValue.split(',').filter(Boolean) : [] };
     }
@@ -1371,7 +1377,8 @@ function ColumnAutomationsModal({
   const canAdd =
     (newType !== 'set_assignee' || newValue.trim() !== '') &&
     (newType !== 'move_completed' || newValue.trim() !== '') &&
-    (newType !== 'set_due_date' || newValue.trim() !== '');
+    (newType !== 'set_due_date' || newValue.trim() !== '') &&
+    (newType !== 'move_on_due_date' || newValue.trim() !== '');
 
   return (
     <div className="kb-modal-overlay" onClick={onClose}>
@@ -1427,6 +1434,7 @@ function ColumnAutomationsModal({
                 <option value="move_completed">Move completed cards</option>
                 <option value="set_due_date">Set due date</option>
                 <option value="strip_due_date">Strip due date</option>
+                <option value="move_on_due_date">Move when due date set</option>
               </select>
               <button
                 className="kb-btn kb-btn-primary kb-btn-sm"
@@ -1526,6 +1534,18 @@ function ColumnAutomationsModal({
               )}
               {newType === 'strip_due_date' && (
                 <span style={{ color: '#6b7280', fontSize: 12 }}>Removes the due date from the card</span>
+              )}
+              {newType === 'move_on_due_date' && (
+                columns.length === 0 ? (
+                  <span style={{ color: '#6b7280', fontSize: 12 }}>No other lists on this board</span>
+                ) : (
+                  <select className="kb-input" value={newValue} onChange={e => setNewValue(e.target.value)}>
+                    <option value="">Choose destination list...</option>
+                    {columns.map(c => (
+                      <option key={c.id} value={c.id}>{c.title}</option>
+                    ))}
+                  </select>
+                )
               )}
             </div>
           </div>
@@ -1799,9 +1819,11 @@ function BoardPage() {
   }, []);
 
   const handleQuickDueDateUpdate = useCallback(async (cardId: string, dueDate: string | null) => {
+    const hadDueDateBefore = !!board?.cards.find(c => c.id === cardId)?.due_date;
     await updateCard(boardId, cardId, dueDate ? { due_date: dueDate } : { due_date: null, due_time: null });
     setDueDateCardId(null);
-  }, [boardId, updateCard]);
+    if (dueDate) await runDueDateMoveAutomation(cardId, hadDueDateBefore);
+  }, [boardId, updateCard, board]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Keyboard shortcuts (desktop only, acts on hovered card) ──
   useEffect(() => {
@@ -2051,6 +2073,20 @@ function BoardPage() {
       if (isComplete) {
         await moveCard(boardId, cardId, moveCompletedAction.value, 0);
       }
+    }
+  };
+
+  // ── Due-date trigger automation ──
+  // When a card in a list configured with a "move_on_due_date" automation
+  // receives a due date (it had none before), move it to the destination list.
+  const runDueDateMoveAutomation = async (cardId: string, hadDueDateBefore: boolean) => {
+    if (!board || hadDueDateBefore) return;
+    const card = board.cards.find(c => c.id === cardId);
+    if (!card) return;
+    const col = board.columns.find(c => c.id === card.column_id);
+    const moveAction = col?.automations?.find(a => a.type === 'move_on_due_date');
+    if (moveAction?.type === 'move_on_due_date' && moveAction.value && moveAction.value !== card.column_id) {
+      await moveCard(boardId, cardId, moveAction.value, 0);
     }
   };
 
@@ -2930,6 +2966,7 @@ function BoardPage() {
           onClose={() => setSelectedCard(null)}
           onUpdate={async (updates) => {
             const cardBeforeUpdate = board.cards.find(c => c.id === activeCard.id);
+            const hadDueDateBefore = !!cardBeforeUpdate?.due_date;
             await updateCard(boardId, activeCard.id, updates);
             if (updates.is_complete === true && cardBeforeUpdate) {
               const col = board.columns.find(c => c.id === cardBeforeUpdate.column_id);
@@ -2937,6 +2974,9 @@ function BoardPage() {
               if (moveAction?.type === 'move_completed') {
                 await moveCard(boardId, activeCard.id, moveAction.value, 0);
               }
+            }
+            if ('due_date' in updates && updates.due_date) {
+              await runDueDateMoveAutomation(activeCard.id, hadDueDateBefore);
             }
           }}
           onDelete={async () => { await deleteCard(boardId, activeCard.id); setSelectedCard(null); }}
@@ -3013,7 +3053,13 @@ function BoardPage() {
             column={col}
             cards={colCards}
             board={board}
-            onUpdateCard={async (cardId, updates) => { await updateCard(boardId, cardId, updates); }}
+            onUpdateCard={async (cardId, updates) => {
+              const hadDueDateBefore = !!board.cards.find(c => c.id === cardId)?.due_date;
+              await updateCard(boardId, cardId, updates);
+              if ('due_date' in updates && updates.due_date) {
+                await runDueDateMoveAutomation(cardId, hadDueDateBefore);
+              }
+            }}
             onDeleteCard={async (cardId) => { await deleteCard(boardId, cardId); }}
             onMoveCard={async (cardId, newColId) => { await moveCard(boardId, cardId, newColId, 0); await runColumnAutomations(cardId, newColId); }}
             onAddChecklistItem={async (cardId, title) => { await addChecklistItem(boardId, cardId, title); }}
