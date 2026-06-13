@@ -421,8 +421,12 @@ export type ColumnAutomationAction =
   | { type: 'add_checklist';  value: string[] }
   | { type: 'move_completed'; value: string }
   | { type: 'set_due_date';   value: string }
+  | { type: 'set_due_date_offset'; value: number }
   | { type: 'strip_due_date'; value: true }
-  | { type: 'move_on_due_date'; value: string };
+  | { type: 'move_on_due_date'; value: string }
+  | { type: 'move_on_assigned'; value: string }
+  | { type: 'move_on_focus';  value: string }
+  | { type: 'move_on_label';  value: { label_id: string; column_id: string } };
 
 export interface ProjectBoard {
   id: string;

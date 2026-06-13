@@ -2181,6 +2181,26 @@ export const kanbanStyles = `
     border: 1px solid #2a2d3a;
     border-radius: 8px;
   }
+  .kb-auto-rule {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+  .kb-auto-trigger {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #8b93a7;
+    background: #1e2235;
+    border: 1px solid #2a2d3a;
+    border-radius: 6px;
+    padding: 3px 7px;
+    white-space: nowrap;
+  }
   .kb-auto-label {
     font-size: 13px;
     color: #e5e7eb;
@@ -2192,12 +2212,28 @@ export const kanbanStyles = `
     font-size: 14px;
   }
   .kb-auto-value {
-    flex: 1;
     font-size: 13px;
-    color: #a5b4fc;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    color: #e5e7eb;
+    font-weight: 500;
+  }
+  .kb-auto-empty {
+    font-size: 13px;
+    color: #6b7280;
+    text-align: center;
+    padding: 14px;
+    background: #12141e;
+    border: 1px dashed #2a2d3a;
+    border-radius: 8px;
+  }
+  .kb-auto-offset {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .kb-auto-pair {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
   .kb-auto-add-section {
     display: flex;
@@ -2247,16 +2283,29 @@ export const kanbanStyles = `
     color: #e5e7eb;
   }
   .kb-auto-chip.selected {
-    background: rgba(99, 102, 241, 0.15);
+    background: #33B233;
     border-color: #33B233;
-    color: #a5b4fc;
+    color: #0b160b;
+    font-weight: 600;
+  }
+  .kb-auto-chip.selected:hover {
+    color: #0b160b;
+  }
+  .kb-auto-chip.selected .kb-label-dot {
+    box-shadow: 0 0 0 1.5px rgba(255,255,255,0.9);
   }
   .kb-auto-footer {
     display: flex;
+    align-items: center;
     justify-content: flex-end;
     gap: 8px;
     padding: 12px 20px;
     border-top: 1px solid #2a2d3a;
+  }
+  .kb-auto-saved {
+    margin-right: auto;
+    font-size: 12px;
+    color: #6b7280;
   }
 
   /* ── Hovered card highlight ── */
