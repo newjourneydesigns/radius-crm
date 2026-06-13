@@ -4,6 +4,18 @@
     "version": "2.17.0",
     "date_display": "June 13, 2026",
     "date_iso": "2026-06-13",
+    "id": "circle-reporting-reason-categories",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Circle Reporting",
+    "description": "Made the \"Did Not Meet\" insights trustworthy. The dashboard now categorizes reasons straight from the actual choices leaders pick — Holiday weekend and Weather count as valid, while Low attendance and Leader out of town surface as coaching opportunities, and any free-text explanation is listed on its own to read. Previously the dashboard guessed categories by keyword matching, which quietly mislabeled common reasons (for example, \"Leader out of town\" was dropped into \"Other\").",
+    "page": "/circle-reporting"
+  },
+  {
+    "date": "2026-06-13",
+    "version": "2.17.0",
+    "date_display": "June 13, 2026",
+    "date_iso": "2026-06-13",
     "id": "circle-reporting-persistent-range",
     "type": "improvement",
     "type_display": "Improvement",

@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import { DateTime } from 'luxon';
 import { setCircleSummaryAppBadge } from '../../../../../../lib/circle-leader-toolkit/badging';
+import { DID_NOT_MEET_REASONS } from '../../../../../../lib/circle-leader-toolkit/did-not-meet-reasons';
 
 type Participant = {
   id: string;
@@ -47,13 +48,6 @@ type CcbSearchResult = {
   phone?: string;
 };
 
-const DID_NOT_MEET_REASONS = [
-  'Holiday weekend',
-  'Leader out of town',
-  'Low attendance',
-  'Weather',
-  'Other',
-];
 const ABSENCE_THRESHOLD_DAYS = 15;
 const ATTENDANCE_CACHE_KEY = 'cs:attendance-cache:v1';
 

@@ -11,6 +11,7 @@ import { NextResponse } from 'next/server';
 import { getSessionLeader, unauthorized } from '../../../../lib/circle-leader-toolkit/session';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
 import { cleanManualAttendees, splitLegacyRosterAdditions } from '../../../../lib/circle-leader-toolkit/notes-formatter';
+import { DID_NOT_MEET_REASON_SET } from '../../../../lib/circle-leader-toolkit/did-not-meet-reasons';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,13 +26,6 @@ type CcbAttendanceData = {
 
 type XmlRecord = Record<string, unknown>;
 
-const DID_NOT_MEET_REASONS = new Set([
-  'Holiday weekend',
-  'Leader out of town',
-  'Low attendance',
-  'Weather',
-  'Other',
-]);
 const REASON_PREFIX_RE = /^reason\s+we\s+did(?:n['’]t| not)\s+meet:\s*/i;
 
 function asRecord(value: unknown): XmlRecord | null {
@@ -50,7 +44,7 @@ function normalizeDidNotMeetReason(reason: unknown, other: unknown = '') {
   if (!reasonText) {
     return { didNotMeetReason: '', didNotMeetReasonOther: otherText };
   }
-  if (DID_NOT_MEET_REASONS.has(reasonText)) {
+  if (DID_NOT_MEET_REASON_SET.has(reasonText)) {
     return {
       didNotMeetReason: reasonText,
       didNotMeetReasonOther: reasonText === 'Other' ? otherText : '',

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { categorizeDidNotMeetReason } from '../../../lib/circle-leader-toolkit/did-not-meet-reasons';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -234,17 +235,7 @@ function notesSubmitted(submission?: SubmissionRow, occurrence?: OccurrenceRow):
   );
 }
 
-function reasonCategory(reason: string | null): 'valid' | 'coaching' | 'other' {
-  const text = (reason ?? '').toLowerCase();
-  if (!text.trim()) return 'other';
-  if (/(weather|storm|ice|snow|holiday|thanksgiving|christmas|easter|ill|sick|health|emergency|funeral|travel|vacation|spring break|summer break|church|event|schedule conflict)/i.test(text)) {
-    return 'valid';
-  }
-  if (/(forgot|no one|nobody|low attendance|communication|communicat|cancel|leader unavailable|did not plan|not prepared|last minute)/i.test(text)) {
-    return 'coaching';
-  }
-  return 'other';
-}
+const reasonCategory = categorizeDidNotMeetReason;
 
 function percent(numerator: number, denominator: number): number {
   return denominator > 0 ? Math.round((numerator / denominator) * 1000) / 10 : 0;
