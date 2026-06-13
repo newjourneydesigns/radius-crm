@@ -306,17 +306,23 @@ export default function LeaderMessaging({ leaderId, leaderName, accessEnabled = 
     setTimeout(() => composerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
   }
 
-  // Group the conversation by day for timeline headers.
+  // Show the most recent messages first; reveal older ones in pages on demand.
+  const PAGE_SIZE = 12;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const olderCount = Math.max(0, conversation.length - visibleCount);
+
+  // Group the visible window of the conversation by day for timeline headers.
   const grouped = useMemo(() => {
+    const windowed = conversation.slice(Math.max(0, conversation.length - visibleCount));
     const groups: { day: string; items: ConversationItem[] }[] = [];
-    for (const item of conversation) {
+    for (const item of windowed) {
       const label = dayLabel(item.sort_at);
       const last = groups[groups.length - 1];
       if (last && last.day === label) last.items.push(item);
       else groups.push({ day: label, items: [item] });
     }
     return groups;
-  }, [conversation]);
+  }, [conversation, visibleCount]);
 
   const sectionTitle = editingScheduledId ? 'Edit scheduled message' : editingSentId ? 'Edit sent message' : scheduleOn ? 'Schedule a message' : 'Send a message';
 
@@ -528,6 +534,15 @@ export default function LeaderMessaging({ leaderId, leaderName, accessEnabled = 
             </div>
           ) : (
             <div className="space-y-5">
+              {olderCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-900/40 py-2 text-xs font-medium text-slate-300 hover:bg-zinc-800 transition-colors"
+                >
+                  Show earlier messages ({olderCount})
+                </button>
+              )}
               {grouped.map((group) => (
                 <div key={group.day} className="space-y-3">
                   <div className="flex items-center gap-3">

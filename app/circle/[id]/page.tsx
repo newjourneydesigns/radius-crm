@@ -22,7 +22,6 @@ import ProtectedRoute from '../../../components/ProtectedRoute';
 import AddToBoardModal from '../../../components/modals/AddToBoardModal';
 
 import AttendanceTrends from '../../../components/circle/AttendanceTrends';
-import LeaderMessaging from '../../../components/circle/LeaderMessaging';
 import CircleLeaderProfileSkeleton from '../../../components/circle/CircleLeaderProfileSkeleton';
 import { useLeadershipSnapshots } from '../../../hooks/useLeadershipSnapshots';
 import { formatRating } from '../../../lib/leadershipSnapshot';
@@ -2024,6 +2023,22 @@ export default function CircleLeaderProfilePage() {
               </button>
             )}
 
+            {/* Message Link */}
+            <Link
+              href={`/circle/${leaderId}/messaging`}
+              className="w-full flex items-center justify-between px-4 py-3 text-slate-200 hover:bg-zinc-700/50 text-sm transition-colors"
+            >
+              <div className="flex items-center gap-2.5">
+                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4-.83L3 20l1.17-3.5A7.96 7.96 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                Message
+              </div>
+              <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+
             {/* View Roster Link */}
             {leader?.ccb_group_id && (
               <Link
@@ -2835,6 +2850,22 @@ export default function CircleLeaderProfilePage() {
                   </button>
                 )}
 
+                {/* Message Link */}
+                <Link
+                  href={`/circle/${leaderId}/messaging`}
+                  className="w-full flex items-center justify-between px-4 py-3 text-slate-200 hover:bg-zinc-700/50 text-sm transition-colors"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4-.83L3 20l1.17-3.5A7.96 7.96 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    Message
+                  </div>
+                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+
                 {/* View Roster Link */}
                 {leader?.ccb_group_id && (
                   <Link
@@ -3008,16 +3039,6 @@ export default function CircleLeaderProfilePage() {
           </div>
         )}
 
-        {/* Messaging — communication hub tied to this leader's record */}
-        {leader && (
-          <div className="mt-6">
-            <LeaderMessaging
-              leaderId={leaderId}
-              leaderName={leader.name}
-              accessEnabled={leader.circle_summary_access_enabled !== false}
-            />
-          </div>
-        )}
 
 
         </div>
