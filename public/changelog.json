@@ -1,5 +1,17 @@
 [
   {
+    "date": "2026-06-13",
+    "version": "2.16.1",
+    "date_display": "June 13, 2026",
+    "date_iso": "2026-06-13",
+    "id": "toolkit-open-auto-login-fix",
+    "type": "fix",
+    "type_display": "Fix",
+    "category": "Circle Leader Toolkit",
+    "description": "Fixed the \"Open Toolkit\" button on a Circle Leader's profile so it reliably signs you straight into that leader's toolkit instead of landing on the sign-in screen. The auto-login link now stays on the RADIUS site that issued it, so it no longer depends on the dedicated toolkit site sharing a matching sign-in secret. Links you text to leaders still use the clean circlestoolkit.netlify.app address.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
     "date": "2026-06-12",
     "version": "2.16.0",
     "date_display": "June 12, 2026",

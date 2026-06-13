@@ -12,7 +12,7 @@ import { verifyAdminAccess } from '../../../../lib/auth-middleware';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
 import { createSessionToken, RADIUS_LINK_TTL_MS } from '../../../../lib/leader-tokens';
 import { isCircleSummaryAccessEnabled } from '../../../../lib/circle-leader-toolkit/session';
-import { getCircleSummaryBaseUrl } from '../../../../lib/circle-leader-toolkit/links';
+import { getCircleSummaryBaseUrl, getAdminToolkitBaseUrl } from '../../../../lib/circle-leader-toolkit/links';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     const { isAdmin, error } = await verifyAdminAccess(req);
     if (!isAdmin) return NextResponse.json({ error: error || 'Forbidden' }, { status: 403 });
 
-    let body: { leader_id?: number | string } = {};
+    let body: { leader_id?: number | string; selfHosted?: boolean } = {};
     try {
       body = await req.json();
     } catch {
@@ -48,7 +48,12 @@ export async function POST(req: NextRequest) {
     const targetPath = leader.ccb_group_id
       ? `/circle-leader-toolkit/${encodeURIComponent(String(leader.ccb_group_id))}/events/`
       : '/circle-leader-toolkit/events';
-    const url = new URL('/api/circle-leader-toolkit/auth/link', getCircleSummaryBaseUrl(req));
+    // `selfHosted` links (the admin "Open Toolkit" auto-login button) stay on the
+    // current RADIUS origin so the token is verified by the same deployment that
+    // signed it — no cross-site LEADER_SESSION_SECRET sync required. Leader-facing
+    // links (e.g. the texted sign-in link) keep the clean dedicated toolkit domain.
+    const baseUrl = body.selfHosted ? getAdminToolkitBaseUrl(req) : getCircleSummaryBaseUrl(req);
+    const url = new URL('/api/circle-leader-toolkit/auth/link', baseUrl);
     url.searchParams.set('t', token);
     url.searchParams.set('next', targetPath);
 

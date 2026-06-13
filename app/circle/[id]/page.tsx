@@ -1096,7 +1096,9 @@ export default function CircleLeaderProfilePage() {
       const res = await fetch('/api/circle-leader-toolkit/admin-magic-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ leader_id: leader.id }),
+        // selfHosted keeps the auto-login link on this RADIUS origin so the
+        // session token is verified where it was signed — guaranteed sign-in.
+        body: JSON.stringify({ leader_id: leader.id, selfHosted: true }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.url) {
