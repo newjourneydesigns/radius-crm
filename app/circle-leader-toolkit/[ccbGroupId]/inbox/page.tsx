@@ -30,6 +30,9 @@ export default function CircleSummaryInboxPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [markingId, setMarkingId] = useState<string | null>(null);
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  const [replyingId, setReplyingId] = useState<string | null>(null);
+  const [repliedIds, setRepliedIds] = useState<Set<string>>(new Set());
 
   async function loadInbox() {
     setLoading(true);
@@ -80,6 +83,28 @@ export default function CircleSummaryInboxPage() {
       setError(getErrorMessage(error, 'Could not mark message read.'));
     } finally {
       setMarkingId(null);
+    }
+  }
+
+  async function sendReply(message: InboxMessage) {
+    const text = (replyDrafts[message.recipient_id] || '').trim();
+    if (!text) return;
+    setReplyingId(message.recipient_id);
+    setError(null);
+    try {
+      const res = await fetch('/api/circle-leader-toolkit/inbox/reply/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message_id: message.message_id, body: text }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not send your reply.');
+      setRepliedIds((current) => new Set(current).add(message.recipient_id));
+      setReplyDrafts((current) => ({ ...current, [message.recipient_id]: '' }));
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, 'Could not send your reply.'));
+    } finally {
+      setReplyingId(null);
     }
   }
 
@@ -204,6 +229,35 @@ export default function CircleSummaryInboxPage() {
                       Read {new Date(message.read_at).toLocaleString()}
                     </p>
                   ) : null}
+
+                  <div className="mt-4 border-t border-neutral-100 pt-3">
+                    {repliedIds.has(message.recipient_id) ? (
+                      <p className="text-[13px] font-semibold text-[#34B233]">Reply sent to your Circle team.</p>
+                    ) : (
+                      <>
+                        <label className="block text-[11px] font-semibold uppercase tracking-wide text-neutral-500 mb-1.5">
+                          Reply to your Circle team
+                        </label>
+                        <textarea
+                          value={replyDrafts[message.recipient_id] || ''}
+                          onChange={(e) =>
+                            setReplyDrafts((current) => ({ ...current, [message.recipient_id]: e.target.value }))
+                          }
+                          rows={2}
+                          placeholder="Write a quick reply…"
+                          className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#34B233]/40"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => sendReply(message)}
+                          disabled={replyingId === message.recipient_id || !(replyDrafts[message.recipient_id] || '').trim()}
+                          className="mt-2 w-full rounded-xl bg-neutral-900 py-2.5 text-sm font-bold text-white shadow-sm disabled:opacity-50"
+                        >
+                          {replyingId === message.recipient_id ? 'Sending…' : 'Send reply'}
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </article>
             ))}

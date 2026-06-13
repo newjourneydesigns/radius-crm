@@ -22,6 +22,7 @@ import ProtectedRoute from '../../../components/ProtectedRoute';
 import AddToBoardModal from '../../../components/modals/AddToBoardModal';
 
 import AttendanceTrends from '../../../components/circle/AttendanceTrends';
+import LeaderMessaging from '../../../components/circle/LeaderMessaging';
 import CircleLeaderProfileSkeleton from '../../../components/circle/CircleLeaderProfileSkeleton';
 import { useLeadershipSnapshots } from '../../../hooks/useLeadershipSnapshots';
 import { formatRating } from '../../../lib/leadershipSnapshot';
@@ -3004,6 +3005,17 @@ export default function CircleLeaderProfilePage() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Messaging — communication hub tied to this leader's record */}
+        {leader && (
+          <div className="mt-6">
+            <LeaderMessaging
+              leaderId={leaderId}
+              leaderName={leader.name}
+              accessEnabled={leader.circle_summary_access_enabled !== false}
+            />
           </div>
         )}
 

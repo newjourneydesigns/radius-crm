@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-13",
+    "version": "2.18.0",
+    "date_display": "June 13, 2026",
+    "date_iso": "2026-06-13",
+    "id": "leader-profile-messaging",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Circle Leaders",
+    "description": "Added a Messaging hub to the Circle Leader Profile so you can handle all communication with a leader in one place. Send a message straight to their Toolkit Inbox without leaving the page, schedule messages for later (and edit, send-now, or cancel them), and quick-send from saved templates that auto-fill the leader's first name. A two-way conversation timeline shows every message sent to and received from the leader in order, with read receipts and timestamps — and leaders can now reply right from their Toolkit Inbox, so their replies land back on their profile. All activity is tied specifically to that leader's record.",
+    "page": "/circle/321"
+  },
+  {
+    "date": "2026-06-13",
     "version": "2.17.0",
     "date_display": "June 13, 2026",
     "date_iso": "2026-06-13",
