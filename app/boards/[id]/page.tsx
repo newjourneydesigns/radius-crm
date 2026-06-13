@@ -1268,9 +1268,11 @@ function ColumnAutomationsModal({
   onClose: () => void;
 }) {
   const [actions, setActions] = useState<ColumnAutomationAction[]>(column.automations ?? []);
-  const [newType, setNewType] = useState<ColumnAutomationAction['type']>('set_complete');
-  const [newValue, setNewValue] = useState<string>('true');
+  const [newType, setNewType] = useState<ColumnAutomationAction['type']>('set_priority');
+  const [newValue, setNewValue] = useState<string>('high');   // primary value (or label id for move_on_label)
+  const [newColId, setNewColId] = useState<string>('');       // destination list for move_on_label
   const [saving, setSaving] = useState(false);
+  const [savedTick, setSavedTick] = useState(false);
   const [users, setUsers] = useState<{ id: string; name: string; email: string }[]>([]);
 
   useEffect(() => {
@@ -1279,57 +1281,68 @@ function ColumnAutomationsModal({
     });
   }, []);
 
-  // Reset newValue when type changes
+  // Reset the value inputs to a sensible default when the action type changes
   useEffect(() => {
+    setNewColId('');
     if (newType === 'set_complete') setNewValue('true');
     else if (newType === 'set_priority') setNewValue('high');
     else if (newType === 'set_assignee') setNewValue(users[0]?.id ?? '');
-    else if (newType === 'set_due_date') setNewValue('');
+    else if (newType === 'set_due_date_offset') setNewValue('1');
     else setNewValue('');
   }, [newType]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const ACTION_LABELS: Record<ColumnAutomationAction['type'], string> = {
-    set_complete: 'Set complete',
-    set_priority: 'Set priority',
-    set_assignee: 'Set assignee',
-    set_labels: 'Set labels',
-    clear_labels: 'Strip labels',
-    add_checklist: 'Add checklist',
-    move_completed: 'Move completed cards',
-    set_due_date: 'Set due date',
-    strip_due_date: 'Strip due date',
-    move_on_due_date: 'Move when due date set',
+  // Each automation reads as a sentence: [trigger] · [action].
+  const describeTrigger = (action: ColumnAutomationAction): string => {
+    switch (action.type) {
+      case 'move_completed':   return 'When completed';
+      case 'move_on_due_date': return 'When a due date is set';
+      case 'move_on_assigned': return 'When assigned';
+      case 'move_on_focus':    return 'When focused';
+      case 'move_on_label': {
+        const name = labels.find(l => l.id === action.value.label_id)?.name ?? 'a label';
+        return `When "${name}" is added`;
+      }
+      default: return 'When a card arrives';
+    }
   };
 
-  const formatValue = (action: ColumnAutomationAction): string => {
-    if (action.type === 'set_complete') return action.value ? 'Complete' : 'Incomplete';
-    if (action.type === 'set_priority') return action.value ? action.value.charAt(0).toUpperCase() + action.value.slice(1) : 'No priority';
-    if (action.type === 'set_assignee') {
-      const u = users.find(u => u.id === action.value);
-      return u ? u.name : action.value;
+  const listName = (id: string) => columns.find(c => c.id === id)?.title ?? 'another list';
+
+  const describeAction = (action: ColumnAutomationAction): string => {
+    switch (action.type) {
+      case 'set_complete':  return action.value ? 'Mark complete' : 'Mark incomplete';
+      case 'set_priority':  return action.value ? `Set priority to ${action.value}` : 'Clear priority';
+      case 'set_assignee':  return `Assign to ${users.find(u => u.id === action.value)?.name ?? 'user'}`;
+      case 'set_labels':    return action.value.length ? `Set labels: ${action.value.map(id => labels.find(l => l.id === id)?.name ?? id).join(', ')}` : 'Set no labels';
+      case 'clear_labels':  return 'Remove all labels';
+      case 'add_checklist': return action.value.length ? `Add checklist: ${action.value.map(id => checklistTemplates.find(t => t.id === id)?.name ?? id).join(', ')}` : 'Add checklist';
+      case 'set_due_date':  return `Set due date to ${action.value}`;
+      case 'set_due_date_offset': return action.value === 0 ? 'Set due date to arrival day' : `Set due date ${action.value} day${action.value === 1 ? '' : 's'} after arrival`;
+      case 'strip_due_date': return 'Remove the due date';
+      case 'move_completed':
+      case 'move_on_due_date':
+      case 'move_on_assigned':
+      case 'move_on_focus':  return `Move to ${listName(action.value)}`;
+      case 'move_on_label':  return `Move to ${listName(action.value.column_id)}`;
+      default: return '';
     }
-    if (action.type === 'set_labels') {
-      if (action.value.length === 0) return 'None';
-      return action.value.map(id => labels.find(l => l.id === id)?.name ?? id).join(', ');
+  };
+
+  // Persist immediately — there is no separate Save step.
+  const persist = async (next: ColumnAutomationAction[]) => {
+    setActions(next);
+    setSaving(true);
+    try {
+      await onSave(next);
+      setSavedTick(true);
+      setTimeout(() => setSavedTick(false), 1800);
+    } finally {
+      setSaving(false);
     }
-    if (action.type === 'clear_labels') return 'Remove all labels';
-    if (action.type === 'add_checklist') {
-      if (action.value.length === 0) return 'None';
-      return action.value.map(id => checklistTemplates.find(t => t.id === id)?.name ?? id).join(', ');
-    }
-    if (action.type === 'move_completed') {
-      return columns.find(c => c.id === action.value)?.title ?? action.value;
-    }
-    if (action.type === 'set_due_date') return action.value;
-    if (action.type === 'strip_due_date') return 'Remove due date';
-    if (action.type === 'move_on_due_date') {
-      return columns.find(c => c.id === action.value)?.title ?? action.value;
-    }
-    return '';
   };
 
   const removeAction = (type: ColumnAutomationAction['type']) => {
-    setActions(prev => prev.filter(a => a.type !== type));
+    persist(actions.filter(a => a.type !== type));
   };
 
   const addAction = () => {
@@ -1348,22 +1361,23 @@ function ColumnAutomationsModal({
       action = { type: 'move_completed', value: newValue };
     } else if (newType === 'set_due_date') {
       action = { type: 'set_due_date', value: newValue };
+    } else if (newType === 'set_due_date_offset') {
+      action = { type: 'set_due_date_offset', value: Math.max(0, parseInt(newValue, 10) || 0) };
     } else if (newType === 'strip_due_date') {
       action = { type: 'strip_due_date', value: true };
     } else if (newType === 'move_on_due_date') {
       action = { type: 'move_on_due_date', value: newValue };
+    } else if (newType === 'move_on_assigned') {
+      action = { type: 'move_on_assigned', value: newValue };
+    } else if (newType === 'move_on_focus') {
+      action = { type: 'move_on_focus', value: newValue };
+    } else if (newType === 'move_on_label') {
+      action = { type: 'move_on_label', value: { label_id: newValue, column_id: newColId } };
     } else {
       action = { type: 'add_checklist', value: newValue ? newValue.split(',').filter(Boolean) : [] };
     }
-    // Replace existing automation of the same type
-    setActions(prev => [...prev.filter(a => a.type !== newType), action]);
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    await onSave(actions);
-    setSaving(false);
-    onClose();
+    // One rule per type — adding replaces any existing rule of the same type
+    persist([...actions.filter(a => a.type !== newType), action]);
   };
 
   const selectedNewIds = newValue ? newValue.split(',').filter(Boolean) : [];
@@ -1374,11 +1388,23 @@ function ColumnAutomationsModal({
     setNewValue(next.join(','));
   };
 
+  // Action types whose primary value is a single destination list id
+  const needsDestList = (['move_completed', 'move_on_due_date', 'move_on_assigned', 'move_on_focus'] as const).includes(newType as never);
+  const needsUser = newType === 'set_assignee';
+
   const canAdd =
-    (newType !== 'set_assignee' || newValue.trim() !== '') &&
-    (newType !== 'move_completed' || newValue.trim() !== '') &&
+    (!needsDestList || newValue.trim() !== '') &&
+    (!needsUser || newValue.trim() !== '') &&
     (newType !== 'set_due_date' || newValue.trim() !== '') &&
-    (newType !== 'move_on_due_date' || newValue.trim() !== '');
+    (newType !== 'set_due_date_offset' || newValue.trim() !== '') &&
+    (newType !== 'move_on_label' || (newValue.trim() !== '' && newColId.trim() !== ''));
+
+  const destListSelect = (
+    <select className="kb-input" value={newValue} onChange={e => setNewValue(e.target.value)}>
+      <option value="">Choose a list…</option>
+      {columns.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+    </select>
+  );
 
   return (
     <div className="kb-modal-overlay" onClick={onClose}>
@@ -1393,31 +1419,35 @@ function ColumnAutomationsModal({
         </div>
 
         <div className="kb-auto-body">
-          <p className="kb-auto-hint">When a card is moved into this list, automatically:</p>
+          <p className="kb-auto-hint">Rules run automatically as cards arrive in or change inside this list.</p>
 
           {/* Existing automations */}
-          {actions.length > 0 && (
+          {actions.length > 0 ? (
             <div className="kb-auto-list">
               {actions.map(action => (
                 <div key={action.type} className="kb-auto-row">
-                  <span className="kb-auto-label">{ACTION_LABELS[action.type]}</span>
-                  <span className="kb-auto-arrow">→</span>
-                  <span className="kb-auto-value">{formatValue(action)}</span>
+                  <div className="kb-auto-rule">
+                    <span className="kb-auto-trigger">{describeTrigger(action)}</span>
+                    <span className="kb-auto-arrow">→</span>
+                    <span className="kb-auto-value">{describeAction(action)}</span>
+                  </div>
                   <button
                     className="kb-btn-icon-sm"
                     onClick={() => removeAction(action.type)}
-                    title="Remove"
+                    title="Remove rule"
                   >
                     <Trash2 size={12} />
                   </button>
                 </div>
               ))}
             </div>
+          ) : (
+            <div className="kb-auto-empty">No rules yet. Add one below.</div>
           )}
 
           {/* Add automation row */}
           <div className="kb-auto-add-section">
-            <div className="kb-auto-add-label">Add automation</div>
+            <div className="kb-auto-add-label">Add a rule</div>
             <div className="kb-auto-add-row">
               <select
                 className="kb-input"
@@ -1425,22 +1455,30 @@ function ColumnAutomationsModal({
                 onChange={e => setNewType(e.target.value as ColumnAutomationAction['type'])}
                 style={{ flex: 1 }}
               >
-                <option value="set_complete">Set complete</option>
-                <option value="set_priority">Set priority</option>
-                <option value="set_assignee">Set assignee</option>
-                <option value="set_labels">Set labels</option>
-                <option value="clear_labels">Strip labels</option>
-                <option value="add_checklist">Add checklist</option>
-                <option value="move_completed">Move completed cards</option>
-                <option value="set_due_date">Set due date</option>
-                <option value="strip_due_date">Strip due date</option>
-                <option value="move_on_due_date">Move when due date set</option>
+                <optgroup label="When a card arrives in this list">
+                  <option value="set_priority">Set priority</option>
+                  <option value="set_assignee">Assign to someone</option>
+                  <option value="set_labels">Set labels</option>
+                  <option value="clear_labels">Remove all labels</option>
+                  <option value="add_checklist">Add checklist</option>
+                  <option value="set_complete">Mark complete / incomplete</option>
+                  <option value="set_due_date">Set due date (specific date)</option>
+                  <option value="set_due_date_offset">Set due date (days after arrival)</option>
+                  <option value="strip_due_date">Remove due date</option>
+                </optgroup>
+                <optgroup label="When a card changes, move it">
+                  <option value="move_completed">When completed</option>
+                  <option value="move_on_due_date">When a due date is set</option>
+                  <option value="move_on_assigned">When assigned</option>
+                  <option value="move_on_focus">When focused</option>
+                  <option value="move_on_label">When a label is added</option>
+                </optgroup>
               </select>
               <button
                 className="kb-btn kb-btn-primary kb-btn-sm"
                 onClick={addAction}
-                disabled={!canAdd}
-                title="Add automation"
+                disabled={!canAdd || saving}
+                title="Add rule"
               >
                 <Plus size={14} />
               </button>
@@ -1450,8 +1488,8 @@ function ColumnAutomationsModal({
             <div className="kb-auto-value-input">
               {newType === 'set_complete' && (
                 <select className="kb-input" value={newValue} onChange={e => setNewValue(e.target.value)}>
-                  <option value="true">Complete</option>
-                  <option value="false">Incomplete</option>
+                  <option value="true">Mark complete</option>
+                  <option value="false">Mark incomplete</option>
                 </select>
               )}
               {newType === 'set_priority' && (
@@ -1466,18 +1504,13 @@ function ColumnAutomationsModal({
               {newType === 'set_assignee' && (
                 users.length > 0 ? (
                   <select className="kb-input" value={newValue} onChange={e => setNewValue(e.target.value)}>
-                    <option value="">Select user...</option>
+                    <option value="">Select a person…</option>
                     {users.map(u => (
                       <option key={u.id} value={u.id}>{u.name}</option>
                     ))}
                   </select>
                 ) : (
-                  <input
-                    className="kb-input"
-                    value={newValue}
-                    onChange={e => setNewValue(e.target.value)}
-                    placeholder="User ID..."
-                  />
+                  <span style={{ color: '#6b7280', fontSize: 12 }}>No people available</span>
                 )
               )}
               {newType === 'set_labels' && (
@@ -1512,17 +1545,10 @@ function ColumnAutomationsModal({
                   ))}
                 </div>
               )}
-              {newType === 'move_completed' && (
-                columns.length === 0 ? (
-                  <span style={{ color: '#6b7280', fontSize: 12 }}>No other lists on this board</span>
-                ) : (
-                  <select className="kb-input" value={newValue} onChange={e => setNewValue(e.target.value)}>
-                    <option value="">Choose destination list...</option>
-                    {columns.map(c => (
-                      <option key={c.id} value={c.id}>{c.title}</option>
-                    ))}
-                  </select>
-                )
+              {needsDestList && (
+                columns.length === 0
+                  ? <span style={{ color: '#6b7280', fontSize: 12 }}>No other lists on this board</span>
+                  : destListSelect
               )}
               {newType === 'set_due_date' && (
                 <input
@@ -1532,19 +1558,46 @@ function ColumnAutomationsModal({
                   onChange={e => setNewValue(e.target.value)}
                 />
               )}
+              {newType === 'set_due_date_offset' && (
+                <div className="kb-auto-offset">
+                  <input
+                    type="number"
+                    min={0}
+                    className="kb-input"
+                    style={{ width: 80 }}
+                    value={newValue}
+                    onChange={e => setNewValue(e.target.value)}
+                  />
+                  <span style={{ color: '#9ca3af', fontSize: 13 }}>day(s) after the card arrives</span>
+                </div>
+              )}
               {newType === 'strip_due_date' && (
                 <span style={{ color: '#6b7280', fontSize: 12 }}>Removes the due date from the card</span>
               )}
-              {newType === 'move_on_due_date' && (
-                columns.length === 0 ? (
-                  <span style={{ color: '#6b7280', fontSize: 12 }}>No other lists on this board</span>
+              {newType === 'move_on_label' && (
+                labels.length === 0 || columns.length === 0 ? (
+                  <span style={{ color: '#6b7280', fontSize: 12 }}>
+                    {labels.length === 0 ? 'No labels on this board' : 'No other lists on this board'}
+                  </span>
                 ) : (
-                  <select className="kb-input" value={newValue} onChange={e => setNewValue(e.target.value)}>
-                    <option value="">Choose destination list...</option>
-                    {columns.map(c => (
-                      <option key={c.id} value={c.id}>{c.title}</option>
-                    ))}
-                  </select>
+                  <div className="kb-auto-pair">
+                    <div className="kb-auto-chips">
+                      {labels.map(l => (
+                        <button
+                          key={l.id}
+                          className={`kb-auto-chip ${newValue === l.id ? 'selected' : ''}`}
+                          onClick={() => setNewValue(newValue === l.id ? '' : l.id)}
+                        >
+                          <span className="kb-label-dot" style={{ background: l.color }} />
+                          {l.name}
+                        </button>
+                      ))}
+                    </div>
+                    <select className="kb-input" value={newColId} onChange={e => setNewColId(e.target.value)}>
+                      <option value="">Move to which list…</option>
+                      {columns.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                    </select>
+                  </div>
                 )
               )}
             </div>
@@ -1553,10 +1606,10 @@ function ColumnAutomationsModal({
 
         {/* Footer */}
         <div className="kb-auto-footer">
-          <button className="kb-btn kb-btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="kb-btn kb-btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving...' : 'Save'}
-          </button>
+          <span className="kb-auto-saved">
+            {saving ? 'Saving…' : savedTick ? 'Saved' : 'Changes save automatically'}
+          </span>
+          <button className="kb-btn kb-btn-primary" onClick={onClose}>Done</button>
         </div>
       </div>
     </div>
@@ -1859,14 +1912,18 @@ function BoardPage() {
         if (alreadyAssigned) {
           unassignCard(card.id, user.id);
         } else {
-          assignCard(card.id, user.id);
+          (async () => { await assignCard(card.id, user.id); await runCardMoveTrigger(card.id, 'move_on_assigned'); })();
         }
       } else if (e.key === 'd' || e.key === 'D') {
         e.preventDefault();
         setDueDateCardId(card.id);
       } else if (e.key === 'f' || e.key === 'F') {
         e.preventDefault();
-        updateCard(boardId, card.id, { is_focused: !card.is_focused });
+        const willFocus = !card.is_focused;
+        (async () => {
+          await updateCard(boardId, card.id, { is_focused: willFocus });
+          if (willFocus) await runCardMoveTrigger(card.id, 'move_on_focus');
+        })();
       } else if (/^[0-9]$/.test(e.key)) {
         e.preventDefault();
         const sortedLabels = [...(board.labels || [])].sort((a, b) => a.name.localeCompare(b.name));
@@ -1874,10 +1931,14 @@ function BoardPage() {
         if (idx < sortedLabels.length) {
           const targetLabel = sortedLabels[idx];
           const currentIds = (card.labels || []).map(l => l.id);
-          const newIds = currentIds.includes(targetLabel.id)
-            ? currentIds.filter(id => id !== targetLabel.id)
-            : [...currentIds, targetLabel.id];
-          updateCard(boardId, card.id, { label_ids: newIds });
+          const isAdding = !currentIds.includes(targetLabel.id);
+          const newIds = isAdding
+            ? [...currentIds, targetLabel.id]
+            : currentIds.filter(id => id !== targetLabel.id);
+          (async () => {
+            await updateCard(boardId, card.id, { label_ids: newIds });
+            if (isAdding) await runCardMoveTrigger(card.id, 'move_on_label', [targetLabel.id]);
+          })();
         }
       }
     };
@@ -2050,6 +2111,10 @@ function BoardPage() {
         cardUpdates.due_date = action.value;
         cardUpdates.due_time = null;
       }
+      if (action.type === 'set_due_date_offset') {
+        cardUpdates.due_date = DateTime.now().plus({ days: action.value }).toISODate();
+        cardUpdates.due_time = null;
+      }
       if (action.type === 'strip_due_date') {
         cardUpdates.due_date = null;
         cardUpdates.due_time = null;
@@ -2076,18 +2141,38 @@ function BoardPage() {
     }
   };
 
-  // ── Due-date trigger automation ──
-  // When a card in a list configured with a "move_on_due_date" automation
-  // receives a due date (it had none before), move it to the destination list.
-  const runDueDateMoveAutomation = async (cardId: string, hadDueDateBefore: boolean) => {
-    if (!board || hadDueDateBefore) return;
+  // ── "Move when …" trigger automations ──
+  // When a card in a list gains a due date, an assignee, focus, or a specific
+  // label, move it to the list configured on that source column. addedLabelIds
+  // is only relevant for the move_on_label trigger.
+  const runCardMoveTrigger = async (
+    cardId: string,
+    trigger: 'move_on_due_date' | 'move_on_assigned' | 'move_on_focus' | 'move_on_label',
+    addedLabelIds?: string[],
+  ) => {
+    if (!board) return;
     const card = board.cards.find(c => c.id === cardId);
     if (!card) return;
-    const col = board.columns.find(c => c.id === card.column_id);
-    const moveAction = col?.automations?.find(a => a.type === 'move_on_due_date');
-    if (moveAction?.type === 'move_on_due_date' && moveAction.value && moveAction.value !== card.column_id) {
-      await moveCard(boardId, cardId, moveAction.value, 0);
+    const action = board.columns.find(c => c.id === card.column_id)?.automations?.find(a => a.type === trigger);
+    if (!action) return;
+
+    let destColId: string | undefined;
+    if (action.type === 'move_on_label') {
+      // Only fire when the specifically configured label was just added
+      if (!addedLabelIds?.includes(action.value.label_id)) return;
+      destColId = action.value.column_id;
+    } else if (action.type === 'move_on_due_date' || action.type === 'move_on_assigned' || action.type === 'move_on_focus') {
+      destColId = action.value;
     }
+    if (destColId && destColId !== card.column_id) {
+      await moveCard(boardId, cardId, destColId, 0);
+    }
+  };
+
+  // Move when a due date is newly added (it had none before)
+  const runDueDateMoveAutomation = async (cardId: string, hadDueDateBefore: boolean) => {
+    if (hadDueDateBefore) return;
+    await runCardMoveTrigger(cardId, 'move_on_due_date');
   };
 
   // ── Toggle complete (with move_completed automation) ──
@@ -2967,6 +3052,7 @@ function BoardPage() {
           onUpdate={async (updates) => {
             const cardBeforeUpdate = board.cards.find(c => c.id === activeCard.id);
             const hadDueDateBefore = !!cardBeforeUpdate?.due_date;
+            const prevLabelIds = (cardBeforeUpdate?.labels || []).map(l => l.id);
             await updateCard(boardId, activeCard.id, updates);
             if (updates.is_complete === true && cardBeforeUpdate) {
               const col = board.columns.find(c => c.id === cardBeforeUpdate.column_id);
@@ -2977,6 +3063,13 @@ function BoardPage() {
             }
             if ('due_date' in updates && updates.due_date) {
               await runDueDateMoveAutomation(activeCard.id, hadDueDateBefore);
+            }
+            if (updates.is_focused === true) {
+              await runCardMoveTrigger(activeCard.id, 'move_on_focus');
+            }
+            if ('label_ids' in updates && Array.isArray(updates.label_ids)) {
+              const added = updates.label_ids.filter((id: string) => !prevLabelIds.includes(id));
+              if (added.length) await runCardMoveTrigger(activeCard.id, 'move_on_label', added);
             }
           }}
           onDelete={async () => { await deleteCard(boardId, activeCard.id); setSelectedCard(null); }}
@@ -3009,7 +3102,7 @@ function BoardPage() {
           onSaveTemplate={async (name, items) => { await saveChecklistTemplate(boardId, name, items); }}
           onDeleteTemplate={async (templateId) => { await deleteChecklistTemplate(templateId); }}
           onApplyTemplate={async (templateId) => { await applyChecklistTemplate(boardId, activeCard.id, templateId); }}
-          onAssignCard={async (userId) => { await assignCard(activeCard.id, userId); }}
+          onAssignCard={async (userId) => { await assignCard(activeCard.id, userId); await runCardMoveTrigger(activeCard.id, 'move_on_assigned'); }}
           onUnassignCard={async (userId) => { await unassignCard(activeCard.id, userId); }}
           fetchSystemUsers={fetchSystemUsers}
           onDuplicate={async () => {
@@ -3054,10 +3147,16 @@ function BoardPage() {
             cards={colCards}
             board={board}
             onUpdateCard={async (cardId, updates) => {
-              const hadDueDateBefore = !!board.cards.find(c => c.id === cardId)?.due_date;
+              const cardBefore = board.cards.find(c => c.id === cardId);
+              const hadDueDateBefore = !!cardBefore?.due_date;
+              const prevLabelIds = (cardBefore?.labels || []).map(l => l.id);
               await updateCard(boardId, cardId, updates);
               if ('due_date' in updates && updates.due_date) {
                 await runDueDateMoveAutomation(cardId, hadDueDateBefore);
+              }
+              if ('label_ids' in updates && Array.isArray(updates.label_ids)) {
+                const added = updates.label_ids.filter((id: string) => !prevLabelIds.includes(id));
+                if (added.length) await runCardMoveTrigger(cardId, 'move_on_label', added);
               }
             }}
             onDeleteCard={async (cardId) => { await deleteCard(boardId, cardId); }}
