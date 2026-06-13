@@ -111,14 +111,6 @@ type ReferenceData = {
   statuses?: { id: number; value: string }[];
 };
 
-const RANGE_OPTIONS = [
-  { value: 'current_week', label: 'Current week' },
-  { value: 'previous_week', label: 'Previous week' },
-  { value: 'semester_to_date', label: 'Semester to date' },
-  { value: 'year_to_date', label: 'Year to date' },
-  { value: 'custom', label: 'Custom range' },
-];
-
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -135,6 +127,20 @@ function startOfWeekSunday(value: string): string {
   return date.toISOString().slice(0, 10);
 }
 
+// The Saturday that ended the most recently completed week. This is what
+// "through end of last week" pins to, and it rolls forward on its own as the
+// calendar advances.
+function endOfLastWeekISO(): string {
+  return addDays(startOfWeekSunday(todayISO()), -1);
+}
+
+function semesterStartISO(): string {
+  const today = todayISO();
+  const month = new Date(`${today}T00:00:00`).getMonth();
+  const year = today.slice(0, 4);
+  return month <= 4 ? `${year}-01-01` : month <= 7 ? `${year}-05-01` : `${year}-08-01`;
+}
+
 function formatDate(value: string): string {
   return new Date(`${value}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
@@ -148,11 +154,8 @@ function csvEscape(value: string | number): string {
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-function exportRows(filename: string, rows: Record<string, string | number>[]) {
-  if (rows.length === 0) return;
-  const headers = Object.keys(rows[0]);
-  const csv = [headers.join(','), ...rows.map((row) => headers.map((header) => csvEscape(row[header])).join(','))].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+function downloadBlob(filename: string, content: string, mime: string) {
+  const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -160,6 +163,17 @@ function exportRows(filename: string, rows: Record<string, string | number>[]) {
   link.click();
   URL.revokeObjectURL(url);
 }
+
+function rowsToCSV(rows: Record<string, unknown>[]): string {
+  if (rows.length === 0) return '';
+  const headers = Object.keys(rows[0]);
+  return [
+    headers.join(','),
+    ...rows.map((row) => headers.map((header) => csvEscape((row[header] ?? '') as string | number)).join(',')),
+  ].join('\n');
+}
+
+const PREFS_KEY = 'circle-reporting-prefs';
 
 function MetricCard({
   label,
@@ -226,10 +240,10 @@ function TrendDelta({ value, suffix = '' }: { value: number; suffix?: string }) 
 }
 
 function CircleReportingContent() {
-  const [range, setRange] = useState('semester_to_date');
   const [weekStart, setWeekStart] = useState(startOfWeekSunday(todayISO()));
-  const [startDate, setStartDate] = useState(addDays(startOfWeekSunday(todayISO()), -84));
-  const [endDate, setEndDate] = useState(todayISO());
+  const [startDate, setStartDate] = useState(addDays(endOfLastWeekISO(), -83));
+  const [endDate, setEndDate] = useState(endOfLastWeekISO());
+  const [rollForwardEnd, setRollForwardEnd] = useState(true);
   const [campus, setCampus] = useState('');
   const [circleType, setCircleType] = useState('');
   const [status, setStatus] = useState('');
@@ -237,7 +251,9 @@ function CircleReportingContent() {
   const [data, setData] = useState<ReportingData | null>(null);
   const [refData, setRefData] = useState<ReferenceData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState<'json' | 'csv' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     fetch('/api/reference-data')
@@ -246,22 +262,57 @@ function CircleReportingContent() {
       .catch(() => {});
   }, []);
 
+  // Restore saved filters. The end date intentionally re-pins to "end of last
+  // week" on load whenever roll-forward is on, so a returning user always sees
+  // the latest completed week rather than the stale date they left behind.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(PREFS_KEY);
+      if (raw) {
+        const prefs = JSON.parse(raw);
+        const roll = typeof prefs.rollForwardEnd === 'boolean' ? prefs.rollForwardEnd : true;
+        if (typeof prefs.startDate === 'string') setStartDate(prefs.startDate);
+        setRollForwardEnd(roll);
+        setEndDate(roll ? endOfLastWeekISO() : prefs.endDate || endOfLastWeekISO());
+        if (typeof prefs.weekStart === 'string') setWeekStart(prefs.weekStart);
+        if (typeof prefs.campus === 'string') setCampus(prefs.campus);
+        if (typeof prefs.circleType === 'string') setCircleType(prefs.circleType);
+        if (typeof prefs.status === 'string') setStatus(prefs.status);
+      }
+    } catch {
+      // Ignore malformed preferences and fall back to defaults.
+    }
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(
+        PREFS_KEY,
+        JSON.stringify({ startDate, endDate, rollForwardEnd, weekStart, campus, circleType, status })
+      );
+    } catch {
+      // Storage may be unavailable (private mode); filters just won't persist.
+    }
+  }, [hydrated, startDate, endDate, rollForwardEnd, weekStart, campus, circleType, status]);
+
+  const buildParams = useCallback(() => {
+    const params = new URLSearchParams();
+    params.set('start_date', startDate);
+    params.set('end_date', endDate);
+    params.set('week_start_date', weekStart);
+    if (campus) params.append('campus', campus);
+    if (circleType) params.append('circle_type', circleType);
+    if (status) params.append('status', status);
+    return params;
+  }, [campus, circleType, endDate, startDate, status, weekStart]);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams();
-      params.set('range', range);
-      params.set('week_start_date', weekStart);
-      if (range === 'custom') {
-        params.set('start_date', startDate);
-        params.set('end_date', endDate);
-      }
-      if (campus) params.append('campus', campus);
-      if (circleType) params.append('circle_type', circleType);
-      if (status) params.append('status', status);
-
-      const res = await fetch(`/api/circle-reporting?${params.toString()}`, { cache: 'no-store' });
+      const res = await fetch(`/api/circle-reporting?${buildParams().toString()}`, { cache: 'no-store' });
       const json = await res.json();
       if (!res.ok || json.error) throw new Error(json.error || 'Failed to load dashboard');
       setData(json);
@@ -270,11 +321,47 @@ function CircleReportingContent() {
     } finally {
       setLoading(false);
     }
-  }, [campus, circleType, endDate, range, startDate, status, weekStart]);
+  }, [buildParams]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (hydrated) loadData();
+  }, [hydrated, loadData]);
+
+  const handleExport = useCallback(
+    async (format: 'json' | 'csv') => {
+      setExporting(format);
+      setError(null);
+      try {
+        const params = buildParams();
+        params.delete('week_start_date');
+        params.set('export', '1');
+        const res = await fetch(`/api/circle-reporting?${params.toString()}`, { cache: 'no-store' });
+        const json = await res.json();
+        if (!res.ok || json.error) throw new Error(json.error || 'Export failed');
+        const base = `circle-event-summaries-${startDate}_to_${endDate}`;
+        if (format === 'json') {
+          downloadBlob(`${base}.json`, JSON.stringify(json, null, 2), 'application/json');
+        } else {
+          downloadBlob(`${base}.csv`, rowsToCSV(json.events ?? []), 'text/csv;charset=utf-8;');
+        }
+      } catch (err: any) {
+        setError(err.message || 'Export failed');
+      } finally {
+        setExporting(null);
+      }
+    },
+    [buildParams, endDate, startDate]
+  );
+
+  const applyPreset = useCallback((preset: 'last4' | 'last12' | 'semester' | 'year') => {
+    const end = endOfLastWeekISO();
+    setRollForwardEnd(true);
+    setEndDate(end);
+    if (preset === 'last4') setStartDate(addDays(end, -27));
+    else if (preset === 'last12') setStartDate(addDays(end, -83));
+    else if (preset === 'semester') setStartDate(semesterStartISO());
+    else setStartDate(`${todayISO().slice(0, 4)}-01-01`);
+  }, []);
 
   const campusOptions = refData?.campuses?.map((item) => item.value).filter(Boolean) ?? data?.filters.campuses ?? [];
   const typeOptions = refData?.circleTypes?.map((item) => item.value).filter(Boolean) ?? data?.filters.circleTypes ?? [];
@@ -382,12 +469,21 @@ function CircleReportingContent() {
             </button>
             <button
               type="button"
-              disabled={!data?.csvRows.length}
-              onClick={() => data && exportRows(`circle-weekly-events-${data.filters.selectedWeek}.csv`, data.csvRows)}
+              disabled={exporting !== null}
+              onClick={() => handleExport('json')}
               className="inline-flex items-center gap-2 rounded-md border border-emerald-700 bg-emerald-900/40 px-3 py-2 text-sm font-medium text-emerald-100 hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Download className="h-4 w-4" />
-              Export weekly CSV
+              {exporting === 'json' ? 'Exporting…' : 'Export JSON (AI)'}
+            </button>
+            <button
+              type="button"
+              disabled={exporting !== null}
+              onClick={() => handleExport('csv')}
+              className="inline-flex items-center gap-2 rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Download className="h-4 w-4" />
+              {exporting === 'csv' ? 'Exporting…' : 'Export CSV'}
             </button>
           </div>
         </div>
@@ -397,84 +493,130 @@ function CircleReportingContent() {
             <Filter className="h-4 w-4" />
             Filters
           </div>
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-6">
-            <label className="text-sm text-slate-300">
-              Date range
-              <select
-                value={range}
-                onChange={(event) => setRange(event.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
-              >
-                {RANGE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="text-sm text-slate-300">
-              Weekly events week
-              <input
-                type="date"
-                value={weekStart}
-                onChange={(event) => setWeekStart(startOfWeekSunday(event.target.value))}
-                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
-              />
-            </label>
-            <label className="text-sm text-slate-300">
-              Campus
-              <select
-                value={campus}
-                onChange={(event) => setCampus(event.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
-              >
-                <option value="">All campuses</option>
-                {campusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-              </select>
-            </label>
-            <label className="text-sm text-slate-300">
-              Circle type
-              <select
-                value={circleType}
-                onChange={(event) => setCircleType(event.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
-              >
-                <option value="">All types</option>
-                {typeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-              </select>
-            </label>
-            <label className="text-sm text-slate-300">
-              Current status
-              <select
-                value={status}
-                onChange={(event) => setStatus(event.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
-              >
-                <option value="">All statuses</option>
-                {statusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-              </select>
-            </label>
-            {range === 'custom' && (
-              <div className="grid grid-cols-2 gap-2">
+
+          <div className="grid gap-4 lg:grid-cols-12">
+            <div className="lg:col-span-7">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Reporting range</p>
+              <div className="mt-2 grid gap-3 sm:grid-cols-2">
                 <label className="text-sm text-slate-300">
-                  Start
+                  Start date
                   <input
                     type="date"
                     value={startDate}
+                    max={endDate}
                     onChange={(event) => setStartDate(event.target.value)}
                     className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
                   />
                 </label>
                 <label className="text-sm text-slate-300">
-                  End
+                  End date
                   <input
                     type="date"
                     value={endDate}
-                    onChange={(event) => setEndDate(event.target.value)}
-                    className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                    min={startDate}
+                    disabled={rollForwardEnd}
+                    onChange={(event) => {
+                      setRollForwardEnd(false);
+                      setEndDate(event.target.value);
+                    }}
+                    className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-60"
                   />
                 </label>
               </div>
-            )}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !rollForwardEnd;
+                    setRollForwardEnd(next);
+                    if (next) setEndDate(endOfLastWeekISO());
+                  }}
+                  className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition ${
+                    rollForwardEnd
+                      ? 'border-emerald-500 bg-emerald-500/15 text-emerald-200'
+                      : 'border-slate-700 bg-slate-950 text-slate-300 hover:bg-slate-800'
+                  }`}
+                  aria-pressed={rollForwardEnd}
+                >
+                  <CalendarDays className="h-4 w-4" />
+                  Through end of last week
+                </button>
+                <span className="text-xs text-slate-500">
+                  {rollForwardEnd
+                    ? `End pinned to ${formatShortDate(endDate)} and rolls forward each week`
+                    : 'Pick a fixed end date, or pin it to the last completed week'}
+                </span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {[
+                  ['last4', 'Last 4 weeks'],
+                  ['last12', 'Last 12 weeks'],
+                  ['semester', 'Semester to date'],
+                  ['year', 'Year to date'],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => applyPreset(value as 'last4' | 'last12' | 'semester' | 'year')}
+                    className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-xs font-medium text-slate-300 hover:bg-slate-800"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3 lg:col-span-5 lg:grid-cols-1 xl:grid-cols-3">
+              <label className="text-sm text-slate-300">
+                Campus
+                <select
+                  value={campus}
+                  onChange={(event) => setCampus(event.target.value)}
+                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                >
+                  <option value="">All campuses</option>
+                  {campusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </label>
+              <label className="text-sm text-slate-300">
+                Circle type
+                <select
+                  value={circleType}
+                  onChange={(event) => setCircleType(event.target.value)}
+                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                >
+                  <option value="">All types</option>
+                  {typeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </label>
+              <label className="text-sm text-slate-300">
+                Status
+                <select
+                  value={status}
+                  onChange={(event) => setStatus(event.target.value)}
+                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                >
+                  <option value="">All statuses</option>
+                  {statusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </label>
+            </div>
           </div>
+
+          {tab === 'events' && (
+            <div className="mt-4 border-t border-slate-800 pt-4">
+              <label className="text-sm text-slate-300">
+                Weekly Events — week of
+                <input
+                  type="date"
+                  value={weekStart}
+                  onChange={(event) => setWeekStart(startOfWeekSunday(event.target.value))}
+                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white sm:w-64"
+                />
+              </label>
+              <p className="mt-1 text-xs text-slate-500">Controls only the Weekly Events table below. Snaps to the Sunday that starts the week.</p>
+            </div>
+          )}
         </div>
 
         {error && (

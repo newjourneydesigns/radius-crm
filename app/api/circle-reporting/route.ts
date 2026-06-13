@@ -13,6 +13,7 @@ type LeaderRow = {
   ccb_group_name: string | null;
   campus: string | null;
   circle_type: string | null;
+  acpd: string | null;
   day: string | null;
   time: string | null;
   frequency: string | null;
@@ -417,6 +418,44 @@ function serializeCSVRows(events: WeeklyEvent[]) {
   }));
 }
 
+function cleanText(value: string | null | undefined): string {
+  return (value ?? '').replace(/\s+/g, ' ').trim();
+}
+
+// Full-content record for the AI export. Unlike WeeklyEvent (which strips the
+// summary text down to a boolean), this carries the actual topic / notes /
+// prayer requests so the export is useful for downstream analysis.
+function buildExportRecord(expected: ExpectedEvent, indexes: ReturnType<typeof buildIndexes>) {
+  const key = `${expected.leader.id}|${expected.week_start_date}`;
+  const submission = indexes.submissionsByLeaderWeek.get(key);
+  const occurrence = indexes.occurrencesByLeaderWeek.get(key);
+  const event = buildWeeklyEvent(expected, indexes);
+  const reason = submission?.did_not_meet_reason || null;
+
+  return {
+    week_start_date: expected.week_start_date,
+    scheduled_date: expected.expected_date,
+    scheduled_time: expected.leader.time || '',
+    frequency: expected.leader.frequency || 'Weekly',
+    leader_id: expected.leader.id,
+    leader_name: expected.leader.name,
+    circle_name: event.circle_name,
+    campus: event.campus,
+    circle_type: event.circle_type,
+    acpd: expected.leader.acpd || '',
+    leader_status: event.leader_status,
+    reporting_status: event.status_label,
+    attendance: event.attendance_count,
+    topic: cleanText(submission?.topic || occurrence?.topic),
+    notes: cleanText(submission?.notes || occurrence?.notes),
+    prayer_requests: cleanText(submission?.prayer_requests || occurrence?.prayer_requests),
+    info: cleanText(submission?.info),
+    did_not_meet_reason: reason || '',
+    did_not_meet_category: event.status === 'did_not_meet' ? reasonCategory(reason) : '',
+    source: event.source,
+  };
+}
+
 export async function GET(request: Request) {
   try {
     const db = getDB();
@@ -431,6 +470,7 @@ export async function GET(request: Request) {
     const campusFilter = searchParams.getAll('campus').filter(Boolean);
     const circleTypeFilter = searchParams.getAll('circle_type').filter(Boolean);
     const statusFilter = searchParams.getAll('status').filter((value) => value && value !== 'all');
+    const exportMode = searchParams.get('export') === '1';
 
     let startDate = customStart || addDays(currentWeek, -84);
     let endDate = customEnd || addDays(currentWeek, 6);
@@ -460,7 +500,7 @@ export async function GET(request: Request) {
 
     let leadersQuery = db
       .from('circle_leaders')
-      .select('id, name, circle_name, ccb_group_name, campus, circle_type, day, time, frequency, meeting_start_date, status, leader_type')
+      .select('id, name, circle_name, ccb_group_name, campus, circle_type, acpd, day, time, frequency, meeting_start_date, status, leader_type')
       .order('name')
       .limit(5000);
 
@@ -600,6 +640,37 @@ export async function GET(request: Request) {
     const allExpected = Array.from(allExpectedByKey.values());
     const allEvents = allExpected.map((event) => buildWeeklyEvent(event, indexes));
     const rangedEvents = allEvents.filter((event) => event.scheduled_date >= startDate && event.scheduled_date <= endDate);
+
+    // Export mode: return full summary content for every expected event in the
+    // range so it can be downloaded as JSON/CSV and handed to AI for analysis.
+    if (exportMode) {
+      const records = allExpected
+        .filter((event) => event.expected_date >= startDate && event.expected_date <= endDate)
+        .map((event) => buildExportRecord(event, indexes))
+        .sort(
+          (a, b) =>
+            a.scheduled_date.localeCompare(b.scheduled_date) ||
+            a.campus.localeCompare(b.campus) ||
+            a.leader_name.localeCompare(b.leader_name)
+        );
+
+      return NextResponse.json(
+        {
+          generatedAt: new Date().toISOString(),
+          filters: {
+            startDate,
+            endDate,
+            campuses: campusFilter,
+            circleTypes: circleTypeFilter,
+            statuses: statusFilter,
+          },
+          summary: aggregateEvents(rangedEvents),
+          totalRecords: records.length,
+          events: records,
+        },
+        { headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
     const selectedWeekEvents = allEvents
       .filter((event) => event.week_start_date === selectedWeek && event.scheduled_date <= selectedWeekEnd)
       .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date) || a.scheduled_time.localeCompare(b.scheduled_time) || a.leader_name.localeCompare(b.leader_name));

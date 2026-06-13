@@ -1,6 +1,30 @@
 [
   {
     "date": "2026-06-13",
+    "version": "2.17.0",
+    "date_display": "June 13, 2026",
+    "date_iso": "2026-06-13",
+    "id": "circle-reporting-persistent-range",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Circle Reporting",
+    "description": "Reworked how dates work on the Circle Reporting dashboard. Instead of a preset dropdown, you now set a start and end date that stick between visits. The end date has a \"Through end of last week\" button that pins it to the most recently completed Saturday and rolls forward on its own each week, so the report always reflects finished weeks without you touching it. Quick buttons for Last 4 weeks, Last 12 weeks, Semester to date, and Year to date are still there, and your campus, type, and status filters are remembered too.",
+    "page": "/circle-reporting"
+  },
+  {
+    "date": "2026-06-13",
+    "version": "2.17.0",
+    "date_display": "June 13, 2026",
+    "date_iso": "2026-06-13",
+    "id": "circle-reporting-ai-export",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Circle Reporting",
+    "description": "Added an export for every event summary in the selected date range, built for handing to AI for analysis. \"Export JSON (AI)\" produces a structured file with the report's filters, headline totals, and each circle's full topic, notes, prayer requests, attendance, and did-not-meet reason. \"Export CSV\" gives the same data as a spreadsheet. Both respect the campus, type, and status filters you have applied.",
+    "page": "/circle-reporting"
+  },
+  {
+    "date": "2026-06-13",
     "version": "2.16.1",
     "date_display": "June 13, 2026",
     "date_iso": "2026-06-13",
