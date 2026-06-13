@@ -40,6 +40,18 @@
     "version": "2.16.1",
     "date_display": "June 13, 2026",
     "date_iso": "2026-06-13",
+    "id": "board-list-automation-move-on-due-date",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Boards",
+    "description": "Board lists can now move cards automatically when a due date is added. Open a list's automations and add \"Move when due date set\" with a destination list — from then on, any card in that list that receives a due date (via the card, the quick date picker, or list actions) slides over to the list you picked. Great for a \"Scheduled\" or \"Up Next\" lane that fills itself as you set dates.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-06-13",
+    "version": "2.16.1",
+    "date_display": "June 13, 2026",
+    "date_iso": "2026-06-13",
     "id": "toolkit-open-auto-login-fix",
     "type": "fix",
     "type_display": "Fix",
