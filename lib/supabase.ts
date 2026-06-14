@@ -1,5 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { rememberMeStorage } from './rememberMeStorage';
+import type { CoachingConfigOverride } from './circle-leader-toolkit/coaching/config';
+
+export type { CoachingConfig, CoachingConfigOverride } from './circle-leader-toolkit/coaching/config';
 
 // Debug environment variables only in development (avoid leaking details in build logs)
 if (process.env.NODE_ENV === 'development') {
@@ -113,6 +116,8 @@ export interface CircleLeader {
   additional_leader_ccb_profile_link?: string;
   check_in_cadence?: 'weekly' | 'bi-weekly' | 'monthly' | 'quarterly' | 'none';
   last_check_in_date?: string;
+  // Sparse per-leader coaching automation overrides; null/undefined = use org defaults.
+  coaching_automation_overrides?: CoachingConfigOverride | null;
   leader_type?: 'circle' | 'host_team';
   team_name?: string;
   director?: string;

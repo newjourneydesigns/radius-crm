@@ -20,6 +20,14 @@ function isMissingStatusColumn(error: unknown): boolean {
   return text.toLowerCase().includes('status') && text.toLowerCase().includes('does not exist');
 }
 
+function isMissingCategoryColumn(error: unknown): boolean {
+  const text =
+    error && typeof error === 'object' && 'message' in error
+      ? String((error as { message?: unknown }).message || '')
+      : '';
+  return text.toLowerCase().includes('category') && text.toLowerCase().includes('does not exist');
+}
+
 export async function GET() {
   const leader = await getSessionLeader();
   if (!leader) return unauthorized();
@@ -42,16 +50,16 @@ export async function GET() {
 
   let { data: messages, error: messageError } = await supabase
     .from('circle_summary_inbox_messages')
-    .select('id, title, body_html, version, created_at, updated_at, status')
+    .select('id, title, body_html, version, created_at, updated_at, status, category')
     .in('id', messageIds)
     .eq('status', 'sent');
 
-  if (messageError && isMissingStatusColumn(messageError)) {
+  if (messageError && (isMissingStatusColumn(messageError) || isMissingCategoryColumn(messageError))) {
     const fallback = await supabase
       .from('circle_summary_inbox_messages')
       .select('id, title, body_html, version, created_at, updated_at')
       .in('id', messageIds);
-    messages = (fallback.data || []).map((message: any) => ({ ...message, status: 'sent' }));
+    messages = (fallback.data || []).map((message: any) => ({ ...message, status: 'sent', category: 'message' }));
     messageError = fallback.error;
   }
 
@@ -70,6 +78,7 @@ export async function GET() {
         message_id: message.id,
         title: message.title,
         body_html: message.body_html,
+        category: message.category || 'message',
         version: message.version,
         created_at: message.created_at,
         updated_at: message.updated_at,
