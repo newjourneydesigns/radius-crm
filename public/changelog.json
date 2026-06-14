@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-14",
+    "version": "2.18.2",
+    "date_display": "June 14, 2026",
+    "date_iso": "2026-06-14",
+    "id": "boards-toolbar-mobile-fix",
+    "type": "fix",
+    "type_display": "Fix",
+    "category": "Boards",
+    "description": "Fixed the Project Boards header on mobile. The Boards / Calendar / Forms tabs and the New Board button were running off the right edge of the screen and getting cut off. On phones they now stack neatly: the tabs share a full-width row and the New Board button sits directly below them, so everything stays tappable and on-screen.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-06-14",
     "version": "2.18.1",
     "date_display": "June 14, 2026",
     "date_iso": "2026-06-14",
