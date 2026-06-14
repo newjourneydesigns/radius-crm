@@ -1242,4 +1242,33 @@ const boardsListStyles = `
   .kb-search-global-item:hover { background: #22252f; }
   .kb-search-global-title { font-size: 13px; font-weight: 500; color: #f9fafb; }
   .kb-search-global-meta { font-size: 11px; color: #33B233; }
+
+  /* ── Mobile ── */
+  @media (max-width: 640px) {
+    .kb-header-wrapper { padding: 16px 12px 0; }
+    .kb-container { padding: 16px 12px 100px; }
+    .kb-page-title { font-size: 22px !important; margin-bottom: 12px !important; }
+
+    /* Stack the view switcher and New Board button so nothing clips off-screen */
+    .kb-toolbar {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+    }
+    .kb-view-switcher { width: 100%; box-sizing: border-box; }
+    .kb-view-btn {
+      flex: 1;
+      min-width: 0;
+      justify-content: center;
+      padding: 8px 4px;
+    }
+    .kb-toolbar .kb-btn-primary {
+      width: 100%;
+      box-sizing: border-box;
+      justify-content: center;
+      padding: 10px 16px;
+    }
+
+    .kb-search-bar { padding: 8px 12px; }
+  }
 `;
