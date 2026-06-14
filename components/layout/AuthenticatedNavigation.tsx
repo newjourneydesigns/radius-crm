@@ -158,7 +158,6 @@ const primaryNavItems = [
 
 const toolsNavItems = [
   { href: '/circle-reporting', label: 'Circle Reporting', Icon: ChartIcon },
-  { href: '/admin/coaching-automations', label: 'Coaching Automations', Icon: IdeaIcon, adminOnly: true },
   { href: '/progress',      label: 'Progress',        Icon: ChartIcon },
   { href: '/person-lookup', label: 'Person Lookup',   Icon: SearchNavIcon },
   { href: '/birthday-list', label: 'Birthday List',   Icon: BirthdayCakeIcon },
@@ -178,6 +177,7 @@ const circleSummaryNavItems = [
 ];
 
 const adminToolsNavItems = [
+  { href: '/admin/coaching-automations', label: 'Coaching Automations', Icon: IdeaIcon },
   { href: '/ccb-usage',              label: 'CCB Usage',                Icon: ChartIcon },
   { href: '/import-circles',         label: 'Import Circles',           Icon: ImportCirclesIcon },
   { href: '/users',                  label: 'Manage Users',             Icon: UsersIcon },
