@@ -38,8 +38,19 @@ export default function CoachingMessagesEditor() {
   const [error, setError] = useState('');
   const [savedKind, setSavedKind] = useState<string | null>(null);
   const [previewKind, setPreviewKind] = useState<string | null>(null);
+  const [errorKind, setErrorKind] = useState<string | null>(null);
 
   const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token ?? null;
+
+  // Turn a raw error into something actionable — the most common cause of a
+  // failed save is the templates migration not having been run yet.
+  const friendly = (message: string): string => {
+    const m = (message || '').toLowerCase();
+    if (m.includes('does not exist') || m.includes('coaching_automation_templates') || m.includes('schema cache')) {
+      return 'Couldn’t save — the coaching messages table isn’t set up yet. Run the database migration 20260614150000_coaching_automation_templates.sql, then try again.';
+    }
+    return message || 'Something went wrong.';
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -72,6 +83,7 @@ export default function CoachingMessagesEditor() {
   async function save(kind: AutomationKind) {
     setBusyKind(kind);
     setError('');
+    setErrorKind(null);
     setSavedKind(null);
     try {
       const token = await getToken();
@@ -85,7 +97,8 @@ export default function CoachingMessagesEditor() {
       setSavedKind(kind);
       await load();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to save.');
+      setError(friendly(e instanceof Error ? e.message : 'Failed to save.'));
+      setErrorKind(kind);
     } finally {
       setBusyKind(null);
     }
@@ -94,6 +107,7 @@ export default function CoachingMessagesEditor() {
   async function resetToDefault(kind: AutomationKind) {
     setBusyKind(kind);
     setError('');
+    setErrorKind(null);
     setSavedKind(null);
     try {
       const token = await getToken();
@@ -106,7 +120,8 @@ export default function CoachingMessagesEditor() {
       if (!res.ok) throw new Error(json?.error || 'Failed to reset.');
       await load();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to reset.');
+      setError(friendly(e instanceof Error ? e.message : 'Failed to reset.'));
+      setErrorKind(kind);
     } finally {
       setBusyKind(null);
     }
@@ -207,7 +222,12 @@ export default function CoachingMessagesEditor() {
                   {previewKind === kind ? 'Hide preview' : 'Preview'}
                 </button>
                 {savedKind === kind && busyKind !== kind && <span className="text-xs text-emerald-500">Saved</span>}
+                {!dirty && !isCustom && busyKind !== kind && (
+                  <span className="text-xs text-slate-400">Edit the text to enable Save</span>
+                )}
               </div>
+
+              {errorKind === kind && error && <p className="text-xs text-red-400">{error}</p>}
 
               {previewKind === kind && (() => {
                 const rendered = renderNudge(kind, SAMPLE_VARS[kind], draft);
