@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-14",
+    "version": "2.18.7",
+    "date_display": "June 14, 2026",
+    "date_iso": "2026-06-14",
+    "id": "coaching-automations-run-preview",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Circle Leader Toolkit",
+    "description": "Rounded out the Coaching Automations hub. You can now Preview exactly what the next run would send (without delivering anything) or Run now to send due nudges immediately, right from the Org Defaults tab. The Messages tab gained a live Preview that renders each message with sample data as you edit. The Leaders tab now hides archived leaders and flags anyone without a linked Circle group so the list reflects who can actually receive nudges. Per-leader coaching settings now live only in the hub's Leaders tab (the separate tab on the Circle page was removed to avoid two places doing the same thing). Behind the scenes the daily run was reworked to batch its lookups so it stays fast as the number of leaders grows.",
+    "page": "/admin/coaching-automations"
+  },
+  {
+    "date": "2026-06-14",
     "version": "2.18.6",
     "date_display": "June 14, 2026",
     "date_iso": "2026-06-14",

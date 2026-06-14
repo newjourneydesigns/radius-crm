@@ -14,14 +14,12 @@
  */
 
 import { DateTime } from 'luxon';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AutomationKind, CoachingConfig } from './config';
 import {
   NudgeContent,
   TemplateText,
   renderNudge,
 } from './templates';
-import { loadLeaderAttendance } from '../roster-data';
 
 const TZ = 'America/Chicago';
 // Brand-new members get the new_member nudge once their join is at least
@@ -48,12 +46,21 @@ export interface DueNudge {
   content: NudgeContent;
 }
 
-interface RosterRow {
+export interface RosterRow {
   ccb_individual_id: string;
   full_name: string | null;
   first_name: string | null;
   birthday: string | null;
   added_at: string | null;
+}
+
+/** Pre-loaded, per-leader inputs the evaluation needs (batched by the caller). */
+export interface EvaluateContext {
+  roster: RosterRow[];
+  /** ccb_individual_id → last attended YYYY-MM-DD. */
+  lastAttended: Record<string, string>;
+  /** Delivered occurrences as "kind:subjectKey". */
+  sentKeys: Set<string>;
 }
 
 function isoWeek(dt: DateTime): string {
@@ -93,30 +100,17 @@ function birthdayThisWeek(raw: string | null, weekStart: DateTime, weekEnd: Date
   return false;
 }
 
-/** Which (kind, subjectKey) pairs have already been delivered for this leader. */
-async function loadSentKeys(
-  supabase: SupabaseClient,
-  leaderId: number | string,
-  kinds: AutomationKind[]
-): Promise<Set<string>> {
-  const { data } = await supabase
-    .from('coaching_automation_sends')
-    .select('automation_kind, subject_key')
-    .eq('leader_id', leaderId)
-    .in('automation_kind', kinds);
-  const set = new Set<string>();
-  for (const row of (data || []) as Array<{ automation_kind: string; subject_key: string }>) {
-    set.add(`${row.automation_kind}:${row.subject_key}`);
-  }
-  return set;
-}
-
-export async function evaluateLeader(
+/**
+ * Pure evaluation: given a leader's config, the editable templates, and the
+ * pre-loaded roster/attendance/sent data, return the nudges due right now.
+ * No I/O — the caller batches all reads and the cron route does delivery.
+ */
+export function evaluateLeader(
   leader: CoachingLeader,
   config: CoachingConfig,
   templates: Record<AutomationKind, TemplateText>,
-  supabase: SupabaseClient
-): Promise<DueNudge[]> {
+  ctx: EvaluateContext
+): DueNudge[] {
   if (!config.enabled || !leader.ccb_group_id) return [];
 
   const now = DateTime.now().setZone(TZ);
@@ -124,43 +118,9 @@ export async function evaluateLeader(
   const weekStart = now.startOf('week');
   const weekEnd = now.endOf('week');
 
-  // Roster (active members only).
-  const { data: rosterData, error: rosterError } = await supabase
-    .from('circle_roster_cache')
-    .select('ccb_individual_id, full_name, first_name, birthday, added_at')
-    .eq('circle_leader_id', leader.id)
-    .eq('ccb_group_id', String(leader.ccb_group_id))
-    .eq('is_active', true);
-  if (rosterError) {
-    console.warn('[coaching] roster read failed for leader', leader.id, rosterError.message);
-    return [];
-  }
-  const roster = (rosterData || []) as RosterRow[];
-
-  // Attendance map: { ccb_individual_id -> 'YYYY-MM-DD' last attended }.
-  const { lastAttended } = await loadLeaderAttendance({
-    id: leader.id,
-    name: leader.name,
-    email: null,
-    phone: null,
-    campus: leader.campus,
-    acpd: leader.acpd,
-    status: leader.status,
-    day: null,
-    time: null,
-    ccb_group_id: leader.ccb_group_id ? String(leader.ccb_group_id) : null,
-    circle_summary_access_enabled: leader.circle_summary_access_enabled,
-  });
-
-  const sent = await loadSentKeys(supabase, leader.id, [
-    'multiplication',
-    'new_member',
-    'inactivity',
-    'birthday',
-    'did_not_meet',
-    'first_time',
-  ]);
-  const alreadySent = (kind: AutomationKind, key: string) => sent.has(`${kind}:${key}`);
+  const roster = ctx.roster;
+  const lastAttended = ctx.lastAttended;
+  const alreadySent = (kind: AutomationKind, key: string) => ctx.sentKeys.has(`${kind}:${key}`);
 
   const nudges: DueNudge[] = [];
   const daysAgo = (iso: string | null): number | null => {

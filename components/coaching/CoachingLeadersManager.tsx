@@ -22,8 +22,11 @@ interface LeaderRow {
   circle_type: string | null;
   acpd: string | null;
   status: string | null;
+  ccb_group_id: string | number | null;
   coaching_automation_overrides: CoachingConfigOverride | null;
 }
+
+const ARCHIVED_STATUSES = new Set(['archive', 'archived']);
 
 function summarize(cfg: CoachingConfig): string {
   if (!cfg.enabled) return 'All off';
@@ -76,10 +79,13 @@ export default function CoachingLeadersManager() {
 
       const { data, error: dbError } = await supabase
         .from('circle_leaders')
-        .select('id, name, campus, circle_type, acpd, status, coaching_automation_overrides')
+        .select('id, name, campus, circle_type, acpd, status, ccb_group_id, coaching_automation_overrides')
         .order('name');
       if (dbError) throw new Error(dbError.message);
-      setLeaders((data || []) as LeaderRow[]);
+      // Archived leaders never receive nudges — leave them out of the manager.
+      setLeaders(
+        ((data || []) as LeaderRow[]).filter((l) => !ARCHIVED_STATUSES.has((l.status || '').trim().toLowerCase()))
+      );
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load leaders.');
     } finally {
@@ -336,15 +342,25 @@ export default function CoachingLeadersManager() {
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="font-medium text-slate-900 dark:text-slate-100">{leader.name}</div>
-                      <span
-                        className={`inline-block mt-0.5 text-[10px] px-1.5 py-0.5 rounded-full border ${
-                          customized
-                            ? 'text-amber-300 bg-amber-900/20 border-amber-800/40'
-                            : 'text-slate-400 bg-zinc-700/20 border-zinc-700'
-                        }`}
-                      >
-                        {customized ? 'Custom' : 'Org defaults'}
-                      </span>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                        <span
+                          className={`inline-block text-[10px] px-1.5 py-0.5 rounded-full border ${
+                            customized
+                              ? 'text-amber-300 bg-amber-900/20 border-amber-800/40'
+                              : 'text-slate-400 bg-zinc-700/20 border-zinc-700'
+                          }`}
+                        >
+                          {customized ? 'Custom' : 'Org defaults'}
+                        </span>
+                        {!leader.ccb_group_id && (
+                          <span
+                            className="inline-block text-[10px] px-1.5 py-0.5 rounded-full border text-slate-400 bg-zinc-700/20 border-zinc-700"
+                            title="This leader has no linked CCB group, so coaching nudges can’t be sent."
+                          >
+                            No Circle group
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-3 py-2.5 hidden sm:table-cell text-slate-500 dark:text-slate-400">{leader.campus || '—'}</td>
                     <td className="px-3 py-2.5 hidden md:table-cell text-slate-500 dark:text-slate-400">{leader.circle_type || '—'}</td>

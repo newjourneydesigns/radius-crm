@@ -1,22 +1,25 @@
 /**
  * POST /api/circle-leader-toolkit/coaching-automations
  *
- * Called by the daily Netlify scheduled function. For every eligible Circle
- * Leader it resolves their effective coaching config (org defaults + per-leader
- * overrides), evaluates which nudges are due, and delivers each as a Circle
- * Summary inbox message. Idempotent: every send is recorded in
- * coaching_automation_sends with a UNIQUE(leader_id, kind, subject_key) guard,
- * so re-running never double-delivers.
+ * Evaluates every eligible Circle Leader and delivers due coaching nudges to
+ * their Toolkit inbox. Idempotent: every send is recorded in
+ * coaching_automation_sends with a UNIQUE(leader_id, kind, subject_key) guard.
  *
- * Authorization: Bearer ${CRON_SECRET} (same pattern as the other cron routes).
+ * All per-leader inputs (roster, attendance, prior sends) are batch-loaded in a
+ * handful of queries up front so the daily sweep stays fast at scale.
+ *
+ * Auth: Bearer ${CRON_SECRET} (the daily cron) OR an ACPD admin token (manual
+ * "Run now" from the admin page). Body { dryRun: true } evaluates without
+ * delivering or recording — used for the admin preview.
  */
 
 import { NextResponse } from 'next/server';
-import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
+import { createServiceSupabaseClient, getUserFromAuthHeader } from '../../../../lib/server-supabase';
 import { deliverToLeaders, isEligibleLeader, LeaderTarget } from '../../../../lib/circle-leader-toolkit/inbox-delivery';
 import { CoachingConfigOverride, resolveGlobalDefaults, resolveLeaderConfig } from '../../../../lib/circle-leader-toolkit/coaching/config';
-import { CoachingLeader, DueNudge, evaluateLeader } from '../../../../lib/circle-leader-toolkit/coaching/engine';
+import { CoachingLeader, DueNudge, RosterRow, evaluateLeader } from '../../../../lib/circle-leader-toolkit/coaching/engine';
 import { resolveTemplates, type TemplateOverrides } from '../../../../lib/circle-leader-toolkit/coaching/templates';
+import { loadLeaderAttendanceBatch } from '../../../../lib/circle-leader-toolkit/roster-data';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -25,11 +28,30 @@ interface LeaderRow extends LeaderTarget {
   coaching_automation_overrides: unknown;
 }
 
-export async function POST(req: Request) {
-  const auth = req.headers.get('authorization') || '';
+/** True if the request carries the cron secret or a valid ACPD admin token. */
+async function authorize(req: Request): Promise<boolean> {
+  const authHeader = req.headers.get('authorization') || '';
   const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || auth !== `Bearer ${cronSecret}`) {
+  if (cronSecret && authHeader === `Bearer ${cronSecret}`) return true;
+
+  const user = await getUserFromAuthHeader(req);
+  if (!user) return false;
+  const supabase = createServiceSupabaseClient();
+  const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).maybeSingle();
+  return profile?.role === 'ACPD';
+}
+
+export async function POST(req: Request) {
+  if (!(await authorize(req))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  let dryRun = false;
+  try {
+    const body = await req.json();
+    dryRun = body?.dryRun === true;
+  } catch {
+    // No body / not JSON → live run.
   }
 
   const supabase = createServiceSupabaseClient();
@@ -61,10 +83,52 @@ export async function POST(req: Request) {
   }
 
   const leaders = ((leaderRows || []) as LeaderRow[]).filter(isEligibleLeader);
+  const leaderIds = leaders.map((l) => l.id);
+
+  // --- Batch-load every per-leader input in a few queries --------------------
+  const rosterByLeader = new Map<string, RosterRow[]>();
+  const sentByLeader = new Map<string, Set<string>>();
+  let attendanceByLeader = new Map<string, Record<string, string>>();
+
+  if (leaderIds.length > 0) {
+    const [{ data: rosterRows }, { data: sendRows }, attendance] = await Promise.all([
+      supabase
+        .from('circle_roster_cache')
+        .select('circle_leader_id, ccb_group_id, ccb_individual_id, full_name, first_name, birthday, added_at')
+        .in('circle_leader_id', leaderIds)
+        .eq('is_active', true),
+      supabase
+        .from('coaching_automation_sends')
+        .select('leader_id, automation_kind, subject_key')
+        .in('leader_id', leaderIds),
+      loadLeaderAttendanceBatch(leaders.map((l) => ({ id: l.id, ccb_group_id: l.ccb_group_id }))),
+    ]);
+    attendanceByLeader = attendance;
+
+    for (const row of (rosterRows || []) as Array<Record<string, unknown>>) {
+      const key = String(row.circle_leader_id);
+      const list = rosterByLeader.get(key) || [];
+      list.push({
+        ccb_individual_id: String(row.ccb_individual_id),
+        full_name: (row.full_name as string) ?? null,
+        first_name: (row.first_name as string) ?? null,
+        birthday: (row.birthday as string) ?? null,
+        added_at: (row.added_at as string) ?? null,
+      });
+      rosterByLeader.set(key, list);
+    }
+    for (const row of (sendRows || []) as Array<{ leader_id: number | string; automation_kind: string; subject_key: string }>) {
+      const key = String(row.leader_id);
+      const set = sentByLeader.get(key) || new Set<string>();
+      set.add(`${row.automation_kind}:${row.subject_key}`);
+      sentByLeader.set(key, set);
+    }
+  }
 
   let sentCount = 0;
   const sentByKind: Record<string, number> = {};
   const errors: Array<{ leaderId: number | string; error: string }> = [];
+  const preview: Array<{ leaderId: number | string; name: string; kinds: string[] }> = [];
 
   for (const leader of leaders) {
     try {
@@ -84,7 +148,23 @@ export async function POST(req: Request) {
         circle_summary_access_enabled: leader.circle_summary_access_enabled,
       };
 
-      const nudges = await evaluateLeader(coachingLeader, config, templates, supabase);
+      const nudges = evaluateLeader(coachingLeader, config, templates, {
+        roster: rosterByLeader.get(String(leader.id)) || [],
+        lastAttended: attendanceByLeader.get(String(leader.id)) || {},
+        sentKeys: sentByLeader.get(String(leader.id)) || new Set<string>(),
+      });
+
+      if (nudges.length === 0) continue;
+
+      if (dryRun) {
+        preview.push({ leaderId: leader.id, name: leader.name, kinds: nudges.map((n) => n.kind) });
+        nudges.forEach((n) => {
+          sentByKind[n.kind] = (sentByKind[n.kind] || 0) + 1;
+          sentCount += 1;
+        });
+        continue;
+      }
+
       for (const nudge of nudges) {
         const delivered = await deliverNudge(supabase, leader, nudge);
         if (delivered) {
@@ -100,9 +180,11 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     ok: true,
+    dryRun,
     eligibleLeaders: leaders.length,
     sentCount,
     sentByKind,
+    ...(dryRun ? { preview } : {}),
     errors,
   });
 }

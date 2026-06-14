@@ -9,6 +9,16 @@ import CoachingAutomationForm from '../../../components/coaching/CoachingAutomat
 import CoachingLeadersManager from '../../../components/coaching/CoachingLeadersManager';
 import CoachingMessagesEditor from '../../../components/coaching/CoachingMessagesEditor';
 import { COACHING_DEFAULTS, type CoachingConfig } from '../../../lib/circle-leader-toolkit/coaching/config';
+import { AUTOMATION_LABELS } from '../../../lib/circle-leader-toolkit/coaching/templates';
+import type { AutomationKind } from '../../../lib/circle-leader-toolkit/coaching/config';
+
+interface RunResult {
+  dryRun: boolean;
+  eligibleLeaders: number;
+  sentCount: number;
+  sentByKind: Record<string, number>;
+  preview?: Array<{ leaderId: number | string; name: string; kinds: string[] }>;
+}
 
 type Tab = 'defaults' | 'leaders' | 'messages';
 
@@ -30,6 +40,9 @@ export default function AdminCoachingAutomationsPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [applying, setApplying] = useState(false);
   const [applyResult, setApplyResult] = useState<string | null>(null);
+  const [running, setRunning] = useState<'preview' | 'live' | null>(null);
+  const [runResult, setRunResult] = useState<RunResult | null>(null);
+  const [runError, setRunError] = useState('');
 
   const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token ?? null;
 
@@ -101,6 +114,27 @@ export default function AdminCoachingAutomationsPage() {
     } finally {
       setApplying(false);
       setConfirmOpen(false);
+    }
+  }
+
+  async function runNow(dryRun: boolean) {
+    setRunning(dryRun ? 'preview' : 'live');
+    setRunError('');
+    setRunResult(null);
+    try {
+      const token = await getToken();
+      const res = await fetch('/api/circle-leader-toolkit/coaching-automations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ dryRun }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Run failed.');
+      setRunResult(data as RunResult);
+    } catch (e: unknown) {
+      setRunError(e instanceof Error ? e.message : 'Run failed.');
+    } finally {
+      setRunning(null);
     }
   }
 
@@ -187,6 +221,73 @@ export default function AdminCoachingAutomationsPage() {
                   {saving ? 'Saving…' : 'Save defaults'}
                 </button>
                 {savedAt && !saving && <span className="text-xs text-emerald-400">Saved</span>}
+              </div>
+
+              {/* Test & run */}
+              <div className="mt-8 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-brand-dark p-5">
+                <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Test &amp; run</h2>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Preview shows what the next run would send, without delivering anything. Run now delivers due nudges
+                  immediately — it’s safe to repeat, since each nudge is only ever sent once.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => runNow(true)}
+                    disabled={running !== null}
+                    className="rounded-lg border border-zinc-300 dark:border-zinc-700 px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-zinc-100 dark:hover:bg-zinc-700/40 disabled:opacity-50"
+                  >
+                    {running === 'preview' ? 'Checking…' : 'Preview (dry run)'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => runNow(false)}
+                    disabled={running !== null}
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+                  >
+                    {running === 'live' ? 'Running…' : 'Run now (send)'}
+                  </button>
+                </div>
+
+                {runError && <p className="mt-3 text-sm text-red-400">{runError}</p>}
+
+                {runResult && (
+                  <div className="mt-4 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/40 p-4 text-sm">
+                    <p className="font-medium text-slate-800 dark:text-slate-100">
+                      {runResult.dryRun ? 'Would send' : 'Sent'} {runResult.sentCount} nudge
+                      {runResult.sentCount === 1 ? '' : 's'} · {runResult.eligibleLeaders} eligible leaders
+                    </p>
+                    {Object.keys(runResult.sentByKind).length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {Object.entries(runResult.sentByKind).map(([kind, n]) => (
+                          <span
+                            key={kind}
+                            className="text-[11px] px-2 py-0.5 rounded-full border border-emerald-800/40 bg-emerald-900/20 text-emerald-300"
+                          >
+                            {AUTOMATION_LABELS[kind as AutomationKind] || kind}: {n}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {runResult.dryRun && runResult.preview && runResult.preview.length > 0 && (
+                      <ul className="mt-3 space-y-1 text-xs text-slate-500 dark:text-slate-400 max-h-48 overflow-auto">
+                        {runResult.preview.slice(0, 50).map((p) => (
+                          <li key={String(p.leaderId)}>
+                            <span className="text-slate-700 dark:text-slate-200">{p.name}</span>
+                            {' — '}
+                            {p.kinds.map((k) => AUTOMATION_LABELS[k as AutomationKind] || k).join(', ')}
+                          </li>
+                        ))}
+                        {runResult.preview.length > 50 && <li>…and {runResult.preview.length - 50} more</li>}
+                      </ul>
+                    )}
+                    {runResult.sentCount === 0 && (
+                      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                        Nothing is due right now (or everything due has already been sent).
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="mt-8 rounded-xl border border-red-300/40 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20 p-5">

@@ -610,3 +610,90 @@ export async function loadLeaderAttendance(leader: SessionLeader): Promise<LoadA
     };
   }
 }
+
+/**
+ * Batch attendance loader for the daily coaching job. Reads every relevant
+ * `ccb_group_events_cache` row and every leader's submitted summaries in two
+ * queries (instead of per leader) and returns leaderId → { ccb_individual_id →
+ * last attended YYYY-MM-DD }. Cache-only by design: it never calls CCB live, so
+ * it relies on the daily prewarm having warmed the cache earlier in the day.
+ */
+export async function loadLeaderAttendanceBatch(
+  leaders: Array<{ id: number | string; ccb_group_id: string | number | null }>
+): Promise<Map<string, Record<string, string>>> {
+  const result = new Map<string, Record<string, string>>();
+  const supabase = createServiceSupabaseClient();
+  const end = DateTime.now().setZone('America/Chicago');
+  const start = end.minus({ weeks: LOOKBACK_WEEKS });
+  const startStr = start.toFormat('yyyy-LL-dd');
+  const endStr = end.toFormat('yyyy-LL-dd');
+
+  const groupIds = Array.from(
+    new Set(leaders.map((l) => l.ccb_group_id).filter(Boolean).map((g) => String(g)))
+  );
+  if (groupIds.length === 0) return result;
+
+  // 1. Precomputed (or XML-derived) attendance per group, from the warm cache.
+  const baseByGroup = new Map<string, Record<string, string>>();
+  const { data: cacheRows } = await supabase
+    .from('ccb_group_events_cache')
+    .select('group_id, calendar_events, attendance_xml, last_attended')
+    .in('group_id', groupIds)
+    .eq('start_date', startStr)
+    .eq('end_date', endStr);
+  for (const row of (cacheRows || []) as Array<Record<string, unknown>>) {
+    const gid = String(row.group_id);
+    if (row.last_attended && typeof row.last_attended === 'object') {
+      baseByGroup.set(gid, row.last_attended as Record<string, string>);
+    } else if (row.attendance_xml) {
+      baseByGroup.set(gid, computeLastAttended(row.attendance_xml, gid, row.calendar_events));
+    } else {
+      baseByGroup.set(gid, {});
+    }
+  }
+
+  // 2. Leader-submitted attendance, merged on top of the CCB-derived map.
+  const submittedByLeader = new Map<string, Record<string, string>>();
+  const startIso = start.startOf('day').toISO();
+  const endIso = end.endOf('day').toISO();
+  if (startIso && endIso) {
+    const { data: sums } = await supabase
+      .from('circle_event_summaries')
+      .select('leader_id, occurrence, attendee_ccb_ids')
+      .in('leader_id', leaders.map((l) => l.id))
+      .eq('status', 'submitted')
+      .eq('did_not_meet', false)
+      .gte('occurrence', startIso)
+      .lte('occurrence', endIso);
+    for (const row of (sums || []) as Array<Record<string, unknown>>) {
+      const lid = String(row.leader_id);
+      const occ = String(row.occurrence ?? '');
+      const attendedDate =
+        DateTime.fromISO(occ, { zone: 'America/Chicago' }).toISODate() || occ.slice(0, 10);
+      const ids = Array.isArray(row.attendee_ccb_ids) ? (row.attendee_ccb_ids as unknown[]) : [];
+      if (!attendedDate || ids.length === 0) continue;
+      const map = submittedByLeader.get(lid) || {};
+      ids.forEach((raw) => {
+        const idv = String(raw ?? '').trim();
+        if (!idv) return;
+        if (!map[idv] || attendedDate > map[idv]) map[idv] = attendedDate;
+      });
+      submittedByLeader.set(lid, map);
+    }
+  }
+
+  // 3. Merge per leader.
+  for (const l of leaders) {
+    const gid = l.ccb_group_id ? String(l.ccb_group_id) : '';
+    const merged: Record<string, string> = { ...((gid && baseByGroup.get(gid)) || {}) };
+    const sub = submittedByLeader.get(String(l.id));
+    if (sub) {
+      Object.keys(sub).forEach((k) => {
+        if (!merged[k] || sub[k] > merged[k]) merged[k] = sub[k];
+      });
+    }
+    result.set(String(l.id), merged);
+  }
+
+  return result;
+}

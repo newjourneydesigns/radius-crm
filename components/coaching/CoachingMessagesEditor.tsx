@@ -3,7 +3,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import type { AutomationKind } from '../../lib/circle-leader-toolkit/coaching/config';
-import type { TemplateText } from '../../lib/circle-leader-toolkit/coaching/templates';
+import { renderNudge, type NudgeVars, type TemplateText } from '../../lib/circle-leader-toolkit/coaching/templates';
+
+// Sample values used to render a realistic preview of each message.
+const SAMPLE_VARS: Record<AutomationKind, NudgeVars> = {
+  multiplication: { leaderName: 'Trip Ochenski', rosterCount: 12 },
+  new_member: { leaderName: 'Trip Ochenski', memberNames: ['Alex Rivera'] },
+  inactivity: { leaderName: 'Trip Ochenski', memberNames: ['Jordan Lee', 'Sam Park'], weeks: 4 },
+  birthday: { leaderName: 'Trip Ochenski', memberNames: ['Jamie Chen'] },
+  did_not_meet: { leaderName: 'Trip Ochenski', weeks: 2 },
+  first_time: { leaderName: 'Trip Ochenski', memberNames: ['Taylor Kim'] },
+};
 
 /**
  * Editor for the coaching nudge copy. One card per automation with an editable
@@ -27,6 +37,7 @@ export default function CoachingMessagesEditor() {
   const [busyKind, setBusyKind] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [savedKind, setSavedKind] = useState<string | null>(null);
+  const [previewKind, setPreviewKind] = useState<string | null>(null);
 
   const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token ?? null;
 
@@ -188,8 +199,29 @@ export default function CoachingMessagesEditor() {
                 >
                   Reset to default
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewKind((p) => (p === kind ? null : kind))}
+                  className="rounded-lg border border-zinc-300 dark:border-zinc-700 px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-zinc-700/40"
+                >
+                  {previewKind === kind ? 'Hide preview' : 'Preview'}
+                </button>
                 {savedKind === kind && busyKind !== kind && <span className="text-xs text-emerald-500">Saved</span>}
               </div>
+
+              {previewKind === kind && (() => {
+                const rendered = renderNudge(kind, SAMPLE_VARS[kind], draft);
+                return (
+                  <div className="mt-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/40 p-4">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-400 mb-2">Preview (sample data)</p>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{rendered.title}</p>
+                    <div
+                      className="mt-1 text-sm text-slate-600 dark:text-slate-300 leading-relaxed [&_p]:mb-2"
+                      dangerouslySetInnerHTML={{ __html: rendered.bodyHtml }}
+                    />
+                  </div>
+                );
+              })()}
             </div>
           </div>
         );
