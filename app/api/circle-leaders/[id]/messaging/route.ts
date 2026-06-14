@@ -3,13 +3,12 @@
  *
  * A "profile message" is an inbox message targeted at a single leader, so this route
  * reuses the existing circle_summary_inbox_* tables and delivery helpers for outbound
- * send/schedule and read receipts. It also stitches in inbound replies
- * (circle_leader_inbox_replies) to build a chronological, two-way conversation tied to
- * one leader's record.
+ * send/schedule and read receipts, building a chronological message history tied to one
+ * leader's record.
  *
- *   GET    → conversation timeline + scheduled messages + templates + stats
+ *   GET    → message history + scheduled messages + templates + stats
  *   POST   → send (or schedule) a message to this leader
- *   PATCH  → edit_scheduled | send_now | cancel_scheduled | edit_sent | unsend | mark_reply_read
+ *   PATCH  → edit_scheduled | send_now | cancel_scheduled | edit_sent | unsend
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -128,25 +127,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     });
   }
 
-  // Inbound replies from this leader.
-  const { data: replies, error: repliesError } = await supabase
-    .from('circle_leader_inbox_replies')
-    .select('id, message_id, body, read_by_staff_at, created_at')
-    .eq('leader_id', leaderId);
-  if (repliesError) return NextResponse.json({ error: repliesError.message }, { status: 500 });
-
-  for (const reply of replies || []) {
-    conversation.push({
-      kind: 'inbound',
-      id: reply.id,
-      reply_to: reply.message_id,
-      body: reply.body,
-      read_by_staff_at: reply.read_by_staff_at,
-      sort_at: reply.created_at,
-      created_at: reply.created_at,
-    });
-  }
-
   conversation.sort((a, b) => String(a.sort_at).localeCompare(String(b.sort_at)));
   scheduled.sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)));
 
@@ -157,13 +137,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     .order('created_at', { ascending: true });
   if (templatesError) return NextResponse.json({ error: templatesError.message }, { status: 500 });
 
-  const outbound = conversation.filter((c) => c.kind === 'outbound');
-  const inbound = conversation.filter((c) => c.kind === 'inbound');
   const stats = {
-    sent: outbound.length,
-    read: outbound.filter((c) => c.read).length,
-    received: inbound.length,
-    unread_replies: inbound.filter((c) => !c.read_by_staff_at).length,
+    sent: conversation.length,
+    read: conversation.filter((c) => c.read).length,
     scheduled: scheduled.length,
   };
 
@@ -256,21 +232,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const action = typeof body.action === 'string' ? body.action : '';
   const supabase = createServiceSupabaseClient();
   const now = new Date().toISOString();
-
-  // Mark an inbound reply as read by staff.
-  if (action === 'mark_reply_read') {
-    const replyId = body.reply_id ? String(body.reply_id) : '';
-    if (!replyId) return NextResponse.json({ error: 'reply_id is required.' }, { status: 400 });
-    const { data, error } = await supabase
-      .from('circle_leader_inbox_replies')
-      .update({ read_by_staff_at: now })
-      .eq('id', replyId)
-      .eq('leader_id', leaderId)
-      .select('id, read_by_staff_at')
-      .single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ reply: data });
-  }
 
   const id = body.id ? String(body.id) : '';
   if (!id) return NextResponse.json({ error: 'id is required.' }, { status: 400 });

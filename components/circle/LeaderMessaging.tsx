@@ -5,8 +5,8 @@
  *
  * A lightweight, CRM-style communication hub scoped to one leader: send a message
  * straight to their Toolkit Inbox, schedule messages for later, send from saved
- * templates, and read a chronological two-way conversation timeline with read receipts.
- * All activity is tied to this leader's record via the per-leader messaging API.
+ * templates, and read a chronological message history with read receipts. All
+ * activity is tied to this leader's record via the per-leader messaging API.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -47,17 +47,7 @@ type OutboundItem = {
   updated_at: string;
 };
 
-type InboundItem = {
-  kind: 'inbound';
-  id: string;
-  reply_to: string | null;
-  body: string;
-  read_by_staff_at: string | null;
-  sort_at: string;
-  created_at: string;
-};
-
-type ConversationItem = OutboundItem | InboundItem;
+type ConversationItem = OutboundItem;
 
 type ScheduledItem = {
   id: string;
@@ -71,8 +61,6 @@ type ScheduledItem = {
 type Stats = {
   sent: number;
   read: number;
-  received: number;
-  unread_replies: number;
   scheduled: number;
 };
 
@@ -118,7 +106,7 @@ export default function LeaderMessaging({ leaderId, leaderName, accessEnabled = 
   const [conversation, setConversation] = useState<ConversationItem[]>([]);
   const [scheduled, setScheduled] = useState<ScheduledItem[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [stats, setStats] = useState<Stats>({ sent: 0, read: 0, received: 0, unread_replies: 0, scheduled: 0 });
+  const [stats, setStats] = useState<Stats>({ sent: 0, read: 0, scheduled: 0 });
 
   // Composer state
   const [composerOpen, setComposerOpen] = useState(false);
@@ -160,7 +148,7 @@ export default function LeaderMessaging({ leaderId, leaderName, accessEnabled = 
       setConversation(data.conversation || []);
       setScheduled(data.scheduled || []);
       setTemplates(data.templates || []);
-      setStats(data.stats || { sent: 0, read: 0, received: 0, unread_replies: 0, scheduled: 0 });
+      setStats(data.stats || { sent: 0, read: 0, scheduled: 0 });
     } catch (e: any) {
       setError(e.message || 'Could not load messages.');
     } finally {
@@ -335,16 +323,6 @@ export default function LeaderMessaging({ leaderId, leaderName, accessEnabled = 
           <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-slate-400">
             <span className="rounded-full bg-zinc-800/80 border border-zinc-700 px-2 py-0.5">{stats.sent} sent</span>
             <span className="rounded-full bg-zinc-800/80 border border-zinc-700 px-2 py-0.5">{stats.read} read</span>
-            {stats.received > 0 && (
-              <span className="rounded-full bg-sky-900/40 border border-sky-700/40 text-sky-200 px-2 py-0.5">
-                {stats.received} {stats.received === 1 ? 'reply' : 'replies'}
-              </span>
-            )}
-            {stats.unread_replies > 0 && (
-              <span className="rounded-full bg-emerald-900/40 border border-emerald-600/40 text-emerald-200 px-2 py-0.5">
-                {stats.unread_replies} new
-              </span>
-            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -550,13 +528,9 @@ export default function LeaderMessaging({ leaderId, leaderName, accessEnabled = 
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{group.day}</span>
                     <div className="h-px flex-1 bg-zinc-800" />
                   </div>
-                  {group.items.map((item) =>
-                    item.kind === 'outbound' ? (
-                      <OutboundBubble key={`o-${item.id}`} item={item} onEdit={() => editSent(item)} onUnsend={() => patchMessage({ action: 'unsend', id: item.id }, 'Message unsent — it’s hidden from the leader’s inbox.')} />
-                    ) : (
-                      <InboundBubble key={`i-${item.id}`} item={item} onMarkRead={() => patchMessage({ action: 'mark_reply_read', reply_id: item.id })} />
-                    )
-                  )}
+                  {group.items.map((item) => (
+                    <OutboundBubble key={`o-${item.id}`} item={item} onEdit={() => editSent(item)} onUnsend={() => patchMessage({ action: 'unsend', id: item.id }, 'Message unsent — it’s hidden from the leader’s inbox.')} />
+                  ))}
                 </div>
               ))}
             </div>
@@ -624,31 +598,6 @@ function OutboundBubble({ item, onEdit, onUnsend }: { item: OutboundItem; onEdit
               <button type="button" onClick={onEdit} className="text-[11px] text-slate-500 hover:text-slate-200">Edit</button>
               <button type="button" onClick={onUnsend} className="text-[11px] text-slate-500 hover:text-red-300">Unsend</button>
             </span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function InboundBubble({ item, onMarkRead }: { item: InboundItem; onMarkRead: () => void }) {
-  const unread = !item.read_by_staff_at;
-  return (
-    <div className="flex justify-start">
-      <div className="max-w-[88%] sm:max-w-[78%] min-w-0">
-        <div className={`rounded-2xl rounded-tl-sm border px-3.5 py-2.5 ${unread ? 'border-sky-700/50 bg-sky-950/30' : 'border-zinc-700 bg-zinc-800/50'}`}>
-          <div className="flex items-center gap-2 mb-1">
-            {unread && <span className="w-2 h-2 rounded-full bg-sky-400 shrink-0" />}
-            <span className="text-[10px] uppercase tracking-wide text-sky-300/80">Leader reply</span>
-          </div>
-          <p className="text-sm text-slate-100 whitespace-pre-wrap break-words">{item.body}</p>
-        </div>
-        <div className="flex items-center gap-3 mt-1 pl-1">
-          <span className="text-[11px] text-slate-500">{formatStamp(item.created_at)}</span>
-          {unread ? (
-            <button type="button" onClick={onMarkRead} className="text-[11px] font-medium text-sky-300 hover:text-sky-200">Mark read</button>
-          ) : (
-            <span className="text-[11px] text-slate-600">Read</span>
           )}
         </div>
       </div>

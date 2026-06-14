@@ -88,6 +88,7 @@ export default function CircleLeaderLayout({
   const [banners, setBanners] = useState<UpcomingBanner[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [leaderType, setLeaderType] = useState<string | null>(null);
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -183,6 +184,7 @@ export default function CircleLeaderLayout({
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    setNavOpen(false);
   }, [pathname]);
 
   const filteredTabs = TABS.filter(t => {
@@ -200,27 +202,65 @@ export default function CircleLeaderLayout({
     return pathname.startsWith(href);
   };
 
-  const tabClass = (active: boolean) =>
-    `flex-1 text-center whitespace-nowrap px-1 py-3 text-xs sm:text-sm font-medium transition-colors border-b-2 ${
-      active
-        ? 'border-vc-500 text-white'
-        : 'border-transparent text-gray-300 hover:text-white hover:border-vc-700'
-    }`;
+  const activeTab = filteredTabs.find(t => isActive(t)) ?? filteredTabs[0];
 
   return (
     <>
       <div className="sticky top-0 z-40 bg-vc-submenu backdrop-blur-sm border-b border-vc-900/60">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex" aria-label="Section navigation">
-            {filteredTabs.map(tab => {
-              const href = tab.route(id);
-              return (
-                <Link key={href} href={href} className={tabClass(isActive(tab))}>
-                  {tab.label}
-                </Link>
-              );
-            })}
-          </nav>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+          <div className="relative w-full sm:w-auto sm:inline-block">
+            <button
+              type="button"
+              onClick={() => setNavOpen(v => !v)}
+              aria-haspopup="menu"
+              aria-expanded={navOpen}
+              aria-label="Section navigation"
+              className="flex w-full sm:w-56 items-center justify-between gap-2 rounded-lg border border-vc-900/60 bg-black/15 px-3.5 py-2.5 text-sm font-semibold text-white hover:bg-black/25 transition-colors"
+            >
+              <span>{activeTab?.label}</span>
+              <svg
+                className={`w-4 h-4 text-gray-300 transition-transform duration-200 ${navOpen ? 'rotate-180' : ''}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {navOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setNavOpen(false)} />
+                <div
+                  role="menu"
+                  className="absolute left-0 mt-1.5 z-50 w-full sm:w-56 overflow-hidden rounded-xl border border-vc-900/60 bg-vc-submenu shadow-xl ring-1 ring-black/20 py-1"
+                >
+                  {filteredTabs.map(tab => {
+                    const href = tab.route(id);
+                    const active = isActive(tab);
+                    return (
+                      <Link
+                        key={href}
+                        href={href}
+                        role="menuitem"
+                        onClick={() => setNavOpen(false)}
+                        className={`flex items-center justify-between px-4 py-2.5 text-sm transition-colors ${
+                          active
+                            ? 'bg-white/10 text-white font-semibold'
+                            : 'text-gray-300 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        {tab.label}
+                        {active && (
+                          <svg className="w-4 h-4 text-vc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 

@@ -8,7 +8,7 @@
     "type": "feature",
     "type_display": "Feature",
     "category": "Circle Leaders",
-    "description": "Added a Messaging page for each Circle Leader, reached from a new Messaging tab or the Message quick action on their profile. Send a message straight to the leader's Toolkit Inbox, schedule messages for later (and edit, send-now, or cancel them), and quick-send from saved templates that auto-fill the leader's first name. A two-way conversation timeline shows every message sent to and received from the leader in order — with read receipts, timestamps, and paging back through older messages — and leaders can now reply right from their Toolkit Inbox, so their replies land back on their record. All activity is tied specifically to that leader.",
+    "description": "Added a Messaging page for each Circle Leader, reached from a new Messaging tab or the Message quick action on their profile. Send a message straight to the leader's Toolkit Inbox, schedule messages for later (and edit, send-now, or cancel them), and quick-send from saved templates that auto-fill the leader's first name. A message history timeline shows every message sent to the leader in order, with read receipts, timestamps, and paging back through older messages. All activity is tied specifically to that leader. The leader profile's section navigation is now a compact dropdown so it stays tidy as sections are added.",
     "page": "/circle/321/messaging"
   },
   {
