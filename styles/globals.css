@@ -64,6 +64,13 @@ input, select, textarea {
   border-top: 0.5px solid rgba(255, 255, 255, 0.06);
   padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
   overflow: visible;
+  /* Pin to its own GPU layer. Without this, iOS/WebKit intermittently
+     detaches a fixed bar that uses backdrop-filter during momentum scroll,
+     leaving it stranded mid-page. translateZ(0) forces compositing and keeps
+     it anchored to the viewport. */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 /* Hide mobile tab bar when AI chat is open (full-screen on mobile) */

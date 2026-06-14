@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-14",
+    "version": "2.18.10",
+    "date_display": "June 14, 2026",
+    "date_iso": "2026-06-14",
+    "id": "mobile-nav-float-fix",
+    "type": "fix",
+    "type_display": "Fix",
+    "category": "Navigation",
+    "description": "Fixed the bottom navigation bar occasionally floating up into the middle of the page while scrolling on mobile. The bar is now pinned to its own layer so it stays anchored at the bottom of the screen. Also removed the redundant green dot on the More tab — the red alert dot already lets you know when something needs attention.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-14",
     "version": "2.18.9",
     "date_display": "June 14, 2026",
     "date_iso": "2026-06-14",
