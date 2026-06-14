@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-14",
+    "version": "2.18.9",
+    "date_display": "June 14, 2026",
+    "date_iso": "2026-06-14",
+    "id": "today-day-header-full-date",
+    "type": "fix",
+    "type_display": "Fix",
+    "category": "Today",
+    "description": "Fixed the cramped day-view header on Today so the full weekday and date are always visible. The date used to get squeezed onto the same row as the day arrows, Today button, reminders, and Calendars button and would cut off to something like \"Thursday…\". The date now sits on its own line above the controls, so you can always read the whole day and date at a glance.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-14",
     "version": "2.18.8",
     "date_display": "June 14, 2026",
     "date_iso": "2026-06-14",
