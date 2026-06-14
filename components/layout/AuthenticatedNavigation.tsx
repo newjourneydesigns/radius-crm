@@ -157,6 +157,7 @@ const primaryNavItems = [
 
 const toolsNavItems = [
   { href: '/circle-reporting', label: 'Circle Reporting', Icon: ChartIcon },
+  { href: '/admin/coaching-automations', label: 'Coaching Automations', Icon: IdeaIcon, adminOnly: true },
   { href: '/progress',      label: 'Progress',        Icon: ChartIcon },
   { href: '/person-lookup', label: 'Person Lookup',   Icon: SearchNavIcon },
   { href: '/birthday-list', label: 'Birthday List',   Icon: BirthdayCakeIcon },
@@ -173,7 +174,6 @@ const circleSummaryNavItems = [
   { href: '/admin/dynamic-questions', label: 'Circle Summary Questions', Icon: LayoutListIcon, adminOnly: true },
   { href: '/admin/leadership-snapshots/questions', label: 'Health Questions', Icon: LayoutListIcon, adminOnly: true },
   { href: '/admin/leadership-snapshots', label: 'Leadership Snapshots', Icon: ChartIcon, adminOnly: true },
-  { href: '/admin/coaching-automations', label: 'Coaching Automations', Icon: IdeaIcon, adminOnly: true },
 ];
 
 const adminToolsNavItems = [

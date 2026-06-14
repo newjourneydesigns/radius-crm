@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-14",
+    "version": "2.18.6",
+    "date_display": "June 14, 2026",
+    "date_iso": "2026-06-14",
+    "id": "coaching-automations-manager",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Circle Leader Toolkit",
+    "description": "Turned Coaching Automations into a full management hub, now in the main Tools menu. A new Leaders tab lists every leader with their current coaching settings, filterable by campus, circle type, and ACPD — select any group to mass-apply settings or reset them to the org defaults, or expand a single leader to fine-tune them right there. A new Messages tab lets you edit the wording of every coaching nudge (with placeholders like the leader's first name and roster count) and reset any message back to the default. The org-wide defaults live on their own tab in the same place.",
+    "page": "/admin/coaching-automations"
+  },
+  {
+    "date": "2026-06-14",
     "version": "2.18.5",
     "date_display": "June 14, 2026",
     "date_iso": "2026-06-14",

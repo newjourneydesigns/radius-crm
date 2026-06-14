@@ -18,12 +18,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AutomationKind, CoachingConfig } from './config';
 import {
   NudgeContent,
-  birthdayNudge,
-  didNotMeetNudge,
-  firstTimeNudge,
-  inactivityNudge,
-  multiplicationNudge,
-  newMemberNudge,
+  TemplateText,
+  renderNudge,
 } from './templates';
 import { loadLeaderAttendance } from '../roster-data';
 
@@ -118,6 +114,7 @@ async function loadSentKeys(
 export async function evaluateLeader(
   leader: CoachingLeader,
   config: CoachingConfig,
+  templates: Record<AutomationKind, TemplateText>,
   supabase: SupabaseClient
 ): Promise<DueNudge[]> {
   if (!config.enabled || !leader.ccb_group_id) return [];
@@ -185,7 +182,7 @@ export async function evaluateLeader(
       nudges.push({
         kind: 'multiplication',
         subjectKeys: [weekKey],
-        content: multiplicationNudge({ leaderName: leader.name, rosterCount: roster.length }),
+        content: renderNudge('multiplication', { leaderName: leader.name, rosterCount: roster.length }, templates.multiplication),
       });
     }
   }
@@ -202,7 +199,7 @@ export async function evaluateLeader(
       nudges.push({
         kind: 'new_member',
         subjectKeys: due.map((m) => m.ccb_individual_id),
-        content: newMemberNudge({ leaderName: leader.name, memberNames: due.map(displayName) }),
+        content: renderNudge('new_member', { leaderName: leader.name, memberNames: due.map(displayName) }, templates.new_member),
       });
     }
   }
@@ -222,11 +219,11 @@ export async function evaluateLeader(
       nudges.push({
         kind: 'inactivity',
         subjectKeys: [weekKey],
-        content: inactivityNudge({
-          leaderName: leader.name,
-          memberNames: inactive.map(displayName),
-          weeks: config.inactivity.weeks,
-        }),
+        content: renderNudge(
+          'inactivity',
+          { leaderName: leader.name, memberNames: inactive.map(displayName), weeks: config.inactivity.weeks },
+          templates.inactivity
+        ),
       });
     }
   }
@@ -238,7 +235,7 @@ export async function evaluateLeader(
       nudges.push({
         kind: 'birthday',
         subjectKeys: [weekKey],
-        content: birthdayNudge({ leaderName: leader.name, memberNames: birthdayPeople.map(displayName) }),
+        content: renderNudge('birthday', { leaderName: leader.name, memberNames: birthdayPeople.map(displayName) }, templates.birthday),
       });
     }
   }
@@ -258,7 +255,7 @@ export async function evaluateLeader(
         nudges.push({
           kind: 'did_not_meet',
           subjectKeys: [weekKey],
-          content: didNotMeetNudge({ leaderName: leader.name, weeks: config.didNotMeet.weeks }),
+          content: renderNudge('did_not_meet', { leaderName: leader.name, weeks: config.didNotMeet.weeks }, templates.did_not_meet),
         });
       }
     }
@@ -281,7 +278,7 @@ export async function evaluateLeader(
       nudges.push({
         kind: 'first_time',
         subjectKeys: due.map((m) => m.ccb_individual_id),
-        content: firstTimeNudge({ leaderName: leader.name, memberNames: due.map(displayName) }),
+        content: renderNudge('first_time', { leaderName: leader.name, memberNames: due.map(displayName) }, templates.first_time),
       });
     }
   }

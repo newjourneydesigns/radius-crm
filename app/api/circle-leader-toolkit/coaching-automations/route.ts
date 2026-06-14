@@ -16,6 +16,7 @@ import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
 import { deliverToLeaders, isEligibleLeader, LeaderTarget } from '../../../../lib/circle-leader-toolkit/inbox-delivery';
 import { CoachingConfigOverride, resolveGlobalDefaults, resolveLeaderConfig } from '../../../../lib/circle-leader-toolkit/coaching/config';
 import { CoachingLeader, DueNudge, evaluateLeader } from '../../../../lib/circle-leader-toolkit/coaching/engine';
+import { resolveTemplates, type TemplateOverrides } from '../../../../lib/circle-leader-toolkit/coaching/templates';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -40,6 +41,16 @@ export async function POST(req: Request) {
     .eq('id', 1)
     .maybeSingle();
   const defaults = resolveGlobalDefaults((settingsRow?.config as Record<string, unknown>) ?? null);
+
+  // Editable message templates (override layer; falls back to built-in copy).
+  const { data: templateRows } = await supabase
+    .from('coaching_automation_templates')
+    .select('automation_kind, title, body_html');
+  const storedTemplates: TemplateOverrides = {};
+  for (const row of (templateRows || []) as Array<{ automation_kind: string; title: string; body_html: string }>) {
+    storedTemplates[row.automation_kind as keyof TemplateOverrides] = { title: row.title, body_html: row.body_html };
+  }
+  const templates = resolveTemplates(storedTemplates);
 
   const { data: leaderRows, error: leadersError } = await supabase
     .from('circle_leaders')
@@ -73,7 +84,7 @@ export async function POST(req: Request) {
         circle_summary_access_enabled: leader.circle_summary_access_enabled,
       };
 
-      const nudges = await evaluateLeader(coachingLeader, config, supabase);
+      const nudges = await evaluateLeader(coachingLeader, config, templates, supabase);
       for (const nudge of nudges) {
         const delivered = await deliverNudge(supabase, leader, nudge);
         if (delivered) {
