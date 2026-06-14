@@ -1,5 +1,17 @@
 [
   {
+    "date": "2026-06-14",
+    "version": "2.18.1",
+    "date_display": "June 14, 2026",
+    "date_iso": "2026-06-14",
+    "id": "card-datetime-mobile-layout",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Boards",
+    "description": "Made due dates easier to find on board cards, especially on mobile. Inside a card, the Start Date and Due Date (with time) now sit at the top of the details panel above Priority, so the most time-sensitive info is the first thing you see instead of a scroll away. On the board cards themselves, the date and time now get their own row with the Snooze button placed directly beneath them, so a card's schedule reads as one clear unit.",
+    "page": "/boards"
+  },
+  {
     "date": "2026-06-13",
     "version": "2.18.0",
     "date_display": "June 13, 2026",

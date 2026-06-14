@@ -733,6 +733,12 @@ export const kanbanStyles = `
     text-decoration: line-through;
     color: #6b7280 !important;
   }
+  .kb-card-schedule {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
   .kb-card-meta {
     display: flex;
     align-items: center;
