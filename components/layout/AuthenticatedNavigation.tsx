@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { DateTime } from "luxon";
 import { Bug, Lightbulb } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { useOpenAlertCount } from "../../hooks/useOpenAlertCount";
 import GlobalSearch from './GlobalSearch';
 
 // ----- Icon components (heroicons-style, 20 × 20) -----
@@ -189,6 +190,7 @@ const feedbackNavItems = [
 
 export default function AuthenticatedNavigation() {
   const { user, signOut, isAuthenticated, isAdmin } = useAuth();
+  const openAlertCount = useOpenAlertCount();
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [showUpdateLogBadge, setShowUpdateLogBadge] = useState(false);
@@ -288,6 +290,13 @@ export default function AuthenticatedNavigation() {
               >
                 <Icon />
                 {name}
+                {href === '/today' && openAlertCount > 0 && (
+                  <span
+                    role="img"
+                    aria-label={`${openAlertCount} open item${openAlertCount === 1 ? '' : 's'} today`}
+                    className="w-[7px] h-[7px] rounded-full bg-red-500 shrink-0"
+                  />
+                )}
               </Link>
             ))}
           </div>

@@ -145,6 +145,11 @@ input, select, textarea {
   box-shadow: 0 0 0 2px rgba(17, 19, 24, 0.95);
 }
 
+/* Red "open alert" variant — sits over the Today tab when items are due */
+.mobile-tab-dot.alert {
+  background: #ef4444;
+}
+
 /* Raised center search button — the "radius" circle */
 .mobile-tab-raised-btn {
   position: absolute;

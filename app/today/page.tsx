@@ -1617,13 +1617,20 @@ export default function TodayPage() {
   // on every optimistic update, so completing items ticks the badge down live.
   useEffect(() => {
     if (!data) return;
-    syncAppBadge(computeOpenBadgeCount(
+    const openCount = computeOpenBadgeCount(
       [...data.cards.dueToday, ...data.cards.overdue],
       [...data.followUps.dueToday, ...data.followUps.overdue],
       completed.cards,
       completed.followUps,
-    ));
-  }, [data, completed]);
+    );
+    syncAppBadge(openCount);
+    // Keep the nav's "Today" alert dot live as items are marked off — but only
+    // while viewing today, so day-paging doesn't move the dot to another day's
+    // count. Off-today drift is corrected by the hook's own refetch.
+    if (isViewToday && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('radius:today-alert-count', { detail: { count: openCount } }));
+    }
+  }, [data, completed, isViewToday]);
 
   // ── Loading ──
   if (isLoading || !layoutReady) return <TodaySkeleton />;
