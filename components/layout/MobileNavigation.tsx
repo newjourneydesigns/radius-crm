@@ -408,7 +408,6 @@ export default function MobileNavigation() {
           >
             <span className={`mobile-tab-icon${sheetOpen ? ' active' : ''}`}><MoreTabIcon active={sheetOpen} /></span>
             <span className={`mobile-tab-label${sheetOpen ? ' active' : ''}`}>More</span>
-            {showUpdateLogBadge && <span className="mobile-tab-dot" />}
           </button>
         </div>
       </nav>
