@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { DateTime } from "luxon";
 import { Bug, Lightbulb } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { useOpenAlertCount } from "../../hooks/useOpenAlertCount";
 import { useQuickActions, type QuickActionId, type QuickActionMeta } from "../../contexts/QuickActionsContext";
 import GlobalSearch from './GlobalSearch';
 
@@ -215,6 +216,7 @@ export default function MobileNavigation() {
   const dragStartY = useRef(0);
   const pathname = usePathname();
   const { user, signOut, isAuthenticated, isAdmin } = useAuth();
+  const openAlertCount = useOpenAlertCount();
   const { open: openQuickAction, actions: quickActions } = useQuickActions();
 
   /* Mobile-specific ordering; any action not listed falls back to its original position. */
@@ -369,6 +371,9 @@ export default function MobileNavigation() {
                 className={`mobile-tab-item${active ? ' active' : ''}`}>
                 <span className={`mobile-tab-icon${active ? ' active' : ''}`}><Icon active={active} /></span>
                 <span className={`mobile-tab-label${active ? ' active' : ''}`}>{name}</span>
+                {id === 'today' && openAlertCount > 0 && (
+                  <span className="mobile-tab-dot alert" aria-label={`${openAlertCount} open item${openAlertCount === 1 ? '' : 's'} today`} role="img" />
+                )}
               </Link>
             );
           })}

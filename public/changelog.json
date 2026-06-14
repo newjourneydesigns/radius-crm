@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-14",
+    "version": "2.18.8",
+    "date_display": "June 14, 2026",
+    "date_iso": "2026-06-14",
+    "id": "today-nav-alert-dot",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Today",
+    "description": "Added a red alert dot next to Today in the navigation whenever you have open items — board cards and follow-ups due today or overdue. It's the same count that drives the app-icon badge, so you can see at a glance that something needs attention without opening the page, and it ticks away in real time as you clear items off your Today list. The dot shows on both the desktop top bar and the mobile tab bar.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-14",
     "version": "2.18.7",
     "date_display": "June 14, 2026",
     "date_iso": "2026-06-14",
