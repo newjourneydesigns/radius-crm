@@ -257,10 +257,9 @@ function KanbanCard({
         <p className={`kb-card-title ${card.is_complete ? 'completed' : ''}`}>{card.title}</p>
       </div>
 
-      {/* Metadata row */}
-      <div className="kb-card-meta">
-        {/* Dates */}
-        {(card.start_date || card.due_date) && (
+      {/* Schedule — date/time on its own row with the snooze button directly beneath it */}
+      {(card.start_date || card.due_date) && (
+        <div className="kb-card-schedule">
           <span className={`kb-card-dates ${isOverdue ? 'overdue' : ''} ${isDueSoon ? 'due-soon' : ''}`}>
             <CalendarDays size={10} />
             {card.start_date && (
@@ -274,8 +273,22 @@ function KanbanCard({
               </span>
             )}
           </span>
-        )}
 
+          {/* Snooze to next business day */}
+          {(isOverdue || daysUntilDue === 0) && (
+            <button
+              className="kb-card-snooze"
+              onClick={(e) => { e.stopPropagation(); onSnooze(); }}
+              title="Snooze to next business day (Mon–Thu)"
+            >
+              <Clock size={10} /> Snooze
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Metadata row */}
+      <div className="kb-card-meta">
         {/* Repeat indicator */}
         {card.repeat_rule && card.repeat_rule !== 'none' && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#33B233', fontSize: 10 }} title={
@@ -308,17 +321,6 @@ function KanbanCard({
           )}
         </span>
       </div>
-
-      {/* Snooze to next business day */}
-      {(isOverdue || daysUntilDue === 0) && (
-        <button
-          className="kb-card-snooze"
-          onClick={(e) => { e.stopPropagation(); onSnooze(); }}
-          title="Snooze to next business day (Mon–Thu)"
-        >
-          <Clock size={10} /> Snooze
-        </button>
-      )}
 
       {/* Assignees */}
       {(card.assignments || []).length > 0 && (

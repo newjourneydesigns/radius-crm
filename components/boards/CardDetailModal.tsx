@@ -1381,38 +1381,7 @@ export function CardDetailModal({
 
           {/* Right: Sidebar */}
           <div className="kb-detail-sidebar">
-            {/* Priority */}
-            <div className="kb-form-group">
-              <div className="kb-detail-section-label"><Flag size={13} /> Priority</div>
-              <div className="kb-priority-grid">
-                {(Object.keys(PRIORITY_CONFIG) as CardPriority[]).map(p => (
-                  <button
-                    key={p}
-                    className={`kb-priority-btn ${editPriority === p ? 'active' : ''}`}
-                    style={{
-                      '--pri-color': PRIORITY_CONFIG[p].color,
-                      '--pri-bg': PRIORITY_CONFIG[p].bg,
-                    } as any}
-                    onClick={() => setEditPriority(p)}
-                  >
-                    {PRIORITY_CONFIG[p].label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Assignees */}
-            <div className="kb-form-group">
-              <div className="kb-detail-section-label"><User size={13} /> Assignees</div>
-              <AssigneePicker
-                assignments={card.assignments || []}
-                onAssign={onAssignCard}
-                onUnassign={onUnassignCard}
-                fetchSystemUsers={fetchSystemUsers}
-              />
-            </div>
-
-            {/* Dates */}
+            {/* Dates — kept at top of the sidebar; scheduling is the most time-sensitive info on a card */}
             <div className="kb-form-group">
               <div className="kb-detail-section-label"><CalendarDays size={13} /> Start Date</div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -1478,6 +1447,37 @@ export function CardDetailModal({
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
+            </div>
+
+            {/* Priority */}
+            <div className="kb-form-group">
+              <div className="kb-detail-section-label"><Flag size={13} /> Priority</div>
+              <div className="kb-priority-grid">
+                {(Object.keys(PRIORITY_CONFIG) as CardPriority[]).map(p => (
+                  <button
+                    key={p}
+                    className={`kb-priority-btn ${editPriority === p ? 'active' : ''}`}
+                    style={{
+                      '--pri-color': PRIORITY_CONFIG[p].color,
+                      '--pri-bg': PRIORITY_CONFIG[p].bg,
+                    } as any}
+                    onClick={() => setEditPriority(p)}
+                  >
+                    {PRIORITY_CONFIG[p].label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Assignees */}
+            <div className="kb-form-group">
+              <div className="kb-detail-section-label"><User size={13} /> Assignees</div>
+              <AssigneePicker
+                assignments={card.assignments || []}
+                onAssign={onAssignCard}
+                onUnassign={onUnassignCard}
+                fetchSystemUsers={fetchSystemUsers}
+              />
             </div>
 
             {/* Repeat */}
