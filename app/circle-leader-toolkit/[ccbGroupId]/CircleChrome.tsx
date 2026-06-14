@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import CircleTabs from './CircleTabs';
 import CircleOnboardingPrompts from './CircleOnboardingPrompts';
+import { useFitText } from '../../../hooks/useFitText';
 
 export type HeaderLeader = {
   id: number | string;
@@ -64,6 +65,14 @@ export default function CircleChrome({
   if (!active || isEventSummaryForm) return <>{children}</>;
 
   const firstName = leader.name ? leader.name.trim().split(/\s+/)[0] : null;
+  const title = `${firstName ? `${firstName}'s` : 'Your'} Circle`;
+
+  // Shrink the wordmark to fit when a long name would otherwise clip past the
+  // hero's right edge; short names keep the full responsive size.
+  const { containerRef, textRef } = useFitText<HTMLDivElement, HTMLHeadingElement>({
+    minFontSize: 20,
+    deps: [title],
+  });
 
   return (
     <>
@@ -84,12 +93,15 @@ export default function CircleChrome({
               priority
               className="h-16 sm:h-20 w-auto shrink-0"
             />
-            <div className="min-w-0 flex-1">
+            <div ref={containerRef} className="min-w-0 flex-1">
               <p className="mb-1 text-xs font-bold uppercase text-white/75">
                 Circle Leader Toolkit
               </p>
-              <h1 className="cs-display whitespace-nowrap text-[clamp(1.75rem,8.5vw,3rem)] leading-tight">
-                {firstName ? `${firstName}'s` : 'Your'} Circle
+              <h1
+                ref={textRef}
+                className="cs-display whitespace-nowrap text-[clamp(1.75rem,8.5vw,3rem)] leading-tight"
+              >
+                {title}
               </h1>
               <p className="mt-1.5 text-white/90 font-semibold text-base">
                 {leader.name}

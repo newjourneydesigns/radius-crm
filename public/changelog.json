@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-14",
+    "version": "2.18.2",
+    "date_display": "June 14, 2026",
+    "date_iso": "2026-06-14",
+    "id": "toolkit-header-fit-long-names",
+    "type": "fix",
+    "type_display": "Fix",
+    "category": "Circle Leader Toolkit",
+    "description": "Fixed the Toolkit header so long Circle names always fit. The big '[Name]'s Circle' title now shrinks just enough to stay on one line within the header instead of running off the right edge, while shorter names keep the full large size. It re-fits automatically when the screen size changes.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-06-14",
     "version": "2.18.1",
     "date_display": "June 14, 2026",
     "date_iso": "2026-06-14",
