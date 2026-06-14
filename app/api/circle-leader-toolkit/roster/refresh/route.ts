@@ -146,6 +146,10 @@ export async function POST(req: Request) {
         }));
 
       if (activeRows.length > 0) {
+        // NOTE: do not add `added_at` to this payload. It defaults to NOW() on
+        // first insert and ON CONFLICT DO UPDATE only touches supplied columns,
+        // so omitting it preserves each member's original join time — which the
+        // coaching automations rely on to detect genuinely new members.
         const { error: rosterUpsertError } = await admin
           .from('circle_roster_cache')
           .upsert(activeRows, { onConflict: 'circle_leader_id,ccb_individual_id' });

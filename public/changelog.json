@@ -1,5 +1,17 @@
 [
   {
+    "date": "2026-06-14",
+    "version": "2.18.0",
+    "date_display": "June 14, 2026",
+    "date_iso": "2026-06-14",
+    "id": "circle-leader-coaching-automations",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Circle Leader Toolkit",
+    "description": "Circle Leaders now receive timely, life-giving coaching nudges right in their Toolkit inbox. The app watches for real moments worth acting on — a Circle growing large enough to dream about multiplication, a brand-new member to welcome within a day, someone who hasn't attended in weeks, a birthday that week, a Circle that hasn't met for a stretch, and first-time guests to follow up with. Each nudge is warmly worded and suggests a next step. ACPD admins set the org-wide thresholds on the new Coaching Automations settings page, and can fine-tune or turn off any automation for an individual leader right from their Circle page.",
+    "page": "/admin/coaching-automations"
+  },
+  {
     "date": "2026-06-13",
     "version": "2.17.0",
     "date_display": "June 13, 2026",

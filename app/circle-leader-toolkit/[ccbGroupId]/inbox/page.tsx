@@ -9,6 +9,7 @@ type InboxMessage = {
   message_id: string;
   title: string;
   body_html: string;
+  category?: string;
   version: number;
   created_at: string;
   updated_at: string;
@@ -169,6 +170,11 @@ export default function CircleSummaryInboxPage() {
                         <span className="shrink-0 w-2.5 h-2.5 rounded-full bg-[#34B233]" />
                       )}
                       <h3 className="text-sm font-extrabold text-neutral-950">{message.title}</h3>
+                      {message.category === 'coaching' && (
+                        <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
+                          Coaching
+                        </span>
+                      )}
                     </div>
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
                       {message.unread ? 'Unread' : 'Read'}
