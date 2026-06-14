@@ -62,8 +62,6 @@ export default function CircleChrome({
     }
   }, [groupMismatch, leaderGroupId, active, router]);
 
-  if (!active || isEventSummaryForm) return <>{children}</>;
-
   const firstName = leader.name ? leader.name.trim().split(/\s+/)[0] : null;
   const title = `${firstName ? `${firstName}'s` : 'Your'} Circle`;
 
@@ -73,51 +71,62 @@ export default function CircleChrome({
     minFontSize: 20,
     deps: [title],
   });
+  const showChrome = !!active && !isEventSummaryForm;
 
   return (
     <>
-      <header className="cs-hero px-6 pt-6 pb-8 sm:pt-14 sm:pb-10">
-        <div className="max-w-2xl mx-auto relative">
-          {/* On mobile the gear sits in its own right-aligned row above the
-              title so it never crowds the wordmark; on sm+ it floats in the
-              top-right corner. */}
-          <div className="flex justify-end mb-3 sm:mb-0 sm:static sm:block">
-            <SettingsButton groupId={groupId} active={active} />
-          </div>
-          <div className="flex items-center gap-4 min-w-0">
-            <Image
-              src="/Circles Logo V2-White.png"
-              alt="Circles"
-              width={80}
-              height={79}
-              priority
-              className="h-16 sm:h-20 w-auto shrink-0"
-            />
-            <div ref={containerRef} className="min-w-0 flex-1">
-              <p className="mb-1 text-xs font-bold uppercase text-white/75">
-                Circle Leader Toolkit
-              </p>
-              <h1
-                ref={textRef}
-                className="cs-display whitespace-nowrap text-[clamp(1.75rem,8.5vw,3rem)] leading-tight"
-              >
-                {title}
-              </h1>
-              <p className="mt-1.5 text-white/90 font-semibold text-base">
-                {leader.name}
-                {leader.campus ? (
-                  <span className="font-normal text-white/70"> · {leader.campus}</span>
-                ) : null}
-              </p>
+      {showChrome && (
+        <>
+          <header className="cs-hero px-6 pt-6 pb-8 sm:pt-14 sm:pb-10">
+            <div className="max-w-2xl mx-auto relative">
+              {/* On mobile the gear sits in its own right-aligned row above the
+                  title so it never crowds the wordmark; on sm+ it floats in the
+                  top-right corner. */}
+              <div className="flex justify-end mb-3 sm:mb-0 sm:static sm:block">
+                <SettingsButton groupId={groupId} active={active} />
+              </div>
+              <div className="flex items-center gap-4 min-w-0">
+                <Link
+                  href={`/circle-leader-toolkit/${groupId}/events`}
+                  aria-label="Back to Events"
+                  className="shrink-0"
+                >
+                  <Image
+                    src="/Circles Logo V2-White.png"
+                    alt="Circles"
+                    width={80}
+                    height={79}
+                    priority
+                    className="h-16 sm:h-20 w-auto"
+                  />
+                </Link>
+                <div ref={containerRef} className="min-w-0 flex-1">
+                  <p className="mb-1 text-xs font-bold uppercase text-white/75">
+                    Circle Leader Toolkit
+                  </p>
+                  <h1
+                    ref={textRef}
+                    className="cs-display whitespace-nowrap text-[clamp(1.75rem,8.5vw,3rem)] leading-tight"
+                  >
+                    {title}
+                  </h1>
+                  <p className="mt-1.5 text-white/90 font-semibold text-base">
+                    {leader.name}
+                    {leader.campus ? (
+                      <span className="font-normal text-white/70"> · {leader.campus}</span>
+                    ) : null}
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </header>
+          </header>
 
-      <div className="max-w-2xl mx-auto px-4 pt-4">
-        <CircleTabs urlGroupId={groupId} active={active} />
-        <CircleOnboardingPrompts groupId={groupId} />
-      </div>
+          <div className="max-w-2xl mx-auto px-4 pt-4">
+            <CircleTabs urlGroupId={groupId} active={active} />
+            <CircleOnboardingPrompts groupId={groupId} />
+          </div>
+        </>
+      )}
 
       {children}
     </>

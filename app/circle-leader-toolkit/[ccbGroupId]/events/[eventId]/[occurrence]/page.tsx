@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { DateTime } from 'luxon';
 import { setCircleSummaryAppBadge } from '../../../../../../lib/circle-leader-toolkit/badging';
@@ -644,14 +645,20 @@ export default function CircleSummaryFormPage() {
       <header className="cs-hero py-8 sm:py-10 px-6">
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center gap-4">
-            <Image
-              src="/Circles Logo V2-White.png"
-              alt="Circles"
-              width={80}
-              height={79}
-              priority
-              className="h-16 sm:h-20 w-auto shrink-0"
-            />
+            <Link
+              href={`/circle-leader-toolkit/${urlGroupId}/events`}
+              aria-label="Back to Events"
+              className="shrink-0"
+            >
+              <Image
+                src="/Circles Logo V2-White.png"
+                alt="Circles"
+                width={80}
+                height={79}
+                priority
+                className="h-16 sm:h-20 w-auto"
+              />
+            </Link>
             <div className="min-w-0">
               <h1 className="cs-display text-4xl sm:text-5xl">Circle Leader Toolkit</h1>
               <p className="mt-2 text-white/85 font-medium text-base">{dateLabel(occurrence)}</p>

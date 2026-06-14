@@ -9,7 +9,16 @@ export async function GET() {
   const leader = await getSessionLeader();
   if (!leader) return unauthorized();
 
-  const counts = await getLeaderAlertCounts(leader.id);
+  let counts = { unreadMessages: 0, pendingEventSummaries: 0, totalAlertCount: 0 };
+  try {
+    counts = await getLeaderAlertCounts(leader.id);
+  } catch (error) {
+    console.warn(
+      '[circle-summary/alerts] count lookup failed:',
+      error instanceof Error ? error.message : error
+    );
+  }
+
   let pendingEventSummaries = 0;
   try {
     const eventsResult = await loadLeaderEvents(leader);
@@ -18,7 +27,11 @@ export async function GET() {
       const eventTime = new Date((event.occurrenceDateTime || '').replace(' ', 'T')).getTime();
       return Number.isFinite(eventTime) && eventTime <= now && !event.submittedAt && !event.hasExistingAttendance;
     }).length;
-  } catch {
+  } catch (error) {
+    console.warn(
+      '[circle-summary/alerts] event summary count failed:',
+      error instanceof Error ? error.message : error
+    );
     pendingEventSummaries = counts.pendingEventSummaries;
   }
 
