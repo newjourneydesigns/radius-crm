@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-14",
+    "version": "2.18.5",
+    "date_display": "June 14, 2026",
+    "date_iso": "2026-06-14",
+    "id": "coaching-automations-leader-page",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Circle Leaders",
+    "description": "Gave per-leader coaching automation settings their own roomy page. There's now a 'Coaching' tab in the Circle Leader section navigation (admins only) where you can customize a leader's thresholds or reset them to the org defaults — replacing the cramped panel that used to sit on the profile. On the org-wide Coaching Automations admin page, a new 'Apply defaults to all leaders' button clears every leader's custom settings so they all follow the defaults, with a clear confirmation warning before it overwrites anything.",
+    "page": "/admin/coaching-automations"
+  },
+  {
+    "date": "2026-06-14",
     "version": "2.18.4",
     "date_display": "June 14, 2026",
     "date_iso": "2026-06-14",

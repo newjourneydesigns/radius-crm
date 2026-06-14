@@ -17,7 +17,6 @@ import InviteToCircleModal from '../../../components/modals/InviteToCircleModal'
 import EventSummaryReminderModal from '../../../components/modals/EventSummaryReminderModal';
 import CCBPersonLookup from '../../../components/ui/CCBPersonLookup';
 import type { CCBPerson } from '../../../components/ui/CCBPersonLookup';
-import CoachingAutomationPanel from '../../../components/circle/CoachingAutomationPanel';
 import EventExplorerModal from '../../../components/modals/EventExplorerModal';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import AddToBoardModal from '../../../components/modals/AddToBoardModal';
@@ -1905,13 +1904,6 @@ export default function CircleLeaderProfilePage() {
                         {leader.email_reminders_enabled ? 'Enabled' : 'Disabled'}
                       </button>
                     </div>
-
-                    {isAdmin() && (
-                      <CoachingAutomationPanel
-                        leaderId={leader.id}
-                        initialOverride={leader.coaching_automation_overrides}
-                      />
-                    )}
                   </div>
                 );
               })()}
@@ -2741,13 +2733,6 @@ export default function CircleLeaderProfilePage() {
                           {leader.email_reminders_enabled ? 'Enabled' : 'Disabled'}
                         </button>
                       </div>
-
-                      {isAdmin() && (
-                        <CoachingAutomationPanel
-                          leaderId={leader.id}
-                          initialOverride={leader.coaching_automation_overrides}
-                        />
-                      )}
                     </div>
                   );
                 })()}

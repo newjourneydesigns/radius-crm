@@ -12,6 +12,7 @@ const TABS = [
   { label: 'Messaging', route: (id: string) => `/circle/${id}/messaging` },
   { label: 'Scorecard', route: (id: string) => `/circle/${id}/scorecard`,     circleOnly: true },
   { label: 'Snapshot',  route: (id: string) => `/circle/${id}/leadership-snapshot`, adminOnly: true, circleOnly: true },
+  { label: 'Coaching',  route: (id: string) => `/circle/${id}/coaching`,           adminOnly: true },
   { label: 'Care',      route: (id: string) => `/circle/${id}/care`,          adminOnly: true },
 ] as const;
 

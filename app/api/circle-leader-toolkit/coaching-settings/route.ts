@@ -45,6 +45,37 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ defaults: await readDefaults() });
 }
 
+/**
+ * POST — apply the org defaults to every leader (ACPD admin only).
+ * Clears all per-leader overrides so every Circle follows the current defaults.
+ * Destructive: any custom per-leader coaching settings are removed.
+ */
+export async function POST(req: NextRequest) {
+  const auth = await requireUser(req);
+  if (auth.response) return auth.response;
+  if (auth.role !== 'ACPD') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+  let body: Record<string, unknown> = {};
+  try {
+    body = await req.json();
+  } catch {
+    // No body required for the apply-to-all action.
+  }
+  if (body.action !== 'apply_to_all') {
+    return NextResponse.json({ error: 'Unsupported action.' }, { status: 400 });
+  }
+
+  const supabase = createServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from('circle_leaders')
+    .update({ coaching_automation_overrides: null })
+    .not('coaching_automation_overrides', 'is', null)
+    .select('id');
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ cleared: (data || []).length });
+}
+
 export async function PUT(req: NextRequest) {
   const auth = await requireUser(req);
   if (auth.response) return auth.response;
