@@ -965,22 +965,26 @@ export default function DayTimeline({
       background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 14, overflow: 'hidden',
       position: 'relative',
     }}>
-      {/* ── Header row 1: date nav + reminders + calendars ── */}
+      {/* ── Header row 1: date label, then nav + reminders + calendars ── */}
       <div style={{
         padding: '10px 14px 8px',
-        display: 'flex', alignItems: 'center', gap: 8,
+        display: 'flex', flexDirection: 'column', gap: 8,
       }}>
+        {/* Date label — its own full-width line so the day + date are never clipped */}
+        <span style={{
+          fontSize: 14, fontWeight: 700, color: isToday ? T.text : '#60a5fa',
+          lineHeight: 1.2,
+        }}>
+          {dateLabel}{dayLoading ? ' · loading…' : ''}
+        </span>
+        {/* Controls row — day navigation on the left, reminders + calendars on the right */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
           <HeaderBtn onClick={onPrevDay} title="Previous day"><ChevronLeft className="h-3.5 w-3.5" /></HeaderBtn>
           <HeaderBtn onClick={onNextDay} title="Next day"><ChevronRight className="h-3.5 w-3.5" /></HeaderBtn>
           {!isToday && <HeaderBtn onClick={onGoToday} title="Back to today" active>Today</HeaderBtn>}
         </div>
-        <span style={{
-          fontSize: 12, fontWeight: 700, color: isToday ? T.text : '#60a5fa',
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, flex: 1,
-        }}>
-          {dateLabel}{dayLoading ? ' · loading…' : ''}
-        </span>
+        <div style={{ flex: 1 }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
           {remindersSupported && (
             <HeaderBtn
@@ -1023,6 +1027,7 @@ export default function DayTimeline({
               />
             )}
           </div>
+        </div>
         </div>
       </div>
 
