@@ -4,11 +4,12 @@ import { scheduledFunctionsDisabled } from '../../lib/netlify/scheduledFunctions
 /**
  * Netlify Scheduled Function — inbox push dispatch.
  *
- * Runs every minute and asks the app to Web Push any inbox notifications that
- * haven't been pushed yet (card assignments, comments, shares, daily alerts).
- * Team messages are excluded — they push instantly from the message API.
+ * Runs every 5 minutes and asks the app to Web Push any inbox notifications
+ * that haven't been pushed yet (card assignments, comments, shares, daily
+ * alerts). Team messages are excluded — they push instantly from the message
+ * API — so a few minutes' latency here is fine for these non-urgent types.
  */
-const handler = schedule('* * * * *', async () => {
+const handler = schedule('*/5 * * * *', async () => {
   if (scheduledFunctionsDisabled()) {
     return { statusCode: 200, body: 'scheduled functions disabled on this site' };
   }
