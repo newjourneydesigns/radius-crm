@@ -68,12 +68,12 @@ LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $fn$
   SELECT EXISTS (
     SELECT 1 FROM public.users u
     WHERE u.id = auth.uid() AND u.role = 'ACPD'
   );
-$$;
+$fn$;
 
 CREATE OR REPLACE FUNCTION public.acpd_is_conversation_member(p_conversation_id uuid)
 RETURNS boolean
@@ -81,13 +81,13 @@ LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $fn$
   SELECT EXISTS (
     SELECT 1 FROM public.acpd_conversation_members m
     WHERE m.conversation_id = p_conversation_id
       AND m.user_id = auth.uid()
   );
-$$;
+$fn$;
 
 GRANT EXECUTE ON FUNCTION public.is_acpd_user() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.acpd_is_conversation_member(uuid) TO authenticated;
@@ -126,7 +126,7 @@ CREATE POLICY "Members can view messages"
   USING (public.acpd_is_conversation_member(conversation_id));
 
 -- ── Realtime: stream new messages + read receipts to members ────────────────
-DO $$
+DO $do$
 DECLARE tbl text;
 BEGIN
   FOREACH tbl IN ARRAY ARRAY[
@@ -144,4 +144,4 @@ BEGIN
       EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', tbl);
     END IF;
   END LOOP;
-END $$;
+END $do$;

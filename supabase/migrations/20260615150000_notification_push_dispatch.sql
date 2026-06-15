@@ -38,7 +38,7 @@ RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $fn$
 BEGIN
   IF p_user_id IS NULL THEN RETURN; END IF;
   IF p_actor_id IS NOT NULL AND p_actor_id = p_user_id THEN RETURN; END IF;
@@ -56,4 +56,4 @@ BEGIN
     CASE WHEN p_type = 'message' THEN now() ELSE NULL END
   );
 END;
-$$;
+$fn$;

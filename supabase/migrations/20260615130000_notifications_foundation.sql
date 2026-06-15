@@ -60,7 +60,7 @@ LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $fn$
 DECLARE
   v boolean;
 BEGIN
@@ -80,7 +80,7 @@ BEGIN
 
   RETURN COALESCE(v, true);
 END;
-$$;
+$fn$;
 
 -- Insert a notification, honouring the recipient's preferences and never
 -- notifying someone about their own action. Producers (triggers / cron) call
@@ -99,7 +99,7 @@ RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $fn$
 BEGIN
   IF p_user_id IS NULL THEN RETURN; END IF;
   IF p_actor_id IS NOT NULL AND p_actor_id = p_user_id THEN RETURN; END IF;
@@ -118,7 +118,7 @@ BEGIN
   INSERT INTO public.notifications (user_id, type, title, body, link, actor_id, entity_type, entity_id)
   VALUES (p_user_id, p_type, p_title, p_body, p_link, p_actor_id, p_entity_type, p_entity_id);
 END;
-$$;
+$fn$;
 
 -- ── RLS ─────────────────────────────────────────────────────────────────────
 ALTER TABLE public.notifications            ENABLE ROW LEVEL SECURITY;
@@ -150,7 +150,7 @@ CREATE POLICY "Users manage their own notification prefs"
   WITH CHECK (user_id = auth.uid());
 
 -- ── Realtime: stream new notifications to the inbox + nav badge ─────────────
-DO $$
+DO $do$
 DECLARE tbl text;
 BEGIN
   FOREACH tbl IN ARRAY ARRAY['notifications']
@@ -162,4 +162,4 @@ BEGIN
       EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', tbl);
     END IF;
   END LOOP;
-END $$;
+END $do$;

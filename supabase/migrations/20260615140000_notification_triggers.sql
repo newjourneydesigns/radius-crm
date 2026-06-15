@@ -15,7 +15,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $fn$
 DECLARE
   v_title text;
   v_board uuid;
@@ -33,7 +33,7 @@ BEGIN
   );
   RETURN NEW;
 END;
-$$;
+$fn$;
 
 DROP TRIGGER IF EXISTS trg_notify_card_assignment ON public.card_assignments;
 CREATE TRIGGER trg_notify_card_assignment
@@ -46,7 +46,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $fn$
 DECLARE
   v_title     text;
   v_board     uuid;
@@ -79,7 +79,7 @@ BEGIN
   END LOOP;
   RETURN NEW;
 END;
-$$;
+$fn$;
 
 DROP TRIGGER IF EXISTS trg_notify_card_comment ON public.card_comments;
 CREATE TRIGGER trg_notify_card_comment
@@ -92,7 +92,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $fn$
 DECLARE
   v_title text;
 BEGIN
@@ -109,7 +109,7 @@ BEGIN
   );
   RETURN NEW;
 END;
-$$;
+$fn$;
 
 DROP TRIGGER IF EXISTS trg_notify_board_share ON public.board_members;
 CREATE TRIGGER trg_notify_board_share
@@ -122,7 +122,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $fn$
 DECLARE
   v_title text;
 BEGIN
@@ -139,7 +139,7 @@ BEGIN
   );
   RETURN NEW;
 END;
-$$;
+$fn$;
 
 DROP TRIGGER IF EXISTS trg_notify_notebook_share ON public.notebook_page_shares;
 CREATE TRIGGER trg_notify_notebook_share
@@ -152,7 +152,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $fn$
 DECLARE
   v_kind      text;
   v_sender    text;
@@ -183,7 +183,7 @@ BEGIN
   END LOOP;
   RETURN NEW;
 END;
-$$;
+$fn$;
 
 DROP TRIGGER IF EXISTS trg_notify_acpd_message ON public.acpd_messages;
 CREATE TRIGGER trg_notify_acpd_message
