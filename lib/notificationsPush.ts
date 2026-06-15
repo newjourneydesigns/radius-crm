@@ -1,8 +1,15 @@
-// Server-side fan-out of Web Push for inbox notifications. Run from the
-// /api/notifications/dispatch-push cron route every minute: it finds rows that
-// haven't been pushed yet (excluding team messages, which push instantly from
-// the message API), sends a push to each recipient's devices, and stamps
-// push_sent_at so they're never re-sent.
+// Server-side fan-out of Web Push for inbox notifications.
+//
+// Two entry points, same core:
+//   • By id — fired instantly by a Supabase Database Webhook on INSERT into
+//     notifications (the snappy path).
+//   • Scan — fired by the dispatch-push cron as a backstop, in case a webhook
+//     ever fails to deliver.
+//
+// Both "claim" rows with a conditional UPDATE (push_sent_at IS NULL → now())
+// before sending, so the webhook and the cron can never double-send the same
+// row. Team messages are skipped here — they push instantly from the message
+// API and are stamped push_sent_at at insert time.
 
 import webpush from 'web-push';
 import { createServiceSupabaseClient } from './server-supabase';
@@ -27,36 +34,12 @@ function configureWebPush(): boolean {
   return true;
 }
 
-export async function dispatchPendingNotificationPush(): Promise<{
-  pending: number;
-  sent: number;
-  configured: boolean;
-}> {
-  const supabase = createServiceSupabaseClient();
+type SupabaseClient = ReturnType<typeof createServiceSupabaseClient>;
 
-  const { data: pendingRaw } = await supabase
-    .from('notifications')
-    .select('id, user_id, type, title, body, link')
-    .is('push_sent_at', null)
-    .neq('type', 'message')
-    .order('created_at', { ascending: true })
-    .limit(200);
+// Push a set of already-claimed rows to their recipients' devices.
+async function sendForRows(supabase: SupabaseClient, rows: PendingRow[]): Promise<number> {
+  const userIds = Array.from(new Set(rows.map((r) => r.user_id)));
 
-  const pending = (pendingRaw || []) as PendingRow[];
-  if (pending.length === 0) return { pending: 0, sent: 0, configured: true };
-
-  // No VAPID keys → mark handled so we don't spin, but report not-configured.
-  if (!configureWebPush()) {
-    await supabase
-      .from('notifications')
-      .update({ push_sent_at: new Date().toISOString() })
-      .in('id', pending.map((p) => p.id));
-    return { pending: pending.length, sent: 0, configured: false };
-  }
-
-  const userIds = Array.from(new Set(pending.map((p) => p.user_id)));
-
-  // Devices per user.
   const { data: subsRaw } = await supabase
     .from('user_push_subscriptions')
     .select('id, user_id, endpoint, p256dh, auth')
@@ -84,9 +67,8 @@ export async function dispatchPendingNotificationPush(): Promise<{
   );
 
   let sent = 0;
-  for (const n of pending) {
-    const subs = subsByUser.get(n.user_id) || [];
-    for (const sub of subs) {
+  for (const n of rows) {
+    for (const sub of subsByUser.get(n.user_id) || []) {
       try {
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
@@ -112,12 +94,53 @@ export async function dispatchPendingNotificationPush(): Promise<{
       }
     }
   }
+  return sent;
+}
 
-  // Mark every pending row handled, whether or not the user had a device.
-  await supabase
-    .from('notifications')
-    .update({ push_sent_at: new Date().toISOString() })
-    .in('id', pending.map((p) => p.id));
+const SELECT = 'id, user_id, type, title, body, link';
 
-  return { pending: pending.length, sent, configured: true };
+export async function dispatchPendingNotificationPush(
+  opts: { id?: string } = {}
+): Promise<{ pending: number; sent: number; configured: boolean }> {
+  // Bail before claiming anything if push isn't configured, so rows stay
+  // pending and a later run can deliver them once the keys are set.
+  if (!configureWebPush()) return { pending: 0, sent: 0, configured: false };
+
+  const supabase = createServiceSupabaseClient();
+  const nowIso = new Date().toISOString();
+  let claimed: PendingRow[];
+
+  if (opts.id) {
+    // Webhook path: claim the single inserted row (if still unpushed + not a message).
+    const { data } = await supabase
+      .from('notifications')
+      .update({ push_sent_at: nowIso })
+      .eq('id', opts.id)
+      .is('push_sent_at', null)
+      .neq('type', 'message')
+      .select(SELECT);
+    claimed = (data || []) as PendingRow[];
+  } else {
+    // Backstop path: find unpushed candidates, then claim them atomically.
+    const { data: cand } = await supabase
+      .from('notifications')
+      .select('id')
+      .is('push_sent_at', null)
+      .neq('type', 'message')
+      .order('created_at', { ascending: true })
+      .limit(200);
+    const ids = (cand || []).map((c) => (c as { id: string }).id);
+    if (ids.length === 0) return { pending: 0, sent: 0, configured: true };
+    const { data } = await supabase
+      .from('notifications')
+      .update({ push_sent_at: nowIso })
+      .in('id', ids)
+      .is('push_sent_at', null)
+      .select(SELECT);
+    claimed = (data || []) as PendingRow[];
+  }
+
+  if (claimed.length === 0) return { pending: 0, sent: 0, configured: true };
+  const sent = await sendForRows(supabase, claimed);
+  return { pending: claimed.length, sent, configured: true };
 }

@@ -10,12 +10,22 @@ function authorized(req: NextRequest): boolean {
 }
 
 // POST /api/notifications/dispatch-push — fan out Web Push for inbox
-// notifications created since the last run. Driven by a Netlify scheduled
-// function (every minute). Idempotent: each row is stamped push_sent_at.
+// notifications. Two callers:
+//   • Supabase Database Webhook on notifications INSERT — sends the new row's
+//     payload ({ record: { id } }); we push that single row instantly.
+//   • The dispatch-push cron — sends no id; we scan + push any unpushed rows
+//     as a backstop. Idempotent either way: rows are claimed via push_sent_at.
 export async function POST(req: NextRequest) {
   if (!authorized(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const result = await dispatchPendingNotificationPush();
+  let id: string | undefined;
+  try {
+    const body = await req.json();
+    id = body?.record?.id || body?.id || undefined;
+  } catch {
+    // No / empty body → scan (cron) path.
+  }
+  const result = await dispatchPendingNotificationPush(id ? { id } : {});
   return NextResponse.json(result);
 }
