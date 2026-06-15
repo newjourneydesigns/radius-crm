@@ -148,6 +148,81 @@ export function resolveTemplates(stored: TemplateOverrides | null | undefined): 
   return out;
 }
 
+// ── Template validation ─────────────────────────────────────────────────────
+// Used by both the admin editor (live warnings) and the save route (defense in
+// depth) so broken copy never reaches a leader's inbox.
+
+/** Placeholders that are always filled, regardless of automation. */
+const ALWAYS_AVAILABLE = ['leaderFirstName', 'leaderName'];
+
+/** HTML elements that never need a closing tag. */
+const VOID_TAGS = new Set(['br', 'hr', 'img', 'input', 'meta', 'link', 'wbr']);
+
+/** Every placeholder that will actually be filled in for a given automation. */
+export function allowedPlaceholders(kind: AutomationKind): string[] {
+  const set = new Set<string>([...ALWAYS_AVAILABLE, ...AUTOMATION_PLACEHOLDERS[kind]]);
+  // memberCount rides along wherever member names are available.
+  if (set.has('memberNames')) set.add('memberCount');
+  return Array.from(set);
+}
+
+/** Placeholder tokens referenced in a string, e.g. ["leaderFirstName", "weeks"]. */
+function usedPlaceholders(text: string): string[] {
+  const out: string[] = [];
+  const re = /\{\{\s*(\w+)\s*\}\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) out.push(m[1]);
+  return out;
+}
+
+/** Unclosed or mismatched tags in the limited HTML templates allow. */
+function findUnbalancedTags(html: string): string[] {
+  const stack: string[] = [];
+  const bad: string[] = [];
+  const re = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)[^>]*?(\/?)>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html))) {
+    const isClose = m[1] === '/';
+    const tag = m[2].toLowerCase();
+    const selfClosing = m[3] === '/' || VOID_TAGS.has(tag);
+    if (selfClosing) continue;
+    if (isClose) {
+      if (stack.length === 0 || stack[stack.length - 1] !== tag) bad.push(tag);
+      else stack.pop();
+    } else {
+      stack.push(tag);
+    }
+  }
+  return Array.from(new Set([...bad, ...stack]));
+}
+
+export interface TemplateValidation {
+  valid: boolean;
+  emptyTitle: boolean;
+  emptyBody: boolean;
+  /** Placeholders that won't be filled in (typos like {{memberName}}). */
+  unknownPlaceholders: string[];
+  /** Tag names that are unclosed or mismatched. */
+  unbalancedTags: string[];
+}
+
+/** Validate one automation's copy: empties, unknown placeholders, broken HTML. */
+export function validateTemplate(kind: AutomationKind, tpl: TemplateText): TemplateValidation {
+  const allowed = new Set(allowedPlaceholders(kind));
+  const used = [...usedPlaceholders(tpl.title || ''), ...usedPlaceholders(tpl.body_html || '')];
+  const unknownPlaceholders = Array.from(new Set(used.filter((p) => !allowed.has(p))));
+  const unbalancedTags = findUnbalancedTags(tpl.body_html || '');
+  const emptyTitle = !(tpl.title || '').trim();
+  const emptyBody = !(tpl.body_html || '').trim();
+  return {
+    emptyTitle,
+    emptyBody,
+    unknownPlaceholders,
+    unbalancedTags,
+    valid: !emptyTitle && !emptyBody && unknownPlaceholders.length === 0 && unbalancedTags.length === 0,
+  };
+}
+
 /**
  * Render a nudge for delivery: pick the override (if any) or the default for the
  * kind, then interpolate the per-send values.

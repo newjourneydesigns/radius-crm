@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import type { AutomationKind } from '../../lib/circle-leader-toolkit/coaching/config';
-import { renderNudge, type NudgeVars, type TemplateText } from '../../lib/circle-leader-toolkit/coaching/templates';
+import { renderNudge, validateTemplate, type NudgeVars, type TemplateText } from '../../lib/circle-leader-toolkit/coaching/templates';
 
 // Sample values used to render a realistic preview of each message.
 const SAMPLE_VARS: Record<AutomationKind, NudgeVars> = {
@@ -145,6 +145,7 @@ export default function CoachingMessagesEditor() {
         const isCustom = data.customized.includes(kind);
         const dirty =
           draft.title !== data.templates[kind].title || draft.body_html !== data.templates[kind].body_html;
+        const validation = validateTemplate(kind, draft);
         return (
           <div
             key={kind}
@@ -197,11 +198,26 @@ export default function CoachingMessagesEditor() {
                 ))}
               </div>
 
+              {(validation.unknownPlaceholders.length > 0 || validation.unbalancedTags.length > 0) && (
+                <div className="rounded-md border border-amber-400/40 bg-amber-50 dark:border-amber-800/40 dark:bg-amber-950/20 px-3 py-2 space-y-1">
+                  {validation.unknownPlaceholders.map((ph) => (
+                    <p key={ph} className="text-[11px] text-amber-700 dark:text-amber-300">
+                      <code className="font-mono">{`{{${ph}}}`}</code> isn’t a supported placeholder — it won’t be filled in. Use one of the placeholders above.
+                    </p>
+                  ))}
+                  {validation.unbalancedTags.length > 0 && (
+                    <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                      Unclosed or mismatched HTML: {validation.unbalancedTags.map((t) => `<${t}>`).join(', ')}. Close every tag before saving.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="flex items-center gap-3 pt-1">
                 <button
                   type="button"
                   onClick={() => save(kind)}
-                  disabled={busyKind === kind || !dirty}
+                  disabled={busyKind === kind || !dirty || !validation.valid}
                   className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
                 >
                   {busyKind === kind ? 'Saving…' : 'Save'}

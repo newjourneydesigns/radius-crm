@@ -1,6 +1,42 @@
 [
   {
     "date": "2026-06-15",
+    "version": "2.18.14",
+    "date_display": "June 15, 2026",
+    "date_iso": "2026-06-15",
+    "id": "coaching-timeline",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Coaching",
+    "description": "Added a Timeline to each leader's Care & Development page that brings every coaching touchpoint together in one place — automated nudges that were sent, your coaching notes, encouragements, prayer points, and scorecard changes — newest first. You can now see, at a glance, what a leader has already heard from the system before adding your own note or score.",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-06-15",
+    "version": "2.18.13",
+    "date_display": "June 15, 2026",
+    "date_iso": "2026-06-15",
+    "id": "coaching-run-history",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Coaching",
+    "description": "Added a Run history tab to Coaching Automations so you can confirm the daily worker actually ran and see what it sent. Each scheduled, manual, and preview run is now recorded with its timestamp, how many nudges went out by type, how long it took, and any errors — so a failed or empty run is no longer invisible.",
+    "page": "/admin/coaching-automations"
+  },
+  {
+    "date": "2026-06-15",
+    "version": "2.18.12",
+    "date_display": "June 15, 2026",
+    "date_iso": "2026-06-15",
+    "id": "coaching-message-validation",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Coaching",
+    "description": "The coaching message editor now catches mistakes before they reach a leader. Typo'd placeholders (like {{memberName}} instead of {{memberNames}}, which would silently render blank) and unclosed HTML tags are flagged inline, and Save stays disabled until the message is valid.",
+    "page": "/admin/coaching-automations"
+  },
+  {
+    "date": "2026-06-15",
     "version": "2.18.11",
     "date_display": "June 15, 2026",
     "date_iso": "2026-06-15",

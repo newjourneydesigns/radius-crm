@@ -28,23 +28,53 @@ interface LeaderRow extends LeaderTarget {
   coaching_automation_overrides: unknown;
 }
 
-/** True if the request carries the cron secret or a valid ACPD admin token. */
-async function authorize(req: Request): Promise<boolean> {
+/**
+ * Authorize the request and report how it arrived: the daily cron (bearer
+ * CRON_SECRET) or a manual run from an ACPD admin. Used to tag the run log.
+ */
+async function authorize(req: Request): Promise<{ ok: boolean; viaCron: boolean }> {
   const authHeader = req.headers.get('authorization') || '';
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader === `Bearer ${cronSecret}`) return true;
+  if (cronSecret && authHeader === `Bearer ${cronSecret}`) return { ok: true, viaCron: true };
 
   const user = await getUserFromAuthHeader(req);
-  if (!user) return false;
+  if (!user) return { ok: false, viaCron: false };
   const supabase = createServiceSupabaseClient();
   const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).maybeSingle();
-  return profile?.role === 'ACPD';
+  return { ok: profile?.role === 'ACPD', viaCron: false };
+}
+
+/**
+ * Record a run in coaching_automation_runs. Best-effort: a logging failure (e.g.
+ * the table not migrated yet) must never break delivery, so errors are swallowed.
+ */
+async function logRun(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  row: {
+    trigger: string;
+    ok: boolean;
+    eligible_leaders: number;
+    sent_count: number;
+    sent_by_kind: Record<string, number>;
+    errors: Array<{ leaderId: number | string; error: string }>;
+    duration_ms: number;
+    started_at: string;
+  }
+): Promise<void> {
+  try {
+    await supabase.from('coaching_automation_runs').insert({ ...row, finished_at: new Date().toISOString() });
+  } catch (e) {
+    console.error('[coaching-automations] failed to log run:', e);
+  }
 }
 
 export async function POST(req: Request) {
-  if (!(await authorize(req))) {
+  const auth = await authorize(req);
+  if (!auth.ok) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const startedAtMs = Date.now();
+  const startedAtIso = new Date().toISOString();
 
   let dryRun = false;
   try {
@@ -78,7 +108,18 @@ export async function POST(req: Request) {
     .from('circle_leaders')
     .select('id, name, campus, acpd, ccb_group_id, status, circle_summary_access_enabled, coaching_automation_overrides')
     .not('ccb_group_id', 'is', null);
+  const trigger = dryRun ? 'dry_run' : auth.viaCron ? 'cron' : 'manual';
   if (leadersError) {
+    await logRun(supabase, {
+      trigger,
+      ok: false,
+      eligible_leaders: 0,
+      sent_count: 0,
+      sent_by_kind: {},
+      errors: [{ leaderId: '*', error: leadersError.message }],
+      duration_ms: Date.now() - startedAtMs,
+      started_at: startedAtIso,
+    });
     return NextResponse.json({ error: leadersError.message }, { status: 500 });
   }
 
@@ -177,6 +218,17 @@ export async function POST(req: Request) {
       console.error('[coaching-automations] leader failed:', leader.id, e);
     }
   }
+
+  await logRun(supabase, {
+    trigger,
+    ok: errors.length === 0,
+    eligible_leaders: leaders.length,
+    sent_count: sentCount,
+    sent_by_kind: sentByKind,
+    errors,
+    duration_ms: Date.now() - startedAtMs,
+    started_at: startedAtIso,
+  });
 
   return NextResponse.json({
     ok: true,
