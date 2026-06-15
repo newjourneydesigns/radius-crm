@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-15",
+    "version": "2.19.0",
+    "date_display": "June 15, 2026",
+    "date_iso": "2026-06-15",
+    "id": "acpd-team-messaging",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Messages",
+    "description": "Added Messages — a built-in way for the ACPD team to talk to each other inside Radius. Everyone shares a team channel, and you can start a private one-on-one with any other director. New messages show an unread badge in the nav and, if you turn on notifications, a push alert on your phone even when Radius is closed. Find it on the new chat icon in the top bar (or under Team in the mobile menu).",
+    "page": "/messages"
+  },
+  {
+    "date": "2026-06-15",
     "version": "2.18.11",
     "date_display": "June 15, 2026",
     "date_iso": "2026-06-15",

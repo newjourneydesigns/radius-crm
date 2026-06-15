@@ -585,6 +585,32 @@ export interface UserPushSubscription {
   disabled_at?: string | null;
 }
 
+// ---- ACPD Team Messaging Types ----
+export interface AcpdConversation {
+  id: string;
+  kind: 'channel' | 'dm';
+  title?: string | null;
+  created_by?: string | null;
+  last_message_at: string;
+  created_at: string;
+}
+
+export interface AcpdConversationMember {
+  id: string;
+  conversation_id: string;
+  user_id: string;
+  last_read_at: string;
+  created_at: string;
+}
+
+export interface AcpdMessageRow {
+  id: string;
+  conversation_id: string;
+  sender_id: string | null;
+  body: string;
+  created_at: string;
+}
+
 // ---- Board Forms (public intake → card) Types ----
 export type FormFieldType = 'text' | 'textarea' | 'email' | 'url' | 'number' | 'date' | 'select';
 
