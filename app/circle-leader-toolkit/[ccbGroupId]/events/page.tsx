@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getSessionLeader } from '../../../../lib/circle-leader-toolkit/session';
 import { loadLeaderEvents, loadLeaderMessages } from '../../../../lib/circle-leader-toolkit/events-data';
+import { createTimer } from '../../../../lib/circle-leader-toolkit/timing';
 import EventsClient from './EventsClient';
 
 export const dynamic = 'force-dynamic';
@@ -10,7 +11,9 @@ export const dynamic = 'force-dynamic';
 // waterfall, no spinner on the common warm path). EventsClient then handles
 // post-submit invalidation and focus revalidation.
 export default async function CircleSummaryEventsPage() {
+  const timer = createTimer('events-page');
   const leader = await getSessionLeader();
+  timer.mark('session');
   if (!leader) redirect('/circle-leader-toolkit/');
 
   const groupId = leader.ccb_group_id != null ? String(leader.ccb_group_id) : '';
@@ -19,6 +22,13 @@ export default async function CircleSummaryEventsPage() {
     loadLeaderEvents(leader),
     loadLeaderMessages(leader),
   ]);
+  timer.mark('data');
+  timer.end({
+    groupId,
+    leaderId: leader.id,
+    eventCount: eventsResult.events.length,
+    ccbDegraded: eventsResult.ccbAttendanceDegraded ?? null,
+  });
 
   const initialError = eventsResult.error
     ?? (eventsResult.message && eventsResult.events.length === 0 ? eventsResult.message : null);
