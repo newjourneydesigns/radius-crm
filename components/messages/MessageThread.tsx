@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { ChevronLeft, SendHorizontal } from 'lucide-react';
+import { ChevronLeft, SendHorizontal, Forward } from 'lucide-react';
 import Avatar from './Avatar';
 import {
   formatMessageTime,
@@ -19,6 +19,7 @@ interface MessageThreadProps {
   error: string | null;
   onSend: (text: string) => Promise<boolean>;
   onBack: () => void;
+  onForward: (message: AcpdMessage) => void;
 }
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
@@ -32,6 +33,7 @@ export default function MessageThread({
   error,
   onSend,
   onBack,
+  onForward,
 }: MessageThreadProps) {
   const [draft, setDraft] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -143,10 +145,21 @@ export default function MessageThread({
               }
               const m = row.message;
               const mine = m.senderId === meId;
+              const forwardBtn = (
+                <button
+                  type="button"
+                  onClick={() => onForward(m)}
+                  aria-label="Forward message"
+                  title="Forward"
+                  className="mb-1 grid h-7 w-7 shrink-0 place-items-center self-center rounded-full text-slate-500 opacity-0 transition-opacity hover:bg-white/10 hover:text-white focus:opacity-100 group-hover:opacity-100"
+                >
+                  <Forward className="h-4 w-4" />
+                </button>
+              );
               return (
                 <div
                   key={row.key}
-                  className={`flex items-end gap-2 ${mine ? 'justify-end' : 'justify-start'} ${
+                  className={`group flex items-end gap-1.5 ${mine ? 'justify-end' : 'justify-start'} ${
                     row.showMeta ? 'mt-3' : 'mt-0.5'
                   }`}
                 >
@@ -155,6 +168,7 @@ export default function MessageThread({
                       {row.showMeta && <Avatar name={m.senderName} seed={m.senderId || m.senderName} size="sm" />}
                     </div>
                   )}
+                  {mine && forwardBtn}
                   <div className={`flex max-w-[78%] flex-col ${mine ? 'items-end' : 'items-start'}`}>
                     {row.showMeta && isChannel && !mine && (
                       <span className="mb-0.5 ml-1 text-[11px] font-medium text-slate-400">{m.senderName}</span>
@@ -172,6 +186,7 @@ export default function MessageThread({
                       <span className="mt-1 px-1 text-[10.5px] text-slate-500">{formatMessageTime(m.createdAt)}</span>
                     )}
                   </div>
+                  {!mine && forwardBtn}
                 </div>
               );
             })}

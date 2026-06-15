@@ -139,6 +139,50 @@ export function useAcpdMessaging(enabled: boolean) {
     }
   }, [loadOverview, selectConversation]);
 
+  // Forward a message into another conversation (existing one, or a new/looked-up
+  // DM with a director), then jump to that thread so you see it land.
+  const forwardMessage = useCallback(
+    async (
+      original: AcpdMessage,
+      sourceLabel: string,
+      target: { conversationId?: string; userId?: string }
+    ): Promise<boolean> => {
+      setError(null);
+      try {
+        let conversationId = target.conversationId || null;
+        if (!conversationId && target.userId) {
+          const res = await acpdFetch('/api/acpd-messages/dm', {
+            method: 'POST',
+            body: JSON.stringify({ userId: target.userId }),
+          });
+          if (!res.ok) {
+            const b = await res.json().catch(() => ({}));
+            throw new Error(b?.error || 'Could not open that conversation');
+          }
+          conversationId = ((await res.json()) as { conversationId: string }).conversationId;
+        }
+        if (!conversationId) return false;
+
+        const body = `↪︎ Forwarded from ${sourceLabel} — ${original.senderName}:\n${original.body}`;
+        const res = await acpdFetch('/api/acpd-messages/messages', {
+          method: 'POST',
+          body: JSON.stringify({ conversationId, body }),
+        });
+        if (!res.ok) {
+          const b = await res.json().catch(() => ({}));
+          throw new Error(b?.error || 'Could not forward the message');
+        }
+        await loadOverview();
+        selectConversation(conversationId);
+        return true;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Could not forward the message');
+        return false;
+      }
+    },
+    [loadOverview, selectConversation]
+  );
+
   // Initial load.
   useEffect(() => {
     if (!enabled) return;
@@ -199,6 +243,7 @@ export function useAcpdMessaging(enabled: boolean) {
     selectConversation,
     sendMessage,
     startDm,
+    forwardMessage,
     clearSelection: () => setSelectedId(null),
   };
 }

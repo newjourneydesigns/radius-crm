@@ -9,6 +9,8 @@ import { useAcpdMessaging } from '../../hooks/useAcpdMessaging';
 import ConversationList from '../../components/messages/ConversationList';
 import MessageThread from '../../components/messages/MessageThread';
 import NewMessageModal from '../../components/messages/NewMessageModal';
+import ForwardMessageModal from '../../components/messages/ForwardMessageModal';
+import type { AcpdMessage } from '../../lib/acpdMessagingClient';
 
 function MessagesContent() {
   const { isAdmin } = useAuth();
@@ -28,11 +30,13 @@ function MessagesContent() {
     selectConversation,
     sendMessage,
     startDm,
+    forwardMessage,
     clearSelection,
   } = useAcpdMessaging(admin);
 
   const { isSupported, isSubscribed, enable } = usePushReminders();
   const [newOpen, setNewOpen] = useState(false);
+  const [forwarding, setForwarding] = useState<AcpdMessage | null>(null);
   const [notifDismissed, setNotifDismissed] = useState(false);
 
   const showNotifPrompt =
@@ -93,6 +97,7 @@ function MessagesContent() {
             error={error}
             onSend={sendMessage}
             onBack={clearSelection}
+            onForward={setForwarding}
           />
         ) : (
           <div className="hidden flex-1 flex-col items-center justify-center gap-3 bg-[#0f1117] text-center md:flex">
@@ -114,6 +119,16 @@ function MessagesContent() {
         onClose={() => setNewOpen(false)}
         directory={directory}
         onStartDm={startDm}
+      />
+
+      <ForwardMessageModal
+        isOpen={forwarding !== null}
+        onClose={() => setForwarding(null)}
+        message={forwarding}
+        sourceLabel={selectedConversation?.title ?? ''}
+        conversations={conversations}
+        directory={directory}
+        onForward={(target) => forwardMessage(forwarding!, selectedConversation?.title ?? '', target)}
       />
     </div>
   );

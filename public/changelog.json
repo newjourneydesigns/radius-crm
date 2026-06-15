@@ -1,6 +1,30 @@
 [
   {
     "date": "2026-06-15",
+    "version": "2.22.0",
+    "date_display": "June 15, 2026",
+    "date_iso": "2026-06-15",
+    "id": "message-forwarding",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Messages",
+    "description": "You can now forward a message to another conversation. Hover (or tap) a message and choose Forward, then pick the team channel, an existing DM, or start a new one with another director — the forwarded note carries who and where it came from.",
+    "page": "/messages"
+  },
+  {
+    "date": "2026-06-15",
+    "version": "2.21.0",
+    "date_display": "June 15, 2026",
+    "date_iso": "2026-06-15",
+    "id": "inbox-push",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Inbox",
+    "description": "Inbox notifications now reach your phone. Card assignments, comments, board and notebook shares, and daily birthday and follow-up alerts send a push notification (in addition to the in-app badge) so you don’t have to be in Radius to know something needs you. Respects your notification settings.",
+    "page": "/inbox"
+  },
+  {
+    "date": "2026-06-15",
     "version": "2.20.0",
     "date_display": "June 15, 2026",
     "date_iso": "2026-06-15",
