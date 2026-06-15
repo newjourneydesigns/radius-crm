@@ -1,6 +1,54 @@
 [
   {
     "date": "2026-06-15",
+    "version": "2.22.0",
+    "date_display": "June 15, 2026",
+    "date_iso": "2026-06-15",
+    "id": "message-forwarding",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Messages",
+    "description": "You can now forward a message to another conversation. Hover (or tap) a message and choose Forward, then pick the team channel, an existing DM, or start a new one with another director — the forwarded note carries who and where it came from.",
+    "page": "/messages"
+  },
+  {
+    "date": "2026-06-15",
+    "version": "2.21.0",
+    "date_display": "June 15, 2026",
+    "date_iso": "2026-06-15",
+    "id": "inbox-push",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Inbox",
+    "description": "Inbox notifications now reach your phone. Card assignments, comments, board and notebook shares, and daily birthday and follow-up alerts send a push notification (in addition to the in-app badge) so you don’t have to be in Radius to know something needs you. Respects your notification settings.",
+    "page": "/inbox"
+  },
+  {
+    "date": "2026-06-15",
+    "version": "2.20.0",
+    "date_display": "June 15, 2026",
+    "date_iso": "2026-06-15",
+    "id": "user-inbox",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Inbox",
+    "description": "Added your Inbox — one place for everything that needs your attention. It collects team messages, card assignments, card comments, board and notebook shares, and daily birthday and follow-up alerts for your leaders. Filter by type, mark read or unread, archive, or delete, and use Notification settings to choose exactly which kinds of activity show up. Open it from the new bell icon in the top bar (or under Activity in the mobile menu); the badge shows your unread count.",
+    "page": "/inbox"
+  },
+  {
+    "date": "2026-06-15",
+    "version": "2.19.0",
+    "date_display": "June 15, 2026",
+    "date_iso": "2026-06-15",
+    "id": "acpd-team-messaging",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Messages",
+    "description": "Added Messages — a built-in way for the ACPD team to talk to each other inside Radius. Everyone shares a team channel, and you can start a private one-on-one with any other director. New messages show an unread badge in the nav and, if you turn on notifications, a push alert on your phone even when Radius is closed. Find it on the new chat icon in the top bar (or under Team in the mobile menu).",
+    "page": "/messages"
+  },
+  {
+    "date": "2026-06-15",
     "version": "2.18.11",
     "date_display": "June 15, 2026",
     "date_iso": "2026-06-15",

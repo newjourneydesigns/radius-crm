@@ -7,6 +7,8 @@ import { DateTime } from "luxon";
 import { Bug, Lightbulb } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useOpenAlertCount } from "../../hooks/useOpenAlertCount";
+import { useAcpdUnreadCount } from "../../hooks/useAcpdUnreadCount";
+import { useInboxUnreadCount } from "../../hooks/useInboxUnreadCount";
 import { useQuickActions, type QuickActionId, type QuickActionMeta } from "../../contexts/QuickActionsContext";
 import GlobalSearch from './GlobalSearch';
 
@@ -174,6 +176,18 @@ const MessageBulkIcon = () => (
   </svg>
 );
 
+const ChatBubbleIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M8 10.5h8M8 14h5m-9 6l1.8-1.8A2 2 0 016.2 18H18a3 3 0 003-3V7a3 3 0 00-3-3H6a3 3 0 00-3 3v13z" />
+  </svg>
+);
+
+const BellIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
+  </svg>
+);
+
 const DownloadIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
     <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
@@ -217,6 +231,8 @@ export default function MobileNavigation() {
   const pathname = usePathname();
   const { user, signOut, isAuthenticated, isAdmin } = useAuth();
   const openAlertCount = useOpenAlertCount();
+  const acpdUnreadCount = useAcpdUnreadCount(isAdmin());
+  const inboxUnreadCount = useInboxUnreadCount();
   const { open: openQuickAction, actions: quickActions } = useQuickActions();
 
   /* Mobile-specific ordering; any action not listed falls back to its original position. */
@@ -462,6 +478,39 @@ export default function MobileNavigation() {
                   <span className="mobile-sheet-row-label">{action.label}</span>
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Inbox + team messaging */}
+          <div className="mobile-sheet-section">
+            <p className="mobile-sheet-section-title">Activity</p>
+            <div className="mobile-sheet-group">
+              <Link href="/inbox" className={`mobile-sheet-row ${admin ? 'bordered' : ''} ${isActive('/inbox') ? 'active' : ''}`}>
+                <span className="mobile-sheet-row-icon"><BellIcon /></span>
+                <span className="mobile-sheet-row-label flex items-center gap-2">
+                  Inbox
+                  {inboxUnreadCount > 0 && (
+                    <span className="inline-flex items-center rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                      {inboxUnreadCount > 99 ? '99+' : inboxUnreadCount}
+                    </span>
+                  )}
+                </span>
+                <ChevronRightIcon />
+              </Link>
+              {admin && (
+                <Link href="/messages" className={`mobile-sheet-row ${isActive('/messages') ? 'active' : ''}`}>
+                  <span className="mobile-sheet-row-icon"><ChatBubbleIcon /></span>
+                  <span className="mobile-sheet-row-label flex items-center gap-2">
+                    Messages
+                    {acpdUnreadCount > 0 && (
+                      <span className="inline-flex items-center rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                        {acpdUnreadCount > 99 ? '99+' : acpdUnreadCount}
+                      </span>
+                    )}
+                  </span>
+                  <ChevronRightIcon />
+                </Link>
+              )}
             </div>
           </div>
 
