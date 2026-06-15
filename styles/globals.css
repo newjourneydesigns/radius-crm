@@ -41,7 +41,7 @@ input, select, textarea {
 
 /* Mobile bottom navigation spacing — clears the tab bar + safe area */
 .mobile-nav-padding {
-  padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
 }
 @media (min-width: 768px) {
   .mobile-nav-padding {
@@ -62,7 +62,7 @@ input, select, textarea {
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   backdrop-filter: saturate(180%) blur(20px);
   border-top: 0.5px solid rgba(255, 255, 255, 0.06);
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
   overflow: visible;
   /* Pin to its own GPU layer. Without this, iOS/WebKit intermittently
      detaches a fixed bar that uses backdrop-filter during momentum scroll,

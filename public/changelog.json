@@ -1,5 +1,17 @@
 [
   {
+    "date": "2026-06-15",
+    "version": "2.18.11",
+    "date_display": "June 15, 2026",
+    "date_iso": "2026-06-15",
+    "id": "mobile-nav-bottom-spacing",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Navigation",
+    "description": "Added a little more breathing room at the bottom of the mobile navigation bar so the corner tabs like \"Today\" and \"More\" are easier to reach. The bar now sits a bit higher off the bottom edge of the screen.",
+    "page": "/today"
+  },
+  {
     "date": "2026-06-14",
     "version": "2.18.10",
     "date_display": "June 14, 2026",
