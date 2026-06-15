@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-15",
+    "version": "2.20.0",
+    "date_display": "June 15, 2026",
+    "date_iso": "2026-06-15",
+    "id": "user-inbox",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Inbox",
+    "description": "Added your Inbox — one place for everything that needs your attention. It collects team messages, card assignments, card comments, board and notebook shares, and daily birthday and follow-up alerts for your leaders. Filter by type, mark read or unread, archive, or delete, and use Notification settings to choose exactly which kinds of activity show up. Open it from the new bell icon in the top bar (or under Activity in the mobile menu); the badge shows your unread count.",
+    "page": "/inbox"
+  },
+  {
+    "date": "2026-06-15",
     "version": "2.19.0",
     "date_display": "June 15, 2026",
     "date_iso": "2026-06-15",

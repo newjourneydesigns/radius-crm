@@ -611,6 +611,31 @@ export interface AcpdMessageRow {
   created_at: string;
 }
 
+// ---- User Inbox (notifications) Types ----
+export type NotificationType =
+  | 'message'
+  | 'card_assignment'
+  | 'card_comment'
+  | 'board_share'
+  | 'notebook_share'
+  | 'birthday'
+  | 'follow_up';
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  body: string | null;
+  link: string | null;
+  actor_id: string | null;
+  entity_type: string | null;
+  entity_id: string | null;
+  read_at: string | null;
+  archived_at: string | null;
+  created_at: string;
+}
+
 // ---- Board Forms (public intake → card) Types ----
 export type FormFieldType = 'text' | 'textarea' | 'email' | 'url' | 'number' | 'date' | 'select';
 
