@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
   const { data: directory } = await supabase
     .from('users')
     .select('id, name, email')
-    .in('role', ['ACPD', 'admin'])
+    .eq('role', 'ACPD')
     .neq('id', me)
     .order('name', { ascending: true });
 

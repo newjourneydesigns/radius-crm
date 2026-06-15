@@ -11,7 +11,9 @@ export type AcpdProfile = { id: string; name: string; email: string; role: strin
 
 type ServiceClient = ReturnType<typeof createServiceSupabaseClient>;
 
-const ACPD_ROLES = ['ACPD', 'admin'];
+// 'ACPD' is the app's admin role (see AuthContext.isAdmin). users.role is a
+// Postgres enum that has no 'admin' value, so never reference one in SQL.
+const ACPD_ROLES = ['ACPD'];
 
 /**
  * Resolve the signed-in user from the Authorization header and confirm they

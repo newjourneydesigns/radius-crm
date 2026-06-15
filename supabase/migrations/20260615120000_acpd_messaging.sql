@@ -71,7 +71,7 @@ SET search_path = public
 AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.users u
-    WHERE u.id = auth.uid() AND u.role IN ('ACPD', 'admin')
+    WHERE u.id = auth.uid() AND u.role = 'ACPD'
   );
 $$;
 

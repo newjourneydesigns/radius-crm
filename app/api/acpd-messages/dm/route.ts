@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     .select('id, role')
     .eq('id', otherUserId)
     .single();
-  if (!other || !['ACPD', 'admin'].includes(other.role)) {
+  if (!other || other.role !== 'ACPD') {
     return NextResponse.json({ error: 'That user is not on the ACPD team' }, { status: 400 });
   }
 
