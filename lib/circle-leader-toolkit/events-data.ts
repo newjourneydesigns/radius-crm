@@ -15,6 +15,7 @@ import type { SessionLeader } from './session';
 import { createCCBClient } from '../ccb/ccb-client';
 import { createServiceSupabaseClient } from '../server-supabase';
 import { computeLastAttended, storeDerivedLastAttended } from './roster-data';
+import { createTimer } from './timing';
 
 export type CircleEventRow = {
   eventId: string;
@@ -192,6 +193,7 @@ export async function loadLeaderEvents(
   }
 
   const forceRefresh = !!opts.forceRefresh;
+  const timer = createTimer('loadLeaderEvents');
 
   const end = DateTime.now().setZone('America/Chicago');
   const start = end.minus({ weeks: 12 });
@@ -261,6 +263,7 @@ export async function loadLeaderEvents(
         }
       }
     }
+    timer.mark('sharedCacheRead');
 
     // Track whether either fetch went all the way to CCB so we can write the
     // result back to the shared cache. Closes the gap where prewarm skipped a
@@ -317,6 +320,11 @@ export async function loadLeaderEvents(
         .gte('occurrence_date', startStr)
         .lte('occurrence_date', endStr),
     ]);
+    timer.mark('fetch');
+
+    const calSource = calCached !== undefined ? 'mem' : sharedCache?.calendar_events !== undefined ? 'shared' : 'ccb';
+    const attSource = attCached !== undefined ? 'mem' : sharedCache?.attendance_xml !== undefined ? 'shared' : attendanceFetchFailed ? 'failed' : 'ccb';
+    timer.end({ groupId: String(leader.ccb_group_id), calSource, attSource, calFromCcb, attFromCcb });
 
     if (ignoredRes.error) {
       if (!isMissingIgnoredEventsTableError(ignoredRes.error)) {

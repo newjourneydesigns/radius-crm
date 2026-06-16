@@ -17,6 +17,7 @@ import { DateTime } from 'luxon';
 import type { SessionLeader } from './session';
 import { createCCBClient } from '../ccb/ccb-client';
 import { createServiceSupabaseClient } from '../server-supabase';
+import { createTimer } from './timing';
 
 // ---------------------------------------------------------------------------
 // Roster
@@ -220,9 +221,11 @@ export async function loadLeaderRoster(
 
   const forceRefresh = !!opts.forceRefresh;
   const supabase = createServiceSupabaseClient();
+  const timer = createTimer('loadLeaderRoster');
 
   if (!forceRefresh) {
     const cachedRows = await loadActiveCachedRows(supabase, leader);
+    timer.mark('cacheRead');
 
     if (cachedRows && cachedRows.length > 0) {
       const rows = cachedRows as RosterCacheRow[];
@@ -232,6 +235,7 @@ export async function loadLeaderRoster(
       }, 0);
       const needsRosterRefresh = !oldestFetchedAt || Date.now() - oldestFetchedAt > ROSTER_TTL_MS;
 
+      timer.end({ source: 'cache', count: rows.length, needsRosterRefresh });
       return {
         participants: rows.map(rowToParticipant),
         staleIds: rows
@@ -247,6 +251,7 @@ export async function loadLeaderRoster(
 
   try {
     const participants = (await ccb.getGroupParticipants(leader.ccb_group_id)) as CcbParticipant[];
+    timer.mark('ccbParticipants');
     const ids = participants.map((p) => String(p.id));
 
     const cacheByID = new Map<string, ProfileCacheEntry>();
@@ -313,6 +318,7 @@ export async function loadLeaderRoster(
       await staleCacheDelete;
     }
 
+    timer.end({ source: 'ccb', count: merged.length });
     return { participants: merged, staleIds, source: 'ccb', needsRosterRefresh: false };
   } catch (e: unknown) {
     return {
@@ -555,10 +561,12 @@ export async function loadLeaderAttendance(leader: SessionLeader): Promise<LoadA
   const endStr = end.toFormat('yyyy-LL-dd');
 
   const supabase = createServiceSupabaseClient();
+  const timer = createTimer('loadLeaderAttendance');
 
   // Shared cache first. Most hits are served entirely from Supabase.
   try {
     const cacheRow = await readEventsCacheRow(supabase, groupId, startStr, endStr);
+    timer.mark('cacheRead');
     if (cacheRow?.synced_at) {
       const ageMs = Date.now() - new Date(cacheRow.synced_at).getTime();
       if (ageMs < SHARED_CACHE_FRESH_MS) {
@@ -567,6 +575,7 @@ export async function loadLeaderAttendance(leader: SessionLeader): Promise<LoadA
           const merged = await mergeSubmittedSummaryAttendance(
             supabase, leader.id, groupId, startStr, endStr, cacheRow.last_attended
           );
+          timer.end({ source: 'cache-derived', groupId });
           return { lastAttended: merged, source: 'cache-derived' };
         }
         if (cacheRow.attendance_xml) {
@@ -576,6 +585,7 @@ export async function loadLeaderAttendance(leader: SessionLeader): Promise<LoadA
           const merged = await mergeSubmittedSummaryAttendance(
             supabase, leader.id, groupId, startStr, endStr, base
           );
+          timer.end({ source: 'cache', groupId });
           return { lastAttended: merged, source: 'cache' };
         }
       }
@@ -595,12 +605,14 @@ export async function loadLeaderAttendance(leader: SessionLeader): Promise<LoadA
         end_date: endStr,
       }),
     ]);
+    timer.mark('ccbFetch');
 
     const base = computeLastAttended(xml, groupId, calendarEvents);
     storeDerivedLastAttended(supabase, groupId, startStr, endStr, base);
     const merged = await mergeSubmittedSummaryAttendance(
       supabase, leader.id, groupId, startStr, endStr, base
     );
+    timer.end({ source: 'ccb', groupId });
     return { lastAttended: merged, source: 'ccb' };
   } catch (e: unknown) {
     return {

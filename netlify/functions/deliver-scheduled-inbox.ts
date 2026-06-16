@@ -1,8 +1,9 @@
 import { schedule } from '@netlify/functions';
 import { scheduledFunctionsDisabled } from '../../lib/netlify/scheduledFunctionsDisabled';
 
-/** Netlify Scheduled Function — delivers due scheduled Circle Summary inbox messages. */
-const handler = schedule('* * * * *', async () => {
+/** Netlify Scheduled Function — delivers due scheduled Circle Summary inbox messages.
+ *  Runs every 5 minutes; scheduled messages go out within ~5 min of their time. */
+const handler = schedule('*/5 * * * *', async () => {
   if (scheduledFunctionsDisabled()) {
     return { statusCode: 200, body: 'scheduled functions disabled on this site' };
   }

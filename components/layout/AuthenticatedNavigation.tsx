@@ -9,6 +9,9 @@ import { Bug, Lightbulb } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useOpenAlertCount } from "../../hooks/useOpenAlertCount";
 import { isCoachingAutomationsEnabled } from "../../lib/circle-leader-toolkit/coaching/feature-flag";
+import { useAcpdUnreadCount } from "../../hooks/useAcpdUnreadCount";
+import { useInboxUnreadCount } from "../../hooks/useInboxUnreadCount";
+import { MESSAGES_ENABLED } from "../../lib/features";
 import GlobalSearch from './GlobalSearch';
 
 // ----- Icon components (heroicons-style, 20 × 20) -----
@@ -111,6 +114,18 @@ const MessageBulkIcon = () => (
   </svg>
 );
 
+const ChatBubbleIcon = () => (
+  <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8 10.5h8M8 14h5m-9 6l1.8-1.8A2 2 0 016.2 18H18a3 3 0 003-3V7a3 3 0 00-3-3H6a3 3 0 00-3 3v13z" />
+  </svg>
+);
+
+const BellIcon = () => (
+  <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+  </svg>
+);
+
 const ImportCirclesIcon = () => (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.338-2.32 3.75 3.75 0 013.572 5.345A4.501 4.501 0 0118 19.5H6.75z" />
@@ -195,6 +210,8 @@ const feedbackNavItems = [
 export default function AuthenticatedNavigation() {
   const { user, signOut, isAuthenticated, isAdmin } = useAuth();
   const openAlertCount = useOpenAlertCount();
+  const acpdUnreadCount = useAcpdUnreadCount(isAdmin());
+  const inboxUnreadCount = useInboxUnreadCount();
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [showUpdateLogBadge, setShowUpdateLogBadge] = useState(false);
@@ -308,6 +325,44 @@ export default function AuthenticatedNavigation() {
           {/* ── Right: Search + Tools + User ── */}
           <div className="flex items-center gap-1">
             <GlobalSearch />
+
+            {/* Inbox (all users) */}
+            <Link
+              href="/inbox"
+              aria-label={inboxUnreadCount > 0 ? `Inbox, ${inboxUnreadCount} unread` : 'Inbox'}
+              className={`relative flex items-center justify-center w-9 h-9 rounded-lg transition-colors duration-150 ${
+                isActive('/inbox')
+                  ? 'bg-white/[0.14] text-white'
+                  : 'text-slate-300 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              <BellIcon />
+              {inboxUnreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white ring-2 ring-[#1a1c22]">
+                  {inboxUnreadCount > 9 ? '9+' : inboxUnreadCount}
+                </span>
+              )}
+            </Link>
+
+            {/* Team messaging (ACPD only) — hidden behind a feature flag for now */}
+            {MESSAGES_ENABLED && admin && (
+              <Link
+                href="/messages"
+                aria-label={acpdUnreadCount > 0 ? `Messages, ${acpdUnreadCount} unread` : 'Messages'}
+                className={`relative flex items-center justify-center w-9 h-9 rounded-lg transition-colors duration-150 ${
+                  isActive('/messages')
+                    ? 'bg-white/[0.14] text-white'
+                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <ChatBubbleIcon />
+                {acpdUnreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white ring-2 ring-[#1a1c22]">
+                    {acpdUnreadCount > 9 ? '9+' : acpdUnreadCount}
+                  </span>
+                )}
+              </Link>
+            )}
 
             {/* Tools dropdown */}
             <div className="relative" ref={toolsMenuRef}>
