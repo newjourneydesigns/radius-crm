@@ -127,6 +127,19 @@ export async function GET(req: Request) {
     status: 200,
     headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
   });
+
+  // The installed home-screen PWA re-runs its start_url (this route) on every
+  // cold launch. If a valid session for this same leader already exists, just
+  // navigate — re-issuing would spawn a fresh leader_sessions row each launch.
+  // Only short-circuit long-lived links; temporary share links keep their own
+  // max-age handling below.
+  if (!verified.sessionMaxAgeSeconds) {
+    const existingLeaderId = await getSessionLeaderId();
+    if (existingLeaderId && String(existingLeaderId) === String(verified.leaderId)) {
+      return res;
+    }
+  }
+
   const remainingTokenSeconds = Math.max(1, Math.floor((verified.expiresMs - Date.now()) / 1000));
   const maxAgeSeconds = verified.sessionMaxAgeSeconds
     ? Math.min(verified.sessionMaxAgeSeconds, remainingTokenSeconds)

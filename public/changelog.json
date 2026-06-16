@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-16",
+    "version": "2.34.1",
+    "date_display": "June 16, 2026",
+    "date_iso": "2026-06-16",
+    "id": "toolkit-pwa-stays-signed-in",
+    "type": "fix",
+    "type_display": "Fix",
+    "category": "Circle Leader Toolkit",
+    "description": "Fixed the Circle Leader Toolkit home-screen app sending leaders to the RADIUS login. Adding the Toolkit to your iPhone home screen now opens the Toolkit and keeps you signed in — no logging back in.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-06-16",
     "version": "2.34.0",
     "date_display": "June 16, 2026",
     "date_iso": "2026-06-16",

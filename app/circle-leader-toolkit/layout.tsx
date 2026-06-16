@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Open_Sans } from 'next/font/google';
+import { getSessionLeader } from '../../lib/circle-leader-toolkit/session';
+import { createSessionToken, RADIUS_LINK_TTL_MS } from '../../lib/leader-tokens';
 import './circle-leader-toolkit.css';
 
 const openSans = Open_Sans({
@@ -26,27 +28,43 @@ export const viewport: Viewport = {
   colorScheme: 'light',
 };
 
-export const metadata: Metadata = {
-  title: 'Circle Leader Toolkit',
-  // Private leader portal — keep it out of search results.
-  robots: { index: false, follow: false },
+export async function generateMetadata(): Promise<Metadata> {
   // Override the root manifest so iOS "Add to Home Screen" launches the
-  // Circle Leader Toolkit sign-in router instead of the main RADIUS admin app.
-  manifest: '/manifest-circle-leader-toolkit.json',
-  appleWebApp: {
-    capable: true,
-    title: 'Toolkit',
-    statusBarStyle: 'default',
-  },
-  icons: {
-    icon: [
-      { url: '/circle-summary-icon-192.png?v=2', sizes: '192x192', type: 'image/png' },
-      { url: '/circle-summary-icon-512.png?v=2', sizes: '512x512', type: 'image/png' },
-    ],
-    shortcut: '/circle-summary-icon-192.png?v=2',
-    apple: '/circle-summary-apple-touch-icon.png?v=2',
-  },
-};
+  // Circle Leader Toolkit — not the main RADIUS admin app and its login.
+  //
+  // When the visitor is already signed in, hand the manifest a signed,
+  // leader-scoped token via `?s=`. The dynamic manifest bakes it into
+  // `start_url` so the installed home-screen icon signs itself in on first
+  // launch — iOS isolates a PWA's cookies from Safari, so the magic-link
+  // session otherwise wouldn't carry into the installed app. The token is
+  // long-lived to match RADIUS-issued leader links; access is still revoked
+  // centrally when a leader is archived or toolkit access is turned off.
+  const leader = await getSessionLeader();
+  const manifestHref =
+    leader?.id != null
+      ? `/manifest-circle-leader-toolkit.json?s=${createSessionToken(leader.id, RADIUS_LINK_TTL_MS)}`
+      : '/manifest-circle-leader-toolkit.json';
+
+  return {
+    title: 'Circle Leader Toolkit',
+    // Private leader portal — keep it out of search results.
+    robots: { index: false, follow: false },
+    manifest: manifestHref,
+    appleWebApp: {
+      capable: true,
+      title: 'Toolkit',
+      statusBarStyle: 'default',
+    },
+    icons: {
+      icon: [
+        { url: '/circle-summary-icon-192.png?v=2', sizes: '192x192', type: 'image/png' },
+        { url: '/circle-summary-icon-512.png?v=2', sizes: '512x512', type: 'image/png' },
+      ],
+      shortcut: '/circle-summary-icon-192.png?v=2',
+      apple: '/circle-summary-apple-touch-icon.png?v=2',
+    },
+  };
+}
 
 export default function CircleSummaryLayout({ children }: { children: React.ReactNode }) {
   return (
