@@ -13,6 +13,7 @@ import {
   AUTOMATION_PLACEHOLDERS,
   COACHING_TEMPLATE_DEFAULTS,
   resolveTemplates,
+  validateTemplate,
   type TemplateOverrides,
 } from '../../../../lib/circle-leader-toolkit/coaching/templates';
 
@@ -88,6 +89,23 @@ export async function PUT(req: NextRequest) {
   const bodyHtml = typeof body.body_html === 'string' ? body.body_html.trim() : '';
   if (!title) return NextResponse.json({ error: 'Title is required.' }, { status: 400 });
   if (!bodyHtml) return NextResponse.json({ error: 'Message body is required.' }, { status: 400 });
+
+  // Reject typo'd placeholders and broken HTML before they reach a leader's inbox.
+  const validation = validateTemplate(kind as AutomationKind, { title, body_html: bodyHtml });
+  if (validation.unknownPlaceholders.length > 0) {
+    const list = validation.unknownPlaceholders.map((p) => `{{${p}}}`).join(', ');
+    return NextResponse.json(
+      { error: `Unknown placeholder${validation.unknownPlaceholders.length === 1 ? '' : 's'}: ${list}. These won't be filled in — remove them or use one of the supported placeholders.` },
+      { status: 400 }
+    );
+  }
+  if (validation.unbalancedTags.length > 0) {
+    const list = validation.unbalancedTags.map((t) => `<${t}>`).join(', ');
+    return NextResponse.json(
+      { error: `The message has unclosed or mismatched HTML: ${list}. Make sure every tag is closed.` },
+      { status: 400 }
+    );
+  }
 
   const { error } = await supabase
     .from('coaching_automation_templates')

@@ -8,6 +8,7 @@ import { DateTime } from "luxon";
 import { Bug, Lightbulb } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useOpenAlertCount } from "../../hooks/useOpenAlertCount";
+import { isCoachingAutomationsEnabled } from "../../lib/circle-leader-toolkit/coaching/feature-flag";
 import { useAcpdUnreadCount } from "../../hooks/useAcpdUnreadCount";
 import { useInboxUnreadCount } from "../../hooks/useInboxUnreadCount";
 import { MESSAGES_ENABLED } from "../../lib/features";
@@ -192,7 +193,10 @@ const circleSummaryNavItems = [
 ];
 
 const adminToolsNavItems = [
-  { href: '/admin/coaching-automations', label: 'Coaching Automations', Icon: IdeaIcon },
+  // Hidden until the coaching automations feature flag is turned on.
+  ...(isCoachingAutomationsEnabled()
+    ? [{ href: '/admin/coaching-automations', label: 'Coaching Automations', Icon: IdeaIcon }]
+    : []),
   { href: '/ccb-usage',              label: 'CCB Usage',                Icon: ChartIcon },
   { href: '/import-circles',         label: 'Import Circles',           Icon: ImportCirclesIcon },
   { href: '/users',                  label: 'Manage Users',             Icon: UsersIcon },

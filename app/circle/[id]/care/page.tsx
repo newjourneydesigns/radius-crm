@@ -6,6 +6,8 @@ import { supabase } from '../../../../lib/supabase';
 import { useAuth } from '../../../../contexts/AuthContext';
 import ProtectedRoute from '../../../../components/ProtectedRoute';
 import ACPDTrackingSection from '../../../../components/circle/ACPDTrackingSection';
+import CoachingTimeline from '../../../../components/circle/CoachingTimeline';
+import { isCoachingAutomationsEnabled } from '../../../../lib/circle-leader-toolkit/coaching/feature-flag';
 
 export default function CircleLeaderCarePage() {
   const params = useParams();
@@ -50,11 +52,25 @@ export default function CircleLeaderCarePage() {
           )}
 
           {isAdmin() ? (
-            <ACPDTrackingSection
-              leaderId={leaderId}
-              leaderName={leaderName}
-              onNoteSaved={async () => {}}
-            />
+            <div className="space-y-10">
+              <ACPDTrackingSection
+                leaderId={leaderId}
+                leaderName={leaderName}
+                onNoteSaved={async () => {}}
+              />
+
+              {isCoachingAutomationsEnabled() && (
+                <section>
+                  <div className="mb-4">
+                    <h2 className="text-base font-semibold text-white tracking-tight">Timeline</h2>
+                    <p className="text-sm text-slate-400 mt-0.5">
+                      Every coaching touchpoint for this leader — nudges sent, notes, encouragements, and scorecard changes.
+                    </p>
+                  </div>
+                  <CoachingTimeline leaderId={leaderId} />
+                </section>
+              )}
+            </div>
           ) : (
             <div className="text-center py-16 text-slate-400">
               You do not have access to this section.
