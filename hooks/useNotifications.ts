@@ -23,7 +23,19 @@ export function useNotifications() {
   const [items, setItems] = useState<NotificationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<InboxView>('all');
-  const [typeFilter, setTypeFilter] = useState<NotificationType | 'all'>('all');
+  // Multi-select type filter. Empty set = show all types.
+  const [typeFilters, setTypeFilters] = useState<Set<NotificationType>>(new Set());
+
+  const toggleType = useCallback((t: NotificationType) => {
+    setTypeFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(t)) next.delete(t);
+      else next.add(t);
+      return next;
+    });
+  }, []);
+
+  const clearTypes = useCallback(() => setTypeFilters(new Set()), []);
 
   const broadcastUnread = useCallback((rows: NotificationRow[]) => {
     const count = rows.filter((n) => !n.read_at && !n.archived_at).length;
@@ -127,10 +139,10 @@ export function useNotifications() {
   const filtered = useMemo(() => {
     return items.filter((n) => {
       if (view === 'unread' && n.read_at) return false;
-      if (typeFilter !== 'all' && n.type !== typeFilter) return false;
+      if (typeFilters.size > 0 && !typeFilters.has(n.type)) return false;
       return true;
     });
-  }, [items, view, typeFilter]);
+  }, [items, view, typeFilters]);
 
   const unreadCount = useMemo(
     () => items.filter((n) => !n.read_at && !n.archived_at).length,
@@ -142,8 +154,9 @@ export function useNotifications() {
     loading,
     view,
     setView,
-    typeFilter,
-    setTypeFilter,
+    typeFilters,
+    toggleType,
+    clearTypes,
     unreadCount,
     markRead,
     markUnread,

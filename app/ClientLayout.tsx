@@ -40,6 +40,13 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   const isBoardDetailPage = /^\/boards\/[^/]+/.test(pathname);
   const isNotebookPage = pathname.startsWith('/notebook');
 
+  // Immersive, full-screen routes: messaging and the inbox take over the whole
+  // viewport (no app nav, footer, or FAB) and provide their own back button.
+  const isImmersive = (() => {
+    const p = pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+    return p === '/messages' || p === '/inbox';
+  })();
+
   const content = isPublic ? children : <ProtectedRoute>{children}</ProtectedRoute>;
 
   return (
@@ -50,7 +57,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
       {/* Route transition progress bar */}
       <NavigationProgress />
 
-      {!hideChrome && (
+      {!hideChrome && !isImmersive && (
         <>
           {/* Mobile Navigation */}
           <MobileNavigation />
@@ -63,10 +70,11 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
         </>
       )}
 
-      {/* Main Content — bottom padding clears the fixed bottom nav + safe area on mobile */}
-      <main className="mobile-nav-padding">{content}</main>
+      {/* Main Content — bottom padding clears the fixed bottom nav + safe area on
+          mobile, except on immersive routes that fill the whole viewport. */}
+      <main className={isImmersive ? '' : 'mobile-nav-padding'}>{content}</main>
 
-      {!hideChrome && !isNotebookPage && (
+      {!hideChrome && !isNotebookPage && !isImmersive && (
         <>
           {/* Footer — extra bottom padding on board detail pages to clear the fixed shortcut bar */}
           <div className={isBoardDetailPage ? 'pb-10' : ''}>

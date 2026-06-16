@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { MessageSquare } from 'lucide-react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../contexts/AuthContext';
@@ -15,6 +16,13 @@ import type { AcpdMessage } from '../../lib/acpdMessagingClient';
 function MessagesContent() {
   const { isAdmin } = useAuth();
   const admin = isAdmin();
+  const router = useRouter();
+
+  // Immersive route — provide our own way back into the app.
+  const exit = useCallback(() => {
+    if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+    else router.push('/dashboard');
+  }, [router]);
 
   const {
     me,
@@ -66,7 +74,7 @@ function MessagesContent() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-5.5rem)] overflow-hidden bg-[#0f1117] md:h-[calc(100dvh-3.5rem)]">
+    <div className="flex h-[100dvh] overflow-hidden bg-[#0f1117]">
       {/* Sidebar */}
       <aside
         className={`w-full border-white/[0.06] md:flex md:w-[340px] md:border-r ${
@@ -80,6 +88,7 @@ function MessagesContent() {
           loading={loadingOverview}
           onSelect={selectConversation}
           onNewMessage={() => setNewOpen(true)}
+          onExit={exit}
           showNotifPrompt={showNotifPrompt}
           onEnableNotifications={handleEnableNotifications}
         />

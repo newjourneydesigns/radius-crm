@@ -1,5 +1,29 @@
 [
   {
+    "date": "2026-06-16",
+    "version": "2.24.0",
+    "date_display": "June 16, 2026",
+    "date_iso": "2026-06-16",
+    "id": "messages-inbox-fullscreen",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Messages",
+    "description": "Messages and the Inbox now open full-screen for a focused, app-like experience — the surrounding navigation steps out of the way, with a back button to return to the rest of Radius.",
+    "page": "/messages"
+  },
+  {
+    "date": "2026-06-16",
+    "version": "2.23.0",
+    "date_display": "June 16, 2026",
+    "date_iso": "2026-06-16",
+    "id": "inbox-filter-drawer",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Inbox",
+    "description": "Filtering the Inbox by type is now a drawer with checkboxes, so you can combine types — e.g. see card assignments and comments together — instead of picking just one. The Filter button shows how many types are active.",
+    "page": "/inbox"
+  },
+  {
     "date": "2026-06-15",
     "version": "2.22.0",
     "date_display": "June 15, 2026",

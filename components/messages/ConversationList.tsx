@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus, Bell } from 'lucide-react';
+import { Plus, Bell, ChevronLeft } from 'lucide-react';
 import Avatar from './Avatar';
 import { formatListTime, type AcpdConversationSummary } from '../../lib/acpdMessagingClient';
 
@@ -11,6 +11,7 @@ interface ConversationListProps {
   loading: boolean;
   onSelect: (id: string) => void;
   onNewMessage: () => void;
+  onExit: () => void;
   showNotifPrompt: boolean;
   onEnableNotifications: () => void;
 }
@@ -22,14 +23,29 @@ export default function ConversationList({
   loading,
   onSelect,
   onNewMessage,
+  onExit,
   showNotifPrompt,
   onEnableNotifications,
 }: ConversationListProps) {
   return (
     <div className="flex h-full flex-col bg-[#15171d] md:bg-transparent">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-5 pb-3 md:pt-4">
-        <h1 className="text-lg font-semibold text-white">Messages</h1>
+      <div
+        className="flex items-center justify-between px-4 pb-3"
+        style={{ paddingTop: 'max(1.25rem, calc(env(safe-area-inset-top) + 0.5rem))' }}
+      >
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onExit}
+            className="-ml-1.5 grid h-8 w-8 place-items-center rounded-full text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-white"
+            aria-label="Back"
+            title="Back"
+          >
+            <ChevronLeft className="h-5 w-5" strokeWidth={2.2} />
+          </button>
+          <h1 className="text-lg font-semibold text-white">Messages</h1>
+        </div>
         <button
           type="button"
           onClick={onNewMessage}

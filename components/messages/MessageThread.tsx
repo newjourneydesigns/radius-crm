@@ -101,7 +101,10 @@ export default function MessageThread({
   return (
     <div className="flex h-full flex-col bg-[#0f1117]">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-white/[0.06] bg-[#15171d]/80 px-3 py-3 backdrop-blur md:px-5">
+      <div
+        className="flex items-center gap-3 border-b border-white/[0.06] bg-[#15171d]/80 px-3 py-3 backdrop-blur md:px-5"
+        style={{ paddingTop: 'max(0.75rem, calc(env(safe-area-inset-top) + 0.25rem))' }}
+      >
         <button
           type="button"
           onClick={onBack}
@@ -195,7 +198,10 @@ export default function MessageThread({
       </div>
 
       {/* Composer */}
-      <div className="border-t border-white/[0.06] bg-[#15171d] px-3 py-3 md:px-6">
+      <div
+        className="border-t border-white/[0.06] bg-[#15171d] px-3 py-3 md:px-6"
+        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+      >
         {error && <p className="mb-2 px-1 text-[12px] text-red-400">{error}</p>}
         <div className="mx-auto flex max-w-3xl items-end gap-2">
           <textarea
