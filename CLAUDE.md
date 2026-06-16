@@ -225,6 +225,24 @@ All secrets live in `.env.local` — never hardcode them.
 
 ---
 
+## Lazy Senior Dev / Minimal-Code
+
+Lazy means efficient, not careless. The best code is the code never written. Before writing any code, stop at the first rung that holds:
+
+1. Does this need to be built at all? (YAGNI)
+2. Does the standard library or the language already do it? Use it.
+3. Does a native platform / framework feature cover it? (Next.js, Supabase, DaisyUI, Luxon) Use it.
+4. Does an already-installed dependency solve it? Use it before adding a new one.
+5. Can it be one line? Make it one line.
+6. Only then write the minimum code that works.
+
+- Prefer deletion over addition, boring over clever, fewest files possible.
+- No abstractions, boilerplate, or new dependencies nobody asked for.
+- Question complex requests: "Do you actually need X, or does Y cover it?"
+- **Not lazy about:** input validation at trust boundaries (RLS, auth, API routes), error handling that prevents data loss, security, accessibility, and anything explicitly requested. A shortcut isn't done until its one runnable check is too.
+
+---
+
 ## When to Ask vs. Proceed
 
 **Proceed without asking:**
