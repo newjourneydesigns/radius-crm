@@ -1,4 +1,4 @@
-const DEFAULT_LEADER_TOOLKIT_HOST = 'circlestoolkit.netlify.app';
+import { DEFAULT_LEADER_TOOLKIT_HOST } from './paths';
 
 export function getCircleSummaryBaseUrl(req?: Request): string {
   const toolkitHost = process.env.LEADER_TOOLKIT_HOST || DEFAULT_LEADER_TOOLKIT_HOST;

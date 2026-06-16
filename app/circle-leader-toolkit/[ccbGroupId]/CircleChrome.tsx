@@ -8,6 +8,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import CircleTabs from './CircleTabs';
 import CircleOnboardingPrompts from './CircleOnboardingPrompts';
 import { useFitText } from '../../../hooks/useFitText';
+import { isToolkitHostName, toolkitGroupPath } from '../../../lib/circle-leader-toolkit/paths';
 
 export type HeaderLeader = {
   id: number | string;
@@ -35,11 +36,17 @@ export default function CircleChrome({
 }) {
   const router = useRouter();
   const pathname = (usePathname() ?? '').replace(/\/+$/, '');
+  const isDedicatedToolkitHost =
+    typeof window !== 'undefined' && isToolkitHostName(window.location.hostname);
 
   const base = `/circle-leader-toolkit/${groupId}`;
-  const tail = pathname.startsWith(base)
-    ? pathname.slice(base.length).replace(/^\/+/, '').split('/')[0]
-    : '';
+  const cleanBase = `/${groupId}`;
+  const pathBase = pathname.startsWith(base)
+    ? base
+    : isDedicatedToolkitHost && pathname.startsWith(cleanBase)
+      ? cleanBase
+      : '';
+  const tail = pathBase ? pathname.slice(pathBase.length).replace(/^\/+/, '').split('/')[0] : '';
   const active: ActiveTab | null =
     tail === 'events' ? 'events'
     : tail === 'roster' ? 'roster'
@@ -48,7 +55,9 @@ export default function CircleChrome({
     : tail === 'health' ? 'health'
     : tail === 'settings' ? 'settings'
     : null;
-  const isEventSummaryForm = pathname.startsWith(`${base}/events/`);
+  const isEventSummaryForm =
+    pathname.startsWith(`${base}/events/`) ||
+    (isDedicatedToolkitHost && pathname.startsWith(`${cleanBase}/events/`));
 
   // Rare correctness guard: if the signed-in leader's group differs from the
   // URL group (e.g. a stale bookmark after a group change), send them to their
@@ -58,9 +67,9 @@ export default function CircleChrome({
 
   useEffect(() => {
     if (groupMismatch && leaderGroupId) {
-      router.replace(`/circle-leader-toolkit/${leaderGroupId}/${active}`);
+      router.replace(toolkitGroupPath(leaderGroupId, active, { cleanHost: isDedicatedToolkitHost }));
     }
-  }, [groupMismatch, leaderGroupId, active, router]);
+  }, [groupMismatch, leaderGroupId, active, router, isDedicatedToolkitHost]);
 
   const firstName = leader.name ? leader.name.trim().split(/\s+/)[0] : null;
   const title = `${firstName ? `${firstName}'s` : 'Your'} Circle`;
@@ -87,7 +96,7 @@ export default function CircleChrome({
               </div>
               <div className="flex items-center gap-4 min-w-0">
                 <Link
-                  href={`/circle-leader-toolkit/${groupId}/events`}
+                  href={toolkitGroupPath(groupId, 'events', { cleanHost: isDedicatedToolkitHost })}
                   aria-label="Back to Events"
                   className="shrink-0"
                 >
@@ -135,9 +144,11 @@ export default function CircleChrome({
 
 function SettingsButton({ groupId, active }: { groupId: string; active: ActiveTab | null }) {
   const isActive = active === 'settings';
+  const isDedicatedToolkitHost =
+    typeof window !== 'undefined' && isToolkitHostName(window.location.hostname);
   return (
     <Link
-      href={`/circle-leader-toolkit/${groupId}/settings`}
+      href={toolkitGroupPath(groupId, 'settings', { cleanHost: isDedicatedToolkitHost })}
       aria-label="Settings"
       aria-current={isActive ? 'page' : undefined}
       className={

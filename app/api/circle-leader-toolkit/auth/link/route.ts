@@ -22,6 +22,10 @@ import {
   isCircleSummaryAccessEnabled,
 } from '../../../../../lib/circle-leader-toolkit/session';
 import { createServiceSupabaseClient } from '../../../../../lib/server-supabase';
+import {
+  isToolkitHostName,
+  stripToolkitPrefix,
+} from '../../../../../lib/circle-leader-toolkit/paths';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,6 +43,11 @@ function getRequestOrigin(req: Request): string {
     return `${proto}://${host}`;
   }
   return new URL(req.url).origin;
+}
+
+function getRequestHostName(req: Request): string | null {
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
+  return host?.split(':')[0] ?? null;
 }
 
 function safeCircleSummaryPath(path: string | null): string {
@@ -60,6 +69,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const token = url.searchParams.get('t') || '';
   const next = safeCircleSummaryPath(url.searchParams.get('next'));
+  const cleanToolkitHost = isToolkitHostName(getRequestHostName(req));
 
   const supabase = createServiceSupabaseClient();
   const verified = verifySessionToken(token);
@@ -112,6 +122,7 @@ export async function GET(req: Request) {
       resolvedNext = `/circle-leader-toolkit/${leader.ccb_group_id}/events`;
     }
   }
+  resolvedNext = cleanToolkitHost ? stripToolkitPrefix(resolvedNext) : resolvedNext;
 
   const previewOrigin = getRequestOrigin(req);
   const previewUrl = `${previewOrigin}/`;

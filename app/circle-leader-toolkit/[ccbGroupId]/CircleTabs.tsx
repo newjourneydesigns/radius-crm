@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { setCircleSummaryAppBadge } from '../../../lib/circle-leader-toolkit/badging';
+import { isToolkitHostName, toolkitGroupPath } from '../../../lib/circle-leader-toolkit/paths';
 
 type Tab = 'events' | 'roster' | 'inbox' | 'resources' | 'health' | 'settings';
 
@@ -16,6 +17,8 @@ export default function CircleTabs({
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
   const [pendingSummaryCount, setPendingSummaryCount] = useState<number | null>(null);
   const [totalAlertCount, setTotalAlertCount] = useState<number | null>(null);
+  const isDedicatedToolkitHost =
+    typeof window !== 'undefined' && isToolkitHostName(window.location.hostname);
 
   const refreshUnread = useCallback(async () => {
     try {
@@ -60,13 +63,13 @@ export default function CircleTabs({
   }, [refreshUnread]);
 
   const tabs: Array<{ key: Tab; label: string; href: string }> = [
-    { key: 'events', label: 'Events', href: `/circle-leader-toolkit/${urlGroupId}/events` },
-    { key: 'roster', label: 'Roster', href: `/circle-leader-toolkit/${urlGroupId}/roster` },
-    { key: 'resources', label: 'Resources', href: `/circle-leader-toolkit/${urlGroupId}/resources` },
+    { key: 'events', label: 'Events', href: toolkitGroupPath(urlGroupId, 'events', { cleanHost: isDedicatedToolkitHost }) },
+    { key: 'roster', label: 'Roster', href: toolkitGroupPath(urlGroupId, 'roster', { cleanHost: isDedicatedToolkitHost }) },
+    { key: 'resources', label: 'Resources', href: toolkitGroupPath(urlGroupId, 'resources', { cleanHost: isDedicatedToolkitHost }) },
     // Health section hidden — not ready to roll out. Re-enable by uncommenting this tab
     // and removing the redirect in [ccbGroupId]/health/page.tsx.
     // { key: 'health', label: 'Health', href: `/circle-leader-toolkit/${urlGroupId}/health` },
-    { key: 'inbox', label: 'Inbox', href: `/circle-leader-toolkit/${urlGroupId}/inbox` },
+    { key: 'inbox', label: 'Inbox', href: toolkitGroupPath(urlGroupId, 'inbox', { cleanHost: isDedicatedToolkitHost }) },
   ];
   const hasUnreadMessages = unreadCount !== null && unreadCount > 0;
   const hasPendingSummaries = pendingSummaryCount !== null && pendingSummaryCount > 0;
@@ -121,7 +124,7 @@ export default function CircleTabs({
 
       {hasAlerts && (hasUnreadMessages ? active !== 'inbox' : active !== 'events') && (
         <Link
-          href={hasUnreadMessages ? `/circle-leader-toolkit/${urlGroupId}/inbox` : `/circle-leader-toolkit/${urlGroupId}/events`}
+          href={toolkitGroupPath(urlGroupId, hasUnreadMessages ? 'inbox' : 'events', { cleanHost: isDedicatedToolkitHost })}
           className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 text-neutral-900 shadow-lg ring-2 ring-red-400"
         >
           <span className="flex items-start gap-3 min-w-0">

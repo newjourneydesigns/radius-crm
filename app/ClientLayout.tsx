@@ -11,10 +11,17 @@ import { QuickActionsProvider } from "../contexts/QuickActionsContext";
 import NavigationProgress from "../components/layout/NavigationProgress";
 import ProtectedRoute from "../components/ProtectedRoute";
 import HapticsProvider from "../components/HapticsProvider";
+import { isToolkitHostName } from "../lib/circle-leader-toolkit/paths";
 
 // Only these routes are accessible without being signed in.
 // `/auth/*` is required for the Supabase magic-link callback to complete the login flow.
-function isPublicRoute(pathname: string) {
+function isCleanToolkitRoute(pathname: string) {
+  return /^\/\d+\/(events|roster|inbox|resources|health|settings|help)(\/|$)/.test(pathname);
+}
+
+function isPublicRoute(pathname: string, isDedicatedToolkitHost = false) {
+  if (isDedicatedToolkitHost) return true;
+
   // Strip a trailing slash so '/login/' matches '/login' (Netlify can add one).
   const p = pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
   return (
@@ -22,6 +29,7 @@ function isPublicRoute(pathname: string) {
     p === '/search' ||
     p.startsWith('/auth') ||
     p.startsWith('/circle-leader-toolkit') ||
+    isCleanToolkitRoute(p) ||
     // Public intake forms — anyone can fill these out without signing in.
     p === '/f' ||
     p.startsWith('/f/')
@@ -30,11 +38,15 @@ function isPublicRoute(pathname: string) {
 
 function LayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isPublic = isPublicRoute(pathname);
+  const isDedicatedToolkitHost =
+    typeof window !== 'undefined' && isToolkitHostName(window.location.hostname);
+  const isPublic = isPublicRoute(pathname, isDedicatedToolkitHost);
   const hideChrome =
+    isDedicatedToolkitHost ||
     pathname === '/login' ||
     pathname.startsWith('/auth') ||
     pathname.startsWith('/circle-leader-toolkit') ||
+    isCleanToolkitRoute(pathname) ||
     pathname === '/f' ||
     pathname.startsWith('/f/');
   const isBoardDetailPage = /^\/boards\/[^/]+/.test(pathname);

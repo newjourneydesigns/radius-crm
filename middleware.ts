@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-
-const TOOLKIT_PREFIX = '/circle-leader-toolkit';
-const DEFAULT_LEADER_TOOLKIT_HOST = 'circlestoolkit.netlify.app';
+import { DEFAULT_LEADER_TOOLKIT_HOST, TOOLKIT_PREFIX } from './lib/circle-leader-toolkit/paths';
 
 // Matches any path with a file extension (icons, manifest, css, etc.) so
 // static assets are served as-is without rewriting.
