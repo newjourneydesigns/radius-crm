@@ -7,6 +7,7 @@ import { NOTIFICATION_TYPE_META, type NotificationType } from '../../lib/notific
 
 const TYPES: NotificationType[] = [
   'message',
+  'mention',
   'card_assignment',
   'card_comment',
   'board_share',

@@ -29,8 +29,27 @@ export interface AcpdMessage {
   senderName: string;
   body: string;
   createdAt: string;
+  editedAt?: string | null;
+  pinnedAt?: string | null;
+  pinnedBy?: string | null;
   likeCount?: number;
   likedByMe?: boolean;
+}
+
+export interface AcpdMember {
+  id: string;
+  name: string;
+  email: string;
+  lastReadAt?: string | null;
+}
+
+export interface AcpdSearchResult {
+  id: string;
+  conversationId: string;
+  senderId: string | null;
+  senderName: string;
+  body: string;
+  createdAt: string;
 }
 
 export interface AcpdOverview {

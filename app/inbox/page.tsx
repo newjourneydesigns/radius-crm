@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Settings, CheckCheck, Inbox as InboxIcon, ChevronLeft, SlidersHorizontal } from 'lucide-react';
+import { Settings, CheckCheck, Inbox as InboxIcon, ChevronLeft, SlidersHorizontal, Search, X } from 'lucide-react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useNotifications, type InboxView } from '../../hooks/useNotifications';
 import NotificationRow from '../../components/inbox/NotificationRow';
@@ -21,6 +21,8 @@ function InboxContent() {
     loading,
     view,
     setView,
+    search,
+    setSearch,
     typeFilters,
     toggleType,
     clearTypes,
@@ -86,6 +88,29 @@ function InboxContent() {
             >
               <Settings className="h-[18px] w-[18px]" />
             </button>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="mx-auto mt-3 max-w-2xl">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search notifications…"
+              className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-2 pl-9 pr-9 text-sm text-slate-100 placeholder:text-slate-500 focus:border-vc-500/40 focus:outline-none focus:ring-1 focus:ring-vc-500/30"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full text-slate-500 hover:bg-white/10 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
 

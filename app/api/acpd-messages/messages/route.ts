@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
-import { requireAcpd, sendMessagePush } from '../../../../lib/acpdMessaging';
+import { requireAcpd, sendMessagePush, notifyMentions, editMessage } from '../../../../lib/acpdMessaging';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,14 +39,19 @@ export async function GET(req: NextRequest) {
   const [{ data: messages }, { data: members }] = await Promise.all([
     supabase
       .from('acpd_messages')
-      .select('id, conversation_id, sender_id, body, created_at, users:sender_id (id, name)')
+      .select('id, conversation_id, sender_id, body, created_at, edited_at, pinned_at, pinned_by, users:sender_id (id, name)')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true }),
     supabase
       .from('acpd_conversation_members')
-      .select('user_id, users:user_id (id, name, email)')
+      .select('user_id, last_read_at, muted, users:user_id (id, name, email)')
       .eq('conversation_id', conversationId),
   ]);
+
+  // Snapshot the caller's mute + everyone's last-read (for read receipts) BEFORE
+  // we advance the caller's own last_read_at below.
+  const memberRows = (members || []) as any[];
+  const myMuted = memberRows.find((m) => m.user_id === profile.id)?.muted ?? false;
 
   // Reading the thread clears its unread state.
   await supabase
@@ -80,6 +85,9 @@ export async function GET(req: NextRequest) {
       senderName: m.users?.name || 'Unknown',
       body: m.body,
       createdAt: m.created_at,
+      editedAt: m.edited_at || null,
+      pinnedAt: m.pinned_at || null,
+      pinnedBy: m.pinned_by || null,
       likeCount: like?.count || 0,
       likedByMe: like?.mine || false,
     };
@@ -87,7 +95,10 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     messages: shaped,
-    members: ((members || []) as any[]).map((m) => m.users).filter(Boolean),
+    members: memberRows
+      .map((m) => (m.users ? { ...m.users, lastReadAt: m.last_read_at } : null))
+      .filter(Boolean),
+    muted: myMuted,
   });
 }
 
@@ -168,13 +179,22 @@ export async function POST(req: NextRequest) {
       .eq('user_id', profile.id),
   ]);
 
-  await sendMessagePush(supabase, {
-    conversationId,
-    senderId: profile.id,
-    senderName: profile.name,
-    body,
-    isChannel: conversation.kind === 'channel',
-  });
+  await Promise.all([
+    sendMessagePush(supabase, {
+      conversationId,
+      senderId: profile.id,
+      senderName: profile.name,
+      body,
+      isChannel: conversation.kind === 'channel',
+    }),
+    notifyMentions(supabase, {
+      conversationId,
+      senderId: profile.id,
+      senderName: profile.name,
+      body,
+      isChannel: conversation.kind === 'channel',
+    }),
+  ]);
 
   return NextResponse.json({
     message: {
@@ -186,4 +206,35 @@ export async function POST(req: NextRequest) {
       createdAt: inserted.created_at,
     },
   });
+}
+
+// PATCH /api/acpd-messages/messages — edit your own message.
+export async function PATCH(req: NextRequest) {
+  const { profile, response } = await requireAcpd(req);
+  if (response) return response;
+
+  let payload: { messageId?: string; body?: string } = {};
+  try {
+    payload = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  const messageId = payload.messageId?.trim();
+  const body = payload.body?.trim();
+  if (!messageId) return NextResponse.json({ error: 'messageId is required' }, { status: 400 });
+  if (!body) return NextResponse.json({ error: 'Message cannot be empty' }, { status: 400 });
+  if (body.length > MAX_BODY_LENGTH) return NextResponse.json({ error: 'Message is too long' }, { status: 400 });
+
+  const supabase = createServiceSupabaseClient();
+  try {
+    const updated = await editMessage(supabase, messageId, profile.id, body);
+    if (!updated) return NextResponse.json({ error: 'Message not found' }, { status: 404 });
+    return NextResponse.json({ message: updated });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Failed to edit message' },
+      { status: 400 }
+    );
+  }
 }

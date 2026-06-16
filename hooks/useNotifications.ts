@@ -23,6 +23,7 @@ export function useNotifications() {
   const [items, setItems] = useState<NotificationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<InboxView>('all');
+  const [search, setSearch] = useState('');
   // Multi-select type filter. Empty set = show all types.
   const [typeFilters, setTypeFilters] = useState<Set<NotificationType>>(new Set());
 
@@ -137,12 +138,14 @@ export function useNotifications() {
   }, [broadcastUnread]);
 
   const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return items.filter((n) => {
       if (view === 'unread' && n.read_at) return false;
       if (typeFilters.size > 0 && !typeFilters.has(n.type)) return false;
+      if (q && !`${n.title} ${n.body ?? ''}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [items, view, typeFilters]);
+  }, [items, view, typeFilters, search]);
 
   const unreadCount = useMemo(
     () => items.filter((n) => !n.read_at && !n.archived_at).length,
@@ -154,6 +157,8 @@ export function useNotifications() {
     loading,
     view,
     setView,
+    search,
+    setSearch,
     typeFilters,
     toggleType,
     clearTypes,

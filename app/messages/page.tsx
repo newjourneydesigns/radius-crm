@@ -31,6 +31,8 @@ function MessagesContent() {
     selectedId,
     selectedConversation,
     messages,
+    members,
+    muted,
     loadingOverview,
     loadingThread,
     sending,
@@ -42,6 +44,10 @@ function MessagesContent() {
     toggleLike,
     deleteMessage,
     deleteConversation,
+    editMessage,
+    togglePin,
+    toggleMute,
+    searchMessages,
     clearSelection,
   } = useAcpdMessaging(admin);
 
@@ -92,6 +98,7 @@ function MessagesContent() {
           onSelect={selectConversation}
           onNewMessage={() => setNewOpen(true)}
           onExit={exit}
+          onSearchMessages={searchMessages}
           showNotifPrompt={showNotifPrompt}
           onEnableNotifications={handleEnableNotifications}
         />
@@ -107,12 +114,18 @@ function MessagesContent() {
             loading={loadingThread}
             sending={sending}
             error={error}
+            members={members}
+            muted={muted}
+            meName={me?.name ?? ''}
             onSend={sendMessage}
             onBack={clearSelection}
             onForward={setForwarding}
             onToggleLike={toggleLike}
             onDeleteMessage={deleteMessage}
             onDeleteConversation={deleteConversation}
+            onEditMessage={editMessage}
+            onTogglePin={togglePin}
+            onToggleMute={toggleMute}
           />
         ) : selectedId ? (
           // Selected but not resolved yet (e.g. a DM you just started) — show a

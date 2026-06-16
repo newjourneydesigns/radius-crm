@@ -7,6 +7,8 @@ import {
   type AcpdOverview,
   type AcpdConversationSummary,
   type AcpdMessage,
+  type AcpdMember,
+  type AcpdSearchResult,
 } from '../lib/acpdMessagingClient';
 import { useRealtimeSubscription } from './useRealtimeSubscription';
 
@@ -20,6 +22,8 @@ export function useAcpdMessaging(enabled: boolean) {
   const [loadingOverview, setLoadingOverview] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AcpdMessage[]>([]);
+  const [members, setMembers] = useState<AcpdMember[]>([]);
+  const [muted, setMuted] = useState(false);
   const [loadingThread, setLoadingThread] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +72,8 @@ export function useAcpdMessaging(enabled: boolean) {
       const data = await res.json();
       if (selectedIdRef.current === conversationId) {
         setMessages(data.messages || []);
+        setMembers(data.members || []);
+        setMuted(Boolean(data.muted));
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load this conversation');
@@ -271,6 +277,74 @@ export function useAcpdMessaging(enabled: boolean) {
     }
   }, [loadOverview]);
 
+  // Edit one of your own messages.
+  const editMessage = useCallback(async (messageId: string, body: string): Promise<boolean> => {
+    const trimmed = body.trim();
+    if (!trimmed) return false;
+    try {
+      const res = await acpdFetch('/api/acpd-messages/messages', {
+        method: 'PATCH',
+        body: JSON.stringify({ messageId, body: trimmed }),
+      });
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}));
+        throw new Error(b?.error || 'Could not edit the message');
+      }
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, body: trimmed, editedAt: new Date().toISOString() } : m))
+      );
+      loadOverview();
+      return true;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not edit the message');
+      return false;
+    }
+  }, [loadOverview]);
+
+  // Pin / unpin a message (optimistic; resync on failure).
+  const togglePin = useCallback(async (messageId: string, pinned: boolean): Promise<void> => {
+    setMessages((prev) =>
+      prev.map((m) => (m.id === messageId ? { ...m, pinnedAt: pinned ? new Date().toISOString() : null } : m))
+    );
+    try {
+      const res = await acpdFetch('/api/acpd-messages/pin', {
+        method: 'POST',
+        body: JSON.stringify({ messageId, pinned }),
+      });
+      if (!res.ok) throw new Error('pin failed');
+    } catch {
+      const c = selectedIdRef.current;
+      if (c) loadThread(c);
+    }
+  }, [loadThread]);
+
+  // Mute / unmute the open conversation for me.
+  const toggleMute = useCallback(async (conversationId: string, nextMuted: boolean): Promise<void> => {
+    setMuted(nextMuted);
+    try {
+      const res = await acpdFetch('/api/acpd-messages/mute', {
+        method: 'POST',
+        body: JSON.stringify({ conversationId, muted: nextMuted }),
+      });
+      if (!res.ok) throw new Error('mute failed');
+    } catch {
+      setMuted(!nextMuted);
+    }
+  }, []);
+
+  // Search message bodies across my conversations.
+  const searchMessages = useCallback(async (q: string): Promise<AcpdSearchResult[]> => {
+    if (q.trim().length < 2) return [];
+    try {
+      const res = await acpdFetch(`/api/acpd-messages/search?q=${encodeURIComponent(q.trim())}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.results || []) as AcpdSearchResult[];
+    } catch {
+      return [];
+    }
+  }, []);
+
   // Initial load.
   useEffect(() => {
     if (!enabled) return;
@@ -346,6 +420,8 @@ export function useAcpdMessaging(enabled: boolean) {
     selectedId,
     selectedConversation,
     messages,
+    members,
+    muted,
     loadingOverview,
     loadingThread,
     sending,
@@ -358,6 +434,10 @@ export function useAcpdMessaging(enabled: boolean) {
     toggleLike,
     deleteMessage,
     deleteConversation,
+    editMessage,
+    togglePin,
+    toggleMute,
+    searchMessages,
     clearSelection: () => setSelectedId(null),
   };
 }

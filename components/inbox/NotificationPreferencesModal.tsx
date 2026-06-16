@@ -13,6 +13,7 @@ type PrefKey = keyof Omit<NotificationPreferences, 'user_id'>;
 
 const DEFAULTS: Record<PrefKey, boolean> = {
   notify_messages: true,
+  notify_mentions: true,
   notify_card_assignments: true,
   notify_card_comments: true,
   notify_board_shares: true,
@@ -46,6 +47,7 @@ export default function NotificationPreferencesModal({
       if (data) {
         setPrefs({
           notify_messages: data.notify_messages,
+          notify_mentions: data.notify_mentions ?? true,
           notify_card_assignments: data.notify_card_assignments,
           notify_card_comments: data.notify_card_comments,
           notify_board_shares: data.notify_board_shares,

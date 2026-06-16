@@ -1,19 +1,26 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { ChevronLeft, SendHorizontal, Forward, Heart, Trash2, MoreVertical } from 'lucide-react';
+import {
+  ChevronLeft, SendHorizontal, Heart, MoreVertical, MoreHorizontal, Forward,
+  Trash2, Pin, Pencil, BellOff, Bell, X, Check,
+} from 'lucide-react';
 import Avatar from './Avatar';
 import {
   formatMessageTime,
   formatDayDivider,
   type AcpdConversationSummary,
   type AcpdMessage,
+  type AcpdMember,
 } from '../../lib/acpdMessagingClient';
 
 interface MessageThreadProps {
   conversation: AcpdConversationSummary;
   messages: AcpdMessage[];
+  members: AcpdMember[];
+  muted: boolean;
   meId: string | null;
+  meName: string;
   loading: boolean;
   sending: boolean;
   error: string | null;
@@ -23,13 +30,29 @@ interface MessageThreadProps {
   onToggleLike: (messageId: string) => void;
   onDeleteMessage: (messageId: string) => void;
   onDeleteConversation: (conversationId: string) => void;
+  onEditMessage: (messageId: string, body: string) => Promise<boolean>;
+  onTogglePin: (messageId: string, pinned: boolean) => void;
+  onToggleMute: (conversationId: string, muted: boolean) => void;
 }
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
 
+// Highlight @mentions in a message body.
+function renderBody(text: string) {
+  return text.split(/(@[A-Za-z][\w]*)/g).map((part, i) =>
+    /^@[A-Za-z]/.test(part) ? (
+      <span key={i} className="font-semibold text-emerald-300">{part}</span>
+    ) : (
+      <span key={i}>{part}</span>
+    )
+  );
+}
+
 export default function MessageThread({
   conversation,
   messages,
+  members,
+  muted,
   meId,
   loading,
   sending,
@@ -40,9 +63,15 @@ export default function MessageThread({
   onToggleLike,
   onDeleteMessage,
   onDeleteConversation,
+  onEditMessage,
+  onTogglePin,
+  onToggleMute,
 }: MessageThreadProps) {
   const [draft, setDraft] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [actionMsg, setActionMsg] = useState<AcpdMessage | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isChannel = conversation.kind === 'channel';
@@ -58,9 +87,8 @@ export default function MessageThread({
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages, conversation.id]);
+  }, [messages.length, conversation.id]);
 
-  // Auto-grow the composer up to a few lines.
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -92,12 +120,34 @@ export default function MessageThread({
     return out;
   }, [messages]);
 
+  // Latest pinned message (for the banner).
+  const pinned = useMemo(() => {
+    const list = messages.filter((m) => m.pinnedAt);
+    return list.length ? list[list.length - 1] : null;
+  }, [messages]);
+
+  // Read receipts: the last message I sent, and who else has read up to it.
+  const lastMineId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) if (messages[i].senderId === meId) return messages[i].id;
+    return null;
+  }, [messages, meId]);
+
+  const seenLabel = (m: AcpdMessage): string | null => {
+    const others = (members || []).filter((mem) => mem.id !== meId);
+    if (others.length === 0) return null;
+    const seen = others.filter((o) => o.lastReadAt && new Date(o.lastReadAt) >= new Date(m.createdAt));
+    if (seen.length === 0) return null;
+    if (others.length === 1) return 'Seen';
+    if (seen.length === others.length) return 'Seen by everyone';
+    return `Seen by ${seen.length}`;
+  };
+
   const handleSend = async () => {
     const text = draft.trim();
     if (!text || sending) return;
     setDraft('');
     const ok = await onSend(text);
-    if (!ok) setDraft(text); // restore so nothing is lost on failure
+    if (!ok) setDraft(text);
     textareaRef.current?.focus();
   };
 
@@ -108,9 +158,29 @@ export default function MessageThread({
     }
   };
 
+  const startEdit = (m: AcpdMessage) => {
+    setActionMsg(null);
+    setEditingId(m.id);
+    setEditDraft(m.body);
+  };
+  const saveEdit = async () => {
+    if (!editingId) return;
+    const ok = await onEditMessage(editingId, editDraft);
+    if (ok) {
+      setEditingId(null);
+      setEditDraft('');
+    }
+  };
+
+  const scrollToMessage = (id: string) => {
+    document.getElementById(`msg-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
   const subtitle = isChannel
     ? 'Everyone on the ACPD team'
-    : conversation.otherUser?.email || 'Direct message';
+    : conversation.kind === 'group'
+      ? `${conversation.memberCount ?? members.length} members`
+      : conversation.otherUser?.email || 'Direct message';
 
   return (
     <div className="flex h-full w-full flex-col bg-[#0f1117]">
@@ -135,37 +205,74 @@ export default function MessageThread({
           size="sm"
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[15px] font-semibold text-white">{conversation.title}</p>
+          <p className="truncate text-[15px] font-semibold text-white">
+            {conversation.title}
+            {muted && <BellOff className="ml-1.5 inline h-3.5 w-3.5 text-slate-500" />}
+          </p>
           <p className="truncate text-[12px] text-slate-500">{subtitle}</p>
         </div>
 
-        {!isChannel && (
-          <div className="relative shrink-0">
-            <button
-              type="button"
-              onClick={() => setMenuOpen((v) => !v)}
-              aria-label="Conversation options"
-              className="grid h-9 w-9 place-items-center rounded-full text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-white"
-            >
-              <MoreVertical className="h-5 w-5" />
-            </button>
-            {menuOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-                <div className="absolute right-0 top-11 z-20 w-52 overflow-hidden rounded-xl border border-white/[0.08] bg-[#1a1c22] shadow-2xl shadow-black/50">
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label="Conversation options"
+            className="grid h-9 w-9 place-items-center rounded-full text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-white"
+          >
+            <MoreVertical className="h-5 w-5" />
+          </button>
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+              <div className="absolute right-0 top-11 z-20 w-56 overflow-hidden rounded-xl border border-white/[0.08] bg-[#1a1c22] shadow-2xl shadow-black/50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onToggleMute(conversation.id, !muted);
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13.5px] text-slate-200 transition-colors hover:bg-white/[0.05]"
+                >
+                  {muted ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+                  {muted ? 'Unmute conversation' : 'Mute conversation'}
+                </button>
+                {!isChannel && (
                   <button
                     type="button"
                     onClick={handleDeleteConversation}
-                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13.5px] text-red-400 transition-colors hover:bg-white/[0.05]"
+                    className="flex w-full items-center gap-2.5 border-t border-white/[0.06] px-3.5 py-2.5 text-left text-[13.5px] text-red-400 transition-colors hover:bg-white/[0.05]"
                   >
                     <Trash2 className="h-4 w-4" /> Delete conversation
                   </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
+
+      {/* Pinned banner */}
+      {pinned && (
+        <button
+          type="button"
+          onClick={() => scrollToMessage(pinned.id)}
+          className="flex items-center gap-2.5 border-b border-white/[0.06] bg-white/[0.03] px-4 py-2 text-left hover:bg-white/[0.05]"
+        >
+          <Pin className="h-3.5 w-3.5 shrink-0 text-amber-300" />
+          <span className="min-w-0 flex-1 truncate text-[12.5px] text-slate-300">
+            <span className="font-medium text-slate-400">{pinned.senderName}: </span>
+            {pinned.body}
+          </span>
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => { e.stopPropagation(); onTogglePin(pinned.id, false); }}
+            className="shrink-0 text-[11px] font-medium text-slate-500 hover:text-white"
+          >
+            Unpin
+          </span>
+        </button>
+      )}
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-4 md:px-6">
@@ -173,7 +280,7 @@ export default function MessageThread({
           <div className="flex h-full items-center justify-center text-sm text-slate-500">Loading…</div>
         ) : messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-            <Avatar name={conversation.title} seed={conversation.otherUser?.id} channel={isChannel} size="lg" />
+            <Avatar name={conversation.title} seed={conversation.otherUser?.id} channel={isChannel} group={conversation.kind === 'group'} size="lg" />
             <p className="mt-1 text-[15px] font-semibold text-slate-200">{conversation.title}</p>
             <p className="max-w-xs text-[13px] text-slate-500">
               {isChannel
@@ -197,8 +304,7 @@ export default function MessageThread({
               const mine = m.senderId === meId;
               const liked = !!m.likedByMe;
               const likeCount = m.likeCount || 0;
-              // Secondary actions are visible-but-subtle on mobile (no hover) and
-              // hover-revealed on desktop.
+              const editing = editingId === m.id;
               const subtle = 'opacity-60 md:opacity-0 md:group-hover:opacity-100 focus:opacity-100';
               const actions = (
                 <div className="mb-1 flex shrink-0 items-center gap-0.5 self-center">
@@ -217,34 +323,24 @@ export default function MessageThread({
                         <span className="text-[11px] font-medium">{likeCount}</span>
                       </>
                     ) : (
-                      <Heart className={`h-4 w-4 ${liked ? 'fill-emerald-400' : ''}`} />
+                      <Heart className="h-4 w-4" />
                     )}
                   </button>
                   <button
                     type="button"
-                    onClick={() => onForward(m)}
-                    aria-label="Forward message"
-                    title="Forward"
+                    onClick={() => setActionMsg(m)}
+                    aria-label="Message actions"
+                    title="More"
                     className={`grid h-7 w-7 place-items-center rounded-full text-slate-500 transition-all hover:bg-white/10 hover:text-white ${subtle}`}
                   >
-                    <Forward className="h-4 w-4" />
+                    <MoreHorizontal className="h-4 w-4" />
                   </button>
-                  {mine && (
-                    <button
-                      type="button"
-                      onClick={() => onDeleteMessage(m.id)}
-                      aria-label="Delete message"
-                      title="Delete"
-                      className={`grid h-7 w-7 place-items-center rounded-full text-slate-500 transition-all hover:bg-white/10 hover:text-red-400 ${subtle}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
                 </div>
               );
               return (
                 <div
                   key={row.key}
+                  id={`msg-${m.id}`}
                   className={`group flex items-end gap-1.5 ${mine ? 'justify-end' : 'justify-start'} ${
                     row.showMeta ? 'mt-3' : 'mt-0.5'
                   }`}
@@ -254,25 +350,58 @@ export default function MessageThread({
                       {row.showMeta && <Avatar name={m.senderName} seed={m.senderId || m.senderName} size="sm" />}
                     </div>
                   )}
-                  {mine && actions}
+                  {mine && !editing && actions}
                   <div className={`flex max-w-[78%] flex-col ${mine ? 'items-end' : 'items-start'}`}>
-                    {row.showMeta && isChannel && !mine && (
+                    {row.showMeta && (isChannel || conversation.kind === 'group') && !mine && (
                       <span className="mb-0.5 ml-1 text-[11px] font-medium text-slate-400">{m.senderName}</span>
                     )}
-                    <div
-                      className={`whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[14px] leading-snug ${
-                        mine
-                          ? 'rounded-br-md bg-vc-fab text-white'
-                          : 'rounded-bl-md bg-white/[0.07] text-slate-100'
-                      }`}
-                    >
-                      {m.body}
-                    </div>
-                    {row.showMeta && (
-                      <span className="mt-1 px-1 text-[10.5px] text-slate-500">{formatMessageTime(m.createdAt)}</span>
+                    {editing ? (
+                      <div className="flex w-[min(78vw,420px)] flex-col gap-2 rounded-2xl bg-white/[0.06] p-2">
+                        <textarea
+                          autoFocus
+                          value={editDraft}
+                          onChange={(e) => setEditDraft(e.target.value)}
+                          rows={2}
+                          className="resize-none rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[14px] text-slate-100 focus:border-vc-500/40 focus:outline-none"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => { setEditingId(null); setEditDraft(''); }}
+                            className="rounded-lg px-3 py-1.5 text-[12.5px] text-slate-300 hover:bg-white/10"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={saveEdit}
+                            disabled={!editDraft.trim()}
+                            className="rounded-lg bg-vc-fab px-3 py-1.5 text-[12.5px] font-semibold text-white disabled:opacity-40"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className={`whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[14px] leading-snug ${
+                          mine ? 'rounded-br-md bg-vc-fab text-white' : 'rounded-bl-md bg-white/[0.07] text-slate-100'
+                        }`}
+                      >
+                        {renderBody(m.body)}
+                      </div>
+                    )}
+                    {row.showMeta && !editing && (
+                      <span className="mt-1 px-1 text-[10.5px] text-slate-500">
+                        {formatMessageTime(m.createdAt)}
+                        {m.editedAt && ' · edited'}
+                      </span>
+                    )}
+                    {mine && m.id === lastMineId && seenLabel(m) && (
+                      <span className="px-1 text-[10.5px] font-medium text-slate-500">{seenLabel(m)}</span>
                     )}
                   </div>
-                  {!mine && actions}
+                  {!mine && !editing && actions}
                 </div>
               );
             })}
@@ -307,6 +436,69 @@ export default function MessageThread({
           </button>
         </div>
       </div>
+
+      {/* Per-message action sheet */}
+      {actionMsg && (
+        <div className="fixed inset-0 z-[10010]" onClick={() => setActionMsg(null)}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div
+            className="absolute inset-x-0 bottom-0 mx-auto max-w-md rounded-t-3xl border-t border-white/[0.08] bg-[#15171d] p-2 shadow-2xl shadow-black/50"
+            style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center py-2"><div className="h-1 w-10 rounded-full bg-white/15" /></div>
+            <SheetItem icon={<Forward className="h-[18px] w-[18px]" />} label="Forward" onClick={() => { const m = actionMsg; setActionMsg(null); onForward(m); }} />
+            <SheetItem
+              icon={<Pin className="h-[18px] w-[18px]" />}
+              label={actionMsg.pinnedAt ? 'Unpin message' : 'Pin message'}
+              onClick={() => { const m = actionMsg; setActionMsg(null); onTogglePin(m.id, !m.pinnedAt); }}
+            />
+            {actionMsg.senderId === meId && (
+              <>
+                <SheetItem icon={<Pencil className="h-[18px] w-[18px]" />} label="Edit message" onClick={() => startEdit(actionMsg)} />
+                <SheetItem
+                  icon={<Trash2 className="h-[18px] w-[18px]" />}
+                  label="Delete message"
+                  danger
+                  onClick={() => { const id = actionMsg.id; setActionMsg(null); onDeleteMessage(id); }}
+                />
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => setActionMsg(null)}
+              className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-400 hover:bg-white/[0.04]"
+            >
+              <X className="h-4 w-4" /> Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function SheetItem({
+  icon,
+  label,
+  onClick,
+  danger,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[14px] font-medium transition-colors hover:bg-white/[0.05] ${
+        danger ? 'text-red-400' : 'text-slate-200'
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }

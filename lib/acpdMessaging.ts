@@ -187,6 +187,115 @@ export async function isConversationMember(
   return Boolean(data);
 }
 
+/** Edit your own message; stamps edited_at. */
+export async function editMessage(
+  supabase: ServiceClient,
+  messageId: string,
+  userId: string,
+  body: string
+): Promise<{ id: string; body: string; edited_at: string } | null> {
+  const { data: msg } = await supabase
+    .from('acpd_messages')
+    .select('sender_id')
+    .eq('id', messageId)
+    .maybeSingle();
+  if (!msg) return null;
+  if (msg.sender_id !== userId) throw new Error('You can only edit your own messages');
+
+  const { data } = await supabase
+    .from('acpd_messages')
+    .update({ body, edited_at: new Date().toISOString() })
+    .eq('id', messageId)
+    .select('id, body, edited_at')
+    .single();
+  return data as { id: string; body: string; edited_at: string };
+}
+
+/** Pin or unpin a message (any member of the conversation may pin). */
+export async function setPin(
+  supabase: ServiceClient,
+  messageId: string,
+  userId: string,
+  pinned: boolean
+): Promise<void> {
+  const { data: msg } = await supabase
+    .from('acpd_messages')
+    .select('conversation_id')
+    .eq('id', messageId)
+    .maybeSingle();
+  if (!msg) throw new Error('Message not found');
+  if (!(await isConversationMember(supabase, msg.conversation_id, userId))) {
+    throw new Error('Not a member of this conversation');
+  }
+  await supabase
+    .from('acpd_messages')
+    .update(pinned ? { pinned_at: new Date().toISOString(), pinned_by: userId } : { pinned_at: null, pinned_by: null })
+    .eq('id', messageId);
+}
+
+/** Mute or unmute a conversation for a member (silences message push; an
+ *  @mention still pushes). */
+export async function setMute(
+  supabase: ServiceClient,
+  conversationId: string,
+  userId: string,
+  muted: boolean
+): Promise<void> {
+  await supabase
+    .from('acpd_conversation_members')
+    .update({ muted })
+    .eq('conversation_id', conversationId)
+    .eq('user_id', userId);
+}
+
+/**
+ * Create 'mention' inbox notifications (which also push, bypassing conversation
+ * mute) for any conversation members named with @first or @full name in the body.
+ */
+export async function notifyMentions(
+  supabase: ServiceClient,
+  opts: {
+    conversationId: string;
+    senderId: string;
+    senderName: string;
+    body: string;
+    isChannel: boolean;
+  }
+): Promise<void> {
+  if (!opts.body.includes('@')) return;
+
+  const { data: members } = await supabase
+    .from('acpd_conversation_members')
+    .select('user_id, users:user_id (id, name)')
+    .eq('conversation_id', opts.conversationId)
+    .neq('user_id', opts.senderId);
+
+  const lower = opts.body.toLowerCase();
+  const title = opts.isChannel
+    ? `${opts.senderName} mentioned you in ACPD Team`
+    : `${opts.senderName} mentioned you`;
+  const preview = opts.body.length > 140 ? `${opts.body.slice(0, 139)}…` : opts.body;
+
+  for (const row of (members || []) as any[]) {
+    const u = row.users;
+    if (!u?.id || !u?.name) continue;
+    const full = String(u.name).toLowerCase();
+    const first = full.split(/\s+/)[0];
+    if (!(lower.includes(`@${full}`) || (first && lower.includes(`@${first}`)))) continue;
+
+    await supabase.rpc('create_notification', {
+      p_user_id: u.id,
+      p_type: 'mention',
+      p_title: title,
+      p_body: preview,
+      p_link: '/messages',
+      p_actor_id: opts.senderId,
+      p_entity_type: 'conversation',
+      p_entity_id: opts.conversationId,
+    });
+  }
+}
+
 function configureWebPush(): boolean {
   const subject = process.env.WEB_PUSH_VAPID_SUBJECT || process.env.NEXT_PUBLIC_APP_URL || 'mailto:admin@example.com';
   const publicKey = process.env.NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY || process.env.WEB_PUSH_VAPID_PUBLIC_KEY;
@@ -213,11 +322,14 @@ export async function sendMessagePush(
 ): Promise<void> {
   if (!configureWebPush()) return;
 
+  // Skip members who muted this conversation — an @mention still reaches them
+  // separately via its own 'mention' notification.
   const { data: members } = await supabase
     .from('acpd_conversation_members')
     .select('user_id')
     .eq('conversation_id', opts.conversationId)
-    .neq('user_id', opts.senderId);
+    .neq('user_id', opts.senderId)
+    .eq('muted', false);
 
   const recipientIds = (members || []).map((m: { user_id: string }) => m.user_id);
   if (recipientIds.length === 0) return;

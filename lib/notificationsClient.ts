@@ -6,6 +6,7 @@ import { DateTime } from 'luxon';
 
 export type NotificationType =
   | 'message'
+  | 'mention'
   | 'card_assignment'
   | 'card_comment'
   | 'board_share'
@@ -31,6 +32,7 @@ export interface NotificationRow {
 export interface NotificationPreferences {
   user_id: string;
   notify_messages: boolean;
+  notify_mentions: boolean;
   notify_card_assignments: boolean;
   notify_card_comments: boolean;
   notify_board_shares: boolean;
@@ -44,6 +46,7 @@ export const NOTIFICATION_TYPE_META: Record<
   { label: string; prefKey: keyof Omit<NotificationPreferences, 'user_id'>; accent: string }
 > = {
   message:         { label: 'Messages',         prefKey: 'notify_messages',         accent: 'text-vc-300 bg-vc-500/15' },
+  mention:         { label: 'Mentions',         prefKey: 'notify_mentions',         accent: 'text-emerald-300 bg-emerald-500/15' },
   card_assignment: { label: 'Card assignments', prefKey: 'notify_card_assignments', accent: 'text-sky-300 bg-sky-500/15' },
   card_comment:    { label: 'Card comments',    prefKey: 'notify_card_comments',    accent: 'text-violet-300 bg-violet-500/15' },
   board_share:     { label: 'Board shares',     prefKey: 'notify_board_shares',     accent: 'text-amber-300 bg-amber-500/15' },
@@ -58,6 +61,7 @@ export const PREFERENCE_ROWS: Array<{
   description: string;
 }> = [
   { prefKey: 'notify_messages', label: 'Team messages', description: 'New messages in the ACPD team channel and DMs.' },
+  { prefKey: 'notify_mentions', label: 'Mentions', description: 'When someone @mentions you in a thread.' },
   { prefKey: 'notify_card_assignments', label: 'Card assignments', description: 'When a board card is assigned to you.' },
   { prefKey: 'notify_card_comments', label: 'Card comments', description: 'Comments on cards you own or are assigned to.' },
   { prefKey: 'notify_board_shares', label: 'Board shares', description: 'When a board is shared with you.' },
