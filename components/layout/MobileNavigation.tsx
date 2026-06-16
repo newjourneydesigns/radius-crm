@@ -250,6 +250,10 @@ export default function MobileNavigation() {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
   const admin = isAdmin();
 
+  // Inbox + Messages live inside the "More" sheet on mobile, so surface their
+  // unread state as a dot on the More tab itself.
+  const moreHasActivity = inboxUnreadCount > 0 || (admin && acpdUnreadCount > 0);
+
   const initials = user?.name
     ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
     : user?.email?.[0].toUpperCase() ?? '?';
@@ -413,16 +417,26 @@ export default function MobileNavigation() {
             );
           })}
 
-          {/* More tab — opens the sheet */}
+          {/* More tab — opens the sheet. Shows a dot when there's unread inbox
+              or team-message activity tucked inside it. */}
           <button
             type="button"
             role="tab"
             aria-selected={sheetOpen}
             aria-expanded={sheetOpen}
+            aria-label={moreHasActivity ? 'More, new activity' : 'More'}
             onClick={() => setSheetOpen(v => !v)}
             className={`mobile-tab-item${sheetOpen ? ' active' : ''}`}
           >
-            <span className={`mobile-tab-icon${sheetOpen ? ' active' : ''}`}><MoreTabIcon active={sheetOpen} /></span>
+            <span className={`mobile-tab-icon relative${sheetOpen ? ' active' : ''}`}>
+              <MoreTabIcon active={sheetOpen} />
+              {moreHasActivity && (
+                <span
+                  aria-hidden="true"
+                  className="absolute -top-0.5 -right-1.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[#0f1117]"
+                />
+              )}
+            </span>
             <span className={`mobile-tab-label${sheetOpen ? ' active' : ''}`}>More</span>
           </button>
         </div>

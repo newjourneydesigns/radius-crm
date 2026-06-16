@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-16",
+    "version": "2.25.0",
+    "date_display": "June 16, 2026",
+    "date_iso": "2026-06-16",
+    "id": "more-tab-activity-dot",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Navigation",
+    "description": "On mobile, the More tab now shows a red dot when you have unread inbox notifications or team messages waiting inside it — so you can tell at a glance without opening the menu.",
+    "page": "/inbox"
+  },
+  {
+    "date": "2026-06-16",
     "version": "2.24.0",
     "date_display": "June 16, 2026",
     "date_iso": "2026-06-16",
