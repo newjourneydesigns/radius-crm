@@ -37,8 +37,11 @@ function MessagesContent() {
     error,
     selectConversation,
     sendMessage,
-    startDm,
+    startGroup,
     forwardMessage,
+    toggleLike,
+    deleteMessage,
+    deleteConversation,
     clearSelection,
   } = useAcpdMessaging(admin);
 
@@ -107,6 +110,9 @@ function MessagesContent() {
             onSend={sendMessage}
             onBack={clearSelection}
             onForward={setForwarding}
+            onToggleLike={toggleLike}
+            onDeleteMessage={deleteMessage}
+            onDeleteConversation={deleteConversation}
           />
         ) : selectedId ? (
           // Selected but not resolved yet (e.g. a DM you just started) — show a
@@ -146,7 +152,7 @@ function MessagesContent() {
         isOpen={newOpen}
         onClose={() => setNewOpen(false)}
         directory={directory}
-        onStartDm={startDm}
+        onStart={startGroup}
       />
 
       <ForwardMessageModal

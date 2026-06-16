@@ -1,6 +1,42 @@
 [
   {
     "date": "2026-06-16",
+    "version": "2.28.0",
+    "date_display": "June 16, 2026",
+    "date_iso": "2026-06-16",
+    "id": "messaging-group-threads",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Messages",
+    "description": "Start a group message: in New Message, pick several directors to create a group thread (one person still starts a direct message). Group threads get their own icon and are named from the members.",
+    "page": "/messages"
+  },
+  {
+    "date": "2026-06-16",
+    "version": "2.27.0",
+    "date_display": "June 16, 2026",
+    "date_iso": "2026-06-16",
+    "id": "messaging-likes",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Messages",
+    "description": "Like a message with a 💚 — tap the heart on any message to react, and tap again to remove it. Like counts show on the message and update live.",
+    "page": "/messages"
+  },
+  {
+    "date": "2026-06-16",
+    "version": "2.26.0",
+    "date_display": "June 16, 2026",
+    "date_iso": "2026-06-16",
+    "id": "messaging-delete",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Messages",
+    "description": "Delete messages and conversations: remove your own messages from a thread, or delete an entire direct or group conversation from its options menu. (The shared ACPD Team channel can't be deleted.)",
+    "page": "/messages"
+  },
+  {
+    "date": "2026-06-16",
     "version": "2.25.1",
     "date_display": "June 16, 2026",
     "date_iso": "2026-06-16",

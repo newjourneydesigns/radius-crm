@@ -108,6 +108,85 @@ export async function getOrCreateDm(
   return created.id;
 }
 
+/**
+ * Create a group conversation with the creator plus the given members. With
+ * exactly one other member this is really a DM, so we reuse getOrCreateDm to
+ * avoid duplicate 1-on-1 threads.
+ */
+export async function createGroup(
+  supabase: ServiceClient,
+  creatorId: string,
+  memberIds: string[]
+): Promise<string> {
+  const others = Array.from(new Set(memberIds.filter((id) => id && id !== creatorId)));
+  if (others.length === 0) throw new Error('Pick at least one person');
+  if (others.length === 1) return getOrCreateDm(supabase, creatorId, others[0]);
+
+  const { data: created, error } = await supabase
+    .from('acpd_conversations')
+    .insert({ kind: 'group', created_by: creatorId })
+    .select('id')
+    .single();
+  if (error || !created) throw error || new Error('Failed to create group');
+
+  const rows = [creatorId, ...others].map((uid) => ({ conversation_id: created.id, user_id: uid }));
+  await supabase.from('acpd_conversation_members').insert(rows);
+
+  return created.id;
+}
+
+/** Permanently delete a DM/group conversation (cascades messages, members,
+ *  reactions). The shared team channel can't be deleted. */
+export async function deleteConversation(supabase: ServiceClient, conversationId: string): Promise<void> {
+  const { data: conv } = await supabase
+    .from('acpd_conversations')
+    .select('kind')
+    .eq('id', conversationId)
+    .maybeSingle();
+  if (!conv) return;
+  if (conv.kind === 'channel') throw new Error('The team channel cannot be deleted');
+  await supabase.from('acpd_conversations').delete().eq('id', conversationId);
+}
+
+/** Toggle the caller's 💚 like on a message. Returns the resulting state. */
+export async function toggleReaction(
+  supabase: ServiceClient,
+  messageId: string,
+  userId: string
+): Promise<{ liked: boolean }> {
+  const { data: existing } = await supabase
+    .from('acpd_message_reactions')
+    .select('id')
+    .eq('message_id', messageId)
+    .eq('user_id', userId)
+    .eq('emoji', '💚')
+    .maybeSingle();
+
+  if (existing) {
+    await supabase.from('acpd_message_reactions').delete().eq('id', existing.id);
+    return { liked: false };
+  }
+  await supabase
+    .from('acpd_message_reactions')
+    .insert({ message_id: messageId, user_id: userId, emoji: '💚' });
+  return { liked: true };
+}
+
+/** Whether a user belongs to a conversation. */
+export async function isConversationMember(
+  supabase: ServiceClient,
+  conversationId: string,
+  userId: string
+): Promise<boolean> {
+  const { data } = await supabase
+    .from('acpd_conversation_members')
+    .select('id')
+    .eq('conversation_id', conversationId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  return Boolean(data);
+}
+
 function configureWebPush(): boolean {
   const subject = process.env.WEB_PUSH_VAPID_SUBJECT || process.env.NEXT_PUBLIC_APP_URL || 'mailto:admin@example.com';
   const publicKey = process.env.NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY || process.env.WEB_PUSH_VAPID_PUBLIC_KEY;

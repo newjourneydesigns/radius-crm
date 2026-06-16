@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { ChevronLeft, SendHorizontal, Forward } from 'lucide-react';
+import { ChevronLeft, SendHorizontal, Forward, Heart, Trash2, MoreVertical } from 'lucide-react';
 import Avatar from './Avatar';
 import {
   formatMessageTime,
@@ -20,6 +20,9 @@ interface MessageThreadProps {
   onSend: (text: string) => Promise<boolean>;
   onBack: () => void;
   onForward: (message: AcpdMessage) => void;
+  onToggleLike: (messageId: string) => void;
+  onDeleteMessage: (messageId: string) => void;
+  onDeleteConversation: (conversationId: string) => void;
 }
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
@@ -34,11 +37,22 @@ export default function MessageThread({
   onSend,
   onBack,
   onForward,
+  onToggleLike,
+  onDeleteMessage,
+  onDeleteConversation,
 }: MessageThreadProps) {
   const [draft, setDraft] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isChannel = conversation.kind === 'channel';
+
+  const handleDeleteConversation = () => {
+    setMenuOpen(false);
+    if (window.confirm('Delete this conversation for everyone? This can’t be undone.')) {
+      onDeleteConversation(conversation.id);
+    }
+  };
 
   // Stick to the bottom as messages arrive or the conversation changes.
   useEffect(() => {
@@ -113,11 +127,44 @@ export default function MessageThread({
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
-        <Avatar name={conversation.title} seed={conversation.otherUser?.id} channel={isChannel} size="sm" />
-        <div className="min-w-0">
+        <Avatar
+          name={conversation.title}
+          seed={conversation.otherUser?.id}
+          channel={isChannel}
+          group={conversation.kind === 'group'}
+          size="sm"
+        />
+        <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-semibold text-white">{conversation.title}</p>
           <p className="truncate text-[12px] text-slate-500">{subtitle}</p>
         </div>
+
+        {!isChannel && (
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-label="Conversation options"
+              className="grid h-9 w-9 place-items-center rounded-full text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-white"
+            >
+              <MoreVertical className="h-5 w-5" />
+            </button>
+            {menuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+                <div className="absolute right-0 top-11 z-20 w-52 overflow-hidden rounded-xl border border-white/[0.08] bg-[#1a1c22] shadow-2xl shadow-black/50">
+                  <button
+                    type="button"
+                    onClick={handleDeleteConversation}
+                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13.5px] text-red-400 transition-colors hover:bg-white/[0.05]"
+                  >
+                    <Trash2 className="h-4 w-4" /> Delete conversation
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Messages */}
@@ -148,16 +195,52 @@ export default function MessageThread({
               }
               const m = row.message;
               const mine = m.senderId === meId;
-              const forwardBtn = (
-                <button
-                  type="button"
-                  onClick={() => onForward(m)}
-                  aria-label="Forward message"
-                  title="Forward"
-                  className="mb-1 grid h-7 w-7 shrink-0 place-items-center self-center rounded-full text-slate-500 opacity-0 transition-opacity hover:bg-white/10 hover:text-white focus:opacity-100 group-hover:opacity-100"
-                >
-                  <Forward className="h-4 w-4" />
-                </button>
+              const liked = !!m.likedByMe;
+              const likeCount = m.likeCount || 0;
+              // Secondary actions are visible-but-subtle on mobile (no hover) and
+              // hover-revealed on desktop.
+              const subtle = 'opacity-60 md:opacity-0 md:group-hover:opacity-100 focus:opacity-100';
+              const actions = (
+                <div className="mb-1 flex shrink-0 items-center gap-0.5 self-center">
+                  <button
+                    type="button"
+                    onClick={() => onToggleLike(m.id)}
+                    aria-label={liked ? 'Remove like' : 'Like message'}
+                    title={liked ? 'Remove like' : 'Like'}
+                    className={`flex h-7 items-center gap-1 rounded-full px-1.5 transition-colors ${
+                      liked ? 'text-emerald-400' : 'text-slate-500 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    {likeCount > 0 ? (
+                      <>
+                        <span className="text-[12px] leading-none">💚</span>
+                        <span className="text-[11px] font-medium">{likeCount}</span>
+                      </>
+                    ) : (
+                      <Heart className={`h-4 w-4 ${liked ? 'fill-emerald-400' : ''}`} />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onForward(m)}
+                    aria-label="Forward message"
+                    title="Forward"
+                    className={`grid h-7 w-7 place-items-center rounded-full text-slate-500 transition-all hover:bg-white/10 hover:text-white ${subtle}`}
+                  >
+                    <Forward className="h-4 w-4" />
+                  </button>
+                  {mine && (
+                    <button
+                      type="button"
+                      onClick={() => onDeleteMessage(m.id)}
+                      aria-label="Delete message"
+                      title="Delete"
+                      className={`grid h-7 w-7 place-items-center rounded-full text-slate-500 transition-all hover:bg-white/10 hover:text-red-400 ${subtle}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
               );
               return (
                 <div
@@ -171,7 +254,7 @@ export default function MessageThread({
                       {row.showMeta && <Avatar name={m.senderName} seed={m.senderId || m.senderName} size="sm" />}
                     </div>
                   )}
-                  {mine && forwardBtn}
+                  {mine && actions}
                   <div className={`flex max-w-[78%] flex-col ${mine ? 'items-end' : 'items-start'}`}>
                     {row.showMeta && isChannel && !mine && (
                       <span className="mb-0.5 ml-1 text-[11px] font-medium text-slate-400">{m.senderName}</span>
@@ -189,7 +272,7 @@ export default function MessageThread({
                       <span className="mt-1 px-1 text-[10.5px] text-slate-500">{formatMessageTime(m.createdAt)}</span>
                     )}
                   </div>
-                  {!mine && forwardBtn}
+                  {!mine && actions}
                 </div>
               );
             })}

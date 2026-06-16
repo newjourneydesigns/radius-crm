@@ -23,6 +23,7 @@ interface AvatarProps {
   name: string;
   seed?: string;
   channel?: boolean;
+  group?: boolean;
   size?: 'sm' | 'md' | 'lg';
 }
 
@@ -32,13 +33,23 @@ const SIZES = {
   lg: 'w-11 h-11 text-sm',
 };
 
-export default function Avatar({ name, seed, channel, size = 'md' }: AvatarProps) {
+export default function Avatar({ name, seed, channel, group, size = 'md' }: AvatarProps) {
   if (channel) {
     return (
       <div className={`${SIZES[size]} shrink-0 grid place-items-center rounded-2xl bg-vc-fab text-white font-semibold ring-1 ring-vc-400/30`}>
         <svg viewBox="0 0 24 24" className="w-1/2 h-1/2" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
           <line x1="4" y1="9" x2="20" y2="9" /><line x1="4" y1="15" x2="20" y2="15" />
           <line x1="10" y1="3" x2="8" y2="21" /><line x1="16" y1="3" x2="14" y2="21" />
+        </svg>
+      </div>
+    );
+  }
+  if (group) {
+    return (
+      <div className={`${SIZES[size]} shrink-0 grid place-items-center rounded-2xl bg-indigo-500/20 text-indigo-200 ring-1 ring-indigo-400/30`}>
+        <svg viewBox="0 0 24 24" className="w-1/2 h-1/2" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
         </svg>
       </div>
     );

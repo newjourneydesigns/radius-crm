@@ -183,17 +183,125 @@ export function useAcpdMessaging(enabled: boolean) {
     [loadOverview, selectConversation]
   );
 
+  // Start a conversation with one or more selected directors (DM or group).
+  const startGroup = useCallback(async (userIds: string[]): Promise<void> => {
+    setError(null);
+    try {
+      const res = await acpdFetch('/api/acpd-messages/group', {
+        method: 'POST',
+        body: JSON.stringify({ userIds }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || 'Could not start conversation');
+      }
+      const { conversationId } = (await res.json()) as { conversationId: string };
+      await loadOverview();
+      selectConversation(conversationId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not start conversation');
+    }
+  }, [loadOverview, selectConversation]);
+
+  // Toggle the caller's 💚 like on a message (optimistic; resync on failure).
+  const toggleLike = useCallback(async (messageId: string): Promise<void> => {
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId
+          ? {
+              ...m,
+              likedByMe: !m.likedByMe,
+              likeCount: Math.max(0, (m.likeCount || 0) + (m.likedByMe ? -1 : 1)),
+            }
+          : m
+      )
+    );
+    try {
+      const res = await acpdFetch('/api/acpd-messages/react', {
+        method: 'POST',
+        body: JSON.stringify({ messageId }),
+      });
+      if (!res.ok) throw new Error('react failed');
+    } catch {
+      const conv = selectedIdRef.current;
+      if (conv) loadThread(conv);
+    }
+  }, [loadThread]);
+
+  // Delete one of your own messages.
+  const deleteMessage = useCallback(async (messageId: string): Promise<void> => {
+    const prevMessages = messages;
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    try {
+      const res = await acpdFetch(`/api/acpd-messages/messages?messageId=${messageId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || 'Could not delete the message');
+      }
+      loadOverview();
+    } catch (e) {
+      setMessages(prevMessages); // revert
+      setError(e instanceof Error ? e.message : 'Could not delete the message');
+    }
+  }, [messages, loadOverview]);
+
+  // Permanently delete a DM/group conversation for everyone in it.
+  const deleteConversation = useCallback(async (conversationId: string): Promise<void> => {
+    setOverview((prev) =>
+      prev ? { ...prev, conversations: prev.conversations.filter((c) => c.id !== conversationId) } : prev
+    );
+    if (selectedIdRef.current === conversationId) {
+      setSelectedId(null);
+      setMessages([]);
+    }
+    try {
+      const res = await acpdFetch(`/api/acpd-messages/conversation?conversationId=${conversationId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || 'Could not delete the conversation');
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not delete the conversation');
+    } finally {
+      loadOverview();
+    }
+  }, [loadOverview]);
+
   // Initial load.
   useEffect(() => {
     if (!enabled) return;
     loadOverview();
   }, [enabled, loadOverview]);
 
-  // Realtime: append messages for the open thread and keep the sidebar fresh.
+  // Realtime: append/remove messages for the open thread, refresh likes, and
+  // keep the sidebar fresh.
   useRealtimeSubscription(
     'acpd-messaging',
-    [{ table: 'acpd_messages', event: 'INSERT' }],
+    [
+      { table: 'acpd_messages', event: 'INSERT' },
+      { table: 'acpd_messages', event: 'DELETE' },
+      { table: 'acpd_message_reactions', event: '*' },
+    ],
     (payload) => {
+      // A like changed somewhere we can see — refresh the open thread's counts.
+      if (payload.table === 'acpd_message_reactions') {
+        const conv = selectedIdRef.current;
+        if (conv) loadThread(conv);
+        return;
+      }
+
+      // A message was deleted — drop it from the open thread and refresh list.
+      if (payload.eventType === 'DELETE') {
+        const old = payload.old as { id?: string };
+        if (old?.id) setMessages((prev) => prev.filter((m) => m.id !== old.id));
+        loadOverview();
+        return;
+      }
+
       const row = payload.new as {
         id: string; conversation_id: string; sender_id: string | null; body: string; created_at: string;
       };
@@ -211,6 +319,8 @@ export function useAcpdMessaging(enabled: boolean) {
               senderName: (row.sender_id && nameByIdRef.current.get(row.sender_id)) || 'Unknown',
               body: row.body,
               createdAt: row.created_at,
+              likeCount: 0,
+              likedByMe: false,
             },
           ];
         });
@@ -243,7 +353,11 @@ export function useAcpdMessaging(enabled: boolean) {
     selectConversation,
     sendMessage,
     startDm,
+    startGroup,
     forwardMessage,
+    toggleLike,
+    deleteMessage,
+    deleteConversation,
     clearSelection: () => setSelectedId(null),
   };
 }

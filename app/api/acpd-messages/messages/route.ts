@@ -55,19 +55,65 @@ export async function GET(req: NextRequest) {
     .eq('conversation_id', conversationId)
     .eq('user_id', profile.id);
 
-  const shaped = ((messages || []) as any[]).map((m) => ({
-    id: m.id,
-    conversationId: m.conversation_id,
-    senderId: m.sender_id,
-    senderName: m.users?.name || 'Unknown',
-    body: m.body,
-    createdAt: m.created_at,
-  }));
+  // Like (💚) counts per message + whether the caller liked it.
+  const messageIds = ((messages || []) as any[]).map((m) => m.id);
+  const likeByMessage = new Map<string, { count: number; mine: boolean }>();
+  if (messageIds.length > 0) {
+    const { data: reactions } = await supabase
+      .from('acpd_message_reactions')
+      .select('message_id, user_id')
+      .in('message_id', messageIds);
+    for (const r of (reactions || []) as { message_id: string; user_id: string }[]) {
+      const cur = likeByMessage.get(r.message_id) || { count: 0, mine: false };
+      cur.count += 1;
+      if (r.user_id === profile.id) cur.mine = true;
+      likeByMessage.set(r.message_id, cur);
+    }
+  }
+
+  const shaped = ((messages || []) as any[]).map((m) => {
+    const like = likeByMessage.get(m.id);
+    return {
+      id: m.id,
+      conversationId: m.conversation_id,
+      senderId: m.sender_id,
+      senderName: m.users?.name || 'Unknown',
+      body: m.body,
+      createdAt: m.created_at,
+      likeCount: like?.count || 0,
+      likedByMe: like?.mine || false,
+    };
+  });
 
   return NextResponse.json({
     messages: shaped,
     members: ((members || []) as any[]).map((m) => m.users).filter(Boolean),
   });
+}
+
+// DELETE /api/acpd-messages/messages?messageId=… — delete your own message.
+export async function DELETE(req: NextRequest) {
+  const { profile, response } = await requireAcpd(req);
+  if (response) return response;
+
+  const messageId = req.nextUrl.searchParams.get('messageId');
+  if (!messageId) return NextResponse.json({ error: 'messageId is required' }, { status: 400 });
+
+  const supabase = createServiceSupabaseClient();
+  const { data: msg } = await supabase
+    .from('acpd_messages')
+    .select('id, sender_id')
+    .eq('id', messageId)
+    .maybeSingle();
+
+  if (!msg) return NextResponse.json({ ok: true }); // already gone
+  if (msg.sender_id !== profile.id) {
+    return NextResponse.json({ error: 'You can only delete your own messages' }, { status: 403 });
+  }
+
+  const { error } = await supabase.from('acpd_messages').delete().eq('id', messageId);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
 }
 
 // POST /api/acpd-messages/messages — send a message to a conversation.

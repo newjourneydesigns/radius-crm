@@ -76,12 +76,17 @@ export async function GET(req: NextRequest) {
 
         const others = othersByConv.get(conv.id) || [];
         const isChannel = conv.kind === 'channel';
+        const isGroup = conv.kind === 'group';
+
+        const groupTitle =
+          conv.title || others.map((o) => o.name.split(' ')[0]).join(', ') || 'Group';
 
         return {
           id: conv.id,
           kind: conv.kind,
-          title: isChannel ? conv.title || 'ACPD Team' : others[0]?.name || 'Direct message',
-          otherUser: isChannel ? null : others[0] || null,
+          title: isChannel ? conv.title || 'ACPD Team' : isGroup ? groupTitle : others[0]?.name || 'Direct message',
+          otherUser: isChannel || isGroup ? null : others[0] || null,
+          memberCount: others.length + 1,
           lastMessage: lastMsg
             ? { body: lastMsg.body, senderId: lastMsg.sender_id, createdAt: lastMsg.created_at }
             : null,

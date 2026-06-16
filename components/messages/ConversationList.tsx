@@ -102,7 +102,13 @@ export default function ConversationList({
                   active ? 'bg-white/[0.07]' : 'hover:bg-white/[0.04]'
                 }`}
               >
-                <Avatar name={conv.title} seed={conv.otherUser?.id} channel={conv.kind === 'channel'} size="lg" />
+                <Avatar
+                  name={conv.title}
+                  seed={conv.otherUser?.id}
+                  channel={conv.kind === 'channel'}
+                  group={conv.kind === 'group'}
+                  size="lg"
+                />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-2">
                     <span className={`truncate text-[14px] font-semibold ${active ? 'text-white' : 'text-slate-200'}`}>

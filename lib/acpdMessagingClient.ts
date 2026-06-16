@@ -13,9 +13,10 @@ export interface AcpdDirectoryUser {
 
 export interface AcpdConversationSummary {
   id: string;
-  kind: 'channel' | 'dm';
+  kind: 'channel' | 'dm' | 'group';
   title: string;
   otherUser: AcpdDirectoryUser | null;
+  memberCount?: number;
   lastMessage: { body: string; senderId: string | null; createdAt: string } | null;
   lastMessageAt: string;
   unreadCount: number;
@@ -28,6 +29,8 @@ export interface AcpdMessage {
   senderName: string;
   body: string;
   createdAt: string;
+  likeCount?: number;
+  likedByMe?: boolean;
 }
 
 export interface AcpdOverview {
