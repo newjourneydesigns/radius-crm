@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-16",
+    "version": "2.33.1",
+    "date_display": "June 16, 2026",
+    "date_iso": "2026-06-16",
+    "id": "messaging-delete-member-check",
+    "type": "fix",
+    "type_display": "Fix",
+    "category": "Messages",
+    "description": "Fixed a “Not a member of this conversation” error that could block deleting a conversation you’re clearly in. The membership check is now tolerant of duplicate records, and a cleanup removes any duplicates that had crept in.",
+    "page": "/messages"
+  },
+  {
+    "date": "2026-06-16",
     "version": "2.33.0",
     "date_display": "June 16, 2026",
     "date_iso": "2026-06-16",

@@ -228,13 +228,15 @@ export async function isConversationMember(
   conversationId: string,
   userId: string
 ): Promise<boolean> {
+  // Use limit(1) (not maybeSingle) so a duplicate membership row can't error
+  // out and produce a false "not a member" result.
   const { data } = await supabase
     .from('acpd_conversation_members')
     .select('id')
     .eq('conversation_id', conversationId)
     .eq('user_id', userId)
-    .maybeSingle();
-  return Boolean(data);
+    .limit(1);
+  return Array.isArray(data) && data.length > 0;
 }
 
 /** Edit your own message; stamps edited_at. */
