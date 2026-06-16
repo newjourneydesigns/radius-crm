@@ -1050,20 +1050,20 @@ export default function CircleLeaderProfilePage() {
       } else {
         // No phone on file — copy to clipboard so the admin can paste it anywhere
         try {
-          await navigator.clipboard.writeText(data.url);
+          await navigator.clipboard.writeText(data.smsBody || data.url);
           setShowAlert({
             isOpen: true,
             type: 'success',
-            title: 'Link copied',
+            title: 'Message copied',
             message:
-              "No phone on file, so we copied the magic link to your clipboard. Paste it into a text or email to the leader.",
+              "No phone on file, so we copied the message to your clipboard. Paste it into a text or email to the leader.",
           });
         } catch {
           setShowAlert({
             isOpen: true,
             type: 'info',
-            title: 'Magic link',
-            message: data.url,
+            title: 'Toolkit message',
+            message: data.smsBody || data.url,
           });
         }
       }

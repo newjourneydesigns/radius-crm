@@ -57,7 +57,8 @@ export async function POST(req: NextRequest) {
     url.searchParams.set('t', token);
     url.searchParams.set('next', targetPath);
 
-    const messageBody = `Hi ${leader.name?.split(' ')[0] || 'there'}, here's your link to report your Circle event summary: ${url.toString()}`;
+    const leaderFirstName = leader.name?.split(' ')[0] || 'there';
+    const messageBody = `Hi ${leaderFirstName}, the Circles Toolkit is your new one-stop spot to manage your Circle and submit your event summaries.\n\nHere’s your personal link: ${url.toString()}`;
 
     return NextResponse.json({
       ok: true,
