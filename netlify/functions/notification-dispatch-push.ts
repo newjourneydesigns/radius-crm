@@ -5,12 +5,12 @@ import { scheduledFunctionsDisabled } from '../../lib/netlify/scheduledFunctions
  * Netlify Scheduled Function — inbox push dispatch.
  *
  * Backstop for the Supabase Database Webhook, which pushes each inbox
- * notification the instant it's created. This runs every 5 minutes and Web
+ * notification the instant it's created. This runs every 30 minutes and Web
  * Pushes any rows the webhook didn't deliver (e.g. a transient webhook
  * failure). Normally a no-op. Team messages are excluded — they push instantly
  * from the message API.
  */
-const handler = schedule('*/5 * * * *', async () => {
+const handler = schedule('*/30 * * * *', async () => {
   if (scheduledFunctionsDisabled()) {
     return { statusCode: 200, body: 'scheduled functions disabled on this site' };
   }
