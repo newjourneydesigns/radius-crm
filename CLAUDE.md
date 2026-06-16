@@ -15,7 +15,7 @@ Before doing any significant work, check if a skill exists for it. Skills are lo
 - **Before creating a presentation** — read `/mnt/skills/public/pptx/SKILL.md`
 - **Before creating a spreadsheet** — read `/mnt/skills/public/xlsx/SKILL.md`
 
-If you're unsure whether a skill applies, check anyway. The overhead is low; the quality gain is real.
+If unsure whether a skill applies, check anyway — low overhead, real quality gain.
 
 ---
 
@@ -168,9 +168,7 @@ After every meaningful commit and push:
 3. `git commit -m "[clear message]"`
 4. `git push`
 
-**Do NOT manually trigger a Netlify redeploy.** Pushing to `main` already
-auto-deploys, and every production deploy costs build credits — a manual
-redeploy on top just doubles the cost. Let the push deploy on its own.
+**Do NOT manually trigger a Netlify redeploy.** Pushing to `main` already auto-deploys; a manual redeploy on top just doubles the build-credit cost.
 
 To keep deploy credits down:
 - **Batch related changes into one push** instead of many small commits, each of
@@ -223,6 +221,14 @@ All secrets live in `.env.local` — never hardcode them.
 - Keep components focused — split when a file is doing too much
 - TypeScript errors are ignored in build (`ignoreBuildErrors: true`) but don't add new `any` types casually
 - Default to concise replies — cut filler, keep substance, never abbreviate code, commands, or error strings
+
+---
+
+## Working Efficiently (token-lean)
+
+- For broad or multi-file searches, dispatch an **Explore subagent** and keep only its conclusion — don't read wide file sweeps into the main context.
+- One known file? Just read it — a subagent is overkill for a single lookup.
+- Keep sessions task-focused; start fresh for unrelated work rather than growing one long thread.
 
 ---
 
