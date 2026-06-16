@@ -8,6 +8,7 @@ import { supabase } from '../../../lib/supabase';
 import CoachingAutomationForm from '../../../components/coaching/CoachingAutomationForm';
 import CoachingLeadersManager from '../../../components/coaching/CoachingLeadersManager';
 import CoachingMessagesEditor from '../../../components/coaching/CoachingMessagesEditor';
+import { isCoachingAutomationsEnabled } from '../../../lib/circle-leader-toolkit/coaching/feature-flag';
 import { COACHING_DEFAULTS, type CoachingConfig } from '../../../lib/circle-leader-toolkit/coaching/config';
 import { AUTOMATION_LABELS } from '../../../lib/circle-leader-toolkit/coaching/templates';
 import type { AutomationKind } from '../../../lib/circle-leader-toolkit/coaching/config';
@@ -205,6 +206,17 @@ export default function AdminCoachingAutomationsPage() {
       <ProtectedRoute>
         <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117] flex items-center justify-center px-4">
           <p className="text-slate-400 text-sm">This page is available to ACPD admins only.</p>
+        </div>
+      </ProtectedRoute>
+    );
+  }
+
+  // Feature gate: keep the whole page hidden until coaching automations are turned on.
+  if (!isCoachingAutomationsEnabled()) {
+    return (
+      <ProtectedRoute>
+        <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117] flex items-center justify-center px-4">
+          <p className="text-slate-400 text-sm">This feature isn’t available yet.</p>
         </div>
       </ProtectedRoute>
     );

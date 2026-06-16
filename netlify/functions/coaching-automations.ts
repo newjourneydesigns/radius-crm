@@ -1,5 +1,6 @@
 import { schedule } from '@netlify/functions';
 import { scheduledFunctionsDisabled } from '../../lib/netlify/scheduledFunctionsDisabled';
+import { isCoachingAutomationsEnabled } from '../../lib/circle-leader-toolkit/coaching/feature-flag';
 
 /**
  * Netlify Scheduled Function — Circle Leader coaching automations.
@@ -10,8 +11,14 @@ import { scheduledFunctionsDisabled } from '../../lib/netlify/scheduledFunctions
  * tick fires them at most once per week.
  *
  * Idempotent: backed by the coaching_automation_sends table.
+ *
+ * Gated by the coaching automations feature flag — while the feature is off this
+ * tick is a no-op and no nudges are sent.
  */
 const handler = schedule('0 13 * * *', async () => {
+  if (!isCoachingAutomationsEnabled()) {
+    return { statusCode: 200, body: 'coaching automations feature disabled' };
+  }
   if (scheduledFunctionsDisabled()) {
     return { statusCode: 200, body: 'scheduled functions disabled on this site' };
   }

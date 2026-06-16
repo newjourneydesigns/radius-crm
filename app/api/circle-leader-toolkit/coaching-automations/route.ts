@@ -19,6 +19,7 @@ import { deliverToLeaders, isEligibleLeader, LeaderTarget } from '../../../../li
 import { CoachingConfigOverride, resolveGlobalDefaults, resolveLeaderConfig } from '../../../../lib/circle-leader-toolkit/coaching/config';
 import { CoachingLeader, DueNudge, RosterRow, evaluateLeader } from '../../../../lib/circle-leader-toolkit/coaching/engine';
 import { resolveTemplates, type TemplateOverrides } from '../../../../lib/circle-leader-toolkit/coaching/templates';
+import { isCoachingAutomationsEnabled } from '../../../../lib/circle-leader-toolkit/coaching/feature-flag';
 import { loadLeaderAttendanceBatch } from '../../../../lib/circle-leader-toolkit/roster-data';
 
 export const dynamic = 'force-dynamic';
@@ -72,6 +73,10 @@ export async function POST(req: Request) {
   const auth = await authorize(req);
   if (!auth.ok) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  // Feature gate: while coaching automations are off, never evaluate or send.
+  if (!isCoachingAutomationsEnabled()) {
+    return NextResponse.json({ ok: false, disabled: true, sentCount: 0 }, { status: 200 });
   }
   const startedAtMs = Date.now();
   const startedAtIso = new Date().toISOString();
