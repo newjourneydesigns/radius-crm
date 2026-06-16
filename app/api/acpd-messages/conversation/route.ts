@@ -4,14 +4,22 @@ import { requireAcpd, deleteConversation, isConversationMember } from '../../../
 
 export const dynamic = 'force-dynamic';
 
-// DELETE /api/acpd-messages/conversation?conversationId=… — permanently delete a
-// DM/group conversation (and its messages) for everyone in it. Members only;
-// the shared team channel can't be deleted.
-export async function DELETE(req: NextRequest) {
+// POST /api/acpd-messages/conversation — permanently delete a DM/group
+// conversation (and its messages) for everyone in it. Uses POST rather than
+// DELETE because some hosting blocks the DELETE method. Members only; the
+// shared team channel can't be deleted.
+export async function POST(req: NextRequest) {
   const { profile, response } = await requireAcpd(req);
   if (response) return response;
 
-  const conversationId = req.nextUrl.searchParams.get('conversationId');
+  let payload: { conversationId?: string } = {};
+  try {
+    payload = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  const conversationId = payload.conversationId?.trim();
   if (!conversationId) return NextResponse.json({ error: 'conversationId is required' }, { status: 400 });
 
   const supabase = createServiceSupabaseClient();

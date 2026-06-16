@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-16",
+    "version": "2.32.2",
+    "date_display": "June 16, 2026",
+    "date_iso": "2026-06-16",
+    "id": "messaging-delete-method-fix",
+    "type": "fix",
+    "type_display": "Fix",
+    "category": "Messages",
+    "description": "Deleting a conversation or message (and editing a message) now works reliably — these actions were using HTTP methods the host can block, so they now go through a method that always reaches the server.",
+    "page": "/messages"
+  },
+  {
+    "date": "2026-06-16",
     "version": "2.32.1",
     "date_display": "June 16, 2026",
     "date_iso": "2026-06-16",

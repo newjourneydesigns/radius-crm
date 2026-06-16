@@ -242,8 +242,9 @@ export function useAcpdMessaging(enabled: boolean) {
     const prevMessages = messages;
     setMessages((prev) => prev.filter((m) => m.id !== messageId));
     try {
-      const res = await acpdFetch(`/api/acpd-messages/messages?messageId=${messageId}`, {
-        method: 'DELETE',
+      const res = await acpdFetch('/api/acpd-messages/message', {
+        method: 'POST',
+        body: JSON.stringify({ op: 'delete', messageId }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -266,8 +267,9 @@ export function useAcpdMessaging(enabled: boolean) {
       setMessages([]);
     }
     try {
-      const res = await acpdFetch(`/api/acpd-messages/conversation?conversationId=${conversationId}`, {
-        method: 'DELETE',
+      const res = await acpdFetch('/api/acpd-messages/conversation', {
+        method: 'POST',
+        body: JSON.stringify({ conversationId }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -285,9 +287,9 @@ export function useAcpdMessaging(enabled: boolean) {
     const trimmed = body.trim();
     if (!trimmed) return false;
     try {
-      const res = await acpdFetch('/api/acpd-messages/messages', {
-        method: 'PATCH',
-        body: JSON.stringify({ messageId, body: trimmed }),
+      const res = await acpdFetch('/api/acpd-messages/message', {
+        method: 'POST',
+        body: JSON.stringify({ op: 'edit', messageId, body: trimmed }),
       });
       if (!res.ok) {
         const b = await res.json().catch(() => ({}));
