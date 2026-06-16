@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import {
   ChevronLeft, SendHorizontal, Heart, MoreVertical, MoreHorizontal, Forward,
-  Trash2, Pin, Pencil, BellOff, Bell, X, Check,
+  Trash2, Pin, Pencil, BellOff, Bell, X, Tag,
 } from 'lucide-react';
 import Avatar from './Avatar';
+import Modal from '../ui/Modal';
 import {
   formatMessageTime,
   formatDayDivider,
@@ -33,6 +34,7 @@ interface MessageThreadProps {
   onEditMessage: (messageId: string, body: string) => Promise<boolean>;
   onTogglePin: (messageId: string, pinned: boolean) => void;
   onToggleMute: (conversationId: string, muted: boolean) => void;
+  onRename: (conversationId: string, title: string) => void;
 }
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
@@ -66,15 +68,29 @@ export default function MessageThread({
   onEditMessage,
   onTogglePin,
   onToggleMute,
+  onRename,
 }: MessageThreadProps) {
   const [draft, setDraft] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [actionMsg, setActionMsg] = useState<AcpdMessage | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState('');
+  const [renaming, setRenaming] = useState(false);
+  const [renameDraft, setRenameDraft] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isChannel = conversation.kind === 'channel';
+  const isGroup = conversation.kind === 'group';
+
+  const openRename = () => {
+    setMenuOpen(false);
+    setRenameDraft(conversation.title === 'Group' ? '' : conversation.title);
+    setRenaming(true);
+  };
+  const saveRename = () => {
+    onRename(conversation.id, renameDraft);
+    setRenaming(false);
+  };
 
   const handleDeleteConversation = () => {
     setMenuOpen(false);
@@ -225,13 +241,24 @@ export default function MessageThread({
             <>
               <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
               <div className="absolute right-0 top-11 z-20 w-56 overflow-hidden rounded-xl border border-white/[0.08] bg-[#1a1c22] shadow-2xl shadow-black/50">
+                {isGroup && (
+                  <button
+                    type="button"
+                    onClick={openRename}
+                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13.5px] text-slate-200 transition-colors hover:bg-white/[0.05]"
+                  >
+                    <Tag className="h-4 w-4" /> Rename group
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
                     setMenuOpen(false);
                     onToggleMute(conversation.id, !muted);
                   }}
-                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13.5px] text-slate-200 transition-colors hover:bg-white/[0.05]"
+                  className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13.5px] text-slate-200 transition-colors hover:bg-white/[0.05] ${
+                    isGroup ? 'border-t border-white/[0.06]' : ''
+                  }`}
                 >
                   {muted ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
                   {muted ? 'Unmute conversation' : 'Mute conversation'}
@@ -279,13 +306,15 @@ export default function MessageThread({
         {loading && messages.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-slate-500">Loading…</div>
         ) : messages.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+          <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
             <Avatar name={conversation.title} seed={conversation.otherUser?.id} channel={isChannel} group={conversation.kind === 'group'} size="lg" />
-            <p className="mt-1 text-[15px] font-semibold text-slate-200">{conversation.title}</p>
+            <p className="mt-1 line-clamp-2 max-w-full text-[15px] font-semibold text-slate-200">{conversation.title}</p>
             <p className="max-w-xs text-[13px] text-slate-500">
               {isChannel
                 ? 'This is the start of the ACPD team channel. Anything you post here is visible to every director.'
-                : `This is the beginning of your conversation with ${conversation.title}.`}
+                : isGroup
+                  ? 'This is the start of your group conversation.'
+                  : `This is the beginning of your conversation with ${conversation.title}.`}
             </p>
           </div>
         ) : (
@@ -422,8 +451,10 @@ export default function MessageThread({
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={onKeyDown}
             rows={1}
-            placeholder={isChannel ? 'Message the ACPD team…' : `Message ${conversation.title}…`}
-            className="max-h-36 flex-1 resize-none rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[14px] text-slate-100 placeholder:text-slate-500 focus:border-vc-500/40 focus:outline-none focus:ring-1 focus:ring-vc-500/30"
+            placeholder={
+              isChannel ? 'Message the ACPD team…' : isGroup ? 'Message the group…' : `Message ${conversation.title}…`
+            }
+            className="max-h-36 flex-1 resize-none truncate rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[14px] text-slate-100 placeholder:text-slate-500 focus:border-vc-500/40 focus:outline-none focus:ring-1 focus:ring-vc-500/30"
           />
           <button
             type="button"
@@ -474,6 +505,36 @@ export default function MessageThread({
           </div>
         </div>
       )}
+
+      {/* Rename group */}
+      <Modal isOpen={renaming} onClose={() => setRenaming(false)} title="Name this group" size="sm">
+        <input
+          autoFocus
+          value={renameDraft}
+          onChange={(e) => setRenameDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') saveRename(); }}
+          maxLength={80}
+          placeholder="Group name"
+          className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-vc-500/40 focus:outline-none focus:ring-1 focus:ring-vc-500/30"
+        />
+        <p className="mt-2 text-[12px] text-slate-500">Leave blank to use members’ names.</p>
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setRenaming(false)}
+            className="rounded-lg px-4 py-2 text-[13px] font-medium text-slate-300 hover:bg-white/10"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={saveRename}
+            className="rounded-lg bg-vc-fab px-4 py-2 text-[13px] font-semibold text-white"
+          >
+            Save
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

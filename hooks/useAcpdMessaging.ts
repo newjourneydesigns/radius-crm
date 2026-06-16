@@ -337,6 +337,38 @@ export function useAcpdMessaging(enabled: boolean) {
     }
   }, []);
 
+  // Rename a group conversation (optimistic).
+  const renameConversation = useCallback(async (conversationId: string, title: string): Promise<void> => {
+    const clean = title.trim().slice(0, 80);
+    setOverview((prev) =>
+      prev
+        ? {
+            ...prev,
+            conversations: prev.conversations.map((c) =>
+              c.id === conversationId ? { ...c, title: clean || c.title } : c
+            ),
+          }
+        : prev
+    );
+    setThreadConversation((prev) =>
+      prev && prev.id === conversationId ? { ...prev, title: clean || prev.title } : prev
+    );
+    try {
+      const res = await acpdFetch('/api/acpd-messages/rename', {
+        method: 'POST',
+        body: JSON.stringify({ conversationId, title: clean }),
+      });
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}));
+        throw new Error(b?.error || 'Could not rename the conversation');
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not rename the conversation');
+    } finally {
+      loadOverview();
+    }
+  }, [loadOverview]);
+
   // Search message bodies across my conversations.
   const searchMessages = useCallback(async (q: string): Promise<AcpdSearchResult[]> => {
     if (q.trim().length < 2) return [];
@@ -446,6 +478,7 @@ export function useAcpdMessaging(enabled: boolean) {
     editMessage,
     togglePin,
     toggleMute,
+    renameConversation,
     searchMessages,
     clearSelection: () => setSelectedId(null),
     clearError: () => setError(null),

@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-16",
+    "version": "2.33.0",
+    "date_display": "June 16, 2026",
+    "date_iso": "2026-06-16",
+    "id": "messaging-name-group",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Messages",
+    "description": "Name a group thread: open a group’s options menu and choose “Rename group” to give it a clear title (leave it blank to fall back to members’ names). Auto-generated group names are now shorter and no longer stretch the screen.",
+    "page": "/messages"
+  },
+  {
+    "date": "2026-06-16",
     "version": "2.32.2",
     "date_display": "June 16, 2026",
     "date_iso": "2026-06-16",

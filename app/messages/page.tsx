@@ -47,6 +47,7 @@ function MessagesContent() {
     editMessage,
     togglePin,
     toggleMute,
+    renameConversation,
     searchMessages,
     clearSelection,
     clearError,
@@ -142,6 +143,7 @@ function MessagesContent() {
             onEditMessage={editMessage}
             onTogglePin={togglePin}
             onToggleMute={toggleMute}
+            onRename={renameConversation}
           />
         ) : selectedId ? (
           // Selected but not resolved yet (e.g. a DM you just started) — show a

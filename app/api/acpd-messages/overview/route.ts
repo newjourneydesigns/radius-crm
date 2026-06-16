@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
-import { requireAcpd, getTeamChannelId, ensureMembership } from '../../../../lib/acpdMessaging';
+import { requireAcpd, getTeamChannelId, ensureMembership, groupTitleFrom } from '../../../../lib/acpdMessaging';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,8 +78,7 @@ export async function GET(req: NextRequest) {
         const isChannel = conv.kind === 'channel';
         const isGroup = conv.kind === 'group';
 
-        const groupTitle =
-          conv.title || others.map((o) => o.name.split(' ')[0]).join(', ') || 'Group';
+        const groupTitle = conv.title || groupTitleFrom(others);
 
         return {
           id: conv.id,

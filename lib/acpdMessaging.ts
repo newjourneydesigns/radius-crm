@@ -178,6 +178,50 @@ export async function toggleReaction(
   return { liked: true };
 }
 
+/** A short display first name, tolerant of names stored as email addresses. */
+export function firstNameOf(name: string): string {
+  const n = (name || '').trim();
+  if (!n) return 'Member';
+  if (n.includes('@')) {
+    const local = n.split('@')[0].split(/[._-]/)[0];
+    return local ? local.charAt(0).toUpperCase() + local.slice(1) : 'Member';
+  }
+  return n.split(/\s+/)[0];
+}
+
+/** Derive a group conversation's display title from its other members. */
+export function groupTitleFrom(others: Array<{ name?: string | null }>): string {
+  const names = others.map((o) => firstNameOf(o.name || '')).filter(Boolean);
+  if (names.length === 0) return 'Group';
+  if (names.length <= 3) return names.join(', ');
+  return `${names.slice(0, 3).join(', ')} +${names.length - 3}`;
+}
+
+/** Rename a group conversation (members only; channel/DM not renamable here). */
+export async function renameConversation(
+  supabase: ServiceClient,
+  conversationId: string,
+  userId: string,
+  title: string
+): Promise<void> {
+  if (!(await isConversationMember(supabase, conversationId, userId))) {
+    throw new Error('Not a member of this conversation');
+  }
+  const { data: conv } = await supabase
+    .from('acpd_conversations')
+    .select('kind')
+    .eq('id', conversationId)
+    .maybeSingle();
+  if (!conv) throw new Error('Conversation not found');
+  if (conv.kind === 'channel') throw new Error('The team channel cannot be renamed');
+
+  const clean = title.trim().slice(0, 80);
+  await supabase
+    .from('acpd_conversations')
+    .update({ title: clean || null })
+    .eq('id', conversationId);
+}
+
 /** Whether a user belongs to a conversation. */
 export async function isConversationMember(
   supabase: ServiceClient,

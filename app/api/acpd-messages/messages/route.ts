@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
-import { requireAcpd, sendMessagePush, notifyMentions, editMessage } from '../../../../lib/acpdMessaging';
+import { requireAcpd, sendMessagePush, notifyMentions, editMessage, groupTitleFrom } from '../../../../lib/acpdMessaging';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
   const convTitle = isChannel
     ? convRow?.title || 'ACPD Team'
     : isGroup
-      ? convRow?.title || others.map((o: any) => String(o.name).split(' ')[0]).join(', ') || 'Group'
+      ? convRow?.title || groupTitleFrom(others)
       : others[0]?.name || 'Direct message';
   const conversation = convRow
     ? {
