@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 const TOOLKIT_PREFIX = '/circle-leader-toolkit';
+const DEFAULT_LEADER_TOOLKIT_HOST = 'circlestoolkit.netlify.app';
 
 // Matches any path with a file extension (icons, manifest, css, etc.) so
 // static assets are served as-is without rewriting.
 const STATIC_FILE_RE = /\.[^/]+$/;
 
 export function middleware(request: NextRequest) {
-  const toolkitHost = process.env.LEADER_TOOLKIT_HOST;
+  const toolkitHost = process.env.LEADER_TOOLKIT_HOST || DEFAULT_LEADER_TOOLKIT_HOST;
   const hostname = request.headers.get('host') || '';
 
   // Give the Circle Leader Toolkit its own clean URL on a dedicated subdomain
