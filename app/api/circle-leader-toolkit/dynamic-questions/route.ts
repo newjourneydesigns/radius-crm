@@ -18,7 +18,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('dynamic_questions')
-    .select('id, label, help_text, field_type, options, required, show_when_did_not_meet, show_when_attended, sort_order')
+    .select('id, label, help_text, field_type, options, required, show_when_did_not_meet, show_when_attended, sort_order, response_key')
     .or(`active_from.is.null,active_from.lte.${today}`)
     .or(`active_to.is.null,active_to.gte.${today}`)
     .order('sort_order', { ascending: true });

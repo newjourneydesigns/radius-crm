@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS dynamic_questions (
   active_from DATE,
   active_to DATE,
   sort_order INTEGER NOT NULL DEFAULT 0,
+  response_key TEXT NOT NULL DEFAULT 'dynamic' CHECK (response_key IN ('dynamic', 'did_not_meet_reason', 'did_not_meet_notes')),
   show_when_did_not_meet BOOLEAN NOT NULL DEFAULT FALSE,
   show_when_attended BOOLEAN NOT NULL DEFAULT TRUE,
   created_by UUID REFERENCES users(id),
@@ -152,20 +153,27 @@ ALTER TABLE circle_info_update_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE leader_otp_codes ENABLE ROW LEVEL SECURITY;
 
 -- Authenticated RADIUS users (admins) can read everything
+DROP POLICY IF EXISTS "Authenticated read circle_event_summaries" ON circle_event_summaries;
 CREATE POLICY "Authenticated read circle_event_summaries" ON circle_event_summaries
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Authenticated read drafts" ON circle_event_summary_drafts;
 CREATE POLICY "Authenticated read drafts" ON circle_event_summary_drafts
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Authenticated read manual roster" ON manual_roster_additions;
 CREATE POLICY "Authenticated read manual roster" ON manual_roster_additions
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Authenticated read info requests" ON circle_info_update_requests;
 CREATE POLICY "Authenticated read info requests" ON circle_info_update_requests
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Authenticated read otp_codes" ON leader_otp_codes;
 CREATE POLICY "Authenticated read otp_codes" ON leader_otp_codes
   FOR SELECT TO authenticated USING (true);
 
 -- Dynamic questions: anyone authenticated can read; only admins write
+DROP POLICY IF EXISTS "Authenticated read dynamic_questions" ON dynamic_questions;
 CREATE POLICY "Authenticated read dynamic_questions" ON dynamic_questions
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Admin manage dynamic_questions" ON dynamic_questions;
 CREATE POLICY "Admin manage dynamic_questions" ON dynamic_questions
   FOR ALL TO authenticated USING (
     EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role::text = 'ACPD')
@@ -174,6 +182,7 @@ CREATE POLICY "Admin manage dynamic_questions" ON dynamic_questions
   );
 
 -- Admins can manage info update requests (review them)
+DROP POLICY IF EXISTS "Admin manage info requests" ON circle_info_update_requests;
 CREATE POLICY "Admin manage info requests" ON circle_info_update_requests
   FOR UPDATE TO authenticated USING (
     EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role::text = 'ACPD')

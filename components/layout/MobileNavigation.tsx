@@ -203,6 +203,12 @@ const CloudImportIcon = () => (
   </svg>
 );
 
+const MassUpdateIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+  </svg>
+);
+
 const BirthdayCakeIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 8v-2m0 0V4m0 2h.01M21 16.05V19a2 2 0 01-2 2H5a2 2 0 01-2-2v-2.95M21 16.05c-1.5.5-3 .75-4.5.45-1.5-.3-3-.3-4.5 0s-3 .3-4.5-.45M21 16.05V13a2 2 0 00-2-2H5a2 2 0 00-2 2v3.05" />
@@ -229,7 +235,7 @@ export default function MobileNavigation() {
   const [isDragging, setIsDragging] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef(0);
-  const pathname = usePathname();
+  const pathname = usePathname() ?? '';
   const { user, signOut, isAuthenticated, isAdmin } = useAuth();
   const openAlertCount = useOpenAlertCount();
   const acpdUnreadCount = useAcpdUnreadCount(isAdmin());
@@ -345,22 +351,31 @@ export default function MobileNavigation() {
   ];
 
   /* Sheet navigation (destinations not on the tab bar) */
-  const browseItems = [
+  const toolsItems = [
     { href: '/person-lookup', label: 'Person Lookup', Icon: PersonSearchIcon },
-    { href: '/search',        label: 'Circle List',   Icon: FindCircleIcon },
+    { href: '/birthday-list', label: 'Birthday List', Icon: BirthdayCakeIcon },
     { href: '/circle-reporting', label: 'Circle Reporting', Icon: ChartIcon },
+    { href: '/progress', label: 'Progress', Icon: ChartIcon },
+    ...(admin
+      ? [
+          { href: '/ccb-explorer', label: 'CCB Explorer', Icon: CompassIcon },
+          { href: '/bulk-message', label: 'Bulk Message', Icon: MessageBulkIcon },
+        ]
+      : []),
+  ];
+
+  const browseItems = [
+    { href: '/search',        label: 'Circle List',   Icon: FindCircleIcon },
     { href: '/notebook',      label: 'Notebook',      Icon: NotebookIcon },
     { href: '/prayer',        label: 'Prayer',        Icon: PrayerIcon },
-    { href: '/progress',      label: 'Progress',      Icon: ChartIcon },
   ];
 
   const adminItems = [
-    { href: '/ccb-explorer',  label: 'CCB Explorer',     Icon: CompassIcon },
-    { href: '/birthday-list', label: 'Birthday List',    Icon: BirthdayCakeIcon },
-    { href: '/bulk-message',  label: 'Bulk Message',     Icon: MessageBulkIcon },
     { href: '/add-leader',    label: 'Add Circle/Leader', Icon: UserPlusIcon },
-    { href: '/users',         label: 'Manage Users',     Icon: UsersIcon },
+    { href: '/import-circles/#mass-update', label: 'Mass Update', Icon: MassUpdateIcon },
     { href: '/import-circles', label: 'Import Circles',  Icon: CloudImportIcon },
+    { href: '/users',         label: 'Manage Users',     Icon: UsersIcon },
+    { href: '/ccb-usage',     label: 'CCB Usage',        Icon: ChartIcon },
   ];
 
   const accountItems = [
@@ -526,6 +541,21 @@ export default function MobileNavigation() {
                   <ChevronRightIcon />
                 </Link>
               )}
+            </div>
+          </div>
+
+          {/* Tools */}
+          <div className="mobile-sheet-section">
+            <p className="mobile-sheet-section-title">Tools</p>
+            <div className="mobile-sheet-group">
+              {toolsItems.map(({ href, label, Icon }, i) => (
+                <Link key={href} href={href}
+                  className={`mobile-sheet-row ${i < toolsItems.length - 1 ? 'bordered' : ''} ${isActive(href) ? 'active' : ''}`}>
+                  <span className="mobile-sheet-row-icon"><Icon /></span>
+                  <span className="mobile-sheet-row-label">{label}</span>
+                  <ChevronRightIcon />
+                </Link>
+              ))}
             </div>
           </div>
 

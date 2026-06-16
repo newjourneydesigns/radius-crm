@@ -161,7 +161,7 @@ async function buildTodayData(
       .eq('created_by', user.id)
       .order('created_at', { ascending: false }).limit(5),
 
-    supabase.from('project_boards').select('id, title').eq('user_id', user.id),
+    supabase.from('project_boards').select('id, title').eq('user_id', user.id).eq('is_archived', false),
 
     supabase.from('card_assignments').select('card_id').eq('user_id', user.id),
   ]);
@@ -181,12 +181,13 @@ async function buildTodayData(
       ? supabase.from('board_cards')
           .select('id, title, due_date, is_complete, column_id, priority')
           .in('id', assignedCardIds)
-          .not('due_date', 'is', null).lte('due_date', today).eq('is_complete', false)
+          .eq('is_archived', false).not('due_date', 'is', null).lte('due_date', today).eq('is_complete', false)
       : Promise.resolve({ data: [] as any[], error: null }),
     boardIds.length > 0
       ? supabase.from('board_cards')
           .select('id, title, due_date, board_id, column_id, priority')
           .in('board_id', boardIds)
+          .eq('is_archived', false)
           .eq('is_focused', true)
           .eq('is_complete', false)
           .order('due_date', { ascending: true, nullsFirst: false })
@@ -206,7 +207,7 @@ async function buildTodayData(
       ? supabase.from('board_cards')
           .select('id, title, due_date, is_complete, column_id, priority')
           .in('column_id', colIds)
-          .not('due_date', 'is', null).lte('due_date', today).eq('is_complete', false)
+          .eq('is_archived', false).not('due_date', 'is', null).lte('due_date', today).eq('is_complete', false)
       : Promise.resolve({ data: [] as any[], error: null }),
     missingColIds.length > 0
       ? supabase.from('board_columns').select('id, title, board_id').in('id', missingColIds)
@@ -220,13 +221,17 @@ async function buildTodayData(
     if (!boardMap.has(c.board_id)) extraBoardIds1.add(c.board_id);
   });
   if (extraBoardIds1.size > 0) {
-    const { data: extraBoards } = await supabase.from('project_boards').select('id, title').in('id', Array.from(extraBoardIds1));
+    const { data: extraBoards } = await supabase.from('project_boards').select('id, title').in('id', Array.from(extraBoardIds1)).eq('is_archived', false);
     (extraBoards || []).forEach((b: any) => boardMap.set(b.id, b.title));
   }
 
   // Merge owned + assigned, deduplicate
+  const isCardOnActiveBoard = (c: any) => {
+    const col = colMap.get(c.column_id);
+    return Boolean(col && boardMap.has(col.board_id));
+  };
   const cardDedupe = new Map<string, any>();
-  [...(ownedCardsRaw || []), ...(assignedCardsRaw || [])].forEach((c: any) => {
+  [...(ownedCardsRaw || []), ...(assignedCardsRaw || []).filter(isCardOnActiveBoard)].forEach((c: any) => {
     if (!cardDedupe.has(c.id)) cardDedupe.set(c.id, c);
   });
   const cardIds = Array.from(cardDedupe.keys());
@@ -240,7 +245,7 @@ async function buildTodayData(
       ? supabase.from('card_assignments').select('card_id, users!inner(name)').in('card_id', cardIds)
       : Promise.resolve({ data: [] as any[], error: null }),
     colIds.length > 0
-      ? supabase.from('board_cards').select('id').in('column_id', colIds)
+      ? supabase.from('board_cards').select('id').in('column_id', colIds).eq('is_archived', false)
       : Promise.resolve({ data: [] as any[], error: null }),
     allEnrichedIds.length > 0
       ? supabase.from('card_label_assignments')
@@ -302,7 +307,33 @@ async function buildTodayData(
   // ── Phase 5: checklist items ──────────────────────────────────────────────
   const userCardIds = new Set<string>(cardDedupe.keys());
   (allBoardCardIds || []).forEach((c: any) => userCardIds.add(c.id));
-  assignedCardIds.forEach((id: string) => userCardIds.add(id));
+  if (assignedCardIds.length > 0) {
+    const { data: assignedScopeCards } = await supabase.from('board_cards')
+      .select('id, column_id')
+      .in('id', assignedCardIds)
+      .eq('is_archived', false);
+    const missingAssignedScopeCols = (assignedScopeCards || [])
+      .filter((c: any) => !colMap.has(c.column_id))
+      .map((c: any) => c.column_id);
+    if (missingAssignedScopeCols.length > 0) {
+      const { data: extraCols } = await supabase.from('board_columns')
+        .select('id, title, board_id')
+        .in('id', missingAssignedScopeCols);
+      const extraBIds = new Set<string>();
+      (extraCols || []).forEach((c: any) => {
+        colMap.set(c.id, { title: c.title, board_id: c.board_id });
+        if (!boardMap.has(c.board_id)) extraBIds.add(c.board_id);
+      });
+      if (extraBIds.size > 0) {
+        const { data: extraBoards } = await supabase.from('project_boards')
+          .select('id, title')
+          .in('id', Array.from(extraBIds))
+          .eq('is_archived', false);
+        (extraBoards || []).forEach((b: any) => boardMap.set(b.id, b.title));
+      }
+    }
+    (assignedScopeCards || []).filter(isCardOnActiveBoard).forEach((c: any) => userCardIds.add(c.id));
+  }
 
   let allChecklist: ChecklistDigestItem[] = [];
   if (userCardIds.size > 0) {
@@ -314,7 +345,7 @@ async function buildTodayData(
     const clCardIds = Array.from(new Set((checklists || []).map((cl: any) => cl.card_id)));
     if (clCardIds.length > 0) {
       const { data: cardInfos } = await supabase.from('board_cards')
-        .select('id, title, column_id').in('id', clCardIds);
+        .select('id, title, column_id').in('id', clCardIds).eq('is_archived', false);
 
       const cardInfoMap = new Map<string, { title: string; column_id: string }>();
       (cardInfos || []).forEach((ci: any) => cardInfoMap.set(ci.id, { title: ci.title, column_id: ci.column_id }));
@@ -328,7 +359,7 @@ async function buildTodayData(
           if (!boardMap.has(c.board_id)) extraBIds.add(c.board_id);
         });
         if (extraBIds.size > 0) {
-          const { data: extraBoards } = await supabase.from('project_boards').select('id, title').in('id', Array.from(extraBIds));
+          const { data: extraBoards } = await supabase.from('project_boards').select('id, title').in('id', Array.from(extraBIds)).eq('is_archived', false);
           (extraBoards || []).forEach((b: any) => boardMap.set(b.id, b.title));
         }
       }

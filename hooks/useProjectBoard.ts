@@ -49,7 +49,7 @@ export function useProjectBoard() {
   const [error, setError] = useState<string | null>(null);
 
   // ─── Board list ────────────────────────────────────────────
-  const fetchBoards = useCallback(async () => {
+  const fetchBoards = useCallback(async (archived = false) => {
     setLoading(true);
     setError(null);
     try {
@@ -60,7 +60,7 @@ export function useProjectBoard() {
       const { data, error: err } = await supabase
         .from('project_boards')
         .select('*')
-        .eq('is_archived', false)
+        .eq('is_archived', archived)
         .order('created_at', { ascending: false });
       if (err) throw err;
       setBoards(data || []);
@@ -342,12 +342,17 @@ export function useProjectBoard() {
         .single();
       if (err) throw err;
       setBoard(prev => prev ? { ...prev, ...data } : prev);
+      setBoards(prev => prev.map(b => b.id === boardId ? { ...b, ...data } : b));
       return data;
     } catch (err: any) {
       setError(err.message);
       return null;
     }
   }, []);
+
+  const archiveBoard = useCallback(async (boardId: string, archived: boolean) => {
+    return updateBoard(boardId, { is_archived: archived });
+  }, [updateBoard]);
 
   const deleteBoard = useCallback(async (boardId: string) => {
     setError(null);
@@ -1414,7 +1419,7 @@ export function useProjectBoard() {
 
   return {
     boards, board, loading, error, checklistTemplates,
-    fetchBoards, createBoard, fetchBoard, fetchAllBoardsFull, updateBoard, deleteBoard,
+    fetchBoards, createBoard, fetchBoard, fetchAllBoardsFull, archiveBoard, updateBoard, deleteBoard,
     addColumn, updateColumn, deleteColumn, reorderColumns,
     addCard, updateCard, deleteCard, moveCard, moveToBoardCard, createNextRepeatCard, reorderCardsInColumn,
     addComment, updateComment, deleteComment,

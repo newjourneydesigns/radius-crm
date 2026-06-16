@@ -12,6 +12,7 @@ import { getSessionLeader, unauthorized } from '../../../../lib/circle-leader-to
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
 import { cleanManualAttendees, splitLegacyRosterAdditions } from '../../../../lib/circle-leader-toolkit/notes-formatter';
 import { DID_NOT_MEET_REASON_SET } from '../../../../lib/circle-leader-toolkit/did-not-meet-reasons';
+import { DID_NOT_MEET_OTHER_VALUE } from '../../../../lib/circle-leader-toolkit/dynamic-question-response-keys';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,9 +41,14 @@ function readText(value: unknown): string {
 
 function normalizeDidNotMeetReason(reason: unknown, other: unknown = '') {
   const reasonText = typeof reason === 'string' ? reason.trim() : '';
-  const otherText = typeof other === 'string' ? other.trim() : '';
+  const otherText = typeof other === 'string' && other.trim() !== DID_NOT_MEET_OTHER_VALUE
+    ? other.trim()
+    : '';
   if (!reasonText) {
     return { didNotMeetReason: '', didNotMeetReasonOther: otherText };
+  }
+  if (reasonText === DID_NOT_MEET_OTHER_VALUE) {
+    return { didNotMeetReason: DID_NOT_MEET_OTHER_VALUE, didNotMeetReasonOther: otherText };
   }
   if (DID_NOT_MEET_REASON_SET.has(reasonText)) {
     return {
@@ -112,6 +118,13 @@ function isPayloadEmpty(payload: Record<string, unknown> | null | undefined): bo
   if (Array.isArray(payload.manualAttendees) && payload.manualAttendees.length > 0) return false;
   const dv = payload.dynamicValues as Record<string, unknown> | undefined;
   if (dv && Object.values(dv).some((v) => (typeof v === 'string' ? v.trim() !== '' : v != null && !(Array.isArray(v) && v.length === 0)))) return false;
+  const optionFollowups = payload.optionFollowups as Record<string, unknown> | undefined;
+  if (
+    optionFollowups &&
+    Object.values(optionFollowups).some((v) => typeof v === 'string' && v.trim() !== '')
+  ) {
+    return false;
+  }
   return true;
 }
 

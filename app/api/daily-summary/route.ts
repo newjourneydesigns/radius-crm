@@ -317,12 +317,17 @@ async function buildDigestForUser(
   let allCards: CardDigestItem[] = [];
   let colMap = new Map<string, { title: string; board_id: string }>();
   let boardMap = new Map<string, string>();
+  const isCardOnActiveBoard = (c: any) => {
+    const col = colMap.get(c.column_id);
+    return Boolean(col && boardMap.has(col.board_id));
+  };
   if (sectionPrefs.include_board_cards_owned || sectionPrefs.include_board_cards_assigned) {
     // Step 1: Get user's boards and their columns
     const { data: userBoards } = await supabase
       .from('project_boards')
       .select('id, title')
-      .eq('user_id', user.id);
+      .eq('user_id', user.id)
+      .eq('is_archived', false);
     (userBoards || []).forEach(b => boardMap.set(b.id, b.title));
     const boardIds = Array.from(boardMap.keys());
 
@@ -342,6 +347,7 @@ async function buildDigestForUser(
         .from('board_cards')
         .select('id, title, due_date, is_complete, column_id')
         .in('column_id', colIds)
+        .eq('is_archived', false)
         .not('due_date', 'is', null)
         .lte('due_date', today)
         .eq('is_complete', false);
@@ -361,6 +367,7 @@ async function buildDigestForUser(
           .from('board_cards')
           .select('id, title, due_date, is_complete, column_id')
           .in('id', assignedCardIds)
+          .eq('is_archived', false)
           .not('due_date', 'is', null)
           .lte('due_date', today)
           .eq('is_complete', false);
@@ -384,7 +391,8 @@ async function buildDigestForUser(
             const { data: extraBoards } = await supabase
               .from('project_boards')
               .select('id, title')
-              .in('id', Array.from(extraBoardIds));
+              .in('id', Array.from(extraBoardIds))
+              .eq('is_archived', false);
             (extraBoards || []).forEach(b => boardMap.set(b.id, b.title));
           }
         }
@@ -393,7 +401,7 @@ async function buildDigestForUser(
 
     // Merge and deduplicate by card id
     const cardDedupe = new Map<string, any>();
-    [...ownedCards, ...assignedCards].forEach(c => { if (!cardDedupe.has(c.id)) cardDedupe.set(c.id, c); });
+    [...ownedCards, ...assignedCards.filter(isCardOnActiveBoard)].forEach(c => { if (!cardDedupe.has(c.id)) cardDedupe.set(c.id, c); });
 
     // Fetch assignee names for all cards
     const cardIds = Array.from(cardDedupe.keys());
@@ -437,7 +445,8 @@ async function buildDigestForUser(
       const { data: allBoardCards } = await supabase
         .from('board_cards')
         .select('id')
-        .in('column_id', Array.from(colMap.keys()));
+        .in('column_id', Array.from(colMap.keys()))
+        .eq('is_archived', false);
       (allBoardCards || []).forEach(c => userCardIds.add(c.id));
     }
 
@@ -445,7 +454,37 @@ async function buildDigestForUser(
       .from('card_assignments')
       .select('card_id')
       .eq('user_id', user.id);
-    (assignedRows || []).forEach(a => userCardIds.add(a.card_id));
+    const checklistAssignedCardIds = (assignedRows || []).map(a => a.card_id);
+    if (checklistAssignedCardIds.length > 0) {
+      const { data: checklistAssignedCards } = await supabase
+        .from('board_cards')
+        .select('id, column_id')
+        .in('id', checklistAssignedCardIds)
+        .eq('is_archived', false);
+      const missingAssignedChecklistCols = (checklistAssignedCards || [])
+        .filter(c => !colMap.has(c.column_id))
+        .map(c => c.column_id);
+      if (missingAssignedChecklistCols.length > 0) {
+        const { data: extraCols } = await supabase
+          .from('board_columns')
+          .select('id, title, board_id')
+          .in('id', missingAssignedChecklistCols);
+        const extraBoardIds = new Set<string>();
+        (extraCols || []).forEach(c => {
+          colMap.set(c.id, { title: c.title, board_id: c.board_id });
+          if (!boardMap.has(c.board_id)) extraBoardIds.add(c.board_id);
+        });
+        if (extraBoardIds.size > 0) {
+          const { data: extraBoards } = await supabase
+            .from('project_boards')
+            .select('id, title')
+            .in('id', Array.from(extraBoardIds))
+            .eq('is_archived', false);
+          (extraBoards || []).forEach(b => boardMap.set(b.id, b.title));
+        }
+      }
+      (checklistAssignedCards || []).filter(isCardOnActiveBoard).forEach(c => userCardIds.add(c.id));
+    }
 
     if (userCardIds.size > 0) {
       // Get checklists with their parent card info
@@ -464,7 +503,8 @@ async function buildDigestForUser(
         const { data: cardInfos } = await supabase
           .from('board_cards')
           .select('id, title, column_id')
-          .in('id', clCardIds);
+          .in('id', clCardIds)
+          .eq('is_archived', false);
         (cardInfos || []).forEach(ci => cardInfoMap.set(ci.id, { title: ci.title, column_id: ci.column_id }));
 
         // Ensure we have column/board info for these cards too
@@ -483,7 +523,8 @@ async function buildDigestForUser(
             const { data: extraBoards } = await supabase
               .from('project_boards')
               .select('id, title')
-              .in('id', Array.from(extraBoardIds));
+              .in('id', Array.from(extraBoardIds))
+              .eq('is_archived', false);
             (extraBoards || []).forEach(b => boardMap.set(b.id, b.title));
           }
         }

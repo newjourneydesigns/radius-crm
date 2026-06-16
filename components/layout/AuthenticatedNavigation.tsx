@@ -173,14 +173,12 @@ const primaryNavItems = [
 ];
 
 const toolsNavItems = [
-  { href: '/circle-reporting', label: 'Circle Reporting', Icon: ChartIcon },
-  { href: '/progress',      label: 'Progress',        Icon: ChartIcon },
   { href: '/person-lookup', label: 'Person Lookup',   Icon: SearchNavIcon },
   { href: '/birthday-list', label: 'Birthday List',   Icon: BirthdayCakeIcon },
+  { href: '/circle-reporting', label: 'Circle Reporting', Icon: ChartIcon },
+  { href: '/progress',      label: 'Progress',        Icon: ChartIcon },
   { href: '/ccb-explorer',  label: 'CCB Explorer',   Icon: CompassIcon, adminOnly: true },
   { href: '/bulk-message',  label: 'Bulk Message',   Icon: MessageBulkIcon, adminOnly: true },
-  { href: '/add-leader',    label: 'Add Circle/Leader', Icon: UserPlusIcon, adminOnly: true },
-  { href: '/import-circles/#mass-update', label: 'Mass Update', Icon: MassUpdateIcon, adminOnly: true },
 ];
 
 const circleSummaryNavItems = [
@@ -189,7 +187,7 @@ const circleSummaryNavItems = [
   { href: '/admin/circle-leader-resources', label: 'Leader Resources', Icon: NotebookIcon, adminOnly: true },
   { href: '/admin/dynamic-questions', label: 'Circle Summary Questions', Icon: LayoutListIcon, adminOnly: true },
   { href: '/admin/leadership-snapshots/questions', label: 'Health Questions', Icon: LayoutListIcon, adminOnly: true },
-  { href: '/admin/leadership-snapshots', label: 'Leadership Snapshots', Icon: ChartIcon, adminOnly: true },
+  { href: '/admin/leadership-snapshots', label: 'Health Snaphots', Icon: ChartIcon, adminOnly: true },
 ];
 
 const adminToolsNavItems = [
@@ -197,9 +195,11 @@ const adminToolsNavItems = [
   ...(isCoachingAutomationsEnabled()
     ? [{ href: '/admin/coaching-automations', label: 'Coaching Automations', Icon: IdeaIcon }]
     : []),
-  { href: '/ccb-usage',              label: 'CCB Usage',                Icon: ChartIcon },
+  { href: '/add-leader',             label: 'Add Circle/Leader',        Icon: UserPlusIcon },
+  { href: '/import-circles/#mass-update', label: 'Mass Update',         Icon: MassUpdateIcon },
   { href: '/import-circles',         label: 'Import Circles',           Icon: ImportCirclesIcon },
   { href: '/users',                  label: 'Manage Users',             Icon: UsersIcon },
+  { href: '/ccb-usage',              label: 'CCB Usage',                Icon: ChartIcon },
 ];
 
 const feedbackNavItems = [
@@ -392,7 +392,7 @@ export default function AuthenticatedNavigation() {
                     ))}
                   </div>
                   <div className="border-t border-white/[0.06] px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Circle Leader Toolkit</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Circles Toolkit</p>
                   </div>
                   <div className="py-1">
                     {visibleCircleSummaryNavItems.map(({ href, label, Icon }) => (

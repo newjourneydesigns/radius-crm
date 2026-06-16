@@ -4,11 +4,25 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdminAccess } from '../../../../lib/auth-middleware';
+import { normalizeQuestionResponseKey } from '../../../../lib/circle-leader-toolkit/dynamic-question-response-keys';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
 
 export const dynamic = 'force-dynamic';
 
 const FIELD_TYPES = ['text', 'textarea', 'dropdown', 'multiselect', 'checkbox', 'radio'] as const;
+type FieldType = (typeof FIELD_TYPES)[number];
+
+function isFieldType(value: unknown): value is FieldType {
+  return typeof value === 'string' && FIELD_TYPES.includes(value as FieldType);
+}
+
+function nullableString(value: unknown): string | null {
+  return typeof value === 'string' && value ? value : null;
+}
+
+function sortOrder(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
 
 async function gate(req: NextRequest) {
   const { isAdmin, error } = await verifyAdminAccess(req);
@@ -34,13 +48,13 @@ export async function POST(req: NextRequest) {
   const block = await gate(req);
   if (block) return block;
 
-  let body: any = {};
+  let body: Record<string, unknown> = {};
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
-  if (!body.label || !FIELD_TYPES.includes(body.field_type)) {
+  if (typeof body.label !== 'string' || !body.label.trim() || !isFieldType(body.field_type)) {
     return NextResponse.json(
       { error: 'label and a valid field_type are required.' },
       { status: 400 }
@@ -51,14 +65,15 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase
     .from('dynamic_questions')
     .insert({
-      label: body.label,
-      help_text: body.help_text ?? null,
+      label: body.label.trim(),
+      help_text: nullableString(body.help_text),
       field_type: body.field_type,
-      options: body.options ?? [],
+      options: Array.isArray(body.options) ? body.options : [],
       required: !!body.required,
-      active_from: body.active_from ?? null,
-      active_to: body.active_to ?? null,
-      sort_order: body.sort_order ?? 0,
+      active_from: nullableString(body.active_from),
+      active_to: nullableString(body.active_to),
+      sort_order: sortOrder(body.sort_order),
+      response_key: normalizeQuestionResponseKey(body.response_key),
       show_when_did_not_meet: !!body.show_when_did_not_meet,
       show_when_attended: body.show_when_attended !== false,
     })
@@ -72,16 +87,21 @@ export async function PUT(req: NextRequest) {
   const block = await gate(req);
   if (block) return block;
 
-  let body: any = {};
+  let body: Record<string, unknown> = {};
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
-  if (!body.id) return NextResponse.json({ error: 'id is required.' }, { status: 400 });
+  if (typeof body.id !== 'string') {
+    return NextResponse.json({ error: 'id is required.' }, { status: 400 });
+  }
 
   const supabase = createServiceSupabaseClient();
   const { id, ...patch } = body;
+  if ('response_key' in patch) {
+    patch.response_key = normalizeQuestionResponseKey(patch.response_key);
+  }
   const { data, error } = await supabase
     .from('dynamic_questions')
     .update(patch)

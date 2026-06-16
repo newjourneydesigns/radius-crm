@@ -14,7 +14,7 @@ import {
   FolderKanban, Check, Globe, Lock, StickyNote, UserPlus, Download, Copy,
   Zap, ArrowDownAZ, ArrowUpZA, Bold, Italic, Underline, Strikethrough,
   LinkIcon, ExternalLink, Heading, ListBullet, ListOrdered, SlidersHorizontal, Repeat2,
-  LayoutDashboard, ChevronsLeft, Circle, Star, ArrowUpRight,
+  LayoutDashboard, ChevronsLeft, Circle, Star, ArrowUpRight, Archive,
 } from '../../../components/icons/BoardIcons';
 import { supabase } from '../../../lib/supabase';
 import type { CircleLeader } from '../../../lib/supabase';
@@ -1696,16 +1696,18 @@ function BoardPage() {
       const boardIds = Array.from(new Set(cards.map((c: any) => c.board_id as string)));
       const columnIds = Array.from(new Set(cards.map((c: any) => c.column_id as string)));
       const [{ data: boardRows }, { data: colRows }] = await Promise.all([
-        supabase.from('project_boards').select('id, title').in('id', boardIds),
+        supabase.from('project_boards').select('id, title').in('id', boardIds).eq('is_archived', false),
         supabase.from('board_columns').select('id, title').in('id', columnIds),
       ]);
       const boardMap = new Map((boardRows || []).map((b: any) => [b.id, b.title]));
       const colMap = new Map((colRows || []).map((c: any) => [c.id, c.title]));
-      setCardSearchResults(cards.map((c: any) => ({
-        id: c.id, title: c.title, boardId: c.board_id,
-        boardTitle: boardMap.get(c.board_id) || 'Unknown Board',
-        columnTitle: colMap.get(c.column_id) || 'Unknown Column',
-      })));
+      setCardSearchResults(cards
+        .filter((c: any) => boardMap.has(c.board_id))
+        .map((c: any) => ({
+          id: c.id, title: c.title, boardId: c.board_id,
+          boardTitle: boardMap.get(c.board_id) || 'Unknown Board',
+          columnTitle: colMap.get(c.column_id) || 'Unknown Column',
+        })));
     }, 300);
     return () => clearTimeout(t);
   }, [cardSearch]);
@@ -2307,6 +2309,9 @@ function BoardPage() {
           {board.is_public && (
             <span className="kb-public-badge"><Globe size={11} /> Public</span>
           )}
+          {board.is_archived && (
+            <span className="kb-public-badge kb-archived-badge"><Archive size={11} /> Archived</span>
+          )}
         </div>
 
         {activeLabelSummaries.length > 0 && (
@@ -2471,6 +2476,17 @@ function BoardPage() {
                       {board.is_public ? <><Lock size={14} /> Make Private</> : <><Globe size={14} /> Share (Make Public)</>}
                     </button>
                   )}
+                  {board.user_id === user?.id && (
+                    <button
+                      className="kb-dropdown-item"
+                      onClick={async () => {
+                        await updateBoard(boardId, { is_archived: !board.is_archived });
+                        setShowBoardMenu(false);
+                      }}
+                    >
+                      <Archive size={14} /> {board.is_archived ? 'Unarchive Board' : 'Archive Board'}
+                    </button>
+                  )}
                   <button
                     className="kb-dropdown-item danger"
                     onClick={async () => {
@@ -2489,6 +2505,20 @@ function BoardPage() {
           </div>
         </div>
       </div>
+
+      {board.is_archived && (
+        <div className="kb-archived-notice">
+          <div>
+            <strong>Archived board</strong>
+            <span>Cards on this board are hidden from Today alerts, badges, emails, and push reminders.</span>
+          </div>
+          {board.user_id === user?.id && (
+            <button className="kb-btn kb-btn-primary" onClick={() => updateBoard(boardId, { is_archived: false })}>
+              <Archive size={14} /> Unarchive
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── Cross-board card search ── */}
       <div className="kb-search-bar">

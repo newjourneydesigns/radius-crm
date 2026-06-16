@@ -154,7 +154,7 @@ async function collectDueItems(
   // match what the Today page computes client-side (cards + follow-ups,
   // due today or overdue).
   const [{ data: boardsRaw }, { data: assignmentsRaw }] = await Promise.all([
-    supabase.from('project_boards').select('id, title').eq('user_id', user.id),
+    supabase.from('project_boards').select('id, title').eq('user_id', user.id).eq('is_archived', false),
     supabase.from('card_assignments').select('card_id').eq('user_id', user.id),
   ]);
   const boards = (boardsRaw || []) as { id: string; title: string }[];
@@ -167,19 +167,36 @@ async function collectDueItems(
   const [ownedCards, assignedCards] = await Promise.all([
     boardIds.length > 0
       ? supabase.from('board_cards').select(cardSelect)
-          .in('board_id', boardIds).eq('is_complete', false)
+          .in('board_id', boardIds).eq('is_archived', false).eq('is_complete', false)
           .not('due_date', 'is', null).lte('due_date', today)
       : Promise.resolve({ data: [] as CardRow[] }),
     assignedIds.length > 0
       ? supabase.from('board_cards').select(cardSelect)
-          .in('id', assignedIds).eq('is_complete', false)
+          .in('id', assignedIds).eq('is_archived', false).eq('is_complete', false)
           .not('due_date', 'is', null).lte('due_date', today)
       : Promise.resolve({ data: [] as CardRow[] }),
   ]);
 
+  const assignedBoardIds = Array.from(new Set(
+    ((assignedCards.data || []) as CardRow[]).map(c => c.board_id).filter((id): id is string => Boolean(id))
+  ));
+  const missingBoardIds = assignedBoardIds.filter(id => !boardMap.has(id));
+  if (missingBoardIds.length > 0) {
+    const { data: extraBoards } = await supabase
+      .from('project_boards')
+      .select('id, title')
+      .in('id', missingBoardIds)
+      .eq('is_archived', false);
+    ((extraBoards || []) as { id: string; title: string }[]).forEach(b => boardMap.set(b.id, b.title));
+  }
+  const activeBoardIds = new Set(boardMap.keys());
+
   const cardRows = new Map<string, CardRow>();
-  for (const c of [(ownedCards.data || []), (assignedCards.data || [])].flat() as CardRow[]) {
+  for (const c of (ownedCards.data || []) as CardRow[]) {
     cardRows.set(c.id, c);
+  }
+  for (const c of (assignedCards.data || []) as CardRow[]) {
+    if (c.board_id && activeBoardIds.has(c.board_id)) cardRows.set(c.id, c);
   }
 
   for (const card of Array.from(cardRows.values())) {

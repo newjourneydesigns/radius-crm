@@ -16,7 +16,7 @@ export default function Footer() {
     <footer className="border-t border-gray-800/50 mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <p className="hidden sm:block text-xs text-gray-600 italic text-center mb-4">
-          &ldquo;This is quite possibly the absolute greatest tool/resource that we have for a staff leader.&rdquo; &mdash; <span className="not-italic">Anonymous</span>
+          &ldquo;For the good of others and the glory of God.&rdquo;
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           {/* Left: Attribution */}

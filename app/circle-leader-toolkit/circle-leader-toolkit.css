@@ -258,6 +258,10 @@ body:has(.cs-splash),
   color: #1c1c1c !important;
   background: rgba(255, 255, 255, 0.75);
 }
+.cs-root button.cs-inbox-mark-read-btn,
+.cs-root button.cs-inbox-mark-read-btn * {
+  color: #ffffff !important;
+}
 
 /* ─── Phone action sheet ───────────────────────────────────────
    Portaled to <body>, so we use literal brand colors instead of
@@ -1193,6 +1197,35 @@ a.cs-button:active {
 .cs-root .cs-footer-link:hover,
 .cs-root .cs-footer-link:focus-visible {
   color: var(--cs-green-darker) !important;
+}
+
+.cs-root .cs-bug-report-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  margin-top: 0.375rem;
+  padding: 0.625rem 1.125rem;
+  border-radius: 999px;
+  background: var(--cs-green);
+  color: #ffffff !important;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  line-height: 1;
+  text-decoration: none;
+  box-shadow: 0 10px 22px rgba(52, 178, 51, 0.28);
+  transition: transform 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+.cs-root .cs-bug-report-button:hover,
+.cs-root .cs-bug-report-button:focus-visible {
+  background: var(--cs-green-darker);
+  color: #ffffff !important;
+  box-shadow: 0 12px 26px rgba(37, 142, 36, 0.34);
+  transform: translateY(-1px);
+}
+.cs-root .cs-bug-report-button:focus-visible {
+  outline: 3px solid rgba(52, 178, 51, 0.28);
+  outline-offset: 3px;
 }
 
 /* Message Center CTA button — !important needed to beat .cs-root inherited color */

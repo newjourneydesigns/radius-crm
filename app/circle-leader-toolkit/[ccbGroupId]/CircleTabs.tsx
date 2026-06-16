@@ -63,7 +63,9 @@ export default function CircleTabs({
     { key: 'events', label: 'Events', href: `/circle-leader-toolkit/${urlGroupId}/events` },
     { key: 'roster', label: 'Roster', href: `/circle-leader-toolkit/${urlGroupId}/roster` },
     { key: 'resources', label: 'Resources', href: `/circle-leader-toolkit/${urlGroupId}/resources` },
-    { key: 'health', label: 'Health', href: `/circle-leader-toolkit/${urlGroupId}/health` },
+    // Health section hidden — not ready to roll out. Re-enable by uncommenting this tab
+    // and removing the redirect in [ccbGroupId]/health/page.tsx.
+    // { key: 'health', label: 'Health', href: `/circle-leader-toolkit/${urlGroupId}/health` },
     { key: 'inbox', label: 'Inbox', href: `/circle-leader-toolkit/${urlGroupId}/inbox` },
   ];
   const hasUnreadMessages = unreadCount !== null && unreadCount > 0;

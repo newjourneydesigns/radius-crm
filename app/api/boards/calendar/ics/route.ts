@@ -258,12 +258,22 @@ export async function GET(request: NextRequest) {
       .select('card_id, board_cards!inner(board_id)')
       .eq('user_id', user_id);
 
-    const assignedBoardIds = Array.from(new Set(
+    const assignedBoardIdsRaw = Array.from(new Set(
       (assignmentRows || []).map((a: any) => {
         const bc = Array.isArray(a.board_cards) ? a.board_cards[0] : a.board_cards;
         return bc?.board_id as string;
       }).filter(Boolean)
     ));
+
+    let assignedBoardIds: string[] = [];
+    if (assignedBoardIdsRaw.length > 0) {
+      const { data: activeAssignedBoards } = await service
+        .from('project_boards')
+        .select('id')
+        .in('id', assignedBoardIdsRaw)
+        .eq('is_archived', false);
+      assignedBoardIds = (activeAssignedBoards || []).map((b: any) => b.id as string);
+    }
 
     // 4. Union and optionally filter to included_board_ids
     let allBoardIds = Array.from(new Set([
@@ -304,7 +314,8 @@ export async function GET(request: NextRequest) {
       const { data: extraBoards } = await service
         .from('project_boards')
         .select('id, title')
-        .in('id', missingBoardIds);
+        .in('id', missingBoardIds)
+        .eq('is_archived', false);
       (extraBoards || []).forEach((b: any) => ownedBoardMap.set(b.id, b.title));
     }
 

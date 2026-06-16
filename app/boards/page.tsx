@@ -23,6 +23,7 @@ import {
   X,
   GripVertical,
   FileText,
+  Archive,
 } from '../../components/icons/BoardIcons';
 
 type SortMode = 'new-old' | 'a-z' | 'last-updated' | 'custom';
@@ -73,7 +74,8 @@ function getWeekEnd(): string {
 function BoardsListPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const { boards, fetchBoards, createBoard, deleteBoard, loading } = useProjectBoard();
+  const { boards, fetchBoards, createBoard, archiveBoard, deleteBoard, loading } = useProjectBoard();
+  const [showArchived, setShowArchived] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
@@ -106,8 +108,8 @@ function BoardsListPage() {
   const cardSearchBarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetchBoards();
-  }, [fetchBoards]);
+    fetchBoards(showArchived);
+  }, [fetchBoards, showArchived]);
 
   useEffect(() => {
     setCardSearchIdx(0);
@@ -123,16 +125,18 @@ function BoardsListPage() {
       const boardIds = Array.from(new Set(cardRows.map((c: any) => c.board_id as string)));
       const columnIds = Array.from(new Set(cardRows.map((c: any) => c.column_id as string)));
       const [{ data: boardRows }, { data: colRows }] = await Promise.all([
-        supabase.from('project_boards').select('id, title').in('id', boardIds),
+        supabase.from('project_boards').select('id, title').in('id', boardIds).eq('is_archived', false),
         supabase.from('board_columns').select('id, title').in('id', columnIds),
       ]);
       const boardMap = new Map((boardRows || []).map((b: any) => [b.id, b.title]));
       const colMap = new Map((colRows || []).map((c: any) => [c.id, c.title]));
-      setCardSearchResults(cardRows.map((c: any) => ({
-        id: c.id, title: c.title, boardId: c.board_id,
-        boardTitle: boardMap.get(c.board_id) || 'Unknown Board',
-        columnTitle: colMap.get(c.column_id) || 'Unknown Column',
-      })));
+      setCardSearchResults(cardRows
+        .filter((c: any) => boardMap.has(c.board_id))
+        .map((c: any) => ({
+          id: c.id, title: c.title, boardId: c.board_id,
+          boardTitle: boardMap.get(c.board_id) || 'Unknown Board',
+          columnTitle: colMap.get(c.column_id) || 'Unknown Column',
+        })));
     }, 300);
     return () => clearTimeout(t);
   }, [cardSearch]);
@@ -323,6 +327,12 @@ function BoardsListPage() {
     }
   };
 
+  const handleArchiveToggle = async (boardId: string, archived: boolean, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updated = await archiveBoard(boardId, archived);
+    if (updated) fetchBoards(showArchived);
+  };
+
   const formatLastActivity = (dateStr: string | null) => {
     if (!dateStr) return 'No activity';
     const d = new Date(dateStr);
@@ -348,9 +358,16 @@ function BoardsListPage() {
           <h1 className="kb-page-title">Project Boards</h1>
           <div className="kb-toolbar">
             <div className="kb-view-switcher">
-              <button className="kb-view-btn active">
+              <button className={`kb-view-btn ${!showArchived ? 'active' : ''}`} onClick={() => setShowArchived(false)}>
                 <FolderKanban size={15} />
                 Boards
+              </button>
+              <button
+                className={`kb-view-btn ${showArchived ? 'active' : ''}`}
+                onClick={() => setShowArchived(true)}
+              >
+                <Archive size={15} />
+                {showArchived ? 'Archived' : 'Archive'}
               </button>
               <button className="kb-view-btn" onClick={() => router.push('/boards/calendar')}>
                 <Calendar size={15} />
@@ -361,7 +378,7 @@ function BoardsListPage() {
                 Forms
               </button>
             </div>
-            <button className="kb-btn kb-btn-primary" onClick={() => setShowCreate(true)}>
+            <button className="kb-btn kb-btn-primary" onClick={() => setShowCreate(true)} disabled={showArchived}>
               <Plus size={16} />
               New Board
             </button>
@@ -455,13 +472,23 @@ function BoardsListPage() {
           </div>
         ) : boards.length === 0 ? (
           <div className="kb-empty">
-            <LayoutDashboard size={48} style={{ color: '#4b5563', marginBottom: '16px' }} />
-            <h3 style={{ color: '#e5e7eb', fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>No boards yet</h3>
-            <p style={{ color: '#9ca3af', fontSize: '14px', marginBottom: '20px' }}>Create your first project board to get started.</p>
-            <button className="kb-btn kb-btn-primary" onClick={() => setShowCreate(true)}>
-              <Plus size={16} />
-              Create Board
-            </button>
+            {showArchived ? (
+              <>
+                <Archive size={48} style={{ color: '#4b5563', marginBottom: '16px' }} />
+                <h3 style={{ color: '#e5e7eb', fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>No archived boards</h3>
+                <p style={{ color: '#9ca3af', fontSize: '14px', marginBottom: '20px' }}>Archived boards will appear here.</p>
+              </>
+            ) : (
+              <>
+                <LayoutDashboard size={48} style={{ color: '#4b5563', marginBottom: '16px' }} />
+                <h3 style={{ color: '#e5e7eb', fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>No boards yet</h3>
+                <p style={{ color: '#9ca3af', fontSize: '14px', marginBottom: '20px' }}>Create your first project board to get started.</p>
+                <button className="kb-btn kb-btn-primary" onClick={() => setShowCreate(true)}>
+                  <Plus size={16} />
+                  Create Board
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <>
@@ -515,6 +542,9 @@ function BoardsListPage() {
                     <h3 className="kb-board-card-title">{board.title}</h3>
                     {board.is_public && (
                       <span className="kb-visibility-badge public"><Globe size={10} /> Public</span>
+                    )}
+                    {board.is_archived && (
+                      <span className="kb-visibility-badge archived"><Archive size={10} /> Archived</span>
                     )}
                   </div>
                   {board.user_id !== user?.id && (
@@ -638,18 +668,27 @@ function BoardsListPage() {
                       {s ? formatLastActivity(s.lastActivity) : new Date(board.created_at).toLocaleDateString()}
                     </span>
                     {board.user_id === user?.id && (
-                      <button
-                        className="kb-btn-icon kb-btn-icon-danger"
-                        onClick={e => {
-                          e.stopPropagation();
-                          if (confirm('Delete this board? This cannot be undone.')) {
-                            deleteBoard(board.id);
-                          }
-                        }}
-                        title="Delete board"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div className="kb-board-card-actions">
+                        <button
+                          className="kb-btn-icon"
+                          onClick={e => handleArchiveToggle(board.id, !board.is_archived, e)}
+                          title={board.is_archived ? 'Unarchive board' : 'Archive board'}
+                        >
+                          <Archive size={14} />
+                        </button>
+                        <button
+                          className="kb-btn-icon kb-btn-icon-danger"
+                          onClick={e => {
+                            e.stopPropagation();
+                            if (confirm('Delete this board? This cannot be undone.')) {
+                              deleteBoard(board.id);
+                            }
+                          }}
+                          title="Delete board"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -860,6 +899,11 @@ const boardsListStyles = `
     color: #22c55e;
     border: 1px solid rgba(34,197,94,0.25);
   }
+  .kb-visibility-badge.archived {
+    background: rgba(148,163,184,0.12) !important;
+    color: #cbd5e1;
+    border: 1px solid rgba(148,163,184,0.25);
+  }
   .kb-shared-by {
     display: flex;
     align-items: center;
@@ -1024,6 +1068,11 @@ const boardsListStyles = `
     display: flex;
     align-items: center;
     justify-content: space-between;
+  }
+  .kb-board-card-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
   }
   .kb-board-card-date {
     display: flex;

@@ -6,7 +6,14 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { DateTime } from 'luxon';
 import { setCircleSummaryAppBadge } from '../../../../../../lib/circle-leader-toolkit/badging';
-import { DID_NOT_MEET_REASONS } from '../../../../../../lib/circle-leader-toolkit/did-not-meet-reasons';
+import {
+  DID_NOT_MEET_NOTES_KEY,
+  DID_NOT_MEET_OTHER_VALUE,
+  DID_NOT_MEET_REASON_KEY,
+  DYNAMIC_RESPONSE_KEY,
+  normalizeQuestionResponseKey,
+  type QuestionResponseKey,
+} from '../../../../../../lib/circle-leader-toolkit/dynamic-question-response-keys';
 
 type Participant = {
   id: string;
@@ -22,10 +29,18 @@ type DynamicQuestion = {
   label: string;
   help_text: string | null;
   field_type: 'text' | 'textarea' | 'dropdown' | 'multiselect' | 'checkbox' | 'radio';
-  options: Array<string | { label: string; value: string }>;
+  options: Array<string | DynamicQuestionOption>;
   required: boolean;
+  response_key?: QuestionResponseKey | null;
   show_when_did_not_meet: boolean;
   show_when_attended: boolean;
+};
+
+type DynamicQuestionOption = {
+  label: string;
+  value: string;
+  followup_label?: string;
+  followup_required?: boolean;
 };
 
 type Leader = {
@@ -124,6 +139,80 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
+function responseKeyForQuestion(question: DynamicQuestion): QuestionResponseKey {
+  return normalizeQuestionResponseKey(question.response_key);
+}
+
+function dynamicValueToString(value: DynamicValue | undefined): string {
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'boolean') return value ? 'Yes' : '';
+  return typeof value === 'string' ? value : '';
+}
+
+function getQuestionOptions(question: DynamicQuestion): DynamicQuestionOption[] {
+  return (question.options || []).map((option) =>
+    typeof option === 'string' ? { label: option, value: option } : option
+  );
+}
+
+function getSelectedOption(
+  question: DynamicQuestion,
+  value: DynamicValue | undefined
+): DynamicQuestionOption | null {
+  if (typeof value !== 'string') return null;
+  return getQuestionOptions(question).find((option) => option.value === value) ?? null;
+}
+
+function getSelectedOptions(
+  question: DynamicQuestion,
+  value: DynamicValue | undefined
+): DynamicQuestionOption[] {
+  const options = getQuestionOptions(question);
+  if (Array.isArray(value)) return options.filter((option) => value.includes(option.value));
+  if (typeof value === 'string') {
+    const selected = options.find((option) => option.value === value);
+    return selected ? [selected] : [];
+  }
+  return [];
+}
+
+function optionFollowupKey(questionId: string, optionValue: string): string {
+  return `${questionId}::${optionValue}`;
+}
+
+function cleanFollowupText(value: unknown): string {
+  const text = typeof value === 'string' ? value.trim() : '';
+  return text === DID_NOT_MEET_OTHER_VALUE ? '' : text;
+}
+
+function cleanDidNotMeetFollowupText(
+  value: unknown,
+  selectedValue: string,
+  questions: DynamicQuestion[]
+): string {
+  const text = cleanFollowupText(value);
+  if (!text) return '';
+
+  const reasonQuestion = questions.find(
+    (question) => responseKeyForQuestion(question) === DID_NOT_MEET_REASON_KEY
+  );
+  const selectedOption = reasonQuestion ? getSelectedOption(reasonQuestion, selectedValue) : null;
+  const genericFallbacks = new Set(
+    [
+      DID_NOT_MEET_OTHER_VALUE,
+      selectedValue,
+      selectedOption?.value,
+      selectedOption?.label,
+      'Other Reason for not meeting',
+      'Other reason for not meeting',
+    ]
+      .filter(Boolean)
+      .map((entry) => String(entry).trim().toLowerCase())
+  );
+
+  return genericFallbacks.has(text.toLowerCase()) ? '' : text;
+}
+
 export default function CircleSummaryFormPage() {
   const router = useRouter();
   const params = useParams<{ ccbGroupId: string; eventId: string; occurrence: string }>();
@@ -148,6 +237,7 @@ export default function CircleSummaryFormPage() {
   const [prayerRequests, setPrayerRequests] = useState('');
   const [info, setInfo] = useState('');
   const [dynamicValues, setDynamicValues] = useState<Record<string, DynamicValue>>({});
+  const [optionFollowups, setOptionFollowups] = useState<Record<string, string>>({});
   const [manualAttendees, setManualAttendees] = useState<ManualAttendee[]>([]);
   const [infoUpdateDay, setInfoUpdateDay] = useState('');
   const [infoUpdateTime, setInfoUpdateTime] = useState('');
@@ -225,7 +315,11 @@ export default function CircleSummaryFormPage() {
         setParticipants(rosterData.participants || []);
 
         const qData = await qRes.json();
-        setQuestions(qData.questions || []);
+        const loadedQuestions = (qData.questions || []).map((q: DynamicQuestion) => ({
+            ...q,
+            response_key: responseKeyForQuestion(q),
+          }));
+        setQuestions(loadedQuestions);
 
         const draftData = await draftRes.json();
         if (!draftRes.ok) {
@@ -240,8 +334,19 @@ export default function CircleSummaryFormPage() {
             setLoadedFromCcb(true);
           }
           setDidNotMeet(!!d.didNotMeet);
-          setDidNotMeetReason(d.didNotMeetReason ?? '');
-          setDidNotMeetReasonOther(d.didNotMeetReasonOther ?? '');
+          const loadedReason = String(d.didNotMeetReason ?? '');
+          const loadedReasonOther = cleanDidNotMeetFollowupText(
+            d.didNotMeetReasonOther,
+            loadedReason,
+            loadedQuestions
+          );
+          if ((loadedReason === 'Other' && loadedReasonOther) || loadedReason === DID_NOT_MEET_OTHER_VALUE) {
+            setDidNotMeetReason(DID_NOT_MEET_OTHER_VALUE);
+            setDidNotMeetReasonOther(loadedReasonOther);
+          } else {
+            setDidNotMeetReason(loadedReason);
+            setDidNotMeetReasonOther(loadedReasonOther);
+          }
           if (Array.isArray(d.attendeeCcbIds)) setSelectedCcbIds(new Set(d.attendeeCcbIds));
           setTopic(d.topic ?? '');
           setNotes(d.notes ?? '');
@@ -249,6 +354,7 @@ export default function CircleSummaryFormPage() {
           setPrayerRequests(d.prayerRequests ?? '');
           setInfo(d.info ?? '');
           setDynamicValues((d.dynamicValues ?? {}) as Record<string, DynamicValue>);
+          setOptionFollowups((d.optionFollowups ?? {}) as Record<string, string>);
           setManualAttendees(d.manualAttendees ?? []);
           setInfoUpdateDay(d.infoUpdateDay ?? '');
           setInfoUpdateTime(d.infoUpdateTime ?? '');
@@ -300,6 +406,7 @@ export default function CircleSummaryFormPage() {
       prayerRequests,
       info,
       dynamicValues,
+      optionFollowups,
       manualAttendees,
       infoUpdateDay,
       infoUpdateTime,
@@ -315,6 +422,7 @@ export default function CircleSummaryFormPage() {
       prayerRequests,
       info,
       dynamicValues,
+      optionFollowups,
       manualAttendees,
       infoUpdateDay,
       infoUpdateTime,
@@ -479,6 +587,96 @@ export default function CircleSummaryFormPage() {
     setAddOpen(false);
   }
 
+  function getQuestionValue(question: DynamicQuestion): DynamicValue | undefined {
+    const responseKey = responseKeyForQuestion(question);
+    if (responseKey === DID_NOT_MEET_REASON_KEY) return didNotMeetReason;
+    if (responseKey === DID_NOT_MEET_NOTES_KEY) return notes;
+    return dynamicValues[question.id];
+  }
+
+  function setQuestionValue(question: DynamicQuestion, value: DynamicValue) {
+    const responseKey = responseKeyForQuestion(question);
+    if (responseKey === DID_NOT_MEET_REASON_KEY) {
+      const nextValue = dynamicValueToString(value);
+      const selectedOption = getSelectedOption(question, nextValue);
+      setDidNotMeetReason(nextValue);
+      if (!selectedOption?.followup_label && !selectedOption?.followup_required) {
+        setDidNotMeetReasonOther('');
+      }
+      return;
+    }
+    if (responseKey === DID_NOT_MEET_NOTES_KEY) {
+      setNotes(dynamicValueToString(value));
+      return;
+    }
+    setDynamicValues((prev) => ({ ...prev, [question.id]: value }));
+  }
+
+  function finalDidNotMeetReason() {
+    const reasonQuestion = questions.find(
+      (question) => responseKeyForQuestion(question) === DID_NOT_MEET_REASON_KEY
+    );
+    const selectedOption = reasonQuestion
+      ? getSelectedOption(reasonQuestion, didNotMeetReason)
+      : null;
+    const followup = didNotMeetReasonOther.trim();
+
+    if (selectedOption?.followup_label || selectedOption?.followup_required) {
+      return followup || selectedOption.label;
+    }
+
+    if (didNotMeetReason === DID_NOT_MEET_OTHER_VALUE || didNotMeetReason === 'Other') {
+      return followup || selectedOption?.label || 'Other';
+    }
+    return didNotMeetReason.trim();
+  }
+
+  function getOptionFollowupText(question: DynamicQuestion, option: DynamicQuestionOption): string {
+    if (responseKeyForQuestion(question) === DID_NOT_MEET_REASON_KEY) {
+      return didNotMeetReasonOther;
+    }
+    return optionFollowups[optionFollowupKey(question.id, option.value)] || '';
+  }
+
+  function setOptionFollowupText(question: DynamicQuestion, optionValue: string, text: string) {
+    if (responseKeyForQuestion(question) === DID_NOT_MEET_REASON_KEY) {
+      setDidNotMeetReasonOther(text);
+      return;
+    }
+    setOptionFollowups((prev) => ({
+      ...prev,
+      [optionFollowupKey(question.id, optionValue)]: text,
+    }));
+  }
+
+  function missingRequiredFollowup(question: DynamicQuestion): string | null {
+    const selectedOptions = getSelectedOptions(question, getQuestionValue(question));
+    for (const option of selectedOptions) {
+      if (!option.followup_required) continue;
+      if (!getOptionFollowupText(question, option).trim()) {
+        return option.followup_label || `${option.label} details`;
+      }
+    }
+    return null;
+  }
+
+  function formatDynamicResponseValue(question: DynamicQuestion): DynamicValue {
+    const value = dynamicValues[question.id];
+    const selectedOptions = getSelectedOptions(question, value);
+    if (selectedOptions.length === 0) return value ?? '';
+
+    const formatOption = (option: DynamicQuestionOption) => {
+      const followup = getOptionFollowupText(question, option).trim();
+      if (followup && (option.followup_label || option.followup_required)) {
+        return `${option.label}: ${followup}`;
+      }
+      return option.label || option.value;
+    };
+
+    if (Array.isArray(value)) return selectedOptions.map(formatOption);
+    return formatOption(selectedOptions[0]);
+  }
+
   async function handleSubmit() {
     setSubmitError(null);
 
@@ -488,10 +686,7 @@ export default function CircleSummaryFormPage() {
     }
 
     if (didNotMeet) {
-      const reason =
-        didNotMeetReason === 'Other'
-          ? didNotMeetReasonOther.trim()
-          : didNotMeetReason.trim();
+      const reason = finalDidNotMeetReason();
       if (!reason) {
         setSubmitError('Please tell us why your Circle did not meet.');
         return;
@@ -502,7 +697,7 @@ export default function CircleSummaryFormPage() {
       const visible =
         (didNotMeet && q.show_when_did_not_meet) || (!didNotMeet && q.show_when_attended);
       if (visible && q.required) {
-        const v = dynamicValues[q.id];
+        const v = getQuestionValue(q);
         const empty =
           v === undefined ||
           v === null ||
@@ -513,6 +708,11 @@ export default function CircleSummaryFormPage() {
           return;
         }
       }
+      const missingFollowupLabel = visible ? missingRequiredFollowup(q) : null;
+      if (missingFollowupLabel) {
+        setSubmitError(`Please answer: "${missingFollowupLabel}"`);
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -520,16 +720,16 @@ export default function CircleSummaryFormPage() {
       const dynamicResponses = questions
         .filter(
           (q) =>
-            (didNotMeet && q.show_when_did_not_meet) || (!didNotMeet && q.show_when_attended)
+            ((didNotMeet && q.show_when_did_not_meet) || (!didNotMeet && q.show_when_attended)) &&
+            responseKeyForQuestion(q) === DYNAMIC_RESPONSE_KEY
         )
-        .map((q) => ({ questionId: q.id, label: q.label, value: dynamicValues[q.id] ?? '' }));
+        .map((q) => ({ questionId: q.id, label: q.label, value: formatDynamicResponseValue(q) }));
 
       const infoUpdateChanged =
         showInfoUpdate &&
         (infoUpdateDay !== '' || infoUpdateTime !== '' || infoUpdateLocation !== '');
 
-      const finalReason =
-        didNotMeetReason === 'Other' ? didNotMeetReasonOther.trim() : didNotMeetReason;
+      const finalReason = finalDidNotMeetReason();
 
       const res = await fetch('/api/circle-leader-toolkit/submit', {
         method: 'POST',
@@ -708,47 +908,7 @@ export default function CircleSummaryFormPage() {
           </label>
         </div>
 
-        {didNotMeet ? (
-          <div className="cs-card">
-            <div className="cs-step">
-              <span className="cs-step-num">!</span>
-              <span className="cs-step-title">What kept you from meeting?</span>
-            </div>
-            <div className="space-y-2">
-              {DID_NOT_MEET_REASONS.map((r) => (
-                <label key={r} className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="dnm-reason"
-                    className="cs-radio"
-                    checked={didNotMeetReason === r}
-                    onChange={() => setDidNotMeetReason(r)}
-                  />
-                  <span>{r}</span>
-                </label>
-              ))}
-              {didNotMeetReason === 'Other' && (
-                <input
-                  type="text"
-                  placeholder="Tell us more"
-                  className="cs-input mt-2"
-                  value={didNotMeetReasonOther}
-                  onChange={(e) => setDidNotMeetReasonOther(e.target.value)}
-                />
-              )}
-            </div>
-            <div className="mt-5">
-              <label className="cs-label" htmlFor="dnm-notes">
-                Anything else worth noting? (optional)
-              </label>
-              <AutoGrowTextarea
-                id="dnm-notes"
-                value={notes}
-                onChange={(v) => setNotes(v)}
-              />
-            </div>
-          </div>
-        ) : (
+        {didNotMeet ? null : (
           <>
             {/* Step 2 — Roster */}
             <div className="cs-card">
@@ -1090,8 +1250,15 @@ export default function CircleSummaryFormPage() {
               <DynamicQuestionField
                 key={q.id}
                 question={q}
-                value={dynamicValues[q.id]}
-                onChange={(v) => setDynamicValues((prev) => ({ ...prev, [q.id]: v }))}
+                value={getQuestionValue(q)}
+                getFollowupText={(optionValue) => {
+                  const option = getQuestionOptions(q).find((o) => o.value === optionValue);
+                  return option ? getOptionFollowupText(q, option) : '';
+                }}
+                onFollowupTextChange={(optionValue, text) =>
+                  setOptionFollowupText(q, optionValue, text)
+                }
+                onChange={(v) => setQuestionValue(q, v)}
               />
             ))}
           </div>
@@ -1252,15 +1419,41 @@ function AutoGrowTextarea({
 function DynamicQuestionField({
   question,
   value,
+  getFollowupText,
+  onFollowupTextChange,
   onChange,
 }: {
   question: DynamicQuestion;
   value: DynamicValue | undefined;
+  getFollowupText?: (optionValue: string) => string;
+  onFollowupTextChange?: (optionValue: string, text: string) => void;
   onChange: (v: DynamicValue) => void;
 }) {
-  const opts = (question.options || []).map((o) =>
-    typeof o === 'string' ? { label: o, value: o } : o
+  const opts = getQuestionOptions(question);
+  const selectedOptions = getSelectedOptions(question, value);
+  const followupOptions = selectedOptions.filter(
+    (option) => !!(option.followup_label || option.followup_required)
   );
+
+  function renderFollowups() {
+    if (!onFollowupTextChange || followupOptions.length === 0) return null;
+    return (
+      <div className="mt-3 space-y-3">
+        {followupOptions.map((option) => (
+          <div key={option.value}>
+            <label className="cs-label">
+              {option.followup_label}
+              {option.followup_required && <span className="text-red-600 ml-1">*</span>}
+            </label>
+            <AutoGrowTextarea
+              value={getFollowupText?.(option.value) || ''}
+              onChange={(text) => onFollowupTextChange(option.value, text)}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -1298,6 +1491,7 @@ function DynamicQuestionField({
           ))}
         </select>
       )}
+      {question.field_type === 'dropdown' && renderFollowups()}
       {question.field_type === 'radio' && (
         <div className="space-y-1.5">
           {opts.map((o) => (
@@ -1314,6 +1508,7 @@ function DynamicQuestionField({
           ))}
         </div>
       )}
+      {question.field_type === 'radio' && renderFollowups()}
       {question.field_type === 'multiselect' && (
         <div className="space-y-1.5">
           {opts.map((o) => {
@@ -1335,17 +1530,41 @@ function DynamicQuestionField({
           })}
         </div>
       )}
+      {question.field_type === 'multiselect' && renderFollowups()}
       {question.field_type === 'checkbox' && (
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            className="cs-check"
-            checked={!!value}
-            onChange={(e) => onChange(e.target.checked)}
-          />
-          <span>Yes</span>
-        </label>
+        opts.length > 0 ? (
+          <div className="space-y-1.5">
+            {opts.map((o) => {
+              const arr: string[] = Array.isArray(value) ? value : [];
+              const checked = arr.includes(o.value);
+              return (
+                <label key={o.value} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="cs-check"
+                    checked={checked}
+                    onChange={() =>
+                      onChange(checked ? arr.filter((x) => x !== o.value) : [...arr, o.value])
+                    }
+                  />
+                  <span>{o.label}</span>
+                </label>
+              );
+            })}
+          </div>
+        ) : (
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              className="cs-check"
+              checked={!!value}
+              onChange={(e) => onChange(e.target.checked)}
+            />
+            <span>Yes</span>
+          </label>
+        )
       )}
+      {question.field_type === 'checkbox' && opts.length > 0 && renderFollowups()}
     </div>
   );
 }

@@ -17,7 +17,7 @@ export interface TodayBadgeCount {
 type UserProfile = { id: string; name: string; email: string };
 type BoardRow = { id: string };
 type AssignmentRow = { card_id: string };
-type CardIdRow = { id: string };
+type CardIdRow = { id: string; board_id?: string | null };
 
 function getSupabaseServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
 
     // Open board cards (user's boards + cards assigned to them) due today/overdue.
     const [{ data: boardsRaw }, { data: assignmentRows }] = await Promise.all([
-      supabase.from('project_boards').select('id').eq('user_id', user.id),
+      supabase.from('project_boards').select('id').eq('user_id', user.id).eq('is_archived', false),
       supabase.from('card_assignments').select('card_id').eq('user_id', user.id),
     ]);
     const boardIds       = ((boardsRaw || []) as BoardRow[]).map((b) => b.id);
@@ -93,19 +93,36 @@ export async function GET(request: NextRequest) {
     const [ownedCardsRes, assignedCardsRes] = await Promise.all([
       boardIds.length > 0
         ? supabase.from('board_cards').select('id')
-            .in('board_id', boardIds).eq('is_complete', false)
+            .in('board_id', boardIds).eq('is_archived', false).eq('is_complete', false)
             .not('due_date', 'is', null).lte('due_date', today)
         : Promise.resolve({ data: [] as CardIdRow[] }),
       assignedCardIds.length > 0
-        ? supabase.from('board_cards').select('id')
-            .in('id', assignedCardIds).eq('is_complete', false)
+        ? supabase.from('board_cards').select('id, board_id')
+            .in('id', assignedCardIds).eq('is_archived', false).eq('is_complete', false)
             .not('due_date', 'is', null).lte('due_date', today)
         : Promise.resolve({ data: [] as CardIdRow[] }),
     ]);
 
+    const assignedBoardIds = Array.from(new Set(
+      ((assignedCardsRes.data || []) as CardIdRow[]).map((c) => c.board_id).filter((id): id is string => Boolean(id))
+    ));
+    const missingBoardIds = assignedBoardIds.filter((id) => !boardIds.includes(id));
+    const activeBoardIds = new Set(boardIds);
+    if (missingBoardIds.length > 0) {
+      const { data: extraBoards } = await supabase
+        .from('project_boards')
+        .select('id')
+        .in('id', missingBoardIds)
+        .eq('is_archived', false);
+      ((extraBoards || []) as BoardRow[]).forEach((b) => activeBoardIds.add(b.id));
+    }
+
     const cardIds = new Set<string>();
-    for (const c of [(ownedCardsRes.data || []), (assignedCardsRes.data || [])].flat() as CardIdRow[]) {
+    for (const c of (ownedCardsRes.data || []) as CardIdRow[]) {
       cardIds.add(c.id);
+    }
+    for (const c of (assignedCardsRes.data || []) as CardIdRow[]) {
+      if (c.board_id && activeBoardIds.has(c.board_id)) cardIds.add(c.id);
     }
 
     // Follow-ups assigned to this user, due today/overdue (or no date set).

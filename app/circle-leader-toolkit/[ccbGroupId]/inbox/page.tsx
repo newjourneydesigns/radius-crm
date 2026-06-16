@@ -201,9 +201,9 @@ export default function CircleSummaryInboxPage() {
                       type="button"
                       onClick={() => markRead(message)}
                       disabled={markingId === message.recipient_id}
-                      className="mt-4 w-full bg-[#34B233] text-white rounded-xl py-2.5 text-sm font-bold shadow-sm disabled:opacity-60"
+                      className="cs-inbox-mark-read-btn mt-4 w-full bg-[#34B233] text-white rounded-xl py-2.5 text-sm font-bold shadow-sm disabled:opacity-60"
                     >
-                      {markingId === message.recipient_id ? 'Marking read...' : 'Mark read'}
+                      {markingId === message.recipient_id ? 'Marking as read...' : 'Mark as Read'}
                     </button>
                   ) : message.read_at ? (
                     <p className="border-t border-neutral-100 pt-3 text-[11px] font-medium text-neutral-400 mt-4">

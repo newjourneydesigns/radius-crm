@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import {
+  DID_NOT_MEET_NOTES_KEY,
+  DID_NOT_MEET_REASON_KEY,
+  DYNAMIC_RESPONSE_KEY,
+  type QuestionResponseKey,
+} from '../../../lib/circle-leader-toolkit/dynamic-question-response-keys';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,16 +16,29 @@ const supabase = createClient(
 
 type FieldType = 'text' | 'textarea' | 'dropdown' | 'multiselect' | 'checkbox' | 'radio';
 
+type QuestionOption = {
+  label: string;
+  value: string;
+  followup_label?: string;
+  followup_required?: boolean;
+};
+
+type EditableOption = QuestionOption & {
+  id: string;
+  followup_enabled: boolean;
+};
+
 type Question = {
   id: string;
   label: string;
   help_text: string | null;
   field_type: FieldType;
-  options: Array<string | { label: string; value: string }>;
+  options: Array<string | QuestionOption>;
   required: boolean;
   active_from: string | null;
   active_to: string | null;
   sort_order: number;
+  response_key: QuestionResponseKey;
   show_when_did_not_meet: boolean;
   show_when_attended: boolean;
 };
@@ -38,6 +57,7 @@ function emptyDraft(): Partial<Question> {
     active_from: null,
     active_to: null,
     sort_order: 0,
+    response_key: DYNAMIC_RESPONSE_KEY,
     show_when_did_not_meet: false,
     show_when_attended: true,
   };
@@ -61,6 +81,53 @@ const STATUS_STYLES = {
 function getErrorMessage(error: unknown, fallback = 'Something went wrong.'): string {
   return error instanceof Error ? error.message : fallback;
 }
+
+function normalizeOption(option: Question['options'][number]): QuestionOption {
+  if (typeof option === 'string') return { label: option, value: option };
+  return { ...option, value: option.value || option.label };
+}
+
+function createEditableOption(option?: Partial<QuestionOption>): EditableOption {
+  const label = option?.label || '';
+  const value = option?.value || label;
+  const followupLabel = option?.followup_label || '';
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    label,
+    value,
+    followup_label: followupLabel,
+    followup_required: !!option?.followup_required,
+    followup_enabled: !!(followupLabel || option?.followup_required),
+  };
+}
+
+function optionsToEditableRows(options: Question['options'] | undefined): EditableOption[] {
+  return (options || []).map((option) => createEditableOption(normalizeOption(option)));
+}
+
+function editableRowsToOptions(rows: EditableOption[]): QuestionOption[] {
+  return rows
+    .map((row) => ({
+      label: row.label.trim(),
+      value: (row.value || row.label).trim(),
+      followup_label: row.followup_enabled ? row.followup_label?.trim() || '' : '',
+      followup_required: row.followup_enabled ? !!row.followup_required : false,
+      followup_enabled: row.followup_enabled,
+    }))
+    .filter((row) => row.label)
+    .map((row) => ({
+      label: row.label,
+      value: row.value || row.label,
+      ...(row.followup_label ? { followup_label: row.followup_label } : {}),
+      ...(row.followup_enabled ? { followup_required: row.followup_required } : {}),
+    }));
+}
+
+const RESPONSE_KEY_LABELS: Record<QuestionResponseKey, string> = {
+  [DYNAMIC_RESPONSE_KEY]: 'Standard response',
+  [DID_NOT_MEET_REASON_KEY]: 'Did not meet reason',
+  [DID_NOT_MEET_NOTES_KEY]: 'Did not meet notes',
+};
 
 export default function DynamicQuestionsAdminPage() {
   const [token, setToken] = useState<string | null>(null);
@@ -95,7 +162,7 @@ function QuestionsPanel({ token }: { token: string | null }) {
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Partial<Question> | null>(null);
   const [visibilityMode, setVisibilityMode] = useState<VisibilityMode>('always');
-  const [optionsText, setOptionsText] = useState('');
+  const [optionRows, setOptionRows] = useState<EditableOption[]>([]);
   const [saving, setSaving] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -123,22 +190,18 @@ function QuestionsPanel({ token }: { token: string | null }) {
   function startNew() {
     setDraft(emptyDraft());
     setVisibilityMode('always');
-    setOptionsText('');
+    setOptionRows([]);
   }
 
   function startEdit(q: Question) {
     setDraft({ ...q });
     setVisibilityMode(q.active_from || q.active_to ? 'range' : 'always');
-    setOptionsText(
-      (q.options || [])
-        .map((o) => (typeof o === 'string' ? o : `${o.label}|${o.value}`))
-        .join('\n')
-    );
+    setOptionRows(optionsToEditableRows(q.options));
   }
 
   function cancelEdit() {
     setDraft(null);
-    setOptionsText('');
+    setOptionRows([]);
   }
 
   function setMode(mode: VisibilityMode) {
@@ -157,14 +220,7 @@ function QuestionsPanel({ token }: { token: string | null }) {
     setSaving(true);
     setError(null);
 
-    const opts = optionsText
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean)
-      .map((line) => {
-        const [label, value] = line.split('|').map((s) => s.trim());
-        return value ? { label, value } : line;
-      });
+    const opts = editableRowsToOptions(optionRows);
 
     const payload = {
       ...draft,
@@ -208,7 +264,42 @@ function QuestionsPanel({ token }: { token: string | null }) {
   const needsOptions =
     draft?.field_type === 'dropdown' ||
     draft?.field_type === 'multiselect' ||
+    draft?.field_type === 'checkbox' ||
     draft?.field_type === 'radio';
+
+  function addOption(option?: Partial<QuestionOption>) {
+    setOptionRows((rows) => [...rows, createEditableOption(option)]);
+  }
+
+  function addOtherOption() {
+    addOption({
+      label: 'Other',
+      value: 'Other',
+      followup_label: 'Tell us more',
+      followup_required: true,
+    });
+  }
+
+  function updateOption(id: string, patch: Partial<EditableOption>) {
+    setOptionRows((rows) =>
+      rows.map((row) => {
+        if (row.id !== id) return row;
+        const next = { ...row, ...patch };
+        if ('label' in patch && (!row.value || row.value === row.label)) {
+          next.value = patch.label || '';
+        }
+        if (patch.followup_enabled === false) {
+          next.followup_label = '';
+          next.followup_required = false;
+        }
+        return next;
+      })
+    );
+  }
+
+  function removeOption(id: string) {
+    setOptionRows((rows) => rows.filter((row) => row.id !== id));
+  }
 
   const activeCount = questions.filter((q) => {
     const s = questionStatus(q);
@@ -286,6 +377,31 @@ function QuestionsPanel({ token }: { token: string | null }) {
                   ))}
                 </select>
               </Field>
+              <Field label="Response purpose">
+                <select
+                  className="w-full bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500"
+                  value={draft.response_key || DYNAMIC_RESPONSE_KEY}
+                  onChange={(e) => {
+                    const responseKey = e.target.value as QuestionResponseKey;
+                    setDraft({
+                      ...draft,
+                      response_key: responseKey,
+                      show_when_did_not_meet:
+                        responseKey === DYNAMIC_RESPONSE_KEY ? draft.show_when_did_not_meet : true,
+                      show_when_attended:
+                        responseKey === DYNAMIC_RESPONSE_KEY ? draft.show_when_attended : false,
+                    });
+                  }}
+                >
+                  {Object.entries(RESPONSE_KEY_LABELS).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Sort order">
                 <input
                   type="number"
@@ -300,15 +416,117 @@ function QuestionsPanel({ token }: { token: string | null }) {
             {needsOptions && (
               <Field
                 label="Options"
-                hint="One per line. Use `Label|value` for distinct value, or just `Label` for both."
+                hint="Use follow-up text when an option should ask for extra details after it is selected."
               >
-                <textarea
-                  rows={4}
-                  className="w-full bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-vc-500"
-                  value={optionsText}
-                  onChange={(e) => setOptionsText(e.target.value)}
-                  placeholder={'Yes\nNo\nNot sure'}
-                />
+                <div className="space-y-3">
+                  {optionRows.length === 0 && (
+                    <div className="rounded-lg border border-dashed border-zinc-600 px-3 py-4 text-sm text-slate-400">
+                      No options yet.
+                    </div>
+                  )}
+                  {optionRows.map((option, index) => (
+                    <div
+                      key={option.id}
+                      className="rounded-lg border border-zinc-700 bg-zinc-900/40 p-3 space-y-3"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Option {index + 1}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => removeOption(option.id)}
+                          className="text-xs text-red-300 hover:text-red-200"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Label</label>
+                          <input
+                            className="w-full bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500"
+                            value={option.label}
+                            onChange={(e) => updateOption(option.id, { label: e.target.value })}
+                            placeholder="Other"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Stored value</label>
+                          <input
+                            className="w-full bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500"
+                            value={option.value}
+                            onChange={(e) => updateOption(option.id, { value: e.target.value })}
+                            placeholder="Other"
+                          />
+                        </div>
+                      </div>
+                      <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-300">
+                        <input
+                          type="checkbox"
+                          checked={option.followup_enabled}
+                          onChange={(e) =>
+                            updateOption(option.id, {
+                              followup_enabled: e.target.checked,
+                              followup_label: e.target.checked
+                                ? option.followup_label || 'Tell us more'
+                                : '',
+                              followup_required: e.target.checked
+                                ? option.followup_required
+                                : false,
+                            })
+                          }
+                        />
+                        Add text field when this option is selected
+                      </label>
+                      {option.followup_enabled && (
+                        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1">
+                              Text field title
+                            </label>
+                            <input
+                              className="w-full bg-zinc-700 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500"
+                              value={option.followup_label || ''}
+                              onChange={(e) =>
+                                updateOption(option.id, { followup_label: e.target.value })
+                              }
+                              placeholder="Tell us more"
+                            />
+                          </div>
+                          <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-300 pb-2">
+                            <input
+                              type="checkbox"
+                              checked={!!option.followup_required}
+                              onChange={(e) =>
+                                updateOption(option.id, {
+                                  followup_required: e.target.checked,
+                                })
+                              }
+                            />
+                            Required
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => addOption()}
+                      className="text-slate-300 hover:text-white hover:bg-zinc-700 px-3 py-1.5 rounded-lg text-sm transition-colors"
+                    >
+                      + Add option
+                    </button>
+                    <button
+                      type="button"
+                      onClick={addOtherOption}
+                      className="bg-zinc-700 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-zinc-600 transition-colors"
+                    >
+                      + Add Other with text field
+                    </button>
+                  </div>
+                </div>
               </Field>
             )}
 
@@ -442,6 +660,11 @@ function QuestionsPanel({ token }: { token: string | null }) {
                     <span className="bg-vc-500/20 text-vc-300 text-xs font-medium px-2 py-0.5 rounded-full">
                       {q.field_type}
                     </span>
+                    {q.response_key && q.response_key !== DYNAMIC_RESPONSE_KEY && (
+                      <span className="bg-fuchsia-500/20 text-fuchsia-300 text-xs font-medium px-2 py-0.5 rounded-full">
+                        {RESPONSE_KEY_LABELS[q.response_key]}
+                      </span>
+                    )}
                     {q.required && (
                       <span className="bg-amber-500/20 text-amber-300 text-xs font-medium px-2 py-0.5 rounded-full">
                         required

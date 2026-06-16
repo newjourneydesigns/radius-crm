@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-06-16",
+    "version": "2.34.2",
+    "date_display": "June 16, 2026",
+    "date_iso": "2026-06-16",
+    "id": "toolkit-health-hidden",
+    "type": "improvement",
+    "category": "Circle Leader Toolkit",
+    "description": "Temporarily hid the Health section of the Circle Leader Toolkit while it's being finalized. The Health tab no longer appears, and the page isn't reachable yet — it'll return once it's ready to roll out.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-06-16",
     "version": "2.34.1",
     "date_display": "June 16, 2026",
     "date_iso": "2026-06-16",

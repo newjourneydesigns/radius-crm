@@ -372,7 +372,7 @@ export default function EventsClient({
               href="https://vccradius.netlify.app/f/circles-toolkit-bug-report-copy-iajgcu"
               target="_blank"
               rel="noopener noreferrer"
-              className="cs-footer-link font-semibold"
+              className="cs-bug-report-button"
             >
               Report a bug
             </a>

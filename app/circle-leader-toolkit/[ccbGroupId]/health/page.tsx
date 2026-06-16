@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { redirect, useParams } from 'next/navigation';
 import { useMarkCircleAppEntered } from '../../../../lib/circle-leader-toolkit/appEntered';
 import {
   GROUP_SIZE_OPTIONS,
@@ -40,7 +41,16 @@ function snapMax(snap: LeadershipSnapshot): number {
   return snapTemplate(snap).scale?.length || (snap.template_version === 1 ? 4 : 5);
 }
 
+// ── Health section temporarily disabled — not ready to roll out. ──
+// This redirect is the page's default export so the /health route can't be reached
+// directly. To re-enable: delete this wrapper, rename `CircleSummaryHealthPageImpl`
+// below back to the default export, and uncomment the Health tab in CircleTabs.tsx.
 export default function CircleSummaryHealthPage() {
+  const params = useParams();
+  redirect(`/circle-leader-toolkit/${params.ccbGroupId}/events`);
+}
+
+function CircleSummaryHealthPageImpl() {
   useMarkCircleAppEntered();
 
   const [loading, setLoading] = useState(true);

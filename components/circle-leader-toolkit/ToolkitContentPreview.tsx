@@ -110,9 +110,9 @@ function InboxPreview({ title, hasBody, renderedBody }: { title?: string; hasBod
         <button
           type="button"
           disabled
-          className="mt-4 w-full bg-[#34B233] text-white rounded-xl py-2.5 text-sm font-bold shadow-sm opacity-90 cursor-default"
+          className="cs-inbox-mark-read-btn mt-4 w-full bg-[#34B233] text-white rounded-xl py-2.5 text-sm font-bold shadow-sm opacity-90 cursor-default"
         >
-          Mark read
+          Mark as Read
         </button>
       </div>
     </article>

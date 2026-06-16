@@ -104,7 +104,7 @@ async function buildCardsData(
 
   // ── Phase 1: user's boards + assigned card IDs (2 parallel queries) ───────
   const [{ data: boardsRaw }, { data: assignmentRows }] = await Promise.all([
-    supabase.from('project_boards').select('id, title').eq('user_id', user.id),
+    supabase.from('project_boards').select('id, title').eq('user_id', user.id).eq('is_archived', false),
     supabase.from('card_assignments').select('card_id').eq('user_id', user.id),
   ]);
 
@@ -132,6 +132,7 @@ async function buildCardsData(
       ? supabase.from('board_cards')
           .select(CARD_SELECT)
           .in('board_id', boardIds)
+          .eq('is_archived', false)
           .not('due_date', 'is', null)
           .lte('due_date', today)
       : Promise.resolve({ data: [] as RawCard[] }),
@@ -141,6 +142,7 @@ async function buildCardsData(
       ? supabase.from('board_cards')
           .select(CARD_SELECT)
           .in('id', assignedCardIds)
+          .eq('is_archived', false)
           .not('due_date', 'is', null)
           .lte('due_date', today)
       : Promise.resolve({ data: [] as RawCard[] }),
@@ -150,6 +152,7 @@ async function buildCardsData(
       ? supabase.from('board_cards')
           .select(CARD_SELECT)
           .in('board_id', boardIds)
+          .eq('is_archived', false)
           .eq('is_complete', false)
           .eq('is_focused', true)
           .order('due_date', { ascending: true, nullsFirst: false })
@@ -158,16 +161,56 @@ async function buildCardsData(
     // All incomplete card IDs in user's boards — needed to scope checklist items.
     // Lightweight: IDs only, no enrichment.
     boardIds.length > 0
-      ? supabase.from('board_cards').select('id').in('board_id', boardIds).eq('is_complete', false)
+      ? supabase.from('board_cards').select('id').in('board_id', boardIds).eq('is_archived', false).eq('is_complete', false)
       : Promise.resolve({ data: [] as CardIdRow[] }),
   ]);
+
+  const assignedCards = (assignedCardsRes.data || []) as RawCard[];
+  const assignedBoardIds = Array.from(new Set(assignedCards.map((c) => c.board_id).filter((id): id is string => Boolean(id))));
+  const missingBoardIds = assignedBoardIds.filter((id) => !boardMap.has(id));
+  if (missingBoardIds.length > 0) {
+    const { data: extraBoardsRaw } = await supabase
+      .from('project_boards')
+      .select('id, title')
+      .in('id', missingBoardIds)
+      .eq('is_archived', false);
+    ((extraBoardsRaw || []) as BoardRow[]).forEach((b) => boardMap.set(b.id, b.title));
+  }
+  let activeBoardIds = new Set(boardMap.keys());
+  const activeAssignedCards = assignedCards.filter((c) => c.board_id && activeBoardIds.has(c.board_id));
+  let activeAssignedScopeCardIds = activeAssignedCards.map((c) => c.id);
+  if (assignedCardIds.length > 0) {
+    const { data: assignedScopeCards } = await supabase
+      .from('board_cards')
+      .select('id, board_id')
+      .in('id', assignedCardIds)
+      .eq('is_archived', false);
+    const scopeBoardIds = Array.from(new Set(
+      ((assignedScopeCards || []) as Array<{ id: string; board_id: string | null }>)
+        .map((c) => c.board_id)
+        .filter((id): id is string => Boolean(id))
+    ));
+    const missingScopeBoardIds = scopeBoardIds.filter((id) => !boardMap.has(id));
+    if (missingScopeBoardIds.length > 0) {
+      const { data: scopeBoardsRaw } = await supabase
+        .from('project_boards')
+        .select('id, title')
+        .in('id', missingScopeBoardIds)
+        .eq('is_archived', false);
+      ((scopeBoardsRaw || []) as BoardRow[]).forEach((b) => boardMap.set(b.id, b.title));
+      activeBoardIds = new Set(boardMap.keys());
+    }
+    activeAssignedScopeCardIds = ((assignedScopeCards || []) as Array<{ id: string; board_id: string | null }>)
+      .filter((c) => c.board_id && activeBoardIds.has(c.board_id))
+      .map((c) => c.id);
+  }
 
   // ── Phase 3: checklist items (1 query) ───────────────────────────────────
   //
   // Replaces the old Phase 5 which had its own waterfall of 3–4 sub-queries.
 
   const ownedCardIds = ((allCardIdsRes.data || []) as CardIdRow[]).map((c) => c.id);
-  const allUserCardIds  = Array.from(new Set([...ownedCardIds, ...assignedCardIds]));
+  const allUserCardIds  = Array.from(new Set([...ownedCardIds, ...activeAssignedScopeCardIds]));
 
   const { data: checklistsRaw } = allUserCardIds.length > 0
     ? await supabase.from('card_checklists')
@@ -183,7 +226,7 @@ async function buildCardsData(
   // Owned cards first; assigned cards fill in any not already present
   const cardDedupe = new Map<string, CardDigestItem>();
   for (const c of (ownedCardsRes.data || []) as RawCard[]) cardDedupe.set(c.id, mapCard(c, boardMap));
-  for (const c of (assignedCardsRes.data || []) as RawCard[]) if (!cardDedupe.has(c.id)) cardDedupe.set(c.id, mapCard(c, boardMap));
+  for (const c of activeAssignedCards) if (!cardDedupe.has(c.id)) cardDedupe.set(c.id, mapCard(c, boardMap));
   const allCards = Array.from(cardDedupe.values());
 
   const focusDedupe = new Map<string, CardDigestItem>();

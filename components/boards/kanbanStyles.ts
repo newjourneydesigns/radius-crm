@@ -65,6 +65,38 @@ export const kanbanStyles = `
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
+  .kb-archived-badge {
+    background: rgba(148,163,184,0.12) !important;
+    color: #cbd5e1;
+    border-color: rgba(148,163,184,0.25);
+  }
+  .kb-archived-notice {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 14px 16px 0;
+    padding: 12px 14px;
+    border: 1px solid rgba(148,163,184,0.18);
+    border-radius: 10px;
+    background: rgba(30,41,59,0.55);
+    color: #cbd5e1;
+  }
+  .kb-archived-notice div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .kb-archived-notice strong {
+    color: #f8fafc;
+    font-size: 13px;
+  }
+  .kb-archived-notice span {
+    color: #94a3b8;
+    font-size: 12px;
+    line-height: 1.4;
+  }
   .kb-board-label-summary {
     display: flex;
     align-items: center;

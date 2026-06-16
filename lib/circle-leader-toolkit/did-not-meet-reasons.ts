@@ -1,13 +1,10 @@
-// Single source of truth for the "did not meet" reasons leaders pick from in
-// the toolkit, and the development lens we report them through. Keeping the
-// list and its categorization here stops the submission flow and the reporting
-// dashboard from drifting apart — previously each redefined the list and the
-// dashboard re-guessed categories with brittle regex.
+// Development lens for recognized "did not meet" reasons. The editable
+// dynamic_questions data owns the form labels/options leaders see; this helper
+// only categorizes known values for reporting.
 
 export type DidNotMeetCategory = 'valid' | 'coaching' | 'other';
 
-// Display order matters: this is the order leaders see the radio options.
-export const DID_NOT_MEET_REASONS = [
+const KNOWN_DID_NOT_MEET_REASONS = [
   'Holiday weekend',
   'Leader out of town',
   'Low attendance',
@@ -15,9 +12,9 @@ export const DID_NOT_MEET_REASONS = [
   'Other',
 ] as const;
 
-export type DidNotMeetReason = (typeof DID_NOT_MEET_REASONS)[number];
+export type DidNotMeetReason = (typeof KNOWN_DID_NOT_MEET_REASONS)[number];
 
-export const DID_NOT_MEET_REASON_SET: ReadonlySet<string> = new Set(DID_NOT_MEET_REASONS);
+export const DID_NOT_MEET_REASON_SET: ReadonlySet<string> = new Set(KNOWN_DID_NOT_MEET_REASONS);
 
 // "valid"    — the break is understandable and outside the leader's control.
 // "coaching" — a development signal worth a conversation (circle health, or
