@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-16",
+    "version": "2.35.0",
+    "date_display": "June 16, 2026",
+    "date_iso": "2026-06-16",
+    "id": "get-started-pathway",
+    "type": "feature",
+    "type_display": "Feature",
+    "category": "Getting Started",
+    "description": "New Get Started page — a guided, seven-stop walkthrough of the tools you’ll use most, from Events to Boards to Today. Track your own progress as you explore, and find it anytime under your avatar menu.",
+    "page": "/get-started"
+  },
+  {
+    "date": "2026-06-16",
     "version": "2.34.0",
     "date_display": "June 16, 2026",
     "date_iso": "2026-06-16",
