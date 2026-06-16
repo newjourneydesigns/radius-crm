@@ -102,7 +102,7 @@ export default function CircleChrome({
                 </Link>
                 <div ref={containerRef} className="min-w-0 flex-1">
                   <p className="mb-1 text-xs font-bold uppercase text-white/75">
-                    Circle Leader Toolkit
+                    Circles Toolkit
                   </p>
                   <h1
                     ref={textRef}

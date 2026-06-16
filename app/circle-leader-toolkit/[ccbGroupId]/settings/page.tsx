@@ -49,7 +49,7 @@ async function getCurrentPushEndpoint(): Promise<string | null> {
 function getDevicePushNote() {
   if (typeof window === 'undefined') return 'Push notifications are opt-in per browser or installed app.';
   if (/iPad|iPhone|iPod/.test(window.navigator.userAgent)) {
-    return 'On iPhone and iPad, push works only after adding Circle Leader Toolkit to the Home Screen on iOS/iPadOS 16.4 or newer.';
+    return 'On iPhone and iPad, push works only after adding Circles Toolkit to the Home Screen on iOS/iPadOS 16.4 or newer.';
   }
   if (/Android/i.test(window.navigator.userAgent)) {
     return 'On Android, push works in Chrome and installed PWAs after you allow notifications.';

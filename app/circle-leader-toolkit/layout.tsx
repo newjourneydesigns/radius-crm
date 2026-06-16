@@ -12,6 +12,9 @@ const openSans = Open_Sans({
   display: 'swap',
 });
 
+const TOOLKIT_PUBLIC_URL = 'https://circlestoolkit.netlify.app';
+const TOOLKIT_OG_IMAGE_URL = `${TOOLKIT_PUBLIC_URL}/circles-toolkit-og.png?v=1`;
+
 // Override the dark root theme-color with brand green for the whole segment so
 // the OS/browser chrome (status bar, PWA title bar) matches the splash + hero
 // instead of flashing dark navy on entry. Merges with the root viewport export,
@@ -30,7 +33,7 @@ export const viewport: Viewport = {
 
 export async function generateMetadata(): Promise<Metadata> {
   // Override the root manifest so iOS "Add to Home Screen" launches the
-  // Circle Leader Toolkit — not the main RADIUS admin app and its login.
+  // Circles Toolkit — not the main RADIUS admin app and its login.
   //
   // When the visitor is already signed in, hand the manifest a signed,
   // leader-scoped token via `?s=`. The dynamic manifest bakes it into
@@ -46,13 +49,36 @@ export async function generateMetadata(): Promise<Metadata> {
       : '/manifest-circle-leader-toolkit.json';
 
   return {
-    title: 'Circle Leader Toolkit',
+    metadataBase: new URL(TOOLKIT_PUBLIC_URL),
+    title: 'Circles Toolkit',
+    description: 'Circle leader resources for Valley Creek Circles.',
     // Private leader portal — keep it out of search results.
     robots: { index: false, follow: false },
     manifest: manifestHref,
+    openGraph: {
+      type: 'website',
+      url: `${TOOLKIT_PUBLIC_URL}/`,
+      siteName: 'Circles Toolkit',
+      title: 'Circles Toolkit',
+      description: 'Circle leader resources for Valley Creek Circles.',
+      images: [
+        {
+          url: TOOLKIT_OG_IMAGE_URL,
+          width: 1200,
+          height: 630,
+          alt: 'Circles Toolkit',
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: 'Circles Toolkit',
+      description: 'Circle leader resources for Valley Creek Circles.',
+      images: [TOOLKIT_OG_IMAGE_URL],
+    },
     appleWebApp: {
       capable: true,
-      title: 'Toolkit',
+      title: 'Circles Toolkit',
       statusBarStyle: 'default',
     },
     icons: {

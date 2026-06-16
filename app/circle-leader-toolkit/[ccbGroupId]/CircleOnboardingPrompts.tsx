@@ -110,7 +110,7 @@ export default function CircleOnboardingPrompts({ groupId }: { groupId: string }
     const onInstalled = () => {
       setInstalled(true);
       setInstallAvailable(false);
-      setMessage('Circle Leader Toolkit is installed.');
+      setMessage('Circles Toolkit is installed.');
     };
     window.addEventListener('pwaInstallAvailable', onInstallAvailable);
     window.addEventListener('pwaInstalled', onInstalled);
@@ -159,7 +159,7 @@ export default function CircleOnboardingPrompts({ groupId }: { groupId: string }
       } else if (isIOS()) {
         setMessage('Use Share, then Add to Home Screen.');
       } else {
-        setMessage('Use your browser install button to add Circle Leader Toolkit.');
+        setMessage('Use your browser install button to add Circles Toolkit.');
       }
     } finally {
       setBusy(null);
@@ -227,7 +227,7 @@ export default function CircleOnboardingPrompts({ groupId }: { groupId: string }
   if (!shouldPromptInstall && !shouldPromptNotifications && !message && !error) return null;
 
   return (
-    <section className="mt-3 space-y-2" aria-label="Circle Leader Toolkit setup">
+    <section className="mt-3 space-y-2" aria-label="Circles Toolkit setup">
       {message && (
         <div className="rounded-2xl border border-[#34B233]/30 bg-[#34B233]/10 px-4 py-3 text-sm font-semibold text-neutral-800">
           {message}
@@ -242,7 +242,7 @@ export default function CircleOnboardingPrompts({ groupId }: { groupId: string }
         <div className="rounded-2xl border border-neutral-200 bg-white px-4 py-3 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-extrabold text-neutral-900">Install Circle Leader Toolkit</p>
+              <p className="text-sm font-extrabold text-neutral-900">Install Circles Toolkit</p>
               <p className="text-xs text-neutral-500 mt-0.5">
                 {isIOS() ? 'Add it to your Home Screen for the app experience.' : 'Open it faster from your device.'}
               </p>

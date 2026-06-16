@@ -1,5 +1,5 @@
 /**
- * Dynamic web app manifest for the Circle Leader Toolkit PWA.
+ * Dynamic web app manifest for the Circles Toolkit PWA.
  *
  * This is served instead of a static /public file so two things can be
  * computed per request:
@@ -57,9 +57,9 @@ export async function GET(req: Request) {
     // Keep `id` stable (independent of start_url) so iOS treats every install
     // as the same app rather than spawning duplicate home-screen entries.
     id: '/circle-leader-toolkit?v=3',
-    name: 'Circle Leader Toolkit',
-    short_name: 'Toolkit',
-    description: 'Circle Leader Toolkit — for Circle Leaders at Valley Creek.',
+    name: 'Circles Toolkit',
+    short_name: 'Circles',
+    description: 'Circle leader resources for Valley Creek Circles.',
     start_url: startUrl,
     display: 'standalone',
     display_override: ['standalone'],

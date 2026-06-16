@@ -47,7 +47,7 @@ export default function CircleSummaryHelpPage({
                 Help &amp; Guide
               </h1>
               <p className="mt-1.5 text-white/90 font-semibold text-base">
-                Circle Leader Toolkit
+                Circles Toolkit
               </p>
             </div>
           </div>

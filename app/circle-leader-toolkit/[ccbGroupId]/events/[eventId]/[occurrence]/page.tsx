@@ -660,7 +660,7 @@ export default function CircleSummaryFormPage() {
               />
             </Link>
             <div className="min-w-0">
-              <h1 className="cs-display text-4xl sm:text-5xl">Circle Leader Toolkit</h1>
+              <h1 className="cs-display text-4xl sm:text-5xl">Circles Toolkit</h1>
               <p className="mt-2 text-white/85 font-medium text-base">{dateLabel(occurrence)}</p>
             </div>
           </div>
