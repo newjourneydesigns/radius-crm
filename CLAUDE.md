@@ -167,9 +167,19 @@ After every meaningful commit and push:
 2. `git add .`
 3. `git commit -m "[clear message]"`
 4. `git push`
-5. Trigger a Netlify redeploy
 
-Never assume a push is enough. Always follow through to redeploy.
+**Do NOT manually trigger a Netlify redeploy.** Pushing to `main` already
+auto-deploys, and every production deploy costs build credits — a manual
+redeploy on top just doubles the cost. Let the push deploy on its own.
+
+To keep deploy credits down:
+- **Batch related changes into one push** instead of many small commits, each of
+  which would build separately.
+- Docs- and migration-only pushes skip the build automatically (see the
+  `ignore` command in `netlify.toml`). SQL migrations run in Supabase, not the
+  build, so they never need a deploy.
+- For any other commit that shouldn't deploy, put `[skip ci]` in the commit
+  message and Netlify will skip the build.
 
 **Versioning:**
 - `npm run version:patch` — bug fixes
