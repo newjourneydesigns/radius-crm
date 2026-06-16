@@ -6,7 +6,7 @@ const DEFAULT_LEADER_TOOLKIT_HOST = 'circlestoolkit.netlify.app';
 
 // Matches any path with a file extension (icons, manifest, css, etc.) so
 // static assets are served as-is without rewriting.
-const STATIC_FILE_RE = /\.[^/]+$/;
+const STATIC_FILE_RE = /\.[^/]+\/?$/;
 
 export function middleware(request: NextRequest) {
   const toolkitHost = process.env.LEADER_TOOLKIT_HOST || DEFAULT_LEADER_TOOLKIT_HOST;
