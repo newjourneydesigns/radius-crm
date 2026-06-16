@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-16",
+    "version": "2.34.0",
+    "date_display": "June 16, 2026",
+    "date_iso": "2026-06-16",
+    "id": "messaging-hidden",
+    "type": "improvement",
+    "type_display": "Improvement",
+    "category": "Messages",
+    "description": "Team messaging is taking a short break — we’ve temporarily hidden it from the app while we keep refining it. Your Inbox (notifications) is unaffected and still on.",
+    "page": "/inbox"
+  },
+  {
+    "date": "2026-06-16",
     "version": "2.33.1",
     "date_display": "June 16, 2026",
     "date_iso": "2026-06-16",

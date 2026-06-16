@@ -9,6 +9,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useOpenAlertCount } from "../../hooks/useOpenAlertCount";
 import { useAcpdUnreadCount } from "../../hooks/useAcpdUnreadCount";
 import { useInboxUnreadCount } from "../../hooks/useInboxUnreadCount";
+import { MESSAGES_ENABLED } from "../../lib/features";
 import { useQuickActions, type QuickActionId, type QuickActionMeta } from "../../contexts/QuickActionsContext";
 import GlobalSearch from './GlobalSearch';
 
@@ -252,7 +253,7 @@ export default function MobileNavigation() {
 
   // Inbox + Messages live inside the "More" sheet on mobile, so surface their
   // unread state as a dot on the More tab itself.
-  const moreHasActivity = inboxUnreadCount > 0 || (admin && acpdUnreadCount > 0);
+  const moreHasActivity = inboxUnreadCount > 0 || (MESSAGES_ENABLED && admin && acpdUnreadCount > 0);
 
   const initials = user?.name
     ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
@@ -511,7 +512,7 @@ export default function MobileNavigation() {
                 </span>
                 <ChevronRightIcon />
               </Link>
-              {admin && (
+              {MESSAGES_ENABLED && admin && (
                 <Link href="/messages" className={`mobile-sheet-row ${isActive('/messages') ? 'active' : ''}`}>
                   <span className="mobile-sheet-row-icon"><ChatBubbleIcon /></span>
                   <span className="mobile-sheet-row-label flex items-center gap-2">

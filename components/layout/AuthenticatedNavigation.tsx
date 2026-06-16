@@ -10,6 +10,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useOpenAlertCount } from "../../hooks/useOpenAlertCount";
 import { useAcpdUnreadCount } from "../../hooks/useAcpdUnreadCount";
 import { useInboxUnreadCount } from "../../hooks/useInboxUnreadCount";
+import { MESSAGES_ENABLED } from "../../lib/features";
 import GlobalSearch from './GlobalSearch';
 
 // ----- Icon components (heroicons-style, 20 × 20) -----
@@ -339,8 +340,8 @@ export default function AuthenticatedNavigation() {
               )}
             </Link>
 
-            {/* Team messaging (ACPD only) */}
-            {admin && (
+            {/* Team messaging (ACPD only) — hidden behind a feature flag for now */}
+            {MESSAGES_ENABLED && admin && (
               <Link
                 href="/messages"
                 aria-label={acpdUnreadCount > 0 ? `Messages, ${acpdUnreadCount} unread` : 'Messages'}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MessageSquare } from 'lucide-react';
 import ProtectedRoute from '../../components/ProtectedRoute';
@@ -12,6 +12,7 @@ import MessageThread from '../../components/messages/MessageThread';
 import NewMessageModal from '../../components/messages/NewMessageModal';
 import ForwardMessageModal from '../../components/messages/ForwardMessageModal';
 import type { AcpdMessage } from '../../lib/acpdMessagingClient';
+import { MESSAGES_ENABLED } from '../../lib/features';
 
 function MessagesContent() {
   const { isAdmin } = useAuth();
@@ -200,6 +201,16 @@ function MessagesContent() {
 }
 
 export default function MessagesPage() {
+  const router = useRouter();
+
+  // Messaging is hidden for now (MESSAGES_ENABLED). The page + components stay
+  // in the codebase, but visiting the route sends users to the Inbox instead.
+  useEffect(() => {
+    if (!MESSAGES_ENABLED) router.replace('/inbox');
+  }, [router]);
+
+  if (!MESSAGES_ENABLED) return null;
+
   return (
     <ProtectedRoute>
       <MessagesContent />
