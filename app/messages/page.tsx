@@ -108,8 +108,27 @@ function MessagesContent() {
             onBack={clearSelection}
             onForward={setForwarding}
           />
+        ) : selectedId ? (
+          // Selected but not resolved yet (e.g. a DM you just started) — show a
+          // visible loading/error state instead of a blank screen on mobile.
+          <div className="flex w-full flex-1 flex-col items-center justify-center gap-4 bg-[#0f1117] px-6 text-center">
+            {error ? (
+              <>
+                <p className="text-sm text-red-400">{error}</p>
+                <button
+                  type="button"
+                  onClick={clearSelection}
+                  className="rounded-lg bg-white/[0.06] px-4 py-2 text-[13px] font-medium text-slate-200 hover:bg-white/[0.1]"
+                >
+                  Back to conversations
+                </button>
+              </>
+            ) : (
+              <div className="h-7 w-7 animate-spin rounded-full border-2 border-white/15 border-t-vc-500" />
+            )}
+          </div>
         ) : (
-          <div className="hidden flex-1 flex-col items-center justify-center gap-3 bg-[#0f1117] text-center md:flex">
+          <div className="hidden w-full flex-1 flex-col items-center justify-center gap-3 bg-[#0f1117] text-center md:flex">
             <div className="grid h-14 w-14 place-items-center rounded-2xl bg-white/[0.05]">
               <MessageSquare className="h-6 w-6 text-slate-500" strokeWidth={1.6} />
             </div>

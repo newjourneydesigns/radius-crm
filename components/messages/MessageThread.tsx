@@ -99,7 +99,7 @@ export default function MessageThread({
     : conversation.otherUser?.email || 'Direct message';
 
   return (
-    <div className="flex h-full flex-col bg-[#0f1117]">
+    <div className="flex h-full w-full flex-col bg-[#0f1117]">
       {/* Header */}
       <div
         className="flex items-center gap-3 border-b border-white/[0.06] bg-[#15171d]/80 px-3 py-3 backdrop-blur md:px-5"

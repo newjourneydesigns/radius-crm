@@ -28,7 +28,7 @@ export default function ConversationList({
   onEnableNotifications,
 }: ConversationListProps) {
   return (
-    <div className="flex h-full flex-col bg-[#15171d] md:bg-transparent">
+    <div className="flex h-full w-full flex-col bg-[#15171d] md:bg-transparent">
       {/* Header */}
       <div
         className="flex items-center justify-between px-4 pb-3"

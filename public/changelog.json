@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-16",
+    "version": "2.25.1",
+    "date_display": "June 16, 2026",
+    "date_iso": "2026-06-16",
+    "id": "messages-inbox-fixes",
+    "type": "fix",
+    "type_display": "Fix",
+    "category": "Messages",
+    "description": "Polished the new Messages and Inbox screens: conversations now stretch edge-to-edge (no gap on the right), starting a direct message no longer shows a blank screen while it opens, and the notification settings toggles render as proper switches instead of tall boxes.",
+    "page": "/messages"
+  },
+  {
+    "date": "2026-06-16",
     "version": "2.25.0",
     "date_display": "June 16, 2026",
     "date_iso": "2026-06-16",
