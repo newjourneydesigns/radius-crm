@@ -69,6 +69,16 @@ const ProfileIcon = () => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
   </svg>
 );
+const NotebookIcon = () => (
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+  </svg>
+);
+const MassUpdateIcon = () => (
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+  </svg>
+);
 
 const STOPS: Stop[] = [
   {
@@ -106,6 +116,23 @@ const STOPS: Stop[] = [
     Icon: ProfileIcon,
   },
   {
+    id: 'circle-list',
+    eyebrow: 'Find anyone fast',
+    title: 'Circle List & Search',
+    cadence: 'As needed',
+    href: '/search',
+    cta: 'Open Circle List',
+    lede:
+      'The full roster of leaders, with filters for everything. Need one person right now? The search box up top (or ⌘K) jumps straight to them from anywhere.',
+    steps: [
+      'Press ⌘K (Ctrl K on Windows) anywhere to fuzzy-search a leader by name.',
+      'Open Circle List for the whole roster, then filter by campus, status, day, or type.',
+      'Filters live in the URL — bookmark a view you check often.',
+      'Click any leader to open their profile: notes, connections, visits, and more.',
+    ],
+    Icon: SearchIcon,
+  },
+  {
     id: 'boards',
     eyebrow: 'Track tasks — and people',
     title: 'Boards',
@@ -140,21 +167,21 @@ const STOPS: Stop[] = [
     Icon: TodayIcon,
   },
   {
-    id: 'circle-list',
-    eyebrow: 'Find anyone fast',
-    title: 'Circle List & Search',
+    id: 'notebook',
+    eyebrow: 'Your private workspace',
+    title: 'Notebook',
     cadence: 'As needed',
-    href: '/search',
-    cta: 'Open Circle List',
+    href: '/notebook',
+    cta: 'Open Notebook',
     lede:
-      'The full roster of leaders, with filters for everything. Need one person right now? The search box up top (or ⌘K) jumps straight to them from anywhere.',
+      'A personal scratchpad for everything that isn’t tied to one leader — meeting notes, planning, running lists. Organize pages into folders, and link a page to a leader or board when it connects.',
     steps: [
-      'Press ⌘K (Ctrl K on Windows) anywhere to fuzzy-search a leader by name.',
-      'Open Circle List for the whole roster, then filter by campus, status, day, or type.',
-      'Filters live in the URL — bookmark a view you check often.',
-      'Click any leader to open their profile: notes, connections, visits, and more.',
+      'Create a page and just start writing — it saves as you go.',
+      'Group pages into folders, and pin the ones you reach for often.',
+      'Add checklists inside a page to track loose to-dos.',
+      'Link a page to a leader or a board when it belongs to that work.',
     ],
-    Icon: SearchIcon,
+    Icon: NotebookIcon,
   },
   {
     id: 'add-leader',
@@ -173,6 +200,24 @@ const STOPS: Stop[] = [
       'Save — the leader is live and shows up in everyone’s filtered views.',
     ],
     Icon: UserPlusIcon,
+  },
+  {
+    id: 'mass-update',
+    eyebrow: 'Change many at once',
+    title: 'Mass Update',
+    cadence: 'As needed',
+    href: '/import-circles/#mass-update',
+    cta: 'Open Mass Update',
+    acpdOnly: true,
+    lede:
+      'Need to move a batch of circles to a new campus or ACPD, or flip their status together? Mass Update edits one field across many leaders in a single pass — no opening profiles one at a time.',
+    steps: [
+      'Search for leaders, then narrow by campus or ACPD if you need to.',
+      'Select the rows you want — shift-click to grab a whole range.',
+      'Pick the field to change (campus, ACPD, status, day, time, type, and more) and set the new value.',
+      'Apply — every selected leader updates at once.',
+    ],
+    Icon: MassUpdateIcon,
   },
   {
     id: 'bulk-message',
@@ -276,7 +321,7 @@ export default function GetStartedPage() {
               Welcome to Radius
             </p>
             <h1 className="text-3xl sm:text-4xl font-semibold text-white tracking-tight leading-tight">
-              Eight stops to find your footing.
+              Ten stops to find your footing.
             </h1>
             <p className="text-[15px] text-slate-400 mt-4 leading-relaxed max-w-2xl">
               Radius helps you shepherd circle leaders — track who met, who needs a nudge, and
