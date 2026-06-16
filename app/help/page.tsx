@@ -989,7 +989,7 @@ export default function HelpPage() {
             </span>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-white">New to Radius? Start here.</p>
-              <p className="text-xs text-slate-400 mt-0.5">A guided seven-stop walkthrough of the tools you&apos;ll use most.</p>
+              <p className="text-xs text-slate-400 mt-0.5">A guided eight-stop walkthrough of the tools you&apos;ll use most.</p>
             </div>
             <span className="text-vc-300 group-hover:text-vc-200 text-sm font-medium shrink-0 hidden sm:inline">
               Open →

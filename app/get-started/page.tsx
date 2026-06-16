@@ -64,6 +64,11 @@ const ChartIcon = () => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
   </svg>
 );
+const ProfileIcon = () => (
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+  </svg>
+);
 
 const STOPS: Stop[] = [
   {
@@ -82,6 +87,23 @@ const STOPS: Stop[] = [
       'Open a summary to read attendance and notes, mark it Reviewed, or nudge a leader who hasn’t reported.',
     ],
     Icon: CalendarIcon,
+  },
+  {
+    id: 'profile',
+    eyebrow: 'Where the care happens',
+    title: 'The Circle Profile',
+    cadence: 'Daily',
+    href: '/search',
+    cta: 'Browse leaders',
+    lede:
+      'Every leader has a profile — the one place their whole story lives. Notes, the calls and texts you’ve logged, circle visits, prayer points, follow-up dates, and their roster all sit here. Most of what you do in Radius ends up landing on a profile, so it’s worth knowing well early.',
+    steps: [
+      'Open any leader from Events, the Circle List, or search (⌘K) to land on their profile.',
+      'Log a connection — call, text, email, or in person — so the touch is on the record.',
+      'Add notes (pin the ones you never want to forget) and set a follow-up date when you owe them a check-in.',
+      'Explore the tabs: Circle Visits, Prayers, the Roster, and AI Meeting Prep before a 1:1.',
+    ],
+    Icon: ProfileIcon,
   },
   {
     id: 'boards',
@@ -254,7 +276,7 @@ export default function GetStartedPage() {
               Welcome to Radius
             </p>
             <h1 className="text-3xl sm:text-4xl font-semibold text-white tracking-tight leading-tight">
-              Seven stops to find your footing.
+              Eight stops to find your footing.
             </h1>
             <p className="text-[15px] text-slate-400 mt-4 leading-relaxed max-w-2xl">
               Radius helps you shepherd circle leaders — track who met, who needs a nudge, and
