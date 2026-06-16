@@ -1,6 +1,11 @@
 [build]
   publish = ".next"
   command = "npm run build"
+  # Skip a production build when a push only touched things that don't affect
+  # the deployed app — DB migrations (run in Supabase) and docs. Exits 0 (skip)
+  # when nothing outside those paths changed; non-zero (build) otherwise. Falls
+  # back to building if the refs are missing (e.g. first deploy).
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- ':(exclude)docs/' ':(exclude)supabase/'"
 
 [build.environment]
   NODE_VERSION = "20.19.0"
