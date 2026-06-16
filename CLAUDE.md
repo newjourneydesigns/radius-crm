@@ -222,6 +222,7 @@ All secrets live in `.env.local` — never hardcode them.
 - Don't leave `console.log`, dead code, or TODO comments unless explicitly flagged
 - Keep components focused — split when a file is doing too much
 - TypeScript errors are ignored in build (`ignoreBuildErrors: true`) but don't add new `any` types casually
+- Default to concise replies — cut filler, keep substance, never abbreviate code, commands, or error strings
 
 ---
 
