@@ -23,6 +23,7 @@ export function useAcpdMessaging(enabled: boolean) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AcpdMessage[]>([]);
   const [members, setMembers] = useState<AcpdMember[]>([]);
+  const [threadConversation, setThreadConversation] = useState<AcpdConversationSummary | null>(null);
   const [muted, setMuted] = useState(false);
   const [loadingThread, setLoadingThread] = useState(false);
   const [sending, setSending] = useState(false);
@@ -74,6 +75,7 @@ export function useAcpdMessaging(enabled: boolean) {
         setMessages(data.messages || []);
         setMembers(data.members || []);
         setMuted(Boolean(data.muted));
+        if (data.conversation) setThreadConversation(data.conversation as AcpdConversationSummary);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load this conversation');
@@ -85,6 +87,7 @@ export function useAcpdMessaging(enabled: boolean) {
   const selectConversation = useCallback((conversationId: string) => {
     setSelectedId(conversationId);
     setMessages([]);
+    setThreadConversation(null);
     setError(null);
     // Optimistically clear this conversation's unread badge.
     setOverview((prev) => {
@@ -411,7 +414,11 @@ export function useAcpdMessaging(enabled: boolean) {
   );
 
   const conversations: AcpdConversationSummary[] = overview?.conversations || [];
-  const selectedConversation = conversations.find((c) => c.id === selectedId) || null;
+  // Prefer the overview entry, but fall back to the thread's own metadata so a
+  // freshly-created conversation renders even before the sidebar list catches up.
+  const selectedConversation =
+    conversations.find((c) => c.id === selectedId) ||
+    (threadConversation && threadConversation.id === selectedId ? threadConversation : null);
 
   return {
     me: overview?.me || null,
@@ -439,5 +446,6 @@ export function useAcpdMessaging(enabled: boolean) {
     toggleMute,
     searchMessages,
     clearSelection: () => setSelectedId(null),
+    clearError: () => setError(null),
   };
 }

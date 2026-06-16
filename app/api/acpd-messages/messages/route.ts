@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Not a member of this conversation' }, { status: 403 });
   }
 
-  const [{ data: messages }, { data: members }] = await Promise.all([
+  const [{ data: messages }, { data: members }, { data: convRow }] = await Promise.all([
     supabase
       .from('acpd_messages')
       .select('id, conversation_id, sender_id, body, created_at, edited_at, pinned_at, pinned_by, users:sender_id (id, name)')
@@ -46,12 +46,40 @@ export async function GET(req: NextRequest) {
       .from('acpd_conversation_members')
       .select('user_id, last_read_at, muted, users:user_id (id, name, email)')
       .eq('conversation_id', conversationId),
+    supabase
+      .from('acpd_conversations')
+      .select('id, kind, title, last_message_at')
+      .eq('id', conversationId)
+      .maybeSingle(),
   ]);
 
   // Snapshot the caller's mute + everyone's last-read (for read receipts) BEFORE
   // we advance the caller's own last_read_at below.
   const memberRows = (members || []) as any[];
   const myMuted = memberRows.find((m) => m.user_id === profile.id)?.muted ?? false;
+
+  // The conversation's own summary so the thread can render even before it
+  // appears in the sidebar overview (e.g. immediately after it's created).
+  const others = memberRows.filter((m) => m.user_id !== profile.id).map((m) => m.users).filter(Boolean);
+  const isChannel = convRow?.kind === 'channel';
+  const isGroup = convRow?.kind === 'group';
+  const convTitle = isChannel
+    ? convRow?.title || 'ACPD Team'
+    : isGroup
+      ? convRow?.title || others.map((o: any) => String(o.name).split(' ')[0]).join(', ') || 'Group'
+      : others[0]?.name || 'Direct message';
+  const conversation = convRow
+    ? {
+        id: convRow.id,
+        kind: convRow.kind,
+        title: convTitle,
+        otherUser: isChannel || isGroup ? null : others[0] || null,
+        memberCount: others.length + 1,
+        lastMessage: null,
+        lastMessageAt: convRow.last_message_at,
+        unreadCount: 0,
+      }
+    : null;
 
   // Reading the thread clears its unread state.
   await supabase
@@ -94,6 +122,7 @@ export async function GET(req: NextRequest) {
   });
 
   return NextResponse.json({
+    conversation,
     messages: shaped,
     members: memberRows
       .map((m) => (m.users ? { ...m.users, lastReadAt: m.last_read_at } : null))

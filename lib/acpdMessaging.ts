@@ -145,7 +145,13 @@ export async function deleteConversation(supabase: ServiceClient, conversationId
     .maybeSingle();
   if (!conv) return;
   if (conv.kind === 'channel') throw new Error('The team channel cannot be deleted');
-  await supabase.from('acpd_conversations').delete().eq('id', conversationId);
+
+  // Delete children explicitly rather than relying solely on ON DELETE CASCADE,
+  // so a conversation is fully removed even if an older DB is missing a cascade.
+  await supabase.from('acpd_messages').delete().eq('conversation_id', conversationId);
+  await supabase.from('acpd_conversation_members').delete().eq('conversation_id', conversationId);
+  const { error } = await supabase.from('acpd_conversations').delete().eq('id', conversationId);
+  if (error) throw new Error(error.message);
 }
 
 /** Toggle the caller's 💚 like on a message. Returns the resulting state. */

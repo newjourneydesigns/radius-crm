@@ -49,6 +49,7 @@ function MessagesContent() {
     toggleMute,
     searchMessages,
     clearSelection,
+    clearError,
   } = useAcpdMessaging(admin);
 
   const { isSupported, isSubscribed, enable } = usePushReminders();
@@ -83,7 +84,22 @@ function MessagesContent() {
   }
 
   return (
-    <div className="flex h-[100dvh] overflow-hidden bg-[#0f1117]">
+    <div className="relative flex h-[100dvh] overflow-hidden bg-[#0f1117]">
+      {error && (
+        <div
+          className="absolute inset-x-0 top-0 z-[10020] flex justify-center px-3"
+          style={{ paddingTop: 'max(0.5rem, calc(env(safe-area-inset-top) + 0.25rem))' }}
+        >
+          <button
+            type="button"
+            onClick={clearError}
+            className="mt-1 flex max-w-md items-center gap-2 rounded-xl bg-red-500/95 px-3.5 py-2 text-left text-[12.5px] text-white shadow-lg shadow-black/40"
+          >
+            <span className="flex-1">{error}</span>
+            <span className="shrink-0 text-white/70">Dismiss</span>
+          </button>
+        </div>
+      )}
       {/* Sidebar */}
       <aside
         className={`w-full border-white/[0.06] md:flex md:w-[340px] md:border-r ${

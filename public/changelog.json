@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-16",
+    "version": "2.32.1",
+    "date_display": "June 16, 2026",
+    "date_iso": "2026-06-16",
+    "id": "messaging-thread-fixes",
+    "type": "fix",
+    "type_display": "Fix",
+    "category": "Messages",
+    "description": "Fixed starting a new conversation getting stuck on a spinner (the thread now loads its own details instead of waiting for the list), made deleting a conversation reliably remove it, and surfaced messaging errors on screen instead of failing silently.",
+    "page": "/messages"
+  },
+  {
+    "date": "2026-06-16",
     "version": "2.32.0",
     "date_display": "June 16, 2026",
     "date_iso": "2026-06-16",
