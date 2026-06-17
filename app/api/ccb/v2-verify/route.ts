@@ -188,6 +188,40 @@ export async function GET(request: Request) {
     });
   }
 
+  // Individual-search discovery — ?probe=search&q=Beach — find which query param filters.
+  if (searchParams.get('probe') === 'search') {
+    const q = searchParams.get('q')?.trim() || 'Beach';
+    const probe = async (path: string, query?: Record<string, any>) => {
+      try {
+        const r: any = await v2.get(path, query);
+        const list = Array.isArray(r) ? r : r?.items ?? r?.data ?? r?.individuals ?? [];
+        const first = list[0] || {};
+        return {
+          status: 'ok',
+          count: Array.isArray(list) ? list.length : '(object)',
+          topKeys: r && !Array.isArray(r) ? Object.keys(r) : ['(array)'],
+          itemShape: shapeOf(first, 2),
+          firstLastNameMatchesQ: String(first.last_name ?? '').toLowerCase() === q.toLowerCase(),
+        };
+      } catch (e: any) { return { status: 'error', error: e.message }; }
+    };
+    return NextResponse.json({
+      probe: 'search', q,
+      individuals_plain: await probe('/individuals', { per_page: 50 }),
+      by_name: await probe('/individuals', { name: q, per_page: 50 }),
+      by_q: await probe('/individuals', { q, per_page: 50 }),
+      by_search: await probe('/individuals', { search: q, per_page: 50 }),
+      by_last_name: await probe('/individuals', { last_name: q, per_page: 50 }),
+      advanced_search: await (async () => {
+        try {
+          const r: any = await v2.request('/search/individuals/results', { method: 'POST', body: { query: q } });
+          const list = Array.isArray(r) ? r : r?.items ?? r?.data ?? [];
+          return { status: 'ok', count: Array.isArray(list) ? list.length : '(object)', itemShape: shapeOf(list[0] ?? r, 2) };
+        } catch (e: any) { return { status: 'error', error: e.message }; }
+      })(),
+    });
+  }
+
   const [v1Parts, v2Parts] = await Promise.all([
     safe('v1 getGroupParticipants', () => v1.getGroupParticipants(groupId)),
     safe('v2 getGroupParticipants', () => v2.getGroupParticipants(groupId)),
