@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
+import { ccbApiVersion } from '../../../../lib/ccb/ccb-v2-config';
+import { createCCBv2Client } from '../../../../lib/ccb/ccb-v2-client';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,15 +16,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const client = createCCBClient(await getCCBRequestContext(request, {
+    const ctx = await getCCBRequestContext(request, {
       module: 'Profile Page',
       action: 'Fetch Groups',
       direction: 'pull',
-    }));
-    const participants = await client.getGroupParticipants(String(groupId));
+    });
 
-    // Enrich members missing phone data with individual profile lookups
-    const enriched = await client.enrichRosterWithPhones(participants);
+    let enriched;
+    if (ccbApiVersion() === 'v2') {
+      // v2 group members already include phone inline — no N+1 enrichment needed.
+      enriched = await createCCBv2Client(ctx).getGroupParticipants(String(groupId));
+    } else {
+      const client = createCCBClient(ctx);
+      const participants = await client.getGroupParticipants(String(groupId));
+      enriched = await client.enrichRosterWithPhones(participants);
+    }
 
     return NextResponse.json({
       success: true,
