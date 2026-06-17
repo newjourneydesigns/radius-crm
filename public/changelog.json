@@ -8,7 +8,7 @@
     "type": "fix",
     "type_display": "Fix",
     "category": "Circle Leader Toolkit",
-    "description": "Fixed the blank white screen when opening the Circles Toolkit home-screen app on iPhone. It now shows a branded green launch screen with the Circles logo — matching the in-app splash — so startup is smooth instead of flashing white before the page loads.",
+    "description": "Smoothed out the Circles Toolkit home-screen app launch on iPhone. The blank white screen is gone — opening the app now goes straight to the branded green splash with the Circles logo, which holds for a brief, purposeful beat (no more flash) before settling into the page.",
     "page": "/circle-leader-toolkit"
   },
   {

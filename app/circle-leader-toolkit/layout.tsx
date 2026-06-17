@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Open_Sans } from 'next/font/google';
 import { getSessionLeader } from '../../lib/circle-leader-toolkit/session';
 import { createSessionToken, RADIUS_LINK_TTL_MS } from '../../lib/leader-tokens';
+import ToolkitSplashGate from '../../components/circle-leader-toolkit/ToolkitSplashGate';
 import './circle-leader-toolkit.css';
 
 const openSans = Open_Sans({
@@ -115,6 +116,9 @@ export default function CircleSummaryLayout({ children }: { children: React.Reac
       <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash-toolkit/toolkit-splash-750x1334.png" />
       <link rel="apple-touch-startup-image" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash-toolkit/toolkit-splash-640x1136.png" />
       {children}
+      {/* Holds the animated green splash for a purposeful beat on a fresh launch
+          so it reads as an intentional welcome, not a single-frame flash. */}
+      <ToolkitSplashGate />
     </div>
   );
 }
