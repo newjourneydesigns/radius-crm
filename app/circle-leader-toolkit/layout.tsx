@@ -95,6 +95,25 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function CircleSummaryLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className={`${openSans.variable} cs-root min-h-screen bg-white`}>
+      {/* iOS PWA launch ("splash") screens for the installed Toolkit app. Without
+          these, iOS shows a blank WHITE screen on cold start (it ignores the
+          manifest background_color in apple-mobile-web-app-capable mode) before
+          the green CircleSplash appears. Each image is the white Circles mark on
+          brand green so the native launch screen is seamless with CircleSplash.
+          Next hoists these <link>s into <head>. Regenerate with:
+          node scripts/generate-toolkit-splash.js */}
+      <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash-toolkit/toolkit-splash-1320x2868.png" />
+      <link rel="apple-touch-startup-image" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash-toolkit/toolkit-splash-1206x2622.png" />
+      <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash-toolkit/toolkit-splash-1290x2796.png" />
+      <link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash-toolkit/toolkit-splash-1179x2556.png" />
+      <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash-toolkit/toolkit-splash-1284x2778.png" />
+      <link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash-toolkit/toolkit-splash-1170x2532.png" />
+      <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash-toolkit/toolkit-splash-1125x2436.png" />
+      <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash-toolkit/toolkit-splash-1242x2688.png" />
+      <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash-toolkit/toolkit-splash-828x1792.png" />
+      <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash-toolkit/toolkit-splash-1242x2208.png" />
+      <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash-toolkit/toolkit-splash-750x1334.png" />
+      <link rel="apple-touch-startup-image" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash-toolkit/toolkit-splash-640x1136.png" />
       {children}
     </div>
   );
