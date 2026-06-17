@@ -977,6 +977,25 @@ export default function HelpPage() {
             </p>
           </div>
 
+          {/* ─── Get Started banner ─── */}
+          <Link
+            href="/get-started"
+            className="group flex items-center gap-4 mb-5 rounded-xl border border-vc-500/25 bg-gradient-to-br from-vc-500/10 via-zinc-800 to-zinc-800 px-5 py-4 shadow-card-glass hover:border-vc-500/40 transition-colors"
+          >
+            <span className="flex items-center justify-center w-10 h-10 rounded-full bg-vc-fab text-white shrink-0 shadow-glow-vc">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+              </svg>
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white">New to Radius? Start here.</p>
+              <p className="text-xs text-slate-400 mt-0.5">A guided ten-stop walkthrough of the tools you&apos;ll use most.</p>
+            </div>
+            <span className="text-vc-300 group-hover:text-vc-200 text-sm font-medium shrink-0 hidden sm:inline">
+              Open →
+            </span>
+          </Link>
+
           {/* ─── Search ─── */}
           <div className="relative mb-5">
             <svg
