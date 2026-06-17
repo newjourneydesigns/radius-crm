@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'rea
 import Link from 'next/link';
 import Fuse from 'fuse.js';
 import ProtectedRoute from '../../components/ProtectedRoute';
-import { useAuth } from '../../contexts/AuthContext';
 import { supabase, CircleLeader } from '../../lib/supabase';
 import CCBPersonLookup from '../../components/ui/CCBPersonLookup';
 import type { CCBPerson } from '../../components/ui/CCBPersonLookup';
@@ -37,6 +36,17 @@ interface PastedEntry {
   firstName: string;
   lastName: string;
   phone: string;
+  campus?: string;
+  email?: string;
+}
+
+interface RosterMember {
+  id?: string;
+  fullName?: string;
+  firstName?: string;
+  lastName?: string;
+  mobilePhone?: string;
+  phone?: string;
 }
 
 interface SendLog {
@@ -120,6 +130,19 @@ const normalizePhone = (phone: string): string => {
   return phone.replace(/[^+\d]/g, '');
 };
 
+const normalizeImportHeader = (value: string): string => {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '');
+};
+
+const findImportColumn = (headers: string[], candidates: string[]): number => {
+  const normalizedCandidates = candidates.map(normalizeImportHeader);
+  return headers.findIndex(header => normalizedCandidates.includes(normalizeImportHeader(header)));
+};
+
+const splitImportRow = (row: string, delimiter: string): string[] => {
+  return row.split(delimiter).map(cell => cell.trim());
+};
+
 const toRecipient = (leader: CircleLeader): Recipient | null => {
   if (!leader.phone) return null;
   const clean = normalizePhone(leader.phone);
@@ -164,8 +187,6 @@ const BackIcon = () => (
 
 // ─── Main Component ───────────────────────────────────────────
 function BulkMessageContent() {
-  const { user } = useAuth();
-
   // Data state
   const [leaders, setLeaders] = useState<CircleLeader[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -310,7 +331,7 @@ function BulkMessageContent() {
   // ─── Build recipient list ──────────────────────────────────
   const recipients = useMemo(() => {
     // When selectNone is active, skip all circle leaders
-    let filtered = selectNone ? [] : leaders.filter(l => {
+    const filtered = selectNone ? [] : leaders.filter(l => {
       if (filterCampus.length > 0 && (!l.campus || !filterCampus.includes(l.campus))) return false;
       if (filterStatus.length > 0 && (!l.status || !filterStatus.includes(l.status))) return false;
       if (filterCircleType.length > 0 && (!l.circle_type || !filterCircleType.includes(l.circle_type))) return false;
@@ -320,7 +341,7 @@ function BulkMessageContent() {
     });
 
     // Convert to recipients (excluding those without phone numbers)
-    let result: Recipient[] = [];
+    const result: Recipient[] = [];
     const seenPhones = new Set<string>();
 
     for (const l of filtered) {
@@ -574,17 +595,17 @@ function BulkMessageContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ groupId: leader.ccb_group_id }),
       });
-      const json = await res.json();
+      const json: { success?: boolean; data?: RosterMember[]; details?: string; error?: string } = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json.details || json.error || 'Failed to load roster');
       }
 
-      const members: any[] = json.data || [];
+      const members = json.data || [];
       const mapped = members
         .map((m): Recipient | null => {
           const phone = normalizePhone(m.mobilePhone || m.phone || '');
           if (phone.length < 7) return null;
-          const ccbId = parseInt(m.id, 10);
+          const ccbId = parseInt(m.id || '', 10);
           const fullName = (m.fullName || `${m.firstName || ''} ${m.lastName || ''}`).trim() || 'Friend';
           return {
             id: isNaN(ccbId) ? -(Date.now() + Math.floor(Math.random() * 100000)) : ccbId,
@@ -651,20 +672,84 @@ function BulkMessageContent() {
 
   // ─── Paste import helpers ──────────────────────────────────
   const parsePastedList = useCallback(() => {
-    const dataLines = pasteText
-      .split('\n')
-      .map(l => l.trim())
-      .filter(l => l.length > 0 && !/^first[,\s]/i.test(l));
+    const rawLines = pasteText
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .split('\n');
 
-    const entries: PastedEntry[] = [];
-    for (let i = 0; i + 2 < dataLines.length; i += 3) {
-      entries.push({
-        id: `p-${Date.now()}-${i}`,
-        firstName: dataLines[i],
-        lastName: dataLines[i + 1],
-        phone: dataLines[i + 2],
-      });
+    const nonEmptyLines = rawLines.filter(line => line.trim().length > 0);
+    const hasTabs = nonEmptyLines.some(line => line.includes('\t'));
+    const delimiter = hasTabs ? '\t' : ',';
+    const delimitedRows = nonEmptyLines
+      .map(line => splitImportRow(line, delimiter))
+      .filter(cells => cells.some(cell => cell.length > 0));
+
+    const firstRow = delimitedRows[0] || [];
+    const firstNameIndex = findImportColumn(firstRow, ['first name', 'first', 'given name']);
+    const lastNameIndex = findImportColumn(firstRow, ['last name', 'last', 'surname', 'family name']);
+    const phoneIndex = findImportColumn(firstRow, ['preferred phone', 'phone', 'mobile phone', 'cell phone', 'mobile', 'cell', 'primary phone']);
+    const campusIndex = findImportColumn(firstRow, ['campus', 'campus name']);
+    const emailIndex = findImportColumn(firstRow, ['email', 'email address']);
+    const hasHeader = firstNameIndex >= 0 && phoneIndex >= 0;
+
+    let entries: PastedEntry[] = [];
+
+    if (hasHeader) {
+      entries = delimitedRows
+        .slice(1)
+        .map((cells, index): PastedEntry | null => {
+          const firstName = cells[firstNameIndex] || '';
+          const lastName = lastNameIndex >= 0 ? cells[lastNameIndex] || '' : '';
+          const phone = cells[phoneIndex] || '';
+          const campus = campusIndex >= 0 ? cells[campusIndex] || undefined : undefined;
+          const email = emailIndex >= 0 ? cells[emailIndex] || undefined : undefined;
+          if (!firstName && !lastName && !phone && !campus && !email) return null;
+          return {
+            id: `p-${Date.now()}-${index}`,
+            firstName,
+            lastName,
+            phone,
+            campus,
+            email,
+          };
+        })
+        .filter((entry): entry is PastedEntry => entry !== null);
+    } else if (hasTabs || nonEmptyLines.some(line => line.includes(','))) {
+      entries = delimitedRows
+        .filter(cells => cells.some(cell => cell.length > 0))
+        .map((cells, index): PastedEntry | null => {
+          if (cells.length < 3) return null;
+          const firstName = cells[0] || '';
+          const lastName = cells[1] || '';
+          const phone = cells.length >= 5 ? cells[4] || '' : cells[cells.length - 1] || '';
+          const campus = cells.length >= 5 ? cells[2] || undefined : undefined;
+          const email = cells.length >= 5 ? cells[3] || undefined : undefined;
+          if (!firstName && !lastName && !phone && !campus && !email) return null;
+          return {
+            id: `p-${Date.now()}-${index}`,
+            firstName,
+            lastName,
+            phone,
+            campus,
+            email,
+          };
+        })
+        .filter((entry): entry is PastedEntry => entry !== null);
+    } else {
+      const dataLines = nonEmptyLines
+        .map(l => l.trim())
+        .filter(l => !/^first[,\s]/i.test(l));
+
+      for (let i = 0; i + 2 < dataLines.length; i += 3) {
+        entries.push({
+          id: `p-${Date.now()}-${i}`,
+          firstName: dataLines[i],
+          lastName: dataLines[i + 1],
+          phone: dataLines[i + 2],
+        });
+      }
     }
+
     setParsedEntries(entries);
   }, [pasteText]);
 
@@ -686,6 +771,7 @@ function BulkMessageContent() {
           name: `${e.firstName} ${e.lastName}`.trim(),
           firstName: e.firstName,
           phone,
+          campus: e.campus,
           isFromCCB: true,
           isFromPaste: true,
         };
@@ -1208,12 +1294,12 @@ function BulkMessageContent() {
                   {/* Textarea */}
                   <div>
                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">
-                      Paste your list — First, Last, Phone (one per line, groups of 3)
+                      Paste your list — spreadsheet rows with headers, or First / Last / Phone groups
                     </label>
                     <textarea
                       value={pasteText}
                       onChange={e => { setPasteText(e.target.value); if (parsedEntries.length > 0) setParsedEntries([]); }}
-                      placeholder={"First, Last, Phone\n\nDiana\nNall\n817-905-9682\n\nLinsey\nShields\n940-368-2782"}
+                      placeholder={"First Name\tLast Name\tCampus\tEmail\tPreferred Phone\nDiana\tNall\tLewisville\tdiana@example.com\t817-905-9682\nLinsey\tShields\tLewisville\tlinsey@example.com\t940-368-2782"}
                       className="w-full h-36 bg-gray-800 border border-gray-700 rounded-xl p-4 text-xs text-gray-300 font-mono outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 resize-none placeholder:text-gray-700 transition-shadow"
                     />
                   </div>
@@ -1248,6 +1334,7 @@ function BulkMessageContent() {
                               <tr>
                                 <th className="text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider px-3 py-2">First</th>
                                 <th className="text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider px-3 py-2">Last</th>
+                                <th className="text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider px-3 py-2">Campus</th>
                                 <th className="text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider px-3 py-2">Phone</th>
                                 <th className="px-2 py-2 w-8"></th>
                               </tr>
@@ -1267,6 +1354,13 @@ function BulkMessageContent() {
                                       value={entry.lastName}
                                       onChange={e => updateParsedEntry(entry.id, 'lastName', e.target.value)}
                                       className="w-full bg-transparent text-white text-xs px-1.5 py-1 rounded border border-transparent focus:border-gray-600 focus:bg-gray-800 outline-none transition-all"
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      value={entry.campus || ''}
+                                      onChange={e => updateParsedEntry(entry.id, 'campus', e.target.value)}
+                                      className="w-full bg-transparent text-gray-400 text-xs px-1.5 py-1 rounded border border-transparent focus:border-gray-600 focus:bg-gray-800 outline-none transition-all"
                                     />
                                   </td>
                                   <td className="px-2 py-1.5">
@@ -1304,7 +1398,7 @@ function BulkMessageContent() {
 
               {!showPastePanel && (
                 <p className="text-[11px] text-gray-600">
-                  Paste a First / Last / Phone list to quickly build a recipient group.
+                  Paste a spreadsheet list or a First / Last / Phone list to quickly build a recipient group.
                 </p>
               )}
             </section>
