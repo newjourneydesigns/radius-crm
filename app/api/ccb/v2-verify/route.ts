@@ -98,7 +98,8 @@ export async function GET(request: Request) {
     const supabase = createServiceSupabaseClient();
     const { data: leaders } = await supabase
       .from('circle_leaders').select('ccb_group_id').not('ccb_group_id', 'is', null).limit(40);
-    const groupIds = Array.from(new Set((leaders || []).map((l: any) => String(l.ccb_group_id)).filter(Boolean)));
+    // Check the explicitly-passed group first (?groupId=), then scan the rest.
+    const groupIds = Array.from(new Set([groupId, ...(leaders || []).map((l: any) => String(l.ccb_group_id))].filter(Boolean)));
 
     let found: any = null;
     let scanned = 0;
