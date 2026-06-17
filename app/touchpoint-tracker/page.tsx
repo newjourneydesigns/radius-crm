@@ -379,7 +379,15 @@ export default function TouchpointTrackerPage() {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-slate-400 text-xs hidden sm:table-cell">{relativeDate(l.last)}</td>
+                      <td className="px-4 py-3 text-xs hidden sm:table-cell">
+                        {l.last ? (
+                          <a href={`/circle/${l.id}/notes`} className="text-slate-400 hover:text-vc-300 transition-colors" title="View notes">
+                            {relativeDate(l.last)}
+                          </a>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

@@ -18,7 +18,7 @@
     "id": "touchpoint-tracker",
     "type": "feature",
     "category": "Circle Leaders",
-    "description": "New Touchpoint Tracker — see at a glance which Circle Leaders you've touched base with about their event summaries this period, and which are still overdue. Filter by campus, ACPD, or status, sort any column, and view coverage rollups across every ACPD and campus. Connections logged on a leader's page count too. Replaces tracking this in a spreadsheet.",
+    "description": "New Touchpoint Tracker — see at a glance which Circle Leaders you've touched base with about their event summaries this period, and which are still overdue. Filter by campus, ACPD, or status, sort any column, and view coverage rollups across every ACPD and campus. Connections logged on a leader's page count too, and the last-touchpoint date links straight to that leader's notes. Replaces tracking this in a spreadsheet.",
     "page": "/touchpoint-tracker"
   },
   {
