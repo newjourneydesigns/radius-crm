@@ -457,11 +457,11 @@ export default function AuthenticatedNavigation() {
                     <Link href="/profile"  onClick={closeAll} className={dropdownLinkClass('/profile')}>
                       <UserIcon /> Profile
                     </Link>
-                    <Link href="/settings" onClick={closeAll} className={dropdownLinkClass('/settings')}>
-                      <CogIcon /> Settings
-                    </Link>
                     <Link href="/get-started" onClick={closeAll} className={dropdownLinkClass('/get-started')}>
                       <CompassIcon /> Get Started
+                    </Link>
+                    <Link href="/settings" onClick={closeAll} className={dropdownLinkClass('/settings')}>
+                      <CogIcon /> Settings
                     </Link>
                     <Link href="/help"       onClick={closeAll} className={dropdownLinkClass('/help')}>
                       <QuestionIcon /> Help

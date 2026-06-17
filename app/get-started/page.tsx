@@ -23,6 +23,19 @@ type Stop = {
   badge?: string;
   lede: string;
   steps: string[];
+  callout?: { title: string; points: string[] };
+  Icon: () => JSX.Element;
+};
+
+type SetupItem = {
+  id: string;
+  eyebrow: string;
+  title: string;
+  lede: string;
+  groups: { label: string; steps: string[] }[];
+  note?: string;
+  ctaHref?: string;
+  ctaLabel?: string;
   Icon: () => JSX.Element;
 };
 
@@ -79,6 +92,16 @@ const MassUpdateIcon = () => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
   </svg>
 );
+const DownloadIcon = () => (
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-6L12 15m0 0l4.5-4.5M12 15V3" />
+  </svg>
+);
+const BellAlertIcon = () => (
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+  </svg>
+);
 
 const STOPS: Stop[] = [
   {
@@ -113,6 +136,15 @@ const STOPS: Stop[] = [
       'Add notes (pin the ones you never want to forget) and set a follow-up date when you owe them a check-in.',
       'Explore the tabs: Circle Visits, Prayers, the Roster, and AI Meeting Prep before a 1:1.',
     ],
+    callout: {
+      title: 'Onboarding a leader to the Circle Leader Toolkit',
+      points: [
+        'Leader Access — the master switch. On lets the leader sign in to their own toolkit and submit Circle Summaries; off and they can’t get in.',
+        'Email Reminders — turn on to email the leader a weekly nudge to fill out their Circle Summary.',
+        'Open Toolkit — step into the leader’s toolkit yourself to see exactly what they see.',
+        'Text Circle Toolkit link — sends the leader a one-tap magic link to their toolkit, no password needed. No phone on file? It copies the link so you can send it your own way.',
+      ],
+    },
     Icon: ProfileIcon,
   },
   {
@@ -264,6 +296,74 @@ const CADENCE_STYLE: Record<Stop['cadence'], string> = {
   Monthly: 'bg-amber-500/15 text-amber-300 ring-amber-500/30',
 };
 
+// One-time setup, done before the pathway. Kept separate from the numbered
+// stops on purpose — these are install/permission steps, not daily tools.
+const SETUP: SetupItem[] = [
+  {
+    id: 'setup-install',
+    eyebrow: 'Do this once',
+    title: 'Install Radius',
+    lede:
+      'Radius runs in your browser, but installing it gives you an app icon, a full-screen window, and — on phones — the alerts below. It’s the same Radius either way; installing just makes it feel native.',
+    groups: [
+      {
+        label: 'Desktop (Chrome or Edge) — your main setup',
+        steps: [
+          'Open Radius at vccradius.netlify.app.',
+          'Look at the right end of the address bar for the install icon — a small monitor with a down-arrow, or an “App available” chip.',
+          'Click it, then Install. Radius opens in its own window and pins to your taskbar or dock.',
+        ],
+      },
+      {
+        label: 'iPhone & iPad (use Safari)',
+        steps: [
+          'Open Radius in Safari — not Chrome. On iPhone, Safari is the only browser that can install it.',
+          'Tap the Share button (the square with an up-arrow), then Add to Home Screen, then Add.',
+          'From now on, open Radius from the new home-screen icon. This step is required for alerts to work.',
+        ],
+      },
+      {
+        label: 'Android (Chrome)',
+        steps: [
+          'Open Radius in Chrome.',
+          'Tap the ⋮ menu (top right), then Install app (or Add to Home screen) and confirm.',
+          'Open Radius from the new icon.',
+        ],
+      },
+    ],
+    Icon: DownloadIcon,
+  },
+  {
+    id: 'setup-alerts',
+    eyebrow: 'Do this once',
+    title: 'Turn on alerts',
+    lede:
+      'Radius can remind you about timed items on your Today page — and ping you even when it’s closed. You switch alerts on right from Today, and they follow you across the app.',
+    groups: [
+      {
+        label: 'On any device',
+        steps: [
+          'Open Today and tap the bell (Reminders) toggle near the top.',
+          'When your browser or phone asks permission, choose Allow.',
+          'Done — timed items on Today will now notify you, even with Radius closed.',
+        ],
+      },
+      {
+        label: 'iPhone & iPad — one extra rule',
+        steps: [
+          'Install Radius to your Home Screen first (the step above). Apple only allows alerts from the installed app, never a Safari tab.',
+          'Open Radius from the home-screen icon, then turn on the bell on Today and tap Allow.',
+        ],
+      },
+    ],
+    note:
+      'Prefer email? Settings → Daily Summary sends a morning email of everything on your plate — separate from these alerts, and on by your choice.',
+    ctaHref: '/today',
+    ctaLabel: 'Open Today',
+    Icon: BellAlertIcon,
+  },
+];
+
 const STORAGE_KEY = 'radius:get-started:explored';
 
 export default function GetStartedPage() {
@@ -299,7 +399,7 @@ export default function GetStartedPage() {
   const reset = () => persist(new Set());
 
   const done = hydrated ? explored.size : 0;
-  const total = STOPS.length;
+  const total = SETUP.length + STOPS.length;
   const pct = useMemo(() => Math.round((done / total) * 100), [done, total]);
   const allDone = hydrated && done === total;
 
@@ -321,12 +421,12 @@ export default function GetStartedPage() {
               Welcome to Radius
             </p>
             <h1 className="text-3xl sm:text-4xl font-semibold text-white tracking-tight leading-tight">
-              Ten stops to find your footing.
+              Find your footing in Radius.
             </h1>
             <p className="text-[15px] text-slate-400 mt-4 leading-relaxed max-w-2xl">
               Radius helps you shepherd circle leaders — track who met, who needs a nudge, and
-              what you promised to follow up on. Walk these in order. The first few you&apos;ll use
-              every week; the rest you&apos;ll reach for as they come up. Tap{' '}
+              what you promised to follow up on. First, two quick setup steps. Then walk the ten
+              stops in order: the first few you&apos;ll use every week, the rest as they come up. Tap{' '}
               <span className="text-slate-200 font-medium">Mark as explored</span> as you go.
             </p>
 
@@ -357,7 +457,105 @@ export default function GetStartedPage() {
             </div>
           </header>
 
+          {/* ─── Setup (one-time) ─── */}
+          <div className="mb-9">
+            <div className="flex items-center gap-3 mb-4">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">First — set up</h2>
+              <span className="h-px flex-1 bg-white/[0.06]" />
+            </div>
+            <div className="space-y-3">
+              {SETUP.map((item) => {
+                const isDone = explored.has(item.id);
+                return (
+                  <div
+                    key={item.id}
+                    className={`rounded-2xl border bg-zinc-800/70 p-5 shadow-card-glass transition-colors ${
+                      isDone ? 'border-vc-500/25' : 'border-white/[0.07] hover:border-white/[0.14]'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`flex items-center justify-center w-10 h-10 rounded-full ring-1 shrink-0 transition-colors ${
+                          isDone ? 'bg-vc-fab text-white ring-vc-400/40 shadow-glow-vc' : 'bg-zinc-800 text-slate-300 ring-white/10'
+                        }`}
+                      >
+                        {isDone ? (
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <item.Icon />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{item.eyebrow}</span>
+                        <h3 className="text-lg font-semibold text-white tracking-tight">{item.title}</h3>
+                      </div>
+                    </div>
+
+                    <p className="text-sm text-slate-300 leading-relaxed mt-3">{item.lede}</p>
+
+                    <div className="mt-4 space-y-4">
+                      {item.groups.map((g) => (
+                        <div key={g.label}>
+                          <p className="text-xs font-semibold text-slate-200 mb-2">{g.label}</p>
+                          <ol className="space-y-1.5">
+                            {g.steps.map((s, si) => (
+                              <li key={si} className="flex gap-2.5 text-sm text-slate-400 leading-relaxed">
+                                <span className="text-vc-400/70 font-semibold tabular-nums shrink-0">{si + 1}.</span>
+                                <span>{s}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      ))}
+                    </div>
+
+                    {item.note && (
+                      <p className="mt-4 text-xs text-slate-500 leading-relaxed border-l-2 border-white/[0.08] pl-3">{item.note}</p>
+                    )}
+
+                    <div className="flex items-center gap-3 mt-5 pt-4 border-t border-white/[0.06]">
+                      {item.ctaHref && (
+                        <Link
+                          href={item.ctaHref}
+                          className="inline-flex items-center gap-1.5 text-sm font-medium text-white bg-vc-fab px-3.5 py-2 rounded-lg hover:opacity-90 transition-opacity shadow-glow-vc"
+                        >
+                          {item.ctaLabel}
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                          </svg>
+                        </Link>
+                      )}
+                      <button
+                        onClick={() => toggle(item.id)}
+                        className={`inline-flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors ${
+                          isDone ? 'text-vc-300 hover:text-vc-200' : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
+                        }`}
+                      >
+                        {isDone ? (
+                          <>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                            Done
+                          </>
+                        ) : (
+                          'Mark as done'
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* ─── The pathway ─── */}
+          <div className="flex items-center gap-3 mb-4">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">The pathway</h2>
+            <span className="h-px flex-1 bg-white/[0.06]" />
+          </div>
           <ol className="relative">
             {/* connecting spine */}
             <div
@@ -433,6 +631,20 @@ export default function GetStartedPage() {
                         </li>
                       ))}
                     </ol>
+
+                    {stop.callout && (
+                      <div className="mt-4 rounded-xl border border-vc-500/20 bg-vc-500/[0.06] p-3.5">
+                        <p className="text-xs font-semibold text-vc-200 uppercase tracking-wider mb-2.5">{stop.callout.title}</p>
+                        <ul className="space-y-2">
+                          {stop.callout.points.map((point, pi) => (
+                            <li key={pi} className="flex gap-2.5 text-sm text-slate-300 leading-relaxed">
+                              <span className="mt-[7px] w-1 h-1 rounded-full bg-vc-400 shrink-0" />
+                              <span>{point}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
                     <div className="flex items-center gap-3 mt-5 pt-4 border-t border-white/[0.06]">
                       <Link
