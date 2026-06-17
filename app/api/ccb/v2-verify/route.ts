@@ -92,6 +92,63 @@ export async function GET(request: Request) {
     });
   }
 
+  // Attendance discovery (PII-safe) — ?probe=attendance — scan recent groups for a
+  // record with a SUBMITTED report to reveal status enum + attendee shape + test mapping.
+  if (searchParams.get('probe') === 'attendance') {
+    const supabase = createServiceSupabaseClient();
+    const { data: leaders } = await supabase
+      .from('circle_leaders').select('ccb_group_id').not('ccb_group_id', 'is', null).limit(40);
+    const groupIds = Array.from(new Set((leaders || []).map((l: any) => String(l.ccb_group_id)).filter(Boolean)));
+
+    let found: any = null;
+    let scanned = 0;
+    for (const gid of groupIds) {
+      scanned++;
+      try {
+        const r: any = await v2.get(`/groups/${gid}/attendance`);
+        const recs = Array.isArray(r) ? r : r?.items ?? r?.data ?? [];
+        const pop = recs.find((rec: any) =>
+          (typeof rec.total_attendance === 'number' && rec.total_attendance > 0) ||
+          rec.topic || rec.notes ||
+          (rec.people_information && (Array.isArray(rec.people_information) ? rec.people_information.length : Object.keys(rec.people_information || {}).length)));
+        if (pop) { found = { gid, rec: pop }; break; }
+      } catch {}
+    }
+
+    let mapped: any = null;
+    if (found) {
+      try {
+        const all = await v2.getGroupAttendanceInRange(found.gid);
+        mapped = all.find((a) => a.occurrence.replace(/-/g, '') === String(found.rec.occurrence)) ?? all[0] ?? null;
+      } catch (e: any) { mapped = { __error: e.message }; }
+    }
+
+    return NextResponse.json({
+      probe: 'attendance',
+      scannedGroups: scanned,
+      found: found ? {
+        groupId: found.gid,
+        occurrence: found.rec.occurrence,
+        statusValue: found.rec.status,           // enum, not PII
+        total_attendance: found.rec.total_attendance,
+        visitors: found.rec.visitors,
+        hasTopic: !!found.rec.topic, hasNotes: !!found.rec.notes, hasPrayer: !!found.rec.prayer_requests,
+        recordShape: shapeOf(found.rec, 4),
+        peopleInformationShape: shapeOf(found.rec.people_information, 3),
+        peopleCount: Array.isArray(found.rec.people_information) ? found.rec.people_information.length
+          : (found.rec.people_information ? Object.keys(found.rec.people_information).length : 0),
+      } : 'no populated attendance found in scanned groups',
+      // My mapped output (scalars only) — confirms getGroupAttendanceInRange works.
+      mappedSample: mapped && !mapped.__error ? {
+        eventId: mapped.eventId, occurrence: mapped.occurrence,
+        didNotMeet: mapped.didNotMeet, headCount: mapped.headCount,
+        hasTopic: !!mapped.topic, hasNotes: !!mapped.notes,
+        attendeeCount: mapped.attendees?.length ?? 0,
+        firstAttendeeKeys: mapped.attendees?.[0] ? Object.keys(mapped.attendees[0]) : [],
+      } : mapped,
+    });
+  }
+
   const [v1Parts, v2Parts] = await Promise.all([
     safe('v1 getGroupParticipants', () => v1.getGroupParticipants(groupId)),
     safe('v2 getGroupParticipants', () => v2.getGroupParticipants(groupId)),
