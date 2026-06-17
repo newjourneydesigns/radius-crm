@@ -113,6 +113,107 @@ export class CCBv2Client {
   get<T = any>(path: string, query?: RequestOptions['query']): Promise<T> {
     return this.request<T>(path, { method: 'GET', query });
   }
+
+  // ---- Endpoint methods (mirror v1 CCBClient shapes) ----
+  //
+  // Field mapping is defensive (snake_case/camelCase/nested variants) because
+  // v2's exact JSON field names aren't pinned by static docs yet. Verified and
+  // tightened against live data via /api/ccb/v2-verify during cutover.
+
+  /** GET /individuals/{id} → same shape as v1 CCBClient.getIndividualProfile. */
+  async getIndividualProfile(individualId: string): Promise<{
+    id: string; firstName: string; lastName: string; fullName: string;
+    email: string; phone: string; mobilePhone: string; birthday: string;
+    status: string; statusId: string; isActive: boolean;
+  } | null> {
+    if (!individualId) return null;
+    const ind = unwrap(await this.get(`/individuals/${encodeURIComponent(individualId)}`));
+    if (!ind) return null;
+    return mapIndividual(ind, individualId);
+  }
+
+  /** GET /groups/{id}/members → same shape as v1 CCBClient.getGroupParticipants. */
+  async getGroupParticipants(groupId: string): Promise<Array<{
+    id: string; firstName: string; lastName: string; fullName: string;
+    email: string; phone: string; mobilePhone: string;
+    status: string; statusId: string; isActive: boolean;
+  }>> {
+    if (!groupId) throw new Error('Group ID is required');
+    const raw = await this.get(`/groups/${encodeURIComponent(groupId)}/members`);
+    const members = asArray(raw);
+    return members.map((m: any) => {
+      const nested = m.individual ?? m;
+      const id = String(m.individual_id ?? nested.id ?? m.id ?? '').trim();
+      return mapIndividual(nested, id, m.status);
+    });
+  }
+}
+
+// ---- shared mapping helpers ----
+
+/** Single-resource responses may be the object itself or wrapped in {data}. */
+function unwrap(json: any): any {
+  if (!json) return null;
+  return json.data ?? json.individual ?? json;
+}
+
+/** List responses may be a bare array or wrapped in {items}/{data}/{count,...}. */
+function asArray(json: any): any[] {
+  if (Array.isArray(json)) return json;
+  return json?.items ?? json?.data ?? json?.results ?? [];
+}
+
+function firstString(...vals: any[]): string {
+  for (const v of vals) {
+    if (v === undefined || v === null) continue;
+    const s = String(v).trim();
+    if (s) return s;
+  }
+  return '';
+}
+
+function resolveEmail(ind: any): string {
+  if (ind?.email) return firstString(ind.email);
+  const emails = ind?.emails;
+  if (Array.isArray(emails) && emails.length) {
+    return firstString(emails[0]?.address, emails[0]?.email, emails[0]);
+  }
+  return '';
+}
+
+function resolvePhone(ind: any, types: string[]): string {
+  const phones = Array.isArray(ind?.phones) ? ind.phones : [];
+  for (const t of types) {
+    const entry = phones.find((p: any) => firstString(p?.type, p?.phone_type, p?.['@_type']).toLowerCase() === t);
+    const val = firstString(entry?.number, entry?.value, entry?.phone, entry?.['#text']);
+    if (val) return val;
+  }
+  // Fallbacks for flat shapes.
+  if (types.includes('mobile')) return firstString(ind?.mobile_phone, ind?.mobilePhone, ind?.cell_phone);
+  return firstString(ind?.phone, ind?.home_phone, ind?.homePhone);
+}
+
+function resolveActive(ind: any, memberStatus?: string): { status: string; statusId: string; isActive: boolean } {
+  const status = firstString(memberStatus, ind?.status, ind?.membership_status);
+  const isActive = status ? /active/i.test(status) : ind?.active !== false;
+  return { status, statusId: firstString(ind?.status_id), isActive };
+}
+
+function mapIndividual(ind: any, fallbackId: string, memberStatus?: string) {
+  const firstName = firstString(ind?.first_name, ind?.firstName, ind?.name?.first, ind?.first);
+  const lastName = firstString(ind?.last_name, ind?.lastName, ind?.name?.last, ind?.last);
+  const fullName = firstString(ind?.full_name, ind?.fullName, ind?.name?.full, `${firstName} ${lastName}`.trim());
+  return {
+    id: firstString(ind?.id, fallbackId),
+    firstName,
+    lastName,
+    fullName,
+    email: resolveEmail(ind),
+    phone: resolvePhone(ind, ['home', 'contact', 'work']),
+    mobilePhone: resolvePhone(ind, ['mobile', 'cell', 'contact']),
+    birthday: firstString(ind?.birthday, ind?.date_of_birth, ind?.birth_date),
+    ...resolveActive(ind, memberStatus),
+  };
 }
 
 export function createCCBv2Client(context?: CCBApiRequestContext): CCBv2Client {
