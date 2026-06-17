@@ -148,6 +148,31 @@ export class CCBv2Client {
       return mapIndividual(nested, id, memberStatus);
     });
   }
+
+  /**
+   * GET /groups/{id}/attendance → AttendanceSummary[] (v1-compatible), optionally
+   * filtered to a YYYY-MM-DD range. One call per group replaces v1's global
+   * attendance_profiles pull + per-event fetches.
+   */
+  async getGroupAttendanceInRange(groupId: string, startDate?: string, endDate?: string): Promise<AttendanceSummaryV2[]> {
+    if (!groupId) throw new Error('Group ID is required');
+    const raw = await this.get(`/groups/${encodeURIComponent(groupId)}/attendance`);
+    return asArray(raw)
+      .map(mapAttendance)
+      .filter((a) => !startDate || !endDate || (a.occurrence >= startDate && a.occurrence <= endDate));
+  }
+}
+
+export interface AttendanceSummaryV2 {
+  eventId: string;
+  occurrence: string; // YYYY-MM-DD
+  title?: string;
+  didNotMeet?: boolean;
+  headCount?: number;
+  topic?: string;
+  notes?: string;
+  prayerRequests?: string;
+  attendees?: Array<{ id?: string; name?: string; status?: string }>;
 }
 
 // ---- shared mapping helpers ----
@@ -255,6 +280,52 @@ function mapIndividual(ind: any, fallbackId: string, memberStatus?: string) {
     mobilePhone,
     birthday: firstString(ind?.birthday, ind?.date_of_birth, ind?.birth_date),
     ...resolveActive(ind, memberStatus),
+  };
+}
+
+// ---- attendance mapping (/groups/{id}/attendance) ----
+
+/** Occurrence id "20250825" → "2025-08-25"; ISO datetime → its date part. */
+function occToIso(occ: string): string {
+  const s = String(occ ?? '');
+  if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+  const d = s.slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : s;
+}
+
+function strOrUndef(v: any): string | undefined {
+  if (v === null || v === undefined) return undefined;
+  const s = String(v).trim();
+  return s || undefined;
+}
+
+function mapAttendees(pi: any): Array<{ id?: string; name?: string; status?: string }> {
+  const list = Array.isArray(pi) ? pi : pi && typeof pi === 'object' ? Object.values(pi) : [];
+  return list
+    .filter((p: any) => p && typeof p === 'object')
+    .map((p: any) => ({
+      id: firstString(p.individual_id, p.id) || undefined,
+      name: firstString(p.name, `${firstString(p.first_name)} ${firstString(p.last_name)}`.trim()) || undefined,
+      status: firstString(p.status, p.attendance_status) || undefined,
+    }));
+}
+
+function deriveDidNotMeet(r: any): boolean {
+  const s = firstString(r?.status, r?.attendance_status).toLowerCase();
+  return /not.?met|did.?not|didnt|cancel|no.?meet/.test(s);
+}
+
+function mapAttendance(r: any): AttendanceSummaryV2 {
+  return {
+    eventId: firstString(r?.event_id, r?.event?.id),
+    occurrence: occToIso(String(r?.occurrence ?? r?.start ?? '')),
+    title: strOrUndef(firstString(r?.event?.name, r?.name)),
+    didNotMeet: deriveDidNotMeet(r),
+    headCount: typeof r?.total_attendance === 'number' ? r.total_attendance : undefined,
+    topic: strOrUndef(r?.topic),
+    notes: strOrUndef(r?.notes),
+    prayerRequests: strOrUndef(r?.prayer_requests),
+    attendees: mapAttendees(r?.people_information),
   };
 }
 
