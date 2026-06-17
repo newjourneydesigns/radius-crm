@@ -66,29 +66,29 @@ export async function GET(request: Request) {
       } catch (e: any) { return { status: 'error', error: e.message }; }
     };
 
-    // Pull a sample occurrence row (the GET /events item) to drill into attendance shape.
+    // Group events via the CORRECT path (/events?group_id was ignored by v2).
     let sample: any = null;
     try {
-      const r: any = await v2.get('/events', { group_id: groupId, per_page: 10 });
+      const r: any = await v2.get(`/groups/${encodeURIComponent(groupId)}/events`);
       const list = Array.isArray(r) ? r : r?.items ?? r?.data ?? r?.events ?? [];
       sample = list[0] ?? null;
     } catch {}
-    const evId = sample ? String(sample.event_id ?? sample.event?.id ?? '') : '';
+    const evId = sample ? String(sample.event_id ?? sample.event?.id ?? sample.id ?? '') : '';
     const occ = sample ? String(sample.occurrence ?? '') : '';
 
     return NextResponse.json({
       groupId,
       probe: 'events',
-      events_by_group: await probe('/events', { group_id: groupId, per_page: 3 }),
-      // Sample VALUES (dates + event name) to learn the occurrence/date format.
+      group_events: await probe(`/groups/${encodeURIComponent(groupId)}/events`),
+      group_calendar: await probe(`/groups/${encodeURIComponent(groupId)}/calendar`),
       sampleOccurrence: sample ? {
-        event_id: sample.event_id, occurrence: sample.occurrence,
+        event_id: sample.event_id ?? sample.event?.id, occurrence: sample.occurrence,
         start: sample.start, end: sample.end,
-        eventName: sample.event?.name, groupId: sample.group_id,
+        eventName: sample.event?.name ?? sample.name, group: sample.event?.group?.id ?? sample.group_id,
       } : null,
-      event_attendees: evId ? await probe(`/events/${evId}/attendees`) : 'no event id',
-      event_attendees_byOccurrence: (evId && occ) ? await probe(`/events/${evId}/attendees`, { occurrence: occ }) : 'n/a',
-      event_occurrence_detail: (evId && occ) ? await probe(`/events/${evId}/occurrences/${encodeURIComponent(occ)}`) : 'n/a',
+      occurrence_attendees: (evId && occ) ? await probe(`/events/${evId}/occurrences/${encodeURIComponent(occ)}/attendees`) : 'n/a',
+      event_attendees_plain: evId ? await probe(`/events/${evId}/attendees`) : 'n/a',
+      group_attendance: await probe(`/groups/${encodeURIComponent(groupId)}/attendance`),
     });
   }
 
