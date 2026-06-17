@@ -1,5 +1,49 @@
 [
   {
+    "date": "2026-06-17",
+    "version": "2.35.0",
+    "date_display": "June 17, 2026",
+    "date_iso": "2026-06-17",
+    "id": "touchpoint-event-summary-followup",
+    "type": "feature",
+    "category": "Circle Leaders",
+    "description": "Added an 'Event Summary Follow-up' connection type for logging on a leader's page, plus a Touchpoint Type multi-select filter on the Touchpoint Tracker. Pick which types count toward coverage — all of them, or just certain ones like Event Summary Follow-up.",
+    "page": "/touchpoint-tracker"
+  },
+  {
+    "date": "2026-06-17",
+    "version": "2.35.0",
+    "date_display": "June 17, 2026",
+    "date_iso": "2026-06-17",
+    "id": "touchpoint-tracker",
+    "type": "feature",
+    "category": "Circle Leaders",
+    "description": "New Touchpoint Tracker — see at a glance which Circle Leaders you've touched base with about their event summaries this period, and which are still overdue. Filter by campus, ACPD, or status, sort any column, and view coverage rollups across every ACPD and campus. Connections logged on a leader's page count too. Replaces tracking this in a spreadsheet.",
+    "page": "/touchpoint-tracker"
+  },
+  {
+    "date": "2026-06-17",
+    "version": "2.35.0",
+    "date_display": "June 17, 2026",
+    "date_iso": "2026-06-17",
+    "id": "touchpoint-log-from-event-summary",
+    "type": "feature",
+    "category": "Circle Leaders",
+    "description": "Added a Log Touchpoint button on each event summary in the Event Explorer. Log that you followed up on a leader's debrief — and text or call them right from the same modal. Logged touchpoints also show up in the leader's notes and coaching timeline.",
+    "page": "/circle/[id]"
+  },
+  {
+    "date": "2026-06-17",
+    "version": "2.35.0",
+    "date_display": "June 17, 2026",
+    "date_iso": "2026-06-17",
+    "id": "touchpoint-cadence-setting",
+    "type": "feature",
+    "category": "Settings",
+    "description": "Added a Touchpoint Cadence setting — one central target (e.g. 1 per leader) that applies to every campus, plus savable date-range periods (define Spring, Summer, Fall, or any ranges in advance). The tracker uses whichever period contains today.",
+    "page": "/settings"
+  },
+  {
     "date": "2026-06-16",
     "version": "2.34.2",
     "date_display": "June 16, 2026",

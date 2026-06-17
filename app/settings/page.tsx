@@ -5,6 +5,7 @@ import { BellOff, Building2, CalendarDays, ClipboardList, FileText, Mail, Settin
 import { supabase } from '../../lib/supabase';
 import NoteTemplatesManager from '../../components/settings/NoteTemplatesManager';
 import ScorecardQuestionsManager from '../../components/settings/ScorecardQuestionsManager';
+import TouchpointSettingsManager from '../../components/settings/TouchpointSettingsManager';
 import ConfirmModal from '../../components/ui/ConfirmModal';
 import AlertModal from '../../components/ui/AlertModal';
 import ServiceWorkerUtils from '../../components/ServiceWorkerUtils';
@@ -72,7 +73,7 @@ export default function SettingsPage() {
 
   // UI state
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'directors' | 'host_team_directors' | 'circles' | 'statuses' | 'frequencies' | 'campuses' | 'templates' | 'scorecard' | 'app'>('directors');
+  const [activeTab, setActiveTab] = useState<'directors' | 'host_team_directors' | 'circles' | 'statuses' | 'frequencies' | 'campuses' | 'templates' | 'scorecard' | 'touchpoints' | 'app'>('directors');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{isOpen: boolean, type: string, id: number, name: string}>({
     isOpen: false, type: '', id: 0, name: ''
   });
@@ -596,6 +597,7 @@ export default function SettingsPage() {
     { id: 'campuses', label: 'Campuses', icon: Building2 },
     { id: 'templates', label: 'Note Templates', icon: FileText },
     { id: 'scorecard', label: 'Scorecard Questions', icon: ClipboardList },
+    { id: 'touchpoints', label: 'Touchpoint Cadence', icon: CalendarDays },
     { id: 'app', label: 'App Management', icon: Settings }
   ];
 
@@ -1338,6 +1340,21 @@ export default function SettingsPage() {
 
               <div className="p-6">
                 <ScorecardQuestionsManager />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'touchpoints' && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-600">
+                <div>
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-white">Touchpoint Cadence</h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Set how often ACPDs should touch base with each Circle Leader about their event summaries</p>
+                </div>
+              </div>
+
+              <div className="p-6">
+                <TouchpointSettingsManager />
               </div>
             </div>
           )}

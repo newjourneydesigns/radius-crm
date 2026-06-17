@@ -355,6 +355,7 @@ export default function MobileNavigation() {
     { href: '/person-lookup', label: 'Person Lookup', Icon: PersonSearchIcon },
     { href: '/birthday-list', label: 'Birthday List', Icon: BirthdayCakeIcon },
     { href: '/circle-reporting', label: 'Circle Reporting', Icon: ChartIcon },
+    { href: '/touchpoint-tracker', label: 'Touchpoint Tracker', Icon: ChartIcon },
     { href: '/progress', label: 'Progress', Icon: ChartIcon },
     ...(admin
       ? [

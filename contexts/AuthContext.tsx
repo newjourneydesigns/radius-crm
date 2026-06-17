@@ -8,6 +8,7 @@ export interface User {
   email: string;
   name: string;
   role: 'ACPD' | 'Viewer';
+  acpd?: string;
   ai_assistant_enabled?: boolean;
 }
 
@@ -41,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const resolveUser = async (authUser: { id: string; email?: string; user_metadata?: any }) => {
       const profilePromise = supabase
         .from('users')
-        .select('id, email, name, role, ai_assistant_enabled')
+        .select('id, email, name, role, acpd, ai_assistant_enabled')
         .eq('id', authUser.id)
         .single();
 

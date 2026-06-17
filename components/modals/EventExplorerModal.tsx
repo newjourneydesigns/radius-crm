@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import Modal from '../ui/Modal';
+import LogTouchpointModal from './LogTouchpointModal';
 
 // ── Day-of-week helpers ────────────────────────────────────────
 
@@ -77,6 +78,12 @@ interface EventExplorerModalProps {
   ccbProfileLink?: string | null;
   meetingDay?: string | null;
   rosterCount?: number | null;
+  /** When provided, each event card shows a "Log Touchpoint" action for this leader. */
+  leaderId?: number | null;
+  leaderName?: string | null;
+  leaderPhone?: string | null;
+  additionalLeaderPhone?: string | null;
+  onTouchpointLogged?: () => void;
 }
 
 export default function EventExplorerModal({
@@ -87,7 +94,14 @@ export default function EventExplorerModal({
   ccbProfileLink = null,
   meetingDay = null,
   rosterCount = null,
+  leaderId = null,
+  leaderName = null,
+  leaderPhone = null,
+  additionalLeaderPhone = null,
+  onTouchpointLogged,
 }: EventExplorerModalProps) {
+  // Touchpoint logging in response to a specific event/debrief summary.
+  const [touchpointEvent, setTouchpointEvent] = useState<EventData | null>(null);
   const [date, setDate] = useState(initialDate);
   const [endDate, setEndDate] = useState('');
   const [rangeMode, setRangeMode] = useState(false);
@@ -584,7 +598,8 @@ export default function EventExplorerModal({
                 className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden"
               >
                 {/* Event Header */}
-                <div className="bg-zinc-700 px-4 py-3">
+                <div className="bg-zinc-700 px-4 py-3 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
                   <h3 className="text-base font-semibold text-white">
                     {event.title}
                   </h3>
@@ -613,6 +628,19 @@ export default function EventExplorerModal({
                     })()}{' '}
                     • Event ID: {event.eventId}
                   </div>
+                  </div>
+                  {leaderId && (
+                    <button
+                      type="button"
+                      onClick={() => setTouchpointEvent(event)}
+                      className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-vc-600 hover:bg-vc-700 text-white transition-colors"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                      </svg>
+                      Log Touchpoint
+                    </button>
+                  )}
                 </div>
 
                 {/* Event Content */}
@@ -736,6 +764,23 @@ export default function EventExplorerModal({
           </div>
         )}
       </div>
+
+      {leaderId && (
+        <LogTouchpointModal
+          isOpen={touchpointEvent !== null}
+          onClose={() => setTouchpointEvent(null)}
+          circleLeaderId={leaderId}
+          circleLeaderName={leaderName || initialGroupName || 'this leader'}
+          leaderPhone={leaderPhone}
+          additionalLeaderPhone={additionalLeaderPhone}
+          eventTopic={touchpointEvent?.topic || touchpointEvent?.title || null}
+          eventOccurrence={touchpointEvent?.date ? new Date(`${touchpointEvent.date}T12:00:00`).toISOString() : null}
+          onLogged={() => {
+            setTouchpointEvent(null);
+            onTouchpointLogged?.();
+          }}
+        />
+      )}
     </Modal>
   );
 }

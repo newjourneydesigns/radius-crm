@@ -3281,6 +3281,10 @@ export default function CircleLeaderProfilePage() {
         ccbProfileLink={leader?.ccb_profile_link || null}
         meetingDay={leader?.day || null}
         rosterCount={rosterCount}
+        leaderId={leader?.id ?? null}
+        leaderName={leader?.name || null}
+        leaderPhone={leader?.phone || null}
+        additionalLeaderPhone={leader?.additional_leader_phone || null}
       />
 
       {/* Delete Circle Leader Confirmation Modal */}
