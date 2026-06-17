@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import Fuse from 'fuse.js';
 import { renderMessageHtml } from '../../../../lib/renderMessageHtml';
 import { useMarkCircleAppEntered } from '../../../../lib/circle-leader-toolkit/appEntered';
 
@@ -18,16 +19,34 @@ type InboxMessage = {
   unread: boolean;
 };
 
-type InboxFolder = 'unread' | 'read';
+type InboxFolder = 'all' | 'unread' | 'read';
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
+}
+
+function bodyHtmlToSearchText(html: string) {
+  if (!html) return '';
+  if (typeof window !== 'undefined' && typeof DOMParser !== 'undefined') {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return doc.body.textContent || '';
+  }
+
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
 }
 
 export default function CircleSummaryInboxPage() {
   useMarkCircleAppEntered();
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [folder, setFolder] = useState<InboxFolder>('unread');
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [markingId, setMarkingId] = useState<string | null>(null);
@@ -84,9 +103,44 @@ export default function CircleSummaryInboxPage() {
     }
   }
 
-  const unreadMessages = messages.filter((m) => m.unread);
-  const readMessages = messages.filter((m) => !m.unread);
-  const visibleMessages = folder === 'unread' ? unreadMessages : readMessages;
+  function handleSearchQueryChange(value: string) {
+    setSearchQuery(value);
+    if (value.trim()) setFolder('all');
+  }
+
+  const indexedMessages = useMemo(
+    () =>
+      messages.map((message) => ({
+        ...message,
+        body_text: bodyHtmlToSearchText(message.body_html),
+      })),
+    [messages]
+  );
+
+  const searchedMessages = useMemo(() => {
+    const query = searchQuery.trim();
+    if (!query) return indexedMessages;
+
+    const fuse = new Fuse(indexedMessages, {
+      keys: [
+        { name: 'title', weight: 3 },
+        { name: 'body_text', weight: 2 },
+      ],
+      threshold: 0.35,
+      ignoreLocation: true,
+      minMatchCharLength: 2,
+    });
+
+    return fuse.search(query).map((result) => result.item);
+  }, [indexedMessages, searchQuery]);
+
+  const unreadMessages = searchedMessages.filter((m) => m.unread);
+  const readMessages = searchedMessages.filter((m) => !m.unread);
+  const visibleMessages =
+    folder === 'all' ? searchedMessages : folder === 'unread' ? unreadMessages : readMessages;
+  const totalUnreadCount = messages.filter((m) => m.unread).length;
+  const totalReadCount = messages.length - totalUnreadCount;
+  const hasSearchQuery = searchQuery.trim().length > 0;
 
   return (
     <main className="max-w-2xl mx-auto px-4 py-6">
@@ -96,7 +150,47 @@ export default function CircleSummaryInboxPage() {
           <p className="text-xs text-neutral-500 mt-0.5">Updates from your Circle team</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-1 bg-neutral-100 border border-neutral-200 rounded-full p-1 mb-4">
+        <div className="cs-search-field mb-4">
+          <label className="cs-search-field-label" htmlFor="cs-inbox-search">
+            Search messages
+          </label>
+          <div className="relative">
+            <input
+              id="cs-inbox-search"
+              type="search"
+              className="cs-input"
+              style={{ paddingRight: '2.5rem' }}
+              placeholder="Search title or message..."
+              value={searchQuery}
+              onChange={(e) => handleSearchQueryChange(e.target.value)}
+            />
+            {hasSearchQuery && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+              >
+                X
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-1 bg-neutral-100 border border-neutral-200 rounded-full p-1 mb-4">
+          <button
+            type="button"
+            aria-pressed={folder === 'all'}
+            onClick={() => setFolder('all')}
+            className={
+              'cs-inbox-folder-tab rounded-full py-2 text-sm font-semibold transition-all ' +
+              (folder === 'all'
+                ? 'cs-inbox-folder-tab-active shadow-sm'
+                : 'cs-inbox-folder-tab-inactive')
+            }
+          >
+            All ({hasSearchQuery ? searchedMessages.length : messages.length})
+          </button>
           <button
             type="button"
             aria-pressed={folder === 'unread'}
@@ -108,7 +202,7 @@ export default function CircleSummaryInboxPage() {
                 : 'cs-inbox-folder-tab-inactive')
             }
           >
-            Unread ({unreadMessages.length})
+            Unread ({hasSearchQuery ? unreadMessages.length : totalUnreadCount})
           </button>
           <button
             type="button"
@@ -121,7 +215,7 @@ export default function CircleSummaryInboxPage() {
                 : 'cs-inbox-folder-tab-inactive')
             }
           >
-            Read ({readMessages.length})
+            Read ({hasSearchQuery ? readMessages.length : totalReadCount})
           </button>
         </div>
 
@@ -139,8 +233,25 @@ export default function CircleSummaryInboxPage() {
         {!loading && !error && visibleMessages.length === 0 && (
           <div className="text-center py-12 border border-dashed border-neutral-200 rounded-xl bg-neutral-50">
             <p className="text-neutral-500 text-sm font-medium">
-              {folder === 'unread' ? 'No unread messages' : 'No read messages yet'}
+              {hasSearchQuery
+                ? folder === 'all'
+                  ? 'No messages match this search'
+                  : `No ${folder} messages match this search`
+                : folder === 'all'
+                  ? 'No messages yet'
+                  : folder === 'unread'
+                  ? 'No unread messages'
+                  : 'No read messages yet'}
             </p>
+            {hasSearchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="mt-3 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-bold text-neutral-700 shadow-sm transition-colors hover:bg-neutral-100"
+              >
+                Clear search
+              </button>
+            )}
           </div>
         )}
 
