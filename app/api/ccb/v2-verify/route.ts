@@ -66,26 +66,29 @@ export async function GET(request: Request) {
       } catch (e: any) { return { status: 'error', error: e.message }; }
     };
 
-    // Find a sample event id (for the group if possible) to drill into occurrence/attendance shape.
-    let firstEventId = '';
-    for (const q of [{ group_id: groupId, per_page: 3 }, { per_page: 3 }]) {
-      try {
-        const r: any = await v2.get('/events', q);
-        const list = Array.isArray(r) ? r : r?.items ?? r?.data ?? r?.events ?? [];
-        if (list[0]?.id) { firstEventId = String(list[0].id); break; }
-      } catch {}
-    }
+    // Pull a sample occurrence row (the GET /events item) to drill into attendance shape.
+    let sample: any = null;
+    try {
+      const r: any = await v2.get('/events', { group_id: groupId, per_page: 10 });
+      const list = Array.isArray(r) ? r : r?.items ?? r?.data ?? r?.events ?? [];
+      sample = list[0] ?? null;
+    } catch {}
+    const evId = sample ? String(sample.event_id ?? sample.event?.id ?? '') : '';
+    const occ = sample ? String(sample.occurrence ?? '') : '';
 
     return NextResponse.json({
       groupId,
       probe: 'events',
-      events_unfiltered: await probe('/events', { per_page: 3 }),
       events_by_group: await probe('/events', { group_id: groupId, per_page: 3 }),
-      group_attendance_groupings: await probe(`/groups/${encodeURIComponent(groupId)}/attendance-groupings`),
-      attendance_groupings: await probe('/attendance-groupings', { per_page: 3 }),
-      firstEventId,
-      event_detail: firstEventId ? await probe(`/events/${firstEventId}`) : 'no event id found',
-      event_attendees: firstEventId ? await probe(`/events/${firstEventId}/attendees`) : 'no event id found',
+      // Sample VALUES (dates + event name) to learn the occurrence/date format.
+      sampleOccurrence: sample ? {
+        event_id: sample.event_id, occurrence: sample.occurrence,
+        start: sample.start, end: sample.end,
+        eventName: sample.event?.name, groupId: sample.group_id,
+      } : null,
+      event_attendees: evId ? await probe(`/events/${evId}/attendees`) : 'no event id',
+      event_attendees_byOccurrence: (evId && occ) ? await probe(`/events/${evId}/attendees`, { occurrence: occ }) : 'n/a',
+      event_occurrence_detail: (evId && occ) ? await probe(`/events/${evId}/occurrences/${encodeURIComponent(occ)}`) : 'n/a',
     });
   }
 
