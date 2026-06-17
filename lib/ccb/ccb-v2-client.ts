@@ -226,18 +226,33 @@ function resolveActive(ind: any, memberStatus?: string): { status: string; statu
   return { status: titleCase(raw), statusId: firstString(ind?.status_id), isActive };
 }
 
+/** Normalize any phone (E.164 like +19403154518, or pretty) to v1's "(XXX) XXX-XXXX". */
+function formatPhone(raw: string): string {
+  const digits = String(raw || '').replace(/\D/g, '');
+  const ten = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
+  if (ten.length === 10) return `(${ten.slice(0, 3)}) ${ten.slice(3, 6)}-${ten.slice(6)}`;
+  return String(raw || '').trim();
+}
+
 function mapIndividual(ind: any, fallbackId: string, memberStatus?: string) {
   const firstName = firstString(ind?.first_name, ind?.firstName, ind?.name?.first, ind?.first);
   const lastName = firstString(ind?.last_name, ind?.lastName, ind?.name?.last, ind?.last);
-  const fullName = firstString(ind?.full_name, ind?.fullName, ind?.name?.full, `${firstName} ${lastName}`.trim());
+  const fullName = firstString(
+    ind?.full_name, ind?.fullName,
+    typeof ind?.name === 'string' ? ind.name : ind?.name?.full,
+    `${firstName} ${lastName}`.trim(),
+  );
+  const mobilePhone = formatPhone(resolvePhone(ind, ['mobile', 'cell', 'contact']));
+  // Match v1: fall back to the mobile number when there's no home/work line.
+  const phone = formatPhone(resolvePhone(ind, ['home', 'work', 'contact'])) || mobilePhone;
   return {
     id: firstString(ind?.id, fallbackId),
     firstName,
     lastName,
     fullName,
     email: resolveEmail(ind),
-    phone: resolvePhone(ind, ['home', 'contact', 'work']),
-    mobilePhone: resolvePhone(ind, ['mobile', 'cell', 'contact']),
+    phone,
+    mobilePhone,
     birthday: firstString(ind?.birthday, ind?.date_of_birth, ind?.birth_date),
     ...resolveActive(ind, memberStatus),
   };
