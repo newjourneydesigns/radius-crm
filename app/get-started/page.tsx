@@ -106,9 +106,9 @@ const BellAlertIcon = () => (
 const STOPS: Stop[] = [
   {
     id: 'events',
-    eyebrow: 'Start here · your weekly heartbeat',
+    eyebrow: 'Start here · your home base',
     title: 'Events',
-    cadence: 'Weekly',
+    cadence: 'Daily',
     href: '/event-summary-tracker',
     cta: 'Open Events',
     lede:
@@ -129,12 +129,12 @@ const STOPS: Stop[] = [
     href: '/search',
     cta: 'Browse leaders',
     lede:
-      'Every leader has a profile — the one place their whole story lives. Notes, the calls and texts you’ve logged, circle visits, prayer points, follow-up dates, and their roster all sit here. Most of what you do in Radius ends up landing on a profile, so it’s worth knowing well early.',
+      'Every leader has a profile — the one place their whole story lives. Notes, the calls and texts you’ve logged, prayer points, follow-up dates, and their care and development all sit here. Most of what you do in Radius ends up landing on a profile, so it’s worth knowing well early.',
     steps: [
       'Open any leader from Events, the Circle List, or search (⌘K) to land on their profile.',
       'Log a connection — call, text, email, or in person — so the touch is on the record.',
       'Add notes (pin the ones you never want to forget) and set a follow-up date when you owe them a check-in.',
-      'Explore the tabs: Circle Visits, Prayers, the Roster, and AI Meeting Prep before a 1:1.',
+      'Use the tabs across the top — Notes, Care, and Scorecard — to see their full history and track development.',
     ],
     callout: {
       title: 'Onboarding a leader to the Circle Leader Toolkit',
@@ -142,7 +142,7 @@ const STOPS: Stop[] = [
         'Leader Access — the master switch. On lets the leader sign in to their own toolkit and submit Circle Summaries; off and they can’t get in.',
         'Email Reminders — turn on to email the leader a weekly nudge to fill out their Circle Summary.',
         'Open Toolkit — step into the leader’s toolkit yourself to see exactly what they see.',
-        'Text Circle Toolkit link — sends the leader a one-tap magic link to their toolkit, no password needed. No phone on file? It copies the link so you can send it your own way.',
+        'Text Circle Toolkit link — texts the leader a one-tap magic link to their toolkit, no password needed. No phone on file? Add one to the profile, then click Text Circle Toolkit link again.',
       ],
     },
     Icon: ProfileIcon,
@@ -155,12 +155,12 @@ const STOPS: Stop[] = [
     href: '/search',
     cta: 'Open Circle List',
     lede:
-      'The full roster of leaders, with filters for everything. Need one person right now? The search box up top (or ⌘K) jumps straight to them from anywhere.',
+      'The full roster of leaders, with filters for everything. And the search box up top (or ⌘K) reaches further than leaders — it finds boards and cards too, from anywhere in Radius.',
     steps: [
-      'Press ⌘K (Ctrl K on Windows) anywhere to fuzzy-search a leader by name.',
+      'Press ⌘K (Ctrl K on Windows) anywhere to search — results include leaders, boards, and cards.',
       'Open Circle List for the whole roster, then filter by campus, status, day, or type.',
       'Filters live in the URL — bookmark a view you check often.',
-      'Click any leader to open their profile: notes, connections, visits, and more.',
+      'Click any leader to open their profile — notes, connections, the Care tab, and more.',
     ],
     Icon: SearchIcon,
   },
@@ -315,9 +315,9 @@ const SETUP: SetupItem[] = [
         ],
       },
       {
-        label: 'iPhone & iPad (use Safari)',
+        label: 'iPhone & iPad (Safari)',
         steps: [
-          'Open Radius in Safari — not Chrome. On iPhone, Safari is the only browser that can install it.',
+          'Open Radius in Safari.',
           'Tap the Share button (the square with an up-arrow), then Add to Home Screen, then Add.',
           'From now on, open Radius from the new home-screen icon. This step is required for alerts to work.',
         ],
@@ -519,7 +519,7 @@ export default function GetStartedPage() {
                       {item.ctaHref && (
                         <Link
                           href={item.ctaHref}
-                          className="inline-flex items-center gap-1.5 text-sm font-medium text-white bg-vc-fab px-3.5 py-2 rounded-lg hover:opacity-90 transition-opacity shadow-glow-vc"
+                          className="inline-flex items-center gap-1.5 text-sm font-semibold !text-white bg-vc-fab px-3.5 py-2 rounded-lg hover:opacity-90 transition-opacity shadow-glow-vc"
                         >
                           {item.ctaLabel}
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
@@ -649,7 +649,7 @@ export default function GetStartedPage() {
                     <div className="flex items-center gap-3 mt-5 pt-4 border-t border-white/[0.06]">
                       <Link
                         href={stop.href}
-                        className="inline-flex items-center gap-1.5 text-sm font-medium text-white bg-vc-fab px-3.5 py-2 rounded-lg hover:opacity-90 transition-opacity shadow-glow-vc"
+                        className="inline-flex items-center gap-1.5 text-sm font-semibold !text-white bg-vc-fab px-3.5 py-2 rounded-lg hover:opacity-90 transition-opacity shadow-glow-vc"
                       >
                         {stop.cta}
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
