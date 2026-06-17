@@ -23,6 +23,17 @@ export interface CCBv2Config {
   subdomain: string;
 }
 
+export type CCBApiVersion = 'v1' | 'v2';
+
+/**
+ * Which CCB API version to use. Defaults to 'v1' so nothing changes until we
+ * explicitly flip endpoints over. Set CCB_API_VERSION=v2 to route through the
+ * v2 client (only once the needed v2 methods are implemented).
+ */
+export function ccbApiVersion(): CCBApiVersion {
+  return process.env.CCB_API_VERSION === 'v2' ? 'v2' : 'v1';
+}
+
 /**
  * Read v2 OAuth config from env. Throws if a required value is missing so the
  * OAuth routes fail loudly rather than building a malformed authorize URL.
