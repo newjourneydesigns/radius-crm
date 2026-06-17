@@ -150,6 +150,44 @@ export async function GET(request: Request) {
     });
   }
 
+  // Structured-attendees discovery — ?probe=attendees — find which read path returns
+  // who attended (individual IDs), tested against a known-attended occurrence.
+  if (searchParams.get('probe') === 'attendees') {
+    const probe = async (path: string, query?: Record<string, any>) => {
+      try {
+        const r: any = await v2.get(path, query);
+        const list = Array.isArray(r) ? r : r?.items ?? r?.data ?? r?.attendees ?? null;
+        return { status: 'ok', count: Array.isArray(list) ? list.length : (r && typeof r === 'object' ? '(object)' : 0), shape: shapeOf(Array.isArray(list) ? list[0] : r, 4) };
+      } catch (e: any) { return { status: 'error', error: e.message }; }
+    };
+
+    let evId = searchParams.get('eventId')?.trim() || '';
+    let occ = searchParams.get('occurrence')?.trim() || '';
+    if (!evId || !occ) {
+      try {
+        const r: any = await v2.get(`/groups/${encodeURIComponent(groupId)}/attendance`);
+        const recs = Array.isArray(r) ? r : r?.items ?? r?.data ?? [];
+        const att = recs.find((x: any) => (typeof x.total_attendance === 'number' && x.total_attendance > 0) || x.status === 'MET');
+        if (att) { evId = String(att.event_id); occ = String(att.occurrence); }
+      } catch {}
+    }
+    let memberId = '';
+    try {
+      const m: any = await v2.get(`/groups/${encodeURIComponent(groupId)}/members`);
+      const list = Array.isArray(m) ? m : m?.items ?? m?.data ?? [];
+      memberId = String(list[0]?.individual_id ?? list[0]?.individual?.id ?? '');
+    } catch {}
+
+    return NextResponse.json({
+      probe: 'attendees', groupId, eventId: evId, occurrence: occ, memberId,
+      event_attendees: evId ? await probe(`/events/${evId}/attendees`) : 'n/a',
+      occurrence_attendees: (evId && occ) ? await probe(`/events/${evId}/occurrences/${occ}/attendees`) : 'n/a',
+      event_attendees_q: (evId && occ) ? await probe(`/events/${evId}/attendees`, { occurrence: occ }) : 'n/a',
+      individual_events: memberId ? await probe(`/individuals/${memberId}/events`) : 'n/a',
+      individual_attendance_metrics: memberId ? await probe(`/individuals/${memberId}/metrics/attendance`) : 'n/a',
+    });
+  }
+
   const [v1Parts, v2Parts] = await Promise.all([
     safe('v1 getGroupParticipants', () => v1.getGroupParticipants(groupId)),
     safe('v2 getGroupParticipants', () => v2.getGroupParticipants(groupId)),
