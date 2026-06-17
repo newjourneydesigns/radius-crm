@@ -1,5 +1,17 @@
 [
   {
+    "date": "2026-06-17",
+    "version": "2.34.3",
+    "date_display": "June 17, 2026",
+    "date_iso": "2026-06-17",
+    "id": "toolkit-branded-launch-splash",
+    "type": "fix",
+    "type_display": "Fix",
+    "category": "Circle Leader Toolkit",
+    "description": "Smoothed out the Circles Toolkit home-screen app launch on iPhone. The blank white screen is gone — opening the app now goes straight to the branded green splash with the Circles logo, which holds for a brief, purposeful beat (no more flash) before settling into the page.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
     "date": "2026-06-16",
     "version": "2.34.2",
     "date_display": "June 16, 2026",

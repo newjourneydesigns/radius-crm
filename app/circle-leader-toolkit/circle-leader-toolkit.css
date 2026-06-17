@@ -77,6 +77,27 @@
   }
 }
 
+/* Launch-hold overlay (ToolkitSplashGate): keeps the green CircleSplash on
+   screen for a purposeful beat on a fresh launch, then fades to the page. Sits
+   above loading.tsx's own .cs-splash (z-50) so the two identical greens never
+   seam. */
+.cs-splash-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  opacity: 1;
+  transition: opacity 450ms ease;
+}
+.cs-splash-gate--leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cs-splash-gate {
+    transition-duration: 200ms;
+  }
+}
+
 .cs-splash-sub {
   /* Anchored to the lower third so the logo stays at the true center. */
   position: absolute;
