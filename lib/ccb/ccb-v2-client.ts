@@ -144,7 +144,8 @@ export class CCBv2Client {
     return members.map((m: any) => {
       const nested = m.individual ?? m;
       const id = String(m.individual_id ?? nested.id ?? m.id ?? '').trim();
-      return mapIndividual(nested, id, m.status);
+      const memberStatus = m.is_main_leader ? 'Leader' : (m.status ?? nested.status);
+      return mapIndividual(nested, id, memberStatus);
     });
   }
 }
@@ -182,21 +183,47 @@ function resolveEmail(ind: any): string {
 }
 
 function resolvePhone(ind: any, types: string[]): string {
-  const phones = Array.isArray(ind?.phones) ? ind.phones : [];
+  // Array shape: [{ number, type }]
+  const arr = Array.isArray(ind?.phones) ? ind.phones : Array.isArray(ind?.phone) ? ind.phone : [];
   for (const t of types) {
-    const entry = phones.find((p: any) => firstString(p?.type, p?.phone_type, p?.['@_type']).toLowerCase() === t);
+    const entry = arr.find((p: any) => firstString(p?.type, p?.phone_type, p?.['@_type']).toLowerCase() === t);
     const val = firstString(entry?.number, entry?.value, entry?.phone, entry?.['#text']);
     if (val) return val;
   }
-  // Fallbacks for flat shapes.
-  if (types.includes('mobile')) return firstString(ind?.mobile_phone, ind?.mobilePhone, ind?.cell_phone);
-  return firstString(ind?.phone, ind?.home_phone, ind?.homePhone);
+  // Object shape keyed by type: { mobile, home, work, ... } — v2 returns phone as an object.
+  const obj = ind?.phone && typeof ind.phone === 'object' && !Array.isArray(ind.phone) ? ind.phone
+    : ind?.phones && typeof ind.phones === 'object' && !Array.isArray(ind.phones) ? ind.phones
+    : null;
+  if (obj) {
+    for (const t of types) {
+      const v = obj[t] ?? obj[`${t}_phone`] ?? obj[`${t}Phone`];
+      if (typeof v === 'string' && v.trim()) return v.trim();
+      if (v && typeof v === 'object') {
+        const n = firstString(v.number, v.value, v.phone);
+        if (n) return n;
+      }
+    }
+    // { number, type } single-entry object
+    if (types.includes(firstString(obj.type, obj.phone_type).toLowerCase())) {
+      const n = firstString(obj.number, obj.value);
+      if (n) return n;
+    }
+  }
+  // Flat string fallbacks (guard against objects → no more "[object Object]").
+  const str = (v: any) => (typeof v === 'string' ? v : '');
+  if (types.includes('mobile')) return firstString(str(ind?.mobile_phone), str(ind?.mobilePhone), str(ind?.cell_phone));
+  return firstString(str(ind?.home_phone), str(ind?.homePhone), str(ind?.phone));
+}
+
+function titleCase(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
 }
 
 function resolveActive(ind: any, memberStatus?: string): { status: string; statusId: string; isActive: boolean } {
-  const status = firstString(memberStatus, ind?.status, ind?.membership_status);
-  const isActive = status ? /active/i.test(status) : ind?.active !== false;
-  return { status, statusId: firstString(ind?.status_id), isActive };
+  const raw = firstString(memberStatus, ind?.status, ind?.membership_status);
+  // A returned group member is active unless the status marks otherwise.
+  const isActive = raw ? !/inactive|archiv|former|removed|deceased|prospect/i.test(raw) : ind?.active !== false;
+  return { status: titleCase(raw), statusId: firstString(ind?.status_id), isActive };
 }
 
 function mapIndividual(ind: any, fallbackId: string, memberStatus?: string) {
