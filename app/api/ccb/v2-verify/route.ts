@@ -52,6 +52,43 @@ export async function GET(request: Request) {
     try { return await fn(); } catch (e: any) { return { __error: `${label}: ${e.message}` } as any; }
   };
 
+  // Events/attendance shape discovery (PII-safe) — ?probe=events
+  if (searchParams.get('probe') === 'events') {
+    const probe = async (path: string, query?: Record<string, any>) => {
+      try {
+        const r: any = await v2.get(path, query);
+        const list = Array.isArray(r) ? r : r?.items ?? r?.data ?? r?.events ?? null;
+        return {
+          status: 'ok',
+          count: Array.isArray(list) ? list.length : (r && typeof r === 'object' ? '(object)' : 0),
+          shape: shapeOf(Array.isArray(list) ? list[0] : r, 3),
+        };
+      } catch (e: any) { return { status: 'error', error: e.message }; }
+    };
+
+    // Find a sample event id (for the group if possible) to drill into occurrence/attendance shape.
+    let firstEventId = '';
+    for (const q of [{ group_id: groupId, per_page: 3 }, { per_page: 3 }]) {
+      try {
+        const r: any = await v2.get('/events', q);
+        const list = Array.isArray(r) ? r : r?.items ?? r?.data ?? r?.events ?? [];
+        if (list[0]?.id) { firstEventId = String(list[0].id); break; }
+      } catch {}
+    }
+
+    return NextResponse.json({
+      groupId,
+      probe: 'events',
+      events_unfiltered: await probe('/events', { per_page: 3 }),
+      events_by_group: await probe('/events', { group_id: groupId, per_page: 3 }),
+      group_attendance_groupings: await probe(`/groups/${encodeURIComponent(groupId)}/attendance-groupings`),
+      attendance_groupings: await probe('/attendance-groupings', { per_page: 3 }),
+      firstEventId,
+      event_detail: firstEventId ? await probe(`/events/${firstEventId}`) : 'no event id found',
+      event_attendees: firstEventId ? await probe(`/events/${firstEventId}/attendees`) : 'no event id found',
+    });
+  }
+
   const [v1Parts, v2Parts] = await Promise.all([
     safe('v1 getGroupParticipants', () => v1.getGroupParticipants(groupId)),
     safe('v2 getGroupParticipants', () => v2.getGroupParticipants(groupId)),
