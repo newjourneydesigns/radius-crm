@@ -421,7 +421,7 @@ export default function GetStartedPage() {
               Welcome to Radius
             </p>
             <h1 className="text-3xl sm:text-4xl font-semibold text-white tracking-tight leading-tight">
-              Find your footing in Radius.
+              Extend your reach with Radius.
             </h1>
             <p className="text-[15px] text-slate-400 mt-4 leading-relaxed max-w-2xl">
               Radius helps you shepherd circle leaders — track who met, who needs a nudge, and
