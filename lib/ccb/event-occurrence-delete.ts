@@ -22,6 +22,7 @@ export interface EventOccurrenceGroupInput {
 
 export interface RadiusCircleOccurrenceSearchParams {
   acpd: string;
+  status?: string;
   startDate: string;
   endDate: string;
   includeOccurrencesWithAttendance: boolean;
@@ -96,6 +97,7 @@ export function validateSearchParams(input: Partial<EventOccurrenceSearchParams>
 export function validateRadiusCircleSearchParams(input: Partial<RadiusCircleOccurrenceSearchParams>): RadiusCircleOccurrenceSearchParams {
   const params: RadiusCircleOccurrenceSearchParams = {
     acpd: String(input.acpd || '').trim(),
+    status: input.status ? String(input.status).trim() : undefined,
     startDate: String(input.startDate || '').trim(),
     endDate: String(input.endDate || '').trim(),
     includeOccurrencesWithAttendance: input.includeOccurrencesWithAttendance === true,

@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { formatDateOnlyForDisplay } from '../../lib/dateUtils';
 
 const PREFS_KEY = 'touchpoint-tracker-prefs';
+const PREFS_VERSION = 2;
 
 type TypeStat = { count: number; last: string | null };
 
@@ -90,20 +91,25 @@ export default function TouchpointTrackerPage() {
 
   const [hydrated, setHydrated] = useState(false);
   const typesInitialized = useRef(false);
+  const needsTypeResetRef = useRef(false);
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(PREFS_KEY);
       if (raw) {
         const p = JSON.parse(raw);
+        const storedVersion = Number(p?.version ?? 0);
         if (typeof p.campus === 'string') setCampusFilter(p.campus);
         if (typeof p.acpd === 'string') setAcpdFilter(p.acpd);
         if (typeof p.status === 'string') setStatusFilter(p.status);
         if (['name', 'campus', 'acpd', 'status', 'count', 'last'].includes(p.sortKey)) setSortKey(p.sortKey);
         if (p.sortDir === 'asc' || p.sortDir === 'desc') setSortDir(p.sortDir);
-        if (Array.isArray(p.types)) {
+        if (storedVersion === PREFS_VERSION && Array.isArray(p.types)) {
           setSelectedTypes(p.types.filter((t: unknown): t is string => typeof t === 'string'));
           typesInitialized.current = true;
+        } else {
+          // Legacy saved type filters can hide valid counts; reset types once.
+          needsTypeResetRef.current = true;
         }
       }
     } catch {
@@ -114,9 +120,12 @@ export default function TouchpointTrackerPage() {
 
   // First load with no saved type selection → default to all available types.
   useEffect(() => {
-    if (!data || typesInitialized.current) return;
-    setSelectedTypes(data.types);
-    typesInitialized.current = true;
+    if (!data) return;
+    if (needsTypeResetRef.current || !typesInitialized.current) {
+      setSelectedTypes(data.types);
+      typesInitialized.current = true;
+      needsTypeResetRef.current = false;
+    }
   }, [data]);
 
   useEffect(() => {
@@ -124,7 +133,15 @@ export default function TouchpointTrackerPage() {
     try {
       localStorage.setItem(
         PREFS_KEY,
-        JSON.stringify({ campus: campusFilter, acpd: acpdFilter, status: statusFilter, sortKey, sortDir, types: selectedTypes }),
+        JSON.stringify({
+          version: PREFS_VERSION,
+          campus: campusFilter,
+          acpd: acpdFilter,
+          status: statusFilter,
+          sortKey,
+          sortDir,
+          types: selectedTypes,
+        }),
       );
     } catch {
       /* ignore quota errors */
@@ -241,7 +258,7 @@ export default function TouchpointTrackerPage() {
       <div className="p-4 sm:p-6 lg:p-8 max-w-screen-2xl mx-auto">
         {/* Header */}
         <div className="mb-5">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">Touchpoint Tracker</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">Connection Tracker</h1>
           <p className="text-sm text-slate-400 mt-1">
             {data ? (
               <>

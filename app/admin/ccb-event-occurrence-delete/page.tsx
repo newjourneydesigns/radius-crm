@@ -31,6 +31,7 @@ type RadiusCircle = {
 type SearchParamsSnapshot = {
   mode: 'radius-circles';
   acpd: string;
+  status: string;
   startDate: string;
   endDate: string;
   includeOccurrencesWithAttendance: boolean;
@@ -69,6 +70,8 @@ type DeleteResponse = {
 const selectClass = 'w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:border-vc-500 focus:outline-none focus:ring-2 focus:ring-vc-500/30';
 const inputClass = selectClass;
 const defaultDates = currentMonthDateRange();
+const ALL_STATUSES = 'all';
+const DEFAULT_STATUS = 'active';
 
 function BodyPortal({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
@@ -99,6 +102,15 @@ function currentMonthDateRange() {
 
 function normalizeStatus(status: string | null | undefined) {
   return (status || '').trim().toLowerCase();
+}
+
+function formatStatusLabel(status: string | null | undefined) {
+  const normalized = normalizeStatus(status);
+  if (!normalized) return 'No status';
+  return normalized
+    .split('-')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 function occurrenceKey(row: Pick<EventOccurrenceDeleteCandidate, 'group_id' | 'event_id' | 'occurrence'>) {
@@ -146,6 +158,7 @@ export default function CCBEventOccurrenceDeletePage() {
   const [circlesLoading, setCirclesLoading] = useState(true);
   const [circleError, setCircleError] = useState<string | null>(null);
   const [selectedAcpd, setSelectedAcpd] = useState('all');
+  const [selectedStatus, setSelectedStatus] = useState(DEFAULT_STATUS);
   const [startDate, setStartDate] = useState(defaultDates.startDate);
   const [endDate, setEndDate] = useState(defaultDates.endDate);
   const [selectedCircleIds, setSelectedCircleIds] = useState<Set<number>>(new Set());
@@ -176,7 +189,7 @@ export default function CCBEventOccurrenceDeletePage() {
         if (cancelled) return;
 
         const rows = (data || []) as RadiusCircle[];
-        setCircles(rows.filter((circle) => normalizeStatus(circle.status) === 'active'));
+        setCircles(rows);
       } catch (error) {
         if (!cancelled) {
           setCircleError(error instanceof Error ? error.message : 'Failed to load Radius circles');
@@ -192,12 +205,29 @@ export default function CCBEventOccurrenceDeletePage() {
     };
   }, [loading, isAdmin]);
 
-  const circlesWithCcbGroups = useMemo(
-    () => circles.filter((circle) => Boolean(String(circle.ccb_group_id || '').trim())),
-    [circles],
+  const statusOptions = useMemo(() => {
+    const statuses = new Set<string>([DEFAULT_STATUS]);
+    circles.forEach((circle) => {
+      const status = normalizeStatus(circle.status);
+      if (status) statuses.add(status);
+    });
+    return Array.from(statuses).sort((a, b) => a.localeCompare(b));
+  }, [circles]);
+
+  const statusFilteredCircles = useMemo(
+    () => selectedStatus === ALL_STATUSES
+      ? circles
+      : circles.filter((circle) => normalizeStatus(circle.status) === selectedStatus),
+    [circles, selectedStatus],
   );
 
-  const hiddenMissingCcbCount = circles.length - circlesWithCcbGroups.length;
+  const circlesWithCcbGroups = useMemo(
+    () => statusFilteredCircles.filter((circle) => Boolean(String(circle.ccb_group_id || '').trim())),
+    [statusFilteredCircles],
+  );
+
+  const hiddenMissingCcbCount = statusFilteredCircles.length - circlesWithCcbGroups.length;
+  const selectedStatusLabel = selectedStatus === ALL_STATUSES ? 'all statuses' : formatStatusLabel(selectedStatus);
 
   const acpdOptions = useMemo(() => {
     const names = circlesWithCcbGroups
@@ -244,6 +274,7 @@ export default function CCBEventOccurrenceDeletePage() {
     return {
       mode: 'radius-circles',
       acpd: selectedAcpd,
+      status: selectedStatus,
       startDate,
       endDate,
       includeOccurrencesWithAttendance,
@@ -275,6 +306,7 @@ export default function CCBEventOccurrenceDeletePage() {
           action: 'search',
           searchMode: 'radius-circles',
           acpd: params.acpd,
+          status: params.status,
           startDate: params.startDate,
           endDate: params.endDate,
           includeOccurrencesWithAttendance: params.includeOccurrencesWithAttendance,
@@ -415,7 +447,7 @@ export default function CCBEventOccurrenceDeletePage() {
         )}
 
         <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-[minmax(0,24rem)_minmax(0,12rem)_minmax(0,12rem)_minmax(0,1fr)] lg:items-end">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-[minmax(0,20rem)_minmax(0,14rem)_minmax(0,12rem)_minmax(0,12rem)_minmax(0,1fr)] lg:items-end">
             <div>
               <label htmlFor="acpd-filter" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">
                 ACPD
@@ -436,6 +468,30 @@ export default function CCBEventOccurrenceDeletePage() {
                 {acpdOptions.map((name) => (
                   <option key={name} value={name}>
                     {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="status-filter" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">
+                Status
+              </label>
+              <select
+                id="status-filter"
+                value={selectedStatus}
+                onChange={(event) => {
+                  setSelectedStatus(event.target.value);
+                  setSelectedCircleIds(new Set());
+                  setSearchResponse(null);
+                  setDeleteResponse(null);
+                  setSelectedOccurrences(new Set());
+                }}
+                className={selectClass}
+              >
+                <option value={ALL_STATUSES}>All statuses</option>
+                {statusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {formatStatusLabel(status)}
                   </option>
                 ))}
               </select>
@@ -494,9 +550,9 @@ export default function CCBEventOccurrenceDeletePage() {
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-gray-600 dark:text-gray-400">
             <p>
-              Showing <span className="font-semibold text-gray-900 dark:text-white">{shownCircles.length}</span> active Radius circle{shownCircles.length === 1 ? '' : 's'} with CCB group IDs.
+              Showing <span className="font-semibold text-gray-900 dark:text-white">{shownCircles.length}</span> Radius circle{shownCircles.length === 1 ? '' : 's'} with CCB group IDs for <span className="font-semibold text-gray-900 dark:text-white">{selectedStatusLabel}</span>.
               {hiddenMissingCcbCount > 0 && (
-                <span className="ml-2">{hiddenMissingCcbCount} active circle{hiddenMissingCcbCount === 1 ? '' : 's'} without CCB group IDs hidden.</span>
+                <span className="ml-2">{hiddenMissingCcbCount} matching circle{hiddenMissingCcbCount === 1 ? '' : 's'} without CCB group IDs hidden.</span>
               )}
             </p>
             <p>
@@ -537,7 +593,7 @@ export default function CCBEventOccurrenceDeletePage() {
           ) : shownCircles.length === 0 ? (
             <div className="p-8 text-center">
               <h3 className="text-sm font-medium text-gray-900 dark:text-white">No circles found</h3>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Choose another ACPD or add CCB group IDs to the Radius circles.</p>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Choose another ACPD or status, or add CCB group IDs to the Radius circles.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -546,6 +602,7 @@ export default function CCBEventOccurrenceDeletePage() {
                   <tr>
                     <th className="w-12 px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Pick</th>
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Circle Leader</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Type</th>
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Day</th>
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Time</th>
@@ -570,6 +627,7 @@ export default function CCBEventOccurrenceDeletePage() {
                         <div className="text-sm font-medium text-gray-900 dark:text-white">{circle.name}</div>
                         <div className="text-sm text-gray-500 dark:text-gray-400">{circle.acpd || 'No ACPD'}</div>
                       </td>
+                      <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900 dark:text-white">{formatStatusLabel(circle.status)}</td>
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900 dark:text-white">{circle.circle_type || '-'}</td>
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900 dark:text-white">{circle.day || '-'}</td>
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900 dark:text-white">{formatTimeToAMPM(circle.time) || '-'}</td>
@@ -615,7 +673,7 @@ export default function CCBEventOccurrenceDeletePage() {
                 </p>
                 {searchResponse.searchParams && (
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    ACPD {searchResponse.searchParams.acpd} | {searchResponse.searchParams.startDate} to {searchResponse.searchParams.endDate}
+                    ACPD {searchResponse.searchParams.acpd} | Status {searchResponse.searchParams.status === ALL_STATUSES ? 'all statuses' : formatStatusLabel(searchResponse.searchParams.status)} | {searchResponse.searchParams.startDate} to {searchResponse.searchParams.endDate}
                   </p>
                 )}
               </div>

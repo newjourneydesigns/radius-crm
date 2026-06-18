@@ -55,6 +55,7 @@ function sanitizedSearchParams(params: EventOccurrenceSearchParams | RadiusCircl
     return {
       mode: 'radius-circles',
       acpd: params.acpd,
+      status: params.status || 'all',
       startDate: params.startDate,
       endDate: params.endDate,
       includeOccurrencesWithAttendance: params.includeOccurrencesWithAttendance,
