@@ -394,7 +394,7 @@ export default function CCBEventOccurrenceDeletePage() {
                 <Link href="/admin" className="text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white">
                   Back to Admin
                 </Link>
-                <h1 className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">CCB Event Occurrence Delete</h1>
+                <h1 className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">CCB Event Management</h1>
                 <p className="mt-1 max-w-3xl text-sm text-gray-600 dark:text-gray-300">
                   Select Radius circles by ACPD, dry-run their CCB calendars, then delete only selected event occurrences.
                 </p>

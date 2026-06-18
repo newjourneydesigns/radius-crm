@@ -201,7 +201,7 @@ const adminToolsNavItems = [
   { href: '/import-circles',         label: 'Import Circles',           Icon: ImportCirclesIcon },
   { href: '/users',                  label: 'Manage Users',             Icon: UsersIcon },
   { href: '/ccb-usage',              label: 'CCB Usage',                Icon: ChartIcon },
-  { href: '/admin/ccb-event-occurrence-delete', label: 'CCB Delete Occurrences', Icon: CalendarIcon },
+  { href: '/admin/ccb-event-occurrence-delete', label: 'CCB Event Management', Icon: CalendarIcon },
 ];
 
 const feedbackNavItems = [
