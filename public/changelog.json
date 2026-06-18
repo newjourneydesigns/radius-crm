@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-06-18",
+    "version": "2.35.0",
+    "date_display": "June 18, 2026",
+    "date_iso": "2026-06-18",
+    "id": "pushpay-chms-mcp-skill",
+    "type": "improvement",
+    "category": "Developer",
+    "description": "Added a Pushpay ChMS v2 MCP skill for developers. It connects Claude to Pushpay's Church Community Builder v2 API docs so endpoint shapes and field names can be looked up directly while finishing the CCB v2 migration — replacing the client's defensive field-name guessing with the verified API contract.",
+    "page": "/update-log"
+  },
+  {
     "date": "2026-06-17",
     "version": "2.35.0",
     "date_display": "June 17, 2026",
