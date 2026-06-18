@@ -7,7 +7,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'ACPD' | 'Viewer';
+  role: 'ACPD' | 'admin' | 'Viewer';
   acpd?: string;
   ai_assistant_enabled?: boolean;
 }
@@ -242,7 +242,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const isAuthenticated = useCallback(() => user !== null, [user]);
 
-  const isAdmin = useCallback(() => user?.role === 'ACPD', [user]);
+  const isAdmin = useCallback(() => user?.role === 'ACPD' || user?.role === 'admin', [user]);
 
   const refreshUser = useCallback(async () => {
     if (!user) return;

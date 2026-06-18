@@ -36,6 +36,11 @@ interface RequestOptions {
   body?: unknown;
 }
 
+export interface CCBv2Response<T = any> {
+  data: T;
+  status: number;
+}
+
 export class CCBv2Client {
   constructor(private readonly telemetryContext?: CCBApiRequestContext) {}
 
@@ -44,6 +49,15 @@ export class CCBv2Client {
    * parsed JSON (or null on 204). Records telemetry and honors 429/retry-after.
    */
   async request<T = any>(path: string, options: RequestOptions = {}): Promise<T> {
+    const response = await this.requestWithResponse<T>(path, options);
+    return response.data;
+  }
+
+  /**
+   * Same request layer as request(), but preserves the HTTP status for audit
+   * trails on destructive operations.
+   */
+  async requestWithResponse<T = any>(path: string, options: RequestOptions = {}): Promise<CCBv2Response<T>> {
     // Shared daily ceiling across all serverless instances (tripwire, not a CCB
     // cap — v2 has no daily limit). Throws CCBDailyBudgetError once reached.
     await reserveCCBDailyBudget();
@@ -101,9 +115,11 @@ export class CCBv2Client {
       throw new CCBv2RequestError(`CCB v2 ${method} ${path} failed: HTTP ${res.status}`, res.status, text.slice(0, 500));
     }
 
-    if (res.status === 204 || text.length === 0) return null as T;
+    if (res.status === 204 || text.length === 0) {
+      return { data: null as T, status: res.status };
+    }
     try {
-      return JSON.parse(text) as T;
+      return { data: JSON.parse(text) as T, status: res.status };
     } catch {
       throw new CCBv2RequestError(`CCB v2 ${method} ${path} returned non-JSON`, res.status, text.slice(0, 500));
     }
