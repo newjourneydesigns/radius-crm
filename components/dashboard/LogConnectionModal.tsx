@@ -80,6 +80,7 @@ export default function LogConnectionModal({
             { id: 5, name: 'One-on-One', active: true },
             { id: 6, name: 'Circle Visit', active: true },
             { id: 7, name: 'Circle Leader Equipping', active: true },
+            { id: 9, name: 'Event Summary Follow-up', active: true },
             { id: 8, name: 'Other', active: true }
           ];
           setConnectionTypes(defaultTypes);
@@ -95,6 +96,7 @@ export default function LogConnectionModal({
           { id: 5, name: 'One-on-One', active: true },
           { id: 6, name: 'Circle Visit', active: true },
           { id: 7, name: 'Circle Leader Equipping', active: true },
+          { id: 9, name: 'Event Summary Follow-up', active: true },
           { id: 8, name: 'Other', active: true }
         ];
         setConnectionTypes(defaultTypes);

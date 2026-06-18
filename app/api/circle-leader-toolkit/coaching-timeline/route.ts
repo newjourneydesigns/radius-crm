@@ -32,10 +32,11 @@ const METHOD_LABELS: Record<string, string> = {
   call: 'Call',
   in_person: 'In person',
   card: 'Card',
+  note: 'Note',
   other: 'Other',
 };
 
-export type TimelineEventType = 'automation' | 'coaching_note' | 'encouragement' | 'prayer' | 'score';
+export type TimelineEventType = 'automation' | 'coaching_note' | 'encouragement' | 'prayer' | 'score' | 'touchpoint';
 
 export interface TimelineEvent {
   id: string;
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'A valid leaderId is required.' }, { status: 400 });
   }
 
-  const [sends, notes, encouragements, prayers, scores] = await Promise.all([
+  const [sends, notes, encouragements, prayers, scores, touchpoints] = await Promise.all([
     supabase
       .from('coaching_automation_sends')
       .select('id, automation_kind, sent_at, message_id, circle_summary_inbox_messages ( title )')
@@ -91,6 +92,12 @@ export async function GET(req: NextRequest) {
       .select('id, dimension, score, source, recorded_at')
       .eq('circle_leader_id', leaderId)
       .order('recorded_at', { ascending: false })
+      .limit(EVENT_CAP),
+    supabase
+      .from('touchpoints')
+      .select('id, method, notes, event_topic, occurred_at')
+      .eq('circle_leader_id', leaderId)
+      .order('occurred_at', { ascending: false })
       .limit(EVENT_CAP),
   ]);
 
@@ -166,6 +173,17 @@ export async function GET(req: NextRequest) {
       title: `${DIMENSION_LABELS[s.dimension] || s.dimension} scored ${s.score}/5`,
       detail: s.source === 'evaluation' ? 'From evaluation' : s.source === 'direct' ? 'Direct score' : 'Manual override',
       dimension: s.dimension,
+    });
+  }
+
+  for (const t of (touchpoints.data || []) as Array<Record<string, any>>) {
+    const method = METHOD_LABELS[t.method] || t.method;
+    events.push({
+      id: `touchpoint-${t.id}`,
+      type: 'touchpoint',
+      timestamp: t.occurred_at,
+      title: `Touchpoint · ${method}`,
+      detail: t.event_topic ? `Re: “${t.event_topic}”${t.notes ? ` — ${t.notes}` : ''}` : t.notes,
     });
   }
 

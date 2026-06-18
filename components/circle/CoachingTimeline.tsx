@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { DateTime } from 'luxon';
-import { HandHeart, Heart, NotebookPen, Sparkles, TrendingUp, type LucideIcon } from 'lucide-react';
+import { HandHeart, Heart, MessageCircle, NotebookPen, Sparkles, TrendingUp, type LucideIcon } from 'lucide-react';
 import { useCoachingTimeline, type TimelineEvent } from '../../hooks/useCoachingTimeline';
 
 interface CoachingTimelineProps {
@@ -23,6 +23,7 @@ const TYPE_META: Record<TimelineEvent['type'], { icon: LucideIcon; accent: strin
   encouragement: { icon: Heart, accent: 'text-rose-400 bg-rose-500/10 ring-rose-500/30' },
   prayer: { icon: HandHeart, accent: 'text-violet-400 bg-violet-500/10 ring-violet-500/30' },
   score: { icon: TrendingUp, accent: 'text-sky-400 bg-sky-500/10 ring-sky-500/30' },
+  touchpoint: { icon: MessageCircle, accent: 'text-teal-400 bg-teal-500/10 ring-teal-500/30' },
 };
 
 function accentFor(event: TimelineEvent): string {

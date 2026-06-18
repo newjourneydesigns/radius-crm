@@ -833,3 +833,33 @@ export interface NotebookPageCard {
     board_column?: { id: string; title: string };
   };
 }
+
+// Touchpoint Tracker — ACPD↔leader touchpoints tied to event/debrief summaries.
+export type TouchpointMethod = 'text' | 'call' | 'in_person' | 'email' | 'note' | 'other';
+
+export interface Touchpoint {
+  id: string;
+  circle_leader_id: number;
+  occurred_at: string;
+  method: TouchpointMethod;
+  notes?: string | null;
+  circle_event_summary_id?: string | null;
+  event_occurrence?: string | null;
+  event_topic?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  updated_at?: string;
+}
+
+// An admin-defined period ("term") — e.g. Spring 2026, Jan 1 → Apr 30.
+export interface TouchpointTerm {
+  id: string;
+  name: string;
+  start: string; // YYYY-MM-DD, inclusive
+  end: string;   // YYYY-MM-DD, inclusive
+}
+
+export interface TouchpointSettingsConfig {
+  target_per_period: number;
+  terms: TouchpointTerm[];
+}

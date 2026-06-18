@@ -176,6 +176,7 @@ const toolsNavItems = [
   { href: '/person-lookup', label: 'Person Lookup',   Icon: SearchNavIcon },
   { href: '/birthday-list', label: 'Birthday List',   Icon: BirthdayCakeIcon },
   { href: '/circle-reporting', label: 'Circle Reporting', Icon: ChartIcon },
+  { href: '/touchpoint-tracker', label: 'Touchpoint Tracker', Icon: UsersIcon },
   { href: '/progress',      label: 'Progress',        Icon: ChartIcon },
   { href: '/ccb-explorer',  label: 'CCB Explorer',   Icon: CompassIcon, adminOnly: true },
   { href: '/bulk-message',  label: 'Bulk Message',   Icon: MessageBulkIcon, adminOnly: true },
