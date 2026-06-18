@@ -86,6 +86,7 @@ export default function TouchpointTrackerPage() {
 
   const [hydrated, setHydrated] = useState(false);
   const typesInitialized = useRef(false);
+  const knownTypeOptionsRef = useRef<string[] | null>(null);
 
   useEffect(() => {
     try {
@@ -101,6 +102,9 @@ export default function TouchpointTrackerPage() {
           setSelectedTypes(p.types.filter((t: unknown): t is string => typeof t === 'string'));
           typesInitialized.current = true;
         }
+        if (Array.isArray(p.knownTypes)) {
+          knownTypeOptionsRef.current = p.knownTypes.filter((t: unknown): t is string => typeof t === 'string');
+        }
       }
     } catch {
       /* ignore corrupt prefs */
@@ -110,9 +114,23 @@ export default function TouchpointTrackerPage() {
 
   // First load with no saved type selection → default to all available types.
   useEffect(() => {
-    if (!data || typesInitialized.current) return;
-    setSelectedTypes(data.types);
-    typesInitialized.current = true;
+    if (!data) return;
+
+    if (!typesInitialized.current) {
+      setSelectedTypes(data.types);
+      typesInitialized.current = true;
+      knownTypeOptionsRef.current = data.types;
+      return;
+    }
+
+    // If brand-new type options appear later, auto-include just those new
+    // options so users don't miss fresh categories due to persisted filters.
+    const known = new Set(knownTypeOptionsRef.current ?? []);
+    const newTypes = data.types.filter((t) => !known.has(t));
+    knownTypeOptionsRef.current = data.types;
+    if (newTypes.length) {
+      setSelectedTypes((prev) => Array.from(new Set([...prev, ...newTypes])));
+    }
   }, [data]);
 
   useEffect(() => {
@@ -126,6 +144,17 @@ export default function TouchpointTrackerPage() {
       /* ignore quota errors */
     }
   }, [hydrated, campusFilter, acpdFilter, statusFilter, sortKey, sortDir, selectedTypes]);
+
+  useEffect(() => {
+    if (!hydrated || !typesInitialized.current) return;
+    try {
+      const raw = localStorage.getItem(PREFS_KEY);
+      const base = raw ? JSON.parse(raw) : {};
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ ...base, knownTypes: knownTypeOptionsRef.current ?? [] }));
+    } catch {
+      /* ignore quota / parse errors */
+    }
+  }, [hydrated, data]);
 
   const load = useCallback(async () => {
     setLoading(true);
