@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Modal from '../ui/Modal';
 import { supabase, type TouchpointMethod } from '../../lib/supabase';
+import { getTodayDateString } from '../../lib/dateUtils';
 
 interface LogTouchpointModalProps {
   isOpen: boolean;
@@ -40,7 +41,7 @@ export default function LogTouchpointModal({
   onLogged,
 }: LogTouchpointModalProps) {
   const [method, setMethod] = useState<TouchpointMethod>('text');
-  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(() => getTodayDateString());
   const [note, setNote] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
@@ -53,7 +54,7 @@ export default function LogTouchpointModal({
   useEffect(() => {
     if (isOpen) {
       setMethod(phone ? 'text' : 'note');
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(getTodayDateString());
       setNote('');
       setError('');
     }

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase, ConnectionType } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { formatDateOnlyForDisplay, getTodayDateString } from '../../lib/dateUtils';
 
 interface LogConnectionModalProps {
   isOpen: boolean;
@@ -24,7 +25,7 @@ export default function LogConnectionModal({
   const [mounted, setMounted] = useState(false);
   const [connectionTypes, setConnectionTypes] = useState<ConnectionType[]>([]);
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0], // Today's date in YYYY-MM-DD format
+    date: getTodayDateString(), // Today's date in church time (America/Chicago)
     connectionTypeId: '',
     note: ''
   });
@@ -114,7 +115,7 @@ export default function LogConnectionModal({
   useEffect(() => {
     if (isOpen) {
       setFormData({
-        date: new Date().toISOString().split('T')[0],
+        date: getTodayDateString(),
         connectionTypeId: '',
         note: ''
       });
@@ -137,7 +138,7 @@ export default function LogConnectionModal({
       const connectionTypeName = connectionType?.name || 'Unknown';
 
       // Save connection to database
-      const { data: connectionData, error: connectionError } = await supabase
+      const { error: connectionError } = await supabase
         .from('connections')
         .insert({
           circle_leader_id: circleLeaderId,
@@ -154,11 +155,7 @@ export default function LogConnectionModal({
       }
 
       // Create a formatted note entry
-      const noteContent = `Connection on ${new Date(formData.date).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      })} via ${connectionTypeName}${formData.note.trim() ? `: ${formData.note.trim()}` : ''}`;
+      const noteContent = `Connection on ${formatDateOnlyForDisplay(formData.date)} via ${connectionTypeName}${formData.note.trim() ? `: ${formData.note.trim()}` : ''}`;
 
       // Add note to the notes table
       const { error: noteError } = await supabase

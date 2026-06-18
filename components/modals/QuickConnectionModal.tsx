@@ -5,6 +5,7 @@ import Modal from '../ui/Modal';
 import LeaderCombobox from '../ui/LeaderCombobox';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { formatDateOnlyForDisplay, getTodayDateString } from '../../lib/dateUtils';
 
 interface Leader { id: number; name: string; }
 interface ConnectionType { id: number; name: string; active: boolean; }
@@ -41,7 +42,7 @@ export default function QuickConnectionModal({ isOpen, onClose, onSaved }: Props
 
   useEffect(() => {
     if (!isOpen) return;
-    setDate(new Date().toISOString().split('T')[0]);
+    setDate(getTodayDateString());
     setSelectedLeaderId('');
     setConnectionTypeId('');
     setNote('');
@@ -76,9 +77,7 @@ export default function QuickConnectionModal({ isOpen, onClose, onSaved }: Props
       const leaderId = parseInt(selectedLeaderId);
       const typeId = parseInt(connectionTypeId);
       const typeName = connectionTypes.find(t => t.id === typeId)?.name || 'Unknown';
-      const formattedDate = new Date(date + 'T00:00:00').toLocaleDateString('en-US', {
-        year: 'numeric', month: 'short', day: 'numeric',
-      });
+      const formattedDate = formatDateOnlyForDisplay(date);
 
       await supabase.from('connections').insert({
         circle_leader_id: leaderId,

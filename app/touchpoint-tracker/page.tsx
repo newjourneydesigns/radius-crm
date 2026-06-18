@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DateTime } from 'luxon';
 import { supabase } from '../../lib/supabase';
+import { formatDateOnlyForDisplay } from '../../lib/dateUtils';
 
 const PREFS_KEY = 'touchpoint-tracker-prefs';
 
@@ -41,6 +42,9 @@ type SortDir = 'asc' | 'desc';
 
 function relativeDate(iso: string | null): string {
   if (!iso) return '—';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    return formatDateOnlyForDisplay(iso, { month: 'short', day: 'numeric' });
+  }
   return DateTime.fromISO(iso).setZone('America/Chicago').toFormat('LLL d');
 }
 
