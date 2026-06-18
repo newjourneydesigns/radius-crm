@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "pushpay-chmsv2": {
+      "type": "http",
+      "url": "https://pushpay-chmsv2.readme.io/mcp"
+    }
+  }
+}
