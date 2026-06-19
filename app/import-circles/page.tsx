@@ -123,12 +123,7 @@ export default function ImportCirclesPage() {
     loadOptions();
   }, []);
 
-  // Load circles when accessToken becomes available or filters change
-  useEffect(() => {
-    if (accessToken && activeTab === 'ccb') {
-      loadCircles();
-    }
-  }, [accessToken, selectedCampus, selectedDept, activeTab]);
+  // No automatic loading - user controls via Search button
 
   // Load circles from CCB
   const loadCircles = useCallback(async () => {
@@ -989,7 +984,7 @@ export default function ImportCirclesPage() {
           {/* Filter controls */}
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 mb-6">
             <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Filter Active Circles</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Campus
@@ -1020,9 +1015,28 @@ export default function ImportCirclesPage() {
                   ))}
                 </select>
               </div>
+              <div className="flex items-end">
+                <button
+                  onClick={loadCircles}
+                  disabled={isLoading}
+                  className="w-full btn-primary px-4 py-2 rounded-lg text-sm"
+                >
+                  {isLoading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Searching…
+                    </>
+                  ) : (
+                    'Search'
+                  )}
+                </button>
+              </div>
             </div>
             <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
-              Showing active circles not yet imported to RADIUS. {groups.length} found.
+              {groups.length === 0 ? 'Click Search to load circles.' : `Found ${groups.length} circle${groups.length !== 1 ? 's' : ''}.`}
             </p>
           </div>
 
