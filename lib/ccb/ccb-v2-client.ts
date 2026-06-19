@@ -177,6 +177,31 @@ export class CCBv2Client {
       .map(mapAttendance)
       .filter((a) => !startDate || !endDate || (a.occurrence >= startDate && a.occurrence <= endDate));
   }
+
+  /**
+   * GET /groups/{id} → Full group details with all settings, leader info, meeting details, etc.
+   * Used for syncing circle data from CCB to RADIUS.
+   */
+  async getGroupDetail(groupId: string): Promise<GroupDetailV2 | null> {
+    if (!groupId) return null;
+    const raw = await this.get(`/groups/${encodeURIComponent(groupId)}`);
+    return mapGroupDetail(raw);
+  }
+
+  /**
+   * GET /groups → List groups with filtering. Returns paginated results.
+   */
+  async listGroups(options?: { page?: number; perPage?: number; campusId?: string | number; inactive?: boolean }): Promise<{ items: GroupDetailV2[]; totalCount?: number }> {
+    const query: Record<string, any> = {};
+    if (options?.page) query.page = options.page;
+    if (options?.perPage) query.per_page = options.perPage;
+    if (options?.campusId) query.campus_id = options.campusId;
+    if (options?.inactive !== undefined) query.inactive = options.inactive ? 'true' : 'false';
+
+    const raw = await this.get('/groups', query);
+    const items = asArray(raw).map(mapGroupDetail).filter((g): g is GroupDetailV2 => g !== null);
+    return { items, totalCount: raw?.meta?.pagination?.total_count };
+  }
 }
 
 export interface AttendanceSummaryV2 {
@@ -189,6 +214,34 @@ export interface AttendanceSummaryV2 {
   notes?: string;
   prayerRequests?: string;
   attendees?: Array<{ id?: string; name?: string; status?: string }>;
+}
+
+export interface GroupDetailV2 {
+  id: string;
+  name: string;
+  description?: string;
+  type?: { id?: string; name?: string };
+  campus?: { id?: string; name?: string };
+  department?: { id?: string; name?: string };
+  area?: { id?: string; name?: string };
+  address?: { street?: string; city?: string; state?: string; zip?: string };
+  mainLeader?: {
+    id?: string;
+    firstName?: string;
+    lastName?: string;
+    fullName?: string;
+    email?: string;
+    phone?: string;
+    mobilePhone?: string;
+  };
+  meetDay?: { id?: string; name?: string };
+  meetTime?: { id?: string; name?: string };
+  interactionType?: string;
+  membershipType?: string;
+  childcare?: boolean;
+  inactive?: boolean;
+  listed?: boolean;
+  groupingId?: string;
 }
 
 // ---- shared mapping helpers ----
@@ -342,6 +395,34 @@ function mapAttendance(r: any): AttendanceSummaryV2 {
     notes: strOrUndef(r?.notes),
     prayerRequests: strOrUndef(r?.prayer_requests),
     attendees: mapAttendees(r?.people_information),
+  };
+}
+
+function mapGroupDetail(g: any): GroupDetailV2 | null {
+  if (!g || !g.id) return null;
+  return {
+    id: String(g.id),
+    name: firstString(g.name),
+    description: strOrUndef(g.description),
+    type: g.group_type ? { id: String(g.group_type.id), name: firstString(g.group_type.name) } : undefined,
+    campus: g.campus ? { id: String(g.campus.id), name: firstString(g.campus.name) } : undefined,
+    department: g.department ? { id: String(g.department.id), name: firstString(g.department.name) } : undefined,
+    area: g.area ? { id: String(g.area.id), name: firstString(g.area.name) } : undefined,
+    address: g.address ? {
+      street: strOrUndef(g.address.street),
+      city: strOrUndef(g.address.city),
+      state: strOrUndef(g.address.state),
+      zip: strOrUndef(g.address.zip),
+    } : undefined,
+    mainLeader: g.main_leader ? mapIndividual(g.main_leader, String(g.main_leader.id || '')) : undefined,
+    meetDay: g.meet_day ? { id: String(g.meet_day.id), name: firstString(g.meet_day.name) } : undefined,
+    meetTime: g.meet_time ? { id: String(g.meet_time.id), name: firstString(g.meet_time.name) } : undefined,
+    interactionType: strOrUndef(g.interaction_type),
+    membershipType: strOrUndef(g.membership_type),
+    childcare: Boolean(g.childcare),
+    inactive: Boolean(g.inactive),
+    listed: Boolean(g.listed),
+    groupingId: firstString(g.grouping_id),
   };
 }
 

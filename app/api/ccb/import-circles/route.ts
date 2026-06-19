@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
+import { createCCBv2Client } from '../../../../lib/ccb/ccb-v2-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import { verifyAdminAccessDemo } from '../../../../lib/auth-middleware';
 import type { CCBGroup } from '../../../../lib/ccb-types';
@@ -38,9 +39,10 @@ function getServiceSupabase() {
 }
 
 // ---------------------------------------------------------------------------
-// GET  /api/ccb/import-circles?q=<search>
+// GET  /api/ccb/import-circles?campus=<campusId>&department=<deptId>
 //
-// Returns CCB groups matching the search term, annotated with import status.
+// Fetches active circles from CCB v2 with optional filtering.
+// Returns circles not yet imported to RADIUS, with auto-populated leader info.
 // ---------------------------------------------------------------------------
 export async function GET(request: NextRequest) {
   try {
@@ -59,28 +61,44 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Validate query
-    const q = request.nextUrl.searchParams.get('q')?.trim() ?? '';
-    if (q.length > 0 && q.length < 2) {
-      return NextResponse.json(
-        { error: 'Search term must be at least 2 characters' },
-        { status: 400 }
-      );
-    }
+    const campusId = request.nextUrl.searchParams.get('campus');
+    const deptId = request.nextUrl.searchParams.get('department');
 
-    // 1. Search CCB via the cached group_profiles call
-    const ccb = createCCBClient(await getCCBRequestContext(request, {
-      module: 'Import Circles',
-      action: 'Search CCB Groups',
+    // Fetch circles from CCB v2 (paginated, non-inactive circles)
+    const ccbv2 = createCCBv2Client(await getCCBRequestContext(request, {
+      module: 'Import Circles (v2)',
+      action: 'Fetch Active Circles',
       direction: 'pull',
     }));
-    const ccbGroups = await ccb.searchGroups(q);
 
-    // 2. Check which groups are already imported (by ccb_group_id)
+    // Fetch all active circles with optional campus filter
+    const allCircles: any[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore && page <= 10) {
+      const result = await ccbv2.listGroups({
+        page,
+        perPage: 100,
+        campusId: campusId || undefined,
+        inactive: false,
+      });
+
+      allCircles.push(...result.items);
+      hasMore = (result.items.length === 100);
+      page++;
+    }
+
+    // Filter by department if specified
+    let circles = allCircles;
+    if (deptId) {
+      circles = circles.filter(c => String(c.department?.id) === deptId);
+    }
+
+    // Check which groups are already imported
     const sb = getServiceSupabase();
-    const ccbIds = ccbGroups.map((g) => g.id);
+    const ccbIds = circles.map((c) => c.id);
 
-    // Fetch existing circle_leaders that have a ccb_group_id in the result set
     let importedIds = new Set<string>();
     if (ccbIds.length > 0) {
       const { data: existing } = await sb
@@ -90,52 +108,39 @@ export async function GET(request: NextRequest) {
       importedIds = new Set((existing || []).map((r: any) => r.ccb_group_id));
     }
 
-    // 3. Fuzzy name match — pull all circle_leaders names for comparison
-    //    (typically a few hundred rows max, so this is fine)
-    const { data: allLeaders } = await sb
-      .from('circle_leaders')
-      .select('id, name, ccb_group_id');
-
-    const leadersList = allLeaders || [];
-
-    // Build CCB link base from server-side env
+    // Build CCB link base
     const subdomain = process.env.CCB_SUBDOMAIN || process.env.CCB_BASE_URL || '';
     const ccbBase = subdomain.includes('.')
       ? (subdomain.startsWith('http') ? subdomain : `https://${subdomain}`)
       : subdomain ? `https://${subdomain}.ccbchurch.com` : '';
     const ccbLinkBase = ccbBase.replace(/\/api\.php$/, '');
 
-    // Annotate each CCB group with import/match status
-    const annotated = ccbGroups.map((g) => {
-      const already = importedIds.has(g.id);
-
-      // Simple fuzzy: check if any circle_leader name contains or is contained
-      // in the CCB group name (case-insensitive)
-      let possibleMatch: CCBGroup['possibleMatch'] = null;
-      if (!already) {
-        const gLower = g.name.toLowerCase();
-        const leaderName = g.mainLeader?.fullName?.toLowerCase();
-        for (const l of leadersList) {
-          if (l.ccb_group_id === g.id) continue; // exact match handled above
-          const lLower = (l.name || '').toLowerCase();
-          if (
-            lLower && gLower &&
-            (lLower.includes(gLower) || gLower.includes(lLower) ||
-             (leaderName && (lLower.includes(leaderName) || leaderName.includes(lLower))))
-          ) {
-            possibleMatch = { id: l.id, name: l.name };
-            break;
-          }
-        }
-      }
-
-      return {
-        ...g,
-        alreadyImported: already,
-        possibleMatch,
-        ccbLink: ccbLinkBase ? `${ccbLinkBase}/group_detail.php?group_id=${g.id}` : null,
-      };
-    });
+    // Format response
+    const annotated = circles
+      .filter(c => !importedIds.has(c.id))
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        description: c.description,
+        campus: c.campus?.name,
+        campusId: c.campus?.id,
+        department: c.department?.name,
+        departmentId: c.department?.id,
+        groupType: c.type?.name,
+        meetingDay: c.meetDay?.name,
+        meetingTime: c.meetTime?.name,
+        address: c.address?.street,
+        city: c.address?.city,
+        mainLeader: c.mainLeader ? {
+          id: c.mainLeader.id,
+          firstName: c.mainLeader.firstName,
+          lastName: c.mainLeader.lastName,
+          fullName: c.mainLeader.fullName,
+          email: c.mainLeader.email,
+          phone: c.mainLeader.mobilePhone || c.mainLeader.phone,
+        } : null,
+        ccbLink: ccbLinkBase ? `${ccbLinkBase}/group_detail.php?group_id=${c.id}` : null,
+      }));
 
     return NextResponse.json({
       success: true,
@@ -154,8 +159,9 @@ export async function GET(request: NextRequest) {
 // ---------------------------------------------------------------------------
 // POST /api/ccb/import-circles
 //
-// Body: { groups: CCBGroup[] }
-// Inserts selected groups into circle_leaders, auto-skipping duplicates.
+// Body: { groups: Array<{ id, name, mainLeader?, campus?, groupType?, meetingDay?, meetingTime?, acpd? }> }
+// Inserts selected groups into circle_leaders with optional ACPD assignment.
+// Auto-creates leaders if they don't exist.
 // ---------------------------------------------------------------------------
 export async function POST(request: NextRequest) {
   try {
@@ -166,7 +172,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const groups: CCBGroup[] = body.groups;
+    const groups: any[] = body.groups;
     if (!Array.isArray(groups) || groups.length === 0) {
       return NextResponse.json(
         { error: 'No groups provided. Send { groups: [...] }' },
@@ -187,7 +193,7 @@ export async function POST(request: NextRequest) {
     const toInsert: any[] = [];
     const skipped: Array<{ id: string; name: string; reason: string }> = [];
 
-    // Build the CCB profile link base once
+    // Build CCB link base
     const subdomain = process.env.CCB_SUBDOMAIN || process.env.CCB_BASE_URL || '';
 
     for (const g of groups) {
@@ -197,7 +203,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (importedIds.has(g.id)) {
-        skipped.push({ id: g.id, name: g.name, reason: 'Already imported (ccb_group_id exists)' });
+        skipped.push({ id: g.id, name: g.name, reason: 'Already imported' });
         continue;
       }
 
@@ -218,11 +224,13 @@ export async function POST(request: NextRequest) {
         email: g.mainLeader?.email || null,
         phone: g.mainLeader?.phone || null,
         campus: g.campus || null,
+        acpd: g.acpd || null,
         circle_type: g.groupType || null,
         day: g.meetingDay || null,
         time: g.meetingTime || null,
         ccb_group_id: g.id,
         ccb_profile_link: ccbProfileLink,
+        ccb_individual_id: g.mainLeader?.id || null,
         status: 'active',
         event_summary_received: false,
       });

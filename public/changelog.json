@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-06-19",
+    "version": "2.36.0",
+    "date_display": "June 19, 2026",
+    "date_iso": "2026-06-19",
+    "id": "ccb-circle-import-v2",
+    "type": "feature",
+    "category": "Circle Import",
+    "description": "Redesigned the Import & Manage Circles page to auto-pull active circles from CCB v2 API. Filter by campus and department, then select which circles to add to RADIUS. Each circle shows the leader info, meeting details, and location — all pre-populated from CCB. Assign a director (ACPD) to each circle during import. No more manual data entry.",
+    "page": "/import-circles"
+  },
+  {
     "date": "2026-06-17",
     "version": "2.35.0",
     "date_display": "June 17, 2026",

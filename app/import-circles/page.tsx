@@ -70,17 +70,23 @@ export default function ImportCirclesPage() {
   const [activeTab, setActiveTab] = useState<'ccb' | 'mass-update'>('ccb');
 
   // CCB Import state
-  const [searchTerm, setSearchTerm] = useState('');
   const [groups, setGroups] = useState<CCBGroup[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [isSearching, setIsSearching] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [searchError, setSearchError] = useState('');
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [linkingGroupIds, setLinkingGroupIds] = useState<Set<string>>(new Set());
-  const [linkedGroupIds, setLinkedGroupIds] = useState<Set<string>>(new Set());
   const [accessToken, setAccessToken] = useState<string | null>(null);
+
+  // Filters
+  const [selectedCampus, setSelectedCampus] = useState<string>('');
+  const [selectedDept, setSelectedDept] = useState<string>('');
+  const [campusOptions, setCampusOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [deptOptions, setDeptOptions] = useState<Array<{ id: string; name: string }>>([]);
+
+  // ACPD assignment
+  const [groupAcpd, setGroupAcpd] = useState<Record<string, string>>({});
+  const [acpdOptions, setAcpdOptions] = useState<Array<{ id: number; name: string }>>([]);
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setAccessToken(data.session?.access_token || null);
@@ -98,6 +104,74 @@ export default function ImportCirclesPage() {
     window.addEventListener('hashchange', syncTabFromHash);
     return () => window.removeEventListener('hashchange', syncTabFromHash);
   }, []);
+
+  // Load filter options and circles on mount
+  useEffect(() => {
+    const loadOptions = async () => {
+      try {
+        const res = await fetch('/api/reference-data');
+        if (res.ok) {
+          const data = await res.json();
+          setAcpdOptions(data.directors || []);
+          // Extract unique campuses from circles if available
+          const depts = data.departments || [];
+          setDeptOptions(depts);
+        }
+      } catch (err) {
+        console.error('Failed to load options:', err);
+      }
+    };
+    loadOptions();
+    loadCircles();
+  }, []);
+
+  // Reload circles when filters change
+  useEffect(() => {
+    if (activeTab === 'ccb') {
+      loadCircles();
+    }
+  }, [selectedCampus, selectedDept, activeTab]);
+
+  // Load circles from CCB
+  const loadCircles = useCallback(async () => {
+    setIsLoading(true);
+    setSearchError('');
+    setImportResult(null);
+    setSelected(new Set());
+    setGroupAcpd({});
+
+    try {
+      const url = new URL('/api/ccb/import-circles', window.location.origin);
+      if (selectedCampus) url.searchParams.set('campus', selectedCampus);
+      if (selectedDept) url.searchParams.set('department', selectedDept);
+
+      const headers: Record<string, string> = {};
+      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+
+      const res = await fetch(url.toString(), { headers });
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json.error || `HTTP ${res.status}`);
+      }
+
+      setGroups(json.groups || []);
+
+      // Extract unique campuses from results for dynamic filter
+      const camps = new Map<string, string>();
+      (json.groups || []).forEach((g: any) => {
+        if (g.campusId && g.campus) {
+          camps.set(String(g.campusId), g.campus);
+        }
+      });
+      setCampusOptions(Array.from(camps.entries()).map(([id, name]) => ({ id, name })));
+    } catch (err: any) {
+      setSearchError(err.message || 'Failed to load circles');
+      setGroups([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedCampus, selectedDept, accessToken]);
 
   // Mass Update state
   const [massUpdateField, setMassUpdateField] = useState<'campus' | 'acpd' | 'frequency' | 'circle_type' | 'day' | 'time' | 'meeting_start_date' | 'status' | 'email_reminders_enabled'>('campus');
@@ -380,9 +454,8 @@ export default function ImportCirclesPage() {
     });
   };
 
-  const selectableGroups = groups.filter((g) => !g.alreadyImported && !g.possibleMatch);
   const selectAll = () => {
-    setSelected(new Set(selectableGroups.map((g) => g.id)));
+    setSelected(new Set(groups.map((g) => g.id)));
   };
   const deselectAll = () => setSelected(new Set());
 
@@ -394,7 +467,10 @@ export default function ImportCirclesPage() {
     setSearchError('');
     setImportResult(null);
 
-    const toImport = groups.filter((g) => selected.has(g.id));
+    const toImport = groups.filter((g) => selected.has(g.id)).map(g => ({
+      ...g,
+      acpd: groupAcpd[g.id] || null,
+    }));
 
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -412,56 +488,17 @@ export default function ImportCirclesPage() {
 
       setImportResult(json);
 
-      // Re-run search to update statuses
+      // Reload circles after successful import
       if (json.imported > 0) {
         setSelected(new Set());
-        // Small delay so the user sees the result before the list refreshes
-        setTimeout(() => handleSearch(), 800);
+        setTimeout(() => loadCircles(), 800);
       }
     } catch (err: any) {
       setSearchError(err.message || 'Import failed.');
     } finally {
       setIsImporting(false);
     }
-  }, [selected, groups, handleSearch, accessToken]);
-
-  // ---- Link existing leader to CCB group ----
-  const handleLink = useCallback(async (group: CCBGroup) => {
-    if (!group.possibleMatch) return;
-    const leaderId = group.possibleMatch.id;
-
-    setLinkingGroupIds(prev => new Set(prev).add(group.id));
-    setSearchError('');
-
-    const ccbProfileLink = group.ccbLink || null;
-
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
-
-    try {
-      const res = await fetch(`/api/circle-leaders/${leaderId}`, {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify({ ccb_group_id: group.id, ccb_profile_link: ccbProfileLink }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
-
-      setLinkedGroupIds(prev => new Set(prev).add(group.id));
-      setGroups(prev => prev.map(g =>
-        g.id === group.id ? { ...g, alreadyImported: true, possibleMatch: null } : g
-      ));
-    } catch (err: any) {
-      setSearchError(`Failed to link ${group.possibleMatch.name}: ${err.message}`);
-    } finally {
-      setLinkingGroupIds(prev => { const next = new Set(prev); next.delete(group.id); return next; });
-    }
-  }, [accessToken]);
-
-  // ---- Key handler for search box ----
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') handleSearch();
-  };
+  }, [selected, groups, groupAcpd, accessToken, loadCircles]);
 
   return (
     <ProtectedRoute>
@@ -984,41 +1021,43 @@ export default function ImportCirclesPage() {
           {activeTab === 'ccb' && (
             <>
 
-          {/* Search bar */}
+          {/* Filter controls */}
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 mb-6">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Search CCB Groups
-            </label>
-            <div className="flex gap-3">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={onKeyDown}
-                placeholder="Enter group or circle name..."
-                className="flex-1 min-w-0 block w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-vc-500 focus:border-vc-500"
-                disabled={isSearching}
-              />
-              <button
-                onClick={handleSearch}
-                disabled={isSearching}
-                className="btn-primary inline-flex items-center px-5 py-2 rounded-lg text-sm"
-              >
-                {isSearching ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    Searching…
-                  </>
-                ) : (
-                  'Search CCB'
-                )}
-              </button>
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Filter Active Circles</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Campus
+                </label>
+                <select
+                  value={selectedCampus}
+                  onChange={(e) => setSelectedCampus(e.target.value)}
+                  className="block w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-vc-500 focus:border-vc-500"
+                >
+                  <option value="">All Campuses</option>
+                  {campusOptions.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Department
+                </label>
+                <select
+                  value={selectedDept}
+                  onChange={(e) => setSelectedDept(e.target.value)}
+                  className="block w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-vc-500 focus:border-vc-500"
+                >
+                  <option value="">All Departments</option>
+                  {deptOptions.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
-              Tip: Leave blank and search to see all CCB groups. Results are cached for 5 minutes.
+            <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
+              Showing active circles not yet imported to RADIUS. {groups.length} found.
             </p>
           </div>
 
@@ -1029,25 +1068,33 @@ export default function ImportCirclesPage() {
             </div>
           )}
 
+          {/* Loading state */}
+          {isLoading && (
+            <div className="mb-6 bg-white dark:bg-gray-800 shadow rounded-lg p-8 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-vc-500 mx-auto mb-3"></div>
+              <p className="text-gray-600 dark:text-gray-400">Loading circles from CCB...</p>
+            </div>
+          )}
+
           {/* Import result banner */}
           {importResult && (
             <div className="mb-6 rounded-md bg-green-50 dark:bg-green-900/30 p-4">
               <p className="text-sm text-green-700 dark:text-green-400">
                 <strong>{importResult.imported}</strong> circle{importResult.imported !== 1 ? 's' : ''} imported successfully.
                 {importResult.skipped > 0 && (
-                  <> <strong>{importResult.skipped}</strong> skipped (already imported).</>
+                  <> <strong>{importResult.skipped}</strong> skipped.</>
                 )}
               </p>
             </div>
           )}
 
           {/* Results */}
-          {hasSearched && (
+          {!isLoading && (
             <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
               {/* Toolbar */}
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {groups.length} group{groups.length !== 1 ? 's' : ''} found
+                  {groups.length} circle{groups.length !== 1 ? 's' : ''} available
                   {selected.size > 0 && (
                     <span className="ml-2 font-medium text-blue-600 dark:text-blue-400">
                       · {selected.size} selected
@@ -1055,13 +1102,13 @@ export default function ImportCirclesPage() {
                   )}
                 </p>
                 <div className="flex gap-2">
-                  {selectableGroups.length > 0 && (
+                  {groups.length > 0 && (
                     <>
                       <button
-                        onClick={selected.size === selectableGroups.length ? deselectAll : selectAll}
+                        onClick={selected.size === groups.length ? deselectAll : selectAll}
                         className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
                       >
-                        {selected.size === selectableGroups.length ? 'Deselect All' : 'Select All'}
+                        {selected.size === groups.length ? 'Deselect All' : 'Select All'}
                       </button>
                       <button
                         onClick={handleImport}
@@ -1088,131 +1135,94 @@ export default function ImportCirclesPage() {
               {/* Group list */}
               {groups.length === 0 ? (
                 <div className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                  No groups found matching &ldquo;{searchTerm}&rdquo;
+                  No circles found. Try adjusting filters.
                 </div>
               ) : (
                 <ul className="divide-y divide-gray-200 dark:divide-gray-700">
                   {groups.map((g) => {
-                    const isImported = g.alreadyImported;
                     const isSelected = selected.has(g.id);
-                    const hasPossibleMatch = !isImported && !!g.possibleMatch;
-                    const isLinking = linkingGroupIds.has(g.id);
-                    const isLinked = linkedGroupIds.has(g.id);
 
                     return (
                       <li
                         key={g.id}
-                        className={`px-6 py-4 flex items-start gap-4 transition-colors ${
-                          isImported
-                            ? 'opacity-50 bg-gray-50 dark:bg-gray-800/50'
-                            : hasPossibleMatch
-                              ? 'bg-yellow-50/40 dark:bg-yellow-900/10'
-                              : isSelected
-                                ? 'bg-blue-50 dark:bg-blue-900/20'
-                                : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                        className={`px-6 py-4 transition-colors ${
+                          isSelected
+                            ? 'bg-blue-50 dark:bg-blue-900/20'
+                            : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'
                         }`}
                       >
-                        {/* Checkbox or Link button */}
-                        <div className="pt-0.5 shrink-0">
-                          {hasPossibleMatch ? (
-                            <button
-                              onClick={() => handleLink(g)}
-                              disabled={isLinking}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-amber-500 hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors whitespace-nowrap"
-                            >
-                              {isLinking ? (
-                                <>
-                                  <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                  </svg>
-                                  Linking…
-                                </>
-                              ) : (
-                                <>
-                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                                  </svg>
-                                  Link
-                                </>
-                              )}
-                            </button>
-                          ) : (
+                        <div className="flex items-start gap-4">
+                          {/* Checkbox */}
+                          <div className="pt-1 shrink-0">
                             <input
                               type="checkbox"
                               checked={isSelected}
-                              disabled={isImported}
                               onChange={() => toggleSelect(g.id)}
-                              className="h-4 w-4 mt-1 text-blue-600 focus:ring-vc-500 border-gray-300 rounded disabled:opacity-40"
+                              className="h-4 w-4 text-blue-600 focus:ring-vc-500 border-gray-300 rounded"
                             />
-                          )}
-                        </div>
-
-                        {/* Details */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                              {g.name}
-                            </span>
-                            {g.ccbLink ? (
-                              <a
-                                href={g.ccbLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs text-blue-400 hover:text-blue-300 hover:underline"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                CCB #{g.id}
-                              </a>
-                            ) : (
-                              <span className="text-xs text-gray-400 dark:text-gray-500">
-                                CCB #{g.id}
-                              </span>
-                            )}
-
-                            {isImported && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300">
-                                {isLinked ? '✓ Linked' : 'Already Imported'}
-                              </span>
-                            )}
-
-                            {hasPossibleMatch && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300">
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                                </svg>
-                                Links to: {g.possibleMatch!.name}
-                              </span>
-                            )}
                           </div>
 
-                          {/* Meta row */}
-                          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-                            {g.mainLeader?.fullName && (
-                              <span><strong>Leader:</strong> {g.mainLeader.fullName}</span>
-                            )}
-                            {g.mainLeader?.email && (
-                              <span><strong>Email:</strong> {g.mainLeader.email}</span>
-                            )}
-                            {g.campus && (
-                              <span><strong>Campus:</strong> {g.campus}</span>
-                            )}
-                            {g.groupType && (
-                              <span><strong>Type:</strong> {g.groupType}</span>
-                            )}
-                            {g.meetingDay && (
-                              <span><strong>Day:</strong> {g.meetingDay}</span>
-                            )}
-                            {g.meetingTime && (
-                              <span><strong>Time:</strong> {g.meetingTime}</span>
+                          {/* Details */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-2">
+                              <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                                {g.name}
+                              </span>
+                              {g.ccbLink ? (
+                                <a
+                                  href={g.ccbLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-blue-400 hover:text-blue-300 hover:underline"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  CCB #{g.id}
+                                </a>
+                              ) : (
+                                <span className="text-xs text-gray-400 dark:text-gray-500">
+                                  CCB #{g.id}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Meta row */}
+                            <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-500 dark:text-gray-400 mb-3">
+                              {g.mainLeader?.fullName && (
+                                <span><strong>Leader:</strong> {g.mainLeader.fullName}</span>
+                              )}
+                              {g.campus && (
+                                <span><strong>Campus:</strong> {g.campus}</span>
+                              )}
+                              {g.groupType && (
+                                <span><strong>Type:</strong> {g.groupType}</span>
+                              )}
+                              {g.meetingDay && (
+                                <span><strong>Day:</strong> {g.meetingDay}</span>
+                              )}
+                              {g.meetingTime && (
+                                <span><strong>Time:</strong> {g.meetingTime}</span>
+                              )}
+                            </div>
+
+                            {/* ACPD selector (only for selected items) */}
+                            {isSelected && (
+                              <div className="bg-blue-50 dark:bg-blue-900/20 rounded p-3 border border-blue-200 dark:border-blue-900">
+                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                  Assign Director (ACPD)
+                                </label>
+                                <select
+                                  value={groupAcpd[g.id] || ''}
+                                  onChange={(e) => setGroupAcpd(prev => ({ ...prev, [g.id]: e.target.value }))}
+                                  className="block w-full px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-vc-500 focus:border-vc-500"
+                                >
+                                  <option value="">— No Director —</option>
+                                  {acpdOptions.map((acpd) => (
+                                    <option key={acpd.id} value={acpd.name}>{acpd.name}</option>
+                                  ))}
+                                </select>
+                              </div>
                             )}
                           </div>
-
-                          {g.description && (
-                            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500 line-clamp-2">
-                              {g.description}
-                            </p>
-                          )}
                         </div>
                       </li>
                     );
