@@ -411,39 +411,6 @@ export default function ImportCirclesPage() {
     }
   };
 
-  // ---- Search ----
-  const handleSearch = useCallback(async () => {
-    const q = searchTerm.trim();
-    if (q.length > 0 && q.length < 2) {
-      setSearchError('Enter at least 2 characters to search.');
-      return;
-    }
-
-    setIsSearching(true);
-    setSearchError('');
-    setImportResult(null);
-    setSelected(new Set());
-
-    try {
-      const headers: Record<string, string> = {};
-      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
-      const res = await fetch(`/api/ccb/import-circles?q=${encodeURIComponent(q)}`, { headers });
-      const json = await res.json();
-
-      if (!res.ok) {
-        throw new Error(json.error || `HTTP ${res.status}`);
-      }
-
-      setGroups(json.groups || []);
-      setHasSearched(true);
-    } catch (err: any) {
-      setSearchError(err.message || 'Search failed.');
-      setGroups([]);
-    } finally {
-      setIsSearching(false);
-    }
-  }, [searchTerm, accessToken]);
-
   // ---- Selection helpers ----
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
