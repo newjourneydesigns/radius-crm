@@ -28,7 +28,9 @@ import { formatRating } from '../../../lib/leadershipSnapshot';
 import type { LeadershipSnapshot } from '../../../lib/supabase';
 import { useRealtimeSubscription, RealtimeSubscriptionConfig } from '../../../hooks/useRealtimeSubscription';
 import { calculateSuggestedScore, getFinalScore } from '../../../lib/evaluationQuestions';
-import { extractCcbGroupId } from '../../../lib/ccbGroupId';
+import { extractCcbGroupId, extractCcbIndividualId } from '../../../lib/ccbGroupId';
+
+const CCB_BASE_URL = 'https://valleycreekchurch.ccbchurch.com';
 import { buildTimeOptions15Min } from '../../../lib/timeUtils';
 
 // Helper function to format time to AM/PM
@@ -245,6 +247,10 @@ export default function CircleLeaderProfilePage() {
   });
   const [editedLeader, setEditedLeader] = useState<Partial<CircleLeader>>({});
   const [isSavingLeader, setIsSavingLeader] = useState(false);
+  const [isResyncing, setIsResyncing] = useState(false);
+  // CCB ID overrides (edit mode). We store IDs and derive the CCB URLs from them.
+  const [ccbIndividualIdInput, setCcbIndividualIdInput] = useState('');
+  const [ccbEventIdsInput, setCcbEventIdsInput] = useState('');
   const [leaderError, setLeaderError] = useState('');
   const [directors, setDirectors] = useState<Array<{id: number, name: string}>>([]);
   const [hostTeamDirectors, setHostTeamDirectors] = useState<Array<{id: number, name: string}>>([]);
@@ -1420,6 +1426,8 @@ export default function CircleLeaderProfilePage() {
     };
     
     setEditedLeader(editData);
+    setCcbIndividualIdInput(extractCcbIndividualId(leader.leader_ccb_profile_link) || '');
+    setCcbEventIdsInput((leader.ccb_event_ids || []).join(', '));
   };
 
   const handleSaveLeader = async () => {
@@ -1427,6 +1435,22 @@ export default function CircleLeaderProfilePage() {
 
     setIsSavingLeader(true);
     setLeaderError('');
+
+    // Derive the leader's CCB profile link from the individual ID override.
+    const individualId = extractCcbIndividualId(ccbIndividualIdInput);
+    const leaderProfileLink = individualId
+      ? `${CCB_BASE_URL}/goto/individuals/${individualId}`
+      : (editedLeader.leader_ccb_profile_link || null);
+    // Parse the comma/space-separated event IDs into a clean numeric array.
+    const eventIds = ccbEventIdsInput
+      .split(/[\s,]+/)
+      .map(s => s.trim())
+      .filter(s => /^\d+$/.test(s));
+    // Derive the circle/group link from the group ID.
+    const groupIdVal = editedLeader.ccb_group_id || null;
+    const groupProfileLink = groupIdVal
+      ? `${CCB_BASE_URL}/group_detail.php?group_id=${groupIdVal}`
+      : null;
 
     try {
       const { data, error } = await supabase
@@ -1449,10 +1473,11 @@ export default function CircleLeaderProfilePage() {
           circle_type: editedLeader.circle_type || null,
           follow_up_required: editedLeader.follow_up_required || false,
           follow_up_date: editedLeader.follow_up_date || null,
-          ccb_profile_link: editedLeader.ccb_profile_link || null,
-          ccb_group_id: editedLeader.ccb_group_id || null,
+          ccb_profile_link: groupProfileLink,
+          ccb_group_id: groupIdVal,
           ccb_group_name: editedLeader.ccb_group_name || null,
-          leader_ccb_profile_link: editedLeader.leader_ccb_profile_link || null,
+          ccb_event_ids: eventIds.length > 0 ? eventIds : null,
+          leader_ccb_profile_link: leaderProfileLink,
           birthday: editedLeader.birthday || null,
           additional_leader_name: editedLeader.additional_leader_name || null,
           additional_leader_phone: editedLeader.additional_leader_phone || null,
@@ -1483,8 +1508,12 @@ export default function CircleLeaderProfilePage() {
 
       } else {
         console.error('Error updating leader:', error);
-        setLeaderError('Failed to update leader information. Please try again.');
-        setTimeout(() => setLeaderError(''), 5000);
+        setLeaderError(
+          error?.message
+            ? `Failed to update leader information: ${error.message}`
+            : 'Failed to update leader information. Please try again.'
+        );
+        setTimeout(() => setLeaderError(''), 8000);
       }
     } catch (error) {
       console.error('Error updating leader:', error);
@@ -1499,6 +1528,61 @@ export default function CircleLeaderProfilePage() {
     setIsEditing(false);
     setEditedLeader({});
     setLeaderError('');
+  };
+
+  // Re-pull this circle's data from CCB (meeting time/day/frequency/location,
+  // leader email/phone/birthday, group name, event IDs) using its CCB Group ID.
+  const handleResyncCcb = async () => {
+    if (!leader) return;
+    const groupId = editedLeader.ccb_group_id ?? leader.ccb_group_id;
+    if (!groupId) {
+      setLeaderError('Set a CCB Group ID before re-syncing.');
+      setTimeout(() => setLeaderError(''), 6000);
+      return;
+    }
+
+    setIsResyncing(true);
+    setLeaderError('');
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess?.session?.access_token;
+      const res = await fetch(`/api/circle-leaders/${leaderId}/resync-ccb`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+
+      // Reflect the refreshed values in both the saved leader and the edit form.
+      const u = json.leader || {};
+      setLeader(prev => (prev ? { ...prev, ...u } : prev));
+      setEditedLeader(prev => ({
+        ...prev,
+        day: u.day ?? prev.day,
+        time: u.time ?? prev.time,
+        frequency: u.frequency ?? prev.frequency,
+        location: u.location ?? prev.location,
+        campus: u.campus ?? prev.campus,
+        circle_type: (u.circle_type ?? prev.circle_type) as CircleLeader['circle_type'],
+        email: u.email ?? prev.email,
+        phone: u.phone ?? prev.phone,
+        birthday: u.birthday ?? prev.birthday,
+        ccb_group_name: u.ccb_group_name ?? prev.ccb_group_name,
+      }));
+      setShowAlert({
+        isOpen: true,
+        type: 'success',
+        title: 'Synced from CCB',
+        message: json.eventIdsLinked > 0
+          ? `Updated. Linked ${json.eventIdsLinked} CCB event${json.eventIdsLinked !== 1 ? 's' : ''}.`
+          : 'Circle details updated from CCB.',
+      });
+    } catch (err: any) {
+      setLeaderError(err.message || 'Re-sync failed.');
+      setTimeout(() => setLeaderError(''), 8000);
+    } finally {
+      setIsResyncing(false);
+    }
   };
 
   // Delete leader functionality
@@ -1718,6 +1802,24 @@ export default function CircleLeaderProfilePage() {
                   </svg>
                   Cancel
                 </button>
+                {!isHostTeam && (
+                  <button
+                    onClick={handleResyncCcb}
+                    disabled={isSavingLeader || isResyncing || !(editedLeader.ccb_group_id ?? leader.ccb_group_id)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ background: 'rgba(59,130,246,0.18)', border: '1px solid rgba(59,130,246,0.30)', color: 'rgba(147,197,253,1)' }}
+                    title="Pull the latest circle + leader data from CCB"
+                  >
+                    {isResyncing ? (
+                      <div className="w-3.5 h-3.5 border-2 border-blue-300/30 border-t-blue-300 rounded-full animate-spin" />
+                    ) : (
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    )}
+                    {isResyncing ? 'Syncing…' : 'Re-sync from CCB'}
+                  </button>
+                )}
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
                   disabled={isSavingLeader}
@@ -2304,6 +2406,24 @@ export default function CircleLeaderProfilePage() {
                       )}
                     </dd>
                   </div>}
+                  {!isHostTeam && isEditing && <div>
+                    <dt className="text-sm font-medium text-slate-400">
+                      CCB Event IDs
+                      <span className="ml-1.5 text-xs font-normal text-slate-500">(optional)</span>
+                    </dt>
+                    <dd className="mt-1">
+                      <input
+                        type="text"
+                        value={ccbEventIdsInput}
+                        onChange={(e) => setCcbEventIdsInput(e.target.value)}
+                        placeholder="e.g. 8757, 8801"
+                        className="w-full px-3 py-1 text-sm border border-zinc-600 rounded-md bg-zinc-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent"
+                      />
+                      <p className="mt-1.5 text-xs text-slate-500">
+                        CCB event IDs backing this circle&apos;s attendance. Usually filled automatically by &ldquo;Re-sync from CCB&rdquo;; override only if needed.
+                      </p>
+                    </dd>
+                  </div>}
                   {!isHostTeam && (isEditing || leader.ccb_group_name) && <div>
                     <dt className="text-sm font-medium text-slate-400">
                       CCB Group Name Override
@@ -2328,18 +2448,11 @@ export default function CircleLeaderProfilePage() {
                       )}
                     </dd>
                   </div>}
-                  {!isHostTeam && <div className="sm:col-span-2">
+                  {/* Link is derived from the Group ID, so it's view-only (hidden while editing). */}
+                  {!isHostTeam && !isEditing && <div className="sm:col-span-2">
                     <dt className="text-sm font-medium text-slate-400">CCB Circle Link</dt>
                     <dd className="mt-1">
-                      {isEditing ? (
-                        <input
-                          type="url"
-                          value={editedLeader.ccb_profile_link !== undefined ? editedLeader.ccb_profile_link : (leader.ccb_profile_link || '')}
-                          onChange={(e) => handleLeaderFieldChange('ccb_profile_link', e.target.value)}
-                          placeholder="https://valleycreekchurch.ccbchurch.com/group_detail.php?group_id=..."
-                          className="w-full px-3 py-1 text-sm border border-zinc-600 rounded-md bg-zinc-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent"
-                        />
-                      ) : (
+                      {(
                         <span className="text-sm text-slate-200">
                           {leader.ccb_group_id ? (
                             <div className="flex flex-wrap gap-2">
@@ -2506,14 +2619,17 @@ export default function CircleLeaderProfilePage() {
                     </dd>
                   </div>
                   {!isHostTeam && <div className="sm:col-span-2">
-                    <dt className="text-sm font-medium text-slate-400">CCB Profile Link</dt>
+                    <dt className="text-sm font-medium text-slate-400">
+                      {isEditing ? 'CCB Individual ID' : 'CCB Profile Link'}
+                      {isEditing && <span className="ml-1.5 text-xs font-normal text-slate-500">(optional)</span>}
+                    </dt>
                     <dd className="mt-1">
                       {isEditing ? (
                         <input
-                          type="url"
-                          value={editedLeader.leader_ccb_profile_link !== undefined ? editedLeader.leader_ccb_profile_link : (leader.leader_ccb_profile_link || '')}
-                          onChange={(e) => handleLeaderFieldChange('leader_ccb_profile_link', e.target.value)}
-                          placeholder="https://valleycreekchurch.ccbchurch.com/goto/individuals/..."
+                          type="text"
+                          value={ccbIndividualIdInput}
+                          onChange={(e) => setCcbIndividualIdInput(e.target.value)}
+                          placeholder="e.g. 10501"
                           className="w-full px-3 py-1 text-sm border border-zinc-600 rounded-md bg-zinc-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent"
                         />
                       ) : (

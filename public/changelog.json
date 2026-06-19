@@ -4,6 +4,17 @@
     "version": "2.36.0",
     "date_display": "June 19, 2026",
     "date_iso": "2026-06-19",
+    "id": "circle-resync-and-ccb-id-fields",
+    "type": "improvement",
+    "category": "Circle Leaders",
+    "description": "Editing a circle is now cleaner and tied to CCB by IDs. In edit mode there's a 'Re-sync from CCB' button that re-pulls the meeting time/day/frequency/location, leader email/phone/birthday, group name, and calendar events. The long CCB link fields are hidden while editing — instead you set the CCB Group ID, Individual ID, and Event IDs directly, and RADIUS builds the links for you. The import page now requires a director (ACPD) to be selected before a circle can be imported.",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-06-19",
+    "version": "2.36.0",
+    "date_display": "June 19, 2026",
+    "date_iso": "2026-06-19",
     "id": "archive-leader-status-fix",
     "type": "fix",
     "category": "Circle Leaders",

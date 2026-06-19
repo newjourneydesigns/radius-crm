@@ -171,6 +171,10 @@ export default function ImportCirclesPage() {
   // Import the previewed circle.
   const importPreview = useCallback(async () => {
     if (!preview || preview.alreadyImported) return;
+    if (!previewAcpd) {
+      setSearchError('Select a director (ACPD) before importing.');
+      return;
+    }
 
     setIsImporting(true);
     setSearchError('');
@@ -1085,17 +1089,22 @@ export default function ImportCirclesPage() {
                 {/* ACPD assignment */}
                 {!preview.alreadyImported && (
                   <div>
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">Assign Director (ACPD)</h4>
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">
+                      Assign Director (ACPD) <span className="text-red-500">*</span>
+                    </h4>
                     <select
                       value={previewAcpd}
                       onChange={(e) => setPreviewAcpd(e.target.value)}
                       className="block w-full sm:w-72 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-vc-500 focus:border-vc-500"
                     >
-                      <option value="">— No Director —</option>
+                      <option value="">— Select a Director —</option>
                       {acpdOptions.map((acpd) => (
                         <option key={acpd.id} value={acpd.name}>{acpd.name}</option>
                       ))}
                     </select>
+                    {!previewAcpd && (
+                      <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">Required before importing.</p>
+                    )}
                   </div>
                 )}
               </div>
@@ -1110,8 +1119,9 @@ export default function ImportCirclesPage() {
                 </button>
                 <button
                   onClick={importPreview}
-                  disabled={isImporting || preview.alreadyImported}
-                  className="btn-success inline-flex items-center px-5 py-2 rounded-lg text-sm"
+                  disabled={isImporting || preview.alreadyImported || !previewAcpd}
+                  title={!previewAcpd ? 'Select a director (ACPD) first' : undefined}
+                  className="btn-success inline-flex items-center px-5 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isImporting ? (
                     <>

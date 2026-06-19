@@ -202,6 +202,12 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    if (!acpd) {
+      return NextResponse.json(
+        { error: 'A director (ACPD) must be assigned before importing.' },
+        { status: 400 }
+      );
+    }
 
     const sb = getServiceSupabase();
 
