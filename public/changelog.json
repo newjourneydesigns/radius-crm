@@ -4,6 +4,17 @@
     "version": "2.36.0",
     "date_display": "June 19, 2026",
     "date_iso": "2026-06-19",
+    "id": "global-search-refresh-on-open",
+    "type": "fix",
+    "category": "Search",
+    "description": "Newly added Circles and Leaders now show up in the global search (⌘K) right away. The search index used to load once and go stale until a full page refresh — it now refreshes each time you open the search.",
+    "page": "/"
+  },
+  {
+    "date": "2026-06-19",
+    "version": "2.36.0",
+    "date_display": "June 19, 2026",
+    "date_iso": "2026-06-19",
     "id": "ccb-circle-import-by-group-id",
     "type": "feature",
     "category": "Circle Import",

@@ -52,8 +52,12 @@ export default function GlobalSearch() {
   // Auto-focus input whenever modal opens
   useEffect(() => {
     if (isOpen) {
+      // Refresh the cached dataset on open so newly added circles/leaders
+      // (from /add-leader, /import-circles, etc.) appear without a full reload.
+      loadSearchData();
       setTimeout(() => inputRef.current?.focus(), 50);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   // Fuse.js configuration
