@@ -110,7 +110,13 @@ export async function GET(request: NextRequest) {
       } catch { /* non-fatal */ }
     }
 
-    // 4. Already imported?
+    // 4. Pull precise meeting time/day/frequency/location from the group's calendar.
+    let meeting = { eventIds: [] as string[], time: null as string | null, day: null as string | null, frequency: null as string | null, location: null as string | null };
+    try {
+      meeting = await ccbv2.getGroupMeetingDetails(groupId);
+    } catch { /* non-fatal */ }
+
+    // 5. Already imported?
     const sb = getServiceSupabase();
     const { data: existing } = await sb
       .from('circle_leaders')
@@ -118,12 +124,15 @@ export async function GET(request: NextRequest) {
       .eq('ccb_group_id', groupId)
       .maybeSingle();
 
-    // 5. CCB deep link.
+    // 6. CCB deep link.
     const subdomain = process.env.CCB_SUBDOMAIN || process.env.CCB_BASE_URL || '';
     const ccbBase = subdomain.includes('.')
       ? (subdomain.startsWith('http') ? subdomain : `https://${subdomain}`)
       : subdomain ? `https://${subdomain}.ccbchurch.com` : '';
     const ccbLinkBase = ccbBase.replace(/\/api\.php$/, '');
+
+    const fallbackLocation = [group.address?.street, group.address?.city, group.address?.state, group.address?.zip]
+      .filter(Boolean).join(', ') || null;
 
     return NextResponse.json({
       success: true,
@@ -134,8 +143,11 @@ export async function GET(request: NextRequest) {
         groupType: group.type?.name || null,
         campus: campusName,
         campusId: group.campus?.id || null,
-        meetingDay: group.meetDay?.name || null,
-        meetingTime: group.meetTime?.name || null,
+        meetingDay: meeting.day || group.meetDay?.name || null,
+        meetingTime: meeting.time || group.meetTime?.name || null,
+        meetingFrequency: meeting.frequency,
+        location: meeting.location || fallbackLocation,
+        eventCount: meeting.eventIds.length,
         address: group.address?.street || null,
         city: group.address?.city || null,
         state: group.address?.state || null,
@@ -247,11 +259,20 @@ export async function POST(request: NextRequest) {
       } catch { /* non-fatal */ }
     }
 
-    // Group calendar → CCB event IDs, so attendance/summary sync runs immediately.
-    let eventIds: string[] = [];
+    // Group calendar → precise meeting time/day/frequency/location + event IDs.
+    // The event detail is authoritative; the group's meet_day/meet_time labels
+    // (e.g. "Evening") are coarse and lack a real clock time. Fall back to them
+    // only when the group has no calendar events yet.
+    let meeting = { eventIds: [] as string[], time: null as string | null, day: null as string | null, frequency: null as string | null, location: null as string | null };
     try {
-      eventIds = await ccbv2.getGroupEventIds(groupId);
-    } catch { /* non-fatal — discover-events will backfill later */ }
+      meeting = await ccbv2.getGroupMeetingDetails(groupId);
+    } catch { /* non-fatal — discover-events / sync will backfill later */ }
+
+    const meetingTime = meeting.time;                       // real "HH:mm" or null
+    const meetingDay = meeting.day || group.meetDay?.name || null;
+    const meetingLocation = meeting.location
+      || [group.address?.street, group.address?.city, group.address?.state, group.address?.zip].filter(Boolean).join(', ')
+      || null;
 
     const subdomain = process.env.CCB_SUBDOMAIN || process.env.CCB_BASE_URL || '';
     const base = subdomain
@@ -273,14 +294,16 @@ export async function POST(request: NextRequest) {
       campus: campusName,
       acpd,
       circle_type: group.type?.name || null,
-      day: group.meetDay?.name || null,
-      time: group.meetTime?.name || null,
+      day: meetingDay,
+      time: meetingTime,
+      frequency: meeting.frequency,
+      location: meetingLocation,
       circle_name: group.name,
       ccb_group_id: groupId,
       ccb_group_name: group.name,
       ccb_profile_link: ccbProfileLink,
       leader_ccb_profile_link: leaderProfileLink,
-      ccb_event_ids: eventIds.length > 0 ? eventIds : null,
+      ccb_event_ids: meeting.eventIds.length > 0 ? meeting.eventIds : null,
       status: 'active',
       event_summary_received: false,
     };
@@ -299,7 +322,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       leader: inserted,
-      eventIdsLinked: eventIds.length,
+      eventIdsLinked: meeting.eventIds.length,
     });
   } catch (error: any) {
     console.error('❌ import-circles POST error:', error);

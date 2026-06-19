@@ -205,6 +205,71 @@ export class CCBv2Client {
   }
 
   /**
+   * Derive the real meeting schedule from a circle's CCB calendar event — its
+   * exact start time, weekday, recurrence-based frequency, and location. This is
+   * more authoritative than the group's coarse meet_day / meet_time labels
+   * (e.g. "Evening"), which don't carry a real clock time. Returns the event IDs
+   * too so callers can seed ccb_event_ids in the same pass.
+   */
+  async getGroupMeetingDetails(groupId: string): Promise<{
+    eventIds: string[];
+    time: string | null;       // "HH:mm"
+    day: string | null;        // "Monday".."Sunday"
+    frequency: string | null;  // "Weekly" | "Bi-weekly" | "Monthly" | "Quarterly"
+    location: string | null;
+  }> {
+    const empty = { eventIds: [] as string[], time: null, day: null, frequency: null, location: null };
+    if (!groupId) return empty;
+
+    const listRaw = await this.get(`/groups/${encodeURIComponent(groupId)}/events`);
+    const list = asArray(listRaw);
+    const eventIds = Array.from(new Set(
+      list.map((e: any) => firstString(e?.event_id, e?.event?.id, e?.id)).filter(Boolean)
+    ));
+    if (eventIds.length === 0) return empty;
+
+    // Fetch the full detail of the first event for its recurrence + address.
+    let detail: any = null;
+    try {
+      detail = await this.get(`/events/${encodeURIComponent(eventIds[0])}`);
+    } catch { /* fall back to list row below */ }
+    const ev = detail ?? list[0] ?? {};
+
+    const start = firstString(ev?.start, ev?.event?.start, list[0]?.start);
+    let time: string | null = null;
+    let day: string | null = null;
+    if (start) {
+      // Keep the event's own wall-clock time/zone (don't shift to server tz).
+      const m = start.match(/T(\d{2}):(\d{2})/);
+      if (m) time = `${m[1]}:${m[2]}`;
+      const dateMatch = start.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (dateMatch) {
+        const [, y, mo, d] = dateMatch;
+        const dow = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d))).getUTCDay();
+        day = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dow] ?? null;
+      }
+    }
+
+    // Recurrence → RADIUS frequency label.
+    const rec = ev?.recurrence ?? {};
+    const freqCode = firstString(rec?.frequency).toUpperCase();
+    const interval = Number(firstString(rec?.interval)) || 1;
+    let frequency: string | null = null;
+    if (freqCode === 'W') frequency = interval >= 2 ? 'Bi-weekly' : 'Weekly';
+    else if (freqCode === 'M') frequency = interval >= 3 ? 'Quarterly' : 'Monthly';
+    else if (freqCode === 'Q') frequency = 'Quarterly';
+
+    // Location → prefer the event address (more specific than the group's).
+    const addr = ev?.address ?? {};
+    const location = firstString(
+      addr?.name,
+      [addr?.street, addr?.city, addr?.state, addr?.zip].map((s: any) => firstString(s)).filter(Boolean).join(', '),
+    ) || null;
+
+    return { eventIds, time, day, frequency, location };
+  }
+
+  /**
    * GET /groups → List groups, one page at a time. NOTE: CCB v2's /groups endpoint
    * does NOT support server-side filtering (campus_id/department_id/type_id are all
    * silently ignored, and campus_ids returns 412). Callers must filter the returned

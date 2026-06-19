@@ -19,6 +19,9 @@ interface CCBGroupPreview {
   campusId?: string | null;
   meetingDay?: string | null;
   meetingTime?: string | null;
+  meetingFrequency?: string | null;
+  location?: string | null;
+  eventCount?: number;
   address?: string | null;
   city?: string | null;
   state?: string | null;
@@ -63,6 +66,17 @@ interface ReferenceData {
   campuses: { id: number; value: string }[];
   circleTypes: { id: number; value: string }[];
   frequencies: { id: number; value: string }[];
+}
+
+// "14:00" → "2:00 PM"; passes through non-HH:mm values (e.g. "Evening") unchanged.
+function formatMeetingTime(t?: string | null): string | null {
+  if (!t) return null;
+  const m = t.match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return t;
+  const h = Number(m[1]);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const hour = h % 12 || 12;
+  return `${hour}:${m[2]} ${ampm}`;
 }
 
 function Detail({ label, value }: { label: string; value?: string | null }) {
@@ -1038,13 +1052,16 @@ export default function ImportCirclesPage() {
                     <Detail label="Campus" value={preview.campus} />
                     <Detail label="CCB Group ID" value={preview.id} />
                     <Detail label="Meeting Day" value={preview.meetingDay} />
-                    <Detail label="Meeting Time" value={preview.meetingTime} />
+                    <Detail label="Meeting Time" value={formatMeetingTime(preview.meetingTime)} />
+                    <Detail label="Frequency" value={preview.meetingFrequency} />
                     <Detail label="Childcare" value={preview.childcare == null ? null : preview.childcare ? 'Yes' : 'No'} />
-                    <Detail
-                      label="Location"
-                      value={[preview.address, preview.city, preview.state, preview.zip].filter(Boolean).join(', ') || null}
-                    />
+                    <Detail label="Location" value={preview.location} />
                   </div>
+                  {preview.eventCount === 0 && (
+                    <p className="mt-3 text-xs text-amber-600 dark:text-amber-400">
+                      No CCB calendar events found yet, so meeting time/frequency may be blank. They&apos;ll fill in once the circle&apos;s calendar has events.
+                    </p>
+                  )}
                   {preview.description && (
                     <p className="mt-3 text-sm text-gray-500 dark:text-gray-400 italic">{preview.description}</p>
                   )}

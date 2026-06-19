@@ -4,6 +4,17 @@
     "version": "2.36.0",
     "date_display": "June 19, 2026",
     "date_iso": "2026-06-19",
+    "id": "archive-leader-status-fix",
+    "type": "fix",
+    "category": "Circle Leaders",
+    "description": "You can now set a Circle Leader's status to Archived and have it save. The database was rejecting the Archived status even though it appeared in the dropdown. Save errors on the leader profile now also show the actual reason instead of a generic message.",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-06-19",
+    "version": "2.36.0",
+    "date_display": "June 19, 2026",
+    "date_iso": "2026-06-19",
     "id": "global-search-refresh-on-open",
     "type": "fix",
     "category": "Search",
@@ -18,7 +29,7 @@
     "id": "ccb-circle-import-by-group-id",
     "type": "feature",
     "category": "Circle Import",
-    "description": "Import a circle from CCB by entering its Group ID. RADIUS pulls the circle's details and the leader's name, email, phone, and birthday so you can review before importing. Assign a director (ACPD), then import it as a new circle in one click. The leader's CCB calendar events are linked automatically so event-summary syncing works right away.",
+    "description": "Import a circle from CCB by entering its Group ID. RADIUS pulls the circle's details and the leader's name, email, phone, and birthday so you can review before importing. Meeting day, exact meeting time, frequency (weekly/bi-weekly), and location are read straight from the circle's CCB calendar event — more accurate than CCB's coarse group labels. Assign a director (ACPD), then import it as a new circle in one click. The CCB calendar events are linked automatically so event-summary syncing works right away.",
     "page": "/import-circles"
   },
   {
