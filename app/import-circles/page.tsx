@@ -128,7 +128,7 @@ export default function ImportCirclesPage() {
     if (accessToken && activeTab === 'ccb') {
       loadCircles();
     }
-  }, [accessToken, selectedCampus, selectedDept, activeTab, loadCircles]);
+  }, [accessToken, selectedCampus, selectedDept, activeTab]);
 
   // Load circles from CCB
   const loadCircles = useCallback(async () => {
