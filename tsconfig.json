@@ -23,6 +23,12 @@
     ],
     "strictNullChecks": true
   },
+  "ts-node": {
+    "comment": "CLI scripts run under ts-node as CommonJS; Next's build ignores this block and keeps the esnext module setting above.",
+    "compilerOptions": {
+      "module": "commonjs"
+    }
+  },
   "exclude": [
     "netlify",
     "node_modules"

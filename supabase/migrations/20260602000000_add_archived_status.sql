@@ -7,6 +7,12 @@
 -- `statuses` table. But circle_leaders_status_check was never updated to allow
 -- it, so saving a leader as Archived failed with a check-constraint violation.
 
+-- Normalize legacy/invalid status values so the new constraint can be applied.
+-- Production had one 'on-boarding' row and one NULL-status row, both of which
+-- violated the constraint. Map them to valid values before recreating it.
+UPDATE circle_leaders SET status = 'invited' WHERE status = 'on-boarding';
+UPDATE circle_leaders SET status = 'active'  WHERE status IS NULL OR status = '';
+
 -- Make sure the dropdown source has a lowercase 'archived' row (the rest of the
 -- codebase compares against lowercase 'archived'). The statuses.value column has
 -- no unique constraint in production, so guard with NOT EXISTS rather than
