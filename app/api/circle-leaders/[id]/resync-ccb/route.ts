@@ -104,6 +104,19 @@ export async function POST(
     const updates: Record<string, any> = { updated_at: new Date().toISOString() };
     const setIf = (key: string, val: any) => { if (val !== null && val !== undefined && val !== '') updates[key] = val; };
 
+    // Primary leader (from the CCB group's main_leader) → name + profile link.
+    const subdomain = process.env.CCB_SUBDOMAIN || process.env.CCB_BASE_URL || '';
+    const sBase = subdomain
+      ? (subdomain.includes('.')
+          ? (subdomain.startsWith('http') ? subdomain : `https://${subdomain}`)
+          : `https://${subdomain}.ccbchurch.com`)
+      : '';
+    const linkBase = sBase ? sBase.replace(/\/api\.php$/, '') : '';
+    const leaderProfileLink = linkBase && group.mainLeader?.id
+      ? `${linkBase}/goto/individuals/${group.mainLeader.id}`
+      : null;
+
+    setIf('name', group.mainLeader?.fullName || null);
     setIf('campus', campusName);
     setIf('circle_type', group.type?.name || null);
     setIf('day', meeting.day || group.meetDay?.name || null);
@@ -113,6 +126,7 @@ export async function POST(
     setIf('email', leaderEmail);
     setIf('phone', leaderPhone);
     setIf('birthday', leaderBirthday);
+    setIf('leader_ccb_profile_link', leaderProfileLink);
     setIf('ccb_group_name', group.name);
     if (meeting.eventIds.length > 0) updates.ccb_event_ids = meeting.eventIds;
 
@@ -120,7 +134,7 @@ export async function POST(
       .from('circle_leaders')
       .update(updates)
       .eq('id', id)
-      .select('id, name, day, time, frequency, location, campus, circle_type, email, phone, birthday, ccb_group_name, ccb_event_ids')
+      .select('id, name, day, time, frequency, location, campus, circle_type, email, phone, birthday, ccb_group_name, ccb_event_ids, leader_ccb_profile_link')
       .single();
 
     if (updErr) {

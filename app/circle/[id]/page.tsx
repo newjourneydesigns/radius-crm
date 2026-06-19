@@ -1558,6 +1558,7 @@ export default function CircleLeaderProfilePage() {
       setLeader(prev => (prev ? { ...prev, ...u } : prev));
       setEditedLeader(prev => ({
         ...prev,
+        name: u.name ?? prev.name,
         day: u.day ?? prev.day,
         time: u.time ?? prev.time,
         frequency: u.frequency ?? prev.frequency,
@@ -1568,7 +1569,12 @@ export default function CircleLeaderProfilePage() {
         phone: u.phone ?? prev.phone,
         birthday: u.birthday ?? prev.birthday,
         ccb_group_name: u.ccb_group_name ?? prev.ccb_group_name,
+        leader_ccb_profile_link: u.leader_ccb_profile_link ?? prev.leader_ccb_profile_link,
       }));
+      // Keep the Individual ID override in sync with the refreshed profile link.
+      if (u.leader_ccb_profile_link) {
+        setCcbIndividualIdInput(extractCcbIndividualId(u.leader_ccb_profile_link) || '');
+      }
       setShowAlert({
         isOpen: true,
         type: 'success',
