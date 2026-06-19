@@ -105,7 +105,7 @@ export default function ImportCirclesPage() {
     return () => window.removeEventListener('hashchange', syncTabFromHash);
   }, []);
 
-  // Load filter options and circles on mount
+  // Load filter options on mount
   useEffect(() => {
     const loadOptions = async () => {
       try {
@@ -113,7 +113,6 @@ export default function ImportCirclesPage() {
         if (res.ok) {
           const data = await res.json();
           setAcpdOptions(data.directors || []);
-          // Extract unique campuses from circles if available
           const depts = data.departments || [];
           setDeptOptions(depts);
         }
@@ -122,15 +121,14 @@ export default function ImportCirclesPage() {
       }
     };
     loadOptions();
-    loadCircles();
   }, []);
 
-  // Reload circles when filters change
+  // Load circles when accessToken becomes available or filters change
   useEffect(() => {
-    if (activeTab === 'ccb') {
+    if (accessToken && activeTab === 'ccb') {
       loadCircles();
     }
-  }, [selectedCampus, selectedDept, activeTab]);
+  }, [accessToken, selectedCampus, selectedDept, activeTab, loadCircles]);
 
   // Load circles from CCB
   const loadCircles = useCallback(async () => {
