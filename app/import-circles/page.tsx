@@ -73,6 +73,7 @@ export default function ImportCirclesPage() {
   const [groups, setGroups] = useState<CCBGroup[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [searchError, setSearchError] = useState('');
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -137,6 +138,7 @@ export default function ImportCirclesPage() {
   // Load circles from CCB
   const loadCircles = useCallback(async () => {
     setIsLoading(true);
+    setHasSearched(true);
     setSearchError('');
     setImportResult(null);
     setSelected(new Set());
@@ -158,15 +160,6 @@ export default function ImportCirclesPage() {
       }
 
       setGroups(json.groups || []);
-
-      // Extract unique campuses from results for dynamic filter
-      const camps = new Map<string, string>();
-      (json.groups || []).forEach((g: any) => {
-        if (g.campusId && g.campus) {
-          camps.set(String(g.campusId), g.campus);
-        }
-      });
-      setCampusOptions(Array.from(camps.entries()).map(([id, name]) => ({ id, name })));
     } catch (err: any) {
       setSearchError(err.message || 'Failed to load circles');
       setGroups([]);
@@ -1077,7 +1070,7 @@ export default function ImportCirclesPage() {
           )}
 
           {/* Results */}
-          {!isLoading && (
+          {!isLoading && hasSearched && (
             <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
               {/* Toolbar */}
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
