@@ -189,14 +189,15 @@ export class CCBv2Client {
   }
 
   /**
-   * GET /groups → List groups with filtering. Returns paginated results.
+   * GET /groups → List groups, one page at a time. NOTE: CCB v2's /groups endpoint
+   * does NOT support server-side filtering (campus_id/department_id/type_id are all
+   * silently ignored, and campus_ids returns 412). Callers must filter the returned
+   * items themselves on group_type / campus / department.
    */
-  async listGroups(options?: { page?: number; perPage?: number; campusId?: string | number; inactive?: boolean }): Promise<{ items: GroupDetailV2[]; totalCount?: number }> {
+  async listGroups(options?: { page?: number; perPage?: number }): Promise<{ items: GroupDetailV2[]; totalCount?: number }> {
     const query: Record<string, any> = {};
     if (options?.page) query.page = options.page;
     if (options?.perPage) query.per_page = options.perPage;
-    if (options?.campusId) query.campus_id = options.campusId;
-    if (options?.inactive !== undefined) query.inactive = options.inactive ? 'true' : 'false';
 
     const raw = await this.get('/groups', query);
     const items = asArray(raw).map(mapGroupDetail).filter((g): g is GroupDetailV2 => g !== null);
@@ -404,8 +405,8 @@ function mapGroupDetail(g: any): GroupDetailV2 | null {
     id: String(g.id),
     name: firstString(g.name),
     description: strOrUndef(g.description),
-    type: g.group_type ? { id: String(g.group_type.id), name: firstString(g.group_type.name) } : undefined,
-    campus: g.campus ? { id: String(g.campus.id), name: firstString(g.campus.name) } : undefined,
+    type: g.group_type ? { id: String(g.group_type.id), name: firstString(g.group_type.name) } : (g.type_id ? { id: String(g.type_id) } : undefined),
+    campus: g.campus ? { id: String(g.campus.id), name: firstString(g.campus.name) } : (g.campus_id ? { id: String(g.campus_id) } : undefined),
     department: g.department ? { id: String(g.department.id), name: firstString(g.department.name) } : undefined,
     area: g.area ? { id: String(g.area.id), name: firstString(g.area.name) } : undefined,
     address: g.address ? {

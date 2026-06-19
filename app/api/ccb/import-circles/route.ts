@@ -64,36 +64,37 @@ export async function GET(request: NextRequest) {
     const campusId = request.nextUrl.searchParams.get('campus');
     const deptId = request.nextUrl.searchParams.get('department');
 
-    // Fetch circles from CCB v2 (paginated, non-inactive circles)
+    // CCB "Circle" group type. The /groups list mixes in Admin/Serving/Class/etc.,
+    // so we always narrow to actual circles regardless of campus/department filters.
+    const CIRCLE_TYPE_ID = '9';
+
     const ccbv2 = createCCBv2Client(await getCCBRequestContext(request, {
       module: 'Import Circles (v2)',
       action: 'Fetch Active Circles',
       direction: 'pull',
     }));
 
-    // Fetch all active circles with optional campus filter
-    const allCircles: any[] = [];
+    // CCB v2's /groups endpoint ignores all server-side filter params, so we page
+    // through the full list and filter here.
+    const allGroups: any[] = [];
     let page = 1;
     let hasMore = true;
 
-    while (hasMore && page <= 10) {
-      const result = await ccbv2.listGroups({
-        page,
-        perPage: 100,
-        campusId: campusId || undefined,
-        inactive: false,
-      });
-
-      allCircles.push(...result.items);
+    while (hasMore && page <= 20) {
+      const result = await ccbv2.listGroups({ page, perPage: 100 });
+      allGroups.push(...result.items);
       hasMore = (result.items.length === 100);
       page++;
     }
 
-    // Filter by department if specified
-    let circles = allCircles;
-    if (deptId) {
-      circles = circles.filter(c => String(c.department?.id) === deptId);
-    }
+    // Filter: Circle type, active, + optional campus/department.
+    const circles = allGroups.filter((c) => {
+      if (String(c.type?.id) !== CIRCLE_TYPE_ID) return false;
+      if (c.inactive) return false;
+      if (campusId && String(c.campus?.id) !== campusId) return false;
+      if (deptId && String(c.department?.id) !== deptId) return false;
+      return true;
+    });
 
     // Check which groups are already imported
     const sb = getServiceSupabase();
