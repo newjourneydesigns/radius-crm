@@ -189,6 +189,22 @@ export class CCBv2Client {
   }
 
   /**
+   * GET /groups/{id}/events → the group's calendar. Returns the distinct CCB
+   * event IDs backing this circle, used to seed circle_leaders.ccb_event_ids so
+   * the attendance/event-summary sync can run immediately after import.
+   */
+  async getGroupEventIds(groupId: string): Promise<string[]> {
+    if (!groupId) return [];
+    const raw = await this.get(`/groups/${encodeURIComponent(groupId)}/events`);
+    const ids = new Set<string>();
+    for (const e of asArray(raw)) {
+      const id = firstString(e?.event_id, e?.event?.id, e?.id);
+      if (id) ids.add(id);
+    }
+    return Array.from(ids);
+  }
+
+  /**
    * GET /groups → List groups, one page at a time. NOTE: CCB v2's /groups endpoint
    * does NOT support server-side filtering (campus_id/department_id/type_id are all
    * silently ignored, and campus_ids returns 412). Callers must filter the returned

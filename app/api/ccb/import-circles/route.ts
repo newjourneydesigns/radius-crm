@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { createCCBv2Client } from '../../../../lib/ccb/ccb-v2-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import { verifyAdminAccessDemo } from '../../../../lib/auth-middleware';
-import type { CCBGroup } from '../../../../lib/ccb-types';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,10 +37,10 @@ function getServiceSupabase() {
 }
 
 // ---------------------------------------------------------------------------
-// GET  /api/ccb/import-circles?campus=<campusId>&department=<deptId>
+// GET  /api/ccb/import-circles?group_id=<id>
 //
-// Fetches active circles from CCB v2 with optional filtering.
-// Returns circles not yet imported to RADIUS, with auto-populated leader info.
+// Looks up a single CCB group by its Group ID and returns a preview with the
+// leader's name, email, phone, and birthday. Flags whether it's already in RADIUS.
 // ---------------------------------------------------------------------------
 export async function GET(request: NextRequest) {
   try {
@@ -61,92 +59,100 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const campusId = request.nextUrl.searchParams.get('campus');
-    const deptId = request.nextUrl.searchParams.get('department');
-
-    // CCB "Circle" group type. The /groups list mixes in Admin/Serving/Class/etc.,
-    // so we always narrow to actual circles regardless of campus/department filters.
-    const CIRCLE_TYPE_ID = '9';
+    const groupId = (request.nextUrl.searchParams.get('group_id') || '').trim();
+    if (!groupId || !/^\d+$/.test(groupId)) {
+      return NextResponse.json(
+        { error: 'Enter a valid numeric CCB Group ID.' },
+        { status: 400 }
+      );
+    }
 
     const ccbv2 = createCCBv2Client(await getCCBRequestContext(request, {
       module: 'Import Circles (v2)',
-      action: 'Fetch Active Circles',
+      action: 'Lookup Group by ID',
       direction: 'pull',
     }));
 
-    // CCB v2's /groups endpoint ignores all server-side filter params, so we page
-    // through the full list and filter here.
-    const allGroups: any[] = [];
-    let page = 1;
-    let hasMore = true;
-
-    while (hasMore && page <= 20) {
-      const result = await ccbv2.listGroups({ page, perPage: 100 });
-      allGroups.push(...result.items);
-      hasMore = (result.items.length === 100);
-      page++;
+    // 1. Fetch the group detail.
+    const group = await ccbv2.getGroupDetail(groupId);
+    if (!group) {
+      return NextResponse.json(
+        { error: `No CCB group found for Group ID ${groupId}.` },
+        { status: 404 }
+      );
     }
 
-    // Filter: Circle type, active, + optional campus/department.
-    const circles = allGroups.filter((c) => {
-      if (String(c.type?.id) !== CIRCLE_TYPE_ID) return false;
-      if (c.inactive) return false;
-      if (campusId && String(c.campus?.id) !== campusId) return false;
-      if (deptId && String(c.department?.id) !== deptId) return false;
-      return true;
-    });
+    // 2. Resolve the campus name (single-group fetch returns campus.name as null).
+    let campusName = group.campus?.name || null;
+    if (!campusName && group.campus?.id) {
+      try {
+        const campusesRaw = await ccbv2.get('/campuses');
+        const campuses = Array.isArray(campusesRaw) ? campusesRaw : (campusesRaw?.items ?? campusesRaw?.data ?? []);
+        const match = campuses.find((c: any) => String(c.id) === String(group.campus?.id));
+        campusName = match?.name || null;
+      } catch { /* non-fatal */ }
+    }
 
-    // Check which groups are already imported
+    // 3. Pull the leader's full profile for phone + birthday (group payload omits them).
+    let leader = group.mainLeader || null;
+    if (leader?.id) {
+      try {
+        const profile = await ccbv2.getIndividualProfile(leader.id);
+        if (profile) {
+          leader = {
+            ...leader,
+            email: leader.email || profile.email,
+            phone: profile.mobilePhone || profile.phone || (leader as any).phone,
+            mobilePhone: profile.mobilePhone,
+            birthday: profile.birthday,
+          } as any;
+        }
+      } catch { /* non-fatal */ }
+    }
+
+    // 4. Already imported?
     const sb = getServiceSupabase();
-    const ccbIds = circles.map((c) => c.id);
+    const { data: existing } = await sb
+      .from('circle_leaders')
+      .select('id, name')
+      .eq('ccb_group_id', groupId)
+      .maybeSingle();
 
-    let importedIds = new Set<string>();
-    if (ccbIds.length > 0) {
-      const { data: existing } = await sb
-        .from('circle_leaders')
-        .select('ccb_group_id')
-        .in('ccb_group_id', ccbIds);
-      importedIds = new Set((existing || []).map((r: any) => r.ccb_group_id));
-    }
-
-    // Build CCB link base
+    // 5. CCB deep link.
     const subdomain = process.env.CCB_SUBDOMAIN || process.env.CCB_BASE_URL || '';
     const ccbBase = subdomain.includes('.')
       ? (subdomain.startsWith('http') ? subdomain : `https://${subdomain}`)
       : subdomain ? `https://${subdomain}.ccbchurch.com` : '';
     const ccbLinkBase = ccbBase.replace(/\/api\.php$/, '');
 
-    // Format response
-    const annotated = circles
-      .filter(c => !importedIds.has(c.id))
-      .map((c) => ({
-        id: c.id,
-        name: c.name,
-        description: c.description,
-        campus: c.campus?.name,
-        campusId: c.campus?.id,
-        department: c.department?.name,
-        departmentId: c.department?.id,
-        groupType: c.type?.name,
-        meetingDay: c.meetDay?.name,
-        meetingTime: c.meetTime?.name,
-        address: c.address?.street,
-        city: c.address?.city,
-        mainLeader: c.mainLeader ? {
-          id: c.mainLeader.id,
-          firstName: c.mainLeader.firstName,
-          lastName: c.mainLeader.lastName,
-          fullName: c.mainLeader.fullName,
-          email: c.mainLeader.email,
-          phone: c.mainLeader.mobilePhone || c.mainLeader.phone,
-        } : null,
-        ccbLink: ccbLinkBase ? `${ccbLinkBase}/group_detail.php?group_id=${c.id}` : null,
-      }));
-
     return NextResponse.json({
       success: true,
-      total: annotated.length,
-      groups: annotated,
+      group: {
+        id: group.id,
+        name: group.name,
+        description: group.description || null,
+        groupType: group.type?.name || null,
+        campus: campusName,
+        campusId: group.campus?.id || null,
+        meetingDay: group.meetDay?.name || null,
+        meetingTime: group.meetTime?.name || null,
+        address: group.address?.street || null,
+        city: group.address?.city || null,
+        state: group.address?.state || null,
+        zip: group.address?.zip || null,
+        childcare: group.childcare ?? null,
+        inactive: group.inactive ?? null,
+        mainLeader: leader ? {
+          id: leader.id,
+          fullName: leader.fullName,
+          email: leader.email || null,
+          phone: (leader as any).phone || (leader as any).mobilePhone || null,
+          birthday: (leader as any).birthday || null,
+        } : null,
+        ccbLink: ccbLinkBase ? `${ccbLinkBase}/group_detail.php?group_id=${group.id}` : null,
+        alreadyImported: !!existing,
+        existingLeader: existing ? { id: existing.id, name: existing.name } : null,
+      },
     });
   } catch (error: any) {
     console.error('❌ import-circles GET error:', error);
@@ -160,9 +166,11 @@ export async function GET(request: NextRequest) {
 // ---------------------------------------------------------------------------
 // POST /api/ccb/import-circles
 //
-// Body: { groups: Array<{ id, name, mainLeader?, campus?, groupType?, meetingDay?, meetingTime?, acpd? }> }
-// Inserts selected groups into circle_leaders with optional ACPD assignment.
-// Auto-creates leaders if they don't exist.
+// Body: { group_id: string, acpd?: string }
+// Re-fetches the group from CCB (authoritative), then inserts a single new
+// circle into circle_leaders — including the leader's birthday, the exact CCB
+// group name (for summary matching), and the group's CCB event IDs (so the
+// event-summary / attendance sync works immediately).
 // ---------------------------------------------------------------------------
 export async function POST(request: NextRequest) {
   try {
@@ -173,92 +181,121 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const groups: any[] = body.groups;
-    if (!Array.isArray(groups) || groups.length === 0) {
+    const groupId = String(body.group_id || '').trim();
+    const acpd = body.acpd ? String(body.acpd) : null;
+
+    if (!groupId || !/^\d+$/.test(groupId)) {
       return NextResponse.json(
-        { error: 'No groups provided. Send { groups: [...] }' },
+        { error: 'A valid numeric group_id is required.' },
         { status: 400 }
       );
     }
 
     const sb = getServiceSupabase();
 
-    // Fetch existing ccb_group_ids so we can auto-skip
-    const ccbIds = groups.map((g) => g.id).filter(Boolean);
-    const { data: existing } = await sb
+    // Guard against duplicates.
+    const { data: dup } = await sb
       .from('circle_leaders')
-      .select('ccb_group_id')
-      .in('ccb_group_id', ccbIds);
-    const importedIds = new Set((existing || []).map((r: any) => r.ccb_group_id));
-
-    const toInsert: any[] = [];
-    const skipped: Array<{ id: string; name: string; reason: string }> = [];
-
-    // Build CCB link base
-    const subdomain = process.env.CCB_SUBDOMAIN || process.env.CCB_BASE_URL || '';
-
-    for (const g of groups) {
-      if (!g.id || !g.name) {
-        skipped.push({ id: g.id || '?', name: g.name || '?', reason: 'Missing id or name' });
-        continue;
-      }
-
-      if (importedIds.has(g.id)) {
-        skipped.push({ id: g.id, name: g.name, reason: 'Already imported' });
-        continue;
-      }
-
-      // Determine leader name — prefer mainLeader.fullName, fall back to group name
-      const leaderName = g.mainLeader?.fullName || g.name;
-
-      // Build CCB profile link
-      let ccbProfileLink: string | null = null;
-      if (subdomain) {
-        const base = subdomain.includes('.')
-          ? (subdomain.startsWith('http') ? subdomain : `https://${subdomain}`)
-          : `https://${subdomain}.ccbchurch.com`;
-        ccbProfileLink = `${base.replace(/\/api\.php$/, '')}/group_detail.php?group_id=${g.id}`;
-      }
-
-      toInsert.push({
-        name: leaderName,
-        email: g.mainLeader?.email || null,
-        phone: g.mainLeader?.phone || null,
-        campus: g.campus || null,
-        acpd: g.acpd || null,
-        circle_type: g.groupType || null,
-        day: g.meetingDay || null,
-        time: g.meetingTime || null,
-        ccb_group_id: g.id,
-        ccb_profile_link: ccbProfileLink,
-        ccb_individual_id: g.mainLeader?.id || null,
-        status: 'active',
-        event_summary_received: false,
-      });
+      .select('id, name')
+      .eq('ccb_group_id', groupId)
+      .maybeSingle();
+    if (dup) {
+      return NextResponse.json(
+        { error: `This circle is already in RADIUS as "${dup.name}".`, existingLeaderId: dup.id },
+        { status: 409 }
+      );
     }
 
-    let imported = 0;
-    if (toInsert.length > 0) {
-      const { data, error: insertError } = await sb
-        .from('circle_leaders')
-        .insert(toInsert)
-        .select('id');
+    // Re-fetch from CCB so the import is based on authoritative data, not the
+    // client's (possibly stale) preview.
+    const ccbv2 = createCCBv2Client(await getCCBRequestContext(request, {
+      module: 'Import Circles (v2)',
+      action: 'Import Circle',
+      direction: 'pull',
+    }));
 
-      if (insertError) {
-        console.error('❌ circle_leaders insert error:', insertError);
-        return NextResponse.json(
-          { success: false, error: insertError.message },
-          { status: 500 }
-        );
-      }
-      imported = data?.length || toInsert.length;
+    const group = await ccbv2.getGroupDetail(groupId);
+    if (!group) {
+      return NextResponse.json(
+        { error: `No CCB group found for Group ID ${groupId}.` },
+        { status: 404 }
+      );
+    }
+
+    // Resolve campus name (single-fetch returns it null).
+    let campusName = group.campus?.name || null;
+    if (!campusName && group.campus?.id) {
+      try {
+        const campusesRaw = await ccbv2.get('/campuses');
+        const campuses = Array.isArray(campusesRaw) ? campusesRaw : (campusesRaw?.items ?? campusesRaw?.data ?? []);
+        campusName = campuses.find((c: any) => String(c.id) === String(group.campus?.id))?.name || null;
+      } catch { /* non-fatal */ }
+    }
+
+    // Leader profile → phone + birthday (omitted from the group payload).
+    let leaderEmail = group.mainLeader?.email || null;
+    let leaderPhone: string | null = null;
+    let leaderBirthday: string | null = null;
+    if (group.mainLeader?.id) {
+      try {
+        const profile = await ccbv2.getIndividualProfile(group.mainLeader.id);
+        if (profile) {
+          leaderEmail = leaderEmail || profile.email || null;
+          leaderPhone = profile.mobilePhone || profile.phone || null;
+          leaderBirthday = profile.birthday || null;
+        }
+      } catch { /* non-fatal */ }
+    }
+
+    // Group calendar → CCB event IDs, so attendance/summary sync runs immediately.
+    let eventIds: string[] = [];
+    try {
+      eventIds = await ccbv2.getGroupEventIds(groupId);
+    } catch { /* non-fatal — discover-events will backfill later */ }
+
+    const subdomain = process.env.CCB_SUBDOMAIN || process.env.CCB_BASE_URL || '';
+    const base = subdomain
+      ? (subdomain.includes('.')
+          ? (subdomain.startsWith('http') ? subdomain : `https://${subdomain}`)
+          : `https://${subdomain}.ccbchurch.com`)
+      : '';
+    const ccbProfileLink = base ? `${base.replace(/\/api\.php$/, '')}/group_detail.php?group_id=${groupId}` : null;
+
+    const row = {
+      name: group.mainLeader?.fullName || group.name,
+      email: leaderEmail,
+      phone: leaderPhone,
+      birthday: leaderBirthday,
+      campus: campusName,
+      acpd,
+      circle_type: group.type?.name || null,
+      day: group.meetDay?.name || null,
+      time: group.meetTime?.name || null,
+      circle_name: group.name,
+      ccb_group_id: groupId,
+      ccb_group_name: group.name,
+      ccb_profile_link: ccbProfileLink,
+      ccb_individual_id: group.mainLeader?.id || null,
+      ccb_event_ids: eventIds.length > 0 ? eventIds : null,
+      status: 'active',
+      event_summary_received: false,
+    };
+
+    const { data: inserted, error: insertError } = await sb
+      .from('circle_leaders')
+      .insert(row)
+      .select('id, name')
+      .single();
+
+    if (insertError) {
+      console.error('❌ circle_leaders insert error:', insertError);
+      return NextResponse.json({ success: false, error: insertError.message }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      imported,
-      skipped: skipped.length,
-      skippedDetails: skipped,
+      leader: inserted,
+      eventIdsLinked: eventIds.length,
     });
   } catch (error: any) {
     console.error('❌ import-circles POST error:', error);

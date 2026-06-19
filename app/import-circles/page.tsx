@@ -10,31 +10,31 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-interface CCBGroup {
+interface CCBGroupPreview {
   id: string;
   name: string;
-  description?: string;
-  campus?: string;
-  groupType?: string;
+  description?: string | null;
+  groupType?: string | null;
+  campus?: string | null;
+  campusId?: string | null;
+  meetingDay?: string | null;
+  meetingTime?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
+  childcare?: boolean | null;
+  inactive?: boolean | null;
   mainLeader?: {
     id?: string;
-    firstName?: string;
-    lastName?: string;
     fullName?: string;
-    email?: string;
-    phone?: string;
-  };
-  meetingDay?: string;
-  meetingTime?: string;
-  alreadyImported?: boolean;
-  possibleMatch?: { id: number; name: string } | null;
+    email?: string | null;
+    phone?: string | null;
+    birthday?: string | null;
+  } | null;
   ccbLink?: string | null;
-}
-
-interface ImportResult {
-  imported: number;
-  skipped: number;
-  skippedDetails: Array<{ id: string; name: string; reason: string }>;
+  alreadyImported?: boolean;
+  existingLeader?: { id: number; name: string } | null;
 }
 
 interface MassUpdateLeader {
@@ -65,28 +65,30 @@ interface ReferenceData {
   frequencies: { id: number; value: string }[];
 }
 
+function Detail({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div>
+      <span className="block text-xs text-gray-400 dark:text-gray-500">{label}</span>
+      <span className="text-gray-900 dark:text-white">{value || '—'}</span>
+    </div>
+  );
+}
+
 export default function ImportCirclesPage() {
   // Tab state
   const [activeTab, setActiveTab] = useState<'ccb' | 'mass-update'>('ccb');
 
-  // CCB Import state
-  const [groups, setGroups] = useState<CCBGroup[]>([]);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
+  // CCB Import state — look up a single group by ID, preview, then import.
+  const [groupIdInput, setGroupIdInput] = useState('');
+  const [preview, setPreview] = useState<CCBGroupPreview | null>(null);
+  const [isLooking, setIsLooking] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [searchError, setSearchError] = useState('');
-  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [importSuccess, setImportSuccess] = useState<{ name: string; eventIdsLinked: number } | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
-  // Filters
-  const [selectedCampus, setSelectedCampus] = useState<string>('');
-  const [selectedDept, setSelectedDept] = useState<string>('');
-  const [campusOptions, setCampusOptions] = useState<Array<{ id: string; name: string }>>([]);
-  const [deptOptions, setDeptOptions] = useState<Array<{ id: string; name: string }>>([]);
-
-  // ACPD assignment
-  const [groupAcpd, setGroupAcpd] = useState<Record<string, string>>({});
+  // ACPD assignment for the previewed circle
+  const [previewAcpd, setPreviewAcpd] = useState('');
   const [acpdOptions, setAcpdOptions] = useState<Array<{ id: number; name: string }>>([]);
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -106,67 +108,81 @@ export default function ImportCirclesPage() {
     return () => window.removeEventListener('hashchange', syncTabFromHash);
   }, []);
 
-  // Load filter options on mount (once accessToken is ready)
+  // Load ACPD director options on mount.
   useEffect(() => {
-    if (!accessToken) return;
     const loadOptions = async () => {
       try {
-        const [refRes, filterRes] = await Promise.all([
-          fetch('/api/reference-data'),
-          fetch('/api/ccb/filter-options', {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          }),
-        ]);
-        if (refRes.ok) {
-          const data = await refRes.json();
+        const res = await fetch('/api/reference-data');
+        if (res.ok) {
+          const data = await res.json();
           setAcpdOptions(data.directors || []);
-        }
-        if (filterRes.ok) {
-          const data = await filterRes.json();
-          setCampusOptions(data.campuses || []);
-          setDeptOptions(data.departments || []);
         }
       } catch (err) {
         console.error('Failed to load options:', err);
       }
     };
     loadOptions();
-  }, [accessToken]);
+  }, []);
 
-  // No automatic loading - user controls via Search button
+  // Look up a single CCB group by ID and show a preview to approve.
+  const lookupGroup = useCallback(async () => {
+    const id = groupIdInput.trim();
+    if (!id || !/^\d+$/.test(id)) {
+      setSearchError('Enter a numeric CCB Group ID.');
+      return;
+    }
 
-  // Load circles from CCB
-  const loadCircles = useCallback(async () => {
-    setIsLoading(true);
-    setHasSearched(true);
+    setIsLooking(true);
     setSearchError('');
-    setImportResult(null);
-    setSelected(new Set());
-    setGroupAcpd({});
+    setImportSuccess(null);
+    setPreview(null);
+    setPreviewAcpd('');
 
     try {
-      const url = new URL('/api/ccb/import-circles', window.location.origin);
-      if (selectedCampus) url.searchParams.set('campus', selectedCampus);
-      if (selectedDept) url.searchParams.set('department', selectedDept);
-
       const headers: Record<string, string> = {};
       if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
 
-      const res = await fetch(url.toString(), { headers });
+      const res = await fetch(`/api/ccb/import-circles?group_id=${encodeURIComponent(id)}`, { headers });
       const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
 
-      if (!res.ok) {
-        throw new Error(json.error || `HTTP ${res.status}`);
-      }
-
-      setGroups(json.groups || []);
+      setPreview(json.group);
     } catch (err: any) {
-      setSearchError(err.message || 'Failed to load circles');
-      setGroups([]);
+      setSearchError(err.message || 'Lookup failed.');
     } finally {
-      setIsLoading(false);
+      setIsLooking(false);
     }
-  }, [selectedCampus, selectedDept, accessToken]);
+  }, [groupIdInput, accessToken]);
+
+  // Import the previewed circle.
+  const importPreview = useCallback(async () => {
+    if (!preview || preview.alreadyImported) return;
+
+    setIsImporting(true);
+    setSearchError('');
+
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+
+      const res = await fetch('/api/ccb/import-circles', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ group_id: preview.id, acpd: previewAcpd || null }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+
+      setImportSuccess({ name: json.leader?.name || preview.name, eventIdsLinked: json.eventIdsLinked || 0 });
+      setPreview(null);
+      setGroupIdInput('');
+      setPreviewAcpd('');
+    } catch (err: any) {
+      setSearchError(err.message || 'Import failed.');
+    } finally {
+      setIsImporting(false);
+    }
+  }, [preview, previewAcpd, accessToken]);
 
   // Mass Update state
   const [massUpdateField, setMassUpdateField] = useState<'campus' | 'acpd' | 'frequency' | 'circle_type' | 'day' | 'time' | 'meeting_start_date' | 'status' | 'email_reminders_enabled'>('campus');
@@ -405,62 +421,6 @@ export default function ImportCirclesPage() {
       setMassUpdateLoading(false);
     }
   };
-
-  // ---- Selection helpers ----
-  const toggleSelect = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const selectAll = () => {
-    setSelected(new Set(groups.map((g) => g.id)));
-  };
-  const deselectAll = () => setSelected(new Set());
-
-  // ---- Import ----
-  const handleImport = useCallback(async () => {
-    if (selected.size === 0) return;
-
-    setIsImporting(true);
-    setSearchError('');
-    setImportResult(null);
-
-    const toImport = groups.filter((g) => selected.has(g.id)).map(g => ({
-      ...g,
-      acpd: groupAcpd[g.id] || null,
-    }));
-
-    try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
-      const res = await fetch('/api/ccb/import-circles', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ groups: toImport }),
-      });
-      const json = await res.json();
-
-      if (!res.ok) {
-        throw new Error(json.error || `HTTP ${res.status}`);
-      }
-
-      setImportResult(json);
-
-      // Reload circles after successful import
-      if (json.imported > 0) {
-        setSelected(new Set());
-        setTimeout(() => loadCircles(), 800);
-      }
-    } catch (err: any) {
-      setSearchError(err.message || 'Import failed.');
-    } finally {
-      setIsImporting(false);
-    }
-  }, [selected, groups, groupAcpd, accessToken, loadCircles]);
 
   return (
     <ProtectedRoute>
@@ -983,62 +943,43 @@ export default function ImportCirclesPage() {
           {activeTab === 'ccb' && (
             <>
 
-          {/* Filter controls */}
+          {/* Group ID lookup */}
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 mb-6">
-            <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Filter Active Circles</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Campus
-                </label>
-                <select
-                  value={selectedCampus}
-                  onChange={(e) => setSelectedCampus(e.target.value)}
-                  className="block w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-vc-500 focus:border-vc-500"
-                >
-                  <option value="">All Campuses</option>
-                  {campusOptions.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Department
-                </label>
-                <select
-                  value={selectedDept}
-                  onChange={(e) => setSelectedDept(e.target.value)}
-                  className="block w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-vc-500 focus:border-vc-500"
-                >
-                  <option value="">All Departments</option>
-                  {deptOptions.map((d) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex items-end">
-                <button
-                  onClick={loadCircles}
-                  disabled={isLoading}
-                  className="w-full btn-primary px-4 py-2 rounded-lg text-sm"
-                >
-                  {isLoading ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      Searching…
-                    </>
-                  ) : (
-                    'Search'
-                  )}
-                </button>
-              </div>
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-1">Import a Circle from CCB</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              Enter a CCB Group ID. We&apos;ll pull the circle&apos;s details and leader so you can review before importing.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={groupIdInput}
+                onChange={(e) => setGroupIdInput(e.target.value.replace(/[^0-9]/g, ''))}
+                onKeyDown={(e) => { if (e.key === 'Enter') lookupGroup(); }}
+                placeholder="e.g. 3947"
+                className="flex-1 min-w-0 block w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-vc-500 focus:border-vc-500"
+                disabled={isLooking}
+              />
+              <button
+                onClick={lookupGroup}
+                disabled={isLooking || !groupIdInput.trim()}
+                className="btn-primary inline-flex items-center justify-center px-5 py-2 rounded-lg text-sm whitespace-nowrap"
+              >
+                {isLooking ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Looking up…
+                  </>
+                ) : (
+                  'Look Up'
+                )}
+              </button>
             </div>
-            <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
-              {groups.length === 0 ? 'Click Search to load circles.' : `Found ${groups.length} circle${groups.length !== 1 ? 's' : ''}.`}
+            <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+              The Group ID is in the CCB group URL: <code>group_detail.php?group_id=<strong>3947</strong></code>
             </p>
           </div>
 
@@ -1049,167 +990,125 @@ export default function ImportCirclesPage() {
             </div>
           )}
 
-          {/* Loading state */}
-          {isLoading && (
-            <div className="mb-6 bg-white dark:bg-gray-800 shadow rounded-lg p-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-vc-500 mx-auto mb-3"></div>
-              <p className="text-gray-600 dark:text-gray-400">Loading circles from CCB...</p>
-            </div>
-          )}
-
-          {/* Import result banner */}
-          {importResult && (
+          {/* Import success */}
+          {importSuccess && (
             <div className="mb-6 rounded-md bg-green-50 dark:bg-green-900/30 p-4">
               <p className="text-sm text-green-700 dark:text-green-400">
-                <strong>{importResult.imported}</strong> circle{importResult.imported !== 1 ? 's' : ''} imported successfully.
-                {importResult.skipped > 0 && (
-                  <> <strong>{importResult.skipped}</strong> skipped.</>
-                )}
+                <strong>{importSuccess.name}</strong> was imported as a new circle.
+                {importSuccess.eventIdsLinked > 0
+                  ? ` Linked ${importSuccess.eventIdsLinked} CCB event${importSuccess.eventIdsLinked !== 1 ? 's' : ''} for summary syncing.`
+                  : ' No CCB calendar events were found yet — they will sync automatically once scheduled.'}
               </p>
             </div>
           )}
 
-          {/* Results */}
-          {!isLoading && hasSearched && (
+          {/* Preview card */}
+          {preview && (
             <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-              {/* Toolbar */}
-              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {groups.length} circle{groups.length !== 1 ? 's' : ''} available
-                  {selected.size > 0 && (
-                    <span className="ml-2 font-medium text-blue-600 dark:text-blue-400">
-                      · {selected.size} selected
-                    </span>
-                  )}
-                </p>
-                <div className="flex gap-2">
-                  {groups.length > 0 && (
-                    <>
-                      <button
-                        onClick={selected.size === groups.length ? deselectAll : selectAll}
-                        className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
-                      >
-                        {selected.size === groups.length ? 'Deselect All' : 'Select All'}
-                      </button>
-                      <button
-                        onClick={handleImport}
-                        disabled={selected.size === 0 || isImporting}
-                        className="btn-success inline-flex items-center px-4 py-1.5 rounded-lg text-xs"
-                      >
-                        {isImporting ? (
-                          <>
-                            <svg className="animate-spin -ml-1 mr-1.5 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                            </svg>
-                            Importing…
-                          </>
-                        ) : (
-                          `Import ${selected.size} Circle${selected.size !== 1 ? 's' : ''}`
-                        )}
-                      </button>
-                    </>
-                  )}
-                </div>
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Review Circle</h3>
+                {preview.ccbLink && (
+                  <a
+                    href={preview.ccbLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-500 hover:text-blue-400 hover:underline"
+                  >
+                    View in CCB →
+                  </a>
+                )}
               </div>
 
-              {/* Group list */}
-              {groups.length === 0 ? (
-                <div className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                  No circles found. Try adjusting filters.
+              <div className="p-6 space-y-6">
+                {/* Already imported warning */}
+                {preview.alreadyImported && (
+                  <div className="rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900 p-3">
+                    <p className="text-sm text-amber-800 dark:text-amber-300">
+                      This circle is already in RADIUS{preview.existingLeader ? ` as "${preview.existingLeader.name}"` : ''}. You can&apos;t import it again.
+                    </p>
+                  </div>
+                )}
+
+                {/* Circle details */}
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">Circle</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+                    <Detail label="Name" value={preview.name} />
+                    <Detail label="Type" value={preview.groupType} />
+                    <Detail label="Campus" value={preview.campus} />
+                    <Detail label="CCB Group ID" value={preview.id} />
+                    <Detail label="Meeting Day" value={preview.meetingDay} />
+                    <Detail label="Meeting Time" value={preview.meetingTime} />
+                    <Detail label="Childcare" value={preview.childcare == null ? null : preview.childcare ? 'Yes' : 'No'} />
+                    <Detail
+                      label="Location"
+                      value={[preview.address, preview.city, preview.state, preview.zip].filter(Boolean).join(', ') || null}
+                    />
+                  </div>
+                  {preview.description && (
+                    <p className="mt-3 text-sm text-gray-500 dark:text-gray-400 italic">{preview.description}</p>
+                  )}
                 </div>
-              ) : (
-                <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {groups.map((g) => {
-                    const isSelected = selected.has(g.id);
 
-                    return (
-                      <li
-                        key={g.id}
-                        className={`px-6 py-4 transition-colors ${
-                          isSelected
-                            ? 'bg-blue-50 dark:bg-blue-900/20'
-                            : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'
-                        }`}
-                      >
-                        <div className="flex items-start gap-4">
-                          {/* Checkbox */}
-                          <div className="pt-1 shrink-0">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => toggleSelect(g.id)}
-                              className="h-4 w-4 text-blue-600 focus:ring-vc-500 border-gray-300 rounded"
-                            />
-                          </div>
+                {/* Leader details */}
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">Leader</h4>
+                  {preview.mainLeader ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+                      <Detail label="Name" value={preview.mainLeader.fullName} />
+                      <Detail label="Email" value={preview.mainLeader.email} />
+                      <Detail label="Phone" value={preview.mainLeader.phone} />
+                      <Detail label="Birthday" value={preview.mainLeader.birthday} />
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">No main leader is set on this CCB group.</p>
+                  )}
+                </div>
 
-                          {/* Details */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap mb-2">
-                              <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                                {g.name}
-                              </span>
-                              {g.ccbLink ? (
-                                <a
-                                  href={g.ccbLink}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-xs text-blue-400 hover:text-blue-300 hover:underline"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  CCB #{g.id}
-                                </a>
-                              ) : (
-                                <span className="text-xs text-gray-400 dark:text-gray-500">
-                                  CCB #{g.id}
-                                </span>
-                              )}
-                            </div>
+                {/* ACPD assignment */}
+                {!preview.alreadyImported && (
+                  <div>
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">Assign Director (ACPD)</h4>
+                    <select
+                      value={previewAcpd}
+                      onChange={(e) => setPreviewAcpd(e.target.value)}
+                      className="block w-full sm:w-72 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-vc-500 focus:border-vc-500"
+                    >
+                      <option value="">— No Director —</option>
+                      {acpdOptions.map((acpd) => (
+                        <option key={acpd.id} value={acpd.name}>{acpd.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
 
-                            {/* Meta row */}
-                            <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-500 dark:text-gray-400 mb-3">
-                              {g.mainLeader?.fullName && (
-                                <span><strong>Leader:</strong> {g.mainLeader.fullName}</span>
-                              )}
-                              {g.campus && (
-                                <span><strong>Campus:</strong> {g.campus}</span>
-                              )}
-                              {g.groupType && (
-                                <span><strong>Type:</strong> {g.groupType}</span>
-                              )}
-                              {g.meetingDay && (
-                                <span><strong>Day:</strong> {g.meetingDay}</span>
-                              )}
-                              {g.meetingTime && (
-                                <span><strong>Time:</strong> {g.meetingTime}</span>
-                              )}
-                            </div>
-
-                            {/* ACPD selector (only for selected items) */}
-                            {isSelected && (
-                              <div className="bg-blue-50 dark:bg-blue-900/20 rounded p-3 border border-blue-200 dark:border-blue-900">
-                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                  Assign Director (ACPD)
-                                </label>
-                                <select
-                                  value={groupAcpd[g.id] || ''}
-                                  onChange={(e) => setGroupAcpd(prev => ({ ...prev, [g.id]: e.target.value }))}
-                                  className="block w-full px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-vc-500 focus:border-vc-500"
-                                >
-                                  <option value="">— No Director —</option>
-                                  {acpdOptions.map((acpd) => (
-                                    <option key={acpd.id} value={acpd.name}>{acpd.name}</option>
-                                  ))}
-                                </select>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+              {/* Actions */}
+              <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+                <button
+                  onClick={() => { setPreview(null); setSearchError(''); }}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={importPreview}
+                  disabled={isImporting || preview.alreadyImported}
+                  className="btn-success inline-flex items-center px-5 py-2 rounded-lg text-sm"
+                >
+                  {isImporting ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Importing…
+                    </>
+                  ) : (
+                    'Import as Circle'
+                  )}
+                </button>
+              </div>
             </div>
           )}
 
