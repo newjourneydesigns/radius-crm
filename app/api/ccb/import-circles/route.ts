@@ -259,7 +259,11 @@ export async function POST(request: NextRequest) {
           ? (subdomain.startsWith('http') ? subdomain : `https://${subdomain}`)
           : `https://${subdomain}.ccbchurch.com`)
       : '';
-    const ccbProfileLink = base ? `${base.replace(/\/api\.php$/, '')}/group_detail.php?group_id=${groupId}` : null;
+    const linkBase = base ? base.replace(/\/api\.php$/, '') : '';
+    const ccbProfileLink = linkBase ? `${linkBase}/group_detail.php?group_id=${groupId}` : null;
+    const leaderProfileLink = linkBase && group.mainLeader?.id
+      ? `${linkBase}/goto/individuals/${group.mainLeader.id}`
+      : null;
 
     const row = {
       name: group.mainLeader?.fullName || group.name,
@@ -275,7 +279,7 @@ export async function POST(request: NextRequest) {
       ccb_group_id: groupId,
       ccb_group_name: group.name,
       ccb_profile_link: ccbProfileLink,
-      ccb_individual_id: group.mainLeader?.id || null,
+      leader_ccb_profile_link: leaderProfileLink,
       ccb_event_ids: eventIds.length > 0 ? eventIds : null,
       status: 'active',
       event_summary_received: false,
