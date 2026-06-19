@@ -248,6 +248,10 @@ export default function CircleLeaderProfilePage() {
   const [editedLeader, setEditedLeader] = useState<Partial<CircleLeader>>({});
   const [isSavingLeader, setIsSavingLeader] = useState(false);
   const [isResyncing, setIsResyncing] = useState(false);
+  const [resyncPreview, setResyncPreview] = useState<{
+    changes: Array<{ field: string; label: string; from: string; to: string }>;
+    values: Record<string, any>;
+  } | null>(null);
   // CCB ID overrides (edit mode). We store IDs and derive the CCB URLs from them.
   const [ccbIndividualIdInput, setCcbIndividualIdInput] = useState('');
   const [ccbEventIdsInput, setCcbEventIdsInput] = useState('');
@@ -1530,8 +1534,7 @@ export default function CircleLeaderProfilePage() {
     setLeaderError('');
   };
 
-  // Re-pull this circle's data from CCB (meeting time/day/frequency/location,
-  // leader email/phone/birthday, group name, event IDs) using its CCB Group ID.
+  // Step 1: ask CCB what would change (no write), then show a confirm modal.
   const handleResyncCcb = async () => {
     if (!leader) return;
     const groupId = editedLeader.ccb_group_id ?? leader.ccb_group_id;
@@ -1553,7 +1556,34 @@ export default function CircleLeaderProfilePage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
 
-      // Reflect the refreshed values in both the saved leader and the edit form.
+      if (!json.changes || json.changes.length === 0) {
+        setShowAlert({ isOpen: true, type: 'info', title: 'Already up to date', message: 'CCB has no new data for this circle.' });
+        return;
+      }
+      setResyncPreview({ changes: json.changes, values: json.values });
+    } catch (err: any) {
+      setLeaderError(err.message || 'Re-sync failed.');
+      setTimeout(() => setLeaderError(''), 8000);
+    } finally {
+      setIsResyncing(false);
+    }
+  };
+
+  // Step 2: user confirmed — write the previewed values.
+  const applyResync = async () => {
+    if (!resyncPreview) return;
+    setIsResyncing(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess?.session?.access_token;
+      const res = await fetch(`/api/circle-leaders/${leaderId}/resync-ccb`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ apply: resyncPreview.values }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+
       const u = json.leader || {};
       setLeader(prev => (prev ? { ...prev, ...u } : prev));
       setEditedLeader(prev => ({
@@ -1571,20 +1601,14 @@ export default function CircleLeaderProfilePage() {
         ccb_group_name: u.ccb_group_name ?? prev.ccb_group_name,
         leader_ccb_profile_link: u.leader_ccb_profile_link ?? prev.leader_ccb_profile_link,
       }));
-      // Keep the Individual ID override in sync with the refreshed profile link.
       if (u.leader_ccb_profile_link) {
         setCcbIndividualIdInput(extractCcbIndividualId(u.leader_ccb_profile_link) || '');
       }
-      setShowAlert({
-        isOpen: true,
-        type: 'success',
-        title: 'Synced from CCB',
-        message: json.eventIdsLinked > 0
-          ? `Updated. Linked ${json.eventIdsLinked} CCB event${json.eventIdsLinked !== 1 ? 's' : ''}.`
-          : 'Circle details updated from CCB.',
-      });
+      setResyncPreview(null);
+      setShowAlert({ isOpen: true, type: 'success', title: 'Synced from CCB', message: 'Circle details updated from CCB.' });
     } catch (err: any) {
       setLeaderError(err.message || 'Re-sync failed.');
+      setResyncPreview(null);
       setTimeout(() => setLeaderError(''), 8000);
     } finally {
       setIsResyncing(false);
@@ -3421,6 +3445,61 @@ export default function CircleLeaderProfilePage() {
         type="danger"
         isLoading={isDeletingLeader}
       />
+
+      {/* Re-sync confirmation — shows what CCB would change before writing */}
+      {resyncPreview && (
+        <div className="fixed inset-0 z-[10002] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-lg bg-brand-dark border border-zinc-700 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-zinc-700">
+              <h3 className="text-base font-semibold text-white">Confirm CCB Sync</h3>
+              <p className="mt-0.5 text-sm text-slate-400">
+                {resyncPreview.changes.length} field{resyncPreview.changes.length !== 1 ? 's' : ''} will be updated from CCB.
+              </p>
+            </div>
+            <div className="max-h-[55vh] overflow-y-auto px-6 py-4">
+              <div className="space-y-3">
+                {resyncPreview.changes.map((c) => (
+                  <div key={c.field} className="text-sm">
+                    <div className="text-xs font-medium text-slate-400 mb-1">{c.label}</div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2 py-1 rounded bg-red-500/10 text-red-300 line-through break-all">{c.from}</span>
+                      <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                      </svg>
+                      <span className="px-2 py-1 rounded bg-green-500/10 text-green-300 break-all">{c.to}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-zinc-700 flex justify-end gap-2">
+              <button
+                onClick={() => setResyncPreview(null)}
+                disabled={isResyncing}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-medium transition-all disabled:opacity-50"
+                style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={applyResync}
+                disabled={isResyncing}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-medium transition-all disabled:opacity-50"
+                style={{ background: 'rgba(59,130,246,0.18)', border: '1px solid rgba(59,130,246,0.30)', color: 'rgba(147,197,253,1)' }}
+              >
+                {isResyncing ? (
+                  <div className="w-3.5 h-3.5 border-2 border-blue-300/30 border-t-blue-300 rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+                {isResyncing ? 'Applying…' : 'Apply Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Follow-Up Date Picker Modal */}
       {showFollowUpDateModal && (
