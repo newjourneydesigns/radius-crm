@@ -105,23 +105,32 @@ export default function ImportCirclesPage() {
     return () => window.removeEventListener('hashchange', syncTabFromHash);
   }, []);
 
-  // Load filter options on mount
+  // Load filter options on mount (once accessToken is ready)
   useEffect(() => {
+    if (!accessToken) return;
     const loadOptions = async () => {
       try {
-        const res = await fetch('/api/reference-data');
-        if (res.ok) {
-          const data = await res.json();
+        const [refRes, filterRes] = await Promise.all([
+          fetch('/api/reference-data'),
+          fetch('/api/ccb/filter-options', {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          }),
+        ]);
+        if (refRes.ok) {
+          const data = await refRes.json();
           setAcpdOptions(data.directors || []);
-          const depts = data.departments || [];
-          setDeptOptions(depts);
+        }
+        if (filterRes.ok) {
+          const data = await filterRes.json();
+          setCampusOptions(data.campuses || []);
+          setDeptOptions(data.departments || []);
         }
       } catch (err) {
         console.error('Failed to load options:', err);
       }
     };
     loadOptions();
-  }, []);
+  }, [accessToken]);
 
   // No automatic loading - user controls via Search button
 
