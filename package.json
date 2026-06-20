@@ -40,7 +40,7 @@
     "@tiptap/starter-kit": "^3.22.4",
     "@types/luxon": "^3.7.1",
     "@types/yargs": "^17.0.33",
-    "axios": "1.11.0",
+    "axios": "^1.11.0",
     "chart.js": "^4.5.1",
     "dotenv": "^17.2.1",
     "fast-xml-parser": "^4.5.3",

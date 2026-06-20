@@ -6,9 +6,10 @@ import { supabase } from '../../lib/supabase';
 import { formatDateOnlyForDisplay } from '../../lib/dateUtils';
 
 const PREFS_KEY = 'touchpoint-tracker-prefs';
-const PREFS_VERSION = 2;
+const PREFS_VERSION = 3;
 
 type TypeStat = { count: number; last: string | null };
+type LeaderType = 'circle' | 'host_team';
 
 type TrackerLeader = {
   id: number;
@@ -16,6 +17,9 @@ type TrackerLeader = {
   campus: string | null;
   acpd: string | null;
   status: string | null;
+  leader_type: LeaderType;
+  team_name: string | null;
+  director: string | null;
   by_type: Record<string, TypeStat>;
 };
 
@@ -32,13 +36,17 @@ type DerivedLeader = {
   campus: string | null;
   acpd: string | null;
   status: string | null;
+  leaderType: LeaderType;
+  teamName: string | null;
+  director: string | null;
+  owner: string | null;
   count: number;
   last: string | null;
   met: boolean;
 };
 
 type Rollup = { name: string; total: number; met: number; coverage_pct: number };
-type SortKey = 'name' | 'campus' | 'acpd' | 'status' | 'count' | 'last';
+type SortKey = 'name' | 'leaderType' | 'campus' | 'owner' | 'teamName' | 'status' | 'count' | 'last';
 type SortDir = 'asc' | 'desc';
 
 function relativeDate(iso: string | null): string {
@@ -53,10 +61,14 @@ function titleize(s: string): string {
   return s.replace(/(^|[\s-])\w/g, (m) => m.toUpperCase());
 }
 
-function rollupBy(rows: DerivedLeader[], key: 'acpd' | 'campus'): Rollup[] {
+function leaderTypeLabel(type: LeaderType): string {
+  return type === 'host_team' ? 'Host Team' : 'Circle';
+}
+
+function rollupByName(rows: DerivedLeader[], getName: (row: DerivedLeader) => string | null): Rollup[] {
   const groups = new Map<string, { name: string; total: number; met: number }>();
   for (const r of rows) {
-    const name = (r[key] || '').trim() || 'Unassigned';
+    const name = (getName(r) || '').trim() || 'Unassigned';
     const g = groups.get(name) || { name, total: 0, met: 0 };
     g.total += 1;
     if (r.met) g.met += 1;
@@ -83,6 +95,9 @@ export default function TouchpointTrackerPage() {
 
   const [campusFilter, setCampusFilter] = useState('');
   const [acpdFilter, setAcpdFilter] = useState('');
+  const [directorFilter, setDirectorFilter] = useState('');
+  const [teamFilter, setTeamFilter] = useState('');
+  const [leaderTypeFilter, setLeaderTypeFilter] = useState<LeaderType | ''>('');
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('name');
@@ -101,8 +116,11 @@ export default function TouchpointTrackerPage() {
         const storedVersion = Number(p?.version ?? 0);
         if (typeof p.campus === 'string') setCampusFilter(p.campus);
         if (typeof p.acpd === 'string') setAcpdFilter(p.acpd);
+        if (typeof p.director === 'string') setDirectorFilter(p.director);
+        if (typeof p.team === 'string') setTeamFilter(p.team);
+        if (p.leaderType === 'circle' || p.leaderType === 'host_team' || p.leaderType === '') setLeaderTypeFilter(p.leaderType);
         if (typeof p.status === 'string') setStatusFilter(p.status);
-        if (['name', 'campus', 'acpd', 'status', 'count', 'last'].includes(p.sortKey)) setSortKey(p.sortKey);
+        if (['name', 'leaderType', 'campus', 'owner', 'teamName', 'status', 'count', 'last'].includes(p.sortKey)) setSortKey(p.sortKey);
         if (p.sortDir === 'asc' || p.sortDir === 'desc') setSortDir(p.sortDir);
         if (storedVersion === PREFS_VERSION && Array.isArray(p.types)) {
           setSelectedTypes(p.types.filter((t: unknown): t is string => typeof t === 'string'));
@@ -137,6 +155,9 @@ export default function TouchpointTrackerPage() {
           version: PREFS_VERSION,
           campus: campusFilter,
           acpd: acpdFilter,
+          director: directorFilter,
+          team: teamFilter,
+          leaderType: leaderTypeFilter,
           status: statusFilter,
           sortKey,
           sortDir,
@@ -146,7 +167,7 @@ export default function TouchpointTrackerPage() {
     } catch {
       /* ignore quota errors */
     }
-  }, [hydrated, campusFilter, acpdFilter, statusFilter, sortKey, sortDir, selectedTypes]);
+  }, [hydrated, campusFilter, acpdFilter, directorFilter, teamFilter, leaderTypeFilter, statusFilter, sortKey, sortDir, selectedTypes]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -192,21 +213,42 @@ export default function TouchpointTrackerPage() {
           }
         }
       }
-      return { id: l.id, name: l.name, campus: l.campus, acpd: l.acpd, status: l.status, count, last, met: count >= target };
+      const leaderType = l.leader_type === 'host_team' ? 'host_team' : 'circle';
+      return {
+        id: l.id,
+        name: l.name,
+        campus: l.campus,
+        acpd: l.acpd,
+        status: l.status,
+        leaderType,
+        teamName: l.team_name,
+        director: l.director,
+        owner: leaderType === 'host_team' ? l.director : l.acpd,
+        count,
+        last,
+        met: count >= target,
+      };
     });
   }, [data, selectedSet, target]);
 
   const filtered = useMemo(() => {
     let list = allDerived;
-    if (acpdFilter) list = list.filter((l) => (l.acpd || '') === acpdFilter);
+    if (leaderTypeFilter) list = list.filter((l) => l.leaderType === leaderTypeFilter);
+    if (acpdFilter) list = list.filter((l) => l.leaderType === 'circle' && (l.acpd || '') === acpdFilter);
+    if (directorFilter) list = list.filter((l) => l.leaderType === 'host_team' && (l.director || '') === directorFilter);
+    if (teamFilter) list = list.filter((l) => l.leaderType === 'host_team' && (l.teamName || '') === teamFilter);
     if (campusFilter) list = list.filter((l) => (l.campus || '') === campusFilter);
     if (statusFilter) list = list.filter((l) => (l.status || '') === statusFilter);
     if (search.trim()) {
       const q = search.trim().toLowerCase();
-      list = list.filter((l) => l.name.toLowerCase().includes(q));
+      list = list.filter((l) => (
+        l.name.toLowerCase().includes(q) ||
+        (l.teamName || '').toLowerCase().includes(q) ||
+        (l.owner || '').toLowerCase().includes(q)
+      ));
     }
     return list;
-  }, [allDerived, acpdFilter, campusFilter, statusFilter, search]);
+  }, [allDerived, leaderTypeFilter, acpdFilter, directorFilter, teamFilter, campusFilter, statusFilter, search]);
 
   const rows = useMemo(() => {
     const dir = sortDir === 'asc' ? 1 : -1;
@@ -229,15 +271,24 @@ export default function TouchpointTrackerPage() {
     return { total, met, pct: total ? Math.round((met / total) * 100) : 0 };
   }, [filtered]);
 
-  const byAcpd = useMemo(() => rollupBy(allDerived, 'acpd'), [allDerived]);
-  const byCampus = useMemo(() => rollupBy(allDerived, 'campus'), [allDerived]);
+  const byAcpd = useMemo(() => rollupByName(allDerived.filter((r) => r.leaderType === 'circle'), (r) => r.acpd), [allDerived]);
+  const byDirector = useMemo(() => rollupByName(allDerived.filter((r) => r.leaderType === 'host_team'), (r) => r.director), [allDerived]);
+  const byCampus = useMemo(() => rollupByName(allDerived, (r) => r.campus), [allDerived]);
 
   const campuses = useMemo(
     () => Array.from(new Set((data?.leaders ?? []).map((l) => l.campus).filter(Boolean) as string[])).sort(),
     [data],
   );
   const acpds = useMemo(
-    () => Array.from(new Set((data?.leaders ?? []).map((l) => l.acpd).filter(Boolean) as string[])).sort(),
+    () => Array.from(new Set((data?.leaders ?? []).filter((l) => l.leader_type !== 'host_team').map((l) => l.acpd).filter(Boolean) as string[])).sort(),
+    [data],
+  );
+  const directors = useMemo(
+    () => Array.from(new Set((data?.leaders ?? []).filter((l) => l.leader_type === 'host_team').map((l) => l.director).filter(Boolean) as string[])).sort(),
+    [data],
+  );
+  const teams = useMemo(
+    () => Array.from(new Set((data?.leaders ?? []).filter((l) => l.leader_type === 'host_team').map((l) => l.team_name).filter(Boolean) as string[])).sort(),
     [data],
   );
   const statuses = useMemo(
@@ -286,10 +337,11 @@ export default function TouchpointTrackerPage() {
           />
         </div>
 
-        {/* Rollup charts — the greater cross-ACPD / cross-campus picture */}
+        {/* Rollup charts - the greater cross-ACPD / cross-campus picture */}
         {data && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
             <RollupCard title="By ACPD" rows={byAcpd} />
+            <RollupCard title="By Team Director" rows={byDirector} />
             <RollupCard title="By Campus" rows={byCampus} />
           </div>
         )}
@@ -302,6 +354,24 @@ export default function TouchpointTrackerPage() {
             placeholder="Search leaders…"
             className="bg-zinc-700 border border-zinc-600 text-slate-200 placeholder-slate-400 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 w-full sm:w-56"
           />
+          <select
+            value={leaderTypeFilter}
+            onChange={(e) => {
+              const next = e.target.value as LeaderType | '';
+              setLeaderTypeFilter(next);
+              if (next === 'circle') {
+                setDirectorFilter('');
+                setTeamFilter('');
+              } else if (next === 'host_team') {
+                setAcpdFilter('');
+              }
+            }}
+            className="bg-zinc-700 border border-zinc-600 text-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500"
+          >
+            <option value="">All leaders</option>
+            <option value="circle">Circles only</option>
+            <option value="host_team">Teams only</option>
+          </select>
           <select
             value={campusFilter}
             onChange={(e) => setCampusFilter(e.target.value)}
@@ -323,6 +393,26 @@ export default function TouchpointTrackerPage() {
             ))}
           </select>
           <select
+            value={directorFilter}
+            onChange={(e) => setDirectorFilter(e.target.value)}
+            className="bg-zinc-700 border border-zinc-600 text-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500"
+          >
+            <option value="">All team directors</option>
+            {directors.map((d) => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+          <select
+            value={teamFilter}
+            onChange={(e) => setTeamFilter(e.target.value)}
+            className="bg-zinc-700 border border-zinc-600 text-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500"
+          >
+            <option value="">All teams</option>
+            {teams.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+          <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="bg-zinc-700 border border-zinc-600 text-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500"
@@ -333,11 +423,14 @@ export default function TouchpointTrackerPage() {
             ))}
           </select>
           <TypeMultiSelect options={allTypes} selected={selectedTypes} onChange={setSelectedTypes} />
-          {(campusFilter || acpdFilter || statusFilter || search) && (
+          {(campusFilter || acpdFilter || directorFilter || teamFilter || leaderTypeFilter || statusFilter || search) && (
             <button
               onClick={() => {
                 setCampusFilter('');
                 setAcpdFilter('');
+                setDirectorFilter('');
+                setTeamFilter('');
+                setLeaderTypeFilter('');
                 setStatusFilter('');
                 setSearch('');
               }}
@@ -367,9 +460,11 @@ export default function TouchpointTrackerPage() {
                 <thead>
                   <tr className="border-b border-zinc-800 text-left">
                     <SortHeader label="Leader" col="name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortHeader label="Type" col="leaderType" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="hidden sm:table-cell" />
                     <SortHeader label="Campus" col="campus" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="hidden md:table-cell" />
-                    <SortHeader label="ACPD" col="acpd" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="hidden lg:table-cell" />
-                    <SortHeader label="Status" col="status" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="hidden lg:table-cell" />
+                    <SortHeader label="Team" col="teamName" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="hidden lg:table-cell" />
+                    <SortHeader label="Director / ACPD" col="owner" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="hidden lg:table-cell" />
+                    <SortHeader label="Status" col="status" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="hidden xl:table-cell" />
                     <SortHeader label="This period" col="count" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                     <SortHeader label="Last" col="last" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="hidden sm:table-cell" />
                   </tr>
@@ -381,11 +476,20 @@ export default function TouchpointTrackerPage() {
                         <a href={`/circle/${l.id}`} className="font-medium text-white hover:text-vc-300 transition-colors">
                           {l.name}
                         </a>
-                        <div className="text-xs text-slate-500 md:hidden">{l.campus || '—'}</div>
+                        <div className="text-xs text-slate-500 sm:hidden">
+                          {leaderTypeLabel(l.leaderType)}{l.campus ? ` · ${l.campus}` : ''}
+                        </div>
+                        {l.leaderType === 'host_team' && (
+                          <div className="text-xs text-slate-500 lg:hidden">
+                            {l.teamName || 'No team'}{l.director ? ` · ${l.director}` : ''}
+                          </div>
+                        )}
                       </td>
+                      <td className="px-4 py-3 text-slate-300 hidden sm:table-cell">{leaderTypeLabel(l.leaderType)}</td>
                       <td className="px-4 py-3 text-slate-300 hidden md:table-cell">{l.campus || '—'}</td>
-                      <td className="px-4 py-3 text-slate-300 hidden lg:table-cell">{l.acpd || '—'}</td>
-                      <td className="px-4 py-3 text-slate-400 hidden lg:table-cell">{l.status ? titleize(l.status) : '—'}</td>
+                      <td className="px-4 py-3 text-slate-300 hidden lg:table-cell">{l.leaderType === 'host_team' ? (l.teamName || '—') : '—'}</td>
+                      <td className="px-4 py-3 text-slate-300 hidden lg:table-cell">{l.owner || '—'}</td>
+                      <td className="px-4 py-3 text-slate-400 hidden xl:table-cell">{l.status ? titleize(l.status) : '—'}</td>
                       <td className="px-4 py-3">
                         {l.met ? (
                           <span className="inline-flex items-center gap-1.5 rounded-full bg-vc-500/15 text-vc-300 text-xs font-medium px-2.5 py-0.5">

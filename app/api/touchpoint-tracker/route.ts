@@ -1,11 +1,11 @@
 /**
- * Touchpoint Tracker data — per-leader coverage for the current period, broken
+ * Touchpoint Tracker data - per-leader coverage for the current period, broken
  * down by touchpoint type so the page can filter coverage to any subset of
  * types. Any signed-in RADIUS user may read; the page filters/sorts and rolls up.
  *
  * Sources, unified under one "type" taxonomy:
- *   - logged touchpoints (from the event-summary modal) → "Event Summary Follow-up"
- *   - connections logged on the Circle Leader page → their connection-type name
+ *   - logged touchpoints (from the event-summary modal) -> "Event Summary Follow-up"
+ *   - connections logged on the Circle Leader page -> their connection-type name
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -30,8 +30,7 @@ export async function GET(req: NextRequest) {
 
   const { data: leaders, error: leadersError } = await supabase
     .from('circle_leaders')
-    .select('id, name, campus, acpd, status, leader_type')
-    .or('leader_type.is.null,leader_type.eq.circle')
+    .select('id, name, campus, acpd, status, leader_type, team_name, director')
     .neq('status', 'archived');
   if (leadersError) return NextResponse.json({ error: leadersError.message }, { status: 500 });
 
@@ -58,7 +57,7 @@ export async function GET(req: NextRequest) {
   if (tpRes.error) return NextResponse.json({ error: tpRes.error.message }, { status: 500 });
   // connections is best-effort (table may be absent in some envs) — don't fail.
 
-  // Per leader → per type → { count, last }.
+  // Per leader -> per type -> { count, last }.
   const byLeader = new Map<number, Map<string, Acc>>();
   const seenTypeNames = new Set<string>();
   const bump = (leaderId: number, type: string, iso: string) => {
@@ -97,6 +96,9 @@ export async function GET(req: NextRequest) {
       campus: l.campus as string | null,
       acpd: l.acpd as string | null,
       status: l.status as string | null,
+      leader_type: l.leader_type === 'host_team' ? 'host_team' : 'circle',
+      team_name: l.team_name as string | null,
+      director: l.director as string | null,
       by_type,
     };
   });
