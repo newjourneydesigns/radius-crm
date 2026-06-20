@@ -361,6 +361,98 @@ export class CCBv2Client {
         : null,
     })).filter((v: SchedulingVolunteerV2) => v.individual !== null);
   }
+
+  /**
+   * Scheduled occurrences for a category in a date range, each with the people
+   * scheduled per position and their response status (pending/accepted/declined
+   * + decline reason). Read-only — CCB remains the system of record.
+   *
+   * IMPORTANT: the exact CCB scheduling endpoint + field names are still pending
+   * confirmation via `scripts/probe-ccb-scheduling.ts`. The path below is the
+   * most likely candidate and the mapping is intentionally defensive across the
+   * plausible shapes (nested positions vs. flat assignment list; snake/camel
+   * variants). Once a live sample is captured, tighten the path/fields here —
+   * callers and UI consume the typed shape and won't need to change.
+   */
+  async getCategorySchedules(
+    categoryId: string | number,
+    opts: { startDate?: string; endDate?: string } = {}
+  ): Promise<ScheduleOccurrenceV2[]> {
+    const query: Record<string, string> = {};
+    if (opts.startDate) query.start = opts.startDate;
+    if (opts.endDate) query.end = opts.endDate;
+
+    const raw = await this.get<any>(
+      `/scheduling/categories/${encodeURIComponent(String(categoryId))}/schedules`,
+      query
+    );
+
+    const pushAssignment = (
+      out: ScheduleAssignmentV2[],
+      row: any,
+      positionId: string,
+      positionName: string
+    ) => {
+      const ind = row?.individual ?? row?.person ?? row?.volunteer ?? null;
+      out.push({
+        positionId,
+        positionName,
+        individual: ind
+          ? {
+              id: ind.id,
+              name: firstString(ind.name, `${ind.first_name ?? ''} ${ind.last_name ?? ''}`),
+              email: resolveEmail(ind),
+              mobile: firstString(ind.phone?.mobile, ind.mobile, ind.mobile_phone),
+            }
+          : null,
+        status: normalizeScheduleStatus(
+          firstString(row?.status, row?.response, row?.response_status, row?.rsvp, row?.confirmation_status)
+        ),
+        declineReason: firstString(row?.decline_reason, row?.declined_reason, row?.reason, row?.response_note),
+      });
+    };
+
+    return asArray(raw).map((occ: any): ScheduleOccurrenceV2 => {
+      const dateTime = firstString(
+        occ?.start, occ?.starts_at, occ?.event_start, occ?.start_datetime,
+        occ?.date, occ?.occurrence_date, occ?.scheduled_date
+      );
+      const date = dateTime ? dateTime.slice(0, 10) : '';
+
+      const assignments: ScheduleAssignmentV2[] = [];
+      const positions = asArray(occ?.positions);
+
+      if (positions.length) {
+        for (const pos of positions) {
+          const positionId = firstString(pos?.id, pos?.position_id);
+          const positionName = firstString(pos?.name, pos?.position_name, positionId);
+          const rows =
+            asArray(pos?.assignments).length ? asArray(pos?.assignments)
+            : asArray(pos?.requests).length ? asArray(pos?.requests)
+            : asArray(pos?.volunteers);
+          for (const row of rows) pushAssignment(assignments, row, positionId, positionName);
+        }
+      } else {
+        const flat =
+          asArray(occ?.assignments).length ? asArray(occ?.assignments)
+          : asArray(occ?.requests).length ? asArray(occ?.requests)
+          : asArray(occ?.volunteers);
+        for (const row of flat) {
+          const positionId = firstString(row?.position_id, row?.position?.id);
+          const positionName = firstString(row?.position_name, row?.position?.name, positionId);
+          pushAssignment(assignments, row, positionId, positionName);
+        }
+      }
+
+      return {
+        id: firstString(occ?.id, occ?.schedule_id, occ?.event_id, `${date}-${assignments.length}`),
+        date,
+        dateTime,
+        title: firstString(occ?.name, occ?.title, occ?.event_name, occ?.event?.name),
+        assignments,
+      };
+    });
+  }
 }
 
 export interface SchedulingCategoryV2 {
@@ -389,6 +481,33 @@ export interface SchedulingVolunteerV2 {
     mobile: string;
     birthday: string;
   } | null;
+}
+
+/** A scheduled person's response to a scheduling request. */
+export type ScheduleResponseStatus = 'pending' | 'accepted' | 'declined' | 'unknown';
+
+export interface ScheduleAssignmentV2 {
+  positionId: string;
+  positionName: string;
+  individual: {
+    id: number | string;
+    name: string;
+    email: string;
+    mobile: string;
+  } | null;
+  status: ScheduleResponseStatus;
+  declineReason: string;
+}
+
+export interface ScheduleOccurrenceV2 {
+  /** Stable-ish id for keying; derived if CCB doesn't supply one. */
+  id: string;
+  /** YYYY-MM-DD when resolvable, else ''. */
+  date: string;
+  /** Raw start datetime string from CCB, if present. */
+  dateTime: string;
+  title: string;
+  assignments: ScheduleAssignmentV2[];
 }
 
 export interface AttendanceSummaryV2 {
@@ -452,6 +571,17 @@ function firstString(...vals: any[]): string {
     if (s) return s;
   }
   return '';
+}
+
+/** Normalize CCB's response wording to a small, stable set. Unknown non-empty
+ *  values map to 'unknown' so the UI can show the raw label rather than guess. */
+function normalizeScheduleStatus(raw: string): ScheduleResponseStatus {
+  const s = (raw || '').trim().toLowerCase();
+  if (!s) return 'pending';
+  if (['accepted', 'accept', 'confirmed', 'yes', 'attending', 'approved'].includes(s)) return 'accepted';
+  if (['declined', 'decline', 'no', 'not_attending', 'rejected', 'unavailable'].includes(s)) return 'declined';
+  if (['pending', 'unconfirmed', 'no_response', 'requested', 'invited', 'awaiting', 'sent'].includes(s)) return 'pending';
+  return 'unknown';
 }
 
 function resolveEmail(ind: any): string {

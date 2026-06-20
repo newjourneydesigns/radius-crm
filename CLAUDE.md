@@ -207,6 +207,8 @@ To keep deploy credits down:
 | `DISABLE_SCHEDULED_FUNCTIONS` | Set `true` on the dedicated toolkit Netlify site so scheduled (cron) functions run only on the main RADIUS site (no duplicate reminders/syncs). Leave unset on the main site. The toolkit site also auto-disables cron when its own URL matches `LEADER_TOOLKIT_HOST`. | No |
 | `LEADER_TOOLKIT_RESEND_API_KEY` | Resend API key for leader-facing toolkit emails (separate from RADIUS's `RESEND_API_KEY`). Falls back to `RESEND_API_KEY` if unset. | Yes |
 | `LEADER_TOOLKIT_EMAIL_FROM` / `LEADER_TOOLKIT_EMAIL_FROM_NAME` | Sender address/name for leader-facing toolkit emails. Falls back to `EMAIL_FROM`/`EMAIL_FROM_NAME` if unset. | No |
+| `TEAMS_TOOLKIT_HOST` / `NEXT_PUBLIC_TEAMS_TOOLKIT_HOST` | Dedicated hostname (e.g. `teamstoolkit.netlify.app`) for the **Teams Toolkit** (team-leader portal mirroring the Circle Leader Toolkit). When set, middleware serves the toolkit at this host's root and leader links point here. Set on **both** Netlify sites in production. Reuses `LEADER_SESSION_SECRET` (must stay byte-identical across sites). A dedicated teams site also needs `DISABLE_SCHEDULED_FUNCTIONS=true`. | No |
+| `TEAMS_TOOLKIT_RESEND_API_KEY` / `TEAMS_TOOLKIT_EMAIL_FROM` / `TEAMS_TOOLKIT_EMAIL_FROM_NAME` | Resend key + sender for Teams Toolkit emails. Each falls back to the `LEADER_TOOLKIT_*` value, then RADIUS's `RESEND_API_KEY` / `EMAIL_FROM` / `EMAIL_FROM_NAME`. | Key: Yes |
 | `NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` | VAPID public key for Web Push — shared by the Circle Leader Toolkit and Today-page reminders | No |
 | `WEB_PUSH_VAPID_PRIVATE_KEY` | VAPID private key for Web Push | Yes |
 | `WEB_PUSH_VAPID_SUBJECT` | VAPID subject (`mailto:` or URL). Falls back to `NEXT_PUBLIC_APP_URL` | No |

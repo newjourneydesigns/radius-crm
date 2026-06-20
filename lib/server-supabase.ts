@@ -4,7 +4,7 @@ import WebSocket from 'ws';
 type SupabaseWebSocketTransport = typeof globalThis.WebSocket;
 const websocketTransport = WebSocket as unknown as SupabaseWebSocketTransport;
 
-export function createServiceSupabaseClient() {
+export function createServiceSupabaseClient(options?: { noStore?: boolean }) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -20,6 +20,13 @@ export function createServiceSupabaseClient() {
     realtime: {
       transport: websocketTransport,
     },
+    // Next.js instruments global fetch and caches GET responses by URL, so a
+    // service read can return stale rows (e.g. an empty roster cached from
+    // before positions were assigned). `noStore` forces every query to bypass
+    // that cache — use it for reads of admin-mutable config that must be fresh.
+    ...(options?.noStore
+      ? { global: { fetch: (input: any, init: any) => fetch(input, { ...init, cache: 'no-store' }) } }
+      : {}),
   });
 }
 
