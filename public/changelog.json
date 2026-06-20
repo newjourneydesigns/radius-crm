@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-06-20",
+    "version": "2.40.1",
+    "date_display": "June 20, 2026",
+    "date_iso": "2026-06-20",
+    "id": "teams-toolkit-profile-parity",
+    "type": "improvement",
+    "category": "Teams Toolkit",
+    "description": "A team leader's profile now shows the full Teams Toolkit admin section — open their toolkit, text them their sign-in link, toggle leader access, and toggle email reminders — matching the Circle Leader Toolkit controls on circle leader profiles.",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-06-20",
     "version": "2.40.0",
     "date_display": "June 20, 2026",
     "date_iso": "2026-06-20",
