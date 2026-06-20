@@ -8,7 +8,7 @@
  * header, telemetry, the daily-budget tripwire, and 429/retry-after handling.
  */
 
-import { getValidAccessToken } from './ccb-v2-auth';
+import { forceRefreshAccessToken, getValidAccessToken } from './ccb-v2-auth';
 import { CCB_V2_API_BASE_URL, CCB_V2_ACCEPT_HEADER } from './ccb-v2-config';
 import {
   recordCCBApiTelemetry,
@@ -58,6 +58,14 @@ export class CCBv2Client {
    * trails on destructive operations.
    */
   async requestWithResponse<T = any>(path: string, options: RequestOptions = {}): Promise<CCBv2Response<T>> {
+    return this.requestWithResponseAttempt<T>(path, options, false);
+  }
+
+  private async requestWithResponseAttempt<T = any>(
+    path: string,
+    options: RequestOptions = {},
+    retriedAfterUnauthorized: boolean,
+  ): Promise<CCBv2Response<T>> {
     // Shared daily ceiling across all serverless instances (tripwire, not a CCB
     // cap — v2 has no daily limit). Throws CCBDailyBudgetError once reached.
     await reserveCCBDailyBudget();
@@ -70,7 +78,9 @@ export class CCBv2Client {
       }
     }
 
-    const token = await getValidAccessToken();
+    const token = retriedAfterUnauthorized
+      ? await forceRefreshAccessToken()
+      : await getValidAccessToken();
     const startedAt = Date.now();
     // `service` groups telemetry per endpoint family (v2 rate limits are per-endpoint).
     const service = `v2:${method} ${path.replace(/\/\d+/g, '/{id}')}`;
@@ -110,6 +120,9 @@ export class CCBv2Client {
         `CCB v2 rate limited (429) on ${service}${retryAfter ? `; retry after ${retryAfter}s` : ''}`,
         Number.isFinite(retryAfter as number) ? (retryAfter as number) : null,
       );
+    }
+    if (res.status === 401 && !retriedAfterUnauthorized) {
+      return this.requestWithResponseAttempt<T>(path, options, true);
     }
     if (!res.ok) {
       throw new CCBv2RequestError(`CCB v2 ${method} ${path} failed: HTTP ${res.status}`, res.status, text.slice(0, 500));

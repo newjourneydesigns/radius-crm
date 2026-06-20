@@ -206,3 +206,19 @@ export async function getValidAccessToken(): Promise<string> {
   await saveTokensFromResponse(refreshed, stored.refreshToken);
   return refreshed.access_token;
 }
+
+/**
+ * Force-refresh the stored access token after CCB rejects a token before the
+ * recorded expiry. This keeps requests resilient to server-side token
+ * invalidation without forcing a new OAuth authorization.
+ */
+export async function forceRefreshAccessToken(): Promise<string> {
+  const stored = await getStoredTokens();
+  if (!stored) {
+    throw new Error('CCB v2 is not connected. An admin must authorize via /api/ccb/oauth/start.');
+  }
+
+  const refreshed = await refreshAccessToken(stored.refreshToken);
+  await saveTokensFromResponse(refreshed, stored.refreshToken);
+  return refreshed.access_token;
+}
