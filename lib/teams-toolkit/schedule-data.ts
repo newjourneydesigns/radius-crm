@@ -56,7 +56,8 @@ export async function loadTeamSchedule(
     return { occurrences: [], error: 'Your team has no CCB category configured yet. Contact your director.' };
   }
 
-  const db = createServiceSupabaseClient();
+  // no-store: positions are admin-mutable config that must not be served stale.
+  const db = createServiceSupabaseClient({ noStore: true });
   const { data: positions, error: positionsError } = await db
     .from('host_team_positions')
     .select('ccb_position_id, position_name')

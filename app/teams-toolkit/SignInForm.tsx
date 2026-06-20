@@ -55,9 +55,16 @@ export default function SignInForm() {
         return;
       }
       const categoryId = data.categoryId;
-      router.replace(
-        categoryId != null ? `/teams-toolkit/${categoryId}/roster` : '/teams-toolkit'
-      );
+      if (categoryId == null) {
+        // Signed in, but the leader's team has no CCB category yet — navigating
+        // on would just bounce back to this form. Surface an actionable message
+        // instead of leaving them stuck after a successful sign-in.
+        setError(
+          "You're signed in, but your team isn't fully set up yet (no CCB category). Please contact your director."
+        );
+        return;
+      }
+      router.replace(`/teams-toolkit/${categoryId}/roster`);
     } catch {
       setError('Network error — please try again.');
     } finally {

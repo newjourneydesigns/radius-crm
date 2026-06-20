@@ -35,7 +35,9 @@ export async function loadTeamRoster(leader: TeamSessionLeader): Promise<LoadTea
     return { positions: [], error: 'Your team has no CCB category configured yet. Contact your director.' };
   }
 
-  const db = createServiceSupabaseClient();
+  // no-store: positions are admin-mutable config that must not be served stale
+  // (Next.js caches service GETs by URL otherwise — see serve-team-roster).
+  const db = createServiceSupabaseClient({ noStore: true });
   const { data: positions, error: positionsError } = await db
     .from('host_team_positions')
     .select('ccb_position_id, ccb_team_id, position_name')
