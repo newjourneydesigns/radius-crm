@@ -12,11 +12,14 @@ import NavigationProgress from "../components/layout/NavigationProgress";
 import ProtectedRoute from "../components/ProtectedRoute";
 import HapticsProvider from "../components/HapticsProvider";
 import { isToolkitHostName } from "../lib/circle-leader-toolkit/paths";
+import { isTeamsToolkitHostName } from "../lib/teams-toolkit/paths";
 
 // Only these routes are accessible without being signed in.
 // `/auth/*` is required for the Supabase magic-link callback to complete the login flow.
+// Covers both toolkits' clean-host routes (numeric group/category id + a known
+// section). `schedule` is the Teams Toolkit's; the rest are shared/circles.
 function isCleanToolkitRoute(pathname: string) {
-  return /^\/\d+\/(events|roster|inbox|resources|health|settings|help)(\/|$)/.test(pathname);
+  return /^\/\d+\/(events|roster|inbox|schedule|resources|health|settings|help)(\/|$)/.test(pathname);
 }
 
 function isPublicRoute(pathname: string, isDedicatedToolkitHost = false) {
@@ -29,6 +32,7 @@ function isPublicRoute(pathname: string, isDedicatedToolkitHost = false) {
     p === '/search' ||
     p.startsWith('/auth') ||
     p.startsWith('/circle-leader-toolkit') ||
+    p.startsWith('/teams-toolkit') ||
     isCleanToolkitRoute(p) ||
     // Public intake forms — anyone can fill these out without signing in.
     p === '/f' ||
@@ -37,15 +41,17 @@ function isPublicRoute(pathname: string, isDedicatedToolkitHost = false) {
 }
 
 function LayoutInner({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? '';
   const isDedicatedToolkitHost =
-    typeof window !== 'undefined' && isToolkitHostName(window.location.hostname);
+    typeof window !== 'undefined' &&
+    (isToolkitHostName(window.location.hostname) || isTeamsToolkitHostName(window.location.hostname));
   const isPublic = isPublicRoute(pathname, isDedicatedToolkitHost);
   const hideChrome =
     isDedicatedToolkitHost ||
     pathname === '/login' ||
     pathname.startsWith('/auth') ||
     pathname.startsWith('/circle-leader-toolkit') ||
+    pathname.startsWith('/teams-toolkit') ||
     isCleanToolkitRoute(pathname) ||
     pathname === '/f' ||
     pathname.startsWith('/f/');

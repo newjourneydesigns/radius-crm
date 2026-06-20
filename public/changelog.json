@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-06-20",
+    "version": "2.40.2",
+    "date_display": "June 20, 2026",
+    "date_iso": "2026-06-20",
+    "id": "teams-toolkit-hide-app-nav",
+    "type": "fix",
+    "category": "Teams Toolkit",
+    "description": "The Teams Toolkit now hides the RADIUS app's bottom navigation, footer, and quick-actions button, so team leaders get the same clean, full-screen toolkit experience as the Circle Leader Toolkit — on both the main domain and the dedicated teams site.",
+    "page": "/teams-toolkit"
+  },
+  {
+    "date": "2026-06-20",
     "version": "2.40.1",
     "date_display": "June 20, 2026",
     "date_iso": "2026-06-20",
