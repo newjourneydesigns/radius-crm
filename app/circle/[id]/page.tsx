@@ -1139,6 +1139,115 @@ export default function CircleLeaderProfilePage() {
     }
   };
 
+  // ── Teams Toolkit admin links (host-team leaders) ──────────────────────────
+  // Mirror the Circle Leader Toolkit handlers above, but target the Teams
+  // Toolkit auto-login route. Reuse the shared loading flags — a leader is
+  // either a circle or a host_team leader, so only one toolkit card renders.
+  const requestTeamsToolkitMagicLink = async () => {
+    if (!leader) return;
+    const { data: sess } = await supabase.auth.getSession();
+    const token = sess?.session?.access_token;
+    if (!token) throw new Error('Please sign in again.');
+
+    const res = await fetch('/api/teams-toolkit/admin-magic-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ leader_id: leader.id }),
+    });
+    const raw = await res.text();
+    let data: { error?: string; url?: string; phone?: string | null; email?: string | null; smsBody?: string } = {};
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch {
+      // Non-JSON response (e.g. 404/502 HTML from Netlify mid-deploy)
+    }
+    if (!res.ok) {
+      throw new Error(
+        data.error ||
+          (res.status === 404
+            ? 'Endpoint not found — the latest version may still be deploying. Try again in a minute.'
+            : `Request failed (${res.status}). Try again.`)
+      );
+    }
+    if (!data.url) throw new Error('Could not generate Teams Toolkit link.');
+    return { ...data, url: data.url };
+  };
+
+  const handleSendTeamsToolkitLink = async () => {
+    if (!leader) return;
+    setIsSendingMagicLink(true);
+    try {
+      const data = await requestTeamsToolkitMagicLink();
+      if (!data) return;
+
+      const cleanPhone = (data.phone || '').replace(/\D/g, '');
+      if (cleanPhone) {
+        window.location.href = `sms:${cleanPhone}?body=${encodeURIComponent(data.smsBody || data.url)}`;
+      } else {
+        try {
+          await navigator.clipboard.writeText(data.smsBody || data.url);
+          setShowAlert({
+            isOpen: true,
+            type: 'success',
+            title: 'Message copied',
+            message:
+              "No phone on file, so we copied the message to your clipboard. Paste it into a text or email to the leader.",
+          });
+        } catch {
+          setShowAlert({ isOpen: true, type: 'info', title: 'Toolkit message', message: data.smsBody || data.url });
+        }
+      }
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Try again.';
+      setShowAlert({
+        isOpen: true,
+        type: 'error',
+        title: message === 'Please sign in again.' ? 'Not signed in' : 'Send failed',
+        message,
+      });
+    } finally {
+      setIsSendingMagicLink(false);
+    }
+  };
+
+  const handleOpenTeamsToolkit = async () => {
+    if (!leader) return;
+    const pending = window.open('about:blank', '_blank');
+    setIsOpeningCircleSummary(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess?.session?.access_token;
+      if (!token) {
+        if (pending) pending.close();
+        setShowAlert({ isOpen: true, type: 'error', title: 'Not signed in', message: 'Please sign in again.' });
+        return;
+      }
+      const res = await fetch('/api/teams-toolkit/admin-magic-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ leader_id: leader.id, selfHosted: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.url) {
+        if (pending) pending.close();
+        setShowAlert({
+          isOpen: true,
+          type: 'error',
+          title: 'Could not open Teams Toolkit',
+          message: data?.error || `Request failed (${res.status}). Try again.`,
+        });
+        return;
+      }
+      if (pending) pending.location.href = data.url;
+      else window.location.href = data.url;
+    } catch (e: any) {
+      if (pending) pending.close();
+      setShowAlert({ isOpen: true, type: 'error', title: 'Open failed', message: e?.message || 'Try again.' });
+    } finally {
+      setIsOpeningCircleSummary(false);
+    }
+  };
+
   // Follow-up handlers
   const handleFollowUpClick = () => {
     if (!leader) return;
@@ -1786,6 +1895,50 @@ export default function CircleLeaderProfilePage() {
     </div>
   );
 
+  // Teams Toolkit admin card — shown for host-team leaders in place of the
+  // Circle Leader Toolkit card. Reuses the same Leader Access control (both
+  // toolkits gate on circle_summary_access_enabled).
+  const renderTeamsToolkitAdminCard = (desktop = false) => (
+    <div
+      className={`${desktop ? 'hidden lg:block ' : ''}bg-brand-dark border border-zinc-700 rounded-xl shadow-card-glass overflow-hidden`}
+    >
+      <div className="px-4 py-3 border-b border-zinc-700 flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Teams Toolkit</span>
+      </div>
+      <div className="p-4">
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={handleSendTeamsToolkitLink}
+            disabled={isSendingMagicLink || !circleSummaryEnabled}
+            className="w-full h-9 flex items-center justify-center gap-2 rounded-lg border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 text-sm font-medium hover:bg-indigo-500/20 hover:text-indigo-200 transition-colors disabled:opacity-50"
+            title="Open your texting app with a pre-filled Teams Toolkit sign-in link"
+          >
+            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+              <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+            </svg>
+            {isSendingMagicLink ? 'Generating link…' : 'Text Teams Toolkit link'}
+          </button>
+
+          {leader?.ccb_category_id && (
+            <button
+              type="button"
+              onClick={handleOpenTeamsToolkit}
+              disabled={isOpeningCircleSummary || !circleSummaryEnabled}
+              className="w-full h-9 flex items-center justify-center gap-2 rounded-lg border border-zinc-600 bg-zinc-700 text-slate-100 text-sm font-medium shadow-sm hover:bg-zinc-600 hover:border-zinc-500 transition-colors disabled:opacity-50"
+              title="Open the leader's Teams Toolkit in a new tab (auto sign-in)"
+            >
+              {isOpeningCircleSummary ? 'Opening…' : 'Open Teams Toolkit'}
+            </button>
+          )}
+
+          {renderCircleSummaryAccessControl()}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117]">
@@ -1959,6 +2112,9 @@ export default function CircleLeaderProfilePage() {
 
         {/* Mobile Quick Actions - Show on mobile only, right after the name */}
         <div className="lg:hidden mb-6 space-y-4">
+          {/* Teams Toolkit - Mobile (host-team leaders only) */}
+          {isHostTeam && renderTeamsToolkitAdminCard()}
+
           {/* Circle Leader Toolkit - Mobile (circle leaders only) */}
           {!isHostTeam && <div className="bg-brand-dark border border-zinc-700 rounded-xl shadow-card-glass overflow-hidden">
             <div className="px-4 py-3 border-b border-zinc-700 flex items-center justify-between">
@@ -2673,6 +2829,9 @@ export default function CircleLeaderProfilePage() {
 
           {/* Sidebar */}
           <div className="flex flex-col gap-6 h-full">
+            {/* Teams Toolkit - Desktop Only (host-team leaders only) */}
+            {isHostTeam && renderTeamsToolkitAdminCard(true)}
+
             {/* Circle Leader Toolkit - Desktop Only (circle leaders only) */}
             {!isHostTeam && <div className="hidden lg:block bg-brand-dark border border-zinc-700 rounded-xl shadow-card-glass overflow-hidden">
               <div className="px-4 py-3 border-b border-zinc-700 flex items-center justify-between">

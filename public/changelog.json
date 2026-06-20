@@ -1,6 +1,28 @@
 [
   {
     "date": "2026-06-20",
+    "version": "2.39.2",
+    "date_display": "June 20, 2026",
+    "date_iso": "2026-06-20",
+    "id": "teams-toolkit-admin-open-link",
+    "type": "feature",
+    "category": "Teams Toolkit",
+    "description": "From a team leader's profile you can now tap 'Open Teams Toolkit' to jump into their toolkit with an auto sign-in, or 'Text Teams Toolkit link' to send them their personal sign-in link — the same one-tap access circle leaders already have.",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-06-20",
+    "version": "2.39.1",
+    "date_display": "June 20, 2026",
+    "date_iso": "2026-06-20",
+    "id": "teams-toolkit-cron-safety",
+    "type": "fix",
+    "category": "Teams Toolkit",
+    "description": "Hardened the dedicated Teams Toolkit site so it can never double-run scheduled jobs (reminder emails, push, CCB syncs) even if a config flag is missed — those run on the main RADIUS site only.",
+    "page": "/teams-toolkit"
+  },
+  {
+    "date": "2026-06-20",
     "version": "2.39.0",
     "date_display": "June 20, 2026",
     "date_iso": "2026-06-20",
