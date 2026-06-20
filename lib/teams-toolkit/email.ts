@@ -3,8 +3,8 @@
  * Mirrors lib/circle-leader-toolkit/email.ts with Teams Toolkit branding.
  */
 
-const TEAMS_BLUE = '#3955A8';
-const TEAMS_BLUE_DARK = '#2F4790';
+const VCC_GREEN = '#34B233';
+const VCC_GREEN_DARK = '#2a9329';
 const VCC_INK = '#3E3E3E';
 
 const FONT_STACK =
@@ -34,7 +34,7 @@ function emailShell(opts: {
       <td align="center" style="padding:24px 12px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,0.05);">
           <tr>
-            <td style="background:${TEAMS_BLUE};padding:36px 28px;text-align:center;">
+            <td style="background:${VCC_GREEN};padding:36px 28px;text-align:center;">
               <div style="font-family:${FONT_STACK};font-weight:800;font-style:italic;text-transform:uppercase;color:#ffffff;font-size:34px;line-height:1.05;letter-spacing:0.5px;">
                 ${escapeHtml(heroTitle)}
               </div>

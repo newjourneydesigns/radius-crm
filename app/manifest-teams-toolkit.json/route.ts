@@ -9,7 +9,7 @@
  *     in on first launch (iOS isolates a PWA's cookies from Safari).
  *
  * NOTE: icons currently reuse the generic RADIUS app icons. Teams-branded PWA
- * icons (indigo) are a follow-up asset task.
+ * icons are a follow-up asset task.
  */
 
 import { NextResponse } from 'next/server';
@@ -47,8 +47,8 @@ export async function GET(req: Request) {
     start_url: startUrl,
     display: 'standalone',
     display_override: ['standalone'],
-    background_color: '#3955A8',
-    theme_color: '#3955A8',
+    background_color: '#34B233',
+    theme_color: '#34B233',
     orientation: 'portrait-primary',
     scope: '/',
     lang: 'en-US',

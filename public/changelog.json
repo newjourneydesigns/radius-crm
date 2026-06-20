@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-06-20",
+    "version": "2.40.3",
+    "date_display": "June 20, 2026",
+    "date_iso": "2026-06-20",
+    "id": "teams-toolkit-brand-green-logo",
+    "type": "improvement",
+    "category": "Teams Toolkit",
+    "description": "The Teams Toolkit now uses the exact Valley Creek green of the Circle Leader Toolkit and shows the Valley Creek logo in the sign-in hero and header, for one consistent brand across both leader toolkits.",
+    "page": "/teams-toolkit"
+  },
+  {
+    "date": "2026-06-20",
     "version": "2.40.2",
     "date_display": "June 20, 2026",
     "date_iso": "2026-06-20",

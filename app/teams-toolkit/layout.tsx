@@ -2,8 +2,9 @@ import type { Metadata, Viewport } from 'next';
 import { Open_Sans } from 'next/font/google';
 import { getSessionLeader } from '../../lib/teams-toolkit/session';
 import { createSessionToken, RADIUS_LINK_TTL_MS } from '../../lib/leader-tokens';
-// Reuse the Circle Leader Toolkit's structural styles, then re-skin to the
-// Teams indigo. Order matters — teams overrides must come last.
+// Reuse the Circle Leader Toolkit's structural styles + the same Valley Creek
+// green; teams-toolkit.css only adds Teams-specific component styles. Order
+// matters — teams styles must come last.
 import '../circle-leader-toolkit/circle-leader-toolkit.css';
 import './teams-toolkit.css';
 
@@ -17,14 +18,14 @@ const openSans = Open_Sans({
 
 const TOOLKIT_PUBLIC_URL = 'https://teamstoolkit.netlify.app';
 
-// Override the dark root theme-color with Teams indigo for the whole segment so
-// the OS/browser chrome matches the hero instead of flashing dark navy.
+// Override the dark root theme-color with Valley Creek green for the whole
+// segment so the OS/browser chrome matches the hero instead of flashing dark.
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#3955A8',
+  themeColor: '#34B233',
   colorScheme: 'light',
 };
 

@@ -1911,7 +1911,7 @@ export default function CircleLeaderProfilePage() {
             type="button"
             onClick={handleSendTeamsToolkitLink}
             disabled={isSendingMagicLink || !circleSummaryEnabled}
-            className="w-full h-9 flex items-center justify-center gap-2 rounded-lg border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 text-sm font-medium hover:bg-indigo-500/20 hover:text-indigo-200 transition-colors disabled:opacity-50"
+            className="w-full h-9 flex items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 text-sm font-medium hover:bg-emerald-500/20 hover:text-emerald-200 transition-colors disabled:opacity-50"
             title="Open your texting app with a pre-filled Teams Toolkit sign-in link"
           >
             <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">

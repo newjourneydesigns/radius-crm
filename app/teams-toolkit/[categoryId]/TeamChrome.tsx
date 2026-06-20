@@ -71,7 +71,11 @@ export default function TeamChrome({
                   aria-label="Back to Roster"
                   className="shrink-0"
                 >
-                  <span className="cs-vc-mark !mb-0">VC</span>
+                  <img
+                    src="/Valley Creek Logo-White.png"
+                    alt="Valley Creek"
+                    className="h-14 sm:h-16 w-auto"
+                  />
                 </Link>
                 <div ref={containerRef} className="min-w-0 flex-1">
                   <p className="mb-1 text-xs font-bold uppercase text-white/75">

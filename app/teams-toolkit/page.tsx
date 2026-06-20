@@ -13,7 +13,11 @@ export default async function TeamsToolkitSignInPage() {
   return (
     <>
       <header className="cs-hero py-14 sm:py-20 px-6 text-center">
-        <span className="cs-vc-mark mx-auto">VC</span>
+        <img
+          src="/Valley Creek Logo-White.png"
+          alt="Valley Creek"
+          className="mx-auto h-20 sm:h-28 w-auto mb-6"
+        />
         <h1 className="cs-display text-5xl sm:text-7xl">Teams Toolkit</h1>
         <p className="mt-3 text-white/85 text-sm sm:text-base font-medium tracking-wide">
           For Team Leaders
