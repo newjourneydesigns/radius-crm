@@ -15,7 +15,7 @@ export type HeaderLeader = {
   ccb_category_id: string | number | null;
 };
 
-type ActiveTab = 'roster' | 'inbox';
+type ActiveTab = 'roster' | 'schedule' | 'inbox';
 
 /**
  * Client chrome for the Teams group pages. The leader comes from the
@@ -44,7 +44,10 @@ export default function TeamChrome({
       : '';
   const tail = pathBase ? pathname.slice(pathBase.length).replace(/^\/+/, '').split('/')[0] : '';
   const active: ActiveTab | null =
-    tail === 'roster' ? 'roster' : tail === 'inbox' ? 'inbox' : null;
+    tail === 'roster' ? 'roster'
+    : tail === 'schedule' ? 'schedule'
+    : tail === 'inbox' ? 'inbox'
+    : null;
 
   const firstName = leader.name ? leader.name.trim().split(/\s+/)[0] : null;
   const title = leader.team_name?.trim() || `${firstName ? `${firstName}'s` : 'Your'} Team`;

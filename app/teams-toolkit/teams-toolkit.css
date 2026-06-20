@@ -166,3 +166,53 @@ body:has(.ts-root .ts-splash),
   background: transparent;
   cursor: default;
 }
+
+/* Schedule — response status badges */
+.ts-root .ts-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ts-root .ts-status-accepted {
+  background: #dcfce7;
+  color: #166534 !important;
+}
+.ts-root .ts-status-declined {
+  background: #fee2e2;
+  color: #991b1b !important;
+}
+.ts-root .ts-status-pending {
+  background: #fef3c7;
+  color: #92400e !important;
+}
+
+/* Schedule — call/text quick actions */
+.ts-root a.ts-contact-btn,
+.ts-root a.ts-contact-btn:visited {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3rem;
+  height: 2rem;
+  padding: 0 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(57, 85, 168, 0.3);
+  background: rgba(57, 85, 168, 0.08);
+  color: var(--cs-green-dark) !important;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-decoration: none !important;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.ts-root a.ts-contact-btn:hover,
+.ts-root a.ts-contact-btn:focus-visible {
+  background: rgba(57, 85, 168, 0.16);
+  border-color: var(--cs-green);
+}

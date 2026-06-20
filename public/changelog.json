@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-06-20",
+    "version": "2.40.0",
+    "date_display": "June 20, 2026",
+    "date_iso": "2026-06-20",
+    "id": "teams-toolkit-schedule",
+    "type": "feature",
+    "category": "Teams Toolkit",
+    "description": "Added a Schedule tab to the Teams Toolkit. Team leaders can see, by upcoming date, who's scheduled in their positions and each person's response — accepted, declined (with reason), or pending — and tap to call or text them. Scheduling is still managed in CCB; this is a read-only view.",
+    "page": "/teams-toolkit"
+  },
+  {
+    "date": "2026-06-20",
     "version": "2.39.2",
     "date_display": "June 20, 2026",
     "date_iso": "2026-06-20",

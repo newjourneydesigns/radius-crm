@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { isTeamsToolkitHostName, teamsToolkitGroupPath } from '../../../lib/teams-toolkit/paths';
 
-type Tab = 'roster' | 'inbox';
+type Tab = 'roster' | 'schedule' | 'inbox';
 
 export default function TeamTabs({
   categoryId,
@@ -46,6 +46,7 @@ export default function TeamTabs({
 
   const liveTabs: Array<{ key: Tab; label: string; href: string }> = [
     { key: 'roster', label: 'Roster', href: teamsToolkitGroupPath(categoryId, 'roster', { cleanHost: isDedicatedToolkitHost }) },
+    { key: 'schedule', label: 'Schedule', href: teamsToolkitGroupPath(categoryId, 'schedule', { cleanHost: isDedicatedToolkitHost }) },
     { key: 'inbox', label: 'Inbox', href: teamsToolkitGroupPath(categoryId, 'inbox', { cleanHost: isDedicatedToolkitHost }) },
   ];
 
@@ -84,19 +85,6 @@ export default function TeamTabs({
           </Link>
         );
       })}
-      {/* Schedule + RSVP ships in a follow-up; show it as a disabled preview so
-          the intended information architecture is visible. */}
-      <span
-        role="tab"
-        aria-disabled="true"
-        title="Schedules are coming soon"
-        className="ts-tab-soon flex-1 text-center text-xs sm:text-sm font-semibold py-2.5 rounded-full"
-      >
-        <span className="inline-flex items-center justify-center gap-1 whitespace-nowrap">
-          Schedule
-          <span className="text-[9px] font-bold uppercase tracking-wide opacity-70">Soon</span>
-        </span>
-      </span>
     </div>
   );
 }
