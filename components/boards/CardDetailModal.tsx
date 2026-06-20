@@ -189,6 +189,7 @@ export function CardDetailModal({
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const copyStatusTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialRef = useRef(true);
+  const skipNextAutoSaveRef = useRef(false);
   const pendingChangesRef = useRef(false);
   const overlayMouseDownRef = useRef(false);
 
@@ -210,6 +211,7 @@ export function CardDetailModal({
   // Auto-save: debounce 600ms after any field change
   useEffect(() => {
     if (isInitialRef.current) { isInitialRef.current = false; return; }
+    if (skipNextAutoSaveRef.current) { skipNextAutoSaveRef.current = false; return; }
     if (!editTitle.trim()) return;
     pendingChangesRef.current = true;
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
@@ -256,6 +258,35 @@ export function CardDetailModal({
     const next = !isFocused;
     setIsFocused(next);
     await onUpdate({ is_focused: next });
+  };
+
+  const todayIso = DateTime.now().toISODate();
+  const isDueDateOverdue = Boolean(editDueDate && todayIso && editDueDate < todayIso);
+
+  const handleSnoozeDueDate = async () => {
+    if (!editDueDate) return;
+    const parsed = DateTime.fromISO(editDueDate);
+    if (!parsed.isValid) return;
+    const nextDueDate = parsed.plus({ days: 1 }).toISODate();
+    if (!nextDueDate) return;
+
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    pendingChangesRef.current = false;
+    skipNextAutoSaveRef.current = true;
+    setEditDueDate(nextDueDate);
+    await onUpdate({
+      title: editTitle,
+      description: editDesc,
+      priority: editPriority,
+      start_date: editStartDate || null,
+      due_date: nextDueDate,
+      due_time: editDueTime || null,
+      label_ids: editLabels,
+      repeat_rule: editRepeatRule === 'none' ? null : editRepeatRule,
+      repeat_interval: editRepeatRule === 'none' ? 1 : editRepeatInterval,
+      repeat_days: editRepeatRule === 'daily' && editRepeatDays.length > 0 ? editRepeatDays : null,
+      linked_leader_id: linkedLeaderId,
+    });
   };
 
   const handleAddComment = async () => {
@@ -1447,6 +1478,17 @@ export function CardDetailModal({
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
+              {isDueDateOverdue && (
+                <button
+                  type="button"
+                  className="kb-modal-snooze-btn"
+                  onClick={handleSnoozeDueDate}
+                  title="Move due date forward one day"
+                >
+                  <Clock size={12} />
+                  Snooze 1 day
+                </button>
+              )}
             </div>
 
             {/* Priority */}

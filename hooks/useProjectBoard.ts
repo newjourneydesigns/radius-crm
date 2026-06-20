@@ -16,6 +16,7 @@ import type {
   ChecklistTemplate,
   CardAssignment,
   BoardMember,
+  ColumnAutomationAction,
 } from '../lib/supabase';
 
 // ── Full board shape ──
@@ -39,6 +40,40 @@ const DEFAULT_LABELS = [
   { name: 'Enhancement', color: '#8b5cf6' },
   { name: 'Urgent', color: '#f97316' },
 ];
+
+function remapColumnAutomations(
+  actions: ColumnAutomationAction[] | null | undefined,
+  columnIdMap: Map<string, string>,
+  labelIdMap: Map<string, string>,
+  templateIdMap: Map<string, string>,
+): ColumnAutomationAction[] {
+  return (actions || []).map(action => {
+    if (action.type === 'set_labels') {
+      return { ...action, value: action.value.map(id => labelIdMap.get(id)).filter(Boolean) as string[] };
+    }
+    if (action.type === 'add_checklist') {
+      return { ...action, value: action.value.map(id => templateIdMap.get(id)).filter(Boolean) as string[] };
+    }
+    if (
+      action.type === 'move_completed' ||
+      action.type === 'move_on_due_date' ||
+      action.type === 'move_on_assigned' ||
+      action.type === 'move_on_focus'
+    ) {
+      return { ...action, value: columnIdMap.get(action.value) || action.value };
+    }
+    if (action.type === 'move_on_label') {
+      return {
+        ...action,
+        value: {
+          label_id: labelIdMap.get(action.value.label_id) || action.value.label_id,
+          column_id: columnIdMap.get(action.value.column_id) || action.value.column_id,
+        },
+      };
+    }
+    return { ...action };
+  });
+}
 
 // ── Hook ──
 export function useProjectBoard() {
@@ -96,6 +131,99 @@ export function useProjectBoard() {
       setBoards(prev => [boardData, ...prev]);
       return boardData as ProjectBoard;
     } catch (err: any) {
+      setError(err.message);
+      return null;
+    }
+  }, []);
+
+  const cloneBoard = useCallback(async (sourceBoardId: string, title: string) => {
+    setError(null);
+    let createdBoardId: string | null = null;
+    try {
+      const cleanTitle = title.trim();
+      if (!cleanTitle) throw new Error('Board title is required');
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const [sourceBoardRes, colsRes, labelsRes, templatesRes] = await Promise.all([
+        supabase.from('project_boards').select('*').eq('id', sourceBoardId).single(),
+        supabase.from('board_columns').select('*').eq('board_id', sourceBoardId).order('position'),
+        supabase.from('board_labels').select('*').eq('board_id', sourceBoardId),
+        supabase.from('checklist_templates').select('*').eq('board_id', sourceBoardId),
+      ]);
+
+      if (sourceBoardRes.error) throw sourceBoardRes.error;
+      if (colsRes.error) throw colsRes.error;
+      if (labelsRes.error) throw labelsRes.error;
+      if (templatesRes.error) throw templatesRes.error;
+
+      const sourceBoard = sourceBoardRes.data as ProjectBoard;
+      const sourceColumns = (colsRes.data || []) as BoardColumn[];
+      const sourceLabels = (labelsRes.data || []) as BoardLabel[];
+      const sourceTemplates = (templatesRes.data || []) as ChecklistTemplate[];
+
+      const { data: newBoard, error: boardErr } = await supabase
+        .from('project_boards')
+        .insert([{
+          title: cleanTitle,
+          description: sourceBoard.description || null,
+          notes: sourceBoard.notes || null,
+          user_id: user.id,
+        }])
+        .select()
+        .single();
+      if (boardErr) throw boardErr;
+      createdBoardId = newBoard.id;
+
+      const labelIdMap = new Map(sourceLabels.map(label => [label.id, crypto.randomUUID()]));
+      if (sourceLabels.length > 0) {
+        const { error: labelsErr } = await supabase.from('board_labels').insert(
+          sourceLabels.map(label => ({
+            id: labelIdMap.get(label.id),
+            board_id: newBoard.id,
+            name: label.name,
+            color: label.color,
+          }))
+        );
+        if (labelsErr) throw labelsErr;
+      }
+
+      const templateIdMap = new Map(sourceTemplates.map(template => [template.id, crypto.randomUUID()]));
+      if (sourceTemplates.length > 0) {
+        const { error: templatesErr } = await supabase.from('checklist_templates').insert(
+          sourceTemplates.map(template => ({
+            id: templateIdMap.get(template.id),
+            board_id: newBoard.id,
+            user_id: user.id,
+            name: template.name,
+            items: template.items || [],
+          }))
+        );
+        if (templatesErr) throw templatesErr;
+      }
+
+      const columnIdMap = new Map(sourceColumns.map(column => [column.id, crypto.randomUUID()]));
+      if (sourceColumns.length > 0) {
+        const { error: columnsErr } = await supabase.from('board_columns').insert(
+          sourceColumns.map(column => ({
+            id: columnIdMap.get(column.id),
+            board_id: newBoard.id,
+            title: column.title,
+            position: column.position,
+            color: column.color,
+            automations: remapColumnAutomations(column.automations, columnIdMap, labelIdMap, templateIdMap),
+          }))
+        );
+        if (columnsErr) throw columnsErr;
+      }
+
+      setBoards(prev => [newBoard, ...prev]);
+      return newBoard as ProjectBoard;
+    } catch (err: any) {
+      if (createdBoardId) {
+        await supabase.from('project_boards').delete().eq('id', createdBoardId);
+      }
       setError(err.message);
       return null;
     }
@@ -1419,7 +1547,7 @@ export function useProjectBoard() {
 
   return {
     boards, board, loading, error, checklistTemplates,
-    fetchBoards, createBoard, fetchBoard, fetchAllBoardsFull, archiveBoard, updateBoard, deleteBoard,
+    fetchBoards, createBoard, cloneBoard, fetchBoard, fetchAllBoardsFull, archiveBoard, updateBoard, deleteBoard,
     addColumn, updateColumn, deleteColumn, reorderColumns,
     addCard, updateCard, deleteCard, moveCard, moveToBoardCard, createNextRepeatCard, reorderCardsInColumn,
     addComment, updateComment, deleteComment,

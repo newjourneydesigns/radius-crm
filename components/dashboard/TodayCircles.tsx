@@ -26,9 +26,9 @@ export default function TodayCircles({ todayCircles }: TodayCirclesProps) {
     localStorage.setItem('todayCirclesVisible', JSON.stringify(newVisibility));
   };
 
-  // Filter out Invited, Pipeline, and Archive state Circle Leaders
+  // Filter out Circle Leaders that are not active in the current cycle.
   const filteredCircles = todayCircles.filter(
-    (leader) => !['invited', 'pipeline', 'archive'].includes((leader.status || '').toLowerCase())
+    (leader) => !['invited', 'pipeline', 'archived'].includes((leader.status || '').toLowerCase())
   );
 
   const formatTime = (timeString?: string) => {

@@ -24,6 +24,7 @@ import {
   GripVertical,
   FileText,
   Archive,
+  Copy,
 } from '../../components/icons/BoardIcons';
 
 type SortMode = 'new-old' | 'a-z' | 'last-updated' | 'custom';
@@ -74,12 +75,15 @@ function getWeekEnd(): string {
 function BoardsListPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const { boards, fetchBoards, createBoard, archiveBoard, deleteBoard, loading } = useProjectBoard();
+  const { boards, fetchBoards, createBoard, cloneBoard, archiveBoard, deleteBoard, loading } = useProjectBoard();
   const [showArchived, setShowArchived] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [creating, setCreating] = useState(false);
+  const [cloneSource, setCloneSource] = useState<typeof boards[number] | null>(null);
+  const [cloneTitle, setCloneTitle] = useState('');
+  const [cloning, setCloning] = useState(false);
   const [expandedBoards, setExpandedBoards] = useState<Set<string>>(() => {
     try {
       const saved = localStorage.getItem('boards-expanded-stats');
@@ -327,6 +331,24 @@ function BoardsListPage() {
     }
   };
 
+  const openCloneModal = (board: typeof boards[number], e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCloneSource(board);
+    setCloneTitle(`${board.title} Copy`);
+  };
+
+  const handleClone = async () => {
+    if (!cloneSource || !cloneTitle.trim()) return;
+    setCloning(true);
+    const cloned = await cloneBoard(cloneSource.id, cloneTitle);
+    setCloning(false);
+    if (cloned) {
+      setCloneSource(null);
+      setCloneTitle('');
+      router.push(`/boards/${cloned.id}`);
+    }
+  };
+
   const handleArchiveToggle = async (boardId: string, archived: boolean, e: React.MouseEvent) => {
     e.stopPropagation();
     const updated = await archiveBoard(boardId, archived);
@@ -458,6 +480,35 @@ function BoardsListPage() {
                 <button className="kb-btn kb-btn-ghost" onClick={() => setShowCreate(false)}>Cancel</button>
                 <button className="kb-btn kb-btn-primary" onClick={handleCreate} disabled={creating || !newTitle.trim()}>
                   {creating ? 'Creating...' : 'Create Board'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Clone modal */}
+        {cloneSource && (
+          <div className="kb-modal-overlay" onClick={() => setCloneSource(null)}>
+            <div className="kb-modal" onClick={e => e.stopPropagation()}>
+              <h2 className="kb-modal-title">Clone Board</h2>
+              <p className="kb-modal-help">
+                Copies lists, list automations, labels, and checklist templates. Cards are not copied.
+              </p>
+              <div className="kb-form-group">
+                <label className="kb-label">Board Title</label>
+                <input
+                  className="kb-input"
+                  value={cloneTitle}
+                  onChange={e => setCloneTitle(e.target.value)}
+                  placeholder="New board name"
+                  autoFocus
+                  onKeyDown={e => e.key === 'Enter' && handleClone()}
+                />
+              </div>
+              <div className="kb-modal-actions">
+                <button className="kb-btn kb-btn-ghost" onClick={() => setCloneSource(null)}>Cancel</button>
+                <button className="kb-btn kb-btn-primary" onClick={handleClone} disabled={cloning || !cloneTitle.trim()}>
+                  {cloning ? 'Cloning...' : 'Clone Board'}
                 </button>
               </div>
             </div>
@@ -667,29 +718,34 @@ function BoardsListPage() {
                       <Clock size={12} />
                       {s ? formatLastActivity(s.lastActivity) : new Date(board.created_at).toLocaleDateString()}
                     </span>
-                    {board.user_id === user?.id && (
-                      <div className="kb-board-card-actions">
-                        <button
-                          className="kb-btn-icon"
-                          onClick={e => handleArchiveToggle(board.id, !board.is_archived, e)}
-                          title={board.is_archived ? 'Unarchive board' : 'Archive board'}
-                        >
-                          <Archive size={14} />
-                        </button>
-                        <button
-                          className="kb-btn-icon kb-btn-icon-danger"
-                          onClick={e => {
-                            e.stopPropagation();
-                            if (confirm('Delete this board? This cannot be undone.')) {
-                              deleteBoard(board.id);
-                            }
-                          }}
-                          title="Delete board"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    )}
+                    <div className="kb-board-card-actions">
+                      <button
+                        className="kb-btn-icon"
+                        onClick={e => openCloneModal(board, e)}
+                        title="Clone board"
+                      >
+                        <Copy size={14} />
+                      </button>
+                      <button
+                        className="kb-btn-icon"
+                        onClick={e => handleArchiveToggle(board.id, !board.is_archived, e)}
+                        title={board.is_archived ? 'Unarchive board' : 'Archive board'}
+                      >
+                        <Archive size={14} />
+                      </button>
+                      <button
+                        className="kb-btn-icon kb-btn-icon-danger"
+                        onClick={e => {
+                          e.stopPropagation();
+                          if (confirm('Delete this board? This cannot be undone.')) {
+                            deleteBoard(board.id);
+                          }
+                        }}
+                        title="Delete board"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -1108,6 +1164,12 @@ const boardsListStyles = `
     font-weight: 700 !important;
     color: #f9fafb !important;
     margin: 0 0 20px 0 !important;
+  }
+  .kb-modal-help {
+    color: #9ca3af !important;
+    font-size: 13px !important;
+    line-height: 1.45 !important;
+    margin: -10px 0 18px 0 !important;
   }
   .kb-modal-actions {
     display: flex;

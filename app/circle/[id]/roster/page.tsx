@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '../../../../lib/supabase';
+import ServeTeamRoster from '../../../../components/circle/ServeTeamRoster';
 
 interface RosterPerson {
   id: string;
@@ -37,6 +38,7 @@ export default function CircleRosterPage() {
   const params = useParams();
   const leaderId = String(params?.id || '');
 
+  const [leaderType, setLeaderType] = useState<string | null>(null);
   const [leaderName, setLeaderName] = useState('');
   const [ccbGroupId, setCcbGroupId] = useState<string | null>(null);
   const [roster, setRoster] = useState<RosterPerson[]>([]);
@@ -56,7 +58,7 @@ export default function CircleRosterPage() {
         // Get leader info
         const { data: leader, error: leaderErr } = await supabase
           .from('circle_leaders')
-          .select('name, ccb_group_id')
+          .select('name, ccb_group_id, leader_type')
           .eq('id', leaderId)
           .single();
 
@@ -67,7 +69,14 @@ export default function CircleRosterPage() {
         }
 
         setLeaderName(leader.name || '');
+        setLeaderType(leader.leader_type || 'circle');
         setCcbGroupId(leader.ccb_group_id || null);
+
+        // Host team leaders use the serve team roster — stop loading here
+        if (leader.leader_type === 'host_team') {
+          setIsLoading(false);
+          return;
+        }
 
         if (!leader.ccb_group_id) {
           setError('This leader does not have a CCB Group ID configured. Edit the leader profile to add one.');
@@ -247,6 +256,11 @@ export default function CircleRosterPage() {
     if (diffHours < 24) return `${diffHours}h ago`;
     return `${diffDays}d ago`;
   };
+
+  // Host team leaders get the serve team roster
+  if (leaderType === 'host_team') {
+    return <ServeTeamRoster leaderId={leaderId} />;
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#0f1117' }}>

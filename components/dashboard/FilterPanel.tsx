@@ -17,7 +17,7 @@ const ORDERED_STATUSES = [
   { value: 'on-boarding', label: 'On-Boarding' },
   { value: 'paused', label: 'Paused' },
   { value: 'off-boarding', label: 'Off Boarding' },
-  { value: 'archive', label: 'Archive' }
+  { value: 'archived', label: 'Archived' }
 ] as const;
 
 const STATUS_OPTIONS = [
@@ -27,7 +27,7 @@ const STATUS_OPTIONS = [
   { value: 'active', label: 'Active', color: 'text-green-700' },
   { value: 'paused', label: 'Paused', color: 'text-yellow-700' },
   { value: 'off-boarding', label: 'Off-boarding', color: 'text-red-700' },
-  { value: 'archive', label: 'Archive', color: 'text-gray-700' },
+  { value: 'archived', label: 'Archived', color: 'text-gray-700' },
   { value: 'follow-up', label: 'Follow Up', color: 'text-orange-700' }
 ] as const;
 
@@ -38,7 +38,7 @@ const STATUS_MAP = {
   'invited': { label: 'Invited', color: 'text-blue-600 dark:text-blue-400' },
   'pipeline': { label: 'Pipeline', color: 'text-vc-600 dark:text-vc-400' },
   'on-boarding': { label: 'On-Boarding', color: 'text-blue-600 dark:text-blue-400' },
-  'archive': { label: 'Archive', color: 'text-gray-600 dark:text-gray-400' },
+  'archived': { label: 'Archived', color: 'text-gray-600 dark:text-gray-400' },
   'follow-up': { label: 'Follow Up', color: 'text-orange-600 dark:text-orange-400' }
 } as const;
 

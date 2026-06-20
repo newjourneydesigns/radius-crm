@@ -100,7 +100,6 @@ radius/
 ├── app/                    # Next.js 14 App Router
 │   ├── dashboard/          # Dashboard page
 │   ├── circle/[id]/        # Dynamic circle leader profiles
-│   ├── add-leader/         # Add new leader form
 │   ├── login/              # Authentication
 │   └── settings/           # User settings
 ├── components/             # Reusable components

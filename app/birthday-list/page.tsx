@@ -135,7 +135,7 @@ export default function BirthdayListPage() {
         const { data, error } = await supabase
           .from('circle_leaders')
           .select('id, name, campus, birthday, ccb_profile_link, ccb_group_id, status, additional_leader_name, additional_leader_birthday')
-          .not('status', 'in', '("archive","Inactive","Removed")')
+          .not('status', 'in', '("archive","archived","Inactive","Removed")')
           .order('name');
         if (error) throw error;
 

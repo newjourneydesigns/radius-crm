@@ -83,19 +83,6 @@
           "type": "image/png"
         }
       ]
-    },
-    {
-      "name": "Add Leader",
-      "short_name": "Add Leader",
-      "description": "Add New Circle Leader",
-      "url": "/add-leader/",
-      "icons": [
-        { 
-          "src": "/icon-192x192.png", 
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
     }
   ]
 }

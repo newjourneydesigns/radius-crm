@@ -178,7 +178,7 @@ const ARTICLES: Article[] = [
         <H>Avatar menu (top right)</H>
         <UL>
           <li>Profile, Settings, Logout</li>
-          <li>Person Lookup, CCB Explorer, Manage Users, Add Leader (Admin only)</li>
+          <li>Person Lookup, CCB Explorer, Manage Users (Admin only)</li>
         </UL>
       </>
     ),
@@ -694,25 +694,6 @@ const ARTICLES: Article[] = [
 
   // ─── Admin ───
   {
-    id: 'add-leader',
-    title: 'Adding a new leader (admin)',
-    category: 'Admin',
-    level: 'power',
-    tags: ['add leader', 'create', 'new', 'admin', 'onboarding'],
-    snippet: 'Create a leader from scratch or pull from CCB — Add Leader handles both.',
-    body: (
-      <>
-        <OL>
-          <li>Avatar menu → <strong>Add Leader</strong></li>
-          <li>Search CCB to auto-fill contact info, or enter manually</li>
-          <li>Set campus, circle type, meeting day/time, and initial status</li>
-          <li>Save — the profile is live and shows up in everyone&apos;s filtered views</li>
-        </OL>
-      </>
-    ),
-    tryIt: { label: 'Add Leader', href: '/add-leader' },
-  },
-  {
     id: 'manage-users',
     title: 'Managing Radius users (admin)',
     category: 'Admin',
@@ -790,7 +771,7 @@ const ARTICLES: Article[] = [
     category: 'FAQ',
     level: 'beginner',
     tags: ['permissions', 'access', 'hidden', 'admin'],
-    snippet: 'Most likely you need the ACPD/Admin role. CCB Explorer, Manage Users, and Add Leader are admin-only.',
+    snippet: 'Most likely you need the ACPD/Admin role. CCB Explorer and Manage Users are admin-only.',
     body: (
       <>
         <Para>

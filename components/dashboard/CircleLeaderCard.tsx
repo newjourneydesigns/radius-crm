@@ -22,7 +22,7 @@ const STATUS_OPTIONS = [
   { value: 'active', label: 'Active' },
   { value: 'paused', label: 'Paused' },
   { value: 'off-boarding', label: 'Off-boarding' },
-  { value: 'archive', label: 'Archive' }
+  { value: 'archived', label: 'Archived' }
 ] as const;
 
 const TIME_FORMAT_REGEX = /^(\d{1,2}):(\d{2})$/;

@@ -111,7 +111,7 @@ const DAY_INDEX: Record<string, number> = {
 };
 const CIRCLE_STATUS_OPTIONS = [
   { value: 'active', label: 'Active' },
-  { value: 'archive', label: 'Archive' },
+  { value: 'archived', label: 'Archived' },
   { value: 'follow-up', label: 'Follow-up' },
   { value: 'invited', label: 'Invited' },
   { value: 'on-boarding', label: 'Onboarding' },

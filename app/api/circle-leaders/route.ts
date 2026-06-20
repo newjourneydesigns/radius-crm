@@ -142,6 +142,9 @@ export async function POST(request: NextRequest) {
 
       const director = normalizeString(circleLeader.director);
       if (director) cleanData.director = director;
+
+      const ccbCategoryId = normalizeString(circleLeader.ccb_category_id);
+      if (ccbCategoryId) cleanData.ccb_category_id = ccbCategoryId;
     }
 
     // Optional: anchor date for bi-weekly parity (expects YYYY-MM-DD)
@@ -220,7 +223,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const validFields = ['campus', 'acpd', 'frequency', 'circle_type', 'day', 'time', 'meeting_start_date', 'status', 'email_reminders_enabled'];
+    const validFields = ['campus', 'acpd', 'frequency', 'circle_type', 'day', 'time', 'meeting_start_date', 'status', 'email_reminders_enabled', 'ccb_category_id'];
     if (!field || !validFields.includes(field)) {
       return NextResponse.json(
         { error: `field must be one of: ${validFields.join(', ')}` },
@@ -229,7 +232,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (field === 'status' && typeof value === 'string') {
-      const validStatuses = ['invited', 'on-boarding', 'active', 'paused', 'off-boarding'];
+      const validStatuses = ['invited', 'pipeline', 'on-boarding', 'active', 'paused', 'off-boarding', 'archived'];
       if (!validStatuses.includes(value.trim().toLowerCase())) {
         return NextResponse.json(
           { error: `status must be one of: ${validStatuses.join(', ')}` },
@@ -257,7 +260,12 @@ export async function PATCH(request: NextRequest) {
         ? value === true || value === 'true'
         : value.trim();
 
-    const { data, error } = await supabase
+    const db = getServiceClient();
+    if (!db) {
+      return NextResponse.json({ error: 'Service client unavailable' }, { status: 500 });
+    }
+
+    const { data, error } = await db
       .from('circle_leaders')
       .update({ [field]: updateValue, updated_at: new Date().toISOString() })
       .in('id', leaderIds)

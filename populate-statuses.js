@@ -13,7 +13,7 @@ const statuses = [
   'active',
   'paused',
   'off-boarding',
-  'archive',
+  'archived',
   'follow-up'
 ];
 

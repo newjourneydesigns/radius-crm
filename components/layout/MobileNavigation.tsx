@@ -372,9 +372,9 @@ export default function MobileNavigation() {
   ];
 
   const adminItems = [
-    { href: '/add-leader',    label: 'Add Circle/Leader', Icon: UserPlusIcon },
-    { href: '/import-circles/#mass-update', label: 'Mass Update', Icon: MassUpdateIcon },
     { href: '/import-circles', label: 'Import Circles',  Icon: CloudImportIcon },
+    { href: '/import-team',   label: 'Import Host Team',  Icon: UserPlusIcon },
+    { href: '/import-circles/#mass-update', label: 'Mass Update', Icon: MassUpdateIcon },
     { href: '/users',         label: 'Manage Users',     Icon: UsersIcon },
     { href: '/ccb-usage',     label: 'CCB Usage',        Icon: ChartIcon },
     { href: '/admin/ccb-event-occurrence-delete', label: 'CCB Event Management', Icon: CalendarIcon },

@@ -121,6 +121,7 @@ export interface CircleLeader {
   leader_type?: 'circle' | 'host_team';
   team_name?: string;
   director?: string;
+  ccb_category_id?: string;
   location?: string;
   uuid?: string;
   created_at?: string;

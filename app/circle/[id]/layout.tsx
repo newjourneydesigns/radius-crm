@@ -8,6 +8,7 @@ import { supabase } from '../../../lib/supabase';
 
 const TABS = [
   { label: 'Profile',   route: (id: string) => `/circle/${id}` },
+  { label: 'Roster',    route: (id: string) => `/circle/${id}/roster`,        hostTeamOnly: true },
   { label: 'Notes',     route: (id: string) => `/circle/${id}/notes` },
   { label: 'Messaging', route: (id: string) => `/circle/${id}/messaging` },
   { label: 'Scorecard', route: (id: string) => `/circle/${id}/scorecard`,     circleOnly: true },
@@ -190,6 +191,7 @@ export default function CircleLeaderLayout({
   const filteredTabs = TABS.filter(t => {
     if ('adminOnly' in t && !isAdmin()) return false;
     if ('circleOnly' in t && leaderType === 'host_team') return false;
+    if ('hostTeamOnly' in t && leaderType !== 'host_team') return false;
     return true;
   });
 

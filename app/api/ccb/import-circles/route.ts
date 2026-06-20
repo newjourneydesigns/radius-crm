@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { createCCBv2Client } from '../../../../lib/ccb/ccb-v2-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import { verifyAdminAccessDemo } from '../../../../lib/auth-middleware';
@@ -12,6 +13,27 @@ export const dynamic = 'force-dynamic';
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_WINDOW = 60 * 1000;
 const RATE_LIMIT_MAX = 10;
+
+interface CCBGroupProfileCustomField {
+  name?: unknown;
+  label?: unknown;
+  selection?: unknown;
+  value?: unknown;
+}
+
+interface CCBGroupProfileResponse {
+  ccb_api?: {
+    response?: {
+      groups?: {
+        group?: {
+          user_defined_fields?: {
+            user_defined_field?: CCBGroupProfileCustomField | CCBGroupProfileCustomField[];
+          };
+        };
+      };
+    };
+  };
+}
 
 function checkRateLimit(userId: string): boolean {
   const now = Date.now();
@@ -34,6 +56,57 @@ function getServiceSupabase() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) throw new Error('Missing Supabase env vars');
   return createClient(url, key);
+}
+
+function ccbText(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value).trim().replace(/\\'/g, "'");
+  }
+
+  const rec = value as Record<string, unknown>;
+  return ccbText(rec['#text'] ?? rec.text ?? rec.value);
+}
+
+function asArray<T>(value: T | T[] | null | undefined): T[] {
+  if (Array.isArray(value)) return value;
+  return value ? [value] : [];
+}
+
+function getCircleTypeFromGroupProfile(xml: CCBGroupProfileResponse): string | null {
+  const group = xml?.ccb_api?.response?.groups?.group;
+  const customFields = asArray(group?.user_defined_fields?.user_defined_field);
+
+  for (const field of customFields) {
+    const label = ccbText(field?.label).toLowerCase();
+    const name = ccbText(field?.name).toLowerCase();
+    if (label !== 'circle type' && name !== 'udf_3') continue;
+
+    return ccbText(field?.selection) || ccbText(field?.value) || null;
+  }
+
+  return null;
+}
+
+async function fetchCcbCircleType(request: NextRequest, groupId: string): Promise<string | null> {
+  try {
+    const ccb = createCCBClient(await getCCBRequestContext(request, {
+      module: 'Import Circles (v1)',
+      action: 'Lookup Group Circle Type',
+      direction: 'pull',
+    }));
+
+    const xml = await ccb.getXml<CCBGroupProfileResponse>({
+      srv: 'group_profile_from_id',
+      id: groupId,
+      include_participants: 'false',
+    });
+
+    return getCircleTypeFromGroupProfile(xml);
+  } catch (error) {
+    console.warn('⚠️ Unable to resolve CCB Circle Type from group profile:', error);
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -133,6 +206,7 @@ export async function GET(request: NextRequest) {
 
     const fallbackLocation = [group.address?.street, group.address?.city, group.address?.state, group.address?.zip]
       .filter(Boolean).join(', ') || null;
+    const circleType = await fetchCcbCircleType(request, groupId);
 
     return NextResponse.json({
       success: true,
@@ -141,6 +215,7 @@ export async function GET(request: NextRequest) {
         name: group.name,
         description: group.description || null,
         groupType: group.type?.name || null,
+        circleType,
         campus: campusName,
         campusId: group.campus?.id || null,
         meetingDay: meeting.day || group.meetDay?.name || null,
@@ -279,6 +354,7 @@ export async function POST(request: NextRequest) {
     const meetingLocation = meeting.location
       || [group.address?.street, group.address?.city, group.address?.state, group.address?.zip].filter(Boolean).join(', ')
       || null;
+    const circleType = await fetchCcbCircleType(request, groupId);
 
     const subdomain = process.env.CCB_SUBDOMAIN || process.env.CCB_BASE_URL || '';
     const base = subdomain
@@ -299,7 +375,7 @@ export async function POST(request: NextRequest) {
       birthday: leaderBirthday,
       campus: campusName,
       acpd,
-      circle_type: group.type?.name || null,
+      circle_type: circleType,
       day: meetingDay,
       time: meetingTime,
       frequency: meeting.frequency,

@@ -15,6 +15,7 @@ interface CCBGroupPreview {
   name: string;
   description?: string | null;
   groupType?: string | null;
+  circleType?: string | null;
   campus?: string | null;
   campusId?: string | null;
   meetingDay?: string | null;
@@ -1052,8 +1053,9 @@ export default function ImportCirclesPage() {
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">Circle</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
                     <Detail label="Name" value={preview.name} />
-                    <Detail label="Type" value={preview.groupType} />
+                    <Detail label="Circle Type" value={preview.circleType} />
                     <Detail label="Campus" value={preview.campus} />
+                    <Detail label="CCB Group Type" value={preview.groupType} />
                     <Detail label="CCB Group ID" value={preview.id} />
                     <Detail label="Meeting Day" value={preview.meetingDay} />
                     <Detail label="Meeting Time" value={formatMeetingTime(preview.meetingTime)} />

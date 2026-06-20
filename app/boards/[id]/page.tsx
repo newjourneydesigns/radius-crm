@@ -557,6 +557,244 @@ function LabelManagerModal({
   );
 }
 
+type SystemUser = { id: string; name: string; email: string };
+
+function BoardShareModal({
+  board,
+  currentUserId,
+  fetchSystemUsers,
+  fetchBoardMembers,
+  shareBoardWithUsers,
+  unshareBoardUser,
+  updateBoard,
+  onClose,
+}: {
+  board: ProjectBoard;
+  currentUserId?: string;
+  fetchSystemUsers: () => Promise<SystemUser[]>;
+  fetchBoardMembers: (boardId: string) => Promise<BoardMember[]>;
+  shareBoardWithUsers: (boardId: string, userIds: string[]) => Promise<boolean>;
+  unshareBoardUser: (boardId: string, userId: string) => Promise<boolean>;
+  updateBoard: (boardId: string, updates: Partial<ProjectBoard>) => Promise<ProjectBoard | null>;
+  onClose: () => void;
+}) {
+  const [users, setUsers] = useState<SystemUser[]>([]);
+  const [members, setMembers] = useState<BoardMember[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [userRows, memberRows] = await Promise.all([
+        fetchSystemUsers(),
+        fetchBoardMembers(board.id),
+      ]);
+      setUsers(userRows);
+      setMembers(memberRows);
+      setSelected(new Set());
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unable to load sharing settings.');
+    } finally {
+      setLoading(false);
+    }
+  }, [board.id, fetchBoardMembers, fetchSystemUsers]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const memberIds = useMemo(() => new Set(members.map(member => member.user_id)), [members]);
+  const owner = users.find(item => item.id === board.user_id);
+  const availableUsers = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return users
+      .filter(item => item.id !== board.user_id && !memberIds.has(item.id))
+      .filter(item => {
+        if (!q) return true;
+        return item.name?.toLowerCase().includes(q) || item.email?.toLowerCase().includes(q);
+      });
+  }, [board.user_id, memberIds, query, users]);
+
+  const toggleUser = (userId: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  };
+
+  const toggleVisible = () => {
+    setSelected(prev => {
+      const allSelected = availableUsers.length > 0 && availableUsers.every(item => prev.has(item.id));
+      if (allSelected) {
+        const next = new Set(prev);
+        availableUsers.forEach(item => next.delete(item.id));
+        return next;
+      }
+      const next = new Set(prev);
+      availableUsers.forEach(item => next.add(item.id));
+      return next;
+    });
+  };
+
+  const handleShareSelected = async () => {
+    if (selected.size === 0) return;
+    setSaving(true);
+    setError('');
+    const ok = await shareBoardWithUsers(board.id, Array.from(selected));
+    if (ok) await refresh();
+    else setError('Could not share the board with the selected users.');
+    setSaving(false);
+  };
+
+  const handleRemoveMember = async (userId: string) => {
+    setSaving(true);
+    setError('');
+    const ok = await unshareBoardUser(board.id, userId);
+    if (ok) await refresh();
+    else setError('Could not remove that user from the board.');
+    setSaving(false);
+  };
+
+  const handleEveryoneToggle = async () => {
+    setSaving(true);
+    setError('');
+    const updated = await updateBoard(board.id, { is_public: !board.is_public });
+    if (!updated) setError('Could not update everyone access.');
+    setSaving(false);
+  };
+
+  return (
+    <div className="kb-modal-overlay" onClick={onClose}>
+      <div className="kb-share-modal" onClick={e => e.stopPropagation()}>
+        <div className="kb-import-header">
+          <div className="kb-share-title">
+            <UserPlus size={18} style={{ color: '#56c93f' }} />
+            <div>
+              <h3 className="kb-import-title">Share Board</h3>
+              <span>{board.title}</span>
+            </div>
+          </div>
+          <button className="kb-btn-icon-sm" onClick={onClose}><X size={16} /></button>
+        </div>
+
+        <div className="kb-share-body">
+          <button
+            type="button"
+            className={`kb-share-everyone ${board.is_public ? 'active' : ''}`}
+            onClick={handleEveryoneToggle}
+            disabled={saving}
+          >
+            <div className="kb-share-everyone-icon">
+              {board.is_public ? <Globe size={18} /> : <Lock size={18} />}
+            </div>
+            <div>
+              <strong>{board.is_public ? 'Shared with everyone' : 'Private or selected people only'}</strong>
+              <span>Everyone access gives all Radius users full board admin rights.</span>
+            </div>
+            <span className="kb-share-switch">{board.is_public ? 'On' : 'Off'}</span>
+          </button>
+
+          <div className="kb-share-section">
+            <div className="kb-share-section-header">
+              <span>People with access</span>
+              <span>{members.length + 1}</span>
+            </div>
+            <div className="kb-share-member-list">
+              <div className="kb-share-member-row">
+                <div className="kb-share-avatar"><User size={14} /></div>
+                <div className="kb-share-person">
+                  <strong>{owner?.name || (board.user_id === currentUserId ? 'You' : 'Board owner')}</strong>
+                  <span>{owner?.email || 'Owner'}</span>
+                </div>
+                <span className="kb-share-role">Owner</span>
+              </div>
+              {members.map(member => (
+                <div key={member.id} className="kb-share-member-row">
+                  <div className="kb-share-avatar"><User size={14} /></div>
+                  <div className="kb-share-person">
+                    <strong>{member.users?.name || (member.user_id === currentUserId ? 'You' : 'Shared user')}</strong>
+                    <span>{member.users?.email || 'Full admin'}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="kb-btn kb-btn-ghost kb-btn-sm"
+                    onClick={() => handleRemoveMember(member.user_id)}
+                    disabled={saving}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="kb-share-section">
+            <div className="kb-share-section-header">
+              <span>Add people</span>
+              <button type="button" className="kb-btn kb-btn-ghost kb-btn-sm" onClick={toggleVisible} disabled={availableUsers.length === 0}>
+                {availableUsers.length > 0 && availableUsers.every(item => selected.has(item.id)) ? 'Clear visible' : 'Select visible'}
+              </button>
+            </div>
+            <div className="kb-share-search">
+              <Search size={14} />
+              <input
+                className="kb-input"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="Search users..."
+              />
+            </div>
+            <div className="kb-share-user-list">
+              {loading ? (
+                <div className="kb-import-empty">Loading users...</div>
+              ) : availableUsers.length === 0 ? (
+                <div className="kb-import-empty">No users available to add</div>
+              ) : (
+                availableUsers.map(item => (
+                  <label key={item.id} className={`kb-share-user-row ${selected.has(item.id) ? 'selected' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(item.id)}
+                      onChange={() => toggleUser(item.id)}
+                    />
+                    <div className="kb-share-person">
+                      <strong>{item.name || item.email}</strong>
+                      <span>{item.email}</span>
+                    </div>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+
+          {error && <div className="kb-share-error">{error}</div>}
+        </div>
+
+        <div className="kb-import-footer">
+          <span className="kb-import-label">
+            Selected users get full admin access, including sharing with others.
+          </span>
+          <button
+            type="button"
+            className="kb-btn kb-btn-primary kb-btn-sm"
+            onClick={handleShareSelected}
+            disabled={saving || selected.size === 0}
+          >
+            <UserPlus size={14} /> Share with {selected.size || 0}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════════
    Import Circle Leaders Modal
    ═══════════════════════════════════════════════════════════ */
@@ -2309,6 +2547,9 @@ function BoardPage() {
           {board.is_public && (
             <span className="kb-public-badge"><Globe size={11} /> Public</span>
           )}
+          {board.user_id !== user?.id && (
+            <span className="kb-public-badge kb-shared-badge"><User size={11} /> Shared</span>
+          )}
           {board.is_archived && (
             <span className="kb-public-badge kb-archived-badge"><Archive size={11} /> Archived</span>
           )}
@@ -2465,28 +2706,24 @@ function BoardPage() {
                   <button className="kb-dropdown-item" onClick={() => { setShowBoardMenu(false); setShowImportModal(true); }}>
                     <Download size={14} /> Import Circle Leaders
                   </button>
-                  {board.user_id === user?.id && (
-                    <button
-                      className="kb-dropdown-item"
-                      onClick={async () => {
-                        await updateBoard(boardId, { is_public: !board.is_public });
-                        setShowBoardMenu(false);
-                      }}
-                    >
-                      {board.is_public ? <><Lock size={14} /> Make Private</> : <><Globe size={14} /> Share (Make Public)</>}
-                    </button>
-                  )}
-                  {board.user_id === user?.id && (
-                    <button
-                      className="kb-dropdown-item"
-                      onClick={async () => {
-                        await updateBoard(boardId, { is_archived: !board.is_archived });
-                        setShowBoardMenu(false);
-                      }}
-                    >
-                      <Archive size={14} /> {board.is_archived ? 'Unarchive Board' : 'Archive Board'}
-                    </button>
-                  )}
+                  <button
+                    className="kb-dropdown-item"
+                    onClick={() => {
+                      setShowShareModal(true);
+                      setShowBoardMenu(false);
+                    }}
+                  >
+                    <UserPlus size={14} /> Share Board
+                  </button>
+                  <button
+                    className="kb-dropdown-item"
+                    onClick={async () => {
+                      await updateBoard(boardId, { is_archived: !board.is_archived });
+                      setShowBoardMenu(false);
+                    }}
+                  >
+                    <Archive size={14} /> {board.is_archived ? 'Unarchive Board' : 'Archive Board'}
+                  </button>
                   <button
                     className="kb-dropdown-item danger"
                     onClick={async () => {
@@ -2512,7 +2749,7 @@ function BoardPage() {
             <strong>Archived board</strong>
             <span>Cards on this board are hidden from Today alerts, badges, emails, and push reminders.</span>
           </div>
-          {board.user_id === user?.id && (
+          {board && (
             <button className="kb-btn kb-btn-primary" onClick={() => updateBoard(boardId, { is_archived: false })}>
               <Archive size={14} /> Unarchive
             </button>
@@ -2573,6 +2810,19 @@ function BoardPage() {
           onUpdateLabel={updateLabel}
           onDeleteLabel={deleteLabel}
           onClose={() => setShowLabelManager(false)}
+        />
+      )}
+
+      {showShareModal && board && (
+        <BoardShareModal
+          board={board}
+          currentUserId={user?.id}
+          fetchSystemUsers={fetchSystemUsers}
+          fetchBoardMembers={fetchBoardMembers}
+          shareBoardWithUsers={shareBoardWithUsers}
+          unshareBoardUser={unshareBoardUser}
+          updateBoard={updateBoard}
+          onClose={() => setShowShareModal(false)}
         />
       )}
 

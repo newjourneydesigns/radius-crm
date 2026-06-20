@@ -1,6 +1,72 @@
 [
   {
     "date": "2026-06-19",
+    "version": "2.38.4",
+    "date_display": "June 19, 2026",
+    "date_iso": "2026-06-19",
+    "id": "serve-team-roster-category-search",
+    "type": "improvement",
+    "category": "Host Teams",
+    "description": "When configuring a host team leader's positions, you can now find the CCB scheduling category by typing its name (e.g. \"Host Teams\") instead of needing the numeric ID — with a searchable dropdown showing the category name, campus, and ID. Entering an ID directly still works.",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-06-19",
+    "version": "2.38.3",
+    "date_display": "June 19, 2026",
+    "date_iso": "2026-06-19",
+    "id": "serve-team-roster-remove-position",
+    "type": "improvement",
+    "category": "Host Teams",
+    "description": "You can now remove a managed position from a host team leader after assigning it. Open Edit Positions to see a \"Currently managed\" list — now labeled with the CCB category name — with a Remove button on each, or look up the category and uncheck positions (your current selections are pre-checked).",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-06-19",
+    "version": "2.38.2",
+    "date_display": "June 19, 2026",
+    "date_iso": "2026-06-19",
+    "id": "serve-team-roster-stale-cache-fix",
+    "type": "fix",
+    "category": "Host Teams",
+    "description": "Fixed the Serve Team Roster showing empty even after positions were configured. Newly saved positions and category IDs now appear immediately instead of being masked by a stale server cache.",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-06-19",
+    "version": "2.38.1",
+    "date_display": "June 19, 2026",
+    "date_iso": "2026-06-19",
+    "id": "serve-team-roster-configure-inline",
+    "type": "improvement",
+    "category": "Host Teams",
+    "description": "You can now configure a host team leader's CCB positions directly from their Roster tab — no need to re-import. Enter the CCB scheduling category ID, select which positions they manage, and save. An Edit Positions button lets you update the selection anytime.",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-06-20",
+    "version": "2.38.0",
+    "date_display": "June 20, 2026",
+    "date_iso": "2026-06-20",
+    "id": "serve-team-roster",
+    "type": "feature",
+    "category": "Host Teams",
+    "description": "Serve Team Roster for host team leaders — when importing a team, select which CCB positions this leader manages (e.g., Parking, Greeters). Their leader profile now includes a Roster tab showing every volunteer in those positions, pulled live from CCB, with name, phone, email, and quick-action buttons.",
+    "page": "/import-team"
+  },
+  {
+    "date": "2026-06-20",
+    "version": "2.37.0",
+    "date_display": "June 20, 2026",
+    "date_iso": "2026-06-20",
+    "id": "import-host-team",
+    "type": "feature",
+    "category": "Host Teams",
+    "description": "New Import Host Team page — enter a CCB scheduling category ID to look up any host team, preview its campus, positions, and volunteer count, designate the team leader via CCB person search, and create a RADIUS profile for them. Accessible from the admin nav under Import Host Team.",
+    "page": "/import-team"
+  },
+  {
+    "date": "2026-06-19",
     "version": "2.36.0",
     "date_display": "June 19, 2026",
     "date_iso": "2026-06-19",
@@ -851,8 +917,7 @@
     "type": "improvement",
     "type_display": "Improvement",
     "category": "Tools",
-    "description": "Moved Add Circle/Leader and Mass Update up into the Tools section of the menu so the most-used admin actions are easier to reach. They remain admin-only.",
-    "page": "/add-leader"
+    "description": "Moved Add Circle/Leader and Mass Update up into the Tools section of the menu so the most-used admin actions are easier to reach. They remain admin-only."
   },
   {
     "date": "2026-06-04",
@@ -2210,8 +2275,7 @@
   {
     "date": "2026-05-05",
     "type": "fix",
-    "description": "Fixed Add Leader reliability and cleaned up duplicate Status options in the Add Leader form so each status now appears once and leader creation uses the secured API flow.",
-    "page": "/add-leader"
+    "description": "Fixed Add Leader reliability and cleaned up duplicate Status options in the Add Leader form so each status now appears once and leader creation uses the secured API flow."
   },
   {
     "date": "2026-05-05",

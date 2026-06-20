@@ -590,7 +590,7 @@ export const AI_TOOLS: ToolDefinition[] = [
         page: {
           type: 'string',
           description: 'The page to navigate to',
-          enum: ['boards', 'prayer', 'progress', 'calendar', 'search', 'settings', 'profile', 'help', 'assistant', 'birthday-list', 'bulk-message', 'ccb-explorer', 'add-leader', 'users', 'event-summaries', 'leader-profile', 'leader-roster'],
+          enum: ['boards', 'prayer', 'progress', 'calendar', 'search', 'settings', 'profile', 'help', 'assistant', 'birthday-list', 'bulk-message', 'ccb-explorer', 'users', 'event-summaries', 'leader-profile', 'leader-roster'],
         },
         leader_name: {
           type: 'string',
@@ -1431,7 +1431,6 @@ export async function executeTool(
         'birthday-list': '/birthday-list',
         'bulk-message': '/bulk-message',
         'ccb-explorer': '/ccb-explorer',
-        'add-leader': '/add-leader',
         'users': '/users',
         'event-summaries': '/dashboard/event-summaries',
       };

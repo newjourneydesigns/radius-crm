@@ -284,6 +284,98 @@ export class CCBv2Client {
     const items = asArray(raw).map(mapGroupDetail).filter((g): g is GroupDetailV2 => g !== null);
     return { items, totalCount: raw?.meta?.pagination?.total_count };
   }
+
+  /**
+   * GET /scheduling/categories → all categories, paged through to the end.
+   * Returns a lightweight shape (id, name, campus, archived) for pickers. The
+   * endpoint returns a bare array per page with no total_count, so we page until
+   * a short page comes back.
+   */
+  async listSchedulingCategories(): Promise<Array<{ id: number; name: string; campus?: { id: number; name: string }; archived: boolean }>> {
+    const perPage = 100;
+    const all: Array<{ id: number; name: string; campus?: { id: number; name: string }; archived: boolean }> = [];
+    for (let page = 1; page <= 20; page++) {
+      const raw = await this.get<any>('/scheduling/categories', { page, per_page: perPage });
+      const items = asArray(raw);
+      for (const c of items) {
+        all.push({
+          id: c.id,
+          name: c.name ?? '',
+          campus: c.campus ? { id: c.campus.id, name: c.campus.name } : undefined,
+          archived: c.archived ?? false,
+        });
+      }
+      if (items.length < perPage) break;
+    }
+    return all;
+  }
+
+  async getSchedulingCategory(categoryId: string | number): Promise<SchedulingCategoryV2 | null> {
+    const raw = await this.get<any>(`/scheduling/categories/${categoryId}`);
+    if (!raw || !raw.id) return null;
+    return {
+      id: raw.id,
+      name: raw.name ?? '',
+      campus: raw.campus ? { id: raw.campus.id, name: raw.campus.name } : undefined,
+      organizer: raw.organizer
+        ? { id: raw.organizer.id, name: raw.organizer.name ?? `${raw.organizer.first_name ?? ''} ${raw.organizer.last_name ?? ''}`.trim(), email: raw.organizer.email }
+        : undefined,
+      recurrence_pattern: raw.recurrence_pattern,
+      archived: raw.archived ?? false,
+      teams: asArray(raw.teams).map((t: any) => ({
+        id: t.id,
+        name: t.name,
+        positions: asArray(t.positions).map((p: any) => ({ id: p.id, name: p.name })),
+      })),
+      metrics: raw.metrics ? { total_active_volunteers: raw.metrics.total_active_volunteers ?? 0 } : undefined,
+    };
+  }
+
+  async getCategoryVolunteers(categoryId: string | number): Promise<SchedulingVolunteerV2[]> {
+    const raw = await this.get<any>(`/scheduling/categories/${categoryId}/volunteers`);
+    return asArray(raw).map((v: any) => ({
+      id: v.id,
+      positionId: v.position_id,
+      status: v.status ?? 'ACTIVE',
+      individual: v.individual
+        ? {
+            id: v.individual.id,
+            name: v.individual.name ?? `${v.individual.first_name ?? ''} ${v.individual.last_name ?? ''}`.trim(),
+            email: v.individual.email ?? '',
+            mobile: v.individual.phone?.mobile ?? '',
+            birthday: v.individual.birthday ?? '',
+          }
+        : null,
+    })).filter((v: SchedulingVolunteerV2) => v.individual !== null);
+  }
+}
+
+export interface SchedulingCategoryV2 {
+  id: number;
+  name: string;
+  campus?: { id: number; name: string };
+  organizer?: { id: number; name: string; email?: string };
+  recurrence_pattern?: string;
+  archived?: boolean;
+  teams?: Array<{
+    id: number;
+    name: string;
+    positions?: Array<{ id: number; name: string }>;
+  }>;
+  metrics?: { total_active_volunteers: number };
+}
+
+export interface SchedulingVolunteerV2 {
+  id: number;
+  positionId: number;
+  status: 'ACTIVE' | 'INACTIVE' | string;
+  individual: {
+    id: number;
+    name: string;
+    email: string;
+    mobile: string;
+    birthday: string;
+  } | null;
 }
 
 export interface AttendanceSummaryV2 {

@@ -143,7 +143,7 @@ export async function GET() {
     });
 
     // Filter statuses to only include valid database constraint values
-    const validStatuses = ['invited', 'pipeline', 'on-boarding', 'active', 'paused', 'off-boarding'];
+    const validStatuses = ['invited', 'pipeline', 'on-boarding', 'active', 'paused', 'off-boarding', 'archived'];
     const filteredStatuses = (statusesRes.data || []).filter((s: any) => 
       validStatuses.includes(s?.value?.toLowerCase())
     );
