@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-06-20",
+    "version": "2.39.0",
+    "date_display": "June 20, 2026",
+    "date_iso": "2026-06-20",
+    "id": "teams-toolkit-launch",
+    "type": "feature",
+    "category": "Teams Toolkit",
+    "description": "Launched the Teams Toolkit — a dedicated, passwordless hub for team leaders that mirrors the Circle Leader Toolkit. Team leaders sign in with an emailed code and see their team roster (the volunteers in the positions they lead) plus an inbox and message center. Schedules with RSVP are coming next.",
+    "page": "/teams-toolkit"
+  },
+  {
     "date": "2026-06-19",
     "version": "2.38.4",
     "date_display": "June 19, 2026",
