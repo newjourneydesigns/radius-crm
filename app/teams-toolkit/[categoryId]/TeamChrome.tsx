@@ -72,7 +72,7 @@ export default function TeamChrome({
                   className="shrink-0"
                 >
                   <img
-                    src="/Valley Creek Logo-White.png"
+                    src="/VCC Icon (White).png"
                     alt="Valley Creek"
                     className="h-14 sm:h-16 w-auto"
                   />

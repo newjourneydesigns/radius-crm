@@ -14,7 +14,7 @@ export default async function TeamsToolkitSignInPage() {
     <>
       <header className="cs-hero py-14 sm:py-20 px-6 text-center">
         <img
-          src="/Valley Creek Logo-White.png"
+          src="/VCC Icon (White).png"
           alt="Valley Creek"
           className="mx-auto h-20 sm:h-28 w-auto mb-6"
         />
