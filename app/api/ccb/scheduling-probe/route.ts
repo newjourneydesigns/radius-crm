@@ -2,11 +2,12 @@
  * GET /api/ccb/scheduling-probe?category_id=238[&start=YYYY-MM-DD&end=YYYY-MM-DD]
  *
  * Admin-only discovery probe (read-only) for the Teams Toolkit Schedule tab.
- * Tries a spread of candidate CCB scheduling endpoints for a category and
- * returns the raw JSON for each, so we can see which endpoint exposes scheduled
- * occurrences + per-person response status and map it. Server-side twin of
- * scripts/probe-ccb-scheduling.ts (so it can run from the admin UI with the
- * deployed site's CCB credentials — no local terminal needed).
+ *
+ * Phase 1 confirmed `/scheduling/categories/{id}/events` returns upcoming dated
+ * slots, but per-person assignment + accept/decline status isn't at the category
+ * level (those returned 405). Phase 2 (this version) auto-discovers an upcoming
+ * event + its schedule, then probes per-person endpoints UNDER that event /
+ * schedule / serving-rotation to find where the response status lives.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -22,63 +23,79 @@ function plusDays(days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+function asArray(json: any): any[] {
+  if (Array.isArray(json)) return json;
+  return json?.items ?? json?.data ?? json?.results ?? [];
+}
+
 export async function GET(request: NextRequest) {
   const { isAdmin, error } = await verifyAdminAccess(request);
-  if (!isAdmin) {
-    return NextResponse.json({ error: error || 'Unauthorized' }, { status: 401 });
-  }
+  if (!isAdmin) return NextResponse.json({ error: error || 'Unauthorized' }, { status: 401 });
 
   const categoryId = request.nextUrl.searchParams.get('category_id');
-  if (!categoryId) {
-    return NextResponse.json({ error: 'Missing category_id' }, { status: 400 });
-  }
+  if (!categoryId) return NextResponse.json({ error: 'Missing category_id' }, { status: 400 });
   const start = request.nextUrl.searchParams.get('start') || new Date().toISOString().slice(0, 10);
-  const end = request.nextUrl.searchParams.get('end') || plusDays(42);
+  const end = request.nextUrl.searchParams.get('end') || plusDays(28);
 
   const ctx = await getCCBRequestContext(request, {
     module: 'Teams Toolkit Spike',
-    action: 'Probe Scheduling',
+    action: 'Probe Scheduling Deep',
     direction: 'pull',
   });
   const v2 = createCCBv2Client(ctx);
 
-  const candidates: Array<{ label: string; path: string; query?: Record<string, string> }> = [
-    { label: 'category detail', path: `/scheduling/categories/${categoryId}` },
-    { label: 'category volunteers', path: `/scheduling/categories/${categoryId}/volunteers` },
-    { label: 'category schedules', path: `/scheduling/categories/${categoryId}/schedules`, query: { start, end } },
-    { label: 'category events', path: `/scheduling/categories/${categoryId}/events`, query: { start, end } },
-    { label: 'category occurrences', path: `/scheduling/categories/${categoryId}/occurrences`, query: { start, end } },
-    { label: 'category needs', path: `/scheduling/categories/${categoryId}/needs`, query: { start, end } },
-    { label: 'category assignments', path: `/scheduling/categories/${categoryId}/assignments`, query: { start, end } },
-    { label: 'category requests', path: `/scheduling/categories/${categoryId}/requests`, query: { start, end } },
-    { label: 'schedules by category_id', path: `/scheduling/schedules`, query: { category_id: String(categoryId), start, end } },
-    { label: 'scheduling events by category_id', path: `/scheduling/events`, query: { category_id: String(categoryId), start, end } },
-  ];
-
   const results: any[] = [];
-  for (const c of candidates) {
+  const tryGet = async (label: string, path: string, query?: Record<string, string>) => {
     try {
-      const data = await v2.get(c.path, c.query);
-      results.push({
-        label: c.label,
-        path: c.path,
-        query: c.query ?? null,
-        ok: true,
-        sample: data,
-      });
+      const data = await v2.get(path, query);
+      results.push({ label, path, query: query ?? null, ok: true, sample: data });
+      return data;
     } catch (e: any) {
       results.push({
-        label: c.label,
-        path: c.path,
-        query: c.query ?? null,
-        ok: false,
-        status: e?.status ?? e?.statusCode ?? null,
-        error: e?.message || String(e),
+        label, path, query: query ?? null, ok: false,
+        status: e?.status ?? e?.statusCode ?? null, error: e?.message || String(e),
       });
+      return null;
     }
-  }
+  };
 
-  return NextResponse.json({ categoryId, start, end, results }, {
-    headers: { 'cache-control': 'no-store' },
-  });
+  // Phase 1: discover an upcoming event + its schedule id.
+  const events = asArray(
+    await tryGet('category events (discover)', `/scheduling/categories/${categoryId}/events`, { start, end })
+  );
+  const sorted = [...events].sort((a, b) => String(a?.start || '').localeCompare(String(b?.start || '')));
+  const pick = sorted.find((e) => e?.id) || null;
+  const eventId = pick?.id != null ? String(pick.id) : null;
+  const scheduleId = pick?.schedule_id != null ? String(pick.schedule_id) : null;
+  const rotationId = pick?.serving_rotation_id != null ? String(pick.serving_rotation_id) : null;
+
+  // Phase 2: per-person endpoints under the specific event / schedule / rotation.
+  if (eventId) {
+    await tryGet('event detail', `/scheduling/events/${eventId}`);
+    await tryGet('event requests', `/scheduling/events/${eventId}/requests`);
+    await tryGet('event assignments', `/scheduling/events/${eventId}/assignments`);
+    await tryGet('event volunteers', `/scheduling/events/${eventId}/volunteers`);
+    await tryGet('event needs', `/scheduling/events/${eventId}/needs`);
+    await tryGet('event positions', `/scheduling/events/${eventId}/positions`);
+  }
+  if (scheduleId) {
+    await tryGet('schedule detail', `/scheduling/schedules/${scheduleId}`);
+    await tryGet('schedule requests', `/scheduling/schedules/${scheduleId}/requests`);
+    await tryGet('schedule assignments', `/scheduling/schedules/${scheduleId}/assignments`);
+    await tryGet('schedule volunteers', `/scheduling/schedules/${scheduleId}/volunteers`);
+    await tryGet('schedule needs', `/scheduling/schedules/${scheduleId}/needs`);
+  }
+  if (rotationId) {
+    await tryGet('serving-rotation detail', `/scheduling/serving-rotations/${rotationId}`);
+    await tryGet('serving-rotation requests', `/scheduling/serving-rotations/${rotationId}/requests`);
+    await tryGet('serving-rotation assignments', `/scheduling/serving-rotations/${rotationId}/assignments`);
+  }
+  // Category-level requests/assignments scoped by date (some CCB APIs accept these as filters).
+  await tryGet('category requests (date-scoped)', `/scheduling/categories/${categoryId}/requests`, { start, end });
+  await tryGet('category assignments (date-scoped)', `/scheduling/categories/${categoryId}/assignments`, { start, end });
+
+  return NextResponse.json(
+    { categoryId, start, end, discovered: { eventId, scheduleId, rotationId, pickedEvent: pick }, results },
+    { headers: { 'cache-control': 'no-store' } }
+  );
 }
