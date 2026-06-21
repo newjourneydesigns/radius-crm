@@ -367,12 +367,17 @@ export class CCBv2Client {
    * scheduled per position and their response status (pending/accepted/declined
    * + decline reason). Read-only — CCB remains the system of record.
    *
-   * IMPORTANT: the exact CCB scheduling endpoint + field names are still pending
-   * confirmation via `scripts/probe-ccb-scheduling.ts`. The path below is the
-   * most likely candidate and the mapping is intentionally defensive across the
-   * plausible shapes (nested positions vs. flat assignment list; snake/camel
-   * variants). Once a live sample is captured, tighten the path/fields here —
-   * callers and UI consume the typed shape and won't need to change.
+   * CCB exposes this in two steps (confirmed against live API):
+   *   1. GET /scheduling/categories/{id}/events?start&end → flat dated event
+   *      occurrences, each carrying its `schedule_id`. (The category-level
+   *      /schedules endpoint returns events with EMPTY event_teams — no people.)
+   *   2. GET /scheduling/schedules/{scheduleId} → the full nested object:
+   *      events[] → event_teams[] → event_positions[] → assignments[]. Each
+   *      assignment has `status` (PENDING/CHECKED_IN/DECLINED), `status_reason`
+   *      (the decline reason), and `volunteer.individual` (id/name/phone/email).
+   *
+   * We discover the in-range events, fetch each distinct schedule once, then
+   * walk its nested structure and emit one occurrence per discovered event.
    */
   async getCategorySchedules(
     categoryId: string | number,
@@ -382,76 +387,87 @@ export class CCBv2Client {
     if (opts.startDate) query.start = opts.startDate;
     if (opts.endDate) query.end = opts.endDate;
 
-    const raw = await this.get<any>(
-      `/scheduling/categories/${encodeURIComponent(String(categoryId))}/schedules`,
+    // Step 1 — discover the dated event occurrences in range.
+    const eventsRaw = await this.get<any>(
+      `/scheduling/categories/${encodeURIComponent(String(categoryId))}/events`,
       query
     );
 
-    const pushAssignment = (
-      out: ScheduleAssignmentV2[],
-      row: any,
-      positionId: string,
-      positionName: string
-    ) => {
-      const ind = row?.individual ?? row?.person ?? row?.volunteer ?? null;
-      out.push({
-        positionId,
-        positionName,
-        individual: ind
-          ? {
-              id: ind.id,
-              name: firstString(ind.name, `${ind.first_name ?? ''} ${ind.last_name ?? ''}`),
-              email: resolveEmail(ind),
-              mobile: firstString(ind.phone?.mobile, ind.mobile, ind.mobile_phone),
-            }
-          : null,
-        status: normalizeScheduleStatus(
-          firstString(row?.status, row?.response, row?.response_status, row?.rsvp, row?.confirmation_status)
-        ),
-        declineReason: firstString(row?.decline_reason, row?.declined_reason, row?.reason, row?.response_note),
+    // Map of wanted event id → discovered metadata, and the set of schedules to pull.
+    const wantedEvents = new Map<string, { scheduleId: string; start: string; name: string }>();
+    const scheduleIds = new Set<string>();
+    for (const ev of asArray(eventsRaw)) {
+      const eventId = firstString(ev?.id, ev?.event_id);
+      const scheduleId = firstString(ev?.schedule_id, ev?.scheduleId, ev?.schedule?.id);
+      if (!eventId || !scheduleId) continue;
+      wantedEvents.set(eventId, {
+        scheduleId,
+        start: firstString(ev?.start, ev?.starts_at, ev?.start_datetime),
+        name: firstString(ev?.name, ev?.title, ev?.event_name),
       });
-    };
+      scheduleIds.add(scheduleId);
+    }
 
-    return asArray(raw).map((occ: any): ScheduleOccurrenceV2 => {
-      const dateTime = firstString(
-        occ?.start, occ?.starts_at, occ?.event_start, occ?.start_datetime,
-        occ?.date, occ?.occurrence_date, occ?.scheduled_date
-      );
+    if (scheduleIds.size === 0) return [];
+
+    // Step 2 — fetch each distinct schedule's nested detail (sequentially to be
+    // gentle on CCB's rate limit) and index its events by id.
+    const eventDetail = new Map<string, any>();
+    for (const sid of Array.from(scheduleIds)) {
+      let schedule: any;
+      try {
+        schedule = await this.get<any>(`/scheduling/schedules/${encodeURIComponent(sid)}`);
+      } catch {
+        continue; // a single bad schedule shouldn't sink the whole view
+      }
+      for (const ev of asArray(unwrap(schedule)?.events ?? schedule?.events)) {
+        const eventId = firstString(ev?.id, ev?.event_id);
+        if (eventId) eventDetail.set(eventId, ev);
+      }
+    }
+
+    const occurrences: ScheduleOccurrenceV2[] = [];
+    for (const [eventId, meta] of Array.from(wantedEvents.entries())) {
+      const ev = eventDetail.get(eventId);
+      const dateTime = firstString(ev?.start, meta.start);
       const date = dateTime ? dateTime.slice(0, 10) : '';
 
       const assignments: ScheduleAssignmentV2[] = [];
-      const positions = asArray(occ?.positions);
-
-      if (positions.length) {
-        for (const pos of positions) {
-          const positionId = firstString(pos?.id, pos?.position_id);
-          const positionName = firstString(pos?.name, pos?.position_name, positionId);
-          const rows =
-            asArray(pos?.assignments).length ? asArray(pos?.assignments)
-            : asArray(pos?.requests).length ? asArray(pos?.requests)
-            : asArray(pos?.volunteers);
-          for (const row of rows) pushAssignment(assignments, row, positionId, positionName);
-        }
-      } else {
-        const flat =
-          asArray(occ?.assignments).length ? asArray(occ?.assignments)
-          : asArray(occ?.requests).length ? asArray(occ?.requests)
-          : asArray(occ?.volunteers);
-        for (const row of flat) {
-          const positionId = firstString(row?.position_id, row?.position?.id);
-          const positionName = firstString(row?.position_name, row?.position?.name, positionId);
-          pushAssignment(assignments, row, positionId, positionName);
+      // event → event_teams[] → event_positions[] → assignments[]
+      for (const team of asArray(ev?.event_teams)) {
+        for (const ep of asArray(team?.event_positions)) {
+          const positionId = firstString(ep?.position?.id, ep?.position_id, ep?.id);
+          const positionName = firstString(ep?.position?.name, ep?.position_name, ep?.name, positionId);
+          for (const a of asArray(ep?.assignments)) {
+            const ind = a?.volunteer?.individual ?? a?.individual ?? null;
+            assignments.push({
+              positionId,
+              positionName,
+              individual: ind
+                ? {
+                    id: ind.id,
+                    name: firstString(ind.name, `${ind.first_name ?? ''} ${ind.last_name ?? ''}`),
+                    email: resolveEmail(ind),
+                    mobile: firstString(ind.phone?.mobile, ind.phone?.home, ind.mobile, ind.mobile_phone),
+                  }
+                : null,
+              status: normalizeScheduleStatus(firstString(a?.status, a?.response_status)),
+              declineReason: firstString(a?.status_reason, a?.decline_reason, a?.reason),
+            });
+          }
         }
       }
 
-      return {
-        id: firstString(occ?.id, occ?.schedule_id, occ?.event_id, `${date}-${assignments.length}`),
+      occurrences.push({
+        id: eventId,
         date,
         dateTime,
-        title: firstString(occ?.name, occ?.title, occ?.event_name, occ?.event?.name),
+        title: firstString(ev?.name, meta.name),
         assignments,
-      };
-    });
+      });
+    }
+
+    return occurrences;
   }
 }
 
@@ -578,9 +594,12 @@ function firstString(...vals: any[]): string {
 function normalizeScheduleStatus(raw: string): ScheduleResponseStatus {
   const s = (raw || '').trim().toLowerCase();
   if (!s) return 'pending';
-  if (['accepted', 'accept', 'confirmed', 'yes', 'attending', 'approved'].includes(s)) return 'accepted';
+  // CCB scheduling assignment statuses: PENDING (default), ACCEPTED, DECLINED,
+  // and post-event CHECKED_IN / NO_SHOW. A checked-in or no-show person had
+  // accepted; only DECLINED is a "no" for the leader's purposes.
+  if (['accepted', 'accept', 'confirmed', 'yes', 'attending', 'approved', 'checked_in', 'checkedin', 'no_show', 'noshow', 'serving'].includes(s)) return 'accepted';
   if (['declined', 'decline', 'no', 'not_attending', 'rejected', 'unavailable'].includes(s)) return 'declined';
-  if (['pending', 'unconfirmed', 'no_response', 'requested', 'invited', 'awaiting', 'sent'].includes(s)) return 'pending';
+  if (['pending', 'unconfirmed', 'no_response', 'requested', 'invited', 'awaiting', 'sent', 'unnotified'].includes(s)) return 'pending';
   return 'unknown';
 }
 
