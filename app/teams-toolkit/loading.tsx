@@ -1,4 +1,4 @@
-// Full-screen indigo hold shown during route transitions so the toolkit never
+// Full-screen green hold shown during route transitions so the toolkit never
 // flashes the dark root theme on the way in.
 export default function TeamsToolkitLoading() {
   return (

@@ -1,6 +1,39 @@
 [
   {
     "date": "2026-06-20",
+    "version": "2.40.3",
+    "date_display": "June 20, 2026",
+    "date_iso": "2026-06-20",
+    "id": "teams-toolkit-brand-green-logo",
+    "type": "improvement",
+    "category": "Teams Toolkit",
+    "description": "The Teams Toolkit now uses the exact Valley Creek green of the Circle Leader Toolkit and shows the Valley Creek logo in the sign-in hero and header, for one consistent brand across both leader toolkits.",
+    "page": "/teams-toolkit"
+  },
+  {
+    "date": "2026-06-20",
+    "version": "2.40.2",
+    "date_display": "June 20, 2026",
+    "date_iso": "2026-06-20",
+    "id": "teams-toolkit-hide-app-nav",
+    "type": "fix",
+    "category": "Teams Toolkit",
+    "description": "The Teams Toolkit now hides the RADIUS app's bottom navigation, footer, and quick-actions button, so team leaders get the same clean, full-screen toolkit experience as the Circle Leader Toolkit — on both the main domain and the dedicated teams site.",
+    "page": "/teams-toolkit"
+  },
+  {
+    "date": "2026-06-20",
+    "version": "2.40.1",
+    "date_display": "June 20, 2026",
+    "date_iso": "2026-06-20",
+    "id": "teams-toolkit-profile-parity",
+    "type": "improvement",
+    "category": "Teams Toolkit",
+    "description": "A team leader's profile now shows the full Teams Toolkit admin section — open their toolkit, text them their sign-in link, toggle leader access, and toggle email reminders — matching the Circle Leader Toolkit controls on circle leader profiles.",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-06-20",
     "version": "2.40.0",
     "date_display": "June 20, 2026",
     "date_iso": "2026-06-20",

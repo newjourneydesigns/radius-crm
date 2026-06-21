@@ -1,51 +1,27 @@
-/* Teams Toolkit brand skin.
+/* Teams Toolkit skin.
  *
- * The Teams Toolkit reuses the Circle Leader Toolkit's proven structural styles
- * (the `.cs-*` class system in circle-leader-toolkit.css). Teams pages wrap
- * their content in `.cs-root.ts-root`; this file redefines the brand color
- * tokens on `.ts-root` so every `var(--cs-green)` reference re-skins to the
- * Teams indigo for free, and overrides the handful of literal-green rules that
- * surface on Phase 1 screens. Imported AFTER circle-leader-toolkit.css so these
- * overrides win at equal specificity.
- *
- * Palette — Teams indigo (distinct from Circles green #34B233):
- *   #3955A8 primary · #2F4790 dark · #243870 darker
+ * The Teams Toolkit reuses the Circle Leader Toolkit's structural styles (the
+ * `.cs-*` class system in circle-leader-toolkit.css) and the EXACT same Valley
+ * Creek green. Teams pages wrap their content in `.cs-root.ts-root`, so the
+ * brand color comes straight from `.cs-root` (#34B233) — this file only adds the
+ * Teams-specific component styles (roster, schedule) and the load-seam paint,
+ * all in the same green. Imported AFTER circle-leader-toolkit.css.
  */
 
-.ts-root {
-  --cs-green: #3955A8;
-  --cs-green-dark: #2F4790;
-  --cs-green-darker: #243870;
-}
-
-/* Paint the document indigo during the cross-document load seams (the same
-   role circle-leader-toolkit.css gives green via html:has(.cs-root)). Teams
-   pages carry both classes, so html:has(.ts-root) wins by source order. */
+/* Paint the document green during the cross-document load seams (same role
+   circle-leader-toolkit.css gives via html:has(.cs-root)). */
 html:has(.ts-root) {
-  background: #3955A8 !important;
+  background: #34B233 !important;
   color: #3E3E3E !important;
   color-scheme: light;
 }
 body:has(.ts-root .ts-splash),
 .ts-root:has(.ts-splash) {
-  background: #3955A8 !important;
+  background: #34B233 !important;
 }
-
-/* Focus rings on inputs use a literal rgba green in the base sheet — re-tint to
-   indigo so focus states match the brand. */
-.ts-root .cs-input:focus,
-.ts-root .cs-textarea:focus,
-.ts-root .cs-select:focus {
-  border-color: var(--cs-green) !important;
-  box-shadow: 0 0 0 3px rgba(57, 85, 168, 0.15);
-}
-
-/* Settings/gear "active" pill in the chrome uses a literal green text color in
-   the circle component; teams reuses its own chrome, so nothing to override
-   there. Badges / banner CTAs already follow var(--cs-green). */
 
 /* ─── Teams launch splash ───────────────────────────────────────
-   A calm full-screen indigo hold on first paint / route loads. */
+   A calm full-screen green hold on first paint / route loads. */
 .ts-splash {
   position: fixed;
   inset: 0;
@@ -53,7 +29,7 @@ body:has(.ts-root .ts-splash),
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #3955A8;
+  background: #34B233;
   color: #ffffff;
   overflow: hidden;
   font-family: 'Open Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -67,8 +43,8 @@ body:has(.ts-root .ts-splash),
     -45deg,
     transparent,
     transparent 14px,
-    rgba(0, 0, 0, 0.05) 14px,
-    rgba(0, 0, 0, 0.05) 15px
+    rgba(0, 0, 0, 0.045) 14px,
+    rgba(0, 0, 0, 0.045) 15px
   );
   pointer-events: none;
 }
@@ -127,8 +103,8 @@ body:has(.ts-root .ts-splash),
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 50%;
-  background: rgba(57, 85, 168, 0.1);
-  border: 1.5px solid rgba(57, 85, 168, 0.25);
+  background: rgba(52, 178, 51, 0.1);
+  border: 1.5px solid rgba(52, 178, 51, 0.25);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -203,8 +179,8 @@ body:has(.ts-root .ts-splash),
   height: 2rem;
   padding: 0 0.6rem;
   border-radius: 999px;
-  border: 1px solid rgba(57, 85, 168, 0.3);
-  background: rgba(57, 85, 168, 0.08);
+  border: 1px solid rgba(52, 178, 51, 0.3);
+  background: rgba(52, 178, 51, 0.08);
   color: var(--cs-green-dark) !important;
   font-size: 0.72rem;
   font-weight: 800;
@@ -213,6 +189,6 @@ body:has(.ts-root .ts-splash),
 }
 .ts-root a.ts-contact-btn:hover,
 .ts-root a.ts-contact-btn:focus-visible {
-  background: rgba(57, 85, 168, 0.16);
+  background: rgba(52, 178, 51, 0.16);
   border-color: var(--cs-green);
 }

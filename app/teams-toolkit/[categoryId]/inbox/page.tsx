@@ -238,7 +238,7 @@ export default function TeamsToolkitInboxPage() {
                 className={
                   'overflow-hidden rounded-2xl border bg-white shadow-sm ring-1 ' +
                   (message.unread
-                    ? 'border-[#3955A8]/60 ring-[#3955A8]/20'
+                    ? 'border-[#34B233]/60 ring-[#34B233]/20'
                     : 'border-neutral-200 ring-neutral-100')
                 }
               >
@@ -246,14 +246,14 @@ export default function TeamsToolkitInboxPage() {
                   className={
                     'flex items-start justify-between gap-3 border-b px-4 py-3 ' +
                     (message.unread
-                      ? 'border-[#3955A8]/20 bg-[#3955A8]/5'
+                      ? 'border-[#34B233]/20 bg-[#34B233]/5'
                       : 'border-neutral-100 bg-neutral-50')
                   }
                 >
                   <div className="min-w-0 space-y-1">
                     <div className="flex items-center gap-2">
                       {message.unread && (
-                        <span className="shrink-0 w-2.5 h-2.5 rounded-full bg-[#3955A8]" />
+                        <span className="shrink-0 w-2.5 h-2.5 rounded-full bg-[#34B233]" />
                       )}
                       <h3 className="text-sm font-extrabold text-neutral-950">{message.title}</h3>
                     </div>
@@ -282,7 +282,7 @@ export default function TeamsToolkitInboxPage() {
                       type="button"
                       onClick={() => markRead(message)}
                       disabled={markingId === message.recipient_id}
-                      className="cs-inbox-mark-read-btn mt-4 w-full bg-[#3955A8] text-white rounded-xl py-2.5 text-sm font-bold shadow-sm disabled:opacity-60"
+                      className="cs-inbox-mark-read-btn mt-4 w-full bg-[#34B233] text-white rounded-xl py-2.5 text-sm font-bold shadow-sm disabled:opacity-60"
                     >
                       {markingId === message.recipient_id ? 'Marking as read...' : 'Mark as Read'}
                     </button>
