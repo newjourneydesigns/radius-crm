@@ -192,3 +192,74 @@ body:has(.ts-root .ts-splash),
   background: rgba(52, 178, 51, 0.16);
   border-color: var(--cs-green);
 }
+
+/* Schedule — week navigator (Central-Time Mon–Sun) */
+.ts-root .ts-weeknav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  background: #ffffff;
+  border: 1px solid var(--cs-border);
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+.ts-root a.ts-weeknav-arrow,
+.ts-root a.ts-weeknav-arrow:visited {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  border-radius: 999px;
+  font-size: 1.4rem;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--cs-green-dark) !important;
+  background: rgba(52, 178, 51, 0.08);
+  border: 1px solid rgba(52, 178, 51, 0.25);
+  text-decoration: none !important;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.ts-root a.ts-weeknav-arrow:hover,
+.ts-root a.ts-weeknav-arrow:focus-visible {
+  background: rgba(52, 178, 51, 0.16);
+  border-color: var(--cs-green);
+}
+.ts-root .ts-weeknav-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.05rem;
+  text-align: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ts-root .ts-weeknav-range {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--cs-ink);
+  line-height: 1.1;
+}
+.ts-root .ts-weeknav-sub {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cs-muted);
+}
+.ts-root a.ts-weeknav-jump,
+.ts-root a.ts-weeknav-jump:visited {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--cs-green-dark) !important;
+  text-decoration: none !important;
+}
+.ts-root a.ts-weeknav-jump:hover,
+.ts-root a.ts-weeknav-jump:focus-visible {
+  text-decoration: underline !important;
+}

@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-06-21",
+    "version": "2.41.1",
+    "date_display": "June 21, 2026",
+    "date_iso": "2026-06-21",
+    "id": "teams-toolkit-schedule-week-selector",
+    "type": "improvement",
+    "category": "Teams Toolkit",
+    "description": "The Teams Toolkit Schedule now opens to the current week and you can step through weeks with the ‹ / › arrows. Weeks run Monday–Sunday in Central Time, so everyone sees the same week no matter where they open the app.",
+    "page": "/teams-toolkit"
+  },
+  {
+    "date": "2026-06-21",
     "version": "2.41.0",
     "date_display": "June 21, 2026",
     "date_iso": "2026-06-21",
