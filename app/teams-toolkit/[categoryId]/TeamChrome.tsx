@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import TeamTabs from './TeamTabs';
+import TeamPersonSearch from './TeamPersonSearch';
 import { useFitText } from '../../../hooks/useFitText';
 import { isTeamsToolkitHostName, teamsToolkitGroupPath } from '../../../lib/teams-toolkit/paths';
 
@@ -98,7 +99,8 @@ export default function TeamChrome({
             </div>
           </header>
 
-          <div className="max-w-2xl mx-auto px-4 pt-4">
+          <div className="max-w-2xl mx-auto px-4 pt-4 space-y-3">
+            <TeamPersonSearch categoryId={categoryId} />
             <TeamTabs categoryId={categoryId} active={active} />
           </div>
         </>

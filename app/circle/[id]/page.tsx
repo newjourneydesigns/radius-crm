@@ -2,6 +2,7 @@
 'use client';
 
 import { ensureDefaultFrequencies, formatFrequencyLabel } from '../../../lib/frequencyUtils';
+import { isTeamsToolkitEnabled } from '../../../lib/teams-toolkit/feature-flag';
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
@@ -2134,7 +2135,7 @@ export default function CircleLeaderProfilePage() {
         {/* Mobile Quick Actions - Show on mobile only, right after the name */}
         <div className="lg:hidden mb-6 space-y-4">
           {/* Teams Toolkit - Mobile (host-team leaders only) */}
-          {isHostTeam && renderTeamsToolkitAdminCard()}
+          {isHostTeam && isTeamsToolkitEnabled() && renderTeamsToolkitAdminCard()}
 
           {/* Circle Leader Toolkit - Mobile (circle leaders only) */}
           {!isHostTeam && <div className="bg-brand-dark border border-zinc-700 rounded-xl shadow-card-glass overflow-hidden">
@@ -2851,7 +2852,7 @@ export default function CircleLeaderProfilePage() {
           {/* Sidebar */}
           <div className="flex flex-col gap-6 h-full">
             {/* Teams Toolkit - Desktop Only (host-team leaders only) */}
-            {isHostTeam && renderTeamsToolkitAdminCard(true)}
+            {isHostTeam && isTeamsToolkitEnabled() && renderTeamsToolkitAdminCard(true)}
 
             {/* Circle Leader Toolkit - Desktop Only (circle leaders only) */}
             {!isHostTeam && <div className="hidden lg:block bg-brand-dark border border-zinc-700 rounded-xl shadow-card-glass overflow-hidden">

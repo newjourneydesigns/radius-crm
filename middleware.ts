@@ -2,6 +2,16 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { DEFAULT_LEADER_TOOLKIT_HOST, TOOLKIT_PREFIX } from './lib/circle-leader-toolkit/paths';
 import { DEFAULT_TEAMS_TOOLKIT_HOST, TEAMS_TOOLKIT_PREFIX } from './lib/teams-toolkit/paths';
+import { isTeamsToolkitEnabled } from './lib/teams-toolkit/feature-flag';
+
+// Radius-side routes that belong to the Teams Toolkit feature. Hidden (redirected
+// home) while the feature flag is off.
+const TEAMS_RADIUS_ROUTES = [
+  '/admin/team-message-center',
+  '/admin/team-leader-resources',
+  '/team-leader-messages',
+  '/import-team',
+];
 
 // Matches any path with a file extension (icons, manifest, css, etc.) so
 // static assets are served as-is without rewriting.
@@ -47,9 +57,29 @@ export function middleware(request: NextRequest) {
   const teamsToolkitHost = process.env.TEAMS_TOOLKIT_HOST || DEFAULT_TEAMS_TOOLKIT_HOST;
   const hostname = request.headers.get('host') || '';
 
+  const pathname = request.nextUrl.pathname;
+
   // Circle Leader Toolkit on its dedicated subdomain.
   if (toolkitHost && hostname === toolkitHost) {
     return rewriteToolkitHost(request, TOOLKIT_PREFIX, '/api/circle-leader-toolkit/');
+  }
+
+  // Teams Toolkit — hidden behind a feature flag for now. While off, the entire
+  // leader portal (pages + API + dedicated host) 404s so it makes no CCB calls,
+  // and the Radius-side team routes redirect home.
+  if (!isTeamsToolkitEnabled()) {
+    const onTeamsHost = !!teamsToolkitHost && hostname === teamsToolkitHost;
+    if (
+      onTeamsHost ||
+      pathname.startsWith(TEAMS_TOOLKIT_PREFIX) ||
+      pathname.startsWith('/api/teams-toolkit')
+    ) {
+      return new NextResponse('Not found', { status: 404 });
+    }
+    if (TEAMS_RADIUS_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+    return NextResponse.next();
   }
 
   // Teams Toolkit on its dedicated subdomain.
