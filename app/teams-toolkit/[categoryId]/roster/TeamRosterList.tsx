@@ -1,7 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import type { TeamRosterPosition } from '../../../../lib/teams-toolkit/roster-data';
+import { isTeamsToolkitHostName, teamsToolkitGroupPath } from '../../../../lib/teams-toolkit/paths';
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -10,54 +12,82 @@ function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+type Person = {
+  id: number | string;
+  name: string;
+  email: string;
+  mobile: string;
+  positions: string[];
+};
+
 /**
- * Client island for the Team Roster: a live filter over the server-rendered
- * roster. Searching is purely client-side (read-only data, no CCB round-trip) —
- * it matches a person's name, email, or phone, and also a whole position by
- * name so a leader can type "ops" to jump to the Ops Team.
+ * Roster tab island: a global person search pinned at the top (type a name,
+ * phone, or email — or a position name — and open that person's profile), with
+ * the full grouped roster shown underneath when not searching.
  */
 export default function TeamRosterList({
+  categoryId,
   positions,
   error,
 }: {
+  categoryId: string;
   positions: TeamRosterPosition[];
   error?: string;
 }) {
   const [query, setQuery] = useState('');
+
+  const cleanHost =
+    typeof window !== 'undefined' && isTeamsToolkitHostName(window.location.hostname);
+  const personHref = (id: number | string) =>
+    teamsToolkitGroupPath(categoryId, `people/${encodeURIComponent(String(id))}`, { cleanHost });
 
   const total = useMemo(
     () => positions.reduce((sum, p) => sum + p.volunteers.length, 0),
     [positions]
   );
 
+  // Dedupe people across positions for the search index — someone can serve in
+  // more than one position, but the search should show them once.
+  const people = useMemo<Person[]>(() => {
+    const byId = new Map<string, Person>();
+    for (const pos of positions) {
+      for (const v of pos.volunteers) {
+        const key = String(v.id);
+        const existing = byId.get(key);
+        if (existing) {
+          if (!existing.positions.includes(pos.positionName)) existing.positions.push(pos.positionName);
+        } else {
+          byId.set(key, {
+            id: v.id,
+            name: v.name,
+            email: v.email,
+            mobile: v.mobile,
+            positions: [pos.positionName],
+          });
+        }
+      }
+    }
+    return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [positions]);
+
   const q = query.trim().toLowerCase();
   const qDigits = q.replace(/\D/g, '');
 
-  const filtered = useMemo(() => {
-    if (!q) return positions;
-    return positions
-      .map((pos) => {
-        // A position-name match keeps everyone in that position.
-        if (pos.positionName.toLowerCase().includes(q)) return pos;
-        const volunteers = pos.volunteers.filter((v) => {
-          const name = v.name.toLowerCase();
-          const email = (v.email || '').toLowerCase();
-          const phone = (v.mobile || '').replace(/\D/g, '');
-          return (
-            name.includes(q) ||
-            (!!email && email.includes(q)) ||
-            (qDigits.length >= 3 && phone.includes(qDigits))
-          );
-        });
-        return { ...pos, volunteers };
-      })
-      .filter((pos) => pos.volunteers.length > 0);
-  }, [positions, q, qDigits]);
-
-  const matchCount = useMemo(
-    () => filtered.reduce((sum, p) => sum + p.volunteers.length, 0),
-    [filtered]
-  );
+  const matches = useMemo(() => {
+    if (!q) return [];
+    return people.filter((p) => {
+      const name = p.name.toLowerCase();
+      const email = (p.email || '').toLowerCase();
+      const phone = (p.mobile || '').replace(/\D/g, '');
+      const pos = p.positions.join(' ').toLowerCase();
+      return (
+        name.includes(q) ||
+        pos.includes(q) ||
+        (!!email && email.includes(q)) ||
+        (qDigits.length >= 3 && phone.includes(qDigits))
+      );
+    });
+  }, [people, q, qDigits]);
 
   return (
     <>
@@ -88,10 +118,10 @@ export default function TeamRosterList({
             type="text"
             inputMode="search"
             className="ts-search-input"
-            placeholder="Search by name, phone, or email"
+            placeholder="Find a person by name, phone, or email"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            aria-label="Search your roster"
+            aria-label="Find a person"
           />
           {query && (
             <button
@@ -121,22 +151,39 @@ export default function TeamRosterList({
         </div>
       )}
 
-      {!error && positions.length > 0 && q && filtered.length === 0 && (
-        <div className="text-center py-12 border border-dashed border-neutral-200 rounded-xl bg-neutral-50">
-          <p className="text-neutral-500 text-sm font-medium">No matches</p>
-          <p className="text-neutral-400 text-xs mt-1">
-            No one in your positions matches “{query.trim()}”.
-          </p>
-        </div>
+      {/* Search results → tap to open a profile */}
+      {!error && q && (
+        matches.length > 0 ? (
+          <section className="ts-position-card">
+            <div className="ts-position-head">
+              <span className="ts-position-name">Search</span>
+              <span className="ts-position-count">
+                {matches.length} {matches.length === 1 ? 'match' : 'matches'}
+              </span>
+            </div>
+            {matches.map((p) => (
+              <Link key={p.id} href={personHref(p.id)} className="ts-roster-row ts-person-link">
+                <span className="ts-roster-avatar" aria-hidden="true">{initials(p.name)}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="ts-roster-name truncate">{p.name}</div>
+                  <div className="ts-roster-contact truncate">{p.positions.join(' · ')}</div>
+                </div>
+                <span className="ts-person-chevron" aria-hidden="true">›</span>
+              </Link>
+            ))}
+          </section>
+        ) : (
+          <div className="text-center py-12 border border-dashed border-neutral-200 rounded-xl bg-neutral-50">
+            <p className="text-neutral-500 text-sm font-medium">No matches</p>
+            <p className="text-neutral-400 text-xs mt-1">
+              No one in your positions matches “{query.trim()}”.
+            </p>
+          </div>
+        )
       )}
 
-      {!error && q && filtered.length > 0 && (
-        <p className="-mb-2 px-1 text-xs text-neutral-500">
-          {matchCount} {matchCount === 1 ? 'match' : 'matches'} for “{query.trim()}”
-        </p>
-      )}
-
-      {filtered.map((position) => (
+      {/* Full roster — hidden while searching */}
+      {!error && !q && positions.map((position) => (
         <section key={position.positionId} className="ts-position-card">
           <div className="ts-position-head">
             <span className="ts-position-name">{position.positionName}</span>
@@ -145,28 +192,22 @@ export default function TeamRosterList({
             </span>
           </div>
           {position.volunteers.map((volunteer) => (
-            <div key={volunteer.id} className="ts-roster-row">
+            <Link
+              key={volunteer.id}
+              href={personHref(volunteer.id)}
+              className="ts-roster-row ts-person-link"
+            >
               <span className="ts-roster-avatar" aria-hidden="true">
                 {initials(volunteer.name)}
               </span>
               <div className="min-w-0 flex-1">
                 <div className="ts-roster-name truncate">{volunteer.name}</div>
                 <div className="ts-roster-contact truncate">
-                  {volunteer.mobile ? (
-                    <a className="ts-roster-contact-link" href={`tel:${volunteer.mobile}`}>
-                      {volunteer.mobile}
-                    </a>
-                  ) : null}
-                  {volunteer.mobile && volunteer.email ? ' · ' : ''}
-                  {volunteer.email ? (
-                    <a className="ts-roster-contact-link" href={`mailto:${volunteer.email}`}>
-                      {volunteer.email}
-                    </a>
-                  ) : null}
-                  {!volunteer.mobile && !volunteer.email ? 'No contact on file' : ''}
+                  {volunteer.mobile || volunteer.email || 'No contact on file'}
                 </div>
               </div>
-            </div>
+              <span className="ts-person-chevron" aria-hidden="true">›</span>
+            </Link>
           ))}
         </section>
       ))}

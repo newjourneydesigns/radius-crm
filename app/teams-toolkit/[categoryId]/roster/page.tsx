@@ -7,7 +7,11 @@ import TeamRosterList from './TeamRosterList';
 
 export const dynamic = 'force-dynamic';
 
-export default async function TeamRosterPage() {
+export default async function TeamRosterPage({
+  params,
+}: {
+  params: { categoryId: string };
+}) {
   const leader = await getSessionLeader();
   if (!leader) redirect('/teams-toolkit/');
 
@@ -36,7 +40,11 @@ export default async function TeamRosterPage() {
         </section>
       ))}
 
-      <TeamRosterList positions={roster.positions} error={roster.error} />
+      <TeamRosterList
+        categoryId={params.categoryId}
+        positions={roster.positions}
+        error={roster.error}
+      />
     </main>
   );
 }
