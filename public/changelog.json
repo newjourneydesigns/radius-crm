@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-06-22",
+    "version": "2.43.1",
+    "date_display": "June 22, 2026",
+    "date_iso": "2026-06-22",
+    "id": "today-refresh-fresh-data",
+    "type": "fix",
+    "category": "Today",
+    "description": "The Refresh button on the Today page now actually pulls fresh data — cards, checklists, Big 3, and calendars all reload, and a just-edited card immediately shows its updated date, time, and status instead of a stale cached copy. Editing a card from the Today page and closing it now refreshes the same way.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-22",
     "version": "2.43.0",
     "date_display": "June 22, 2026",
     "date_iso": "2026-06-22",

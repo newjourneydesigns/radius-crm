@@ -21,6 +21,7 @@ export function useTodayCalendars() {
       if (!session?.access_token) return;
       const res = await fetch('/api/calendar-events', {
         headers: { Authorization: `Bearer ${session.access_token}` },
+        cache: 'no-store',
       });
       if (!res.ok) return;
       const data = await res.json();

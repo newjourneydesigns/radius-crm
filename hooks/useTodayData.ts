@@ -123,7 +123,13 @@ export function useTodayData() {
   const [error, setError] = useState<string | null>(null);
   const [completed, setCompleted] = useState<TodayCompleted>(emptyCompleted);
 
-  const fetchData = useCallback(async () => {
+  // `fresh` (manual Refresh / post-mutation) bypasses the server's per-user
+  // response cache via ?fresh=1. The `cache: 'no-store'` on every fetch is the
+  // critical part: the API responds with `Cache-Control: max-age=60`, so without
+  // it the browser replays a stale response for the identical URL and edits made
+  // to a card don't show up here until the cache expires.
+  const fetchData = useCallback(async (opts?: { fresh?: boolean }) => {
+    const fresh = opts?.fresh ?? false;
     setError(null);
     setIsFetching(true);
     // A refresh clears the session's done-marks. Completed cards still come
@@ -165,7 +171,7 @@ export function useTodayData() {
       // Both fetches start simultaneously
       const corePromise = (async () => {
         try {
-          const res = await fetch('/api/today/core', { headers });
+          const res = await fetch(fresh ? '/api/today/core?fresh=1' : '/api/today/core', { headers, cache: 'no-store' });
           if (!res.ok) {
             const body = await res.json();
             setError(body.error || 'Failed to load today data');
@@ -184,7 +190,7 @@ export function useTodayData() {
 
       const cardsPromise = (async () => {
         try {
-          const res = await fetch('/api/today/cards?fresh=1', { headers });
+          const res = await fetch('/api/today/cards?fresh=1', { headers, cache: 'no-store' });
           if (!res.ok) { setIsCardsLoading(false); return; }
           freshCards = normalizeTodayCardsData(await res.json());
           setIsCardsLoading(false);
