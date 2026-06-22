@@ -8,6 +8,12 @@ import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
 
 export const dynamic = 'force-dynamic';
 
+type Audience = 'circle' | 'host_team';
+
+function parseAudience(value: unknown): Audience {
+  return value === 'host_team' ? 'host_team' : 'circle';
+}
+
 async function gate(req: NextRequest) {
   const { isAdmin, error } = await verifyAdminAccess(req);
   if (!isAdmin) {
@@ -16,18 +22,23 @@ async function gate(req: NextRequest) {
   return null;
 }
 
-async function loadOrCreate(supabase: ReturnType<typeof createServiceSupabaseClient>) {
+async function loadOrCreate(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  audience: Audience
+) {
   const { data, error } = await supabase
     .from('circle_leader_resources')
     .select('*')
-    .eq('singleton', true)
+    .eq('audience', audience)
     .maybeSingle();
   if (error) throw error;
   if (data) return data;
 
+  // The circle doc keeps the legacy singleton flag; the team doc must not, so a
+  // legacy unique-on-singleton constraint can't reject the second row.
   const { data: inserted, error: insertError } = await supabase
     .from('circle_leader_resources')
-    .insert({ singleton: true, body_html: '' })
+    .insert({ singleton: audience === 'circle', audience, body_html: '' })
     .select()
     .single();
   if (insertError) throw insertError;
@@ -39,8 +50,9 @@ export async function GET(req: NextRequest) {
   if (block) return block;
 
   try {
+    const audience = parseAudience(new URL(req.url).searchParams.get('audience'));
     const supabase = createServiceSupabaseClient();
-    const resource = await loadOrCreate(supabase);
+    const resource = await loadOrCreate(supabase, audience);
     return NextResponse.json(
       { resource },
       { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
@@ -62,10 +74,11 @@ export async function PUT(req: NextRequest) {
   }
 
   const body_html = typeof body.body_html === 'string' ? body.body_html : '';
+  const audience = parseAudience(body.audience ?? new URL(req.url).searchParams.get('audience'));
 
   try {
     const supabase = createServiceSupabaseClient();
-    await loadOrCreate(supabase);
+    await loadOrCreate(supabase, audience);
     const { data, error: updateError } = await supabase
       .from('circle_leader_resources')
       .update({
@@ -73,7 +86,7 @@ export async function PUT(req: NextRequest) {
         updated_at: new Date().toISOString(),
         updated_by: user?.id || null,
       })
-      .eq('singleton', true)
+      .eq('audience', audience)
       .select()
       .single();
     if (updateError) throw updateError;

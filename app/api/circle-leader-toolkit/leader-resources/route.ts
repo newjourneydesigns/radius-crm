@@ -14,10 +14,11 @@ export async function GET() {
   if (!leader) return unauthorized();
 
   const supabase = createServiceSupabaseClient();
+  const audience = leader.leader_type === 'host_team' ? 'host_team' : 'circle';
   const { data, error } = await supabase
     .from('circle_leader_resources')
     .select('body_html, updated_at')
-    .eq('singleton', true)
+    .eq('audience', audience)
     .maybeSingle();
 
   if (error) {

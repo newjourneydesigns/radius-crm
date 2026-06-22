@@ -148,6 +148,7 @@ export async function loadLeaderMessages(leader: SessionLeader): Promise<CircleM
   const { data, error } = await supabase
     .from('circle_summary_messages')
     .select('id, header, body_html, url, url_label, campus_filter, priority')
+    .eq('audience', leader.leader_type === 'host_team' ? 'host_team' : 'circle')
     .or(`start_date.is.null,start_date.lte.${today}`)
     .or(`end_date.is.null,end_date.gte.${today}`)
     .order('priority', { ascending: false })

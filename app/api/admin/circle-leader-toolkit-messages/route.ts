@@ -16,7 +16,25 @@ async function gate(req: NextRequest) {
   return null;
 }
 
+function parseAudience(value: unknown): 'circle' | 'host_team' {
+  return value === 'host_team' ? 'host_team' : 'circle';
+}
+
+function normalizeFilters(value: any) {
+  if (!value || typeof value !== 'object') return null;
+  const clean = (arr: any) =>
+    Array.isArray(arr)
+      ? Array.from(new Set(arr.map((v: any) => String(v).trim()).filter(Boolean)))
+      : [];
+  return {
+    campuses: clean(value.campuses),
+    teams: clean(value.teams),
+    positions: clean(value.positions),
+  };
+}
+
 function pickFields(body: any) {
+  const audience = parseAudience(body.audience);
   return {
     header: typeof body.header === 'string' ? body.header.trim() : '',
     body_html: typeof body.body_html === 'string' ? body.body_html : '',
@@ -28,16 +46,21 @@ function pickFields(body: any) {
     start_date: body.start_date || null,
     end_date: body.end_date || null,
     priority: Number.isFinite(body.priority) ? Math.trunc(body.priority) : 0,
+    audience,
+    // Combinable filters only apply to the Teams audience.
+    audience_filters: audience === 'host_team' ? normalizeFilters(body.audience_filters) : null,
   };
 }
 
 export async function GET(req: NextRequest) {
   const block = await gate(req);
   if (block) return block;
+  const audience = parseAudience(new URL(req.url).searchParams.get('audience'));
   const supabase = createServiceSupabaseClient();
   const { data, error } = await supabase
     .from('circle_summary_messages')
     .select('*')
+    .eq('audience', audience)
     .order('priority', { ascending: false })
     .order('created_at', { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

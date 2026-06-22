@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-06-22",
+    "version": "2.43.0",
+    "date_display": "June 22, 2026",
+    "date_iso": "2026-06-22",
+    "id": "teams-toolkit-admin-pages",
+    "type": "feature",
+    "category": "Host Teams",
+    "description": "Teams Toolkit now has its own Message Center, Leader Messages, and Resources pages — fully separate from the Circles Toolkit. Teams Message Center and Leader Messages support combinable Campus, Team, and Position audience filters. Teams Leader Messages also supports a delivery date range so messages can be scheduled to arrive on a specific date and automatically expire.",
+    "page": "/admin/team-message-center"
+  },
+  {
     "date": "2026-06-21",
     "version": "2.42.0",
     "date_display": "June 21, 2026",

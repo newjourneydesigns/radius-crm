@@ -27,6 +27,9 @@ export type SessionLeader = {
   ccb_group_id?: string | null;
   ccb_profile_link?: string | null;
   circle_summary_access_enabled?: boolean | null;
+  // 'circle' | 'host_team' — selects which toolkit content (Message Center,
+  // Resources) the leader sees. Defaults to 'circle' when unset.
+  leader_type?: string | null;
 };
 
 const INELIGIBLE_STATUSES = new Set(['archive', 'archived']);
@@ -183,7 +186,7 @@ export const getSessionLeader = cache(async function getSessionLeader(): Promise
 
   const { data, error: leaderError } = await supabase
     .from('circle_leaders')
-    .select('id, name, email, phone, campus, acpd, status, day, time, ccb_group_id, ccb_profile_link, circle_summary_access_enabled')
+    .select('id, name, email, phone, campus, acpd, status, day, time, ccb_group_id, ccb_profile_link, circle_summary_access_enabled, leader_type')
     .eq('id', session.leader_id)
     .maybeSingle();
 

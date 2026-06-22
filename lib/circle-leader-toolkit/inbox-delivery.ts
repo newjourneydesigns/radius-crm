@@ -11,7 +11,42 @@
 import { createServiceSupabaseClient } from '../server-supabase';
 import { buildCircleSummaryUrl, deliverLeaderPush } from './push';
 
-export type TargetType = 'all' | 'campus' | 'acpd' | 'leader';
+export type TargetType = 'all' | 'campus' | 'acpd' | 'leader' | 'filter';
+
+export type LeaderAudience = 'circle' | 'host_team';
+
+/**
+ * Combinable AND filters for Teams targeting. Each non-empty array narrows the
+ * recipient set; an empty/absent array imposes no constraint. Positions are
+ * matched against host_team_positions.position_name.
+ */
+export type AudienceFilters = {
+  campuses?: string[];
+  teams?: string[];
+  positions?: string[];
+};
+
+export type LoadTargetOptions = {
+  audience?: LeaderAudience;
+  filters?: AudienceFilters | null;
+};
+
+function cleanList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return Array.from(
+    new Set(value.map((v) => String(v).trim()).filter(Boolean))
+  );
+}
+
+/** Normalizes a raw audience_filters payload into clean string arrays. */
+export function normalizeAudienceFilters(value: unknown): AudienceFilters {
+  const obj = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  return {
+    campuses: cleanList(obj.campuses),
+    teams: cleanList(obj.teams),
+    positions: cleanList(obj.positions),
+  };
+}
 
 export type LeaderTarget = {
   id: number | string;
@@ -40,11 +75,30 @@ export function parseLeaderTargetIds(value: string | null | undefined): string[]
     .filter(Boolean);
 }
 
-export async function loadTargetLeaders(targetType: TargetType, targetValue: string | null) {
+/** Leader ids holding any of the given host-team position names. */
+async function leaderIdsForPositions(positions: string[]): Promise<string[]> {
+  if (positions.length === 0) return [];
+  const supabase = createServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from('host_team_positions')
+    .select('leader_id')
+    .in('position_name', positions);
+  if (error) throw error;
+  return Array.from(new Set((data || []).map((row: any) => String(row.leader_id))));
+}
+
+export async function loadTargetLeaders(
+  targetType: TargetType,
+  targetValue: string | null,
+  opts: LoadTargetOptions = {}
+) {
+  const audience: LeaderAudience = opts.audience ?? 'circle';
   const supabase = createServiceSupabaseClient();
   let query = supabase
     .from('circle_leaders')
     .select('id, name, campus, acpd, ccb_group_id, status, circle_summary_access_enabled')
+    // Strictly separate the two toolkits: a send never crosses leader types.
+    .eq('leader_type', audience)
     .order('name');
 
   if (targetType === 'campus') {
@@ -57,6 +111,20 @@ export async function loadTargetLeaders(targetType: TargetType, targetValue: str
     const ids = parseLeaderTargetIds(targetValue);
     if (ids.length === 0) return [];
     query = query.in('id', ids);
+  } else if (targetType === 'filter') {
+    // Teams combinable AND filters. Empty arrays impose no constraint.
+    const filters = normalizeAudienceFilters(opts.filters);
+    if (filters.campuses && filters.campuses.length > 0) {
+      query = query.in('campus', filters.campuses);
+    }
+    if (filters.teams && filters.teams.length > 0) {
+      query = query.in('team_name', filters.teams);
+    }
+    if (filters.positions && filters.positions.length > 0) {
+      const ids = await leaderIdsForPositions(filters.positions);
+      if (ids.length === 0) return [];
+      query = query.in('id', ids);
+    }
   }
 
   const { data, error } = await query;
