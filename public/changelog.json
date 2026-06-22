@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-06-21",
+    "version": "2.42.0",
+    "date_display": "June 21, 2026",
+    "date_iso": "2026-06-21",
+    "id": "teams-toolkit-person-search-profiles",
+    "type": "feature",
+    "category": "Teams Toolkit",
+    "description": "Search for anyone on your teams from the top of the Roster, then open their profile to see the team and position(s) they hold, call or text them, and review their serving over the last 4 weeks (accepted, declined with reason, or pending). Tapping any roster row opens the same profile.",
+    "page": "/teams-toolkit"
+  },
+  {
+    "date": "2026-06-21",
     "version": "2.41.2",
     "date_display": "June 21, 2026",
     "date_iso": "2026-06-21",

@@ -19,7 +19,7 @@ import { isTeamsToolkitHostName } from "../lib/teams-toolkit/paths";
 // Covers both toolkits' clean-host routes (numeric group/category id + a known
 // section). `schedule` is the Teams Toolkit's; the rest are shared/circles.
 function isCleanToolkitRoute(pathname: string) {
-  return /^\/\d+\/(events|roster|inbox|schedule|resources|health|settings|help)(\/|$)/.test(pathname);
+  return /^\/\d+\/(events|roster|inbox|schedule|people|resources|health|settings|help)(\/|$)/.test(pathname);
 }
 
 function isPublicRoute(pathname: string, isDedicatedToolkitHost = false) {
