@@ -12,7 +12,13 @@
 import { NextResponse } from 'next/server';
 import { DateTime } from 'luxon';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
-import { TargetType, deliverToLeaders, loadTargetLeaders } from '../../../../lib/circle-leader-toolkit/inbox-delivery';
+import {
+  LeaderAudience,
+  TargetType,
+  deliverToLeaders,
+  loadTargetLeaders,
+  normalizeAudienceFilters,
+} from '../../../../lib/circle-leader-toolkit/inbox-delivery';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -26,10 +32,11 @@ export async function POST(req: Request) {
 
   const supabase = createServiceSupabaseClient();
   const nowIso = DateTime.utc().toISO();
+  const today = DateTime.utc().toISODate();
 
   const { data: dueMessages, error } = await supabase
     .from('circle_summary_inbox_messages')
-    .select('id, title, target_type, target_value, scheduled_at')
+    .select('id, title, target_type, target_value, audience, audience_filters, delivery_end, scheduled_at')
     .eq('status', 'scheduled')
     .lte('scheduled_at', nowIso)
     .order('scheduled_at', { ascending: true });
@@ -40,13 +47,33 @@ export async function POST(req: Request) {
 
   const messages = dueMessages || [];
   let delivered = 0;
+  let skipped = 0;
   const errors: Array<{ id: string; error: string }> = [];
 
   for (const message of messages) {
     try {
+      // Teams date-range messages past their delivery window are not auto-delivered;
+      // close them out as sent without creating recipients.
+      if (message.delivery_end && today && message.delivery_end < today) {
+        await supabase
+          .from('circle_summary_inbox_messages')
+          .update({ status: 'sent', updated_at: new Date().toISOString() })
+          .eq('id', message.id)
+          .eq('status', 'scheduled');
+        skipped += 1;
+        continue;
+      }
+
       const leaders = await loadTargetLeaders(
         (message.target_type || 'all') as TargetType,
-        message.target_value
+        message.target_value,
+        {
+          audience: (message.audience as LeaderAudience) || 'circle',
+          filters:
+            message.audience === 'host_team'
+              ? normalizeAudienceFilters(message.audience_filters)
+              : null,
+        }
       );
 
       // Mark sent first so a mid-loop failure can't double-deliver on the next run.
@@ -65,5 +92,5 @@ export async function POST(req: Request) {
     }
   }
 
-  return NextResponse.json({ delivered, due: messages.length, errors });
+  return NextResponse.json({ delivered, skipped, due: messages.length, errors });
 }

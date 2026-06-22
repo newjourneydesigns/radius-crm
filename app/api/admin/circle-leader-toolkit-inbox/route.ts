@@ -13,16 +13,35 @@ import { NextRequest, NextResponse } from 'next/server';
 import { DateTime } from 'luxon';
 import { createServiceSupabaseClient, getUserFromAuthHeader } from '../../../../lib/server-supabase';
 import {
+  AudienceFilters,
+  LeaderAudience,
   TargetType,
   deliverToLeaders,
   insertRevision,
   loadTargetLeaders,
+  normalizeAudienceFilters,
   parseLeaderTargetIds,
 } from '../../../../lib/circle-leader-toolkit/inbox-delivery';
 
 export const dynamic = 'force-dynamic';
 
-const TARGET_TYPES = new Set(['all', 'campus', 'acpd', 'leader']);
+const TARGET_TYPES = new Set(['all', 'campus', 'acpd', 'leader', 'filter']);
+
+function parseAudience(value: unknown): LeaderAudience {
+  return value === 'host_team' ? 'host_team' : 'circle';
+}
+
+/** Build the loadTargetLeaders options from a message-shaped object. */
+function targetOpts(source: { audience?: unknown; audience_filters?: unknown }): {
+  audience: LeaderAudience;
+  filters: AudienceFilters | null;
+} {
+  const audience = parseAudience(source.audience);
+  return {
+    audience,
+    filters: audience === 'host_team' ? normalizeAudienceFilters(source.audience_filters) : null,
+  };
+}
 
 /** True when an error is a "column does not exist" for status/scheduled_at,
  *  i.e. a Supabase instance that hasn't run the inbox unsend/scheduling migrations. */
@@ -66,6 +85,28 @@ async function requireRadiusUser(req: NextRequest) {
 function normalizeTargetType(value: unknown): TargetType | null {
   const type = typeof value === 'string' ? value : '';
   return TARGET_TYPES.has(type) ? (type as TargetType) : null;
+}
+
+/**
+ * 'all' (everyone) and 'filter' (empty filters = everyone in the audience) don't
+ * require a target_value; campus/acpd/leader do. Returns an error response or null.
+ */
+function validateTargetValue(fields: { target_type: TargetType | null; target_value: string | null }) {
+  const tt = fields.target_type;
+  if (tt && tt !== 'all' && tt !== 'filter' && !fields.target_value) {
+    return NextResponse.json({ error: 'Target value is required.' }, { status: 400 });
+  }
+  return null;
+}
+
+/** Short human label for a Teams combinable filter set. */
+function describeFilters(raw: unknown): string {
+  const f = normalizeAudienceFilters(raw);
+  const parts: string[] = [];
+  if (f.campuses && f.campuses.length) parts.push(f.campuses.join(', '));
+  if (f.teams && f.teams.length) parts.push(f.teams.join(', '));
+  if (f.positions && f.positions.length) parts.push(f.positions.join(', '));
+  return parts.length ? parts.join(' · ') : 'All host team leaders';
 }
 
 /**
@@ -128,17 +169,27 @@ async function loadPushStatusByLeader(leaderIds: Array<number | string>) {
 
 function pickMessageFields(body: any) {
   const targetType = normalizeTargetType(body.target_type);
+  const audience = parseAudience(body.audience);
   const targetValue =
     Array.isArray(body.target_value)
       ? body.target_value.map((value) => String(value).trim()).filter(Boolean).join(',')
       : body.target_value != null
       ? String(body.target_value).trim()
       : null;
+  // 'all' and 'filter' don't use target_value (filter uses audience_filters).
+  const usesTargetValue = targetType !== 'all' && targetType !== 'filter';
   return {
     title: typeof body.title === 'string' ? body.title.trim() : '',
     body_html: typeof body.body_html === 'string' ? body.body_html : '',
     target_type: targetType,
-    target_value: targetType === 'all' ? null : targetValue || null,
+    target_value: usesTargetValue ? targetValue || null : null,
+    audience,
+    audience_filters:
+      audience === 'host_team' && targetType === 'filter'
+        ? normalizeAudienceFilters(body.audience_filters)
+        : null,
+    delivery_start: body.delivery_start || null,
+    delivery_end: body.delivery_end || null,
   };
 }
 
@@ -147,18 +198,29 @@ export async function GET(req: NextRequest) {
   if (auth.response) return auth.response;
 
   const url = new URL(req.url);
+  const audience = parseAudience(url.searchParams.get('audience'));
   if (url.searchParams.get('preview') === '1') {
     const targetType = normalizeTargetType(url.searchParams.get('target_type'));
     const targetValue = url.searchParams.get('target_value');
+    let filters: AudienceFilters | null = null;
+    const rawFilters = url.searchParams.get('audience_filters');
+    if (rawFilters) {
+      try {
+        filters = normalizeAudienceFilters(JSON.parse(rawFilters));
+      } catch {
+        filters = null;
+      }
+    }
     if (!targetType) {
       return NextResponse.json({ error: 'Valid target_type is required.' }, { status: 400 });
     }
-    if (targetType !== 'all' && !targetValue) {
+    // campus/acpd/leader need a value; 'all' and 'filter' (empty = everyone) don't.
+    if (targetType !== 'all' && targetType !== 'filter' && !targetValue) {
       return NextResponse.json({ recipients: [] });
     }
 
     try {
-      const leaders = await loadTargetLeaders(targetType, targetValue);
+      const leaders = await loadTargetLeaders(targetType, targetValue, { audience, filters });
       const pushStatusByLeader = await loadPushStatusByLeader(leaders.map((l) => l.id));
       const recipients = leaders.map((leader) => ({
         ...leader,
@@ -182,7 +244,8 @@ export async function GET(req: NextRequest) {
   const supabase = createServiceSupabaseClient();
   let { data: messages, error } = await supabase
     .from('circle_summary_inbox_messages')
-    .select('id, title, body_html, target_type, target_value, status, scheduled_at, version, created_by, edited_by, created_at, updated_at, unsent_at, resent_at')
+    .select('id, title, body_html, target_type, target_value, audience, audience_filters, delivery_start, delivery_end, status, scheduled_at, version, created_by, edited_by, created_at, updated_at, unsent_at, resent_at')
+    .eq('audience', audience)
     .order('updated_at', { ascending: false });
 
   if (error && isMissingMigrationColumn(error)) {
@@ -250,7 +313,11 @@ export async function GET(req: NextRequest) {
         ...message,
         target_label:
           message.target_type === 'all'
-            ? 'All leaders'
+            ? message.audience === 'host_team'
+              ? 'All host team leaders'
+              : 'All leaders'
+            : message.target_type === 'filter'
+            ? describeFilters(message.audience_filters)
             : message.target_type === 'leader'
             ? targetLeaderNames.length > 2
               ? `${targetLeaderNames.slice(0, 2).join(', ')} + ${targetLeaderNames.length - 2} more`
@@ -301,9 +368,8 @@ export async function POST(req: NextRequest) {
   if (!fields.target_type) {
     return NextResponse.json({ error: 'Valid target_type is required.' }, { status: 400 });
   }
-  if (fields.target_type !== 'all' && !fields.target_value) {
-    return NextResponse.json({ error: 'Target value is required.' }, { status: 400 });
-  }
+  const targetValueError = validateTargetValue(fields);
+  if (targetValueError) return targetValueError;
 
   const scheduled = parseScheduledAt(body.scheduled_at);
   if (!scheduled.valid) {
@@ -313,7 +379,7 @@ export async function POST(req: NextRequest) {
 
   try {
     // Validate the target resolves to at least one eligible leader at compose time.
-    const leaders = await loadTargetLeaders(fields.target_type, fields.target_value);
+    const leaders = await loadTargetLeaders(fields.target_type, fields.target_value, targetOpts(fields));
     if (leaders.length === 0) {
       return NextResponse.json({ error: 'No eligible leaders match that target.' }, { status: 400 });
     }
@@ -399,9 +465,8 @@ export async function PUT(req: NextRequest) {
     if (!fields.target_type) {
       return NextResponse.json({ error: 'Valid target_type is required.' }, { status: 400 });
     }
-    if (fields.target_type !== 'all' && !fields.target_value) {
-      return NextResponse.json({ error: 'Target value is required.' }, { status: 400 });
-    }
+    const targetValueError = validateTargetValue(fields);
+    if (targetValueError) return targetValueError;
 
     const scheduled = parseScheduledAt(body.scheduled_at);
     if (!scheduled.valid) {
@@ -410,7 +475,7 @@ export async function PUT(req: NextRequest) {
     const stillScheduled = scheduled.iso != null && scheduled.future;
 
     try {
-      const leaders = await loadTargetLeaders(fields.target_type, fields.target_value);
+      const leaders = await loadTargetLeaders(fields.target_type, fields.target_value, targetOpts(fields));
       if (leaders.length === 0) {
         return NextResponse.json({ error: 'No eligible leaders match that target.' }, { status: 400 });
       }
@@ -498,7 +563,7 @@ export async function PATCH(req: NextRequest) {
   const supabase = createServiceSupabaseClient();
   const { data: existing, error: loadError } = await supabase
     .from('circle_summary_inbox_messages')
-    .select('id, title, body_html, target_type, target_value, version, status')
+    .select('id, title, body_html, target_type, target_value, audience, audience_filters, version, status')
     .eq('id', id)
     .maybeSingle();
   if (loadError && isMissingMigrationColumn(loadError)) {
@@ -522,7 +587,11 @@ export async function PATCH(req: NextRequest) {
     }
 
     try {
-      const leaders = await loadTargetLeaders(existing.target_type as TargetType, existing.target_value);
+      const leaders = await loadTargetLeaders(
+        existing.target_type as TargetType,
+        existing.target_value,
+        targetOpts(existing)
+      );
       if (leaders.length === 0) {
         return NextResponse.json({ error: 'No eligible leaders match that target.' }, { status: 400 });
       }
@@ -578,12 +647,11 @@ export async function PATCH(req: NextRequest) {
     if (!fields.target_type) {
       return NextResponse.json({ error: 'Valid target_type is required.' }, { status: 400 });
     }
-    if (fields.target_type !== 'all' && !fields.target_value) {
-      return NextResponse.json({ error: 'Target value is required.' }, { status: 400 });
-    }
+    const targetValueError = validateTargetValue(fields);
+    if (targetValueError) return targetValueError;
 
     try {
-      const leaders = await loadTargetLeaders(fields.target_type, fields.target_value);
+      const leaders = await loadTargetLeaders(fields.target_type, fields.target_value, targetOpts(fields));
       if (leaders.length === 0) {
         return NextResponse.json({ error: 'No eligible leaders match that target.' }, { status: 400 });
       }
