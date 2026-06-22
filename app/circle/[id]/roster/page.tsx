@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '../../../../lib/supabase';
 import ServeTeamRoster from '../../../../components/circle/ServeTeamRoster';
+import { isTeamsToolkitEnabled } from '../../../../lib/teams-toolkit/feature-flag';
 
 interface RosterPerson {
   id: string;
@@ -257,8 +258,9 @@ export default function CircleRosterPage() {
     return `${diffDays}d ago`;
   };
 
-  // Host team leaders get the serve team roster
-  if (leaderType === 'host_team') {
+  // Host team leaders get the serve team roster — hidden (and its CCB calls
+  // skipped) while the Teams Toolkit feature flag is off.
+  if (leaderType === 'host_team' && isTeamsToolkitEnabled()) {
     return <ServeTeamRoster leaderId={leaderId} />;
   }
 

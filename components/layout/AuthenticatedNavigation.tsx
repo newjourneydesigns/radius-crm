@@ -9,6 +9,7 @@ import { Bug, Lightbulb } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useOpenAlertCount } from "../../hooks/useOpenAlertCount";
 import { isCoachingAutomationsEnabled } from "../../lib/circle-leader-toolkit/coaching/feature-flag";
+import { isTeamsToolkitEnabled } from "../../lib/teams-toolkit/feature-flag";
 import { useAcpdUnreadCount } from "../../hooks/useAcpdUnreadCount";
 import { useInboxUnreadCount } from "../../hooks/useInboxUnreadCount";
 import { MESSAGES_ENABLED } from "../../lib/features";
@@ -203,7 +204,10 @@ const adminToolsNavItems = [
     ? [{ href: '/admin/coaching-automations', label: 'Coaching Automations', Icon: IdeaIcon }]
     : []),
   { href: '/import-circles',         label: 'Import Circles',           Icon: ImportCirclesIcon },
-  { href: '/import-team',            label: 'Import Host Team',         Icon: UserPlusIcon },
+  // Hidden until the Teams Toolkit feature flag is turned on.
+  ...(isTeamsToolkitEnabled()
+    ? [{ href: '/import-team',        label: 'Import Host Team',         Icon: UserPlusIcon }]
+    : []),
   { href: '/import-circles/#mass-update', label: 'Mass Update',         Icon: MassUpdateIcon },
   { href: '/users',                  label: 'Manage Users',             Icon: UsersIcon },
   { href: '/ccb-usage',              label: 'CCB Usage',                Icon: ChartIcon },
@@ -410,16 +414,20 @@ export default function AuthenticatedNavigation() {
                       </Link>
                     ))}
                   </div>
-                  <div className="border-t border-white/[0.06] px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Teams Toolkit</p>
-                  </div>
-                  <div className="py-1">
-                    {visibleTeamsToolkitNavItems.map(({ href, label, Icon }) => (
-                      <Link key={href} href={href} onClick={closeAll} className={dropdownLinkClass(href)}>
-                        <Icon /> {label}
-                      </Link>
-                    ))}
-                  </div>
+                  {isTeamsToolkitEnabled() && (
+                    <>
+                      <div className="border-t border-white/[0.06] px-3 py-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Teams Toolkit</p>
+                      </div>
+                      <div className="py-1">
+                        {visibleTeamsToolkitNavItems.map(({ href, label, Icon }) => (
+                          <Link key={href} href={href} onClick={closeAll} className={dropdownLinkClass(href)}>
+                            <Icon /> {label}
+                          </Link>
+                        ))}
+                      </div>
+                    </>
+                  )}
                   {admin && (
                     <>
                       <div className="border-t border-white/[0.06] px-3 py-2">

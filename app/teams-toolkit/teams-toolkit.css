@@ -168,6 +168,173 @@ body:has(.ts-root .ts-splash),
   background: #fef3c7;
   color: #92400e !important;
 }
+.ts-root .ts-status-checked_in {
+  background: #16a34a;
+  color: #ffffff !important;
+}
+.ts-root .ts-status-no_show {
+  background: #ffedd5;
+  color: #9a3412 !important;
+}
+.ts-root .ts-status-unknown {
+  background: #e5e7eb;
+  color: #374151 !important;
+}
+
+/* Person search — above the tabs */
+.ts-root .ts-person-search-input {
+  background: #fff;
+  border: 3px solid var(--cs-green, #34b233);
+  color: #111827;
+  box-shadow: 0 0 0 4px rgba(52, 178, 51, 0.1), 0 8px 24px rgba(52, 178, 51, 0.16);
+}
+.ts-root .ts-person-search-input::placeholder {
+  color: #6b7280;
+}
+.ts-root .ts-person-search-input:focus {
+  border-color: var(--cs-green, #34b233);
+  box-shadow: 0 0 0 5px rgba(52, 178, 51, 0.2), 0 10px 28px rgba(52, 178, 51, 0.2);
+}
+.ts-root .ts-person-search-panel {
+  background: #fff;
+  border: 1px solid var(--cs-border);
+  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.16);
+  max-height: 22rem;
+  overflow-y: auto;
+}
+.ts-root .ts-person-search-row {
+  transition: background 0.12s ease;
+}
+.ts-root .ts-person-search-row.is-active,
+.ts-root .ts-person-search-row:hover {
+  background: var(--cs-bg-soft, #f3f5f7);
+}
+.ts-root .ts-person-search-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--cs-bg-soft, #eef2f5);
+  color: #475569;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.ts-root .ts-person-loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #34B233;
+  overflow: hidden;
+}
+.ts-root .ts-person-loading-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 14px,
+    rgba(0, 0, 0, 0.045) 14px,
+    rgba(0, 0, 0, 0.045) 15px
+  );
+  pointer-events: none;
+}
+.ts-root .ts-person-loading-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 8.5rem;
+  height: 8.5rem;
+}
+.ts-root .ts-person-loading-logo {
+  position: relative;
+  z-index: 2;
+  width: 5.25rem;
+  height: auto;
+  filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.16));
+}
+.ts-root .ts-person-loading-ring {
+  position: absolute;
+  inset: 1.15rem;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  animation: ts-person-loading-ring 1.5s ease-out infinite;
+}
+.ts-root .ts-person-loading-ring-delay {
+  animation-delay: 0.5s;
+}
+
+@keyframes ts-person-loading-ring {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.45);
+  }
+  80% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ts-root .ts-person-loading-ring {
+    animation: none;
+    opacity: 0.55;
+    transform: scale(1.15);
+  }
+}
+
+/* Person profile — monthly serving-% summary */
+.ts-root .ts-serve-stat {
+  border: 1px solid var(--cs-border);
+  border-radius: 0.85rem;
+  background: #fff;
+  padding: 0.85rem 0.95rem;
+}
+.ts-root .ts-serve-pct {
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.ts-root .ts-serve-pct-met { color: #166534; }
+.ts-root .ts-serve-pct-miss { color: #b45309; }
+.ts-root .ts-serve-pct-none { color: #9ca3af; }
+.ts-root .ts-serve-track {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+  margin-top: 0.55rem;
+}
+.ts-root .ts-serve-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+}
+.ts-root .ts-serve-fill-met { background: #16a34a; }
+.ts-root .ts-serve-fill-miss { background: #f59e0b; }
+/* 50% commitment marker */
+.ts-root .ts-serve-target {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: 50%;
+  width: 2px;
+  background: #475569;
+  opacity: 0.55;
+}
 
 /* Schedule — call/text quick actions */
 .ts-root a.ts-contact-btn,

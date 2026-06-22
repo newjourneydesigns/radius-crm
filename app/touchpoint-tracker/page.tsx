@@ -271,9 +271,22 @@ export default function TouchpointTrackerPage() {
     return { total, met, pct: total ? Math.round((met / total) * 100) : 0 };
   }, [filtered]);
 
-  const byAcpd = useMemo(() => rollupByName(allDerived.filter((r) => r.leaderType === 'circle'), (r) => r.acpd), [allDerived]);
-  const byDirector = useMemo(() => rollupByName(allDerived.filter((r) => r.leaderType === 'host_team'), (r) => r.director), [allDerived]);
-  const byCampus = useMemo(() => rollupByName(allDerived, (r) => r.campus), [allDerived]);
+  const byAcpd = useMemo(() => rollupByName(filtered.filter((r) => r.leaderType === 'circle'), (r) => r.acpd), [filtered]);
+  const byDirector = useMemo(() => rollupByName(filtered.filter((r) => r.leaderType === 'host_team'), (r) => r.director), [filtered]);
+  const byCampus = useMemo(() => rollupByName(filtered, (r) => r.campus), [filtered]);
+  const visibleRollups = useMemo(() => {
+    const cards: { title: string; rows: Rollup[] }[] = [];
+    if (byAcpd.length > 0) cards.push({ title: 'By ACPD', rows: byAcpd });
+    if (byDirector.length > 0) cards.push({ title: 'By Team Director', rows: byDirector });
+    if (byCampus.length > 0) cards.push({ title: 'By Campus', rows: byCampus });
+    return cards;
+  }, [byAcpd, byDirector, byCampus]);
+  const rollupGridClass =
+    visibleRollups.length === 1
+      ? 'grid grid-cols-1 gap-4 mb-5'
+      : visibleRollups.length === 2
+        ? 'grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5'
+        : 'grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5';
 
   const campuses = useMemo(
     () => Array.from(new Set((data?.leaders ?? []).map((l) => l.campus).filter(Boolean) as string[])).sort(),
@@ -337,12 +350,12 @@ export default function TouchpointTrackerPage() {
           />
         </div>
 
-        {/* Rollup charts - the greater cross-ACPD / cross-campus picture */}
-        {data && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
-            <RollupCard title="By ACPD" rows={byAcpd} />
-            <RollupCard title="By Team Director" rows={byDirector} />
-            <RollupCard title="By Campus" rows={byCampus} />
+        {/* Rollup charts (reflect filters + selected types) */}
+        {data && visibleRollups.length > 0 && (
+          <div className={rollupGridClass}>
+            {visibleRollups.map((rollup) => (
+              <RollupCard key={rollup.title} title={rollup.title} rows={rollup.rows} />
+            ))}
           </div>
         )}
 

@@ -383,20 +383,46 @@ export class CCBv2Client {
     categoryId: string | number,
     opts: { startDate?: string; endDate?: string } = {}
   ): Promise<ScheduleOccurrenceV2[]> {
-    const query: Record<string, string> = {};
-    if (opts.startDate) query.start = opts.startDate;
-    if (opts.endDate) query.end = opts.endDate;
-
     // Step 1 — discover the dated event occurrences in range.
-    const eventsRaw = await this.get<any>(
-      `/scheduling/categories/${encodeURIComponent(String(categoryId))}/events`,
-      query
-    );
+    //
+    // The `/scheduling/categories/{id}/events` endpoint paginates (10/page,
+    // newest-first) and IGNORES start/end — passing them does not filter. So we
+    // page through ourselves and filter by date here. Events are date-descending,
+    // so once a page's oldest event predates startDate we can stop.
+    const PER_PAGE = 100;
+    const MAX_PAGES = 12; // safety cap (~1200 events) so a bad range can't loop
+    const eventDate = (ev: any) =>
+      firstString(ev?.start, ev?.starts_at, ev?.start_datetime).slice(0, 10);
+
+    const allEvents: any[] = [];
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      const pageRaw = await this.get<any>(
+        `/scheduling/categories/${encodeURIComponent(String(categoryId))}/events`,
+        { per_page: String(PER_PAGE), page: String(page) }
+      );
+      const items = asArray(pageRaw);
+      if (items.length === 0) break;
+      allEvents.push(...items);
+
+      // Newest-first: if the oldest row on this page is already before the start
+      // bound, no later page can contain in-range events.
+      if (opts.startDate) {
+        const oldest = items
+          .map(eventDate)
+          .filter(Boolean)
+          .sort()[0];
+        if (oldest && oldest < opts.startDate) break;
+      }
+      if (items.length < PER_PAGE) break;
+    }
 
     // Map of wanted event id → discovered metadata, and the set of schedules to pull.
     const wantedEvents = new Map<string, { scheduleId: string; start: string; name: string }>();
     const scheduleIds = new Set<string>();
-    for (const ev of asArray(eventsRaw)) {
+    for (const ev of allEvents) {
+      const date = eventDate(ev);
+      if (opts.startDate && date && date < opts.startDate) continue;
+      if (opts.endDate && date && date > opts.endDate) continue;
       const eventId = firstString(ev?.id, ev?.event_id);
       const scheduleId = firstString(ev?.schedule_id, ev?.scheduleId, ev?.schedule?.id);
       if (!eventId || !scheduleId) continue;
@@ -452,6 +478,7 @@ export class CCBv2Client {
                   }
                 : null,
               status: normalizeScheduleStatus(firstString(a?.status, a?.response_status)),
+              serveStatus: classifyServeStatus(firstString(a?.status, a?.response_status)),
               declineReason: firstString(a?.status_reason, a?.decline_reason, a?.reason),
             });
           }
@@ -502,6 +529,19 @@ export interface SchedulingVolunteerV2 {
 /** A scheduled person's response to a scheduling request. */
 export type ScheduleResponseStatus = 'pending' | 'accepted' | 'declined' | 'unknown';
 
+/**
+ * Finer-grained serving outcome. Unlike ScheduleResponseStatus (which folds the
+ * post-event states into 'accepted'), this preserves whether the person actually
+ * served (`checked_in`) or was a `no_show` — needed for the serving-% metrics.
+ */
+export type ScheduleServeStatus =
+  | 'pending'
+  | 'accepted'
+  | 'declined'
+  | 'checked_in'
+  | 'no_show'
+  | 'unknown';
+
 export interface ScheduleAssignmentV2 {
   positionId: string;
   positionName: string;
@@ -512,6 +552,8 @@ export interface ScheduleAssignmentV2 {
     mobile: string;
   } | null;
   status: ScheduleResponseStatus;
+  /** Post-event-aware status (checked_in / no_show preserved). */
+  serveStatus: ScheduleServeStatus;
   declineReason: string;
 }
 
@@ -598,6 +640,19 @@ function normalizeScheduleStatus(raw: string): ScheduleResponseStatus {
   // and post-event CHECKED_IN / NO_SHOW. A checked-in or no-show person had
   // accepted; only DECLINED is a "no" for the leader's purposes.
   if (['accepted', 'accept', 'confirmed', 'yes', 'attending', 'approved', 'checked_in', 'checkedin', 'no_show', 'noshow', 'serving'].includes(s)) return 'accepted';
+  if (['declined', 'decline', 'no', 'not_attending', 'rejected', 'unavailable'].includes(s)) return 'declined';
+  if (['pending', 'unconfirmed', 'no_response', 'requested', 'invited', 'awaiting', 'sent', 'unnotified'].includes(s)) return 'pending';
+  return 'unknown';
+}
+
+/** Like normalizeScheduleStatus, but keeps the post-event states distinct so the
+ *  serving-% metrics can tell "actually served" (checked_in) from merely accepted. */
+function classifyServeStatus(raw: string): ScheduleServeStatus {
+  const s = (raw || '').trim().toLowerCase();
+  if (!s) return 'pending';
+  if (['checked_in', 'checkedin', 'serving'].includes(s)) return 'checked_in';
+  if (['no_show', 'noshow'].includes(s)) return 'no_show';
+  if (['accepted', 'accept', 'confirmed', 'yes', 'attending', 'approved'].includes(s)) return 'accepted';
   if (['declined', 'decline', 'no', 'not_attending', 'rejected', 'unavailable'].includes(s)) return 'declined';
   if (['pending', 'unconfirmed', 'no_response', 'requested', 'invited', 'awaiting', 'sent', 'unnotified'].includes(s)) return 'pending';
   return 'unknown';

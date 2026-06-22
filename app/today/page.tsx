@@ -1353,10 +1353,21 @@ export default function TodayPage() {
     setOpenCard({ boardId, cardId });
   }, []);
 
+  // The Refresh button reloads everything the page shows: cards/checklists/core
+  // (fresh, bypassing both the server and browser caches), the Big 3 slots, and
+  // the calendar feed. `fresh: true` is what makes a just-edited card's new date,
+  // time, and status appear instead of a stale cached copy.
+  const handleRefresh = useCallback(() => {
+    fetchData({ fresh: true });
+    bigThree.load();
+    fetchCalendars();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchData, fetchCalendars]);
+
   const handleModalClose = useCallback((didChange: boolean) => {
     setOpenCard(null);
     if (didChange) {
-      fetchData();
+      fetchData({ fresh: true });
       bigThree.load();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1379,9 +1390,9 @@ export default function TodayPage() {
       const headers = { Authorization: `Bearer ${session.access_token}` };
       const freshParam = fresh ? '&fresh=1' : '';
       const [coreRes, cardsRes, calRes] = await Promise.all([
-        fetch(`/api/today/core?date=${date}${freshParam}`, { headers }),
-        fetch(`/api/today/cards?date=${date}${freshParam}`, { headers }),
-        fetch(`/api/calendar-events?date=${date}`, { headers }),
+        fetch(`/api/today/core?date=${date}${freshParam}`, { headers, cache: 'no-store' }),
+        fetch(`/api/today/cards?date=${date}${freshParam}`, { headers, cache: 'no-store' }),
+        fetch(`/api/calendar-events?date=${date}`, { headers, cache: 'no-store' }),
       ]);
       const core = coreRes.ok ? await coreRes.json() : null;
       const cards = cardsRes.ok ? await cardsRes.json() : null;
@@ -1640,7 +1651,7 @@ export default function TodayPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 60px)' }}>
         <div style={{ textAlign: 'center' }}>
           <p style={{ fontSize: 13, color: T.textMuted, marginBottom: 8 }}>{error || 'No data available.'}</p>
-          <button onClick={fetchData} style={{ fontSize: 12, color: T.textMuted, background: 'none', border: 'none', cursor: 'pointer' }}>
+          <button onClick={() => fetchData({ fresh: true })} style={{ fontSize: 12, color: T.textMuted, background: 'none', border: 'none', cursor: 'pointer' }}>
             Try again
           </button>
         </div>
@@ -1734,7 +1745,7 @@ export default function TodayPage() {
 
   const refreshBtn = (
     <button
-      onClick={fetchData}
+      onClick={handleRefresh}
       disabled={isFetching}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6,

@@ -10,6 +10,7 @@ import { useOpenAlertCount } from "../../hooks/useOpenAlertCount";
 import { useAcpdUnreadCount } from "../../hooks/useAcpdUnreadCount";
 import { useInboxUnreadCount } from "../../hooks/useInboxUnreadCount";
 import { MESSAGES_ENABLED } from "../../lib/features";
+import { isTeamsToolkitEnabled } from "../../lib/teams-toolkit/feature-flag";
 import { useQuickActions, type QuickActionId, type QuickActionMeta } from "../../contexts/QuickActionsContext";
 import GlobalSearch from './GlobalSearch';
 
@@ -373,7 +374,10 @@ export default function MobileNavigation() {
 
   const adminItems = [
     { href: '/import-circles', label: 'Import Circles',  Icon: CloudImportIcon },
-    { href: '/import-team',   label: 'Import Host Team',  Icon: UserPlusIcon },
+    // Hidden until the Teams Toolkit feature flag is turned on.
+    ...(isTeamsToolkitEnabled()
+      ? [{ href: '/import-team', label: 'Import Host Team', Icon: UserPlusIcon }]
+      : []),
     { href: '/import-circles/#mass-update', label: 'Mass Update', Icon: MassUpdateIcon },
     { href: '/users',         label: 'Manage Users',     Icon: UsersIcon },
     { href: '/ccb-usage',     label: 'CCB Usage',        Icon: ChartIcon },

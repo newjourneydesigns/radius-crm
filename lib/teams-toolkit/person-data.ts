@@ -1,7 +1,14 @@
 /**
  * Loads a single person's profile for a host-team leader: their contact info,
- * the team(s) + position(s) they currently hold on the leader's teams, and their
- * serving history over the last 4 weeks. Read-only — CCB is the system of record.
+ * the team(s) + position(s) they currently hold on the leader's teams, their
+ * serving requests over the last 4 weeks and next 4 weeks, and their monthly
+ * serving %. Read-only — CCB is the system of record.
+ *
+ * Serving % (a serve-team commitment is 50% of available opportunities/month):
+ *  - Past month  = times they CHECKED IN ÷ every request sent to them, over the
+ *                  previous calendar month.
+ *  - Next month  = times they ACCEPTED ÷ every request sent to them, over the
+ *                  next calendar month (no check-ins exist for future dates).
  *
  * Scope is the leader's *managed* positions only (same filter as the roster and
  * schedule loaders), so a leader only sees a person in the context of their own
@@ -12,10 +19,11 @@ import { DateTime } from 'luxon';
 import type { TeamSessionLeader } from './session';
 import { createServiceSupabaseClient } from '../server-supabase';
 import { createCCBv2Client } from '../ccb/ccb-v2-client';
-import type { ScheduleResponseStatus } from '../ccb/ccb-v2-client';
+import type { ScheduleServeStatus } from '../ccb/ccb-v2-client';
 
 const CT_ZONE = 'America/Chicago';
-const HISTORY_DAYS = 28; // last 4 weeks
+const WINDOW_DAYS = 28; // last / next 4 weeks for the request lists
+const COMMITMENT_PCT = 50; // serve-team monthly commitment
 
 export interface TeamPersonMembership {
   positionId: string;
@@ -27,8 +35,18 @@ export interface TeamPersonServing {
   occurrenceId: string;
   date: string; // YYYY-MM-DD
   positionName: string;
-  status: ScheduleResponseStatus;
+  status: ScheduleServeStatus;
   declineReason: string;
+}
+
+/** Monthly serving-% summary. `count` is check-ins (past) or accepts (upcoming). */
+export interface TeamServeStats {
+  monthLabel: string; // e.g. "May" / "July"
+  requests: number; // every request sent to them that month
+  count: number; // checked-in (past) or accepted (upcoming)
+  pct: number | null; // null when no requests that month
+  commitmentPct: number; // 50
+  meetsCommitment: boolean;
 }
 
 export interface TeamPersonProfile {
@@ -37,7 +55,14 @@ export interface TeamPersonProfile {
   email: string;
   mobile: string;
   memberships: TeamPersonMembership[];
+  /** Serving requests in the last 4 weeks, most recent first. */
   history: TeamPersonServing[];
+  /** Serving requests in the next 4 weeks, soonest first. */
+  upcoming: TeamPersonServing[];
+  /** Checked-in % for the previous calendar month. */
+  pastMonth: TeamServeStats;
+  /** Accepted % for the next calendar month. */
+  nextMonth: TeamServeStats;
 }
 
 export type LoadTeamPersonResult = {
@@ -83,8 +108,18 @@ export async function loadTeamPerson(
     userId: null,
   });
 
-  const end = DateTime.now().setZone(CT_ZONE);
-  const start = end.minus({ days: HISTORY_DAYS });
+  // Fetch one range wide enough to cover both the 4-week request lists and the
+  // previous/next calendar months used by the serving-% metrics.
+  const now = DateTime.now().setZone(CT_ZONE);
+  const lastMonthStart = now.startOf('month').minus({ months: 1 });
+  const lastMonthEnd = now.startOf('month').minus({ days: 1 });
+  const nextMonthStart = now.startOf('month').plus({ months: 1 });
+  const nextMonthEnd = now.startOf('month').plus({ months: 2 }).minus({ days: 1 });
+  const fourWeeksAgo = now.minus({ days: WINDOW_DAYS });
+  const fourWeeksAhead = now.plus({ days: WINDOW_DAYS });
+
+  const fetchStart = DateTime.min(lastMonthStart, fourWeeksAgo);
+  const fetchEnd = DateTime.max(nextMonthEnd, fourWeeksAhead);
 
   // These three reads are independent — fan out in parallel.
   let volunteers, category, occurrences;
@@ -93,8 +128,8 @@ export async function loadTeamPerson(
       v2.getCategoryVolunteers(categoryId),
       v2.getSchedulingCategory(categoryId),
       v2.getCategorySchedules(categoryId, {
-        startDate: start.toISODate()!,
-        endDate: end.toISODate()!,
+        startDate: fetchStart.toISODate()!,
+        endDate: fetchEnd.toISODate()!,
       }),
     ]);
   } catch (e: any) {
@@ -142,24 +177,49 @@ export async function loadTeamPerson(
     (a.teamName + a.positionName).localeCompare(b.teamName + b.positionName)
   );
 
-  // Serving history: every assignment for this person in a managed position over
-  // the window, most recent first.
-  const history: TeamPersonServing[] = [];
+  // Every assignment for this person in a managed position across the fetched
+  // range. We bucket these into the display lists and the monthly metrics below.
+  const requests: TeamPersonServing[] = [];
   for (const occ of occurrences) {
     for (const a of occ.assignments) {
       if (!a.individual) continue;
       if (String(a.individual.id) !== String(personId)) continue;
       if (!managedPositionIds.has(a.positionId)) continue;
-      history.push({
+      requests.push({
         occurrenceId: occ.id,
         date: occ.date,
         positionName: positionNameMap.get(a.positionId) || a.positionName || a.positionId,
-        status: a.status,
+        status: a.serveStatus,
         declineReason: a.declineReason,
       });
     }
   }
-  history.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+  const todayIso = now.toISODate()!;
+  const fourWeeksAgoIso = fourWeeksAgo.toISODate()!;
+  const fourWeeksAheadIso = fourWeeksAhead.toISODate()!;
+  const inRange = (d: string, lo: string, hi: string) => !!d && d >= lo && d <= hi;
+
+  // Last 4 weeks (past, inclusive of today), most recent first.
+  const history = requests
+    .filter((r) => inRange(r.date, fourWeeksAgoIso, todayIso))
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+  // Next 4 weeks (future), soonest first.
+  const upcoming = requests
+    .filter((r) => r.date > todayIso && r.date <= fourWeeksAheadIso)
+    .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+  const pastMonth = buildStats(
+    requests.filter((r) => inRange(r.date, lastMonthStart.toISODate()!, lastMonthEnd.toISODate()!)),
+    'checked_in',
+    lastMonthStart.toFormat('LLLL')
+  );
+  const nextMonth = buildStats(
+    requests.filter((r) => inRange(r.date, nextMonthStart.toISODate()!, nextMonthEnd.toISODate()!)),
+    'accepted',
+    nextMonthStart.toFormat('LLLL')
+  );
 
   return {
     person: {
@@ -169,6 +229,32 @@ export async function loadTeamPerson(
       mobile: identity.mobile,
       memberships,
       history,
+      upcoming,
+      pastMonth,
+      nextMonth,
     },
+  };
+}
+
+/**
+ * Serving % over a month's requests. `countStatus` is the serve status that
+ * counts toward the numerator — 'checked_in' for completed months (actually
+ * served) or 'accepted' for upcoming months (committed to serve).
+ */
+function buildStats(
+  monthRequests: TeamPersonServing[],
+  countStatus: ScheduleServeStatus,
+  monthLabel: string
+): TeamServeStats {
+  const requests = monthRequests.length;
+  const count = monthRequests.filter((r) => r.status === countStatus).length;
+  const pct = requests > 0 ? Math.round((count / requests) * 100) : null;
+  return {
+    monthLabel,
+    requests,
+    count,
+    pct,
+    commitmentPct: COMMITMENT_PCT,
+    meetsCommitment: pct != null && pct >= COMMITMENT_PCT,
   };
 }

@@ -3,10 +3,20 @@ import { createClient } from '@supabase/supabase-js';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+export const dynamic = 'force-dynamic';
+
+function serviceClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    throw new Error('Missing Supabase service credentials');
+  }
+
+  return createClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
 
 // Count matching words between two names (case-insensitive)
 function nameMatchScore(a: string, b: string): number {
@@ -22,6 +32,8 @@ export async function POST(request: Request) {
     if (!circle_leader_id) {
       return NextResponse.json({ error: 'circle_leader_id is required' }, { status: 400 });
     }
+
+    const supabase = serviceClient();
 
     const { data: leader, error: leaderError } = await supabase
       .from('circle_leaders')
