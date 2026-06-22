@@ -30,6 +30,7 @@ function isPublicRoute(pathname: string, isDedicatedToolkitHost = false) {
   return (
     p === '/login' ||
     p === '/search' ||
+    p.startsWith('/ts-preview') ||
     p.startsWith('/auth') ||
     p.startsWith('/circle-leader-toolkit') ||
     p.startsWith('/teams-toolkit') ||
@@ -49,6 +50,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   const hideChrome =
     isDedicatedToolkitHost ||
     pathname === '/login' ||
+    pathname.startsWith('/ts-preview') ||
     pathname.startsWith('/auth') ||
     pathname.startsWith('/circle-leader-toolkit') ||
     pathname.startsWith('/teams-toolkit') ||

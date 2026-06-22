@@ -29,17 +29,22 @@ export default function TeamRosterList({
   categoryId,
   positions,
   error,
+  buildPersonHref,
 }: {
   categoryId: string;
   positions: TeamRosterPosition[];
   error?: string;
+  /** Optional override for the per-person link target (used by local previews). */
+  buildPersonHref?: (id: number | string) => string;
 }) {
   const [query, setQuery] = useState('');
 
   const cleanHost =
     typeof window !== 'undefined' && isTeamsToolkitHostName(window.location.hostname);
   const personHref = (id: number | string) =>
-    teamsToolkitGroupPath(categoryId, `people/${encodeURIComponent(String(id))}`, { cleanHost });
+    buildPersonHref
+      ? buildPersonHref(id)
+      : teamsToolkitGroupPath(categoryId, `people/${encodeURIComponent(String(id))}`, { cleanHost });
 
   const total = useMemo(
     () => positions.reduce((sum, p) => sum + p.volunteers.length, 0),
