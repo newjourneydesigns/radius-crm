@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-06-21",
+    "version": "2.41.2",
+    "date_display": "June 21, 2026",
+    "date_iso": "2026-06-21",
+    "id": "teams-toolkit-roster-search",
+    "type": "improvement",
+    "category": "Teams Toolkit",
+    "description": "You can now search your Team Roster — type a name, phone number, or email to filter the list instantly, or type a position name to jump straight to that team. Filtering happens right on your device, so it's immediate.",
+    "page": "/teams-toolkit"
+  },
+  {
+    "date": "2026-06-21",
     "version": "2.41.1",
     "date_display": "June 21, 2026",
     "date_iso": "2026-06-21",
