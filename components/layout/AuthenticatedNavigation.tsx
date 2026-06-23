@@ -12,6 +12,11 @@ import { MESSAGES_ENABLED } from "../../lib/features";
 import GlobalSearch from './GlobalSearch';
 
 // ----- Icon components (heroicons-style, 20 × 20) -----
+const TrendUpIcon = () => (
+  <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
+  </svg>
+);
 const ChartIcon = () => (
   <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -166,13 +171,15 @@ const primaryNavItems: Array<{
   icon: React.ComponentType;
   collapseBelow?: 'lg' | 'xl';
 }> = [
-  { name: 'Events',             href: '/event-summary-tracker', icon: CalendarIcon },
-  { name: 'Circle List',        href: '/search',                icon: SearchNavIcon },
-  { name: 'Connection Tracker', href: '/touchpoint-tracker',    icon: UsersIcon },
-  { name: 'Boards',             href: '/boards',                icon: BoardIcon },
-  { name: 'Notebook',           href: '/notebook',              icon: NotebookIcon, collapseBelow: 'lg' },
-  { name: 'Today',              href: '/today',                 icon: TodayIcon,    collapseBelow: 'xl' },
-  { name: 'Prayer',             href: '/prayer',                icon: PrayerIcon,   collapseBelow: 'xl' },
+  { name: 'Events',       href: '/event-summary-tracker', icon: CalendarIcon },
+  { name: 'Circle List',  href: '/search',                icon: SearchNavIcon },
+  { name: 'Connections',  href: '/touchpoint-tracker',    icon: UsersIcon },
+  { name: 'Reporting',    href: '/circle-reporting',      icon: ChartIcon,    collapseBelow: 'lg' },
+  { name: 'Boards',       href: '/boards',                icon: BoardIcon },
+  { name: 'Notebook',     href: '/notebook',              icon: NotebookIcon, collapseBelow: 'lg' },
+  { name: 'Today',        href: '/today',                 icon: TodayIcon,    collapseBelow: 'lg' },
+  { name: 'Prayer',       href: '/prayer',                icon: PrayerIcon,   collapseBelow: 'xl' },
+  { name: 'Progress',     href: '/progress',              icon: TrendUpIcon,  collapseBelow: 'xl' },
 ];
 
 const toolsNavItems = [

@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-06-23",
+    "version": "2.43.4",
+    "date_display": "June 23, 2026",
+    "date_iso": "2026-06-23",
+    "id": "nav-bar-more-items",
+    "type": "improvement",
+    "category": "Navigation",
+    "description": "The nav bar now shows up to 9 items on wider screens. Reporting appears right next to Connections, and Progress joins at 1280px+. Connection Tracker is now labeled \"Connections\" in the nav for brevity. Items collapse cleanly into the Tools menu on narrower screens.",
+    "page": "/"
+  },
+  {
+    "date": "2026-06-23",
     "version": "2.43.3",
     "date_display": "June 23, 2026",
     "date_iso": "2026-06-23",
