@@ -12,6 +12,7 @@ import {
   FileText,
   Filter,
   GitCompareArrows,
+  Info,
   Layers,
   Minus,
   RefreshCw,
@@ -111,6 +112,8 @@ type ReportingData = {
     topReasons: ReasonInsight[];
     byReason: ReasonInsight[];
     byCategory: { valid: number; coaching: number; other: number };
+    notSpecified: number;
+    notSpecifiedBySource: { radius: number; ccb: number; snapshot: number };
   };
   csvRows: Record<string, string | number>[];
 };
@@ -1114,6 +1117,19 @@ function CircleReportingContent() {
             {/* Reasons for not meeting */}
             <section className="mt-9 pb-4">
               <SectionHeading eyebrow="Operations" title="Reasons for not meeting" hint={`${data.didNotMeetInsights.total} across the range`} />
+              {data.didNotMeetInsights.notSpecified > 0 && (
+                <div className="mb-3 flex items-start gap-2 rounded-xl border border-slate-800/80 bg-slate-900/40 px-4 py-2.5 text-xs text-slate-400">
+                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
+                  <span>
+                    <span className="font-medium text-slate-300">{data.didNotMeetInsights.notSpecified}</span> did-not-meet
+                    {data.didNotMeetInsights.notSpecified === 1 ? ' event has' : ' events have'} no recorded reason
+                    {(data.didNotMeetInsights.notSpecifiedBySource.ccb > 0 || data.didNotMeetInsights.notSpecifiedBySource.snapshot > 0) && (
+                      <> — {data.didNotMeetInsights.notSpecifiedBySource.ccb + data.didNotMeetInsights.notSpecifiedBySource.snapshot} came from CCB/snapshot syncs, which don't capture a reason</>
+                    )}
+                    . Only misses leaders log in Radius include a reason.
+                  </span>
+                </div>
+              )}
               <div className="grid gap-3 lg:grid-cols-3">
                 <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 lg:col-span-1">
                   <h3 className="text-sm font-semibold text-white">Top reasons</h3>

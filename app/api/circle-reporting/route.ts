@@ -343,7 +343,10 @@ function buildWeeklyEvent(
     status_label: labelForStatus(status),
     attendance_count: status === 'met' ? attendance ?? null : null,
     notes_submitted: notesSubmitted(submission, occurrence),
-    did_not_meet_reason: submission?.did_not_meet_reason || null,
+    // A structured reason only exists when the leader marked "did not meet" in
+    // Radius. CCB- and snapshot-derived misses carry no reason field, so we
+    // leave it null rather than guessing — reporting labels those "Not specified".
+    did_not_meet_reason: submission?.did_not_meet ? submission.did_not_meet_reason || null : null,
     source,
   };
 }
@@ -378,13 +381,23 @@ function groupedBreakdown(events: WeeklyEvent[], key: 'campus' | 'circle_type' |
     .sort((a, b) => b.expected - a.expected || a.name.localeCompare(b.name));
 }
 
+const NOT_SPECIFIED_LABEL = 'Not specified';
+
 function reasonInsights(events: WeeklyEvent[]) {
   const didNotMeetRows = events.filter((event) => event.status === 'did_not_meet');
   const counts = new Map<string, { reason: string; count: number; category: 'valid' | 'coaching' | 'other' }>();
+  // Reason-less misses are tracked separately and broken down by where they came
+  // from, so "Not specified" reads as an attribution gap (mostly CCB/snapshot
+  // syncs, which carry no reason field) rather than being merged into "Other".
+  const notSpecifiedBySource = { radius: 0, ccb: 0, snapshot: 0 };
   for (const event of didNotMeetRows) {
-    const reason = event.did_not_meet_reason?.trim() || 'Other';
+    const rawReason = event.did_not_meet_reason?.trim();
+    const reason = rawReason || NOT_SPECIFIED_LABEL;
+    if (!rawReason && event.source !== 'none') {
+      notSpecifiedBySource[event.source] += 1;
+    }
     const key = reason.toLowerCase();
-    const existing = counts.get(key) ?? { reason, count: 0, category: reasonCategory(reason) };
+    const existing = counts.get(key) ?? { reason, count: 0, category: rawReason ? reasonCategory(reason) : 'other' };
     existing.count += 1;
     counts.set(key, existing);
   }
@@ -397,12 +410,17 @@ function reasonInsights(events: WeeklyEvent[]) {
     },
     { valid: 0, coaching: 0, other: 0 }
   );
+  const notSpecified = counts.get(NOT_SPECIFIED_LABEL.toLowerCase())?.count ?? 0;
 
   return {
     total: didNotMeetRows.length,
-    topReasons: byReason.slice(0, 3),
+    // Top cards highlight actionable, leader-supplied reasons; the unattributed
+    // "Not specified" bucket is surfaced separately in its own callout.
+    topReasons: byReason.filter((row) => row.reason !== NOT_SPECIFIED_LABEL).slice(0, 3),
     byReason,
     byCategory,
+    notSpecified,
+    notSpecifiedBySource,
   };
 }
 

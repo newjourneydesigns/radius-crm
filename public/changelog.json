@@ -4,6 +4,17 @@
     "version": "2.43.1",
     "date_display": "June 23, 2026",
     "date_iso": "2026-06-23",
+    "id": "circle-reporting-dnm-reason-attribution",
+    "type": "improvement",
+    "category": "Circle Reporting",
+    "description": "Did-not-meet reasons are now reported honestly. Only misses leaders log in Radius carry a reason; misses pulled from CCB or weekly snapshots don't, so those no longer get lumped into 'Other'. They're labeled 'Not specified' with a callout showing how many came from automated syncs, and the 'Top reasons' cards now highlight only the real, actionable reasons leaders gave.",
+    "page": "/circle-reporting"
+  },
+  {
+    "date": "2026-06-23",
+    "version": "2.43.1",
+    "date_display": "June 23, 2026",
+    "date_iso": "2026-06-23",
     "id": "circle-reporting-range-comparison",
     "type": "feature",
     "category": "Circle Reporting",
