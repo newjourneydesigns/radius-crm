@@ -37,14 +37,9 @@ CREATE TRIGGER trg_capture_snapshot_leader_attributes
   BEFORE INSERT OR UPDATE ON event_summary_snapshots
   FOR EACH ROW EXECUTE FUNCTION capture_snapshot_leader_attributes();
 
--- One-time best-effort backfill for snapshots captured before this migration.
--- These rows predate point-in-time capture, so we can only approximate them with
--- the leader's CURRENT attributes — this is not truly historical, it just gives
--- reporting something to read for old weeks instead of NULL.
-UPDATE event_summary_snapshots s
-SET leader_status = COALESCE(s.leader_status, cl.status),
-    campus        = COALESCE(s.campus, cl.campus),
-    circle_type   = COALESCE(s.circle_type, cl.circle_type),
-    acpd          = COALESCE(s.acpd, cl.acpd)
-FROM circle_leaders cl
-WHERE cl.id = s.circle_leader_id;
+-- No backfill on purpose. Rows captured before this migration stay NULL; the
+-- reporting query falls back to the leader's current values at read time when
+-- these columns are NULL, which is exactly what a current-value backfill would
+-- have stored — so it adds nothing for reporting, and a table-wide UPDATE here
+-- can time out the SQL editor's gateway on large tables. Point-in-time capture
+-- begins with the next snapshot write.

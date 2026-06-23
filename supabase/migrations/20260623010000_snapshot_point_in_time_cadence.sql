@@ -32,13 +32,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- One-time best-effort backfill for snapshots captured before this migration.
--- Approximated with current cadence (not truly historical) so reporting has
--- something to read for old weeks instead of NULL.
-UPDATE event_summary_snapshots s
-SET meeting_day        = COALESCE(s.meeting_day, cl.day),
-    meeting_frequency  = COALESCE(s.meeting_frequency, cl.frequency),
-    meeting_time       = COALESCE(s.meeting_time, cl.time),
-    meeting_start_date = COALESCE(s.meeting_start_date, cl.meeting_start_date)
-FROM circle_leaders cl
-WHERE cl.id = s.circle_leader_id;
+-- No backfill on purpose (same rationale as the companion migration): the
+-- reporting query falls back to current cadence at read time for NULL rows, so a
+-- current-value backfill adds nothing and a table-wide UPDATE can time out the
+-- SQL editor's gateway. Point-in-time capture begins with the next snapshot write.
