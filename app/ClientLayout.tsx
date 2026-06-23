@@ -1,18 +1,86 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { DateTime } from 'luxon';
 import MobileNavigation from "../components/layout/MobileNavigation";
 import AuthenticatedNavigation from "../components/layout/AuthenticatedNavigation";
 import PublicNavigation from "../components/layout/PublicNavigation";
 import Footer from "../components/layout/Footer";
 import QuickActionsFAB from "../components/layout/QuickActionsFAB";
 import { AuthProvider } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/AuthContext";
 import { QuickActionsProvider } from "../contexts/QuickActionsContext";
 import NavigationProgress from "../components/layout/NavigationProgress";
 import ProtectedRoute from "../components/ProtectedRoute";
 import HapticsProvider from "../components/HapticsProvider";
 import { isToolkitHostName } from "../lib/circle-leader-toolkit/paths";
 import { isTeamsToolkitHostName } from "../lib/teams-toolkit/paths";
+import { useOpenAlertCount } from "../hooks/useOpenAlertCount";
+import { useAcpdUnreadCount } from "../hooks/useAcpdUnreadCount";
+import { useInboxUnreadCount } from "../hooks/useInboxUnreadCount";
+import { MESSAGES_ENABLED } from "../lib/features";
+
+function useUpdateLogBadge() {
+  const [showUpdateLogBadge, setShowUpdateLogBadge] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const checkForTodayUpdate = async () => {
+      try {
+        const response = await fetch('/changelog.json', { cache: 'no-store' });
+        if (!response.ok) {
+          if (mounted) setShowUpdateLogBadge(false);
+          return;
+        }
+
+        const entries = await response.json() as Array<{ date?: string }>;
+        const today = DateTime.local().toISODate();
+        const hasTodayEntry = Boolean(today) && entries.some((entry) => entry.date === today);
+
+        if (mounted) setShowUpdateLogBadge(hasTodayEntry);
+      } catch {
+        if (mounted) setShowUpdateLogBadge(false);
+      }
+    };
+
+    checkForTodayUpdate();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  return showUpdateLogBadge;
+}
+
+function AppChrome() {
+  const { isAdmin } = useAuth();
+  const admin = isAdmin();
+  const openAlertCount = useOpenAlertCount();
+  const acpdUnreadCount = useAcpdUnreadCount(MESSAGES_ENABLED && admin);
+  const inboxUnreadCount = useInboxUnreadCount();
+  const showUpdateLogBadge = useUpdateLogBadge();
+
+  return (
+    <>
+      <MobileNavigation
+        openAlertCount={openAlertCount}
+        acpdUnreadCount={acpdUnreadCount}
+        inboxUnreadCount={inboxUnreadCount}
+        showUpdateLogBadge={showUpdateLogBadge}
+      />
+      <AuthenticatedNavigation
+        openAlertCount={openAlertCount}
+        acpdUnreadCount={acpdUnreadCount}
+        inboxUnreadCount={inboxUnreadCount}
+        showUpdateLogBadge={showUpdateLogBadge}
+      />
+      <PublicNavigation />
+    </>
+  );
+}
 
 // Only these routes are accessible without being signed in.
 // `/auth/*` is required for the Supabase magic-link callback to complete the login flow.
@@ -76,16 +144,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
       <NavigationProgress />
 
       {!hideChrome && !isImmersive && (
-        <>
-          {/* Mobile Navigation */}
-          <MobileNavigation />
-
-          {/* Desktop Navigation */}
-          <AuthenticatedNavigation />
-
-          {/* Public Navigation (shown when not authenticated) */}
-          <PublicNavigation />
-        </>
+        <AppChrome />
       )}
 
       {/* Main Content — bottom padding clears the fixed bottom nav + safe area on

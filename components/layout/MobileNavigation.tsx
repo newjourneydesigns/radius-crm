@@ -3,12 +3,8 @@
 import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { usePathname } from "next/navigation";
-import { DateTime } from "luxon";
 import { Bug, Lightbulb } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
-import { useOpenAlertCount } from "../../hooks/useOpenAlertCount";
-import { useAcpdUnreadCount } from "../../hooks/useAcpdUnreadCount";
-import { useInboxUnreadCount } from "../../hooks/useInboxUnreadCount";
 import { MESSAGES_ENABLED } from "../../lib/features";
 import { isTeamsToolkitEnabled } from "../../lib/teams-toolkit/feature-flag";
 import { useQuickActions, type QuickActionId, type QuickActionMeta } from "../../contexts/QuickActionsContext";
@@ -228,19 +224,27 @@ const MOBILE_QUICK_ACTION_ORDER: QuickActionId[] = ['card', 'prayer', 'followup'
 /* ─────────────────────────────────────────────────────────
    Component
    ───────────────────────────────────────────────────────── */
-export default function MobileNavigation() {
+interface MobileNavigationProps {
+  openAlertCount: number;
+  acpdUnreadCount: number;
+  inboxUnreadCount: number;
+  showUpdateLogBadge: boolean;
+}
+
+export default function MobileNavigation({
+  openAlertCount,
+  acpdUnreadCount,
+  inboxUnreadCount,
+  showUpdateLogBadge,
+}: MobileNavigationProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
-  const [showUpdateLogBadge, setShowUpdateLogBadge] = useState(false);
   const [sheetY, setSheetY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef(0);
   const pathname = usePathname() ?? '';
   const { user, signOut, isAuthenticated, isAdmin } = useAuth();
-  const openAlertCount = useOpenAlertCount();
-  const acpdUnreadCount = useAcpdUnreadCount(isAdmin());
-  const inboxUnreadCount = useInboxUnreadCount();
   const { open: openQuickAction, actions: quickActions } = useQuickActions();
 
   /* Mobile-specific ordering; any action not listed falls back to its original position. */
@@ -276,24 +280,6 @@ export default function MobileNavigation() {
       window.removeEventListener('pwaInstallAvailable', show);
       window.removeEventListener('pwaInstalled', hide);
     };
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-    const checkForTodayUpdate = async () => {
-      try {
-        const response = await fetch('/changelog.json', { cache: 'no-store' });
-        if (!response.ok) { if (mounted) setShowUpdateLogBadge(false); return; }
-        const entries = await response.json() as Array<{ date?: string }>;
-        const today = DateTime.local().toISODate();
-        const hasTodayEntry = Boolean(today) && entries.some((entry) => entry.date === today);
-        if (mounted) setShowUpdateLogBadge(hasTodayEntry);
-      } catch {
-        if (mounted) setShowUpdateLogBadge(false);
-      }
-    };
-    checkForTodayUpdate();
-    return () => { mounted = false; };
   }, []);
 
   const handleInstallClick = () => {

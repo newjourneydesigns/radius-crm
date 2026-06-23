@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+export const dynamic = 'force-dynamic';
+
 // Lightweight count behind the nav "Today" alert dot. Returns the number of
 // still-open items the user must act on: board cards due today or overdue
 // (not complete) plus follow-ups due today or overdue. This mirrors the

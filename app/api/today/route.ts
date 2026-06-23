@@ -12,6 +12,8 @@ import type {
   PrayerRequestItem,
 } from '../../../lib/emailService';
 
+export const dynamic = 'force-dynamic';
+
 export interface TodayData {
   today: string;
   user: { id: string; name: string; email: string };

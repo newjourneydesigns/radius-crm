@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { DateTime } from 'luxon';
 
+export const dynamic = 'force-dynamic';
+
 function getSupabaseServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
