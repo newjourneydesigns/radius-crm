@@ -17,7 +17,8 @@
     "ccb:test-notes": "npx ts-node app/ccb/ccb-attendance-events-notes.ts --group 12345 --start 2025-08-01 --end 2025-09-01 --withNotes",
     "ccb:test-full": "npx ts-node app/ccb/ccb-attendance-events-notes.ts --group 12345 --start 2025-08-01 --end 2025-09-01 --withNotes --includeAttendees",
     "import:summer-circles": "npx ts-node scripts/import-summer-circles.ts",
-    "backfill:summer-circle-times": "npx ts-node scripts/backfill-summer-circle-times.ts"
+    "backfill:summer-circle-times": "npx ts-node scripts/backfill-summer-circle-times.ts",
+    "provision:starter-boards": "npx ts-node scripts/provision-starter-boards.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

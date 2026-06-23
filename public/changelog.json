@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-06-23",
+    "version": "2.43.2",
+    "date_display": "June 23, 2026",
+    "date_iso": "2026-06-23",
+    "id": "starter-board-for-all-users",
+    "type": "feature",
+    "category": "Boards",
+    "description": "Every Radius user now gets a \"🚀 Getting Started in Radius\" board on their Boards page. It covers all 17 key pages and tools in the app — each with a clear description of what it does and how to use it. The Important-labeled cards highlight the pages you'll use most. Existing users got their copy automatically; every future signup will too.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-06-23",
     "version": "2.43.1",
     "date_display": "June 23, 2026",
     "date_iso": "2026-06-23",
