@@ -4,6 +4,8 @@ import ical from 'node-ical';
 import { DateTime } from 'luxon';
 import type { CalendarSubscription } from '../../../lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 export interface CalendarEventItem {
   id: string;
   subscription_id: string;

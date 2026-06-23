@@ -116,7 +116,7 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <head>
         {/* FullCalendar */}
-        <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.20/index.global.min.js" />
+        <script defer src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.20/index.global.min.js" />
 
         {/* PWA Meta Tags */}
         <meta name="application-name" content="Radius" />

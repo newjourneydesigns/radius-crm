@@ -16,6 +16,8 @@ export type InboxView = 'all' | 'unread' | 'archived';
 // and type, and supports mark read/unread, archive/restore, and delete — all
 // direct Supabase mutations under RLS. Realtime keeps the list fresh.
 
+const NOTIFICATION_SELECT = 'id, user_id, type, title, body, link, actor_id, entity_type, entity_id, read_at, archived_at, created_at';
+
 export function useNotifications() {
   const { user } = useAuth();
   const userId = user?.id ?? null;
@@ -50,11 +52,12 @@ export function useNotifications() {
       try {
         let query = supabase
           .from('notifications')
-          .select('*')
+          .select(NOTIFICATION_SELECT)
           .eq('user_id', userId)
           .order('created_at', { ascending: false })
           .limit(200);
         query = which === 'archived' ? query.not('archived_at', 'is', null) : query.is('archived_at', null);
+        if (which === 'unread') query = query.is('read_at', null);
         const { data } = await query;
         setItems((data as NotificationRow[]) || []);
       } finally {
@@ -92,8 +95,9 @@ export function useNotifications() {
   const nowIso = () => new Date().toISOString();
 
   const markRead = useCallback(async (id: string) => {
-    patchLocal(id, { read_at: nowIso() });
-    await supabase.from('notifications').update({ read_at: nowIso() }).eq('id', id);
+    const stamp = nowIso();
+    patchLocal(id, { read_at: stamp });
+    await supabase.from('notifications').update({ read_at: stamp }).eq('id', id);
   }, [patchLocal]);
 
   const markUnread = useCallback(async (id: string) => {
@@ -119,8 +123,9 @@ export function useNotifications() {
 
   const archive = useCallback(async (id: string) => {
     // Drop from the current (non-archived) view.
-    patchLocal(id, { archived_at: nowIso() }, view !== 'archived' ? (n) => n.id === id : undefined);
-    await supabase.from('notifications').update({ archived_at: nowIso() }).eq('id', id);
+    const stamp = nowIso();
+    patchLocal(id, { archived_at: stamp }, view !== 'archived' ? (n) => n.id === id : undefined);
+    await supabase.from('notifications').update({ archived_at: stamp }).eq('id', id);
   }, [patchLocal, view]);
 
   const restore = useCallback(async (id: string) => {

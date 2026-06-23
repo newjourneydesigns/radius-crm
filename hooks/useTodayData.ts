@@ -190,7 +190,8 @@ export function useTodayData() {
 
       const cardsPromise = (async () => {
         try {
-          const res = await fetch('/api/today/cards?fresh=1', { headers, cache: 'no-store' });
+          const cardsUrl = fresh ? '/api/today/cards?fresh=1' : '/api/today/cards';
+          const res = await fetch(cardsUrl, { headers, cache: 'no-store' });
           if (!res.ok) { setIsCardsLoading(false); return; }
           freshCards = normalizeTodayCardsData(await res.json());
           setIsCardsLoading(false);

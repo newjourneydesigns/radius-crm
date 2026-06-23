@@ -4,14 +4,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { usePathname } from "next/navigation";
-import { DateTime } from "luxon";
 import { Bug, Lightbulb } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
-import { useOpenAlertCount } from "../../hooks/useOpenAlertCount";
 import { isCoachingAutomationsEnabled } from "../../lib/circle-leader-toolkit/coaching/feature-flag";
 import { isTeamsToolkitEnabled } from "../../lib/teams-toolkit/feature-flag";
-import { useAcpdUnreadCount } from "../../hooks/useAcpdUnreadCount";
-import { useInboxUnreadCount } from "../../hooks/useInboxUnreadCount";
 import { MESSAGES_ENABLED } from "../../lib/features";
 import GlobalSearch from './GlobalSearch';
 
@@ -219,14 +215,22 @@ const feedbackNavItems = [
   { href: 'https://vccradius.netlify.app/f/circles-toolkit-bug-report-copy-7o4vfp', label: 'Report A Bug', Icon: BugReportIcon },
 ];
 
-export default function AuthenticatedNavigation() {
+interface AuthenticatedNavigationProps {
+  openAlertCount: number;
+  acpdUnreadCount: number;
+  inboxUnreadCount: number;
+  showUpdateLogBadge: boolean;
+}
+
+export default function AuthenticatedNavigation({
+  openAlertCount,
+  acpdUnreadCount,
+  inboxUnreadCount,
+  showUpdateLogBadge,
+}: AuthenticatedNavigationProps) {
   const { user, signOut, isAuthenticated, isAdmin } = useAuth();
-  const openAlertCount = useOpenAlertCount();
-  const acpdUnreadCount = useAcpdUnreadCount(isAdmin());
-  const inboxUnreadCount = useInboxUnreadCount();
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [showUpdateLogBadge, setShowUpdateLogBadge] = useState(false);
   const toolsMenuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname() ?? '';
@@ -249,34 +253,6 @@ export default function AuthenticatedNavigation() {
 
   // Close menus on route change
   useEffect(() => { closeAll(); }, [pathname, closeAll]);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const checkForTodayUpdate = async () => {
-      try {
-        const response = await fetch('/changelog.json', { cache: 'no-store' });
-        if (!response.ok) {
-          if (mounted) setShowUpdateLogBadge(false);
-          return;
-        }
-
-        const entries = await response.json() as Array<{ date?: string }>;
-        const today = DateTime.local().toISODate();
-        const hasTodayEntry = Boolean(today) && entries.some((entry) => entry.date === today);
-
-        if (mounted) setShowUpdateLogBadge(hasTodayEntry);
-      } catch {
-        if (mounted) setShowUpdateLogBadge(false);
-      }
-    };
-
-    checkForTodayUpdate();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   if (!isAuthenticated()) return null;
 

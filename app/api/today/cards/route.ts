@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { CardDigestItem, ChecklistDigestItem } from '../../../../lib/emailService';
 
+export const dynamic = 'force-dynamic';
+
 export interface TodayCardsData {
   cards: { dueToday: CardDigestItem[]; overdue: CardDigestItem[] };
   focusCards: CardDigestItem[];
