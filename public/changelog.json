@@ -1,5 +1,71 @@
 [
   {
+    "date": "2026-06-23",
+    "version": "2.43.1",
+    "date_display": "June 23, 2026",
+    "date_iso": "2026-06-23",
+    "id": "circle-reporting-point-in-time-cadence",
+    "type": "improvement",
+    "category": "Circle Reporting",
+    "description": "Circle Reporting now reconstructs each past week using the leader's meeting day, frequency, and start date as they were that week, not as they are today. So if a leader switched from weekly to bi-weekly (or changed meeting day) the historical expected-meeting counts stay accurate instead of being recalculated from the current schedule. Weeks captured before this change are approximated with the current cadence.",
+    "page": "/circle-reporting"
+  },
+  {
+    "date": "2026-06-23",
+    "version": "2.43.1",
+    "date_display": "June 23, 2026",
+    "date_iso": "2026-06-23",
+    "id": "circle-reporting-dnm-reason-attribution",
+    "type": "improvement",
+    "category": "Circle Reporting",
+    "description": "Did-not-meet reasons are now reported honestly. Only misses leaders log in Radius carry a reason; misses pulled from CCB or weekly snapshots don't, so those no longer get lumped into 'Other'. They're labeled 'Not specified' with a callout showing how many came from automated syncs, and the 'Top reasons' cards now highlight only the real, actionable reasons leaders gave.",
+    "page": "/circle-reporting"
+  },
+  {
+    "date": "2026-06-23",
+    "version": "2.43.1",
+    "date_display": "June 23, 2026",
+    "date_iso": "2026-06-23",
+    "id": "circle-reporting-range-comparison",
+    "type": "feature",
+    "category": "Circle Reporting",
+    "description": "Circle Reporting can now compare two date ranges side by side (e.g. year-over-year). Turn on Compare ranges, pick a second range or hit 'Prior year', and the KPI cards show the change vs Range B, the attendance and compliance charts overlay both ranges, and the Campus / Circle Type / ACPD breakdowns show each group's compliance for both ranges.",
+    "page": "/circle-reporting"
+  },
+  {
+    "date": "2026-06-23",
+    "version": "2.43.1",
+    "date_display": "June 23, 2026",
+    "date_iso": "2026-06-23",
+    "id": "circle-reporting-point-in-time-status",
+    "type": "improvement",
+    "category": "Circle Reporting",
+    "description": "Circle Reporting now judges each past week by the leader's status, campus, circle type, and ACPD as they were that week, not as they are today. Weekly snapshots capture these attributes going forward, so a leader who was active in the spring but is paused now is still counted in the spring's numbers (and breakdowns roll up to how things looked at the time). Weeks captured before this change are approximated with current values.",
+    "page": "/circle-reporting"
+  },
+  {
+    "date": "2026-06-23",
+    "version": "2.43.1",
+    "date_display": "June 23, 2026",
+    "date_iso": "2026-06-23",
+    "id": "circle-reporting-data-corrections",
+    "type": "fix",
+    "category": "Circle Reporting",
+    "description": "Circle Reporting now counts a 'skipped' week as Did Not Meet instead of a missing summary, and limits every report to completed weeks (Sunday–Saturday) so the KPI totals and the weekly trend charts always reconcile. Breakdown cards (Campus, Circle Type, ACPD) now show every group rather than truncating to the top eight.",
+    "page": "/circle-reporting"
+  },
+  {
+    "date": "2026-06-23",
+    "version": "2.43.1",
+    "date_display": "June 23, 2026",
+    "date_iso": "2026-06-23",
+    "id": "circle-reporting-dashboard-redesign",
+    "type": "improvement",
+    "category": "Circle Reporting",
+    "description": "The Circle Reporting page is redesigned as a single-scroll leadership dashboard: a six-metric KPI row (Total Attendance, Total Circles, Avg Circle Size, Compliance, Did Not Meet, No Summary) with week-over-week deltas, four trend charts (attendance, compliance, circle count, did-not-meet), and at-a-glance breakdown cards by Campus, Circle Type, and the new By ACPD view. The weekly events table now has search, sortable columns, and quick-filters for Missing summaries / Did not meet / Met.",
+    "page": "/circle-reporting"
+  },
+  {
     "date": "2026-06-22",
     "version": "2.43.1",
     "date_display": "June 22, 2026",
