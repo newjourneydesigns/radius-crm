@@ -160,23 +160,29 @@ const TodayIcon = () => (
   </svg>
 );
 
-const primaryNavItems = [
-  { name: 'Events',    href: '/event-summary-tracker',  icon: CalendarIcon },
-  { name: 'Today',     href: '/today',     icon: TodayIcon },
-  { name: 'Boards',    href: '/boards',    icon: BoardIcon },
-  { name: 'Notebook',  href: '/notebook',  icon: NotebookIcon },
-  { name: 'Prayer',    href: '/prayer',    icon: PrayerIcon },
-  { name: 'Circle List', href: '/search',  icon: SearchNavIcon },
+const primaryNavItems: Array<{
+  name: string;
+  href: string;
+  icon: React.ComponentType;
+  collapseBelow?: 'lg' | 'xl';
+}> = [
+  { name: 'Events',             href: '/event-summary-tracker', icon: CalendarIcon },
+  { name: 'Circle List',        href: '/search',                icon: SearchNavIcon },
+  { name: 'Connection Tracker', href: '/touchpoint-tracker',    icon: UsersIcon },
+  { name: 'Boards',             href: '/boards',                icon: BoardIcon },
+  { name: 'Notebook',           href: '/notebook',              icon: NotebookIcon, collapseBelow: 'lg' },
+  { name: 'Today',              href: '/today',                 icon: TodayIcon,    collapseBelow: 'xl' },
+  { name: 'Prayer',             href: '/prayer',                icon: PrayerIcon,   collapseBelow: 'xl' },
 ];
 
 const toolsNavItems = [
-  { href: '/person-lookup', label: 'Person Lookup',   Icon: SearchNavIcon },
-  { href: '/birthday-list', label: 'Birthday List',   Icon: BirthdayCakeIcon },
-  { href: '/circle-reporting', label: 'Circle Reporting', Icon: ChartIcon },
-  { href: '/touchpoint-tracker', label: 'Connection Tracker', Icon: UsersIcon },
-  { href: '/progress',      label: 'Progress',        Icon: ChartIcon },
-  { href: '/ccb-explorer',  label: 'CCB Explorer',   Icon: CompassIcon, adminOnly: true },
-  { href: '/bulk-message',  label: 'Bulk Message',   Icon: MessageBulkIcon, adminOnly: true },
+  { href: '/person-lookup',    label: 'Person Lookup', Icon: SearchNavIcon },
+  { href: '/search',           label: 'Circles',       Icon: UsersIcon },
+  { href: '/circle-reporting', label: 'Reporting',     Icon: ChartIcon },
+  { href: '/progress',         label: 'Progress',      Icon: ChartIcon },
+  { href: '/ccb-explorer',     label: 'CCB Explorer',  Icon: CompassIcon,    adminOnly: true },
+  { href: '/bulk-message',     label: 'Bulk Message',  Icon: MessageBulkIcon, adminOnly: true },
+  { href: '/birthday-list',    label: 'Birthday',      Icon: BirthdayCakeIcon },
 ];
 
 const circleSummaryNavItems = [
@@ -277,22 +283,26 @@ export default function AuthenticatedNavigation({
 
   return (
     <nav className="nav-premium hidden md:block bg-[#1a1c22]/97 backdrop-blur-md border-b border-white/[0.06] relative z-[10000]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14">
+      <div className="w-full px-4 sm:px-6">
+        <div className="flex items-center h-14">
 
-          {/* ── Left: Brand ── */}
+          {/* ── Brand — flush left ── */}
           <Link href="/event-summary-tracker" className="flex items-center space-x-2 shrink-0 group">
             <Image src="/icon-32x32.png" alt="Radius" width={28} height={28} className="rounded-lg group-hover:scale-105 transition-transform" />
             <span className="text-base font-bold text-white tracking-tight">Radius</span>
           </Link>
 
-          {/* ── Center: Primary nav ── */}
-          <div className="flex items-center gap-0.5">
-            {primaryNavItems.map(({ name, href, icon: Icon }) => (
+          {/* ── Primary nav — immediately after brand, collapses at narrower widths ── */}
+          <div className="flex items-center gap-0.5 ml-3">
+            {primaryNavItems.map(({ name, href, icon: Icon, collapseBelow }) => (
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150 ${
+                className={`${
+                  collapseBelow === 'lg' ? 'hidden lg:flex' :
+                  collapseBelow === 'xl' ? 'hidden xl:flex' :
+                  'flex'
+                } items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150 ${
                   isActive(href)
                     ? 'nav-active-pill'
                     : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
@@ -311,8 +321,11 @@ export default function AuthenticatedNavigation({
             ))}
           </div>
 
-          {/* ── Right: Search + Tools + User ── */}
-          <div className="flex items-center gap-1">
+          {/* ── Spacer ── */}
+          <div className="flex-1 min-w-0" />
+
+          {/* ── Right: Search + Tools + User — flush right ── */}
+          <div className="flex items-center gap-1 shrink-0">
             <GlobalSearch />
 
             {/* Inbox (all users) */}
@@ -370,6 +383,29 @@ export default function AuthenticatedNavigation({
 
               {toolsMenuOpen && (
                 <div className="absolute right-0 mt-2 w-60 rounded-xl bg-[#1a1c22] border border-white/[0.08] shadow-2xl shadow-black/50 ring-1 ring-black/20 z-[99999] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                  {/* Collapsed nav items — visible only when screen is too narrow to show them in the bar */}
+                  <div className="xl:hidden">
+                    <div className="px-3 py-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Navigate</p>
+                    </div>
+                    <div className="py-1">
+                      {primaryNavItems.filter(i => i.collapseBelow).map(({ name, href, icon: Icon, collapseBelow }) => (
+                        <Link
+                          key={href}
+                          href={href}
+                          onClick={closeAll}
+                          className={`${dropdownLinkClass(href)}${collapseBelow === 'lg' ? ' lg:hidden' : ''}`}
+                        >
+                          <Icon />
+                          {name}
+                          {href === '/today' && openAlertCount > 0 && (
+                            <span className="w-[7px] h-[7px] rounded-full bg-red-500 shrink-0 ml-auto" />
+                          )}
+                        </Link>
+                      ))}
+                    </div>
+                    <div className="border-t border-white/[0.06]" />
+                  </div>
                   <div className="px-3 py-2">
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Tools</p>
                   </div>

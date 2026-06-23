@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-06-23",
+    "version": "2.43.3",
+    "date_display": "June 23, 2026",
+    "date_iso": "2026-06-23",
+    "id": "nav-bar-redesign",
+    "type": "improvement",
+    "category": "Navigation",
+    "description": "Redesigned the top nav bar. The Radius logo is now flush left, and Search, Inbox, Tools, and your avatar are flush right — no more centered layout eating up screen space. Nav items sit right next to the logo and now include Connection Tracker and Circle List alongside Events, Boards, Notebook, Today, and Prayer. Items that don't fit at narrower widths collapse into the top of the Tools menu automatically. The Tools menu first section is also reordered: Person Lookup, Circles, Reporting, Progress, CCB Explorer, Bulk Message, Birthday.",
+    "page": "/"
+  },
+  {
+    "date": "2026-06-23",
     "version": "2.43.2",
     "date_display": "June 23, 2026",
     "date_iso": "2026-06-23",
