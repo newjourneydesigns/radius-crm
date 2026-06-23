@@ -4,6 +4,17 @@
     "version": "2.43.1",
     "date_display": "June 23, 2026",
     "date_iso": "2026-06-23",
+    "id": "circle-reporting-range-comparison",
+    "type": "feature",
+    "category": "Circle Reporting",
+    "description": "Circle Reporting can now compare two date ranges side by side (e.g. year-over-year). Turn on Compare ranges, pick a second range or hit 'Prior year', and the KPI cards show the change vs Range B, the attendance and compliance charts overlay both ranges, and the Campus / Circle Type / ACPD breakdowns show each group's compliance for both ranges.",
+    "page": "/circle-reporting"
+  },
+  {
+    "date": "2026-06-23",
+    "version": "2.43.1",
+    "date_display": "June 23, 2026",
+    "date_iso": "2026-06-23",
     "id": "circle-reporting-point-in-time-status",
     "type": "improvement",
     "category": "Circle Reporting",

@@ -11,6 +11,7 @@ import {
   Download,
   FileText,
   Filter,
+  GitCompareArrows,
   Layers,
   Minus,
   RefreshCw,
@@ -192,6 +193,7 @@ function KpiCard({
   value,
   delta,
   deltaSuffix = '',
+  deltaLabel = 'vs prior wk',
   invert = false,
   accent = 'slate',
   icon: Icon,
@@ -200,6 +202,7 @@ function KpiCard({
   value: string | number;
   delta?: number | null;
   deltaSuffix?: string;
+  deltaLabel?: string;
   invert?: boolean;
   accent?: 'slate' | 'emerald' | 'sky' | 'amber' | 'rose' | 'violet';
   icon: typeof Users;
@@ -222,16 +225,16 @@ function KpiCard({
       <p className="mt-3 text-4xl font-semibold leading-none tracking-tight text-white tabular-nums">{value}</p>
       <div className="mt-3 h-5">
         {typeof delta === 'number' ? (
-          <DeltaPill value={delta} suffix={deltaSuffix} invert={invert} />
+          <DeltaPill value={delta} suffix={deltaSuffix} invert={invert} label={deltaLabel} />
         ) : (
-          <span className="text-xs text-slate-600">No prior week</span>
+          <span className="text-xs text-slate-600">No comparison</span>
         )}
       </div>
     </div>
   );
 }
 
-function DeltaPill({ value, suffix = '', invert = false }: { value: number; suffix?: string; invert?: boolean }) {
+function DeltaPill({ value, suffix = '', invert = false, label = 'vs prior wk' }: { value: number; suffix?: string; invert?: boolean; label?: string }) {
   const rounded = Math.round(value * 10) / 10;
   const positive = rounded > 0;
   const negative = rounded < 0;
@@ -245,7 +248,7 @@ function DeltaPill({ value, suffix = '', invert = false }: { value: number; suff
       {positive ? '+' : ''}
       {rounded}
       {suffix}
-      <span className="text-slate-600">vs prior wk</span>
+      <span className="text-slate-600">{label}</span>
     </span>
   );
 }
@@ -306,12 +309,16 @@ function BreakdownCard({
   title,
   icon: Icon,
   rows,
+  compareRows,
 }: {
   title: string;
   icon: typeof Users;
   rows: Breakdown[];
+  compareRows?: Breakdown[];
 }) {
   const maxExpected = Math.max(1, ...rows.map((row) => row.expected));
+  const compareByName = new Map((compareRows ?? []).map((row) => [row.name, row.compliancePct]));
+  const comparing = !!compareRows;
   return (
     <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5">
       <div className="mb-4 flex items-center gap-2">
@@ -322,23 +329,32 @@ function BreakdownCard({
         <EmptyState compact />
       ) : (
         <div className="space-y-3.5">
-          {rows.map((row) => (
-            <div key={row.name}>
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="truncate text-sm font-medium text-slate-200">{row.name}</span>
-                <span className="shrink-0 text-xs text-slate-500 tabular-nums">
-                  {row.met}/{row.expected} · <span className="text-slate-300">{row.compliancePct}%</span>
-                </span>
+          {rows.map((row) => {
+            const bPct = compareByName.get(row.name);
+            const delta = typeof bPct === 'number' ? Math.round((row.compliancePct - bPct) * 10) / 10 : null;
+            return (
+              <div key={row.name}>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="truncate text-sm font-medium text-slate-200">{row.name}</span>
+                  <span className="shrink-0 text-xs text-slate-500 tabular-nums">
+                    {row.met}/{row.expected} · <span className="text-slate-300">{row.compliancePct}%</span>
+                    {comparing && (
+                      <span className={delta === null ? 'text-slate-600' : delta > 0 ? 'text-emerald-400' : delta < 0 ? 'text-rose-400' : 'text-slate-500'}>
+                        {' '}· B {typeof bPct === 'number' ? `${bPct}%` : '—'}
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-800">
+                  <div
+                    className={`h-full rounded-full ${complianceTone(row.compliancePct)}`}
+                    style={{ width: `${Math.min(100, Math.max(2, (row.expected / maxExpected) * 100 * (row.compliancePct / 100)))}%` }}
+                    title={`${row.compliancePct}% compliance across ${row.expected} expected`}
+                  />
+                </div>
               </div>
-              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-800">
-                <div
-                  className={`h-full rounded-full ${complianceTone(row.compliancePct)}`}
-                  style={{ width: `${Math.min(100, Math.max(2, (row.expected / maxExpected) * 100 * (row.compliancePct / 100)))}%` }}
-                  title={`${row.compliancePct}% compliance across ${row.expected} expected`}
-                />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -362,6 +378,14 @@ function CircleReportingContent() {
   const [exporting, setExporting] = useState<'json' | 'csv' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+
+  // Range comparison (e.g. year-over-year). Range A is the main range above;
+  // Range B is fetched from the same endpoint and overlaid for comparison.
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareStart, setCompareStart] = useState(addDays(endOfLastWeekISO(), -83 - 364));
+  const [compareEnd, setCompareEnd] = useState(addDays(endOfLastWeekISO(), -364));
+  const [compareData, setCompareData] = useState<ReportingData | null>(null);
+  const [compareLoading, setCompareLoading] = useState(false);
 
   // Weekly-events table controls (client-side only — no refetch).
   const [eventSearch, setEventSearch] = useState('');
@@ -392,6 +416,9 @@ function CircleReportingContent() {
         if (typeof prefs.campus === 'string') setCampus(prefs.campus);
         if (typeof prefs.circleType === 'string') setCircleType(prefs.circleType);
         if (typeof prefs.status === 'string') setStatus(prefs.status);
+        if (typeof prefs.compareMode === 'boolean') setCompareMode(prefs.compareMode);
+        if (typeof prefs.compareStart === 'string') setCompareStart(prefs.compareStart);
+        if (typeof prefs.compareEnd === 'string') setCompareEnd(prefs.compareEnd);
       }
     } catch {
       // Ignore malformed preferences and fall back to defaults.
@@ -404,12 +431,12 @@ function CircleReportingContent() {
     try {
       localStorage.setItem(
         PREFS_KEY,
-        JSON.stringify({ startDate, endDate, rollForwardEnd, weekStart, campus, circleType, status })
+        JSON.stringify({ startDate, endDate, rollForwardEnd, weekStart, campus, circleType, status, compareMode, compareStart, compareEnd })
       );
     } catch {
       // Storage may be unavailable (private mode); filters just won't persist.
     }
-  }, [hydrated, startDate, endDate, rollForwardEnd, weekStart, campus, circleType, status]);
+  }, [hydrated, startDate, endDate, rollForwardEnd, weekStart, campus, circleType, status, compareMode, compareStart, compareEnd]);
 
   const buildParams = useCallback(() => {
     const params = new URLSearchParams();
@@ -440,6 +467,46 @@ function CircleReportingContent() {
   useEffect(() => {
     if (hydrated) loadData();
   }, [hydrated, loadData]);
+
+  // Fetch Range B whenever comparison is on. Reuses the same endpoint and the
+  // same campus/type/status filters; only the date range differs.
+  useEffect(() => {
+    if (!hydrated || !compareMode) {
+      setCompareData(null);
+      return;
+    }
+    const params = new URLSearchParams();
+    params.set('start_date', compareStart);
+    params.set('end_date', compareEnd);
+    if (campus) params.append('campus', campus);
+    if (circleType) params.append('circle_type', circleType);
+    if (status) params.append('status', status);
+
+    let cancelled = false;
+    setCompareLoading(true);
+    fetch(`/api/circle-reporting?${params.toString()}`, { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((json) => {
+        if (cancelled) return;
+        if (json.error) throw new Error(json.error);
+        setCompareData(json);
+      })
+      .catch(() => {
+        if (!cancelled) setCompareData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCompareLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated, compareMode, compareStart, compareEnd, campus, circleType, status]);
+
+  // Snap Range B to the prior year (52 weeks back keeps Sun–Sat alignment).
+  const setCompareToPriorYear = useCallback(() => {
+    setCompareStart(addDays(startDate, -364));
+    setCompareEnd(addDays(endDate, -364));
+  }, [startDate, endDate]);
 
   const handleExport = useCallback(
     async (format: 'json' | 'csv') => {
@@ -498,7 +565,27 @@ function CircleReportingContent() {
     };
   }, [data?.weeklyTrend]);
 
+  // Range A vs Range B deltas for the KPI row when comparison is on.
+  const compareDeltas = useMemo(() => {
+    if (!data || !compareData) return null;
+    const a = data.summary;
+    const b = compareData.summary;
+    return {
+      totalAttendance: a.totalAttendance - b.totalAttendance,
+      expected: a.expected - b.expected,
+      averageCircleSize: Math.round((a.averageCircleSize - b.averageCircleSize) * 10) / 10,
+      compliancePct: Math.round((a.compliancePct - b.compliancePct) * 10) / 10,
+      didNotMeet: a.didNotMeet - b.didNotMeet,
+      noSummary: a.noSummary - b.noSummary,
+    };
+  }, [data, compareData]);
+
+  const comparing = compareMode && !!compareData;
+  const kpiDelta = comparing ? compareDeltas : kpiDeltas;
+  const kpiDeltaLabel = comparing ? 'vs Range B' : 'vs prior wk';
+
   const rangeLabel = data ? `${formatShortDate(data.filters.startDate)} – ${formatDate(data.filters.endDate)}` : '';
+  const compareRangeLabel = compareData ? `${formatShortDate(compareData.filters.startDate)} – ${formatDate(compareData.filters.endDate)}` : '';
 
   const lineOptions = useMemo(
     () => ({
@@ -516,95 +603,98 @@ function CircleReportingContent() {
     []
   );
 
+  // Index-aligned Range B series (week 1 of B lines up with week 1 of A), so
+  // calendar offset between the two ranges doesn't matter for the overlay.
+  const cmpSeries = useCallback(
+    (sel: (point: TrendPoint) => number): (number | null)[] | null => {
+      if (!comparing || !data?.weeklyTrend.length || !compareData?.weeklyTrend.length) return null;
+      return data.weeklyTrend.map((_, index) => {
+        const point = compareData.weeklyTrend[index];
+        return point ? sel(point) : null;
+      });
+    },
+    [comparing, data?.weeklyTrend, compareData?.weeklyTrend]
+  );
+
   const complianceChartData = useMemo(() => {
     if (!data?.weeklyTrend.length) return null;
-    return {
-      labels: data.weeklyTrend.map((point) => point.label),
-      datasets: [
-        {
-          label: 'Compliance %',
-          data: data.weeklyTrend.map((point) => point.compliancePct),
-          borderColor: '#34d399',
-          backgroundColor: 'rgba(52, 211, 153, 0.12)',
-          tension: 0.3,
-          fill: true,
-          pointRadius: 0,
-          pointHoverRadius: 4,
-          borderWidth: 2,
-        },
-      ],
-    };
-  }, [data?.weeklyTrend]);
+    const datasets: any[] = [
+      {
+        label: 'Range A',
+        data: data.weeklyTrend.map((point) => point.compliancePct),
+        borderColor: '#34d399',
+        backgroundColor: 'rgba(52, 211, 153, 0.12)',
+        tension: 0.3,
+        fill: !comparing,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        borderWidth: 2,
+      },
+    ];
+    const b = cmpSeries((point) => point.compliancePct);
+    if (b) datasets.push({ label: 'Range B', data: b, borderColor: '#94a3b8', borderDash: [5, 4], tension: 0.3, fill: false, pointRadius: 0, pointHoverRadius: 4, borderWidth: 2, spanGaps: true });
+    return { labels: data.weeklyTrend.map((point) => point.label), datasets };
+  }, [data?.weeklyTrend, comparing, cmpSeries]);
 
   const attendanceChartData = useMemo(() => {
     if (!data?.weeklyTrend.length) return null;
-    return {
-      labels: data.weeklyTrend.map((point) => point.label),
-      datasets: [
-        {
-          label: 'Total attendance',
-          data: data.weeklyTrend.map((point) => point.totalAttendance),
-          backgroundColor: 'rgba(56, 189, 248, 0.7)',
-          borderColor: '#38bdf8',
-          borderWidth: 0,
-          borderRadius: 4,
-        },
-      ],
-    };
-  }, [data?.weeklyTrend]);
+    const datasets: any[] = [
+      {
+        label: 'Range A',
+        data: data.weeklyTrend.map((point) => point.totalAttendance),
+        backgroundColor: 'rgba(56, 189, 248, 0.7)',
+        borderColor: '#38bdf8',
+        borderWidth: 0,
+        borderRadius: 4,
+      },
+    ];
+    const b = cmpSeries((point) => point.totalAttendance);
+    if (b) datasets.push({ label: 'Range B', data: b, backgroundColor: 'rgba(148, 163, 184, 0.45)', borderRadius: 4 });
+    return { labels: data.weeklyTrend.map((point) => point.label), datasets };
+  }, [data?.weeklyTrend, cmpSeries]);
 
   const circleCountChartData = useMemo(() => {
     if (!data?.weeklyTrend.length) return null;
-    return {
-      labels: data.weeklyTrend.map((point) => point.label),
-      datasets: [
-        {
-          label: 'Expected circles',
-          data: data.weeklyTrend.map((point) => point.expected),
-          borderColor: '#a78bfa',
-          backgroundColor: 'rgba(167, 139, 250, 0.12)',
-          tension: 0.3,
-          fill: true,
-          pointRadius: 0,
-          pointHoverRadius: 4,
-          borderWidth: 2,
-        },
-        {
-          label: 'Met',
-          data: data.weeklyTrend.map((point) => point.met),
-          borderColor: '#34d399',
-          backgroundColor: 'rgba(52, 211, 153, 0)',
-          tension: 0.3,
-          fill: false,
-          pointRadius: 0,
-          pointHoverRadius: 4,
-          borderWidth: 2,
-          borderDash: [4, 3],
-        },
-      ],
-    };
-  }, [data?.weeklyTrend]);
+    const datasets: any[] = [
+      {
+        label: comparing ? 'Range A · Expected' : 'Expected circles',
+        data: data.weeklyTrend.map((point) => point.expected),
+        borderColor: '#a78bfa',
+        backgroundColor: 'rgba(167, 139, 250, 0.12)',
+        tension: 0.3,
+        fill: !comparing,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        borderWidth: 2,
+      },
+    ];
+    const b = cmpSeries((point) => point.expected);
+    if (b) {
+      datasets.push({ label: 'Range B · Expected', data: b, borderColor: '#94a3b8', borderDash: [5, 4], tension: 0.3, fill: false, pointRadius: 0, pointHoverRadius: 4, borderWidth: 2, spanGaps: true });
+    } else {
+      datasets.push({ label: 'Met', data: data.weeklyTrend.map((point) => point.met), borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0)', tension: 0.3, fill: false, pointRadius: 0, pointHoverRadius: 4, borderWidth: 2, borderDash: [4, 3] });
+    }
+    return { labels: data.weeklyTrend.map((point) => point.label), datasets };
+  }, [data?.weeklyTrend, comparing, cmpSeries]);
 
   const didNotMeetChartData = useMemo(() => {
     if (!data?.weeklyTrend.length) return null;
-    return {
-      labels: data.weeklyTrend.map((point) => point.label),
-      datasets: [
-        {
-          label: 'Did not meet',
-          data: data.weeklyTrend.map((point) => point.didNotMeet),
-          backgroundColor: 'rgba(251, 146, 60, 0.7)',
-          borderRadius: 4,
-        },
-        {
-          label: 'No summary',
-          data: data.weeklyTrend.map((point) => point.noSummary),
-          backgroundColor: 'rgba(244, 63, 94, 0.6)',
-          borderRadius: 4,
-        },
-      ],
-    };
-  }, [data?.weeklyTrend]);
+    const b = cmpSeries((point) => point.didNotMeet);
+    const datasets: any[] = [
+      {
+        label: comparing ? 'Range A · Did not meet' : 'Did not meet',
+        data: data.weeklyTrend.map((point) => point.didNotMeet),
+        backgroundColor: 'rgba(251, 146, 60, 0.7)',
+        borderRadius: 4,
+      },
+    ];
+    if (b) {
+      datasets.push({ label: 'Range B · Did not meet', data: b, backgroundColor: 'rgba(148, 163, 184, 0.45)', borderRadius: 4 });
+    } else {
+      datasets.push({ label: 'No summary', data: data.weeklyTrend.map((point) => point.noSummary), backgroundColor: 'rgba(244, 63, 94, 0.6)', borderRadius: 4 });
+    }
+    return { labels: data.weeklyTrend.map((point) => point.label), datasets };
+  }, [data?.weeklyTrend, comparing, cmpSeries]);
 
   const legendOptions = useMemo(
     () => ({
@@ -816,6 +906,59 @@ function CircleReportingContent() {
               </label>
             </div>
           </div>
+
+          {/* Comparison (year-over-year): pick a second range to compare against */}
+          <div className="mt-4 border-t border-slate-800 pt-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setCompareMode((value) => !value)}
+                className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                  compareMode
+                    ? 'border-sky-500/70 bg-sky-500/15 text-sky-200'
+                    : 'border-slate-700 bg-slate-950 text-slate-300 hover:bg-slate-800'
+                }`}
+                aria-pressed={compareMode}
+              >
+                <GitCompareArrows className="h-4 w-4" />
+                Compare ranges
+              </button>
+              {compareMode && (
+                <>
+                  <label className="text-xs text-slate-400">
+                    Range B start
+                    <input
+                      type="date"
+                      value={compareStart}
+                      max={compareEnd}
+                      onChange={(event) => setCompareStart(event.target.value)}
+                      className="ml-2 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm text-white"
+                    />
+                  </label>
+                  <label className="text-xs text-slate-400">
+                    Range B end
+                    <input
+                      type="date"
+                      value={compareEnd}
+                      min={compareStart}
+                      onChange={(event) => setCompareEnd(event.target.value)}
+                      className="ml-2 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm text-white"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={setCompareToPriorYear}
+                    className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-sky-600/60 hover:text-sky-200"
+                  >
+                    Prior year
+                  </button>
+                  <span className="text-xs text-slate-500">
+                    {compareLoading ? 'Loading Range B…' : compareData ? `B: ${compareRangeLabel}` : 'Pick a comparison range'}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
         {error && (
@@ -837,13 +980,23 @@ function CircleReportingContent() {
             {/* Row 1 — KPIs */}
             <section className="mt-7">
               <SectionHeading eyebrow="Overview" title="Key metrics" hint={rangeLabel} />
+              {comparing && compareData && (
+                <div className="mb-3 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl border border-slate-800/80 bg-slate-900/40 px-4 py-2.5 text-xs">
+                  <span className="inline-flex items-center gap-2 text-slate-300">
+                    <span className="h-2.5 w-2.5 rounded-full bg-sky-400" /> Range A · {rangeLabel} · {data.summary.compliancePct}% compliance
+                  </span>
+                  <span className="inline-flex items-center gap-2 text-slate-400">
+                    <span className="h-2.5 w-2.5 rounded-full bg-slate-500" /> Range B · {compareRangeLabel} · {compareData.summary.compliancePct}% compliance
+                  </span>
+                </div>
+              )}
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-                <KpiCard icon={Users} accent="sky" label="Total Attendance" value={data.summary.totalAttendance.toLocaleString()} delta={kpiDeltas?.totalAttendance} />
-                <KpiCard icon={CalendarDays} accent="violet" label="Total Circles" value={data.summary.expected.toLocaleString()} delta={kpiDeltas?.expected} />
-                <KpiCard icon={Users} accent="emerald" label="Avg Circle Size" value={data.summary.averageCircleSize} delta={kpiDeltas?.averageCircleSize} />
-                <KpiCard icon={FileText} accent={data.summary.compliancePct >= 85 ? 'emerald' : data.summary.compliancePct >= 70 ? 'amber' : 'rose'} label="Compliance" value={`${data.summary.compliancePct}%`} delta={kpiDeltas?.compliancePct} deltaSuffix=" pts" />
-                <KpiCard icon={AlertTriangle} accent="amber" label="Did Not Meet" value={data.summary.didNotMeet} delta={kpiDeltas?.didNotMeet} invert />
-                <KpiCard icon={FileText} accent="rose" label="No Summary" value={data.summary.noSummary} delta={kpiDeltas?.noSummary} invert />
+                <KpiCard icon={Users} accent="sky" label="Total Attendance" value={data.summary.totalAttendance.toLocaleString()} delta={kpiDelta?.totalAttendance} deltaLabel={kpiDeltaLabel} />
+                <KpiCard icon={CalendarDays} accent="violet" label="Total Circles" value={data.summary.expected.toLocaleString()} delta={kpiDelta?.expected} deltaLabel={kpiDeltaLabel} />
+                <KpiCard icon={Users} accent="emerald" label="Avg Circle Size" value={data.summary.averageCircleSize} delta={kpiDelta?.averageCircleSize} deltaLabel={kpiDeltaLabel} />
+                <KpiCard icon={FileText} accent={data.summary.compliancePct >= 85 ? 'emerald' : data.summary.compliancePct >= 70 ? 'amber' : 'rose'} label="Compliance" value={`${data.summary.compliancePct}%`} delta={kpiDelta?.compliancePct} deltaSuffix=" pts" deltaLabel={kpiDeltaLabel} />
+                <KpiCard icon={AlertTriangle} accent="amber" label="Did Not Meet" value={data.summary.didNotMeet} delta={kpiDelta?.didNotMeet} invert deltaLabel={kpiDeltaLabel} />
+                <KpiCard icon={FileText} accent="rose" label="No Summary" value={data.summary.noSummary} delta={kpiDelta?.noSummary} invert deltaLabel={kpiDeltaLabel} />
               </div>
             </section>
 
@@ -852,10 +1005,10 @@ function CircleReportingContent() {
               <SectionHeading eyebrow="Trends" title="How the story is moving" hint="By week" />
               <div className="grid gap-3 lg:grid-cols-2">
                 <ChartCard title="Attendance over time" subtitle="Total headcount">
-                  {attendanceChartData ? <Bar data={attendanceChartData} options={lineOptions as any} /> : <EmptyState />}
+                  {attendanceChartData ? <Bar data={attendanceChartData} options={(comparing ? legendOptions : lineOptions) as any} /> : <EmptyState />}
                 </ChartCard>
                 <ChartCard title="Compliance over time" subtitle="% met or reported">
-                  {complianceChartData ? <Line data={complianceChartData} options={lineOptions as any} /> : <EmptyState />}
+                  {complianceChartData ? <Line data={complianceChartData} options={(comparing ? legendOptions : lineOptions) as any} /> : <EmptyState />}
                 </ChartCard>
                 <ChartCard title="Circle count over time" subtitle="Expected vs met">
                   {circleCountChartData ? <Line data={circleCountChartData} options={legendOptions as any} /> : <EmptyState />}
@@ -870,9 +1023,9 @@ function CircleReportingContent() {
             <section className="mt-9">
               <SectionHeading eyebrow="Breakdowns" title="Where it's happening" hint="Bar length = volume · color = compliance" />
               <div className="grid gap-3 lg:grid-cols-3">
-                <BreakdownCard title="By Campus" icon={Building2} rows={data.campusBreakdown} />
-                <BreakdownCard title="By Circle Type" icon={Layers} rows={data.circleTypeBreakdown} />
-                <BreakdownCard title="By ACPD" icon={UserRound} rows={data.acpdBreakdown ?? []} />
+                <BreakdownCard title="By Campus" icon={Building2} rows={data.campusBreakdown} compareRows={comparing ? compareData?.campusBreakdown : undefined} />
+                <BreakdownCard title="By Circle Type" icon={Layers} rows={data.circleTypeBreakdown} compareRows={comparing ? compareData?.circleTypeBreakdown : undefined} />
+                <BreakdownCard title="By ACPD" icon={UserRound} rows={data.acpdBreakdown ?? []} compareRows={comparing ? compareData?.acpdBreakdown : undefined} />
               </div>
             </section>
 
