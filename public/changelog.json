@@ -4,7 +4,6 @@
     "version": "2.43.1",
     "date_display": "June 23, 2026",
     "date_iso": "2026-06-23",
-<<<<<<< HEAD
     "id": "circle-reporting-point-in-time-cadence",
     "type": "improvement",
     "category": "Circle Reporting",
@@ -54,26 +53,34 @@
     "category": "Circle Reporting",
     "description": "Circle Reporting now counts a 'skipped' week as Did Not Meet instead of a missing summary, and limits every report to completed weeks (Sunday–Saturday) so the KPI totals and the weekly trend charts always reconcile. Breakdown cards (Campus, Circle Type, ACPD) now show every group rather than truncating to the top eight.",
     "page": "/circle-reporting"
-=======
-    "id": "today-fresh-on-focus",
-    "type": "fix",
-    "category": "Today",
-    "description": "The Today page now refreshes the moment you switch back to its tab, so cards you create or edit on a board in another tab show up right away instead of being held back by a brief cache. No more clicking Refresh to see a card you just added for today.",
-    "page": "/today"
->>>>>>> c7e717e (Student toolkit foundations, Today page refresh fixes, and GroupMe cleanup)
   },
   {
     "date": "2026-06-23",
     "version": "2.43.1",
     "date_display": "June 23, 2026",
     "date_iso": "2026-06-23",
-<<<<<<< HEAD
+    "id": "today-fresh-on-focus",
+    "type": "fix",
+    "category": "Today",
+    "description": "The Today page now refreshes the moment you switch back to its tab, so cards you create or edit on a board in another tab show up right away instead of being held back by a brief cache. No more clicking Refresh to see a card you just added for today.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-23",
+    "version": "2.43.1",
+    "date_display": "June 23, 2026",
+    "date_iso": "2026-06-23",
     "id": "circle-reporting-dashboard-redesign",
     "type": "improvement",
     "category": "Circle Reporting",
     "description": "The Circle Reporting page is redesigned as a single-scroll leadership dashboard: a six-metric KPI row (Total Attendance, Total Circles, Avg Circle Size, Compliance, Did Not Meet, No Summary) with week-over-week deltas, four trend charts (attendance, compliance, circle count, did-not-meet), and at-a-glance breakdown cards by Campus, Circle Type, and the new By ACPD view. The weekly events table now has search, sortable columns, and quick-filters for Missing summaries / Did not meet / Met.",
     "page": "/circle-reporting"
-=======
+  },
+  {
+    "date": "2026-06-23",
+    "version": "2.43.1",
+    "date_display": "June 23, 2026",
+    "date_iso": "2026-06-23",
     "id": "shared-board-not-found-fix",
     "type": "fix",
     "category": "Boards",
@@ -90,7 +97,6 @@
     "category": "Users",
     "description": "Adding a user no longer claims to send an invitation email — it never actually did. The Add User form and confirmation now make clear the account is created only: no email is sent and the user doesn't get access yet.",
     "page": "/users"
->>>>>>> c7e717e (Student toolkit foundations, Today page refresh fixes, and GroupMe cleanup)
   },
   {
     "date": "2026-06-22",
