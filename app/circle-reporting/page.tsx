@@ -5,11 +5,17 @@ import {
   AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
+  Building2,
   CalendarDays,
+  ChevronsUpDown,
   Download,
   FileText,
   Filter,
+  Layers,
+  Minus,
   RefreshCw,
+  Search,
+  UserRound,
   Users,
 } from 'lucide-react';
 import {
@@ -19,13 +25,14 @@ import {
   PointElement,
   LineElement,
   BarElement,
+  Filler,
   Tooltip,
   Legend,
 } from 'chart.js';
 import { Bar, Line } from 'react-chartjs-2';
 import ProtectedRoute from '../../components/ProtectedRoute';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Filler, Tooltip, Legend);
 
 type EventStatus = 'met' | 'did_not_meet' | 'no_summary';
 
@@ -47,6 +54,7 @@ type WeeklyEvent = {
   leader_status: string;
   campus: string;
   circle_type: string;
+  acpd?: string;
   scheduled_date: string;
   scheduled_time: string;
   frequency: string;
@@ -96,6 +104,7 @@ type ReportingData = {
   reasonTrend: Array<{ week_start_date: string; valid: number; coaching: number; other: number }>;
   campusBreakdown: Breakdown[];
   circleTypeBreakdown: Breakdown[];
+  acpdBreakdown: Breakdown[];
   didNotMeetInsights: {
     total: number;
     topReasons: ReasonInsight[];
@@ -175,69 +184,170 @@ function rowsToCSV(rows: Record<string, unknown>[]): string {
 
 const PREFS_KEY = 'circle-reporting-prefs';
 
-function MetricCard({
+// ── KPI card ───────────────────────────────────────────────────────────────
+// One headline number with an optional week-over-week delta. `invert` flips the
+// good/bad coloring for metrics where "up" is bad (Did Not Meet, No Summary).
+function KpiCard({
   label,
   value,
-  detail,
-  tone = 'neutral',
+  delta,
+  deltaSuffix = '',
+  invert = false,
+  accent = 'slate',
   icon: Icon,
 }: {
   label: string;
   value: string | number;
-  detail?: string;
-  tone?: 'neutral' | 'green' | 'blue' | 'amber' | 'red';
+  delta?: number | null;
+  deltaSuffix?: string;
+  invert?: boolean;
+  accent?: 'slate' | 'emerald' | 'sky' | 'amber' | 'rose' | 'violet';
   icon: typeof Users;
 }) {
-  const tones = {
-    neutral: 'border-slate-700 bg-slate-900/70 text-slate-200',
-    green: 'border-emerald-700/60 bg-emerald-950/30 text-emerald-100',
-    blue: 'border-sky-700/60 bg-sky-950/30 text-sky-100',
-    amber: 'border-amber-700/60 bg-amber-950/30 text-amber-100',
-    red: 'border-rose-700/60 bg-rose-950/30 text-rose-100',
+  const accents: Record<string, string> = {
+    slate: 'text-slate-400',
+    emerald: 'text-emerald-400',
+    sky: 'text-sky-400',
+    amber: 'text-amber-400',
+    rose: 'text-rose-400',
+    violet: 'text-violet-400',
   };
 
   return (
-    <div className={`rounded-lg border p-4 ${tones[tone]}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p>
-          <p className="mt-2 text-3xl font-semibold text-white">{value}</p>
-        </div>
-        <Icon className="h-5 w-5 text-slate-400" />
+    <div className="group rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 transition hover:border-slate-700 hover:bg-slate-900">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{label}</p>
+        <Icon className={`h-4 w-4 ${accents[accent]}`} />
       </div>
-      {detail && <p className="mt-2 text-sm text-slate-400">{detail}</p>}
+      <p className="mt-3 text-4xl font-semibold leading-none tracking-tight text-white tabular-nums">{value}</p>
+      <div className="mt-3 h-5">
+        {typeof delta === 'number' ? (
+          <DeltaPill value={delta} suffix={deltaSuffix} invert={invert} />
+        ) : (
+          <span className="text-xs text-slate-600">No prior week</span>
+        )}
+      </div>
     </div>
+  );
+}
+
+function DeltaPill({ value, suffix = '', invert = false }: { value: number; suffix?: string; invert?: boolean }) {
+  const rounded = Math.round(value * 10) / 10;
+  const positive = rounded > 0;
+  const negative = rounded < 0;
+  const good = invert ? negative : positive;
+  const bad = invert ? positive : negative;
+  const Icon = positive ? ArrowUpRight : negative ? ArrowDownRight : Minus;
+  const tone = good ? 'text-emerald-400' : bad ? 'text-rose-400' : 'text-slate-500';
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-medium ${tone}`}>
+      <Icon className="h-3.5 w-3.5" />
+      {positive ? '+' : ''}
+      {rounded}
+      {suffix}
+      <span className="text-slate-600">vs prior wk</span>
+    </span>
   );
 }
 
 function StatusBadge({ status }: { status: EventStatus }) {
   const classes = {
-    met: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200',
-    did_not_meet: 'border-sky-500/40 bg-sky-500/10 text-sky-200',
-    no_summary: 'border-rose-500/40 bg-rose-500/10 text-rose-200',
+    met: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300',
+    did_not_meet: 'border-sky-500/40 bg-sky-500/10 text-sky-300',
+    no_summary: 'border-rose-500/40 bg-rose-500/10 text-rose-300',
   };
   const labels = {
     met: 'Met',
     did_not_meet: 'Did Not Meet',
     no_summary: 'No Summary',
   };
-  return <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${classes[status]}`}>{labels[status]}</span>;
-}
-
-function TrendDelta({ value, suffix = '' }: { value: number; suffix?: string }) {
-  const positive = value > 0;
-  const negative = value < 0;
-  const Icon = positive ? ArrowUpRight : negative ? ArrowDownRight : RefreshCw;
-  const className = positive ? 'text-emerald-300' : negative ? 'text-rose-300' : 'text-slate-400';
   return (
-    <span className={`inline-flex items-center gap-1 text-sm font-medium ${className}`}>
-      <Icon className="h-4 w-4" />
-      {positive ? '+' : ''}
-      {value}
-      {suffix}
+    <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${classes[status]}`}>
+      {labels[status]}
     </span>
   );
 }
+
+function complianceTone(pct: number): string {
+  if (pct >= 85) return 'bg-emerald-500';
+  if (pct >= 70) return 'bg-amber-500';
+  return 'bg-rose-500';
+}
+
+// A single section heading with an eyebrow label, used to give the page its
+// top-to-bottom narrative (KPIs → trends → breakdowns → tables).
+function SectionHeading({ eyebrow, title, hint }: { eyebrow: string; title: string; hint?: string }) {
+  return (
+    <div className="mb-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-400">{eyebrow}</p>
+      <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h2 className="text-lg font-semibold tracking-tight text-white">{title}</h2>
+        {hint && <span className="text-xs text-slate-500">{hint}</span>}
+      </div>
+    </div>
+  );
+}
+
+function ChartCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5">
+      <div className="flex items-baseline justify-between">
+        <h3 className="text-sm font-semibold text-white">{title}</h3>
+        {subtitle && <span className="text-xs text-slate-500">{subtitle}</span>}
+      </div>
+      <div className="mt-4 h-60">{children}</div>
+    </div>
+  );
+}
+
+// Ranked compliance view for a breakdown dimension (campus / type / ACPD).
+// Reads at a glance: name, met-of-expected, and a colored compliance bar.
+function BreakdownCard({
+  title,
+  icon: Icon,
+  rows,
+}: {
+  title: string;
+  icon: typeof Users;
+  rows: Breakdown[];
+}) {
+  const top = rows.slice(0, 8);
+  const maxExpected = Math.max(1, ...top.map((row) => row.expected));
+  return (
+    <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <Icon className="h-4 w-4 text-slate-400" />
+        <h3 className="text-sm font-semibold text-white">{title}</h3>
+      </div>
+      {top.length === 0 ? (
+        <EmptyState compact />
+      ) : (
+        <div className="space-y-3.5">
+          {top.map((row) => (
+            <div key={row.name}>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="truncate text-sm font-medium text-slate-200">{row.name}</span>
+                <span className="shrink-0 text-xs text-slate-500 tabular-nums">
+                  {row.met}/{row.expected} · <span className="text-slate-300">{row.compliancePct}%</span>
+                </span>
+              </div>
+              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-800">
+                <div
+                  className={`h-full rounded-full ${complianceTone(row.compliancePct)}`}
+                  style={{ width: `${Math.min(100, Math.max(2, (row.expected / maxExpected) * 100 * (row.compliancePct / 100)))}%` }}
+                  title={`${row.compliancePct}% compliance across ${row.expected} expected`}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type SortKey = 'leader_name' | 'campus' | 'scheduled_date' | 'status' | 'attendance_count';
+type StatusFilter = 'all' | 'no_summary' | 'did_not_meet' | 'met';
 
 function CircleReportingContent() {
   const [weekStart, setWeekStart] = useState(startOfWeekSunday(todayISO()));
@@ -247,13 +357,18 @@ function CircleReportingContent() {
   const [campus, setCampus] = useState('');
   const [circleType, setCircleType] = useState('');
   const [status, setStatus] = useState('');
-  const [tab, setTab] = useState<'summary' | 'events' | 'trends' | 'did-not-meet'>('summary');
   const [data, setData] = useState<ReportingData | null>(null);
   const [refData, setRefData] = useState<ReferenceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<'json' | 'csv' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+
+  // Weekly-events table controls (client-side only — no refetch).
+  const [eventSearch, setEventSearch] = useState('');
+  const [eventStatusFilter, setEventStatusFilter] = useState<StatusFilter>('all');
+  const [sortKey, setSortKey] = useState<SortKey>('scheduled_date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     fetch('/api/reference-data')
@@ -367,6 +482,41 @@ function CircleReportingContent() {
   const typeOptions = refData?.circleTypes?.map((item) => item.value).filter(Boolean) ?? data?.filters.circleTypes ?? [];
   const statusOptions = refData?.statuses?.map((item) => item.value).filter(Boolean) ?? data?.filters.statuses ?? [];
 
+  // Week-over-week deltas for the KPI row, derived from the existing weekly
+  // trend series (latest completed week vs the one before it). No server change.
+  const kpiDeltas = useMemo(() => {
+    const trend = data?.weeklyTrend ?? [];
+    if (trend.length < 2) return null;
+    const last = trend[trend.length - 1];
+    const prev = trend[trend.length - 2];
+    return {
+      totalAttendance: last.totalAttendance - prev.totalAttendance,
+      expected: last.expected - prev.expected,
+      averageCircleSize: Math.round((last.averageCircleSize - prev.averageCircleSize) * 10) / 10,
+      compliancePct: Math.round((last.compliancePct - prev.compliancePct) * 10) / 10,
+      didNotMeet: last.didNotMeet - prev.didNotMeet,
+      noSummary: last.noSummary - prev.noSummary,
+    };
+  }, [data?.weeklyTrend]);
+
+  const rangeLabel = data ? `${formatShortDate(data.filters.startDate)} – ${formatDate(data.filters.endDate)}` : '';
+
+  const lineOptions = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { backgroundColor: '#0f172a', titleColor: '#f8fafc', bodyColor: '#cbd5e1', padding: 10 },
+      },
+      scales: {
+        x: { ticks: { color: '#64748b', maxRotation: 0, autoSkipPadding: 12 }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: '#64748b' }, grid: { color: 'rgba(148, 163, 184, 0.08)' } },
+      },
+    }),
+    []
+  );
+
   const complianceChartData = useMemo(() => {
     if (!data?.weeklyTrend.length) return null;
     return {
@@ -375,11 +525,13 @@ function CircleReportingContent() {
         {
           label: 'Compliance %',
           data: data.weeklyTrend.map((point) => point.compliancePct),
-          borderColor: '#22c55e',
-          backgroundColor: 'rgba(34, 197, 94, 0.12)',
-          tension: 0.25,
+          borderColor: '#34d399',
+          backgroundColor: 'rgba(52, 211, 153, 0.12)',
+          tension: 0.3,
           fill: true,
-          pointRadius: 3,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          borderWidth: 2,
         },
       ],
     };
@@ -393,85 +545,147 @@ function CircleReportingContent() {
         {
           label: 'Total attendance',
           data: data.weeklyTrend.map((point) => point.totalAttendance),
-          backgroundColor: 'rgba(59, 130, 246, 0.75)',
-          borderColor: '#60a5fa',
-          borderWidth: 1,
+          backgroundColor: 'rgba(56, 189, 248, 0.7)',
+          borderColor: '#38bdf8',
+          borderWidth: 0,
           borderRadius: 4,
         },
       ],
     };
   }, [data?.weeklyTrend]);
 
-  const statusChartData = useMemo(() => {
+  const circleCountChartData = useMemo(() => {
     if (!data?.weeklyTrend.length) return null;
     return {
       labels: data.weeklyTrend.map((point) => point.label),
       datasets: [
-        { label: 'Met', data: data.weeklyTrend.map((point) => point.met), backgroundColor: '#22c55e' },
-        { label: 'Did Not Meet', data: data.weeklyTrend.map((point) => point.didNotMeet), backgroundColor: '#38bdf8' },
-        { label: 'No Summary', data: data.weeklyTrend.map((point) => point.noSummary), backgroundColor: '#f43f5e' },
+        {
+          label: 'Expected circles',
+          data: data.weeklyTrend.map((point) => point.expected),
+          borderColor: '#a78bfa',
+          backgroundColor: 'rgba(167, 139, 250, 0.12)',
+          tension: 0.3,
+          fill: true,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          borderWidth: 2,
+        },
+        {
+          label: 'Met',
+          data: data.weeklyTrend.map((point) => point.met),
+          borderColor: '#34d399',
+          backgroundColor: 'rgba(52, 211, 153, 0)',
+          tension: 0.3,
+          fill: false,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          borderWidth: 2,
+          borderDash: [4, 3],
+        },
       ],
     };
   }, [data?.weeklyTrend]);
 
-  const reasonChartData = useMemo(() => {
-    if (!data?.reasonTrend.length) return null;
+  const didNotMeetChartData = useMemo(() => {
+    if (!data?.weeklyTrend.length) return null;
     return {
-      labels: data.reasonTrend.map((point) => formatShortDate(point.week_start_date)),
+      labels: data.weeklyTrend.map((point) => point.label),
       datasets: [
-        { label: 'Valid', data: data.reasonTrend.map((point) => point.valid), backgroundColor: '#22c55e' },
-        { label: 'Coaching', data: data.reasonTrend.map((point) => point.coaching), backgroundColor: '#f59e0b' },
-        { label: 'Other', data: data.reasonTrend.map((point) => point.other), backgroundColor: '#94a3b8' },
+        {
+          label: 'Did not meet',
+          data: data.weeklyTrend.map((point) => point.didNotMeet),
+          backgroundColor: 'rgba(251, 146, 60, 0.7)',
+          borderRadius: 4,
+        },
+        {
+          label: 'No summary',
+          data: data.weeklyTrend.map((point) => point.noSummary),
+          backgroundColor: 'rgba(244, 63, 94, 0.6)',
+          borderRadius: 4,
+        },
       ],
     };
-  }, [data?.reasonTrend]);
+  }, [data?.weeklyTrend]);
 
-  const lineOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { labels: { color: '#cbd5e1' } },
-      tooltip: { backgroundColor: '#0f172a', titleColor: '#f8fafc', bodyColor: '#cbd5e1' },
-    },
-    scales: {
-      x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.12)' } },
-      y: { beginAtZero: true, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.12)' } },
-    },
-  };
+  const legendOptions = useMemo(
+    () => ({
+      ...lineOptions,
+      plugins: {
+        ...lineOptions.plugins,
+        legend: { display: true, position: 'bottom' as const, labels: { color: '#94a3b8', boxWidth: 10, boxHeight: 10, padding: 14, usePointStyle: true } },
+      },
+    }),
+    [lineOptions]
+  );
 
-  const stackedOptions = {
-    ...lineOptions,
-    scales: {
-      x: { stacked: true, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.12)' } },
-      y: { stacked: true, beginAtZero: true, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.12)' } },
-    },
-  };
+  // Weekly Events table: filter (search + status) then sort, client-side.
+  const visibleEvents = useMemo(() => {
+    const rows = data?.weeklyEvents ?? [];
+    const needle = eventSearch.trim().toLowerCase();
+    const filtered = rows.filter((event) => {
+      if (eventStatusFilter !== 'all' && event.status !== eventStatusFilter) return false;
+      if (!needle) return true;
+      return (
+        event.leader_name.toLowerCase().includes(needle) ||
+        event.circle_name.toLowerCase().includes(needle) ||
+        event.campus.toLowerCase().includes(needle)
+      );
+    });
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      if (sortKey === 'attendance_count') {
+        return ((a.attendance_count ?? -1) - (b.attendance_count ?? -1)) * dir;
+      }
+      const av = String(a[sortKey] ?? '').toLowerCase();
+      const bv = String(b[sortKey] ?? '').toLowerCase();
+      return av.localeCompare(bv) * dir;
+    });
+  }, [data?.weeklyEvents, eventSearch, eventStatusFilter, sortKey, sortDir]);
+
+  const toggleSort = useCallback((key: SortKey) => {
+    setSortKey((prevKey) => {
+      if (prevKey === key) {
+        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+        return prevKey;
+      }
+      setSortDir('asc');
+      return key;
+    });
+  }, []);
+
+  const statusFilterChips: Array<{ key: StatusFilter; label: string }> = [
+    { key: 'all', label: 'All' },
+    { key: 'no_summary', label: 'Missing summaries' },
+    { key: 'did_not_meet', label: 'Did not meet' },
+    { key: 'met', label: 'Met' },
+  ];
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-4 border-b border-slate-800 pb-5 lg:flex-row lg:items-end lg:justify-between">
+        {/* Header */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-emerald-300">Adult Circles</p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white sm:text-3xl">Circle Reporting Dashboard</h1>
-            <p className="mt-2 max-w-3xl text-sm text-slate-400">
-              Supabase-backed view of expected meetings, submitted summaries, attendance, and did-not-meet trends.
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-400">Adult Circles</p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white sm:text-3xl">Circle Reporting</h1>
+            <p className="mt-2 max-w-2xl text-sm text-slate-400">
+              Attendance, compliance, and did-not-meet trends across the selected reporting range.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={loadData}
-              className="inline-flex items-center gap-2 rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-800"
             >
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
             <button
               type="button"
               disabled={exporting !== null}
               onClick={() => handleExport('json')}
-              className="inline-flex items-center gap-2 rounded-md border border-emerald-700 bg-emerald-900/40 px-3 py-2 text-sm font-medium text-emerald-100 hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-emerald-700/70 bg-emerald-900/30 px-3 py-2 text-sm font-medium text-emerald-200 transition hover:bg-emerald-900/60 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Download className="h-4 w-4" />
               {exporting === 'json' ? 'Exporting…' : 'Export JSON (AI)'}
@@ -480,7 +694,7 @@ function CircleReportingContent() {
               type="button"
               disabled={exporting !== null}
               onClick={() => handleExport('csv')}
-              className="inline-flex items-center gap-2 rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Download className="h-4 w-4" />
               {exporting === 'csv' ? 'Exporting…' : 'Export CSV'}
@@ -488,16 +702,34 @@ function CircleReportingContent() {
           </div>
         </div>
 
-        <div className="mt-5 rounded-lg border border-slate-800 bg-slate-900/70 p-4">
-          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-200">
+        {/* Filters */}
+        <div className="mt-5 rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 sm:p-5">
+          <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
             <Filter className="h-4 w-4" />
             Filters
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-12">
+          <div className="grid gap-5 lg:grid-cols-12">
             <div className="lg:col-span-7">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Reporting range</p>
-              <div className="mt-2 grid gap-3 sm:grid-cols-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Reporting range</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {[
+                  ['last4', 'Last 4 weeks'],
+                  ['last12', 'Last 12 weeks'],
+                  ['semester', 'Semester to date'],
+                  ['year', 'Year to date'],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => applyPreset(value as 'last4' | 'last12' | 'semester' | 'year')}
+                    className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-emerald-600/60 hover:text-emerald-200"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <label className="text-sm text-slate-300">
                   Start date
                   <input
@@ -505,7 +737,7 @@ function CircleReportingContent() {
                     value={startDate}
                     max={endDate}
                     onChange={(event) => setStartDate(event.target.value)}
-                    className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
                   />
                 </label>
                 <label className="text-sm text-slate-300">
@@ -519,7 +751,7 @@ function CircleReportingContent() {
                       setRollForwardEnd(false);
                       setEndDate(event.target.value);
                     }}
-                    className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-60"
                   />
                 </label>
               </div>
@@ -531,9 +763,9 @@ function CircleReportingContent() {
                     setRollForwardEnd(next);
                     if (next) setEndDate(endOfLastWeekISO());
                   }}
-                  className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition ${
+                  className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
                     rollForwardEnd
-                      ? 'border-emerald-500 bg-emerald-500/15 text-emerald-200'
+                      ? 'border-emerald-500/70 bg-emerald-500/15 text-emerald-200'
                       : 'border-slate-700 bg-slate-950 text-slate-300 hover:bg-slate-800'
                   }`}
                   aria-pressed={rollForwardEnd}
@@ -543,26 +775,9 @@ function CircleReportingContent() {
                 </button>
                 <span className="text-xs text-slate-500">
                   {rollForwardEnd
-                    ? `End pinned to ${formatShortDate(endDate)} and rolls forward each week`
-                    : 'Pick a fixed end date, or pin it to the last completed week'}
+                    ? `Pinned to ${formatShortDate(endDate)}, rolls forward weekly`
+                    : 'Fixed end date'}
                 </span>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {[
-                  ['last4', 'Last 4 weeks'],
-                  ['last12', 'Last 12 weeks'],
-                  ['semester', 'Semester to date'],
-                  ['year', 'Year to date'],
-                ].map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => applyPreset(value as 'last4' | 'last12' | 'semester' | 'year')}
-                    className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-xs font-medium text-slate-300 hover:bg-slate-800"
-                  >
-                    {label}
-                  </button>
-                ))}
               </div>
             </div>
 
@@ -572,7 +787,7 @@ function CircleReportingContent() {
                 <select
                   value={campus}
                   onChange={(event) => setCampus(event.target.value)}
-                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
                 >
                   <option value="">All campuses</option>
                   {campusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
@@ -583,7 +798,7 @@ function CircleReportingContent() {
                 <select
                   value={circleType}
                   onChange={(event) => setCircleType(event.target.value)}
-                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
                 >
                   <option value="">All types</option>
                   {typeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
@@ -594,7 +809,7 @@ function CircleReportingContent() {
                 <select
                   value={status}
                   onChange={(event) => setStatus(event.target.value)}
-                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
                 >
                   <option value="">All statuses</option>
                   {statusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
@@ -602,239 +817,201 @@ function CircleReportingContent() {
               </label>
             </div>
           </div>
-
-          {tab === 'events' && (
-            <div className="mt-4 border-t border-slate-800 pt-4">
-              <label className="text-sm text-slate-300">
-                Weekly Events — week of
-                <input
-                  type="date"
-                  value={weekStart}
-                  onChange={(event) => setWeekStart(startOfWeekSunday(event.target.value))}
-                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white sm:w-64"
-                />
-              </label>
-              <p className="mt-1 text-xs text-slate-500">Controls only the Weekly Events table below. Snaps to the Sunday that starts the week.</p>
-            </div>
-          )}
         </div>
 
         {error && (
-          <div className="mt-5 rounded-lg border border-rose-800 bg-rose-950/40 p-4 text-sm text-rose-100">
+          <div className="mt-5 rounded-2xl border border-rose-800 bg-rose-950/40 p-4 text-sm text-rose-100">
             {error}
           </div>
         )}
 
         {loading && (
-          <div className="mt-8 rounded-lg border border-slate-800 bg-slate-900/70 p-8 text-center text-slate-400">
-            Loading reporting data...
+          <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="h-32 animate-pulse rounded-2xl border border-slate-800/60 bg-slate-900/40" />
+            ))}
           </div>
         )}
 
         {!loading && data && (
           <>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <MetricCard icon={CalendarDays} label="Expected to meet" value={data.summary.expected} detail={`${formatDate(data.filters.startDate)} - ${formatDate(data.filters.endDate)}`} />
-              <MetricCard icon={Users} label="Circles met" value={data.summary.met} detail={`${data.summary.totalAttendance} total attendance`} tone="green" />
-              <MetricCard icon={AlertTriangle} label="Did not meet" value={data.summary.didNotMeet} detail={`${data.summary.noSummary} no summary`} tone="blue" />
-              <MetricCard icon={FileText} label="Compliance" value={`${data.summary.compliancePct}%`} detail={`Avg size ${data.summary.averageCircleSize}`} tone={data.summary.compliancePct >= 85 ? 'green' : data.summary.compliancePct >= 70 ? 'amber' : 'red'} />
-            </div>
-
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
-                <p className="text-sm text-slate-400">Selected week compliance</p>
-                <div className="mt-2 flex items-end justify-between">
-                  <p className="text-2xl font-semibold text-white">{data.selectedWeekSummary.compliancePct}%</p>
-                  <TrendDelta value={data.wowTrend.complianceDelta} suffix=" pts" />
-                </div>
+            {/* Row 1 — KPIs */}
+            <section className="mt-7">
+              <SectionHeading eyebrow="Overview" title="Key metrics" hint={rangeLabel} />
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                <KpiCard icon={Users} accent="sky" label="Total Attendance" value={data.summary.totalAttendance.toLocaleString()} delta={kpiDeltas?.totalAttendance} />
+                <KpiCard icon={CalendarDays} accent="violet" label="Total Circles" value={data.summary.expected.toLocaleString()} delta={kpiDeltas?.expected} />
+                <KpiCard icon={Users} accent="emerald" label="Avg Circle Size" value={data.summary.averageCircleSize} delta={kpiDeltas?.averageCircleSize} />
+                <KpiCard icon={FileText} accent={data.summary.compliancePct >= 85 ? 'emerald' : data.summary.compliancePct >= 70 ? 'amber' : 'rose'} label="Compliance" value={`${data.summary.compliancePct}%`} delta={kpiDeltas?.compliancePct} deltaSuffix=" pts" />
+                <KpiCard icon={AlertTriangle} accent="amber" label="Did Not Meet" value={data.summary.didNotMeet} delta={kpiDeltas?.didNotMeet} invert />
+                <KpiCard icon={FileText} accent="rose" label="No Summary" value={data.summary.noSummary} delta={kpiDeltas?.noSummary} invert />
               </div>
-              <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
-                <p className="text-sm text-slate-400">Selected week attendance</p>
-                <div className="mt-2 flex items-end justify-between">
-                  <p className="text-2xl font-semibold text-white">{data.selectedWeekSummary.totalAttendance}</p>
-                  <TrendDelta value={data.wowTrend.attendanceDelta} />
-                </div>
-              </div>
-              <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
-                <p className="text-sm text-slate-400">Selected week expected circles</p>
-                <div className="mt-2 flex items-end justify-between">
-                  <p className="text-2xl font-semibold text-white">{data.selectedWeekSummary.expected}</p>
-                  <TrendDelta value={data.wowTrend.expectedDelta} />
-                </div>
-              </div>
-            </div>
+            </section>
 
-            <div className="mt-6 flex flex-wrap gap-2">
-              {[
-                ['summary', 'Executive Summary'],
-                ['events', 'Weekly Events'],
-                ['trends', 'Historical Trends'],
-                ['did-not-meet', 'Did Not Meet Insights'],
-              ].map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setTab(value as typeof tab)}
-                  className={`rounded-md px-3 py-2 text-sm font-medium ${tab === value ? 'bg-emerald-500 text-slate-950' : 'border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {tab === 'summary' && (
-              <div className="mt-5 grid gap-5 lg:grid-cols-2">
-                <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
-                  <h2 className="text-base font-semibold text-white">Compliance by Week</h2>
-                  <div className="mt-4 h-72">{complianceChartData ? <Line data={complianceChartData} options={lineOptions as any} /> : <EmptyState />}</div>
-                </div>
-                <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
-                  <h2 className="text-base font-semibold text-white">Attendance by Week</h2>
-                  <div className="mt-4 h-72">{attendanceChartData ? <Bar data={attendanceChartData} options={lineOptions as any} /> : <EmptyState />}</div>
-                </div>
-                <BreakdownTable title="Campus Breakdown" rows={data.campusBreakdown} />
-                <BreakdownTable title="Circle Type Breakdown" rows={data.circleTypeBreakdown} />
+            {/* Row 2 — Trends */}
+            <section className="mt-9">
+              <SectionHeading eyebrow="Trends" title="How the story is moving" hint="By week" />
+              <div className="grid gap-3 lg:grid-cols-2">
+                <ChartCard title="Attendance over time" subtitle="Total headcount">
+                  {attendanceChartData ? <Bar data={attendanceChartData} options={lineOptions as any} /> : <EmptyState />}
+                </ChartCard>
+                <ChartCard title="Compliance over time" subtitle="% met or reported">
+                  {complianceChartData ? <Line data={complianceChartData} options={lineOptions as any} /> : <EmptyState />}
+                </ChartCard>
+                <ChartCard title="Circle count over time" subtitle="Expected vs met">
+                  {circleCountChartData ? <Line data={circleCountChartData} options={legendOptions as any} /> : <EmptyState />}
+                </ChartCard>
+                <ChartCard title="Did Not Meet trend" subtitle="Misses & gaps">
+                  {didNotMeetChartData ? <Bar data={didNotMeetChartData} options={legendOptions as any} /> : <EmptyState />}
+                </ChartCard>
               </div>
-            )}
+            </section>
 
-            {tab === 'events' && (
-              <div className="mt-5 rounded-lg border border-slate-800 bg-slate-900/70">
-                <div className="flex items-center justify-between gap-3 border-b border-slate-800 p-4">
-                  <div>
-                    <h2 className="text-base font-semibold text-white">Weekly Events</h2>
-                    <p className="text-sm text-slate-400">{formatDate(data.filters.selectedWeek)} week</p>
+            {/* Row 3 — Breakdowns */}
+            <section className="mt-9">
+              <SectionHeading eyebrow="Breakdowns" title="Where it's happening" hint="Bar length = volume · color = compliance" />
+              <div className="grid gap-3 lg:grid-cols-3">
+                <BreakdownCard title="By Campus" icon={Building2} rows={data.campusBreakdown} />
+                <BreakdownCard title="By Circle Type" icon={Layers} rows={data.circleTypeBreakdown} />
+                <BreakdownCard title="By ACPD" icon={UserRound} rows={data.acpdBreakdown ?? []} />
+              </div>
+            </section>
+
+            {/* Row 4 — Operational tables */}
+            <section className="mt-9">
+              <SectionHeading eyebrow="Operations" title="Weekly events" hint={`Week of ${formatDate(data.filters.selectedWeek)}`} />
+              <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60">
+                <div className="flex flex-col gap-3 border-b border-slate-800 p-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {statusFilterChips.map((chip) => (
+                      <button
+                        key={chip.key}
+                        type="button"
+                        onClick={() => setEventStatusFilter(chip.key)}
+                        className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                          eventStatusFilter === chip.key
+                            ? 'border-emerald-500/70 bg-emerald-500/15 text-emerald-200'
+                            : 'border-slate-700 bg-slate-950 text-slate-300 hover:bg-slate-800'
+                        }`}
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
                   </div>
-                  <p className="text-sm text-slate-400">{data.weeklyEvents.length} expected events</p>
+                  <div className="flex items-center gap-2">
+                    <label className="relative">
+                      <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                      <input
+                        type="search"
+                        value={eventSearch}
+                        onChange={(event) => setEventSearch(event.target.value)}
+                        placeholder="Search leader, circle, campus"
+                        className="w-full rounded-lg border border-slate-700 bg-slate-950 py-2 pl-8 pr-3 text-sm text-white placeholder:text-slate-500 sm:w-64"
+                      />
+                    </label>
+                    <input
+                      type="date"
+                      value={weekStart}
+                      onChange={(event) => setWeekStart(startOfWeekSunday(event.target.value))}
+                      className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                      title="Pick the week shown in this table"
+                    />
+                  </div>
                 </div>
-                {data.weeklyEvents.length === 0 ? (
+
+                {visibleEvents.length === 0 ? (
                   <EmptyState />
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-slate-800 text-sm">
                       <thead className="bg-slate-950/60 text-left text-xs uppercase tracking-wide text-slate-400">
                         <tr>
-                          <th className="px-4 py-3">Leader</th>
-                          <th className="px-4 py-3">Circle</th>
-                          <th className="px-4 py-3">Current Status</th>
-                          <th className="px-4 py-3">Campus</th>
-                          <th className="px-4 py-3">Scheduled</th>
-                          <th className="px-4 py-3">Status</th>
-                          <th className="px-4 py-3">Attendance</th>
-                          <th className="px-4 py-3">Notes</th>
-                          <th className="px-4 py-3">Did Not Meet Reason</th>
+                          <SortableTh label="Leader" col="leader_name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                          <th className="px-4 py-3 font-medium">Circle</th>
+                          <SortableTh label="Campus" col="campus" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                          <SortableTh label="Scheduled" col="scheduled_date" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                          <SortableTh label="Status" col="status" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                          <SortableTh label="Attendance" col="attendance_count" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                          <th className="px-4 py-3 font-medium">Summary</th>
+                          <th className="px-4 py-3 font-medium">Did Not Meet Reason</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800">
-                        {data.weeklyEvents.map((event) => (
+                        {visibleEvents.map((event) => (
                           <tr key={`${event.leader_id}-${event.week_start_date}`} className="hover:bg-slate-800/40">
                             <td className="px-4 py-3 font-medium text-white">{event.leader_name}</td>
                             <td className="px-4 py-3 text-slate-300">{event.circle_name}</td>
-                            <td className="px-4 py-3 text-slate-300">{event.leader_status}</td>
                             <td className="px-4 py-3 text-slate-300">{event.campus}</td>
-                            <td className="px-4 py-3 text-slate-300">{formatDate(event.scheduled_date)} {event.scheduled_time}</td>
+                            <td className="px-4 py-3 text-slate-400">{formatShortDate(event.scheduled_date)} {event.scheduled_time}</td>
                             <td className="px-4 py-3"><StatusBadge status={event.status} /></td>
-                            <td className="px-4 py-3 text-slate-300">{event.attendance_count ?? '-'}</td>
-                            <td className="px-4 py-3 text-slate-300">{event.notes_submitted ? 'Yes' : 'No'}</td>
-                            <td className="max-w-xs px-4 py-3 text-slate-300">{event.did_not_meet_reason || '-'}</td>
+                            <td className="px-4 py-3 text-slate-300 tabular-nums">{event.attendance_count ?? '—'}</td>
+                            <td className="px-4 py-3 text-slate-400">{event.notes_submitted ? 'Yes' : '—'}</td>
+                            <td className="max-w-xs px-4 py-3 text-slate-400">{event.did_not_meet_reason || '—'}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                 )}
-              </div>
-            )}
-
-            {tab === 'trends' && (
-              <div className="mt-5 grid gap-5">
-                <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
-                  <h2 className="text-base font-semibold text-white">Weekly Status Mix</h2>
-                  <div className="mt-4 h-80">{statusChartData ? <Bar data={statusChartData} options={stackedOptions as any} /> : <EmptyState />}</div>
-                </div>
-                <div className="overflow-hidden rounded-lg border border-slate-800 bg-slate-900/70">
-                  <table className="min-w-full divide-y divide-slate-800 text-sm">
-                    <thead className="bg-slate-950/60 text-left text-xs uppercase tracking-wide text-slate-400">
-                      <tr>
-                        <th className="px-4 py-3">Week</th>
-                        <th className="px-4 py-3">Expected</th>
-                        <th className="px-4 py-3">Met</th>
-                        <th className="px-4 py-3">Did Not Meet</th>
-                        <th className="px-4 py-3">No Summary</th>
-                        <th className="px-4 py-3">Compliance</th>
-                        <th className="px-4 py-3">Attendance</th>
-                        <th className="px-4 py-3">Avg Size</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800">
-                      {data.weeklyTrend.map((point) => (
-                        <tr key={point.week_start_date}>
-                          <td className="px-4 py-3 text-white">{formatDate(point.week_start_date)}</td>
-                          <td className="px-4 py-3 text-slate-300">{point.expected}</td>
-                          <td className="px-4 py-3 text-slate-300">{point.met}</td>
-                          <td className="px-4 py-3 text-slate-300">{point.didNotMeet}</td>
-                          <td className="px-4 py-3 text-slate-300">{point.noSummary}</td>
-                          <td className="px-4 py-3 text-slate-300">{point.compliancePct}%</td>
-                          <td className="px-4 py-3 text-slate-300">{point.totalAttendance}</td>
-                          <td className="px-4 py-3 text-slate-300">{point.averageCircleSize}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="border-t border-slate-800 px-4 py-2.5 text-xs text-slate-500">
+                  Showing {visibleEvents.length} of {data.weeklyEvents.length} expected events this week
                 </div>
               </div>
-            )}
+            </section>
 
-            {tab === 'did-not-meet' && (
-              <div className="mt-5 grid gap-5 lg:grid-cols-2">
-                <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
-                  <h2 className="text-base font-semibold text-white">Reason Categories Over Time</h2>
-                  <div className="mt-4 h-72">{reasonChartData ? <Bar data={reasonChartData} options={stackedOptions as any} /> : <EmptyState />}</div>
-                </div>
-                <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
-                  <h2 className="text-base font-semibold text-white">Top Reasons</h2>
+            {/* Reasons for not meeting */}
+            <section className="mt-9 pb-4">
+              <SectionHeading eyebrow="Operations" title="Reasons for not meeting" hint={`${data.didNotMeetInsights.total} across the range`} />
+              <div className="grid gap-3 lg:grid-cols-3">
+                <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 lg:col-span-1">
+                  <h3 className="text-sm font-semibold text-white">Top reasons</h3>
                   <div className="mt-4 space-y-3">
                     {data.didNotMeetInsights.topReasons.length === 0 ? (
-                      <EmptyState />
+                      <EmptyState compact />
                     ) : (
                       data.didNotMeetInsights.topReasons.map((reason, index) => (
-                        <div key={reason.reason} className="rounded-md border border-slate-800 bg-slate-950/60 p-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-semibold text-white">{index + 1}. {reason.reason}</p>
-                              <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">{reason.category}</p>
-                            </div>
-                            <p className="text-lg font-semibold text-white">{reason.count}</p>
+                        <div key={reason.reason} className="flex items-start justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                          <div>
+                            <p className="text-sm font-medium text-white">{index + 1}. {reason.reason}</p>
+                            <p className="mt-0.5 text-[11px] uppercase tracking-wide text-slate-500">{reason.category}</p>
                           </div>
+                          <p className="text-lg font-semibold text-white tabular-nums">{reason.count}</p>
                         </div>
                       ))
                     )}
                   </div>
                 </div>
-                <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-4 lg:col-span-2">
-                  <h2 className="text-base font-semibold text-white">All Did Not Meet Reasons</h2>
-                  <div className="mt-4 overflow-x-auto">
-                    <table className="min-w-full divide-y divide-slate-800 text-sm">
-                      <thead className="bg-slate-950/60 text-left text-xs uppercase tracking-wide text-slate-400">
-                        <tr>
-                          <th className="px-4 py-3">Reason</th>
-                          <th className="px-4 py-3">Category</th>
-                          <th className="px-4 py-3">Count</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800">
-                        {data.didNotMeetInsights.byReason.map((reason) => (
-                          <tr key={reason.reason}>
-                            <td className="px-4 py-3 text-white">{reason.reason}</td>
-                            <td className="px-4 py-3 capitalize text-slate-300">{reason.category}</td>
-                            <td className="px-4 py-3 text-slate-300">{reason.count}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 lg:col-span-2">
+                  <div className="border-b border-slate-800 p-4">
+                    <h3 className="text-sm font-semibold text-white">All did-not-meet reasons</h3>
                   </div>
+                  {data.didNotMeetInsights.byReason.length === 0 ? (
+                    <EmptyState />
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-slate-800 text-sm">
+                        <thead className="bg-slate-950/60 text-left text-xs uppercase tracking-wide text-slate-400">
+                          <tr>
+                            <th className="px-4 py-3 font-medium">Reason</th>
+                            <th className="px-4 py-3 font-medium">Category</th>
+                            <th className="px-4 py-3 font-medium">Count</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800">
+                          {data.didNotMeetInsights.byReason.map((reason) => (
+                            <tr key={reason.reason} className="hover:bg-slate-800/40">
+                              <td className="px-4 py-3 text-white">{reason.reason}</td>
+                              <td className="px-4 py-3 capitalize text-slate-400">{reason.category}</td>
+                              <td className="px-4 py-3 text-slate-300 tabular-nums">{reason.count}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
+            </section>
           </>
         )}
       </div>
@@ -842,48 +1019,42 @@ function CircleReportingContent() {
   );
 }
 
-function EmptyState() {
+function SortableTh({
+  label,
+  col,
+  sortKey,
+  sortDir,
+  onSort,
+}: {
+  label: string;
+  col: SortKey;
+  sortKey: SortKey;
+  sortDir: 'asc' | 'desc';
+  onSort: (key: SortKey) => void;
+}) {
+  const active = sortKey === col;
   return (
-    <div className="flex min-h-32 items-center justify-center rounded-md border border-dashed border-slate-700 p-6 text-center text-sm text-slate-500">
-      No reporting data for the selected filters.
-    </div>
+    <th className="px-4 py-3 font-medium">
+      <button
+        type="button"
+        onClick={() => onSort(col)}
+        className={`inline-flex items-center gap-1 transition hover:text-slate-200 ${active ? 'text-emerald-300' : ''}`}
+      >
+        {label}
+        {active ? (
+          sortDir === 'asc' ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />
+        ) : (
+          <ChevronsUpDown className="h-3 w-3 opacity-40" />
+        )}
+      </button>
+    </th>
   );
 }
 
-function BreakdownTable({ title, rows }: { title: string; rows: Breakdown[] }) {
+function EmptyState({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-800 bg-slate-900/70">
-      <div className="border-b border-slate-800 p-4">
-        <h2 className="text-base font-semibold text-white">{title}</h2>
-      </div>
-      {rows.length === 0 ? (
-        <EmptyState />
-      ) : (
-        <table className="min-w-full divide-y divide-slate-800 text-sm">
-          <thead className="bg-slate-950/60 text-left text-xs uppercase tracking-wide text-slate-400">
-            <tr>
-              <th className="px-4 py-3">Group</th>
-              <th className="px-4 py-3">Expected</th>
-              <th className="px-4 py-3">Met</th>
-              <th className="px-4 py-3">Did Not Meet</th>
-              <th className="px-4 py-3">No Summary</th>
-              <th className="px-4 py-3">Compliance</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800">
-            {rows.map((row) => (
-              <tr key={row.name}>
-                <td className="px-4 py-3 font-medium text-white">{row.name}</td>
-                <td className="px-4 py-3 text-slate-300">{row.expected}</td>
-                <td className="px-4 py-3 text-slate-300">{row.met}</td>
-                <td className="px-4 py-3 text-slate-300">{row.didNotMeet}</td>
-                <td className="px-4 py-3 text-slate-300">{row.noSummary}</td>
-                <td className="px-4 py-3 text-slate-300">{row.compliancePct}%</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+    <div className={`flex items-center justify-center rounded-xl border border-dashed border-slate-700/70 text-center text-sm text-slate-500 ${compact ? 'min-h-24 p-4' : 'min-h-32 p-6'}`}>
+      No data for the selected filters.
     </div>
   );
 }

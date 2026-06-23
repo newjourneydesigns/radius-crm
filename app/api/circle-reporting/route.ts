@@ -74,6 +74,7 @@ type WeeklyEvent = {
   leader_status: string;
   campus: string;
   circle_type: string;
+  acpd: string;
   scheduled_date: string;
   scheduled_time: string;
   frequency: string;
@@ -320,6 +321,7 @@ function buildWeeklyEvent(
     leader_status: expected.leader.status || 'Unknown',
     campus: expected.leader.campus || 'Unknown',
     circle_type: expected.leader.circle_type || 'Unknown',
+    acpd: expected.leader.acpd || 'Unassigned',
     scheduled_date: expected.expected_date,
     scheduled_time: expected.leader.time || '',
     frequency: expected.leader.frequency || 'Weekly',
@@ -351,7 +353,7 @@ function aggregateEvents(events: WeeklyEvent[]) {
   };
 }
 
-function groupedBreakdown(events: WeeklyEvent[], key: 'campus' | 'circle_type') {
+function groupedBreakdown(events: WeeklyEvent[], key: 'campus' | 'circle_type' | 'acpd') {
   const groups = new Map<string, WeeklyEvent[]>();
   for (const event of events) {
     const value = event[key] || 'Unknown';
@@ -514,6 +516,7 @@ export async function GET(request: Request) {
         weeklyTrend: [],
         campusBreakdown: [],
         circleTypeBreakdown: [],
+        acpdBreakdown: [],
         didNotMeetInsights: reasonInsights([]),
         csvRows: [],
       });
@@ -714,6 +717,7 @@ export async function GET(request: Request) {
         reasonTrend,
         campusBreakdown: groupedBreakdown(rangedEvents, 'campus'),
         circleTypeBreakdown: groupedBreakdown(rangedEvents, 'circle_type'),
+        acpdBreakdown: groupedBreakdown(rangedEvents, 'acpd'),
         didNotMeetInsights: reasonInsights(rangedEvents),
         csvRows: serializeCSVRows(selectedWeekEvents),
       },

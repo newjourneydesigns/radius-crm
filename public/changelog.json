@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-06-23",
+    "version": "2.43.1",
+    "date_display": "June 23, 2026",
+    "date_iso": "2026-06-23",
+    "id": "circle-reporting-dashboard-redesign",
+    "type": "improvement",
+    "category": "Circle Reporting",
+    "description": "The Circle Reporting page is redesigned as a single-scroll leadership dashboard: a six-metric KPI row (Total Attendance, Total Circles, Avg Circle Size, Compliance, Did Not Meet, No Summary) with week-over-week deltas, four trend charts (attendance, compliance, circle count, did-not-meet), and at-a-glance breakdown cards by Campus, Circle Type, and the new By ACPD view. The weekly events table now has search, sortable columns, and quick-filters for Missing summaries / Did not meet / Met.",
+    "page": "/circle-reporting"
+  },
+  {
     "date": "2026-06-22",
     "version": "2.43.1",
     "date_display": "June 22, 2026",
