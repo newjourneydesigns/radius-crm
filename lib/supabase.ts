@@ -864,3 +864,55 @@ export interface TouchpointSettingsConfig {
   target_per_period: number;
   terms: TouchpointTerm[];
 }
+
+// ── Student Toolkit ──────────────────────────────────────────────────────────
+// Student leaders live in their own table, decoupled from circle_leaders.
+
+export interface StudentLeader {
+  id: number;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  campus: string | null;
+  status: string; // 'active' | 'archived'
+  toolkit_access_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StudentSession {
+  id: string;
+  student_leader_id: number;
+  token_hash: string;
+  user_agent: string | null;
+  ip: string | null;
+  created_at: string;
+  last_seen_at: string;
+  revoked_at: string | null;
+}
+
+export interface StudentOtpCode {
+  id: string;
+  student_leader_id: number | null;
+  code_hash: string;
+  expires_at: string;
+  attempts: number;
+  consumed_at: string | null;
+  request_ip: string | null;
+  created_at: string;
+}
+
+export interface StudentMessage {
+  id: string;
+  header: string;
+  body_html: string;
+  url: string | null;
+  url_label: string | null;
+  campus_filter: string[];
+  start_date: string | null; // YYYY-MM-DD
+  end_date: string | null;   // YYYY-MM-DD
+  priority: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}

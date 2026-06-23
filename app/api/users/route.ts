@@ -280,9 +280,9 @@ export async function POST(request: NextRequest) {
     // Note: Supabase automatically sends a confirmation email when email_confirm: false
     // You can customize this email in your Supabase dashboard under Authentication > Email Templates
     
-    console.log('User and profile created successfully, invite email sent');
-    return NextResponse.json({ 
-      message: 'User invited successfully. They will receive an email with a magic link to sign in.',
+    console.log('User and profile created successfully (no email sent)');
+    return NextResponse.json({
+      message: 'User added. No email was sent and they do not have access yet.',
       user: {
         id: data.user.id,
         email: data.user.email,

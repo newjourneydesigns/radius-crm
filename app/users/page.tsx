@@ -125,8 +125,8 @@ export default function UsersPage() {
       setShowAlert({
         isOpen: true,
         type: 'success',
-        title: 'User Invited',
-        message: `Invitation sent to ${formData.email}. They will receive an email with a magic link to sign in.`
+        title: 'User Added',
+        message: `${formData.email} has been added. No email is sent and they don't have access yet.`
       });
 
       // Reset form
@@ -384,10 +384,10 @@ export default function UsersPage() {
             </div>
             <div className="ml-3 flex-1">
               <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                Passwordless Authentication
+                Invite-Only Access
               </h3>
               <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
-                This system uses magic links for secure, password-free sign-in. When you invite a user, they'll receive an email with a link to access the system. Access is invite-only.
+                Adding a user creates their account but does not send any email or grant access. You can give them access later when you're ready.
               </p>
             </div>
           </div>
@@ -397,9 +397,9 @@ export default function UsersPage() {
         {showAddForm && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-8">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Invite New User</h2>
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Add New User</h2>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                User will receive a magic link via email to sign in. No password required.
+                Creates the account only — no email is sent and they don't get access yet.
               </p>
             </div>
             <form onSubmit={handleAddUser} className="p-6">
@@ -463,7 +463,7 @@ export default function UsersPage() {
                   disabled={isSubmitting}
                   className="btn-primary px-4 py-2 rounded-lg text-sm"
                 >
-                  {isSubmitting ? 'Sending Invite...' : 'Send Invite'}
+                  {isSubmitting ? 'Adding User...' : 'Add User'}
                 </button>
               </div>
             </form>

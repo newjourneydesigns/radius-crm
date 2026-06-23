@@ -1328,6 +1328,26 @@ export default function TodayPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { fetchCalendars(); }, [fetchCalendars]);
 
+  // Returning to the Today tab refetches fresh (bypassing the 60s server cache),
+  // so cards created or edited on a board in another tab show up immediately
+  // instead of waiting for the cache to expire. Guarded to once per 10s so rapid
+  // tab-switching doesn't hammer the digest endpoint.
+  useEffect(() => {
+    let lastFresh = Date.now();
+    const refreshIfVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastFresh < 10_000) return;
+      lastFresh = Date.now();
+      fetchData({ fresh: true });
+    };
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    window.addEventListener('focus', refreshIfVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+      window.removeEventListener('focus', refreshIfVisible);
+    };
+  }, [fetchData]);
+
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1100px)');
     const update = () => setIsDesktop(mq.matches);

@@ -213,7 +213,6 @@ To keep deploy credits down:
 | `WEB_PUSH_VAPID_PRIVATE_KEY` | VAPID private key for Web Push | Yes |
 | `WEB_PUSH_VAPID_SUBJECT` | VAPID subject (`mailto:` or URL). Falls back to `NEXT_PUBLIC_APP_URL` | No |
 | `NEXT_PUBLIC_COACHING_AUTOMATIONS_ENABLED` | Feature flag for the Circle Leader coaching automations. **Default OFF** — when unset (or not exactly `"true"`) the daily nudge triggers no-op, the Coaching Automations admin page + nav link are hidden, and the per-leader coaching Timeline is hidden. Set to `"true"` to roll the feature out. | No |
-| `GROUPME_ACCESS_TOKEN` | GroupMe API v3 personal access token for the **Student Toolkit** roster import. Service-account model: one account (the token owner) is added to every student leader's GroupMe group, since `GET /groups` only returns groups the token owner belongs to. Used server-side only by `lib/groupme/client.ts`. | Yes |
 
 All secrets live in `.env.local` — never hardcode them.
 
