@@ -114,6 +114,7 @@ const CIRCLE_STATUS_OPTIONS = [
   { value: 'archived', label: 'Archived' },
   { value: 'follow-up', label: 'Follow-up' },
   { value: 'invited', label: 'Invited' },
+  { value: 'off-boarding', label: 'Off-boarding' },
   { value: 'on-boarding', label: 'Onboarding' },
   { value: 'paused', label: 'Paused' },
   { value: 'pipeline', label: 'Pipeline' },

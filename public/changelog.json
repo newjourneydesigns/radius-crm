@@ -1,6 +1,39 @@
 [
   {
     "date": "2026-06-23",
+    "version": "2.43.6",
+    "date_display": "June 23, 2026",
+    "date_iso": "2026-06-23",
+    "id": "nav-bar-final-cleanup",
+    "type": "improvement",
+    "category": "Navigation",
+    "description": "Final nav bar cleanup: Circle List renamed to Circles, Connection Tracker shortened to Connections, Directory (person lookup) added and placed after Prayer. Tools menu streamlined — Circles duplicate removed, Reporting and Person Lookup removed since they now live in the nav. Nav order at full width: Today → Events → Circles → Connections → Reporting → Prayer → Directory → Boards → Notebook.",
+    "page": "/"
+  },
+  {
+    "date": "2026-06-23",
+    "version": "2.43.5",
+    "date_display": "June 23, 2026",
+    "date_iso": "2026-06-23",
+    "id": "today-skeleton-layout-fix",
+    "type": "fix",
+    "category": "Today",
+    "description": "The Today page loading skeleton now matches the actual two-pane desktop layout — left rail with Big 3, sections, and scoreboard, plus a calendar timeline on the right — so the transition from loading to loaded feels seamless.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-23",
+    "version": "2.43.4",
+    "date_display": "June 23, 2026",
+    "date_iso": "2026-06-23",
+    "id": "event-tracker-offboarding-status",
+    "type": "fix",
+    "category": "Events",
+    "description": "Off-boarding is now available as a status filter option on the Event Summary Tracker.",
+    "page": "/event-summary-tracker"
+  },
+  {
+    "date": "2026-06-23",
     "version": "2.43.4",
     "date_display": "June 23, 2026",
     "date_iso": "2026-06-23",

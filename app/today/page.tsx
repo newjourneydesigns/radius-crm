@@ -795,128 +795,260 @@ function SkEl({ w, h, r = 5, style }: { w: number | string; h: number; r?: numbe
   return <div className="sk" style={{ width: w, height: h, borderRadius: r, flexShrink: 0, ...style }} />;
 }
 
-function TodaySkeleton() {
-  const loadingMessage = useRandomLoadingMessage();
-  const sectionRows = [3, 2, 4, 2];
+function SkScoreboard() {
   return (
     <div style={{
-      maxWidth: 720, margin: '0 auto',
-      padding: '20px 16px 100px', position: 'relative', zIndex: 1,
-      minHeight: 'calc(100vh - 60px)',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
+      background: T.cardBg, border: `1px solid ${T.cardBorder}`,
+      borderRadius: 14, overflow: 'hidden',
     }}>
-      <style>{`
-        @keyframes sk-pulse { 0%,100% { opacity:.45 } 50% { opacity:.8 } }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .sk { background:${SK}; animation: sk-pulse 1.6s ease-in-out infinite; }
-      `}</style>
-
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 12,
-        margin: '8px 0 24px',
-        textAlign: 'center',
-      }}>
-        <div style={{
-          width: 34,
-          height: 34,
-          borderRadius: 999,
-          border: `2px solid ${T.cardBorder}`,
-          borderTopColor: '#33B233',
-          animation: 'spin 1s linear infinite',
-        }} />
-        <p
-          key={loadingMessage}
-          suppressHydrationWarning
-          className="loading-message-build-in"
-          style={{
-            minHeight: 22,
-            margin: 0,
-            color: T.textMuted,
-            fontSize: 13,
-            fontWeight: 500,
-            lineHeight: 1.5,
-            overflowWrap: 'anywhere',
-          }}
-        >
-          {loadingMessage}
-        </p>
+      <div style={{ padding: '10px 14px 8px', borderBottom: `1px solid ${T.cardBorder}` }}>
+        <SkEl w={110} h={11} />
       </div>
-
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <SkEl w={72} h={28} r={8} />
-          <SkEl w={160} h={13} />
-        </div>
-        <SkEl w={80} h={34} r={9} />
-      </div>
-
-      {/* Scoreboard */}
-      <div style={{
-        background: T.cardBg, border: `1px solid ${T.cardBorder}`,
-        borderRadius: 14, overflow: 'hidden', marginBottom: 24,
-      }}>
-        <div style={{ padding: '10px 14px 8px', borderBottom: `1px solid ${T.cardBorder}` }}>
-          <SkEl w={120} h={11} />
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-          {Array.from({ length: 8 }).map((_, i) => {
-            const isRight   = i % 2 === 1;
-            const isLastRow = i >= 6;
-            return (
-              <div key={i} style={{
-                padding: '11px 14px',
-                borderBottom: !isLastRow ? `1px solid ${T.cardBorder}` : 'none',
-                borderLeft: isRight ? `1px solid ${T.cardBorder}` : 'none',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <SkEl w={7} h={7} r={99} />
-                  <SkEl w={70 + (i * 13) % 35} h={12} />
-                </div>
-                <SkEl w={14} h={18} r={4} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+        {Array.from({ length: 10 }).map((_, i) => {
+          const isRight = i % 2 === 1;
+          const isLastRow = i >= 8;
+          return (
+            <div key={i} style={{
+              padding: '9px 14px',
+              borderBottom: !isLastRow ? `1px solid ${T.cardBorder}` : 'none',
+              borderLeft: isRight ? `1px solid ${T.cardBorder}` : 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <SkEl w={7} h={7} r={99} />
+                <SkEl w={58 + (i * 11) % 32} h={12} />
               </div>
-            );
-          })}
-        </div>
+              <SkEl w={12} h={16} r={3} />
+            </div>
+          );
+        })}
       </div>
+    </div>
+  );
+}
 
-      {/* Section cards */}
-      {sectionRows.map((rows, si) => (
+function SkBigThree() {
+  return (
+    <div style={{
+      background: T.cardBg, border: `1px solid ${T.cardBorder}`,
+      borderRadius: 14, overflow: 'hidden', marginBottom: 12,
+    }}>
+      <div style={{
+        padding: '13px 16px', borderBottom: `1px solid ${T.cardBorder}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <SkEl w={16} h={16} r={4} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <SkEl w={46} h={13} r={4} />
+            <SkEl w={92} h={10} r={3} />
+          </div>
+        </div>
+        <SkEl w={30} h={20} r={5} />
+      </div>
+      {[0, 1, 2].map(i => (
+        <div key={i} style={{
+          padding: '13px 16px',
+          borderBottom: i < 2 ? `1px solid ${T.cardBorder}` : 'none',
+          borderLeft: '3px solid transparent',
+          display: 'flex', alignItems: 'flex-start', gap: 12,
+        }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <SkEl w={`${55 + (i * 17) % 28}%`} h={13} r={4} style={{ marginBottom: 6 }} />
+            <SkEl w={`${30 + (i * 11) % 20}%`} h={10} r={3} style={{ marginBottom: 7 }} />
+            <div style={{ display: 'flex', gap: 5 }}>
+              <SkEl w={46} h={16} r={4} />
+              <SkEl w={40} h={16} r={4} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            <SkEl w={52} h={26} r={7} />
+            <SkEl w={26} h={26} r={7} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SkSections() {
+  return (
+    <>
+      {([2, 4, 2] as const).map((rows, si) => (
         <div key={si} style={{
           background: T.cardBg, border: `1px solid ${T.cardBorder}`,
           borderRadius: 14, overflow: 'hidden', marginBottom: 12,
         }}>
-          {/* Section header */}
           <div style={{
-            padding: '12px 16px',
-            borderBottom: `1px solid ${T.cardBorder}`,
+            padding: '12px 16px', borderBottom: `1px solid ${T.cardBorder}`,
             display: 'flex', alignItems: 'center', gap: 8,
           }}>
             <SkEl w={16} h={16} r={4} />
-            <SkEl w={120 + (si * 23) % 60} h={13} />
-            <SkEl w={24} h={18} r={5} style={{ marginLeft: 2 }} />
+            <SkEl w={100 + (si * 28) % 55} h={13} />
+            <SkEl w={22} h={18} r={5} style={{ marginLeft: 2 }} />
           </div>
-          {/* Rows */}
           {Array.from({ length: rows }).map((_, ri) => (
             <div key={ri} style={{
               padding: '11px 16px 11px 19px',
               borderBottom: ri < rows - 1 ? `1px solid ${T.cardBorder}` : 'none',
+              borderLeft: '3px solid transparent',
               display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
             }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7, flex: 1, minWidth: 0 }}>
-                <SkEl w={`${50 + (ri * 19 + si * 11) % 35}%`} h={13} />
-                <SkEl w={`${28 + (ri * 13 + si * 7) % 22}%`} h={11} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minWidth: 0 }}>
+                <SkEl w={`${52 + (ri * 19 + si * 11) % 30}%`} h={13} />
+                <SkEl w={`${28 + (ri * 13 + si * 7) % 20}%`} h={10} />
               </div>
-              <SkEl w={54} h={28} r={7} />
+              <SkEl w={52} h={26} r={7} />
             </div>
           ))}
         </div>
       ))}
-    </div>
+    </>
+  );
+}
+
+function TodaySkeleton() {
+  const loadingMessage = useRandomLoadingMessage();
+  const FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif';
+
+  return (
+    <>
+      <style>{`
+        @keyframes sk-pulse { 0%,100% { opacity:.45 } 50% { opacity:.8 } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .sk { background:${SK}; animation: sk-pulse 1.6s ease-in-out infinite; }
+
+        /* Mobile: single column */
+        .sk-wrap { max-width: 720px; margin: 0 auto; padding: 20px 16px 100px; font-family: ${FONT}; }
+        .sk-rail { display: contents; }
+        .sk-rail-scroll { display: contents; }
+        .sk-rail-bottom { margin-top: 16px; }
+        .sk-timeline { display: none; }
+        .sk-loading { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 8px 0 24px; text-align: center; }
+
+        /* Desktop: two-pane grid */
+        @media (min-width: 1100px) {
+          .sk-wrap {
+            max-width: none; margin: 0;
+            padding: 16px 20px;
+            height: calc(100vh - 56px);
+            display: grid;
+            grid-template-columns: minmax(380px, 440px) 1fr;
+            gap: 16px;
+          }
+          .sk-rail { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow: hidden; }
+          .sk-rail-scroll { flex: 1; overflow: hidden; min-height: 0; }
+          .sk-rail-bottom { flex-shrink: 0; margin-top: 0; }
+          .sk-timeline {
+            display: flex; flex-direction: column; min-height: 0;
+            background: ${T.cardBg}; border: 1px solid ${T.cardBorder};
+            border-radius: 14px; overflow: hidden;
+          }
+          .sk-loading { display: none; }
+        }
+      `}</style>
+
+      <div className="sk-wrap">
+
+        {/* ── Left rail (or full column on mobile) ── */}
+        <div className="sk-rail">
+
+          {/* Mobile-only spinner */}
+          <div className="sk-loading">
+            <div style={{
+              width: 32, height: 32, borderRadius: 999,
+              border: `2px solid ${T.cardBorder}`, borderTopColor: '#33B233',
+              animation: 'spin 1s linear infinite',
+            }} />
+            <p key={loadingMessage} suppressHydrationWarning style={{ margin: 0, color: T.textMuted, fontSize: 13, fontWeight: 500 }}>
+              {loadingMessage}
+            </p>
+          </div>
+
+          {/* Header */}
+          <div style={{
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+            marginBottom: 16, flexShrink: 0,
+          }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <SkEl w={68} h={26} r={7} />
+              <SkEl w={148} h={12} />
+            </div>
+            <SkEl w={78} h={32} r={9} />
+          </div>
+
+          {/* Scrollable content */}
+          <div className="sk-rail-scroll">
+            <SkBigThree />
+            <SkSections />
+          </div>
+
+          {/* Scoreboard pinned to bottom on desktop, inline on mobile */}
+          <div className="sk-rail-bottom">
+            <SkScoreboard />
+          </div>
+
+        </div>
+
+        {/* ── Right pane: timeline (desktop only) ── */}
+        <div className="sk-timeline">
+          {/* Date header */}
+          <div style={{
+            padding: '13px 16px', borderBottom: `1px solid ${T.cardBorder}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <SkEl w={22} h={22} r={6} />
+              <SkEl w={22} h={22} r={6} />
+              <SkEl w={148} h={15} r={5} />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <SkEl w={58} h={26} r={8} />
+              <SkEl w={78} h={26} r={8} />
+            </div>
+          </div>
+          {/* Next-up strip */}
+          <div style={{
+            padding: '9px 16px', borderBottom: `1px solid ${T.cardBorder}`,
+            display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
+          }}>
+            <SkEl w={52} h={11} r={3} />
+            <SkEl w={8} h={8} r={99} />
+            <SkEl w={140} h={13} r={4} />
+          </div>
+          {/* Time grid */}
+          <div style={{ flex: 1, overflow: 'hidden', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {[
+              { eventW: '62%', eventH: 52, showEvent: true },
+              { eventW: null, eventH: 0, showEvent: false },
+              { eventW: '42%', eventH: 44, showEvent: true },
+              { eventW: null, eventH: 0, showEvent: false },
+              { eventW: null, eventH: 0, showEvent: false, dual: true },
+              { eventW: '55%', eventH: 68, showEvent: true },
+              { eventW: null, eventH: 0, showEvent: false },
+            ].map((row, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
+                <SkEl w={36} h={11} r={3} style={{ flexShrink: 0, marginTop: 3 }} />
+                {row.showEvent && !row.dual && (
+                  <SkEl w={row.eventW as string} h={row.eventH} r={8} />
+                )}
+                {row.dual && (
+                  <div style={{ display: 'flex', gap: 8, flex: 1 }}>
+                    <SkEl w="50%" h={68} r={8} />
+                    <SkEl w="42%" h={44} r={8} />
+                  </div>
+                )}
+                {!row.showEvent && !row.dual && (
+                  <div style={{ flex: 1, height: 1, background: T.cardBorder, marginTop: 6, opacity: 0.4 }} />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </div>
+    </>
   );
 }
 
