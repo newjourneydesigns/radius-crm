@@ -62,6 +62,10 @@ type SnapshotRow = {
   campus: string | null;
   circle_type: string | null;
   acpd: string | null;
+  meeting_day: string | null;
+  meeting_frequency: string | null;
+  meeting_time: string | null;
+  meeting_start_date: string | null;
 };
 
 type ExpectedEvent = {
@@ -148,6 +152,21 @@ function weekStartsBetween(startDate: string, endDate: string): string[] {
 function dayIndex(day: string | null): number | null {
   const key = (day ?? '').trim().toLowerCase();
   return DAY_INDEX[key] ?? null;
+}
+
+// Merge a week's captured cadence over the leader's current values so the
+// schedule projection reconstructs that week from the cadence as it was then,
+// not as it is today. Falls back to current values when no snapshot recorded
+// them (weeks before point-in-time capture began).
+function applySnapshotCadence(leader: LeaderRow, snapshot?: SnapshotRow): LeaderRow {
+  if (!snapshot) return leader;
+  return {
+    ...leader,
+    day: snapshot.meeting_day || leader.day,
+    frequency: snapshot.meeting_frequency || leader.frequency,
+    time: snapshot.meeting_time || leader.time,
+    meeting_start_date: snapshot.meeting_start_date || leader.meeting_start_date,
+  };
 }
 
 function expectedDateForWeek(weekStart: string, leader: LeaderRow): string {
@@ -337,8 +356,8 @@ function buildWeeklyEvent(
     circle_type: snapshot?.circle_type || expected.leader.circle_type || 'Unknown',
     acpd: snapshot?.acpd || expected.leader.acpd || 'Unassigned',
     scheduled_date: expected.expected_date,
-    scheduled_time: expected.leader.time || '',
-    frequency: expected.leader.frequency || 'Weekly',
+    scheduled_time: snapshot?.meeting_time || expected.leader.time || '',
+    frequency: snapshot?.meeting_frequency || expected.leader.frequency || 'Weekly',
     status,
     status_label: labelForStatus(status),
     attendance_count: status === 'met' ? attendance ?? null : null,
@@ -460,8 +479,8 @@ function buildExportRecord(expected: ExpectedEvent, indexes: ReturnType<typeof b
   return {
     week_start_date: expected.week_start_date,
     scheduled_date: expected.expected_date,
-    scheduled_time: expected.leader.time || '',
-    frequency: expected.leader.frequency || 'Weekly',
+    scheduled_time: event.scheduled_time,
+    frequency: event.frequency,
     leader_id: expected.leader.id,
     leader_name: expected.leader.name,
     circle_name: event.circle_name,
@@ -586,7 +605,7 @@ export async function GET(request: Request) {
         .limit(20000),
       db
         .from('event_summary_snapshots')
-        .select('circle_leader_id, week_start_date, event_summary_state, ccb_event_scheduled, ccb_report_available, leader_status, campus, circle_type, acpd')
+        .select('circle_leader_id, week_start_date, event_summary_state, ccb_event_scheduled, ccb_report_available, leader_status, campus, circle_type, acpd, meeting_day, meeting_frequency, meeting_time, meeting_start_date')
         .in('circle_leader_id', leaderIds)
         .gte('week_start_date', queryStart)
         .lte('week_start_date', startOfWeekSunday(queryEnd))
@@ -600,7 +619,7 @@ export async function GET(request: Request) {
     // Older databases may be missing the CCB columns and/or the point-in-time
     // leader-attribute columns. Fall back to the minimal set and default the
     // rest, so reporting still works before those migrations have run.
-    if (snapshotsRes.error && /ccb_event_scheduled|ccb_report_available|leader_status|circle_type|acpd|campus/.test(snapshotsRes.error.message)) {
+    if (snapshotsRes.error && /ccb_event_scheduled|ccb_report_available|leader_status|circle_type|acpd|campus|meeting_day|meeting_frequency|meeting_time|meeting_start_date/.test(snapshotsRes.error.message)) {
       const fallback = await db
         .from('event_summary_snapshots')
         .select('circle_leader_id, week_start_date, event_summary_state')
@@ -617,6 +636,10 @@ export async function GET(request: Request) {
         campus: null,
         circle_type: null,
         acpd: null,
+        meeting_day: null,
+        meeting_frequency: null,
+        meeting_time: null,
+        meeting_start_date: null,
       }));
     } else if (snapshotsRes.error) {
       throw snapshotsRes.error;
@@ -650,8 +673,9 @@ export async function GET(request: Request) {
     for (const week of weekStartsBetween(queryStart, queryEnd)) {
       for (const leader of leaderRows) {
         const snap = indexes.snapshotsByLeaderWeek.get(`${leader.id}|${week}`);
-        if (!isExpectedThisWeek(leader, week, snap?.leader_status)) continue;
-        const expectedDate = expectedDateForWeek(week, leader);
+        const effLeader = applySnapshotCadence(leader, snap);
+        if (!isExpectedThisWeek(effLeader, week, snap?.leader_status)) continue;
+        const expectedDate = expectedDateForWeek(week, effLeader);
         addExpected(leader.id, week, expectedDate);
       }
     }
@@ -679,7 +703,8 @@ export async function GET(request: Request) {
       if (!hasReport) continue;
       const leader = leadersById.get(row.circle_leader_id);
       if (!leader) continue;
-      addExpected(row.circle_leader_id, row.week_start_date, expectedDateForWeek(row.week_start_date, leader));
+      const effLeader = applySnapshotCadence(leader, row);
+      addExpected(row.circle_leader_id, row.week_start_date, expectedDateForWeek(row.week_start_date, effLeader));
     }
 
     const allExpected = Array.from(allExpectedByKey.values());

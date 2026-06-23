@@ -4,6 +4,17 @@
     "version": "2.43.1",
     "date_display": "June 23, 2026",
     "date_iso": "2026-06-23",
+    "id": "circle-reporting-point-in-time-cadence",
+    "type": "improvement",
+    "category": "Circle Reporting",
+    "description": "Circle Reporting now reconstructs each past week using the leader's meeting day, frequency, and start date as they were that week, not as they are today. So if a leader switched from weekly to bi-weekly (or changed meeting day) the historical expected-meeting counts stay accurate instead of being recalculated from the current schedule. Weeks captured before this change are approximated with the current cadence.",
+    "page": "/circle-reporting"
+  },
+  {
+    "date": "2026-06-23",
+    "version": "2.43.1",
+    "date_display": "June 23, 2026",
+    "date_iso": "2026-06-23",
     "id": "circle-reporting-dnm-reason-attribution",
     "type": "improvement",
     "category": "Circle Reporting",
