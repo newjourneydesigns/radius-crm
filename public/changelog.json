@@ -4,6 +4,17 @@
     "version": "2.43.1",
     "date_display": "June 23, 2026",
     "date_iso": "2026-06-23",
+    "id": "circle-reporting-point-in-time-status",
+    "type": "improvement",
+    "category": "Circle Reporting",
+    "description": "Circle Reporting now judges each past week by the leader's status, campus, circle type, and ACPD as they were that week, not as they are today. Weekly snapshots capture these attributes going forward, so a leader who was active in the spring but is paused now is still counted in the spring's numbers (and breakdowns roll up to how things looked at the time). Weeks captured before this change are approximated with current values.",
+    "page": "/circle-reporting"
+  },
+  {
+    "date": "2026-06-23",
+    "version": "2.43.1",
+    "date_display": "June 23, 2026",
+    "date_iso": "2026-06-23",
     "id": "circle-reporting-data-corrections",
     "type": "fix",
     "category": "Circle Reporting",

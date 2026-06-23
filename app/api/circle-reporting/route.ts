@@ -58,6 +58,10 @@ type SnapshotRow = {
   event_summary_state: string | null;
   ccb_event_scheduled: boolean | null;
   ccb_report_available: boolean | null;
+  leader_status: string | null;
+  campus: string | null;
+  circle_type: string | null;
+  acpd: string | null;
 };
 
 type ExpectedEvent = {
@@ -180,8 +184,12 @@ function weeksBetween(a: string, b: string): number {
   return Math.floor((parseDate(b).getTime() - parseDate(a).getTime()) / (7 * 24 * 60 * 60 * 1000));
 }
 
-function isExpectedThisWeek(leader: LeaderRow, weekStart: string): boolean {
-  if (!ACTIVE_STATUSES.has((leader.status ?? '').toLowerCase())) return false;
+function isExpectedThisWeek(leader: LeaderRow, weekStart: string, statusOverride?: string | null): boolean {
+  // Use the leader's point-in-time status for the week when we captured it, so a
+  // leader who is paused today but was active that week is still expected (and
+  // vice versa). Fall back to current status when no snapshot recorded it.
+  const effectiveStatus = statusOverride && statusOverride.trim() ? statusOverride : leader.status;
+  if (!ACTIVE_STATUSES.has((effectiveStatus ?? '').toLowerCase())) return false;
   if ((leader.leader_type ?? 'circle') !== 'circle') return false;
 
   const expectedDate = expectedDateForWeek(weekStart, leader);
@@ -321,10 +329,13 @@ function buildWeeklyEvent(
     leader_id: expected.leader.id,
     leader_name: expected.leader.name,
     circle_name: expected.leader.circle_name || expected.leader.ccb_group_name || expected.leader.name,
-    leader_status: expected.leader.status || 'Unknown',
-    campus: expected.leader.campus || 'Unknown',
-    circle_type: expected.leader.circle_type || 'Unknown',
-    acpd: expected.leader.acpd || 'Unassigned',
+    // Prefer the leader's point-in-time attributes captured on the snapshot for
+    // that week; fall back to the leader's current values when no snapshot
+    // recorded them (e.g. weeks before point-in-time capture began).
+    leader_status: snapshot?.leader_status || expected.leader.status || 'Unknown',
+    campus: snapshot?.campus || expected.leader.campus || 'Unknown',
+    circle_type: snapshot?.circle_type || expected.leader.circle_type || 'Unknown',
+    acpd: snapshot?.acpd || expected.leader.acpd || 'Unassigned',
     scheduled_date: expected.expected_date,
     scheduled_time: expected.leader.time || '',
     frequency: expected.leader.frequency || 'Weekly',
@@ -438,7 +449,7 @@ function buildExportRecord(expected: ExpectedEvent, indexes: ReturnType<typeof b
     circle_name: event.circle_name,
     campus: event.campus,
     circle_type: event.circle_type,
-    acpd: expected.leader.acpd || '',
+    acpd: event.acpd || '',
     leader_status: event.leader_status,
     reporting_status: event.status_label,
     attendance: event.attendance_count,
@@ -557,7 +568,7 @@ export async function GET(request: Request) {
         .limit(20000),
       db
         .from('event_summary_snapshots')
-        .select('circle_leader_id, week_start_date, event_summary_state, ccb_event_scheduled, ccb_report_available')
+        .select('circle_leader_id, week_start_date, event_summary_state, ccb_event_scheduled, ccb_report_available, leader_status, campus, circle_type, acpd')
         .in('circle_leader_id', leaderIds)
         .gte('week_start_date', queryStart)
         .lte('week_start_date', startOfWeekSunday(queryEnd))
@@ -568,7 +579,10 @@ export async function GET(request: Request) {
     if (submissionsRes.error) throw submissionsRes.error;
 
     let snapshotRows = (snapshotsRes.data ?? []) as SnapshotRow[];
-    if (snapshotsRes.error && /ccb_event_scheduled|ccb_report_available/.test(snapshotsRes.error.message)) {
+    // Older databases may be missing the CCB columns and/or the point-in-time
+    // leader-attribute columns. Fall back to the minimal set and default the
+    // rest, so reporting still works before those migrations have run.
+    if (snapshotsRes.error && /ccb_event_scheduled|ccb_report_available|leader_status|circle_type|acpd|campus/.test(snapshotsRes.error.message)) {
       const fallback = await db
         .from('event_summary_snapshots')
         .select('circle_leader_id, week_start_date, event_summary_state')
@@ -581,6 +595,10 @@ export async function GET(request: Request) {
         ...row,
         ccb_event_scheduled: false,
         ccb_report_available: false,
+        leader_status: null,
+        campus: null,
+        circle_type: null,
+        acpd: null,
       }));
     } else if (snapshotsRes.error) {
       throw snapshotsRes.error;
@@ -613,7 +631,8 @@ export async function GET(request: Request) {
 
     for (const week of weekStartsBetween(queryStart, queryEnd)) {
       for (const leader of leaderRows) {
-        if (!isExpectedThisWeek(leader, week)) continue;
+        const snap = indexes.snapshotsByLeaderWeek.get(`${leader.id}|${week}`);
+        if (!isExpectedThisWeek(leader, week, snap?.leader_status)) continue;
         const expectedDate = expectedDateForWeek(week, leader);
         addExpected(leader.id, week, expectedDate);
       }
