@@ -4,6 +4,17 @@
     "version": "2.43.1",
     "date_display": "June 23, 2026",
     "date_iso": "2026-06-23",
+    "id": "circle-reporting-data-corrections",
+    "type": "fix",
+    "category": "Circle Reporting",
+    "description": "Circle Reporting now counts a 'skipped' week as Did Not Meet instead of a missing summary, and limits every report to completed weeks (Sunday–Saturday) so the KPI totals and the weekly trend charts always reconcile. Breakdown cards (Campus, Circle Type, ACPD) now show every group rather than truncating to the top eight.",
+    "page": "/circle-reporting"
+  },
+  {
+    "date": "2026-06-23",
+    "version": "2.43.1",
+    "date_display": "June 23, 2026",
+    "date_iso": "2026-06-23",
     "id": "circle-reporting-dashboard-redesign",
     "type": "improvement",
     "category": "Circle Reporting",

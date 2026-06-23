@@ -305,7 +305,10 @@ function buildWeeklyEvent(
   } else if (occurrence?.status === 'met' && (occurrence.headcount ?? 0) > 0) {
     status = 'met';
     source = 'ccb';
-  } else if (snapshot?.event_summary_state === 'did_not_meet') {
+  } else if (snapshot?.event_summary_state === 'did_not_meet' || snapshot?.event_summary_state === 'skipped') {
+    // 'skipped' is the snapshot equivalent of "did not meet" (see the
+    // event_summary_status enum history), so it counts as a reported miss
+    // rather than a missing summary.
     status = 'did_not_meet';
     source = 'snapshot';
   } else if (snapshot?.event_summary_state === 'received') {
@@ -490,6 +493,17 @@ export async function GET(request: Request) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
       return NextResponse.json({ error: 'Dates must be YYYY-MM-DD' }, { status: 400 });
     }
+
+    // Reporting is limited to completed weeks (Sunday–Saturday). Snap the range
+    // to whole weeks and never include the in-progress current week. This keeps
+    // the KPI totals (filtered by exact date) reconciled with the weekly-trend
+    // buckets (grouped by week), which only line up when the edges are aligned.
+    const lastCompletedSaturday = addDays(currentWeek, -1);
+    startDate = startOfWeekSunday(startDate);
+    let alignedEnd = addDays(startOfWeekSunday(endDate), 6);
+    if (alignedEnd > lastCompletedSaturday) alignedEnd = lastCompletedSaturday;
+    if (alignedEnd < startDate) startDate = startOfWeekSunday(alignedEnd);
+    endDate = alignedEnd;
 
     let leadersQuery = db
       .from('circle_leaders')

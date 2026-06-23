@@ -311,19 +311,18 @@ function BreakdownCard({
   icon: typeof Users;
   rows: Breakdown[];
 }) {
-  const top = rows.slice(0, 8);
-  const maxExpected = Math.max(1, ...top.map((row) => row.expected));
+  const maxExpected = Math.max(1, ...rows.map((row) => row.expected));
   return (
     <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5">
       <div className="mb-4 flex items-center gap-2">
         <Icon className="h-4 w-4 text-slate-400" />
         <h3 className="text-sm font-semibold text-white">{title}</h3>
       </div>
-      {top.length === 0 ? (
+      {rows.length === 0 ? (
         <EmptyState compact />
       ) : (
         <div className="space-y-3.5">
-          {top.map((row) => (
+          {rows.map((row) => (
             <div key={row.name}>
               <div className="flex items-baseline justify-between gap-2">
                 <span className="truncate text-sm font-medium text-slate-200">{row.name}</span>
