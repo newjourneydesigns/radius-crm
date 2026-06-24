@@ -3,6 +3,16 @@
     "date": "2026-06-24",
     "date_display": "June 24, 2026",
     "date_iso": "2026-06-24",
+    "id": "list-automation-add-rule-button",
+    "type": "improvement",
+    "category": "Boards",
+    "description": "Cleaned up the \"Add a rule\" form in list Automations. The Add button is now a full-width \"Add rule\" button at the bottom of the form, directly below the rule you're setting up — instead of a small + tucked next to the trigger dropdown. Makes it clearer what you're adding and easier to tap on mobile.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-06-24",
+    "date_display": "June 24, 2026",
+    "date_iso": "2026-06-24",
     "id": "leader-profile-last-connection",
     "type": "feature",
     "category": "Circle Leaders",
