@@ -3,6 +3,26 @@
     "date": "2026-06-24",
     "date_display": "June 24, 2026",
     "date_iso": "2026-06-24",
+    "id": "today-big3-done-for-week",
+    "type": "feature",
+    "category": "Today",
+    "description": "Your Big 3 weekly priorities now have a \"Done for week\" button. Tap it to mark a priority finished for the week even when its board card is still open — the card stays put, the row shows a \"Done this week\" badge with Undo, and the Big 3 header counts how many you've knocked out (e.g. 2/3 done). The count resets on its own each week.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-24",
+    "date_display": "June 24, 2026",
+    "date_iso": "2026-06-24",
+    "id": "today-done-buttons-birthdays-prayers",
+    "type": "improvement",
+    "category": "Today",
+    "description": "Birthdays, prayer requests, and focus cards on the Today page now have a Done button so you can check them off as you go. Marking a birthday or prayer done sticks — it stays checked off after a refresh or reload, with Undo always available. Completed cards no longer show a redundant green \"Done\" badge; the strikethrough is enough.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-24",
+    "date_display": "June 24, 2026",
+    "date_iso": "2026-06-24",
     "id": "leader-profile-last-connection",
     "type": "feature",
     "category": "Circle Leaders",

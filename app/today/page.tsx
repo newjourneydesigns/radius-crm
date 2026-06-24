@@ -24,7 +24,7 @@ import {
 import { useBigThree } from '../../hooks/useBigThree';
 import type { BigThreeBoard, BigThreeCard, BigThreeSlot } from '../../hooks/useBigThree';
 import { useRandomLoadingMessage } from '../../hooks/useRandomLoadingMessage';
-import { normalizeTodayCardsData, useTodayData } from '../../hooks/useTodayData';
+import { normalizeTodayCardsData, prayerKey, useTodayData } from '../../hooks/useTodayData';
 import type { TodayCompleted } from '../../hooks/useTodayData';
 import { useTodayCalendars } from '../../hooks/useTodayCalendars';
 import type { CalendarEventItem } from '../../hooks/useTodayCalendars';
@@ -453,7 +453,8 @@ function BigThreeSection({
   onCreate,
   onSearch,
   onAssignExisting,
-  onDone,
+  onDoneForWeek,
+  onUndoDoneForWeek,
   onClear,
   onOpenCard,
 }: {
@@ -465,7 +466,8 @@ function BigThreeSection({
   onCreate: (slotNumber: 1 | 2 | 3, title: string, boardId: string) => Promise<boolean>;
   onSearch: (query: string) => Promise<BigThreeCard[]>;
   onAssignExisting: (slotNumber: 1 | 2 | 3, card: BigThreeCard) => Promise<boolean>;
-  onDone: (cardId: string) => Promise<void>;
+  onDoneForWeek: (slotNumber: 1 | 2 | 3) => Promise<void>;
+  onUndoDoneForWeek: (slotNumber: 1 | 2 | 3) => Promise<void>;
   onClear: (slotNumber: 1 | 2 | 3) => Promise<void>;
   onOpenCard?: (boardId: string, cardId: string) => void;
 }) {
@@ -585,13 +587,16 @@ function BigThreeSection({
             <p style={{ margin: '2px 0 0', color: T.textMuted, fontSize: 11 }}>Weekly priorities</p>
           </div>
         </div>
-        <span style={{
-          fontSize: 11, fontWeight: 700, color: T.green,
-          padding: '2px 7px', borderRadius: 5,
-          background: `${T.green}18`, border: `1px solid ${T.green}30`,
-          whiteSpace: 'nowrap',
-        }}>
-          {slots.filter(slot => slot.card).length}/3
+        <span
+          title="Done for the week"
+          style={{
+            fontSize: 11, fontWeight: 700, color: T.green,
+            padding: '2px 7px', borderRadius: 5,
+            background: `${T.green}18`, border: `1px solid ${T.green}30`,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {slots.filter(slot => slot.card && (slot.card.is_complete || slot.doneForWeek)).length}/3 done
         </span>
       </div>
 
@@ -609,7 +614,13 @@ function BigThreeSection({
               borderLeft: `3px solid ${card ? T.green : 'transparent'}`,
             }}>
               <div className="today-big3-row" style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                {card ? (
+                {card ? (() => {
+                  const cardDone = card.is_complete;
+                  // "Done for the week" while the card itself stays open — no
+                  // strikethrough, so the badge is what signals the done state.
+                  const doneForWeekOnly = slot.doneForWeek && !cardDone;
+                  const done = cardDone || slot.doneForWeek;
+                  return (
                   <>
                     <Link
                       href={`/boards/${card.board_id}?card=${card.id}`}
@@ -625,25 +636,25 @@ function BigThreeSection({
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
                         <p style={{
-                          margin: 0, color: card.is_complete ? T.textMuted : T.text,
+                          margin: 0, color: done ? T.textMuted : T.text,
                           fontSize: 13, fontWeight: 650,
-                          textDecoration: card.is_complete ? 'line-through' : 'none',
+                          textDecoration: cardDone ? 'line-through' : 'none',
                           overflowWrap: 'anywhere', wordBreak: 'break-word',
                         }}>
                           {card.title}
                         </p>
-                        {card.is_complete && <DateBadge date="Done" color={T.green} />}
+                        {doneForWeekOnly && <DateBadge date="Done this week" color={T.green} />}
                       </div>
                       <Sub>{card.board_name}{card.column_name ? ` · ${card.column_name}` : ''}</Sub>
                       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5, marginTop: 5 }}>
-                        {card.due_date && <DateBadge date={formatShort(card.due_date)} color={card.is_complete ? T.green : T.amber} />}
+                        {card.due_date && <DateBadge date={formatShort(card.due_date)} color={done ? T.green : T.amber} />}
                         <CardMeta card={card} inline />
                       </div>
                     </Link>
                     <div className="today-big3-actions" style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                      {!card.is_complete && (
-                        <ActionBtn onClick={() => onDone(card.id)} color={T.green}>Done</ActionBtn>
-                      )}
+                      {doneForWeekOnly
+                        ? <UndoBtn onClick={() => onUndoDoneForWeek(slot.slotNumber)} />
+                        : !done && <ActionBtn onClick={() => onDoneForWeek(slot.slotNumber)} color={T.green}>Done for week</ActionBtn>}
                       <button
                         type="button"
                         onClick={() => onClear(slot.slotNumber)}
@@ -659,7 +670,8 @@ function BigThreeSection({
                       </button>
                     </div>
                   </>
-                ) : (
+                  );
+                })() : (
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="today-big3-empty-form" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) minmax(120px, 0.8fr) auto', gap: 8 }}>
                       <input
@@ -1062,6 +1074,8 @@ function TodaySections({
   clearFollowUp, undoFollowUp,
   markCardComplete, undoCardComplete,
   markChecklistDone,
+  markBirthdayDone, undoBirthdayDone,
+  markPrayerDone, undoPrayerDone,
   onOpenCard,
 }: {
   data: TodayData;
@@ -1076,6 +1090,10 @@ function TodaySections({
   markCardComplete: (id: string) => void;
   undoCardComplete: (id: string) => void;
   markChecklistDone: (id: string) => void;
+  markBirthdayDone: (id: number) => void;
+  undoBirthdayDone: (id: number) => void;
+  markPrayerDone: (id: number, isGeneral: boolean) => void;
+  undoPrayerDone: (id: number, isGeneral: boolean) => void;
   onOpenCard: (boardId: string, cardId: string) => void;
 }) {
   const totalFocus = (data.focusCards ?? []).length;
@@ -1103,37 +1121,53 @@ function TodaySections({
       {/* ── Focus Cards ── */}
       <Section id="focus-cards" title="Focus Cards" icon={<Star className="h-4 w-4" />} count={totalFocus}
         sectionKey="focusCards" isOpen={isOpen('focusCards')} onToggle={() => toggle('focusCards')} accentColor="#f59e0b">
-        {(data.focusCards ?? []).map((c: CardDigestItem) => (
-          <Item key={c.id} accentColor="#f59e0b">
+        {(data.focusCards ?? []).map((c: CardDigestItem) => {
+          const done = Boolean(c.is_complete) || completed.cards.has(c.id);
+          return (
+          <Item key={c.id} accentColor={done ? T.green : '#f59e0b'}>
             <div
               style={{ flex: 1, minWidth: 0 }}
               draggable
               onDragStart={e => setScheduleDragPayload(e.dataTransfer, { type: 'card', cardId: c.id })}
             >
               <Link href={`/boards/${c.board_id}?card=${c.id}`} onClick={cardClick(c.board_id, c.id)}
-                style={{ fontSize: 13, fontWeight: 600, color: T.text, textDecoration: 'none', display: 'block', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                style={{ fontSize: 13, fontWeight: 600, ...doneTitle(done), display: 'block', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
                 className="today-leader-link">
                 {c.title}
               </Link>
               <Sub>{c.board_name}{c.column_name ? ` · ${c.column_name}` : ''}</Sub>
-              <CardMeta card={c} />
+              {!done && <CardMeta card={c} />}
             </div>
-            {c.due_date && <DateBadge date={formatShort(c.due_date)} color="#f59e0b" />}
+            {done
+              ? <UndoBtn onClick={() => undoCardComplete(c.id)} />
+              : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                  {c.due_date && <DateBadge date={formatShort(c.due_date)} color="#f59e0b" />}
+                  <ActionBtn onClick={() => markCardComplete(c.id)} color={T.green}>Done</ActionBtn>
+                </div>
+              )}
           </Item>
-        ))}
+          );
+        })}
       </Section>
 
       {/* ── Birthdays ── */}
       <Section id="birthdays" title="Birthdays" icon={<Cake className="h-4 w-4" />} count={data.birthdays.length}
         sectionKey="birthdays" isOpen={isOpen('birthdays')} onToggle={() => toggle('birthdays')} accentColor={T.violet}>
-        {data.birthdays.map((b: BirthdayItem) => (
-          <Item key={b.id} accentColor={T.violet}>
+        {data.birthdays.map((b: BirthdayItem) => {
+          const done = completed.birthdays.has(b.id);
+          return (
+          <Item key={b.id} accentColor={done ? T.green : T.violet}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <LeaderLink id={b.id} name={b.name} />
+              <LeaderLink id={b.id} name={b.name} done={done} />
               {b.campus && <Sub>{b.campus}</Sub>}
             </div>
-            {b.phone && (
-              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            {done ? (
+              <UndoBtn onClick={() => undoBirthdayDone(b.id)} />
+            ) : (
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              {b.phone && (
+              <>
                 <a href={`tel:${b.phone}`} style={{
                   display: 'inline-flex', alignItems: 'center', gap: 4,
                   padding: '5px 10px', borderRadius: 7, fontSize: 11, fontWeight: 600,
@@ -1156,10 +1190,14 @@ function TodaySections({
                   </svg>
                   Text
                 </a>
-              </div>
+              </>
+              )}
+              <ActionBtn onClick={() => markBirthdayDone(b.id)} color={T.green}>Done</ActionBtn>
+            </div>
             )}
           </Item>
-        ))}
+          );
+        })}
       </Section>
 
       {/* ── Circle Visits Today ── */}
@@ -1237,7 +1275,7 @@ function TodaySections({
               {!done && <CardMeta card={c} />}
             </div>
             {done
-              ? <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}><DateBadge date="Done" color={T.green} /><UndoBtn onClick={() => undoCardComplete(c.id)} /></div>
+              ? <UndoBtn onClick={() => undoCardComplete(c.id)} />
               : <ActionBtn onClick={() => markCardComplete(c.id)} color={T.green}>Done</ActionBtn>}
           </Item>
           );
@@ -1261,7 +1299,7 @@ function TodaySections({
               {!done && <CardMeta card={c} />}
             </div>
             {done
-              ? <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}><DateBadge date="Done" color={T.green} /><UndoBtn onClick={() => undoCardComplete(c.id)} /></div>
+              ? <UndoBtn onClick={() => undoCardComplete(c.id)} />
               : (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                   {c.due_date && <DateBadge date={formatShort(c.due_date)} color={T.red} />}
@@ -1349,35 +1387,55 @@ function TodaySections({
       {/* ── Prayer Requests Today ── */}
       <Section id="prayers-today" title="Prayer Requests Today" icon={<Heart className="h-4 w-4" />} count={data.prayerRequests?.dueToday?.length || 0}
         sectionKey="prayersToday" isOpen={isOpen('prayersToday')} onToggle={() => toggle('prayersToday')} accentColor={T.amber}>
-        {(data.prayerRequests?.dueToday || []).map((p: PrayerRequestItem) => (
-          <Item key={p.id} accentColor={T.amber}>
+        {(data.prayerRequests?.dueToday || []).map((p: PrayerRequestItem) => {
+          const done = completed.prayers.has(prayerKey(p.id, p.is_general));
+          return (
+          <Item key={prayerKey(p.id, p.is_general)} accentColor={done ? T.green : T.amber}>
             <div style={{ flex: 1, minWidth: 0 }}>
               {p.circle_leader_id && p.leader_name
-                ? <><LeaderLink id={p.circle_leader_id} name={p.leader_name} />{p.leader_campus && <Sub>{p.leader_campus}</Sub>}</>
+                ? <><LeaderLink id={p.circle_leader_id} name={p.leader_name} done={done} />{p.leader_campus && <Sub>{p.leader_campus}</Sub>}</>
                 : <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600 }}>General Prayer</span>
               }
-              <p style={{ margin: '4px 0 0', fontSize: 13, color: T.text, lineHeight: 1.5 }}>{p.content}</p>
+              <p style={{ margin: '4px 0 0', fontSize: 13, lineHeight: 1.5, ...doneTitle(done) }}>{p.content}</p>
             </div>
-            <DateBadge date={`Pray ${formatShort(p.pray_date)}`} color={T.amber} />
+            {done
+              ? <UndoBtn onClick={() => undoPrayerDone(p.id, Boolean(p.is_general))} />
+              : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                  <DateBadge date={`Pray ${formatShort(p.pray_date)}`} color={T.amber} />
+                  <ActionBtn onClick={() => markPrayerDone(p.id, Boolean(p.is_general))} color={T.green}>Prayed</ActionBtn>
+                </div>
+              )}
           </Item>
-        ))}
+          );
+        })}
       </Section>
 
       {/* ── Overdue Prayer Requests ── */}
       <Section id="prayers-overdue" title="Overdue Prayer Requests" icon={<Heart className="h-4 w-4" />} count={data.prayerRequests?.overdue?.length || 0}
         sectionKey="prayersOverdue" isOpen={isOpen('prayersOverdue')} onToggle={() => toggle('prayersOverdue')} accentColor={T.red}>
-        {(data.prayerRequests?.overdue || []).map((p: PrayerRequestItem) => (
-          <Item key={p.id} accentColor={T.red}>
+        {(data.prayerRequests?.overdue || []).map((p: PrayerRequestItem) => {
+          const done = completed.prayers.has(prayerKey(p.id, p.is_general));
+          return (
+          <Item key={prayerKey(p.id, p.is_general)} accentColor={done ? T.green : T.red}>
             <div style={{ flex: 1, minWidth: 0 }}>
               {p.circle_leader_id && p.leader_name
-                ? <><LeaderLink id={p.circle_leader_id} name={p.leader_name} />{p.leader_campus && <Sub>{p.leader_campus}</Sub>}</>
+                ? <><LeaderLink id={p.circle_leader_id} name={p.leader_name} done={done} />{p.leader_campus && <Sub>{p.leader_campus}</Sub>}</>
                 : <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600 }}>General Prayer</span>
               }
-              <p style={{ margin: '4px 0 0', fontSize: 13, color: T.text, lineHeight: 1.5 }}>{p.content}</p>
+              <p style={{ margin: '4px 0 0', fontSize: 13, lineHeight: 1.5, ...doneTitle(done) }}>{p.content}</p>
             </div>
-            <DateBadge date={`Due ${formatShort(p.pray_date)}`} color={T.red} />
+            {done
+              ? <UndoBtn onClick={() => undoPrayerDone(p.id, Boolean(p.is_general))} />
+              : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                  <DateBadge date={`Due ${formatShort(p.pray_date)}`} color={T.red} />
+                  <ActionBtn onClick={() => markPrayerDone(p.id, Boolean(p.is_general))} color={T.green}>Prayed</ActionBtn>
+                </div>
+              )}
           </Item>
-        ))}
+          );
+        })}
       </Section>
 
       {/* ── Circle Visits This Week ── */}
@@ -1443,6 +1501,8 @@ export default function TodayPage() {
     clearFollowUp, undoFollowUp,
     markCardComplete, undoCardComplete,
     markChecklistDone,
+    markBirthdayDone, undoBirthdayDone,
+    markPrayerDone, undoPrayerDone,
     scheduleCard, scheduleFollowUp, quickAddCard,
   } = useTodayData();
   const bigThree = useBigThree();
@@ -1844,7 +1904,8 @@ export default function TodayPage() {
       onCreate={bigThree.createCard}
       onSearch={bigThree.searchExistingCards}
       onAssignExisting={bigThree.assignExistingCard}
-      onDone={bigThree.markDone}
+      onDoneForWeek={bigThree.markDoneForWeek}
+      onUndoDoneForWeek={bigThree.undoDoneForWeek}
       onClear={bigThree.clearSlot}
       onOpenCard={handleOpenCard}
     />
@@ -1864,6 +1925,10 @@ export default function TodayPage() {
       markCardComplete={markCardComplete}
       undoCardComplete={undoCardComplete}
       markChecklistDone={markChecklistDone}
+      markBirthdayDone={markBirthdayDone}
+      undoBirthdayDone={undoBirthdayDone}
+      markPrayerDone={markPrayerDone}
+      undoPrayerDone={undoPrayerDone}
       onOpenCard={handleOpenCard}
     />
   );

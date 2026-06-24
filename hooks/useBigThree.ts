@@ -43,6 +43,10 @@ export interface BigThreeCard {
 export interface BigThreeSlot {
   slotNumber: 1 | 2 | 3;
   card: BigThreeCard | null;
+  // True when the slot was marked "done for the week" within the current week.
+  // Independent of the card's own is_complete — a weekly priority can be done
+  // for the week while its board card stays open.
+  doneForWeek: boolean;
 }
 
 interface RawBigThreeCard {
@@ -60,14 +64,31 @@ interface RawBigThreeCard {
 
 interface BigThreeSlotRow {
   slot_number: number;
+  done_for_week_at?: string | null;
   board_cards?: RawBigThreeCard | RawBigThreeCard[] | null;
 }
 
 const EMPTY_SLOTS: BigThreeSlot[] = [
-  { slotNumber: 1, card: null },
-  { slotNumber: 2, card: null },
-  { slotNumber: 3, card: null },
+  { slotNumber: 1, card: null, doneForWeek: false },
+  { slotNumber: 2, card: null, doneForWeek: false },
+  { slotNumber: 3, card: null, doneForWeek: false },
 ];
+
+// Monday 00:00 (local) of the current week, as epoch ms. A slot counts as
+// "done for the week" only when its done_for_week_at is on or after this, so
+// the done state clears itself at the start of each week.
+function currentWeekStartMs(): number {
+  const monday = new Date();
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  return monday.getTime();
+}
+
+function isDoneThisWeek(doneForWeekAt: string | null | undefined): boolean {
+  if (!doneForWeekAt) return false;
+  const ts = new Date(doneForWeekAt).getTime();
+  return Number.isFinite(ts) && ts >= currentWeekStartMs();
+}
 
 function getErrorMessage(err: unknown, fallback: string) {
   return err instanceof Error ? err.message : fallback;
@@ -125,6 +146,7 @@ export function useBigThree() {
           .select(`
             slot_number,
             card_id,
+            done_for_week_at,
             board_cards(
               id,
               title,
@@ -148,19 +170,22 @@ export function useBigThree() {
 
       const boardList = (boardsRes.data || []) as BigThreeBoard[];
       const boardMap = new Map(boardList.map(board => [board.id, board.title]));
-      const slotMap = new Map<number, BigThreeCard | null>();
+      const slotMap = new Map<number, { card: BigThreeCard | null; doneForWeek: boolean }>();
 
       const slotRows = (slotsRes.data || []) as unknown as BigThreeSlotRow[];
       for (const row of slotRows) {
         const cardRaw = Array.isArray(row.board_cards) ? row.board_cards[0] : row.board_cards;
-        slotMap.set(row.slot_number, mapCard(cardRaw, boardMap));
+        slotMap.set(row.slot_number, {
+          card: mapCard(cardRaw, boardMap),
+          doneForWeek: isDoneThisWeek(row.done_for_week_at),
+        });
       }
 
       setBoards(boardList);
-      setSlots(EMPTY_SLOTS.map(slot => ({
-        ...slot,
-        card: slotMap.get(slot.slotNumber) ?? null,
-      })));
+      setSlots(EMPTY_SLOTS.map(slot => {
+        const entry = slotMap.get(slot.slotNumber);
+        return { ...slot, card: entry?.card ?? null, doneForWeek: entry?.doneForWeek ?? false };
+      }));
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Failed to load Big 3.'));
     } finally {
@@ -211,6 +236,7 @@ export function useBigThree() {
         slot_number: slotNumber,
         card_id: cardId,
         assigned_at: new Date().toISOString(),
+        done_for_week_at: null,
       }, { onConflict: 'user_id,slot_number' });
     if (slotError) throw slotError;
   }, []);
@@ -339,16 +365,36 @@ export function useBigThree() {
     }
   }, [assignCardToSlot, assignLabelToCard, ensureBigThreeLabel, load]);
 
-  const markDone = useCallback(async (cardId: string) => {
-    setSlots(prev => prev.map(slot => slot.card?.id === cardId
-      ? { ...slot, card: { ...slot.card, is_complete: true } }
-      : slot
-    ));
+  // Mark a Big 3 slot done for the week without completing its board card.
+  const markDoneForWeek = useCallback(async (slotNumber: 1 | 2 | 3) => {
+    setSlots(prev => prev.map(slot => slot.slotNumber === slotNumber ? { ...slot, doneForWeek: true } : slot));
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
     const { error: updateError } = await supabase
-      .from('board_cards')
-      .update({ is_complete: true })
-      .eq('id', cardId);
+      .from('today_big_three_slots')
+      .update({ done_for_week_at: new Date().toISOString() })
+      .eq('user_id', user.id)
+      .eq('slot_number', slotNumber);
+
+    if (updateError) {
+      setError(updateError.message);
+      await load();
+    }
+  }, [load]);
+
+  const undoDoneForWeek = useCallback(async (slotNumber: 1 | 2 | 3) => {
+    setSlots(prev => prev.map(slot => slot.slotNumber === slotNumber ? { ...slot, doneForWeek: false } : slot));
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error: updateError } = await supabase
+      .from('today_big_three_slots')
+      .update({ done_for_week_at: null })
+      .eq('user_id', user.id)
+      .eq('slot_number', slotNumber);
 
     if (updateError) {
       setError(updateError.message);
@@ -384,7 +430,8 @@ export function useBigThree() {
     createCard,
     searchExistingCards,
     assignExistingCard,
-    markDone,
+    markDoneForWeek,
+    undoDoneForWeek,
     clearSlot,
   };
 }

@@ -17,6 +17,11 @@ export interface TodayCompleted {
   checklists: Set<string>;
   followUps: Set<number>;
   encouragements: Set<number>;
+  // Birthdays and prayers have no completion field of their own, so their done
+  // state is persisted in today_done_marks and seeded back here on load.
+  // Prayer keys are `${kind}:${id}` (leader | general).
+  birthdays: Set<number>;
+  prayers: Set<string>;
 }
 
 const emptyCompleted = (): TodayCompleted => ({
@@ -24,7 +29,22 @@ const emptyCompleted = (): TodayCompleted => ({
   checklists: new Set(),
   followUps: new Set(),
   encouragements: new Set(),
+  birthdays: new Set(),
+  prayers: new Set(),
 });
+
+export const prayerKey = (id: number, isGeneral: boolean | undefined): string =>
+  `${isGeneral ? 'general' : 'leader'}:${id}`;
+
+// Today's date in America/Chicago, matching the server's getTodayDate so
+// done-marks line up with the day the digest is computed for.
+function todayCST(): string {
+  const cst = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+  const y = cst.getFullYear();
+  const m = String(cst.getMonth() + 1).padStart(2, '0');
+  const d = String(cst.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
 
 const CORE_CACHE_KEY  = 'today_core_cache_v2';
 const CARDS_CACHE_KEY = 'today_cards_cache_v2';
@@ -159,6 +179,23 @@ export function useTodayData() {
       }
 
       const headers = { Authorization: `Bearer ${session.access_token}` };
+
+      // Seed persisted birthday/prayer done-marks for today so those rows show
+      // as done (struck through with Undo) after a refresh or reload.
+      void (async () => {
+        const { data: marks } = await supabase
+          .from('today_done_marks')
+          .select('item_type, item_key')
+          .eq('done_on', todayCST());
+        if (!marks) return;
+        const birthdays = new Set<number>();
+        const prayers = new Set<string>();
+        for (const m of marks as { item_type: string; item_key: string }[]) {
+          if (m.item_type === 'birthday') birthdays.add(Number(m.item_key));
+          else if (m.item_type === 'prayer') prayers.add(m.item_key);
+        }
+        setCompleted(prev => ({ ...prev, birthdays, prayers }));
+      })();
 
       // Closure vars so both callbacks can read the latest value from the other
       let freshCore: TodayCoreData | null  = null;
@@ -310,6 +347,70 @@ export function useTodayData() {
     }
   }, []);
 
+  // Birthday: persisted per-day in today_done_marks (no field of its own).
+  const markBirthdayDone = useCallback(async (leaderId: number) => {
+    setCompleted(prev => ({ ...prev, birthdays: new Set(prev.birthdays).add(leaderId) }));
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase.from('today_done_marks').upsert({
+        user_id: user.id, item_type: 'birthday', item_key: String(leaderId), done_on: todayCST(),
+      }, { onConflict: 'user_id,item_type,item_key,done_on' });
+    } catch (err) {
+      console.error('Failed to mark birthday done:', err);
+    }
+  }, []);
+
+  const undoBirthdayDone = useCallback(async (leaderId: number) => {
+    setCompleted(prev => {
+      const next = new Set(prev.birthdays);
+      next.delete(leaderId);
+      return { ...prev, birthdays: next };
+    });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase.from('today_done_marks').delete()
+        .eq('user_id', user.id).eq('item_type', 'birthday')
+        .eq('item_key', String(leaderId)).eq('done_on', todayCST());
+    } catch (err) {
+      console.error('Failed to undo birthday:', err);
+    }
+  }, []);
+
+  // Prayer: persisted per-day in today_done_marks, keyed by `${kind}:${id}`.
+  const markPrayerDone = useCallback(async (id: number, isGeneral: boolean) => {
+    const key = prayerKey(id, isGeneral);
+    setCompleted(prev => ({ ...prev, prayers: new Set(prev.prayers).add(key) }));
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase.from('today_done_marks').upsert({
+        user_id: user.id, item_type: 'prayer', item_key: key, done_on: todayCST(),
+      }, { onConflict: 'user_id,item_type,item_key,done_on' });
+    } catch (err) {
+      console.error('Failed to mark prayer done:', err);
+    }
+  }, []);
+
+  const undoPrayerDone = useCallback(async (id: number, isGeneral: boolean) => {
+    const key = prayerKey(id, isGeneral);
+    setCompleted(prev => {
+      const next = new Set(prev.prayers);
+      next.delete(key);
+      return { ...prev, prayers: next };
+    });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase.from('today_done_marks').delete()
+        .eq('user_id', user.id).eq('item_type', 'prayer')
+        .eq('item_key', key).eq('done_on', todayCST());
+    } catch (err) {
+      console.error('Failed to undo prayer:', err);
+    }
+  }, []);
+
   // Schedule (or reschedule) a board card — sets due_date + due_time.
   // `cardInfo` lets callers schedule cards that aren't in today's lists yet
   // (e.g. a Big 3 card with no due date dragged onto the timeline).
@@ -453,6 +554,10 @@ export function useTodayData() {
     undoCardComplete,
     markChecklistDone,
     undoChecklistDone,
+    markBirthdayDone,
+    undoBirthdayDone,
+    markPrayerDone,
+    undoPrayerDone,
     scheduleCard,
     scheduleFollowUp,
     quickAddCard,
