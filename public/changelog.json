@@ -3,6 +3,16 @@
     "date": "2026-06-24",
     "date_display": "June 24, 2026",
     "date_iso": "2026-06-24",
+    "id": "today-day-header-layout",
+    "type": "improvement",
+    "category": "Today",
+    "description": "The Day view header no longer feels cramped. The previous/next day arrows now sit on either side of the date they're moving, on their own line, with the reminders and calendars buttons and the filter chips each on their own left-aligned row below. Easier to scan and tap on a phone.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-24",
+    "date_display": "June 24, 2026",
+    "date_iso": "2026-06-24",
     "id": "leader-profile-last-connection",
     "type": "feature",
     "category": "Circle Leaders",
