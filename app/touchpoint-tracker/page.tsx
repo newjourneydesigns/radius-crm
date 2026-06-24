@@ -192,6 +192,14 @@ export default function TouchpointTrackerPage() {
     load();
   }, [load]);
 
+  // Reload immediately when a connection is saved anywhere in the app (FAB,
+  // leader profile, etc.) — fired via the radius:connection-saved custom event.
+  useEffect(() => {
+    const onConnectionSaved = () => load();
+    window.addEventListener('radius:connection-saved', onConnectionSaved);
+    return () => window.removeEventListener('radius:connection-saved', onConnectionSaved);
+  }, [load]);
+
   // Reload when returning to this page (browser tab refocus or back-navigation),
   // so a connection logged on another page shows up immediately.
   // Guarded to once per 10s to prevent rapid-switch hammering.

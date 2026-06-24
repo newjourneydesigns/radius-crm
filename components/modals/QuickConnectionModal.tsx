@@ -99,6 +99,8 @@ export default function QuickConnectionModal({ isOpen, onClose, onSaved }: Props
         .eq('id', leaderId);
 
       clearTodayCache();
+      // Notify any subscribed page (Connection Tracker, Today) to reload
+      window.dispatchEvent(new CustomEvent('radius:connection-saved'));
       onSaved?.();
       onClose();
     } catch {

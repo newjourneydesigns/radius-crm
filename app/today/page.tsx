@@ -1544,6 +1544,14 @@ export default function TodayPage() {
     };
   }, [fetchData]);
 
+  // Refresh immediately when any connection modal saves (FAB or leader profile),
+  // so recent notes and follow-up state update without needing a manual refresh.
+  useEffect(() => {
+    const onConnectionSaved = () => fetchData({ fresh: true });
+    window.addEventListener('radius:connection-saved', onConnectionSaved);
+    return () => window.removeEventListener('radius:connection-saved', onConnectionSaved);
+  }, [fetchData]);
+
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1100px)');
     const update = () => setIsDesktop(mq.matches);

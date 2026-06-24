@@ -182,8 +182,9 @@ export default function LogConnectionModal({
         })
         .eq('id', circleLeaderId);
 
-      // Success - bust Today page cache so it reflects this new connection immediately
+      // Bust Today cache and notify any subscribed page (Connection Tracker) to reload
       clearTodayCache();
+      window.dispatchEvent(new CustomEvent('radius:connection-saved'));
       onConnectionLogged?.();
       onClose();
 
