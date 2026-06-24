@@ -24,6 +24,8 @@ export type SessionLeader = {
   status: string | null;
   day: string | null;
   time: string | null;
+  frequency?: string | null;
+  meeting_start_date?: string | null;
   ccb_group_id?: string | null;
   ccb_profile_link?: string | null;
   circle_summary_access_enabled?: boolean | null;
@@ -186,7 +188,7 @@ export const getSessionLeader = cache(async function getSessionLeader(): Promise
 
   const { data, error: leaderError } = await supabase
     .from('circle_leaders')
-    .select('id, name, email, phone, campus, acpd, status, day, time, ccb_group_id, ccb_profile_link, circle_summary_access_enabled, leader_type')
+    .select('id, name, email, phone, campus, acpd, status, day, time, frequency, meeting_start_date, ccb_group_id, ccb_profile_link, circle_summary_access_enabled, leader_type')
     .eq('id', session.leader_id)
     .maybeSingle();
 

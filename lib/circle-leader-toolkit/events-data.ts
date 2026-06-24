@@ -16,6 +16,7 @@ import { createCCBClient } from '../ccb/ccb-client';
 import { createServiceSupabaseClient } from '../server-supabase';
 import { computeLastAttended, storeDerivedLastAttended } from './roster-data';
 import { createTimer } from './timing';
+import { doesMeetingFrequencyIncludeDate } from '../meetingFrequency';
 
 export type CircleEventRow = {
   eventId: string;
@@ -442,6 +443,13 @@ export async function loadLeaderEvents(
 
     events = calEvents
       .filter((e) => !ignoredSet.has(`${e.eventId}|${e.startDate}`))
+      .filter((e) =>
+        doesMeetingFrequencyIncludeDate({
+          date: e.startDate,
+          frequency: leader.frequency,
+          meetingStartDate: leader.meeting_start_date,
+        })
+      )
       .map((e) => {
         const att = attendanceMap.get(`${e.eventId}|${e.startDate}`);
         return {
