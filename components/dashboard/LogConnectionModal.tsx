@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { supabase, ConnectionType } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatDateOnlyForDisplay, getTodayDateString } from '../../lib/dateUtils';
+import { clearTodayCache } from '../../hooks/useTodayData';
 
 interface LogConnectionModalProps {
   isOpen: boolean;
@@ -181,7 +182,8 @@ export default function LogConnectionModal({
         })
         .eq('id', circleLeaderId);
 
-      // Success - close modal and refresh data
+      // Success - bust Today page cache so it reflects this new connection immediately
+      clearTodayCache();
       onConnectionLogged?.();
       onClose();
 

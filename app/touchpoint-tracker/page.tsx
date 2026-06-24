@@ -192,6 +192,25 @@ export default function TouchpointTrackerPage() {
     load();
   }, [load]);
 
+  // Reload when returning to this page (browser tab refocus or back-navigation),
+  // so a connection logged on another page shows up immediately.
+  // Guarded to once per 10s to prevent rapid-switch hammering.
+  useEffect(() => {
+    let lastLoad = Date.now();
+    const refreshIfVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastLoad < 10_000) return;
+      lastLoad = Date.now();
+      load();
+    };
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    window.addEventListener('focus', refreshIfVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+      window.removeEventListener('focus', refreshIfVisible);
+    };
+  }, [load]);
+
   const target = data?.config.target_per_period ?? 1;
   const allTypes = data?.types ?? [];
 

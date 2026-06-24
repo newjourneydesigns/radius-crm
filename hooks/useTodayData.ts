@@ -50,6 +50,17 @@ const CORE_CACHE_KEY  = 'today_core_cache_v2';
 const CARDS_CACHE_KEY = 'today_cards_cache_v2';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Call this after any mutation that would affect Today page data (logging a
+// connection, completing a follow-up from another page, etc.) so the next visit
+// to Today fetches fresh rather than showing stale localStorage data.
+export function clearTodayCache() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(CORE_CACHE_KEY);
+    localStorage.removeItem(CARDS_CACHE_KEY);
+  } catch {}
+}
+
 const EMPTY_CARDS: TodayCardsData = {
   cards: { dueToday: [], overdue: [] },
   focusCards: [],

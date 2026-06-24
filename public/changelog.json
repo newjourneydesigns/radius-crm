@@ -3,6 +3,16 @@
     "date": "2026-06-24",
     "date_display": "June 24, 2026",
     "date_iso": "2026-06-24",
+    "id": "caching-fixes-today-connection-tracker",
+    "type": "fix",
+    "category": "Today & Connection Tracker",
+    "description": "Fixed stale data on the Today page and Connection Tracker. Today now always loads fresh from the server when you navigate to it, so connections logged or follow-ups cleared on other pages show up immediately — no more waiting 60 seconds for the cache to expire. The Connection Tracker also refreshes automatically when you return to it, and logging a connection now clears the Today page cache so both views stay in sync.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-24",
+    "date_display": "June 24, 2026",
+    "date_iso": "2026-06-24",
     "id": "today-refresh-forces-everything",
     "type": "fix",
     "category": "Today",

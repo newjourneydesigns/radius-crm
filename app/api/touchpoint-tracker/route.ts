@@ -117,5 +117,5 @@ export async function GET(req: NextRequest) {
     types,
     leaders: rows,
     generated_at: new Date().toISOString(),
-  });
+  }, { headers: { 'Cache-Control': 'no-store' } });
 }

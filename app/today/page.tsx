@@ -1517,7 +1517,11 @@ export default function TodayPage() {
 
   const { fetchAll: fetchCalendars } = calendars;
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  // Always bypass the 60s server cache on mount. The localStorage cache still
+  // renders an instant preview; ?fresh=1 ensures the server re-queries the DB
+  // so changes made on other pages (logged connections, cleared follow-ups, etc.)
+  // appear immediately when the user navigates back here.
+  useEffect(() => { fetchData({ fresh: true }); }, [fetchData]);
   useEffect(() => { fetchCalendars(); }, [fetchCalendars]);
 
   // Returning to the Today tab refetches fresh (bypassing the 60s server cache),

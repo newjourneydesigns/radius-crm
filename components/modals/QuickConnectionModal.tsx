@@ -6,6 +6,7 @@ import LeaderCombobox from '../ui/LeaderCombobox';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatDateOnlyForDisplay, getTodayDateString } from '../../lib/dateUtils';
+import { clearTodayCache } from '../../hooks/useTodayData';
 
 interface Leader { id: number; name: string; }
 interface ConnectionType { id: number; name: string; active: boolean; }
@@ -97,6 +98,7 @@ export default function QuickConnectionModal({ isOpen, onClose, onSaved }: Props
         .update({ last_connection: date, last_check_in_date: date })
         .eq('id', leaderId);
 
+      clearTodayCache();
       onSaved?.();
       onClose();
     } catch {
