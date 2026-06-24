@@ -264,6 +264,7 @@ function PrayerListContent() {
         supabase
           .from('circle_leaders')
           .select('id, name, campus, acpd, phone, additional_leader_name, additional_leader_phone')
+          .neq('status', 'archived')
           .order('name', { ascending: true }),
         supabase
           .from('acpd_prayer_points')
