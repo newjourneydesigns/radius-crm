@@ -6,6 +6,7 @@ import { DateTime } from 'luxon';
 import { AlertTriangle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { CircleLeader, EventSummaryState } from '../../lib/supabase';
+import { doesMeetingFrequencyIncludeDate, isBiWeeklyFrequency } from '../../lib/meetingFrequency';
 import { useAuth } from '../../contexts/AuthContext';
 import Modal from '../../components/ui/Modal';
 import EventSummaryReminderModal from '../../components/modals/EventSummaryReminderModal';
@@ -770,7 +771,6 @@ export default function EventSummaryTrackerPage() {
 
   // Which leaders are scheduled to meet this week — by day-of-week + frequency
   const scheduledLeaderIds = useMemo(() => {
-    const weekStartDt = DateTime.fromISO(weekStart);
     return new Set(
       leaders
         .filter(l => {
@@ -781,12 +781,14 @@ export default function EventSummaryTrackerPage() {
           const meetsOrdinalFrequency = meetsOrdinalFrequencyOnDate(l.frequency, meetingDate);
           if (meetsOrdinalFrequency !== null) return meetsOrdinalFrequency;
 
-          // Bi-weekly parity check using meeting_start_date
-          if (l.frequency === 'bi-weekly' && l.meeting_start_date) {
-            const anchor = DateTime.fromISO(l.meeting_start_date);
-            if (!anchor.isValid) return true;
-            const weeksDiff = Math.round(weekStartDt.diff(anchor, 'weeks').weeks ?? 0);
-            return weeksDiff % 2 === 0;
+          // Bi-weekly parity check using meeting_start_date.
+          if (isBiWeeklyFrequency(l.frequency)) {
+            return doesMeetingFrequencyIncludeDate({
+              date: meetingDate.toISODate()!,
+              frequency: l.frequency,
+              meetingStartDate: l.meeting_start_date,
+              meetingDay: l.day,
+            });
           }
           if (l.frequency === 'monthly') {
             // Approximate — keep if leader has not met yet this month
