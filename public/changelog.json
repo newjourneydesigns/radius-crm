@@ -1,6 +1,16 @@
 [
   {
     "date": "2026-06-24",
+    "date_display": "June 24, 2026",
+    "date_iso": "2026-06-24",
+    "id": "leader-profile-last-connection",
+    "type": "feature",
+    "category": "Circle Leaders",
+    "description": "A Circle Leader's profile now shows their most recent connection — date, type, and note — right at the top across from their name. It's a small, always-visible reminder of when you last reached out, with a tap-through to the full Notes timeline. Leaders with no connection yet show a gentle nudge to log one.",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-06-24",
     "version": "2.44.0",
     "date_display": "June 24, 2026",
     "date_iso": "2026-06-24",

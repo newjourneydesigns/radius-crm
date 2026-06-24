@@ -2,6 +2,7 @@
 'use client';
 
 import { ensureDefaultFrequencies, formatFrequencyLabel } from '../../../lib/frequencyUtils';
+import { formatDateOnlyForDisplay } from '../../../lib/dateUtils';
 import { isTeamsToolkitEnabled } from '../../../lib/teams-toolkit/feature-flag';
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -271,6 +272,15 @@ export default function CircleLeaderProfilePage() {
   const [attendanceRefreshKey, setAttendanceRefreshKey] = useState(0);
   const [rosterCount, setRosterCount] = useState<number | null>(null);
 
+  // Most recent connection for this leader — surfaced in the header to keep
+  // connection a visible priority.
+  const [lastConnection, setLastConnection] = useState<{
+    date: string;
+    type: string | null;
+    note: string | null;
+  } | null>(null);
+  const [lastConnectionLoaded, setLastConnectionLoaded] = useState(false);
+
   // Reference data state
   const [campuses, setCampuses] = useState<Array<{id: number, value: string}>>([]);
   const [statuses, setStatuses] = useState<Array<{id: number, value: string}>>([]);
@@ -500,6 +510,55 @@ export default function CircleLeaderProfilePage() {
       .single();
     if (data) setLeader(data);
   }, [leaderId]);
+
+  // Load the most recent connection (date + type + note) for the header card.
+  const loadLastConnection = useCallback(async () => {
+    if (!leaderId) return;
+    try {
+      let { data, error } = await supabase
+        .from('connections')
+        .select('date_of_connection, note, connection_types(name)')
+        .eq('circle_leader_id', leaderId)
+        .order('date_of_connection', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Fall back to a typeless query if the embedded join isn't available.
+      if (error) {
+        const fallback = await supabase
+          .from('connections')
+          .select('date_of_connection, note')
+          .eq('circle_leader_id', leaderId)
+          .order('date_of_connection', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        data = fallback.data as any;
+        error = fallback.error;
+      }
+
+      if (!error && data) {
+        const rawType = (data as any).connection_types;
+        const type = Array.isArray(rawType) ? rawType[0]?.name ?? null : rawType?.name ?? null;
+        setLastConnection({
+          date: (data as any).date_of_connection,
+          type,
+          note: (data as any).note ?? null,
+        });
+      } else {
+        setLastConnection(null);
+      }
+    } catch {
+      setLastConnection(null);
+    } finally {
+      setLastConnectionLoaded(true);
+    }
+  }, [leaderId]);
+
+  useEffect(() => {
+    loadLastConnection();
+  }, [loadLastConnection]);
 
   const handleLeaderRealtime = useCallback(
     (payload: any) => {
@@ -2051,43 +2110,86 @@ export default function CircleLeaderProfilePage() {
             )}
           </div>
 
-          {/* Name + status */}
-          <h1 className="text-xl sm:text-2xl font-bold text-brand-light leading-snug mt-1">
-            {leader.name}
-          </h1>
-          {(isHostTeam ? leader.team_name : leader.circle_name) && (
-            <div className="mt-0.5">
-              <span className="text-sm text-slate-400">
-                {isHostTeam
-                  ? leader.team_name
-                  : `${leader.circle_name}${leader.additional_leader_name ? ` · ${leader.additional_leader_name}` : ''}`}
-              </span>
+          {/* Name + status, with last-connection summary across to the right */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-brand-light leading-snug mt-1">
+                {leader.name}
+              </h1>
+              {(isHostTeam ? leader.team_name : leader.circle_name) && (
+                <div className="mt-0.5">
+                  <span className="text-sm text-slate-400">
+                    {isHostTeam
+                      ? leader.team_name
+                      : `${leader.circle_name}${leader.additional_leader_name ? ` · ${leader.additional_leader_name}` : ''}`}
+                  </span>
+                </div>
+              )}
+              {/* Context line: circle type / meeting schedule (circle only) or team type badge (host team) */}
+              {isHostTeam ? (
+                <div className="mt-1.5">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                    Team
+                  </span>
+                </div>
+              ) : (leader.circle_type || leader.day) && (
+                <p className="mt-1.5 text-sm text-slate-400">
+                  {[
+                    normalizeCircleTypeValue(leader.circle_type),
+                    (() => {
+                      const freq = leader.frequency && leader.frequency !== 'Weekly' ? formatFrequencyLabel(leader.frequency) : null;
+                      if (leader.day && leader.time) {
+                        return freq ? `${freq} ${leader.day}s at ${formatTimeToAMPM(leader.time)}` : `${leader.day}s at ${formatTimeToAMPM(leader.time)}`;
+                      }
+                      if (leader.day) {
+                        return freq ? `${freq} ${leader.day}s` : `${leader.day}s`;
+                      }
+                      return freq;
+                    })()
+                  ].filter(Boolean).join(' · ')}
+                </p>
+              )}
             </div>
-          )}
-          {/* Context line: circle type / meeting schedule (circle only) or team type badge (host team) */}
-          {isHostTeam ? (
-            <div className="mt-1.5">
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-violet-500/20 text-violet-300 border border-violet-500/30">
-                Team
-              </span>
-            </div>
-          ) : (leader.circle_type || leader.day) && (
-            <p className="mt-1.5 text-sm text-slate-400">
-              {[
-                normalizeCircleTypeValue(leader.circle_type),
-                (() => {
-                  const freq = leader.frequency && leader.frequency !== 'Weekly' ? formatFrequencyLabel(leader.frequency) : null;
-                  if (leader.day && leader.time) {
-                    return freq ? `${freq} ${leader.day}s at ${formatTimeToAMPM(leader.time)}` : `${leader.day}s at ${formatTimeToAMPM(leader.time)}`;
-                  }
-                  if (leader.day) {
-                    return freq ? `${freq} ${leader.day}s` : `${leader.day}s`;
-                  }
-                  return freq;
-                })()
-              ].filter(Boolean).join(' · ')}
-            </p>
-          )}
+
+            {/* Last connection — small but noticeable, links to the Notes timeline */}
+            {lastConnectionLoaded && (
+              <Link
+                href={`/circle/${leaderId}/notes`}
+                className="group block shrink-0 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 transition-colors hover:border-vc-500/40 hover:bg-vc-500/[0.06] sm:max-w-[15rem] sm:text-right"
+                title="View connection history"
+              >
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 sm:justify-end">
+                  <svg className="h-3 w-3 text-vc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                  Last connection
+                </div>
+                {lastConnection ? (
+                  <>
+                    <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 sm:justify-end">
+                      <span className="text-sm font-semibold text-slate-100">
+                        {formatDateOnlyForDisplay(lastConnection.date)}
+                      </span>
+                      {lastConnection.type && (
+                        <span className="text-xs font-medium text-vc-300">
+                          {lastConnection.type}
+                        </span>
+                      )}
+                    </div>
+                    {lastConnection.note && (
+                      <p className="mt-0.5 text-xs text-slate-400 line-clamp-1">
+                        {lastConnection.note}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="mt-1 text-sm text-slate-500 group-hover:text-slate-400">
+                    No connections yet — log one
+                  </p>
+                )}
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Editing mode sticky footer — mobile only, so Save/Cancel are always reachable */}
@@ -3385,6 +3487,7 @@ export default function CircleLeaderProfilePage() {
         circleLeaderId={leader?.id || 0}
         circleLeaderName={leader?.name || ''}
         onConnectionLogged={() => {
+          loadLastConnection();
           setShowAlert({
             isOpen: true,
             type: 'success',
