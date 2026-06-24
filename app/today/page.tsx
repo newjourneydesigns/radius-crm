@@ -1565,17 +1565,6 @@ export default function TodayPage() {
     setOpenCard({ boardId, cardId });
   }, []);
 
-  // The Refresh button reloads everything the page shows: cards/checklists/core
-  // (fresh, bypassing both the server and browser caches), the Big 3 slots, and
-  // the calendar feed. `fresh: true` is what makes a just-edited card's new date,
-  // time, and status appear instead of a stale cached copy.
-  const handleRefresh = useCallback(() => {
-    fetchData({ fresh: true });
-    bigThree.load();
-    fetchCalendars();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchData, fetchCalendars]);
-
   const handleModalClose = useCallback((didChange: boolean) => {
     setOpenCard(null);
     if (didChange) {
@@ -1604,7 +1593,7 @@ export default function TodayPage() {
       const [coreRes, cardsRes, calRes] = await Promise.all([
         fetch(`/api/today/core?date=${date}${freshParam}`, { headers, cache: 'no-store' }),
         fetch(`/api/today/cards?date=${date}${freshParam}`, { headers, cache: 'no-store' }),
-        fetch(`/api/calendar-events?date=${date}`, { headers, cache: 'no-store' }),
+        fetch(`/api/calendar-events?date=${date}${fresh ? '&fresh=1' : ''}`, { headers, cache: 'no-store' }),
       ]);
       const core = coreRes.ok ? await coreRes.json() : null;
       const cards = cardsRes.ok ? await cardsRes.json() : null;
@@ -1638,6 +1627,20 @@ export default function TodayPage() {
     const next = DateTime.fromISO(base as string).plus({ days: delta }).toISODate();
     if (next) setViewDate(next);
   }, [isViewToday, data?.today, viewDate]);
+
+  // The Refresh button force-reloads everything the page shows. `fresh: true`
+  // bypasses the server response cache, the browser cache, and the calendar
+  // route's feed cache, so every list item and every timeline event (including
+  // updated times) comes back current instead of from a cached copy. When the
+  // day view is paged to another date, that day's data + calendar feed are
+  // re-pulled too, since the timeline is showing them rather than today.
+  const handleRefresh = useCallback(() => {
+    fetchData({ fresh: true });
+    bigThree.load();
+    fetchCalendars(true);
+    if (!isViewToday && viewDate) fetchDay(viewDate, true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchData, fetchCalendars, isViewToday, viewDate, fetchDay]);
 
   // ── Drag-to-schedule + quick add (one-hour blocks) ──
   const findCardInfo = useCallback((cardId: string): CardDigestItem | undefined => {

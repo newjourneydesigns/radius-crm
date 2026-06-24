@@ -38,9 +38,9 @@ function getSupabaseServiceClient() {
 const feedCache = new Map<string, { body: string; cachedAt: number }>();
 const FEED_CACHE_TTL = 10 * 60 * 1000;
 
-async function fetchFeed(url: string): Promise<string> {
+async function fetchFeed(url: string, fresh = false): Promise<string> {
   const cached = feedCache.get(url);
-  if (cached && Date.now() - cached.cachedAt < FEED_CACHE_TTL) return cached.body;
+  if (!fresh && cached && Date.now() - cached.cachedAt < FEED_CACHE_TTL) return cached.body;
 
   // webcal:// is just http(s) with a different scheme
   const httpUrl = url.replace(/^webcal:\/\//i, 'https://');
@@ -135,6 +135,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // ?fresh=1 (manual Refresh) bypasses the 10-min feed cache so re-downloaded
+    // calendars surface newly added/moved events and updated times immediately.
+    const fresh = request.nextUrl.searchParams.get('fresh') === '1';
     const dateParam = request.nextUrl.searchParams.get('date');
     const day = (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam))
       ? DateTime.fromISO(dateParam, { zone: APP_ZONE })
@@ -155,7 +158,7 @@ export async function GET(request: NextRequest) {
 
     await Promise.all(subs.map(async (sub) => {
       try {
-        const body = await fetchFeed(sub.url);
+        const body = await fetchFeed(sub.url, fresh);
         const parsed = ical.sync.parseICS(body);
         for (const ev of eventsForDay(parsed as Record<string, unknown>, dayStart, dayEnd)) {
           events.push({

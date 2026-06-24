@@ -15,11 +15,11 @@ export function useTodayCalendars() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchEvents = useCallback(async () => {
+  const fetchEvents = useCallback(async (fresh = false) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) return;
-      const res = await fetch('/api/calendar-events', {
+      const res = await fetch(fresh ? '/api/calendar-events?fresh=1' : '/api/calendar-events', {
         headers: { Authorization: `Bearer ${session.access_token}` },
         cache: 'no-store',
       });
@@ -32,7 +32,7 @@ export function useTodayCalendars() {
     }
   }, []);
 
-  const fetchAll = useCallback(async () => {
+  const fetchAll = useCallback(async (fresh = false) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -43,7 +43,7 @@ export function useTodayCalendars() {
       if (err) throw err;
       setSubscriptions((data || []) as CalendarSubscription[]);
       if ((data || []).some((s: CalendarSubscription) => s.is_enabled)) {
-        await fetchEvents();
+        await fetchEvents(fresh);
       } else {
         setEvents([]);
       }

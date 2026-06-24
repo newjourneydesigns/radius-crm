@@ -3,6 +3,16 @@
     "date": "2026-06-24",
     "date_display": "June 24, 2026",
     "date_iso": "2026-06-24",
+    "id": "today-refresh-forces-everything",
+    "type": "fix",
+    "category": "Today",
+    "description": "The Refresh button on the Today page now forces a true refresh of everything on screen — every list item, the Big 3, and all timeline events including their updated times. Subscribed calendars are re-downloaded instead of served from a cache, so newly added or moved events show up right away. If you've paged the day view to another date, that day gets refreshed too.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-24",
+    "date_display": "June 24, 2026",
+    "date_iso": "2026-06-24",
     "id": "today-big3-done-for-week",
     "type": "feature",
     "category": "Today",
