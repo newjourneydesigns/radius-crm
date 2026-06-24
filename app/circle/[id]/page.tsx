@@ -3173,8 +3173,8 @@ export default function CircleLeaderProfilePage() {
               </div>
             </div>
 
-            {/* Leader Health Snapshot - Desktop sidebar (circle leaders only) */}
-            {!isHostTeam && (() => {
+            {/* Leader Health Snapshot - Desktop sidebar (circle leaders only) — hidden until ready for ACPDs */}
+            {false && !isHostTeam && (() => {
               const overallPct = latestHealth?.overall_score ?? null;
               const max = latestHealth ? snapMax(latestHealth) : 5;
               const numColor = overallPct == null ? 'text-white'
@@ -3220,8 +3220,8 @@ export default function CircleLeaderProfilePage() {
               );
             })()}
 
-            {/* Scorecard Summary - Desktop sidebar (circle leaders only) */}
-            {!isHostTeam && (() => {
+            {/* Scorecard Summary - Desktop sidebar (circle leaders only) — hidden until ready for ACPDs */}
+            {false && !isHostTeam && (() => {
               const scores = scorecardSummary;
               const dims = [
                 { key: 'reach',    label: 'Reach',    value: scores?.reach,    color: 'text-blue-400',   bg: 'bg-blue-500/15',   dot: 'bg-blue-400' },
@@ -3325,8 +3325,8 @@ export default function CircleLeaderProfilePage() {
 
         </div>
 
-        {/* Leader Health Snapshot - Mobile (circle leaders only) */}
-        {!isHostTeam && (() => {
+        {/* Leader Health Snapshot - Mobile (circle leaders only) — hidden until ready for ACPDs */}
+        {false && !isHostTeam && (() => {
           const overallPct = latestHealth?.overall_score ?? null;
           const max = latestHealth ? snapMax(latestHealth) : 5;
           const numColor = overallPct == null ? 'text-white'
@@ -3372,8 +3372,8 @@ export default function CircleLeaderProfilePage() {
           );
         })()}
 
-        {/* Scorecard Summary - Mobile (bottom of page, circle leaders only) */}
-        {!isHostTeam && (() => {
+        {/* Scorecard Summary - Mobile (bottom of page, circle leaders only) — hidden until ready for ACPDs */}
+        {false && !isHostTeam && (() => {
           const scores = scorecardSummary;
           const dims = [
             { key: 'reach',    label: 'Reach',    value: scores?.reach,    color: 'text-blue-400',   dot: 'bg-blue-400' },

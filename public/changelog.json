@@ -3,6 +3,16 @@
     "date": "2026-06-24",
     "date_display": "June 24, 2026",
     "date_iso": "2026-06-24",
+    "id": "hide-progress-health-snapshot",
+    "type": "improvement",
+    "category": "Navigation",
+    "description": "Temporarily hidden the Progress page and Health Snapshot features from navigation and leader profiles while they're being finalized. All data is preserved — these sections will be re-enabled once they're ready to roll out.",
+    "page": "/dashboard"
+  },
+  {
+    "date": "2026-06-24",
+    "date_display": "June 24, 2026",
+    "date_iso": "2026-06-24",
     "id": "caching-fixes-today-connection-tracker",
     "type": "fix",
     "category": "Today & Connection Tracker",

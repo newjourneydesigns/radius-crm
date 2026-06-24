@@ -421,7 +421,7 @@ export default function MobileNavigation({
     { href: '/birthday-list', label: 'Birthday List', Icon: BirthdayCakeIcon },
     { href: '/circle-reporting', label: 'Reporting', Icon: ChartIcon },
     { href: '/touchpoint-tracker', label: 'Connections', Icon: ChartIcon },
-    { href: '/progress', label: 'Progress', Icon: ChartIcon },
+    // { href: '/progress', label: 'Progress', Icon: ChartIcon }, // hidden — not ready for ACPDs
     ...(admin
       ? [
           { href: '/ccb-explorer', label: 'CCB Explorer', Icon: CompassIcon },

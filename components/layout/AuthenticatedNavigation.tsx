@@ -188,7 +188,7 @@ const primaryNavItems: Array<{
 ];
 
 const toolsNavItems = [
-  { href: '/progress',      label: 'Progress',     Icon: TrendUpIcon },
+  // { href: '/progress',      label: 'Progress',     Icon: TrendUpIcon }, // hidden — not ready for ACPDs
   { href: '/ccb-explorer',  label: 'CCB Explorer', Icon: CompassIcon,     adminOnly: true },
   { href: '/bulk-message',  label: 'Bulk Message', Icon: MessageBulkIcon, adminOnly: true },
   { href: '/birthday-list', label: 'Birthday',     Icon: BirthdayCakeIcon },
@@ -199,8 +199,8 @@ const circleSummaryNavItems = [
   { href: '/leader-messages', label: 'Leader Messages', Icon: MessageBulkIcon },
   { href: '/admin/circle-leader-resources', label: 'Leader Resources', Icon: NotebookIcon, adminOnly: true },
   { href: '/admin/dynamic-questions', label: 'Circle Summary Questions', Icon: LayoutListIcon, adminOnly: true },
-  { href: '/admin/leadership-snapshots/questions', label: 'Health Questions', Icon: LayoutListIcon, adminOnly: true },
-  { href: '/admin/leadership-snapshots', label: 'Health Snaphots', Icon: ChartIcon, adminOnly: true },
+  // { href: '/admin/leadership-snapshots/questions', label: 'Health Questions', Icon: LayoutListIcon, adminOnly: true }, // hidden — not ready for ACPDs
+  // { href: '/admin/leadership-snapshots', label: 'Health Snaphots', Icon: ChartIcon, adminOnly: true }, // hidden — not ready for ACPDs
 ];
 
 const teamsToolkitNavItems = [

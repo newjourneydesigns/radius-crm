@@ -11,8 +11,8 @@ const TABS = [
   { label: 'Roster',    route: (id: string) => `/circle/${id}/roster`,        hostTeamOnly: true },
   { label: 'Notes',     route: (id: string) => `/circle/${id}/notes` },
   { label: 'Messaging', route: (id: string) => `/circle/${id}/messaging` },
-  { label: 'Scorecard', route: (id: string) => `/circle/${id}/scorecard`,     circleOnly: true },
-  { label: 'Snapshot',  route: (id: string) => `/circle/${id}/leadership-snapshot`, adminOnly: true, circleOnly: true },
+  // { label: 'Scorecard', route: (id: string) => `/circle/${id}/scorecard`,     circleOnly: true }, // hidden — not ready for ACPDs
+  // { label: 'Snapshot',  route: (id: string) => `/circle/${id}/leadership-snapshot`, adminOnly: true, circleOnly: true }, // hidden — not ready for ACPDs
   { label: 'Care',      route: (id: string) => `/circle/${id}/care`,          adminOnly: true },
 ] as const;
 
