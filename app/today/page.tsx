@@ -24,7 +24,7 @@ import {
 import { useBigThree } from '../../hooks/useBigThree';
 import type { BigThreeBoard, BigThreeCard, BigThreeSlot } from '../../hooks/useBigThree';
 import { useRandomLoadingMessage } from '../../hooks/useRandomLoadingMessage';
-import { normalizeTodayCardsData, prayerKey, useTodayData } from '../../hooks/useTodayData';
+import { clearTodayCache, normalizeTodayCardsData, prayerKey, useTodayData } from '../../hooks/useTodayData';
 import type { TodayCompleted } from '../../hooks/useTodayData';
 import { useTodayCalendars } from '../../hooks/useTodayCalendars';
 import type { CalendarEventItem } from '../../hooks/useTodayCalendars';
@@ -1580,6 +1580,7 @@ export default function TodayPage() {
   const handleModalClose = useCallback((didChange: boolean) => {
     setOpenCard(null);
     if (didChange) {
+      clearTodayCache();
       fetchData({ fresh: true });
       bigThree.load();
     }
