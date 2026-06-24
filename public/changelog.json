@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-06-24",
+    "version": "2.44.0",
+    "date_display": "June 24, 2026",
+    "date_iso": "2026-06-24",
+    "id": "customizable-mobile-tab-bar",
+    "type": "feature",
+    "category": "Navigation",
+    "description": "You can now choose which three pages live in your phone's bottom tab bar. Head to Profile to set Positions 1, 2, and 3 to any primary page — Today, Events, Circles, Connections, Reporting, Prayer, Directory, Boards, or Notebook. The choice is saved to your device. Mobile tab titles now match the desktop nav (Circles, Connections, Reporting, Directory).",
+    "page": "/profile"
+  },
+  {
     "date": "2026-06-23",
     "version": "2.43.6",
     "date_display": "June 23, 2026",

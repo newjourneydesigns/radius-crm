@@ -7,6 +7,12 @@ import { supabase } from '../../lib/supabase';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import AlertModal from '../../components/ui/AlertModal';
 import Link from 'next/link';
+import {
+  MOBILE_NAV_OPTIONS,
+  DEFAULT_MOBILE_NAV_SLOTS,
+  readMobileNavSlots,
+  writeMobileNavSlots,
+} from '../../lib/mobileNavSlots';
 
 interface UserProfile {
   id: string;
@@ -63,6 +69,8 @@ export default function ProfilePage() {
   const [isSendingTest, setIsSendingTest] = useState(false);
   const [aiAssistantEnabled, setAiAssistantEnabled] = useState(false);
   const [isSavingAi, setIsSavingAi] = useState(false);
+  // Mobile tab-bar slot order (per-device, stored in localStorage)
+  const [mobileNavSlots, setMobileNavSlots] = useState<string[]>(DEFAULT_MOBILE_NAV_SLOTS);
   
   // Form state
   const [name, setName] = useState('');
@@ -88,6 +96,26 @@ export default function ProfilePage() {
   useEffect(() => {
     loadProfileData();
   }, [user]);
+
+  // Load the saved mobile tab-bar order from this device.
+  useEffect(() => {
+    setMobileNavSlots(readMobileNavSlots());
+  }, []);
+
+  // Set a slot's page. If that page already sits in another slot, swap the two
+  // so no destination appears twice. Applies immediately (per-device storage).
+  const handleMobileNavSlotChange = (index: number, pageId: string) => {
+    setMobileNavSlots((prev) => {
+      const next = [...prev];
+      const existing = next.indexOf(pageId);
+      if (existing !== -1 && existing !== index) {
+        next[existing] = next[index];
+      }
+      next[index] = pageId;
+      writeMobileNavSlots(next);
+      return next;
+    });
+  };
 
   const loadProfileData = async () => {
     if (!user) return;
@@ -470,6 +498,54 @@ export default function ProfilePage() {
                     >
                       {isSaving ? 'Saving...' : 'Save Changes'}
                     </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Mobile Navigation Card */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700/50">
+                  <div className="flex items-center gap-2.5">
+                    <svg className="w-[1.125rem] h-[1.125rem] flex-shrink-0 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4h10a1 1 0 011 1v14a1 1 0 01-1 1H7a1 1 0 01-1-1V5a1 1 0 011-1zm5 14h.01" />
+                    </svg>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Mobile Navigation</h3>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                    Choose the three pages in your phone&apos;s bottom bar. Saved to this device.
+                  </p>
+                </div>
+                <div className="p-5 space-y-4">
+                  {/* Layout hint */}
+                  <div className="flex items-center justify-center gap-2 text-[11px] font-medium text-gray-400 dark:text-gray-500">
+                    <span className="px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-700/60">1</span>
+                    <span className="px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-700/60">2</span>
+                    <span className="px-2.5 py-1 rounded-full bg-vc-500/15 text-vc-600 dark:text-vc-300">Search</span>
+                    <span className="px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-700/60">3</span>
+                    <span className="px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-700/60">More</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {[0, 1, 2].map((index) => (
+                      <div key={index}>
+                        <label
+                          htmlFor={`mobile-nav-slot-${index}`}
+                          className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1"
+                        >
+                          Position {index + 1}
+                        </label>
+                        <select
+                          id={`mobile-nav-slot-${index}`}
+                          value={mobileNavSlots[index]}
+                          onChange={(e) => handleMobileNavSlotChange(index, e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-vc-500 text-sm transition-colors"
+                        >
+                          {MOBILE_NAV_OPTIONS.map((opt) => (
+                            <option key={opt.id} value={opt.id}>{opt.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>

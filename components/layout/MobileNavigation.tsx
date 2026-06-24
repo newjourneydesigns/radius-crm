@@ -8,6 +8,12 @@ import { useAuth } from "../../contexts/AuthContext";
 import { MESSAGES_ENABLED } from "../../lib/features";
 import { isTeamsToolkitEnabled } from "../../lib/teams-toolkit/feature-flag";
 import { useQuickActions, type QuickActionId, type QuickActionMeta } from "../../contexts/QuickActionsContext";
+import {
+  MOBILE_NAV_OPTIONS,
+  DEFAULT_MOBILE_NAV_SLOTS,
+  MOBILE_NAV_SLOTS_EVENT,
+  readMobileNavSlots,
+} from "../../lib/mobileNavSlots";
 import GlobalSearch from './GlobalSearch';
 
 /* ─────────────────────────────────────────────────────────
@@ -49,12 +55,67 @@ const BoardTabIcon = ({ active }: { active?: boolean }) => active ? (
   </svg>
 );
 
+/* Additional tab-bar icons for user-selectable slots (24px, active = heavier stroke) */
+const CirclesTabIcon = ({ active }: { active?: boolean }) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.1 : 1.6} strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="9" cy="9" r="5" />
+    <circle cx="16" cy="15" r="5" />
+  </svg>
+);
+
+const ConnectionsTabIcon = ({ active }: { active?: boolean }) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.1 : 1.6} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 00-3-3.87" />
+    <path d="M16 3.13a4 4 0 010 7.75" />
+  </svg>
+);
+
+const ReportingTabIcon = ({ active }: { active?: boolean }) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.1 : 1.6} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 21h18M5 21V11m4 10V7m4 14v-8m4 8V3" />
+  </svg>
+);
+
+const PrayerTabIcon = ({ active }: { active?: boolean }) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.1 : 1.6} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+  </svg>
+);
+
+const DirectoryTabIcon = ({ active }: { active?: boolean }) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.1 : 1.6} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+);
+
+const NotebookTabIcon = ({ active }: { active?: boolean }) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.1 : 1.6} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+  </svg>
+);
+
 const SearchIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="11" cy="11" r="8" />
     <line x1="21" y1="21" x2="16.65" y2="16.65" />
   </svg>
 );
+
+/* Map each selectable slot destination to its tab-bar icon. */
+const MOBILE_TAB_ICONS: Record<string, ({ active }: { active?: boolean }) => JSX.Element> = {
+  today: TodayIcon,
+  events: CalendarIcon,
+  circles: CirclesTabIcon,
+  connections: ConnectionsTabIcon,
+  reporting: ReportingTabIcon,
+  prayer: PrayerTabIcon,
+  directory: DirectoryTabIcon,
+  boards: BoardTabIcon,
+  notebook: NotebookTabIcon,
+};
 
 const MoreTabIcon = ({ active }: { active?: boolean }) => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={active ? 0 : 1.8} strokeLinecap="round" strokeLinejoin="round">
@@ -247,6 +308,20 @@ export default function MobileNavigation({
   const { user, signOut, isAuthenticated, isAdmin } = useAuth();
   const { open: openQuickAction, actions: quickActions } = useQuickActions();
 
+  /* User-customizable tab-bar slots (per-device, from localStorage). Starts on
+     the default order to keep SSR/first paint stable, then syncs after mount. */
+  const [navSlots, setNavSlots] = useState<string[]>(DEFAULT_MOBILE_NAV_SLOTS);
+  useEffect(() => {
+    const sync = () => setNavSlots(readMobileNavSlots());
+    sync();
+    window.addEventListener(MOBILE_NAV_SLOTS_EVENT, sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener(MOBILE_NAV_SLOTS_EVENT, sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, []);
+
   /* Mobile-specific ordering; any action not listed falls back to its original position. */
   const orderedQuickActions: QuickActionMeta[] = [
     ...MOBILE_QUICK_ACTION_ORDER
@@ -328,21 +403,24 @@ export default function MobileNavigation({
 
   if (!isAuthenticated()) return null;
 
-  /* Tab items split around the raised center Search button */
-  const leftTabs = [
-    { id: 'today',  name: 'Today',  href: '/today',                  Icon: TodayIcon },
-    { id: 'events', name: 'Events', href: '/event-summary-tracker',  Icon: CalendarIcon },
-  ];
-  const rightTabs = [
-    { id: 'boards', name: 'Boards', href: '/boards', Icon: BoardTabIcon },
-  ];
+  /* Tab items split around the raised center Search button, driven by the
+     user's saved slot order. Slots 1 & 2 sit left of Search; slot 3 sits right. */
+  const slotTabs = navSlots
+    .map((id) => {
+      const opt = MOBILE_NAV_OPTIONS.find((o) => o.id === id);
+      if (!opt) return null;
+      return { id: opt.id, name: opt.name, href: opt.href, Icon: MOBILE_TAB_ICONS[opt.id] ?? MoreTabIcon };
+    })
+    .filter((t): t is { id: string; name: string; href: string; Icon: ({ active }: { active?: boolean }) => JSX.Element } => Boolean(t));
+  const leftTabs = slotTabs.slice(0, 2);
+  const rightTabs = slotTabs.slice(2, 3);
 
   /* Sheet navigation (destinations not on the tab bar) */
   const toolsItems = [
-    { href: '/person-lookup', label: 'Person Lookup', Icon: PersonSearchIcon },
+    { href: '/person-lookup', label: 'Directory', Icon: PersonSearchIcon },
     { href: '/birthday-list', label: 'Birthday List', Icon: BirthdayCakeIcon },
-    { href: '/circle-reporting', label: 'Circle Reporting', Icon: ChartIcon },
-    { href: '/touchpoint-tracker', label: 'Connection Tracker', Icon: ChartIcon },
+    { href: '/circle-reporting', label: 'Reporting', Icon: ChartIcon },
+    { href: '/touchpoint-tracker', label: 'Connections', Icon: ChartIcon },
     { href: '/progress', label: 'Progress', Icon: ChartIcon },
     ...(admin
       ? [
@@ -353,7 +431,7 @@ export default function MobileNavigation({
   ];
 
   const browseItems = [
-    { href: '/search',        label: 'Circle List',   Icon: FindCircleIcon },
+    { href: '/search',        label: 'Circles',       Icon: FindCircleIcon },
     { href: '/notebook',      label: 'Notebook',      Icon: NotebookIcon },
     { href: '/prayer',        label: 'Prayer',        Icon: PrayerIcon },
   ];
@@ -421,6 +499,9 @@ export default function MobileNavigation({
                 className={`mobile-tab-item${active ? ' active' : ''}`}>
                 <span className={`mobile-tab-icon${active ? ' active' : ''}`}><Icon active={active} /></span>
                 <span className={`mobile-tab-label${active ? ' active' : ''}`}>{name}</span>
+                {id === 'today' && openAlertCount > 0 && (
+                  <span className="mobile-tab-dot alert" aria-label={`${openAlertCount} open item${openAlertCount === 1 ? '' : 's'} today`} role="img" />
+                )}
               </Link>
             );
           })}
