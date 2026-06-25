@@ -23,6 +23,10 @@ const TABS: { key: TabKey; label: string; statusKey: string }[] = [
   { key: 'contacted',     label: 'Contacted',      statusKey: 'contacted' },
 ];
 
+const VARIABLES = ['{{first_name}}', '{{form_link}}', '{{campaign_name}}', '{{due_date}}'];
+
+const inputCls = 'w-full bg-zinc-700 border border-zinc-600 text-white placeholder-slate-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors';
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function authHeader(): Promise<Record<string, string>> {
@@ -124,6 +128,17 @@ export default function CampaignDetailPage() {
   const [contactNote, setContactNote] = useState('');
   const [contacting, setContacting] = useState(false);
   const [contactSuccess, setContactSuccess] = useState(false);
+
+  // Edit campaign modal
+  const [showEdit, setShowEdit] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editGroupIds, setEditGroupIds] = useState<string[]>(['']);
+  const [editFormId, setEditFormId] = useState('');
+  const [editFormLink, setEditFormLink] = useState('');
+  const [editDueDate, setEditDueDate] = useState('');
+  const [editTemplate, setEditTemplate] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Add person modal
   const [showAddPerson, setShowAddPerson] = useState(false);
@@ -263,6 +278,49 @@ export default function CampaignDetailPage() {
     if (phone) window.location.href = `sms:${phone}&body=${encodeURIComponent(msg)}`;
   }
 
+  function openEdit() {
+    if (!campaign) return;
+    setEditName(campaign.name);
+    setEditGroupIds(campaign.ccb_group_ids?.length ? [...campaign.ccb_group_ids] : ['']);
+    setEditFormId(campaign.ccb_form_id ?? '');
+    setEditFormLink(campaign.form_link ?? '');
+    setEditDueDate(campaign.due_date ?? '');
+    setEditTemplate(campaign.message_template ?? '');
+    setSaveError(null);
+    setShowEdit(true);
+  }
+
+  async function handleSaveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!campaign) return;
+    const cleanGroupIds = editGroupIds.map(gid => gid.trim()).filter(Boolean);
+    if (cleanGroupIds.length === 0) { setSaveError('At least one CCB Group ID is required'); return; }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const headers = await authHeader();
+      const res = await fetch(`/api/campaigns/${id}`, {
+        method: 'PATCH',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editName.trim(),
+          ccb_group_ids: cleanGroupIds,
+          ccb_form_id: editFormId.trim(),
+          form_link: editFormLink.trim(),
+          due_date: editDueDate,
+          message_template: editTemplate.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed to save');
+      await loadCampaign();
+      setShowEdit(false);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function handleSearchChange(q: string) {
     setSearchQuery(q);
     setSearchError(null);
@@ -388,6 +446,12 @@ export default function CampaignDetailPage() {
                   ? `Last reconciled ${formatDate(campaign.last_reconciled_at)}`
                   : 'Not yet reconciled'}
               </span>
+              <button
+                className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                onClick={openEdit}
+              >
+                Edit
+              </button>
               <button
                 className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
                 onClick={() => {
@@ -631,6 +695,152 @@ export default function CampaignDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Edit Campaign modal */}
+      <Modal
+        isOpen={showEdit}
+        onClose={() => setShowEdit(false)}
+        title="Edit Campaign"
+        size="lg"
+      >
+        <form onSubmit={handleSaveEdit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">Campaign name</label>
+            <input
+              type="text"
+              className={inputCls}
+              placeholder="e.g. Fall Kickoff RSVP"
+              value={editName}
+              onChange={e => setEditName(e.target.value)}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">CCB Group IDs</label>
+            <div className="space-y-2">
+              {editGroupIds.map((gid, i) => (
+                <div key={i} className="flex gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    className={inputCls}
+                    placeholder={i === 0 ? 'e.g. 1234' : 'e.g. 5678'}
+                    value={gid}
+                    onChange={e => setEditGroupIds(prev => prev.map((v, idx) => idx === i ? e.target.value : v))}
+                    required={i === 0}
+                  />
+                  {editGroupIds.length > 1 && (
+                    <button
+                      type="button"
+                      className="text-slate-500 hover:text-red-400 transition-colors px-2"
+                      onClick={() => setEditGroupIds(prev => prev.filter((_, idx) => idx !== i))}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-xs text-slate-600">Found in the CCB group URL</span>
+              <button
+                type="button"
+                className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                onClick={() => setEditGroupIds(prev => [...prev, ''])}
+              >
+                + Add another group
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">CCB Form ID</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                className={inputCls}
+                placeholder="e.g. 56"
+                value={editFormId}
+                onChange={e => setEditFormId(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">Due date</label>
+              <input
+                type="date"
+                className={inputCls}
+                value={editDueDate}
+                onChange={e => setEditDueDate(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">Form link</label>
+            <input
+              type="url"
+              className={inputCls}
+              placeholder="https://yourchurch.ccbchurch.com/goto/forms/56/responses/new"
+              value={editFormLink}
+              onChange={e => setEditFormLink(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">Message template</label>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {VARIABLES.map(tag => (
+                <button
+                  key={tag}
+                  type="button"
+                  className="bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-slate-300 font-mono text-xs px-2 py-1 rounded transition-colors"
+                  onClick={() => {
+                    const ta = document.getElementById('edit-template-detail') as HTMLTextAreaElement | null;
+                    if (!ta) return;
+                    const s = ta.selectionStart, e = ta.selectionEnd;
+                    setEditTemplate(ta.value.slice(0, s) + tag + ta.value.slice(e));
+                  }}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+            <textarea
+              id="edit-template-detail"
+              className="w-full bg-zinc-700 border border-zinc-600 text-white placeholder-slate-400 rounded-lg px-3 py-2 text-sm font-mono leading-relaxed h-24 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+              value={editTemplate}
+              onChange={e => setEditTemplate(e.target.value)}
+            />
+          </div>
+
+          {saveError && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+              {saveError}
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-3 pt-2 border-t border-zinc-800">
+            <button
+              type="button"
+              className="text-slate-400 hover:text-white px-3 py-2 rounded-lg text-sm transition-colors hover:bg-zinc-800"
+              onClick={() => setShowEdit(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="bg-btn-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
+              disabled={saving}
+            >
+              {saving ? <><Spinner size="sm" /> Saving…</> : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Add Person modal */}
       <Modal

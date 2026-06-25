@@ -4,7 +4,10 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { DateTime } from 'luxon';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import Modal from '../../components/ui/Modal';
 import { useCampaigns, Campaign } from '../../hooks/useCampaigns';
+
+const VARIABLES = ['{{first_name}}', '{{form_link}}', '{{campaign_name}}', '{{due_date}}'];
 
 function CompletionPill({ pct }: { pct: number | null }) {
   if (pct === null) return <span className="text-slate-600 text-sm">—</span>;
@@ -30,22 +33,77 @@ function Spinner() {
   return <div className="w-4 h-4 border-2 border-zinc-700 border-t-indigo-500 rounded-full animate-spin" />;
 }
 
+const inputCls =
+  'w-full bg-zinc-700 border border-zinc-600 text-white placeholder-slate-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors';
+
 export default function CampaignsPage() {
-  const { campaigns, loading, error, fetchCampaigns, archiveCampaign, restoreCampaign } = useCampaigns();
+  const { campaigns, loading, error, fetchCampaigns, updateCampaign, archiveCampaign, restoreCampaign } = useCampaigns();
   const [showArchived, setShowArchived] = useState(false);
   const [archiving, setArchiving] = useState<string | null>(null);
 
+  // Edit modal state
+  const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editGroupIds, setEditGroupIds] = useState<string[]>(['']);
+  const [editFormId, setEditFormId] = useState('');
+  const [editFormLink, setEditFormLink] = useState('');
+  const [editDueDate, setEditDueDate] = useState('');
+  const [editTemplate, setEditTemplate] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Always fetch including archived so count is accurate
   useEffect(() => {
-    fetchCampaigns(showArchived);
-  }, [showArchived, fetchCampaigns]);
+    fetchCampaigns(true);
+  }, [fetchCampaigns]);
 
   const active = campaigns.filter(c => !c.archived_at);
   const archived = campaigns.filter(c => !!c.archived_at);
   const visible = showArchived ? campaigns : active;
 
+  function openEdit(c: Campaign) {
+    setEditingCampaign(c);
+    setEditName(c.name);
+    setEditGroupIds(c.ccb_group_ids?.length ? [...c.ccb_group_ids] : ['']);
+    setEditFormId(c.ccb_form_id ?? '');
+    setEditFormLink(c.form_link ?? '');
+    setEditDueDate(c.due_date ?? '');
+    setEditTemplate(c.message_template ?? '');
+    setSaveError(null);
+  }
+
+  function closeEdit() {
+    setEditingCampaign(null);
+    setSaveError(null);
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingCampaign) return;
+    const cleanGroupIds = editGroupIds.map(id => id.trim()).filter(Boolean);
+    if (cleanGroupIds.length === 0) { setSaveError('At least one CCB Group ID is required'); return; }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await updateCampaign(editingCampaign.id, {
+        name: editName.trim(),
+        ccb_group_ids: cleanGroupIds,
+        ccb_form_id: editFormId.trim(),
+        form_link: editFormLink.trim(),
+        due_date: editDueDate,
+        message_template: editTemplate.trim(),
+      });
+      closeEdit();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleArchive(c: Campaign) {
     setArchiving(c.id);
-    try { await archiveCampaign(c.id); } finally { setArchiving(null); }
+    try { await archiveCampaign(c.id); await fetchCampaigns(true); } finally { setArchiving(null); }
   }
 
   async function handleRestore(c: Campaign) {
@@ -58,7 +116,7 @@ export default function CampaignsPage() {
       <div className="p-4 sm:p-6 lg:p-8 max-w-screen-xl mx-auto">
 
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
+        <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
           <div>
             <h1 className="text-xl font-semibold text-white tracking-tight">Follow-Up Campaigns</h1>
             <p className="text-sm text-slate-400 mt-0.5">
@@ -73,20 +131,26 @@ export default function CampaignsPage() {
           </Link>
         </div>
 
-        {/* Archived toggle */}
-        {(archived.length > 0 || showArchived) && (
-          <label className="flex items-center gap-2 cursor-pointer w-fit mb-4">
-            <div
-              className={`w-8 h-4 rounded-full transition-colors relative cursor-pointer ${showArchived ? 'bg-indigo-500' : 'bg-zinc-700'}`}
-              onClick={() => setShowArchived(v => !v)}
-            >
-              <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${showArchived ? 'translate-x-4' : 'translate-x-0.5'}`} />
-            </div>
-            <span className="text-sm text-slate-400 select-none" onClick={() => setShowArchived(v => !v)}>
-              Show archived ({archived.length})
-            </span>
-          </label>
-        )}
+        {/* Archived toggle — always visible */}
+        <div className="flex items-center gap-2 mb-5">
+          <button
+            role="switch"
+            aria-checked={showArchived}
+            className={`w-9 h-5 rounded-full relative transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${showArchived ? 'bg-indigo-500' : 'bg-zinc-700'}`}
+            onClick={() => setShowArchived(v => !v)}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${showArchived ? 'translate-x-4' : 'translate-x-0'}`} />
+          </button>
+          <span
+            className="text-sm text-slate-400 cursor-pointer select-none"
+            onClick={() => setShowArchived(v => !v)}
+          >
+            Show archived
+            {archived.length > 0 && (
+              <span className="ml-1.5 text-xs text-slate-600">({archived.length})</span>
+            )}
+          </span>
+        </div>
 
         {/* Error */}
         {error && (
@@ -105,13 +169,17 @@ export default function CampaignsPage() {
         {/* Empty state */}
         {!loading && visible.length === 0 && (
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 flex flex-col items-center justify-center py-16 text-center">
-            <p className="text-slate-500 text-sm">No campaigns yet.</p>
-            <Link
-              href="/campaigns/new"
-              className="bg-btn-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity mt-4"
-            >
-              Create your first campaign
-            </Link>
+            <p className="text-slate-500 text-sm">
+              {showArchived ? 'No campaigns found.' : 'No active campaigns.'}
+            </p>
+            {!showArchived && (
+              <Link
+                href="/campaigns/new"
+                className="bg-btn-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity mt-4"
+              >
+                Create your first campaign
+              </Link>
+            )}
           </div>
         )}
 
@@ -157,16 +225,24 @@ export default function CampaignsPage() {
                       <td className="px-4 py-3"><CompletionPill pct={c.completion_pct} /></td>
                       <td className="px-4 py-3 whitespace-nowrap text-slate-400">{formatDate(c.due_date)}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-slate-500">
-                        {c.last_reconciled_at ? formatDate(c.last_reconciled_at) : <span className="italic text-slate-600">Not yet</span>}
+                        {c.last_reconciled_at
+                          ? formatDate(c.last_reconciled_at)
+                          : <span className="italic text-slate-600">Not yet</span>}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2 justify-end">
+                        <div className="flex items-center gap-1.5 justify-end">
                           <Link
                             href={`/campaigns/${c.id}`}
                             className="text-slate-400 hover:text-white hover:bg-zinc-700 px-2.5 py-1 rounded-lg text-xs transition-colors"
                           >
                             View
                           </Link>
+                          <button
+                            className="text-slate-400 hover:text-white hover:bg-zinc-700 px-2.5 py-1 rounded-lg text-xs transition-colors"
+                            onClick={() => openEdit(c)}
+                          >
+                            Edit
+                          </button>
                           {c.archived_at ? (
                             <button
                               className="text-slate-400 hover:text-white hover:bg-zinc-700 px-2.5 py-1 rounded-lg text-xs transition-colors disabled:opacity-40 flex items-center gap-1"
@@ -194,6 +270,157 @@ export default function CampaignsPage() {
           </div>
         )}
       </div>
+
+      {/* Edit modal */}
+      <Modal
+        isOpen={!!editingCampaign}
+        onClose={closeEdit}
+        title="Edit Campaign"
+        size="lg"
+      >
+        <form onSubmit={handleSave} className="space-y-4">
+          {/* Name */}
+          <div>
+            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">Campaign name</label>
+            <input
+              type="text"
+              className={inputCls}
+              placeholder="e.g. Fall Kickoff RSVP"
+              value={editName}
+              onChange={e => setEditName(e.target.value)}
+              required
+            />
+          </div>
+
+          {/* CCB Group IDs */}
+          <div>
+            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">CCB Group IDs</label>
+            <div className="space-y-2">
+              {editGroupIds.map((gid, i) => (
+                <div key={i} className="flex gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    className={inputCls}
+                    placeholder={i === 0 ? 'e.g. 1234' : 'e.g. 5678'}
+                    value={gid}
+                    onChange={e => setEditGroupIds(prev => prev.map((v, idx) => idx === i ? e.target.value : v))}
+                    required={i === 0}
+                  />
+                  {editGroupIds.length > 1 && (
+                    <button
+                      type="button"
+                      className="text-slate-500 hover:text-red-400 transition-colors px-2"
+                      onClick={() => setEditGroupIds(prev => prev.filter((_, idx) => idx !== i))}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-xs text-slate-600">Found in the CCB group URL</span>
+              <button
+                type="button"
+                className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                onClick={() => setEditGroupIds(prev => [...prev, ''])}
+              >
+                + Add another group
+              </button>
+            </div>
+          </div>
+
+          {/* Two-col: Form ID + Due date */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">CCB Form ID</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                className={inputCls}
+                placeholder="e.g. 56"
+                value={editFormId}
+                onChange={e => setEditFormId(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">Due date</label>
+              <input
+                type="date"
+                className={inputCls}
+                value={editDueDate}
+                onChange={e => setEditDueDate(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          {/* Form link */}
+          <div>
+            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">Form link</label>
+            <input
+              type="url"
+              className={inputCls}
+              placeholder="https://yourchurch.ccbchurch.com/goto/forms/56/responses/new"
+              value={editFormLink}
+              onChange={e => setEditFormLink(e.target.value)}
+            />
+          </div>
+
+          {/* Message template */}
+          <div>
+            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">Message template</label>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {VARIABLES.map(tag => (
+                <button
+                  key={tag}
+                  type="button"
+                  className="bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-slate-300 font-mono text-xs px-2 py-1 rounded transition-colors"
+                  onClick={() => {
+                    const ta = document.getElementById('edit-template') as HTMLTextAreaElement | null;
+                    if (!ta) return;
+                    const s = ta.selectionStart, e = ta.selectionEnd;
+                    setEditTemplate(ta.value.slice(0, s) + tag + ta.value.slice(e));
+                  }}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+            <textarea
+              id="edit-template"
+              className="w-full bg-zinc-700 border border-zinc-600 text-white placeholder-slate-400 rounded-lg px-3 py-2 text-sm font-mono leading-relaxed h-24 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+              value={editTemplate}
+              onChange={e => setEditTemplate(e.target.value)}
+            />
+          </div>
+
+          {saveError && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+              {saveError}
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-3 pt-2 border-t border-zinc-800">
+            <button
+              type="button"
+              className="text-slate-400 hover:text-white px-3 py-2 rounded-lg text-sm transition-colors hover:bg-zinc-800"
+              onClick={closeEdit}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="bg-btn-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
+              disabled={saving}
+            >
+              {saving ? <><Spinner /> Saving…</> : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </ProtectedRoute>
   );
 }

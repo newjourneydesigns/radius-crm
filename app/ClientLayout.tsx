@@ -136,7 +136,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   const content = isPublic ? children : <ProtectedRoute>{children}</ProtectedRoute>;
 
   return (
-    <>
+    <div className="min-h-screen flex flex-col">
       {/* App-wide haptic feedback (PWA) */}
       <HapticsProvider />
 
@@ -147,9 +147,8 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
         <AppChrome />
       )}
 
-      {/* Main Content — bottom padding clears the fixed bottom nav + safe area on
-          mobile, except on immersive routes that fill the whole viewport. */}
-      <main className={isImmersive ? '' : 'mobile-nav-padding'}>{content}</main>
+      {/* Main Content */}
+      <main className={`flex-1 ${isImmersive ? '' : 'mobile-nav-padding'}`}>{content}</main>
 
       {!hideChrome && !isNotebookPage && !isImmersive && (
         <>
@@ -162,7 +161,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
           <QuickActionsFAB />
         </>
       )}
-    </>
+    </div>
   );
 }
 

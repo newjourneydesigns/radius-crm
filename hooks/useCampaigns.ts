@@ -120,5 +120,22 @@ export function useCampaigns() {
     await fetchCampaigns(true);
   }, [fetchCampaigns]);
 
-  return { campaigns, loading, error, fetchCampaigns, createCampaign, archiveCampaign, restoreCampaign };
+  const updateCampaign = useCallback(async (
+    id: string,
+    payload: Partial<Pick<Campaign, 'name' | 'ccb_group_ids' | 'ccb_form_id' | 'form_link' | 'due_date' | 'message_template'>>,
+  ): Promise<Campaign> => {
+    const headers = await authHeader();
+    const res = await fetch(`/api/campaigns/${id}`, {
+      method: 'PATCH',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || 'Failed to update campaign');
+    const json = await res.json();
+    const updated: Campaign = json.campaign;
+    setCampaigns(prev => prev.map(c => c.id === id ? updated : c));
+    return updated;
+  }, []);
+
+  return { campaigns, loading, error, fetchCampaigns, createCampaign, updateCampaign, archiveCampaign, restoreCampaign };
 }

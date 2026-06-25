@@ -3,6 +3,16 @@
     "date": "2026-06-25",
     "date_display": "June 25, 2026",
     "date_iso": "2026-06-25",
+    "id": "campaigns-new-redesign",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Restyled the New Campaign form to match RADIUS's dark design — zinc card surface, consistent input styles, CCB Form ID and Due Date in a side-by-side grid, and a campaign edit modal on the detail page.",
+    "page": "/campaigns/new"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
     "id": "campaigns-list-redesign",
     "type": "improvement",
     "category": "Campaigns",
