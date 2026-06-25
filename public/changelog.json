@@ -3,6 +3,16 @@
     "date": "2026-06-25",
     "date_display": "June 25, 2026",
     "date_iso": "2026-06-25",
+    "id": "campaigns-form-responses-fix",
+    "type": "fix",
+    "category": "Campaigns",
+    "description": "Fixed a bug where submitted form responses weren't showing in the Submitted tab. The CCB API returns responses in a different format than expected — reconciling now correctly identifies who has submitted.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
     "id": "campaigns-label-renames",
     "type": "improvement",
     "category": "Campaigns",

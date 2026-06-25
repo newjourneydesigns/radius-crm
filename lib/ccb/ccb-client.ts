@@ -2412,8 +2412,14 @@ ${attendeesBlock}
       response.forms?.form_responses ??
       response;
 
-    // Extract an array of individual-like objects from either shape
-    const extractIndividuals = (root: any): any[] => {
+    // Extract an array of raw form_response (or individual) objects
+    const extractEntries = (root: any): any[] => {
+      // Shape D (actual) — form_response[] directly under form_responses
+      const formRespArr = Array.isArray(root?.form_response)
+        ? root.form_response
+        : root?.form_response ? [root.form_response] : [];
+      if (formRespArr.length) return formRespArr;
+
       // Shape A — wrapped in individuals/individual
       const indRoot = root?.individuals ?? root?.individual_profiles;
       if (indRoot) {
@@ -2430,44 +2436,65 @@ ${attendeesBlock}
         return respArr.map((r: any) => r?.individual ?? r).filter(Boolean);
       }
       // Shape C — individuals directly at root
-      const direct = Array.isArray(root?.individual)
+      return Array.isArray(root?.individual)
         ? root.individual
         : root?.individual ? [root.individual] : [];
-      return direct;
     };
 
-    const rawArr = extractIndividuals(formRoot);
+    const rawArr = extractEntries(formRoot);
 
     const formatPhone = (raw: string): string => String(raw || '').trim();
 
     return rawArr.map((p: any) => {
-      const firstName = String(p.first_name ?? p.firstName ?? '').trim();
-      const lastName  = String(p.last_name  ?? p.lastName  ?? '').trim();
-      const email     = String(p.email ?? '').trim().toLowerCase();
+      let firstName = String(p.first_name ?? p.firstName ?? '').trim();
+      let lastName  = String(p.last_name  ?? p.lastName  ?? '').trim();
+      let email     = String(p.email ?? '').trim().toLowerCase();
+      let mobilePhone = '';
+      let phone = '';
+      // Individual CCB ID — for form_response shape it lives on the child <individual>
+      let individualId = String(p['@_id'] ?? p.id ?? '').trim();
 
-      const phonesContainer = p.phones ?? {};
-      const phoneEntries = Array.isArray(phonesContainer.phone)
-        ? phonesContainer.phone
-        : phonesContainer.phone ? [phonesContainer.phone] : [];
-
-      const getPhoneByType = (...types: string[]): string => {
-        for (const t of types) {
-          const entry = phoneEntries.find((e: any) => e?.['@_type'] === t);
-          const val = entry?.['#text'] ?? '';
-          if (val) return formatPhone(val);
+      // Shape D: extract fields from profile_info[] and individual element
+      if (p.profile_fields) {
+        const infos = Array.isArray(p.profile_fields.profile_info)
+          ? p.profile_fields.profile_info
+          : p.profile_fields.profile_info ? [p.profile_fields.profile_info] : [];
+        for (const info of infos) {
+          const fieldName = String(info['@_name'] ?? '').trim();
+          const value = String(info['#text'] ?? '').trim();
+          if (fieldName === 'name_first') firstName = value;
+          else if (fieldName === 'name_last') lastName = value;
+          else if (fieldName === 'email_primary' || fieldName === 'email') email = value.toLowerCase();
+          else if (fieldName === 'phone_mobile') mobilePhone = value;
+          else if ((fieldName === 'phone_home' || fieldName === 'phone_work') && !phone) phone = value;
         }
-        return '';
-      };
+        // The CCB individual ID is on the <individual id="..."> child element
+        if (p.individual) {
+          const indId = String(p.individual['@_id'] ?? '').trim();
+          if (indId) individualId = indId;
+        }
+      } else {
+        // Legacy shapes — phones in a phones container
+        const phonesContainer = p.phones ?? {};
+        const phoneEntries = Array.isArray(phonesContainer.phone)
+          ? phonesContainer.phone
+          : phonesContainer.phone ? [phonesContainer.phone] : [];
 
-      const mobilePhone =
-        getPhoneByType('mobile', 'contact') ||
-        formatPhone(p.mobile_phone ?? p.mobilePhone ?? '');
-      const phone =
-        getPhoneByType('home', 'contact', 'work') ||
-        formatPhone(p.phone ?? '');
+        const getPhoneByType = (...types: string[]): string => {
+          for (const t of types) {
+            const entry = phoneEntries.find((e: any) => e?.['@_type'] === t);
+            const val = entry?.['#text'] ?? '';
+            if (val) return formatPhone(val);
+          }
+          return '';
+        };
+
+        mobilePhone = getPhoneByType('mobile', 'contact') || formatPhone(p.mobile_phone ?? p.mobilePhone ?? '');
+        phone = getPhoneByType('home', 'contact', 'work') || formatPhone(p.phone ?? '');
+      }
 
       return {
-        id: String(p['@_id'] ?? p.id ?? '').trim(),
+        id: individualId,
         firstName,
         lastName,
         email,
