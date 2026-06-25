@@ -2372,6 +2372,113 @@ ${attendeesBlock}
   }
 
   /**
+   * Fetch all respondents from a CCB form (v1 XML API).
+   *
+   * Uses srv=form_responses with form_id param. The exact XML shape varies
+   * across CCB versions — two common shapes are handled:
+   *   Shape A: response.form_responses.individuals.individual[]
+   *   Shape B: response.form_responses.response[].individual
+   *
+   * If CCB returns a permission error, the caller receives an Error whose
+   * message contains "Permission" so the API route can surface a clear
+   * "grant the API user access to Forms in CCB Admin" instruction.
+   *
+   * Dev note: On first use against a real CCB instance, enable IS_DEV to see
+   * the raw XML logged to console and confirm which shape your account uses.
+   */
+  async getFormResponses(formId: string): Promise<Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    mobilePhone: string;
+    phone: string;
+    rawResponse: Record<string, unknown>;
+  }>> {
+    if (!formId) throw new Error('Form ID is required');
+
+    const xml = await this.getXml({ srv: 'form_responses', form_id: formId });
+
+    if (IS_DEV) {
+      console.log('[CCB getFormResponses] raw XML:', JSON.stringify(xml, null, 2).slice(0, 4000));
+    }
+
+    const response = xml?.ccb_api?.response;
+    if (!response) return [];
+
+    // Navigate to the form_responses container (CCB nests this variously)
+    const formRoot =
+      response.form_responses ??
+      response.forms?.form_responses ??
+      response;
+
+    // Extract an array of individual-like objects from either shape
+    const extractIndividuals = (root: any): any[] => {
+      // Shape A — wrapped in individuals/individual
+      const indRoot = root?.individuals ?? root?.individual_profiles;
+      if (indRoot) {
+        const arr = Array.isArray(indRoot.individual)
+          ? indRoot.individual
+          : indRoot.individual ? [indRoot.individual] : [];
+        if (arr.length) return arr;
+      }
+      // Shape B — wrapped in response[].individual or response[] directly
+      const respArr = Array.isArray(root?.response)
+        ? root.response
+        : root?.response ? [root.response] : [];
+      if (respArr.length) {
+        return respArr.map((r: any) => r?.individual ?? r).filter(Boolean);
+      }
+      // Shape C — individuals directly at root
+      const direct = Array.isArray(root?.individual)
+        ? root.individual
+        : root?.individual ? [root.individual] : [];
+      return direct;
+    };
+
+    const rawArr = extractIndividuals(formRoot);
+
+    const formatPhone = (raw: string): string => String(raw || '').trim();
+
+    return rawArr.map((p: any) => {
+      const firstName = String(p.first_name ?? p.firstName ?? '').trim();
+      const lastName  = String(p.last_name  ?? p.lastName  ?? '').trim();
+      const email     = String(p.email ?? '').trim().toLowerCase();
+
+      const phonesContainer = p.phones ?? {};
+      const phoneEntries = Array.isArray(phonesContainer.phone)
+        ? phonesContainer.phone
+        : phonesContainer.phone ? [phonesContainer.phone] : [];
+
+      const getPhoneByType = (...types: string[]): string => {
+        for (const t of types) {
+          const entry = phoneEntries.find((e: any) => e?.['@_type'] === t);
+          const val = entry?.['#text'] ?? '';
+          if (val) return formatPhone(val);
+        }
+        return '';
+      };
+
+      const mobilePhone =
+        getPhoneByType('mobile', 'contact') ||
+        formatPhone(p.mobile_phone ?? p.mobilePhone ?? '');
+      const phone =
+        getPhoneByType('home', 'contact', 'work') ||
+        formatPhone(p.phone ?? '');
+
+      return {
+        id: String(p['@_id'] ?? p.id ?? '').trim(),
+        firstName,
+        lastName,
+        email,
+        mobilePhone,
+        phone,
+        rawResponse: p as Record<string, unknown>,
+      };
+    }).filter((p) => p.firstName || p.lastName || p.email);
+  }
+
+  /**
    * Test connection to CCB API
    */
   async testConnection(): Promise<boolean> {

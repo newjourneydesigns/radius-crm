@@ -1,5 +1,35 @@
 [
   {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "campaigns-add-person",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Campaigns now support adding individuals directly from a CCB search — not just from groups. Use the new \"+ Add Person\" button on any campaign to find someone by name or phone and add them to the expected list. Manually-added people show a \"manual\" badge and can be removed individually.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "campaigns-multi-group",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Campaigns now support multiple CCB groups as the expected list. Add as many Group IDs as you need — Radius merges them, deduplicates, and reconciles the combined list against form submissions.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "follow-up-campaigns",
+    "type": "feature",
+    "category": "Campaigns",
+    "description": "New Follow-Up Campaigns tool (admin only). Point a campaign at a CCB group and a CCB form, hit Reconcile Now, and Radius shows who submitted and who hasn't. Select missing people, preview a personalized message with the form link already included, copy it or open SMS, and mark them as contacted. Full submission detail is viewable for each person who submitted. Campaigns are team-shared and can be archived when done.",
+    "page": "/campaigns"
+  },
+  {
     "date": "2026-06-24",
     "date_display": "June 24, 2026",
     "date_iso": "2026-06-24",
