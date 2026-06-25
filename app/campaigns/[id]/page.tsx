@@ -16,10 +16,10 @@ import { normalizePhone } from '../../../lib/phoneUtils';
 type TabKey = 'missing' | 'submitted' | 'not_in_group' | 'needs_review' | 'contacted';
 
 const TABS: { key: TabKey; label: string; statusKey: string }[] = [
-  { key: 'missing',       label: 'Missing',        statusKey: 'missing' },
+  { key: 'missing',       label: 'Unsubmitted',    statusKey: 'missing' },
   { key: 'submitted',     label: 'Submitted',      statusKey: 'submitted' },
   { key: 'not_in_group',  label: 'Not in Group',   statusKey: 'submitted_not_in_group' },
-  { key: 'needs_review',  label: 'Needs Review',   statusKey: 'needs_review' },
+  { key: 'needs_review',  label: 'Review Matches', statusKey: 'needs_review' },
   { key: 'contacted',     label: 'Contacted',      statusKey: 'contacted' },
 ];
 
@@ -493,9 +493,9 @@ export default function CampaignDetailPage() {
         {campaign.last_reconciled_at && (
           <div className="space-y-3 mb-6">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCard label="Expected" value={expectedCount || null} />
+              <StatCard label="Invited" value={expectedCount || null} />
               <StatCard label="Submitted" value={campaign.submitted_count} accent="text-green-400" />
-              <StatCard label="Missing" value={campaign.missing_count} accent="text-red-400" />
+              <StatCard label="Unsubmitted" value={campaign.missing_count} accent="text-red-400" />
               <StatCard
                 label="Completion"
                 value={campaign.completion_pct !== null ? `${campaign.completion_pct.toFixed(0)}%` : null}
@@ -504,7 +504,7 @@ export default function CampaignDetailPage() {
             </div>
             <div className="grid grid-cols-3 gap-3">
               <StatCard label="Not in Group" value={campaign.not_in_group_count} />
-              <StatCard label="Needs Review" value={campaign.needs_review_count} accent="text-amber-400" />
+              <StatCard label="Review Matches" value={campaign.needs_review_count} accent="text-amber-400" />
               <StatCard label="Contacted" value={campaign.contacted_count} accent="text-indigo-400" />
             </div>
           </div>

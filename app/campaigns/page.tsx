@@ -191,9 +191,9 @@ export default function CampaignsPage() {
                 <thead>
                   <tr className="border-b border-zinc-800">
                     <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-5 py-3">Campaign</th>
-                    <th className="text-right text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Expected</th>
+                    <th className="text-right text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Invited</th>
                     <th className="text-right text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Submitted</th>
-                    <th className="text-right text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Missing</th>
+                    <th className="text-right text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Unsubmitted</th>
                     <th className="text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Done</th>
                     <th className="text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Due</th>
                     <th className="text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Last Reconciled</th>
