@@ -453,6 +453,7 @@ export default function MobileNavigation({
     { href: '/profile',    label: 'Profile',        Icon: UserIcon },
     { href: '/settings',   label: 'Settings',       Icon: CogIcon },
     { href: '/help',       label: 'Help & Support', Icon: QuestionIcon },
+    { href: '/blog',       label: 'Radius Blog',    Icon: NotebookIcon },
     { href: '/update-log', label: 'Update Log',     Icon: UpdateLogIcon },
   ];
 

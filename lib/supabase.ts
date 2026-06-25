@@ -916,3 +916,18 @@ export interface StudentMessage {
   created_at: string;
   updated_at: string;
 }
+
+
+// ── Radius Blog ──
+export interface BlogArticle {
+  id: string;
+  title: string;
+  description: string;
+  youtube_url?: string | null;
+  slug: string;
+  published: boolean;
+  posted_at: string;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}

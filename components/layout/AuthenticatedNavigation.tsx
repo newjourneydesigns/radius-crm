@@ -519,6 +519,9 @@ export default function AuthenticatedNavigation({
                     <Link href="/help"       onClick={closeAll} className={dropdownLinkClass('/help')}>
                       <QuestionIcon /> Help
                     </Link>
+                    <Link href="/blog"       onClick={closeAll} className={dropdownLinkClass('/blog')}>
+                      <NotebookIcon /> Radius Blog
+                    </Link>
                     <Link href="/update-log" onClick={closeAll} className={dropdownLinkClass('/update-log')}>
                       <UpdateLogIcon />
                       <span className="flex items-center gap-2">

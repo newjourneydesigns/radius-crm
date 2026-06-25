@@ -3,6 +3,26 @@
     "date": "2026-06-25",
     "date_display": "June 25, 2026",
     "date_iso": "2026-06-25",
+    "id": "campaigns-detail-redesign",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Redesigned the campaign detail page to match RADIUS's dark visual style — stat cards, underline tabs, and a clean divide-style table replace the previous boxed layout.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "radius-blog",
+    "type": "feature",
+    "category": "Radius Blog",
+    "description": "Introducing the Radius Blog — a video library and article hub for your team. Browse posts at /blog, search by title or content, and open any post on its own shareable URL. The three most recent posts are previewed at the top of the Help page. Admins can create, edit, and unpublish posts (with YouTube links and rich-text descriptions) directly from App Settings → Radius Blog.",
+    "page": "/blog"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
     "id": "campaigns-add-person",
     "type": "improvement",
     "category": "Campaigns",

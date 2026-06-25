@@ -7,6 +7,7 @@ import { DateTime } from 'luxon';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import { useAuth } from '../../../contexts/AuthContext';
 import { supabase } from '../../../lib/supabase';
+import Modal from '../../../components/ui/Modal';
 import { Campaign, CampaignPerson } from '../../../hooks/useCampaigns';
 import { normalizePhone } from '../../../lib/phoneUtils';
 
@@ -47,10 +48,10 @@ function formatDate(iso: string | null) {
 }
 
 function pctColor(pct: number | null) {
-  if (pct === null) return 'text-base-content/30';
-  if (pct >= 80) return 'text-success';
-  if (pct >= 50) return 'text-warning';
-  return 'text-error';
+  if (pct === null) return 'text-slate-500';
+  if (pct >= 80) return 'text-green-400';
+  if (pct >= 50) return 'text-amber-400';
+  return 'text-red-400';
 }
 
 function bestPhone(p: CampaignPerson) {
@@ -59,26 +60,41 @@ function bestPhone(p: CampaignPerson) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function StatBox({ label, value, className }: { label: string; value: string | number | null; className?: string }) {
+function StatCard({
+  label,
+  value,
+  accent = 'text-white',
+}: {
+  label: string;
+  value: string | number | null;
+  accent?: string;
+}) {
   return (
-    <div className="stat px-4 py-3">
-      <div className="stat-title text-xs">{label}</div>
-      <div className={`stat-value text-2xl ${className ?? ''}`}>{value ?? '—'}</div>
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3 sm:px-5 sm:py-4">
+      <p className="text-xs text-slate-400 uppercase tracking-wide">{label}</p>
+      <p className={`text-2xl sm:text-3xl font-bold mt-1 ${accent}`}>{value ?? '—'}</p>
     </div>
   );
 }
 
-function SubmissionDetail({ data }: { data: Record<string, unknown> | null }) {
-  if (!data) return <p className="text-base-content/40 text-xs italic">No form data stored.</p>;
-  const entries = Object.entries(data).filter(([k]) => !k.startsWith('@_') && k !== 'phones' && k !== 'addresses');
-  if (entries.length === 0) return <p className="text-base-content/40 text-xs italic">No readable fields.</p>;
+function Spinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
+  const sz = size === 'sm' ? 'w-4 h-4' : size === 'lg' ? 'w-8 h-8' : 'w-6 h-6';
   return (
-    <table className="table table-xs w-full text-xs">
-      <tbody>
+    <div className={`${sz} border-2 border-zinc-700 border-t-indigo-500 rounded-full animate-spin`} />
+  );
+}
+
+function SubmissionDetail({ data }: { data: Record<string, unknown> | null }) {
+  if (!data) return <p className="text-slate-500 text-xs italic">No form data stored.</p>;
+  const entries = Object.entries(data).filter(([k]) => !k.startsWith('@_') && k !== 'phones' && k !== 'addresses');
+  if (entries.length === 0) return <p className="text-slate-500 text-xs italic">No readable fields.</p>;
+  return (
+    <table className="w-full text-xs">
+      <tbody className="divide-y divide-zinc-800/60">
         {entries.map(([k, v]) => (
           <tr key={k}>
-            <td className="text-base-content/50 font-mono w-40 whitespace-nowrap">{k}</td>
-            <td className="break-all">{String(v ?? '')}</td>
+            <td className="text-slate-500 font-mono w-40 whitespace-nowrap py-1.5 pr-4">{k}</td>
+            <td className="break-all text-slate-300 py-1.5">{String(v ?? '')}</td>
           </tr>
         ))}
       </tbody>
@@ -89,7 +105,8 @@ function SubmissionDetail({ data }: { data: Record<string, unknown> | null }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function CampaignDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams();
+  const id = params?.id as string;
   const { isAdmin } = useAuth();
   const admin = isAdmin();
 
@@ -121,7 +138,6 @@ export default function CampaignDetailPage() {
   const [addingId, setAddingId] = useState<string | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load campaign
   const loadCampaign = useCallback(async () => {
     const headers = await authHeader();
     const res = await fetch(`/api/campaigns/${id}`, { headers });
@@ -133,7 +149,6 @@ export default function CampaignDetailPage() {
     setLoadingCampaign(false);
   }, [id]);
 
-  // Load people for current tab
   const loadPeople = useCallback(async (status?: string) => {
     setLoadingPeople(true);
     const headers = await authHeader();
@@ -156,7 +171,6 @@ export default function CampaignDetailPage() {
     setSelected(new Set());
   }, [activeTab, loadPeople]);
 
-  // Reconcile
   const handleReconcile = useCallback(async () => {
     setReconciling(true);
     setReconcileError(null);
@@ -167,11 +181,7 @@ export default function CampaignDetailPage() {
     });
     const json = await res.json();
     if (!res.ok) {
-      if (json.error === 'ccb_permission') {
-        setReconcileError(json.message);
-      } else {
-        setReconcileError(json.message || json.error || 'Reconcile failed');
-      }
+      setReconcileError(json.message || json.error || 'Reconcile failed');
     } else {
       await loadCampaign();
       const tab = TABS.find(t => t.key === activeTab);
@@ -180,7 +190,6 @@ export default function CampaignDetailPage() {
     setReconciling(false);
   }, [id, activeTab, loadCampaign, loadPeople]);
 
-  // Selection helpers
   const tabPeople = people;
   const allSelected = tabPeople.length > 0 && tabPeople.every(p => selected.has(p.id));
 
@@ -193,37 +202,34 @@ export default function CampaignDetailPage() {
     });
   }
 
-  function toggleRow(id: string) {
+  function toggleRow(personId: string) {
     setSelected(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(personId)) next.delete(personId);
+      else next.add(personId);
       return next;
     });
   }
 
-  function toggleExpand(id: string) {
+  function toggleExpand(personId: string) {
     setExpandedRows(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(personId)) next.delete(personId);
+      else next.add(personId);
       return next;
     });
   }
 
-  // Selected people objects
   const selectedPeople = useMemo(
     () => tabPeople.filter(p => selected.has(p.id)),
     [tabPeople, selected],
   );
 
-  // First selected person for message preview
   const previewPerson = selectedPeople[0] ?? null;
   const previewMessage = campaign && previewPerson
     ? resolveMessage(msgTemplate, previewPerson, campaign)
     : '';
 
-  // Mark as contacted
   async function handleMarkContacted() {
     if (!selectedPeople.length) return;
     setContacting(true);
@@ -257,7 +263,6 @@ export default function CampaignDetailPage() {
     if (phone) window.location.href = `sms:${phone}&body=${encodeURIComponent(msg)}`;
   }
 
-  // CCB search with 350ms debounce
   function handleSearchChange(q: string) {
     setSearchQuery(q);
     setSearchError(null);
@@ -294,7 +299,6 @@ export default function CampaignDetailPage() {
         throw new Error(json.error || 'Failed to add person');
       }
       setAddedIds(prev => new Set(prev).add(individual.id));
-      // Refresh people list if we're on the missing tab
       if (activeTab === 'missing') {
         const tab = TABS.find(t => t.key === 'missing');
         if (tab) await loadPeople(tab.statusKey);
@@ -323,8 +327,8 @@ export default function CampaignDetailPage() {
   if (loadingCampaign) {
     return (
       <ProtectedRoute>
-        <div className="flex justify-center py-24">
-          <span className="loading loading-spinner loading-lg" />
+        <div className="flex justify-center items-center py-24">
+          <Spinner size="lg" />
         </div>
       </ProtectedRoute>
     );
@@ -334,8 +338,10 @@ export default function CampaignDetailPage() {
     return (
       <ProtectedRoute>
         <div className="max-w-2xl mx-auto px-4 py-16 text-center">
-          <p className="text-base-content/40">Campaign not found.</p>
-          <Link href="/campaigns" className="btn btn-sm btn-ghost mt-4">← Campaigns</Link>
+          <p className="text-slate-500 text-sm">Campaign not found.</p>
+          <Link href="/campaigns" className="text-slate-400 hover:text-white text-sm mt-4 inline-block transition-colors">
+            ← Campaigns
+          </Link>
         </div>
       </ProtectedRoute>
     );
@@ -345,112 +351,130 @@ export default function CampaignDetailPage() {
 
   return (
     <ProtectedRoute>
-      <div className="max-w-6xl mx-auto px-4 py-8 space-y-6 pb-32">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-screen-xl mx-auto pb-32">
 
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
           <div>
-            <Link href="/campaigns" className="text-sm text-base-content/40 hover:text-base-content/70 transition-colors">
+            <Link
+              href="/campaigns"
+              className="text-xs text-slate-500 hover:text-slate-300 transition-colors uppercase tracking-wide"
+            >
               ← Campaigns
             </Link>
-            <h1 className="text-2xl font-bold mt-1">{campaign.name}</h1>
-            <p className="text-sm text-base-content/40 mt-0.5">
+            <h1 className="text-xl font-semibold text-white tracking-tight mt-1">{campaign.name}</h1>
+            <p className="text-sm text-slate-400 mt-0.5">
               Due {formatDate(campaign.due_date)}
               {campaign.form_link && (
                 <>
                   {' · '}
-                  <a href={campaign.form_link} target="_blank" rel="noopener noreferrer" className="hover:text-primary">
+                  <a
+                    href={campaign.form_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-indigo-400 hover:text-indigo-300 transition-colors"
+                  >
                     Open form ↗
                   </a>
                 </>
               )}
             </p>
           </div>
+
           {admin && (
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-xs text-base-content/30">
+              <span className="text-xs text-slate-600">
                 {campaign.last_reconciled_at
                   ? `Last reconciled ${formatDate(campaign.last_reconciled_at)}`
                   : 'Not yet reconciled'}
               </span>
               <button
-                className="btn btn-ghost btn-sm border border-base-300"
-                onClick={() => { setShowAddPerson(true); setSearchQuery(''); setSearchResults([]); setAddedIds(new Set()); setSearchError(null); }}
+                className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                onClick={() => {
+                  setShowAddPerson(true);
+                  setSearchQuery('');
+                  setSearchResults([]);
+                  setAddedIds(new Set());
+                  setSearchError(null);
+                }}
               >
                 + Add Person
               </button>
               <button
-                className="btn btn-primary btn-sm"
+                className="bg-btn-primary text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
                 onClick={handleReconcile}
                 disabled={reconciling}
               >
-                {reconciling
-                  ? <><span className="loading loading-spinner loading-xs" /> Reconciling…</>
-                  : 'Reconcile Now'}
+                {reconciling ? <><Spinner size="sm" /> Reconciling…</> : 'Reconcile Now'}
               </button>
             </div>
           )}
         </div>
 
-        {/* CCB permission error */}
+        {/* Error banner */}
         {reconcileError && (
-          <div className="alert alert-error text-sm">
-            <span>{reconcileError}</span>
+          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            {reconcileError}
           </div>
         )}
 
-        {/* Contact success toast */}
+        {/* Success toast */}
         {contactSuccess && (
-          <div className="alert alert-success text-sm">
+          <div className="mb-4 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
             Marked as contacted.
           </div>
         )}
 
-        {/* Stats bar */}
+        {/* Stats — top row: Expected / Submitted / Missing / Completion */}
         {campaign.last_reconciled_at && (
-          <div className="stats stats-horizontal bg-base-200 border border-base-300 w-full overflow-x-auto shadow-none">
-            <StatBox label="Expected" value={expectedCount || null} />
-            <StatBox label="Submitted" value={campaign.submitted_count} className="text-success" />
-            <StatBox label="Missing" value={campaign.missing_count} className="text-error" />
-            <StatBox label="Not in Group" value={campaign.not_in_group_count} />
-            <StatBox label="Needs Review" value={campaign.needs_review_count} className="text-warning" />
-            <StatBox label="Contacted" value={campaign.contacted_count} className="text-info" />
-            <div className="stat px-4 py-3">
-              <div className="stat-title text-xs">Completion</div>
-              <div className={`stat-value text-2xl ${pctColor(campaign.completion_pct)}`}>
-                {campaign.completion_pct !== null ? `${campaign.completion_pct.toFixed(0)}%` : '—'}
-              </div>
+          <div className="space-y-3 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <StatCard label="Expected" value={expectedCount || null} />
+              <StatCard label="Submitted" value={campaign.submitted_count} accent="text-green-400" />
+              <StatCard label="Missing" value={campaign.missing_count} accent="text-red-400" />
+              <StatCard
+                label="Completion"
+                value={campaign.completion_pct !== null ? `${campaign.completion_pct.toFixed(0)}%` : null}
+                accent={pctColor(campaign.completion_pct)}
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <StatCard label="Not in Group" value={campaign.not_in_group_count} />
+              <StatCard label="Needs Review" value={campaign.needs_review_count} accent="text-amber-400" />
+              <StatCard label="Contacted" value={campaign.contacted_count} accent="text-indigo-400" />
             </div>
           </div>
         )}
 
         {/* Not yet reconciled nudge */}
         {!campaign.last_reconciled_at && (
-          <div className="card bg-base-200 border border-base-300">
-            <div className="card-body items-center text-center py-12">
-              <p className="text-base-content/50 text-sm">This campaign hasn't been reconciled yet.</p>
-              {admin && (
-                <button
-                  className="btn btn-primary btn-sm mt-3"
-                  onClick={handleReconcile}
-                  disabled={reconciling}
-                >
-                  {reconciling ? <span className="loading loading-spinner loading-xs" /> : 'Reconcile Now'}
-                </button>
-              )}
-            </div>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 flex flex-col items-center justify-center py-16 mb-6 text-center">
+            <p className="text-slate-500 text-sm">This campaign hasn&apos;t been reconciled yet.</p>
+            {admin && (
+              <button
+                className="bg-btn-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity mt-4 flex items-center gap-2"
+                onClick={handleReconcile}
+                disabled={reconciling}
+              >
+                {reconciling ? <><Spinner size="sm" /> Reconciling…</> : 'Reconcile Now'}
+              </button>
+            )}
           </div>
         )}
 
-        {/* Tabs */}
+        {/* Tabs + table */}
         {campaign.last_reconciled_at && (
           <>
-            <div role="tablist" className="tabs tabs-boxed bg-base-200 w-fit">
+            {/* Underline tabs */}
+            <div className="border-b border-zinc-800 mb-4 flex gap-1 overflow-x-auto">
               {TABS.map(t => (
                 <button
                   key={t.key}
-                  role="tab"
-                  className={`tab text-sm ${activeTab === t.key ? 'tab-active' : ''}`}
+                  className={`px-3 pb-2.5 pt-1 text-sm font-medium whitespace-nowrap transition-colors ${
+                    activeTab === t.key
+                      ? 'border-b-2 border-indigo-400 text-indigo-300 -mb-px'
+                      : 'text-slate-400 hover:text-slate-200 border-b-2 border-transparent -mb-px'
+                  }`}
                   onClick={() => setActiveTab(t.key)}
                 >
                   {t.label}
@@ -459,119 +483,128 @@ export default function CampaignDetailPage() {
             </div>
 
             {/* People table */}
-            <div className="card bg-base-200 border border-base-300 overflow-x-auto">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden">
               {loadingPeople ? (
-                <div className="flex justify-center py-10">
-                  <span className="loading loading-spinner loading-md" />
+                <div className="flex justify-center items-center py-12">
+                  <Spinner />
                 </div>
               ) : tabPeople.length === 0 ? (
-                <div className="py-12 text-center text-base-content/30 text-sm">No people in this bucket.</div>
+                <div className="py-14 text-center">
+                  <p className="text-slate-500 text-sm">No people in this bucket.</p>
+                </div>
               ) : (
-                <table className="table table-zebra w-full text-sm">
-                  <thead>
-                    <tr className="text-base-content/50 text-xs uppercase tracking-wider">
-                      {showCheckboxes && (
-                        <th className="w-8">
-                          <input
-                            type="checkbox"
-                            className="checkbox checkbox-sm"
-                            checked={allSelected}
-                            onChange={toggleAll}
-                          />
-                        </th>
-                      )}
-                      <th>Name</th>
-                      <th>Email</th>
-                      <th>Phone</th>
-                      {activeTab === 'needs_review' && <th>Form Name</th>}
-                      {activeTab === 'submitted' && <th>Match</th>}
-                      {activeTab === 'contacted' && <th>Contacted</th>}
-                      {activeTab === 'contacted' && <th>Note</th>}
-                      {activeTab === 'submitted' && <th className="w-8"></th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tabPeople.map(p => (
-                      <React.Fragment key={p.id}>
-                        <tr className="align-top">
-                          {showCheckboxes && (
-                            <td className="pt-3">
-                              <input
-                                type="checkbox"
-                                className="checkbox checkbox-sm"
-                                checked={selected.has(p.id)}
-                                onChange={() => toggleRow(p.id)}
-                              />
-                            </td>
-                          )}
-                          <td className="font-medium whitespace-nowrap">
-                            <span>{p.first_name} {p.last_name}</span>
-                            {p.manually_added && (
-                              <span className="ml-1.5 inline-flex items-center gap-1">
-                                <span className="badge badge-xs badge-outline text-base-content/40">manual</span>
-                                {(activeTab === 'missing' || activeTab === 'needs_review') && (
-                                  <button
-                                    className="btn btn-ghost btn-xs p-0 h-4 min-h-0 text-base-content/30 hover:text-error"
-                                    title="Remove from campaign"
-                                    onClick={() => handleRemoveManual(p.id)}
-                                  >
-                                    ✕
-                                  </button>
-                                )}
-                              </span>
-                            )}
-                          </td>
-                          <td className="text-base-content/60">{p.email || '—'}</td>
-                          <td className="text-base-content/60 whitespace-nowrap">
-                            {bestPhone(p) || '—'}
-                          </td>
-                          {activeTab === 'needs_review' && (
-                            <td className="text-warning text-xs">
-                              {p.form_first_name || p.form_last_name
-                                ? `${p.form_first_name || ''} ${p.form_last_name || ''}`.trim()
-                                : '—'}
-                            </td>
-                          )}
-                          {activeTab === 'submitted' && (
-                            <td className="text-xs text-base-content/40">{p.match_method || '—'}</td>
-                          )}
-                          {activeTab === 'contacted' && (
-                            <td className="text-xs text-base-content/40 whitespace-nowrap">
-                              {p.contacted_at ? formatDate(p.contacted_at) : '—'}
-                            </td>
-                          )}
-                          {activeTab === 'contacted' && (
-                            <td className="text-xs text-base-content/50 max-w-xs truncate">
-                              {p.contact_note || '—'}
-                            </td>
-                          )}
-                          {activeTab === 'submitted' && (
-                            <td>
-                              <button
-                                className="btn btn-ghost btn-xs text-base-content/40"
-                                title="View submission"
-                                onClick={() => toggleExpand(p.id)}
-                              >
-                                {expandedRows.has(p.id) ? '▲' : '▼'}
-                              </button>
-                            </td>
-                          )}
-                        </tr>
-                        {/* Expanded submission detail */}
-                        {activeTab === 'submitted' && expandedRows.has(p.id) && (
-                          <tr key={`${p.id}-detail`} className="bg-base-300/50">
-                            <td colSpan={5} className="py-3 px-4">
-                              <p className="text-xs font-semibold text-base-content/50 mb-2 uppercase tracking-wider">
-                                Form Submission
-                              </p>
-                              <SubmissionDetail data={p.form_response_data} />
-                            </td>
-                          </tr>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-zinc-800">
+                        {showCheckboxes && (
+                          <th className="w-10 px-4 py-3">
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 rounded border-zinc-600 bg-zinc-800 accent-indigo-500 cursor-pointer"
+                              checked={allSelected}
+                              onChange={toggleAll}
+                            />
+                          </th>
                         )}
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
+                        <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Name</th>
+                        <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Email</th>
+                        <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Phone</th>
+                        {activeTab === 'needs_review' && (
+                          <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Form Name</th>
+                        )}
+                        {activeTab === 'submitted' && (
+                          <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Match</th>
+                        )}
+                        {activeTab === 'contacted' && (
+                          <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Contacted</th>
+                        )}
+                        {activeTab === 'contacted' && (
+                          <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Note</th>
+                        )}
+                        {activeTab === 'submitted' && <th className="w-10 px-4 py-3" />}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/70">
+                      {tabPeople.map(p => (
+                        <React.Fragment key={p.id}>
+                          <tr className="hover:bg-zinc-800/40 transition-colors align-top">
+                            {showCheckboxes && (
+                              <td className="px-4 pt-3.5">
+                                <input
+                                  type="checkbox"
+                                  className="w-4 h-4 rounded border-zinc-600 bg-zinc-800 accent-indigo-500 cursor-pointer"
+                                  checked={selected.has(p.id)}
+                                  onChange={() => toggleRow(p.id)}
+                                />
+                              </td>
+                            )}
+                            <td className="px-4 py-3 font-medium text-slate-200 whitespace-nowrap">
+                              {p.first_name} {p.last_name}
+                              {p.manually_added && (
+                                <span className="ml-2 inline-flex items-center gap-1">
+                                  <span className="text-xs text-slate-500 border border-zinc-700 rounded px-1 py-0.5 leading-none">manual</span>
+                                  {(activeTab === 'missing' || activeTab === 'needs_review') && (
+                                    <button
+                                      className="text-slate-600 hover:text-red-400 transition-colors ml-0.5 leading-none"
+                                      title="Remove from campaign"
+                                      onClick={() => handleRemoveManual(p.id)}
+                                    >
+                                      ✕
+                                    </button>
+                                  )}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-slate-400">{p.email || '—'}</td>
+                            <td className="px-4 py-3 text-slate-400 whitespace-nowrap">{bestPhone(p) || '—'}</td>
+                            {activeTab === 'needs_review' && (
+                              <td className="px-4 py-3 text-amber-400 text-xs">
+                                {p.form_first_name || p.form_last_name
+                                  ? `${p.form_first_name || ''} ${p.form_last_name || ''}`.trim()
+                                  : '—'}
+                              </td>
+                            )}
+                            {activeTab === 'submitted' && (
+                              <td className="px-4 py-3 text-xs text-slate-500">{p.match_method || '—'}</td>
+                            )}
+                            {activeTab === 'contacted' && (
+                              <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
+                                {p.contacted_at ? formatDate(p.contacted_at) : '—'}
+                              </td>
+                            )}
+                            {activeTab === 'contacted' && (
+                              <td className="px-4 py-3 text-xs text-slate-500 max-w-xs truncate">
+                                {p.contact_note || '—'}
+                              </td>
+                            )}
+                            {activeTab === 'submitted' && (
+                              <td className="px-4 py-3">
+                                <button
+                                  className="text-slate-600 hover:text-slate-300 transition-colors text-xs"
+                                  title="View submission"
+                                  onClick={() => toggleExpand(p.id)}
+                                >
+                                  {expandedRows.has(p.id) ? '▲' : '▼'}
+                                </button>
+                              </td>
+                            )}
+                          </tr>
+                          {activeTab === 'submitted' && expandedRows.has(p.id) && (
+                            <tr key={`${p.id}-detail`} className="bg-zinc-900/60">
+                              <td colSpan={5} className="px-6 py-4">
+                                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">
+                                  Form Submission
+                                </p>
+                                <SubmissionDetail data={p.form_response_data} />
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           </>
@@ -580,13 +613,19 @@ export default function CampaignDetailPage() {
 
       {/* Bulk action bar */}
       {showCheckboxes && selected.size > 0 && !showFollowUp && (
-        <div className="fixed bottom-0 left-0 right-0 bg-base-300 border-t border-base-content/10 shadow-xl z-40">
-          <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-4">
-            <span className="text-sm font-medium">{selected.size} selected</span>
-            <button className="btn btn-primary btn-sm" onClick={() => setShowFollowUp(true)}>
+        <div className="fixed bottom-0 left-0 right-0 bg-zinc-900 border-t border-zinc-800 shadow-xl z-40">
+          <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-4">
+            <span className="text-sm font-medium text-white">{selected.size} selected</span>
+            <button
+              className="bg-btn-primary text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+              onClick={() => setShowFollowUp(true)}
+            >
               Follow Up
             </button>
-            <button className="btn btn-ghost btn-sm text-base-content/40" onClick={() => setSelected(new Set())}>
+            <button
+              className="text-slate-400 hover:text-white hover:bg-zinc-800 px-3 py-1.5 rounded-lg text-sm transition-colors"
+              onClick={() => setSelected(new Set())}
+            >
               Clear
             </button>
           </div>
@@ -594,210 +633,200 @@ export default function CampaignDetailPage() {
       )}
 
       {/* Add Person modal */}
-      {showAddPerson && (
-        <div className="modal modal-open modal-bottom sm:modal-middle z-50">
-          <div className="modal-box w-full max-w-lg max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold">Add Person from CCB</h3>
-              <button className="btn btn-ghost btn-sm btn-circle" onClick={() => setShowAddPerson(false)}>✕</button>
-            </div>
+      <Modal
+        isOpen={showAddPerson}
+        onClose={() => setShowAddPerson(false)}
+        title="Add Person from CCB"
+        size="md"
+      >
+        <div className="space-y-4">
+          <input
+            type="text"
+            className="w-full bg-zinc-700 border border-zinc-600 text-white placeholder-slate-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            placeholder="Search by name or phone…"
+            value={searchQuery}
+            onChange={e => handleSearchChange(e.target.value)}
+            autoFocus
+          />
 
-            <div className="form-control mb-3">
-              <input
-                type="text"
-                className="input input-bordered w-full"
-                placeholder="Search by name or phone…"
-                value={searchQuery}
-                onChange={e => handleSearchChange(e.target.value)}
-                autoFocus
-              />
+          {searchError && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+              {searchError}
             </div>
+          )}
 
-            {searchError && (
-              <div className="alert alert-error text-sm py-2 mb-3">{searchError}</div>
+          <div className="overflow-y-auto max-h-72 -mx-1 px-1">
+            {searching && (
+              <div className="flex justify-center py-8">
+                <Spinner />
+              </div>
             )}
 
-            <div className="overflow-y-auto flex-1 -mx-2 px-2">
-              {searching && (
-                <div className="flex justify-center py-8">
-                  <span className="loading loading-spinner loading-md" />
-                </div>
-              )}
+            {!searching && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
+              <p className="text-center text-slate-500 text-sm py-8">No results found.</p>
+            )}
 
-              {!searching && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
-                <p className="text-center text-base-content/40 text-sm py-8">No results found.</p>
-              )}
+            {!searching && searchQuery.trim().length < 2 && (
+              <p className="text-center text-slate-500 text-sm py-8">Type at least 2 characters to search.</p>
+            )}
 
-              {!searching && searchQuery.trim().length < 2 && (
-                <p className="text-center text-base-content/30 text-sm py-8">Type at least 2 characters to search.</p>
-              )}
-
-              {searchResults.length > 0 && (
-                <div className="divide-y divide-base-content/10 rounded-lg border border-base-300 overflow-hidden">
-                  {searchResults.map(ind => {
-                    const isAdded = addedIds.has(ind.id);
-                    const isAdding = addingId === ind.id;
-                    const phone = ind.mobilePhone || ind.phone;
-                    return (
-                      <div key={ind.id} className="flex items-center gap-3 px-3 py-2.5 bg-base-200">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm">{ind.fullName}</p>
-                          <p className="text-xs text-base-content/40 truncate">
-                            {[ind.email, phone].filter(Boolean).join(' · ') || 'No contact info'}
-                          </p>
-                        </div>
-                        <button
-                          className={`btn btn-sm flex-shrink-0 ${isAdded ? 'btn-success btn-outline' : 'btn-ghost border border-base-300'}`}
-                          disabled={isAdded || isAdding}
-                          onClick={() => !isAdded && handleAddPerson(ind)}
-                        >
-                          {isAdding
-                            ? <span className="loading loading-spinner loading-xs" />
-                            : isAdded ? 'Added' : 'Add'}
-                        </button>
+            {searchResults.length > 0 && (
+              <div className="divide-y divide-zinc-800/70 rounded-lg border border-zinc-700 overflow-hidden">
+                {searchResults.map(ind => {
+                  const isAdded = addedIds.has(ind.id);
+                  const isAdding = addingId === ind.id;
+                  const phone = ind.mobilePhone || ind.phone;
+                  return (
+                    <div key={ind.id} className="flex items-center gap-3 px-3 py-2.5 bg-zinc-800/60">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-slate-200">{ind.fullName}</p>
+                        <p className="text-xs text-slate-500 truncate">
+                          {[ind.email, phone].filter(Boolean).join(' · ') || 'No contact info'}
+                        </p>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="modal-action mt-4 pt-4 border-t border-base-content/10">
-              <p className="text-xs text-base-content/30 flex-1">
-                People added here appear in the Missing tab. Run Reconcile to check their form status.
-              </p>
-              <button className="btn btn-ghost btn-sm" onClick={() => setShowAddPerson(false)}>Done</button>
-            </div>
+                      <button
+                        className={`flex-shrink-0 px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                          isAdded
+                            ? 'bg-green-500/20 text-green-400 border border-green-500/30 cursor-default'
+                            : 'bg-slate-700 hover:bg-slate-600 text-slate-200 border border-zinc-600'
+                        }`}
+                        disabled={isAdded || isAdding}
+                        onClick={() => !isAdded && handleAddPerson(ind)}
+                      >
+                        {isAdding ? <Spinner size="sm" /> : isAdded ? 'Added' : 'Add'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-          <div className="modal-backdrop bg-black/50" onClick={() => setShowAddPerson(false)} />
+
+          <div className="pt-3 border-t border-zinc-800 flex items-center justify-between gap-4">
+            <p className="text-xs text-slate-600 flex-1">
+              People added here appear in the Missing tab. Run Reconcile to check their form status.
+            </p>
+            <button
+              className="text-slate-400 hover:text-white px-3 py-1.5 rounded-lg text-sm transition-colors hover:bg-zinc-800"
+              onClick={() => setShowAddPerson(false)}
+            >
+              Done
+            </button>
+          </div>
         </div>
-      )}
+      </Modal>
 
       {/* Follow-up modal */}
-      {showFollowUp && campaign && (
-        <div className="modal modal-open modal-bottom sm:modal-middle z-50">
-          <div className="modal-box w-full max-w-2xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold">
-                Follow Up — {selectedPeople.length} {selectedPeople.length === 1 ? 'person' : 'people'}
-              </h3>
-              <button className="btn btn-ghost btn-sm btn-circle" onClick={() => setShowFollowUp(false)}>✕</button>
+      <Modal
+        isOpen={showFollowUp && !!campaign}
+        onClose={() => setShowFollowUp(false)}
+        title={`Follow Up — ${selectedPeople.length} ${selectedPeople.length === 1 ? 'person' : 'people'}`}
+        size="lg"
+      >
+        <div className="space-y-5">
+          {/* Template editor */}
+          <div>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Message template</p>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {['{{first_name}}', '{{form_link}}', '{{campaign_name}}', '{{due_date}}'].map(tag => (
+                <button
+                  key={tag}
+                  type="button"
+                  className="bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-slate-300 font-mono text-xs px-2 py-1 rounded transition-colors"
+                  onClick={() => {
+                    const ta = document.getElementById('follow-up-template') as HTMLTextAreaElement | null;
+                    if (!ta) return;
+                    const start = ta.selectionStart;
+                    const end = ta.selectionEnd;
+                    setMsgTemplate(ta.value.slice(0, start) + tag + ta.value.slice(end));
+                  }}
+                >
+                  {tag}
+                </button>
+              ))}
             </div>
+            <textarea
+              id="follow-up-template"
+              className="w-full bg-zinc-700 border border-zinc-600 text-white placeholder-slate-400 rounded-lg px-3 py-2 text-sm font-mono leading-relaxed h-24 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+              value={msgTemplate}
+              onChange={e => setMsgTemplate(e.target.value)}
+            />
+          </div>
 
-            <div className="overflow-y-auto flex-1 space-y-4">
-              {/* Template editor */}
-              <div className="form-control">
-                <label className="label pb-1">
-                  <span className="label-text font-medium text-sm">Message template</span>
-                </label>
-                {/* Variable chips */}
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {[
-                    { tag: '{{first_name}}' },
-                    { tag: '{{form_link}}' },
-                    { tag: '{{campaign_name}}' },
-                    { tag: '{{due_date}}' },
-                  ].map(v => (
-                    <button
-                      key={v.tag}
-                      type="button"
-                      className="btn btn-xs btn-ghost border border-base-300 font-mono text-xs"
-                      onClick={() => {
-                        const ta = document.getElementById('follow-up-template') as HTMLTextAreaElement | null;
-                        if (!ta) return;
-                        const start = ta.selectionStart;
-                        const end = ta.selectionEnd;
-                        const next = ta.value.slice(0, start) + v.tag + ta.value.slice(end);
-                        setMsgTemplate(next);
-                      }}
-                    >
-                      {v.tag}
-                    </button>
-                  ))}
-                </div>
-                <textarea
-                  id="follow-up-template"
-                  className="textarea textarea-bordered w-full h-24 text-sm font-mono leading-relaxed"
-                  value={msgTemplate}
-                  onChange={e => setMsgTemplate(e.target.value)}
-                />
+          {/* Preview */}
+          {previewPerson && (
+            <div className="rounded-lg border border-zinc-700 bg-zinc-800/60 p-4 space-y-2">
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                Preview — {previewPerson.first_name} {previewPerson.last_name}
+              </p>
+              <p className="text-sm text-slate-200 whitespace-pre-wrap">{previewMessage}</p>
+              <div className="pt-1">
+                <button
+                  className="bg-slate-700 hover:bg-slate-600 border border-zinc-600 text-slate-300 px-3 py-1 rounded-lg text-xs transition-colors"
+                  onClick={() => sendMessage(previewPerson)}
+                >
+                  Send iMessage
+                </button>
               </div>
+            </div>
+          )}
 
-              {/* Preview for first selected person */}
-              {previewPerson && (
-                <div className="bg-base-300 rounded-lg p-4 space-y-2">
-                  <p className="text-xs font-semibold text-base-content/50 uppercase tracking-wider">
-                    Preview — {previewPerson.first_name} {previewPerson.last_name}
-                  </p>
-                  <p className="text-sm whitespace-pre-wrap">{previewMessage}</p>
-                  <div className="flex gap-2 pt-1">
+          {/* Multi-person list */}
+          {selectedPeople.length > 1 && (
+            <div>
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">All selected</p>
+              <div className="divide-y divide-zinc-800/70 rounded-lg border border-zinc-700 overflow-hidden">
+                {selectedPeople.map(p => (
+                  <div key={p.id} className="flex items-center gap-3 px-3 py-2 bg-zinc-800/40">
+                    <span className="text-sm text-slate-200 flex-1">
+                      {p.first_name} {p.last_name}
+                      {bestPhone(p) && (
+                        <span className="text-slate-500 ml-2 text-xs">{bestPhone(p)}</span>
+                      )}
+                    </span>
                     <button
-                      className="btn btn-xs btn-ghost border border-base-300"
-                      onClick={() => sendMessage(previewPerson)}
+                      className="bg-slate-700 hover:bg-slate-600 border border-zinc-600 text-slate-300 px-3 py-1 rounded-lg text-xs transition-colors flex-shrink-0"
+                      onClick={() => sendMessage(p)}
                     >
                       Send iMessage
                     </button>
                   </div>
-                </div>
-              )}
-
-              {/* Multi-person list */}
-              {selectedPeople.length > 1 && (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-base-content/50 uppercase tracking-wider">
-                    All selected
-                  </p>
-                  <div className="divide-y divide-base-content/10 rounded-lg border border-base-300 overflow-hidden">
-                    {selectedPeople.map(p => (
-                      <div key={p.id} className="flex items-center gap-3 px-3 py-2 bg-base-200">
-                        <span className="text-sm flex-1">
-                          {p.first_name} {p.last_name}
-                          {bestPhone(p) && <span className="text-base-content/40 ml-2 text-xs">{bestPhone(p)}</span>}
-                        </span>
-                        <button
-                          className="btn btn-ghost btn-xs border border-base-300"
-                          onClick={() => sendMessage(p)}
-                        >
-                          Send iMessage
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Note + mark contacted */}
-              <div className="form-control">
-                <label className="label pb-1">
-                  <span className="label-text text-sm">Note (optional)</span>
-                </label>
-                <textarea
-                  className="textarea textarea-bordered text-sm h-16"
-                  placeholder="e.g. Texted all, most replied they'd submit by EOD"
-                  value={contactNote}
-                  onChange={e => setContactNote(e.target.value)}
-                />
+                ))}
               </div>
             </div>
+          )}
 
-            <div className="modal-action mt-4 pt-4 border-t border-base-content/10">
-              <button
-                className="btn btn-primary"
-                onClick={handleMarkContacted}
-                disabled={contacting}
-              >
-                {contacting
-                  ? <span className="loading loading-spinner loading-sm" />
-                  : `Mark ${selectedPeople.length} as Contacted`}
-              </button>
-              <button className="btn btn-ghost" onClick={() => setShowFollowUp(false)}>
-                Close
-              </button>
-            </div>
+          {/* Note */}
+          <div>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Note (optional)</p>
+            <textarea
+              className="w-full bg-zinc-700 border border-zinc-600 text-white placeholder-slate-400 rounded-lg px-3 py-2 text-sm h-16 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+              placeholder="e.g. Texted all, most replied they'd submit by EOD"
+              value={contactNote}
+              onChange={e => setContactNote(e.target.value)}
+            />
           </div>
-          <div className="modal-backdrop bg-black/50" onClick={() => setShowFollowUp(false)} />
+
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-3 pt-2 border-t border-zinc-800">
+            <button
+              className="text-slate-400 hover:text-white px-3 py-2 rounded-lg text-sm transition-colors hover:bg-zinc-800"
+              onClick={() => setShowFollowUp(false)}
+            >
+              Close
+            </button>
+            <button
+              className="bg-btn-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
+              onClick={handleMarkContacted}
+              disabled={contacting}
+            >
+              {contacting
+                ? <><Spinner size="sm" /> Marking…</>
+                : `Mark ${selectedPeople.length} as Contacted`}
+            </button>
+          </div>
         </div>
-      )}
+      </Modal>
     </ProtectedRoute>
   );
 }

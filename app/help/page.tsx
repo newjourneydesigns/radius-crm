@@ -865,11 +865,34 @@ const GLOSSARY: { term: string; def: string }[] = [
 // Component
 // ────────────────────────────────────────────────────────────────────
 
+type BlogPreview = {
+  id: string;
+  title: string;
+  slug: string;
+  youtube_url?: string | null;
+  posted_at: string;
+};
+
+function extractYouTubeId(url: string): string | null {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, '').toLowerCase();
+    if (host === 'youtu.be') return u.pathname.split('/').filter(Boolean)[0] || null;
+    if (host === 'youtube.com' || host === 'm.youtube.com') {
+      if (u.pathname === '/watch') return u.searchParams.get('v');
+      const parts = u.pathname.split('/').filter(Boolean);
+      if (parts[0] === 'shorts' || parts[0] === 'embed') return parts[1] || null;
+    }
+  } catch { return null; }
+  return null;
+}
+
 export default function HelpPage() {
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<Category | 'All'>('All');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [changelog, setChangelog] = useState<ChangelogEntry[]>([]);
+  const [blogPreviews, setBlogPreviews] = useState<BlogPreview[]>([]);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Load changelog teaser
@@ -878,6 +901,14 @@ export default function HelpPage() {
       .then(r => r.json())
       .then((entries: ChangelogEntry[]) => setChangelog(entries.slice(0, 4)))
       .catch(() => setChangelog([]));
+  }, []);
+
+  // Load recent blog posts
+  useEffect(() => {
+    fetch('/api/blog')
+      .then(r => r.json())
+      .then((data: BlogPreview[]) => setBlogPreviews(Array.isArray(data) ? data.slice(0, 3) : []))
+      .catch(() => setBlogPreviews([]));
   }, []);
 
   // Keyboard shortcut for search focus
@@ -957,6 +988,50 @@ export default function HelpPage() {
               <span className="hidden sm:inline"> Press <Kbd>/</Kbd> to jump to search.</span>
             </p>
           </div>
+
+          {/* ─── Radius Blog ─── */}
+          {blogPreviews.length > 0 && (
+            <div className="mb-5">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-white uppercase tracking-wide">Radius Blog</h2>
+                <Link href="/blog" className="text-xs text-vc-300 hover:text-vc-200 transition-colors">
+                  All posts →
+                </Link>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {blogPreviews.map(post => {
+                  const videoId = post.youtube_url ? extractYouTubeId(post.youtube_url) : null;
+                  const thumb = videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : null;
+                  return (
+                    <Link
+                      key={post.id}
+                      href={`/blog/${post.slug}`}
+                      className="group flex flex-col rounded-xl bg-zinc-800 border border-zinc-700 overflow-hidden hover:border-zinc-600 transition-all duration-150"
+                    >
+                      <div className="relative aspect-video bg-zinc-900 overflow-hidden">
+                        {thumb ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={thumb} alt="" className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <svg className="w-8 h-8 text-zinc-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-3">
+                        <p className="text-[10px] text-slate-500 mb-1">{post.posted_at}</p>
+                        <p className="text-xs font-medium text-white leading-snug line-clamp-2 group-hover:text-vc-300 transition-colors">
+                          {post.title}
+                        </p>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* ─── Get Started banner ─── */}
           <Link

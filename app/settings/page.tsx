@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import NoteTemplatesManager from '../../components/settings/NoteTemplatesManager';
 import ScorecardQuestionsManager from '../../components/settings/ScorecardQuestionsManager';
 import TouchpointSettingsManager from '../../components/settings/TouchpointSettingsManager';
+import BlogManager from '../../components/settings/BlogManager';
 import ConfirmModal from '../../components/ui/ConfirmModal';
 import AlertModal from '../../components/ui/AlertModal';
 import ServiceWorkerUtils from '../../components/ServiceWorkerUtils';
@@ -73,7 +74,7 @@ export default function SettingsPage() {
 
   // UI state
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'directors' | 'host_team_directors' | 'circles' | 'statuses' | 'frequencies' | 'campuses' | 'templates' | 'scorecard' | 'touchpoints' | 'app'>('directors');
+  const [activeTab, setActiveTab] = useState<'directors' | 'host_team_directors' | 'circles' | 'statuses' | 'frequencies' | 'campuses' | 'templates' | 'scorecard' | 'touchpoints' | 'app' | 'blog'>('directors');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{isOpen: boolean, type: string, id: number, name: string}>({
     isOpen: false, type: '', id: 0, name: ''
   });
@@ -598,7 +599,8 @@ export default function SettingsPage() {
     { id: 'templates', label: 'Note Templates', icon: FileText },
     { id: 'scorecard', label: 'Scorecard Questions', icon: ClipboardList },
     { id: 'touchpoints', label: 'Touchpoint Cadence', icon: CalendarDays },
-    { id: 'app', label: 'App Management', icon: Settings }
+    { id: 'app', label: 'App Management', icon: Settings },
+    { id: 'blog', label: 'Radius Blog', icon: FileText }
   ];
 
   if (isLoading) {
@@ -1493,6 +1495,12 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'blog' && (
+            <div className="p-6">
+              <BlogManager />
             </div>
           )}
         </div>
