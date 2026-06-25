@@ -1,14 +1,15 @@
 -- Follow-Up Campaigns
 --
--- Admins create a campaign by pointing it at a CCB Group (who is *expected*
--- to submit) and a CCB Form (who *actually submitted*). Radius reconciles the
--- two lists and surfaces missing people for bulk follow-up.
+-- Admins create a campaign by pointing it at a CCB group (who is expected to
+-- submit) and a CCB form (who actually submitted). Radius reconciles the two
+-- lists and surfaces missing people for bulk follow-up. Campaigns are stored
+-- in Supabase so they are shared across the whole ACPD team.
 --
--- Tables:
---   1. follow_up_campaigns        — one row per campaign
+-- This migration adds:
+--   1. follow_up_campaigns        — one campaign per group+form pair
 --   2. follow_up_campaign_people  — one row per person per campaign
 
--- Shared updated_at trigger (defensive: may already exist from prior migrations).
+-- Shared updated_at trigger (defensive: also created by earlier migrations)
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -17,49 +18,45 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 1. Campaign headers -----------------------------------------------------------
+-- 1. Campaign headers ----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS follow_up_campaigns (
-  id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  created_by          UUID        REFERENCES users(id) ON DELETE SET NULL,
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
 
-  name                TEXT        NOT NULL,
-  ccb_group_id        TEXT        NOT NULL,
-  ccb_form_id         TEXT        NOT NULL,
-  -- Full URL to the CCB form pasted by the admin; substituted into {{form_link}}
-  -- in message templates. Stored explicitly so it is never derived at send time.
-  form_link           TEXT        NOT NULL DEFAULT '',
-  due_date            DATE        NOT NULL,
-  message_template    TEXT        NOT NULL DEFAULT '',
+  -- Admin-supplied config
+  name              TEXT NOT NULL,
+  ccb_group_id      TEXT NOT NULL,
+  ccb_form_id       TEXT NOT NULL,
+  -- Explicitly stored so {{form_link}} is always available in message templates
+  form_link         TEXT NOT NULL DEFAULT '',
+  due_date          DATE NOT NULL,
+  message_template  TEXT NOT NULL DEFAULT '',
 
-  -- NULL = active; set = soft-archived. Archived campaigns are hidden from the
-  -- default list but can be restored at any time.
-  archived_at         TIMESTAMPTZ,
+  -- Cached counts, updated after each reconcile run
+  last_reconciled_at TIMESTAMPTZ,
+  expected_count     INTEGER,
+  submitted_count    INTEGER,
+  missing_count      INTEGER,
+  completion_pct     NUMERIC(5,2),
 
-  -- Cached aggregate counts written after each reconcile run.
-  last_reconciled_at  TIMESTAMPTZ,
-  expected_count      INTEGER,
-  submitted_count     INTEGER,
-  missing_count       INTEGER,
-  not_in_group_count  INTEGER,
-  needs_review_count  INTEGER,
-  contacted_count     INTEGER,
-  completion_pct      NUMERIC(5,2)
+  -- Soft delete: NULL = active, set = archived (can be restored)
+  archived_at        TIMESTAMPTZ,
+
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 ALTER TABLE follow_up_campaigns ENABLE ROW LEVEL SECURITY;
 
--- All reads go through authenticated users. Writes are server-side via
--- service-role client only — no browser-facing INSERT/UPDATE policies needed.
-CREATE POLICY "authenticated_read_follow_up_campaigns"
+-- No browser-facing write policies — all mutations go through server routes
+-- with the service-role client. Read is open to any signed-in RADIUS user.
+CREATE POLICY "Authenticated users can read follow_up_campaigns"
   ON follow_up_campaigns FOR SELECT TO authenticated USING (true);
 
 CREATE INDEX IF NOT EXISTS follow_up_campaigns_created_at_idx
   ON follow_up_campaigns (created_at DESC);
 CREATE INDEX IF NOT EXISTS follow_up_campaigns_archived_idx
-  ON follow_up_campaigns (archived_at)
-  WHERE archived_at IS NULL;
+  ON follow_up_campaigns (archived_at) WHERE archived_at IS NULL;
 
 DROP TRIGGER IF EXISTS set_updated_at_follow_up_campaigns ON follow_up_campaigns;
 CREATE TRIGGER set_updated_at_follow_up_campaigns
@@ -67,69 +64,69 @@ CREATE TRIGGER set_updated_at_follow_up_campaigns
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 COMMENT ON TABLE follow_up_campaigns IS
-  'Admin-created follow-up campaigns that reconcile a CCB group (expected) against a CCB form (submitted). archived_at IS NOT NULL = soft-deleted.';
+  'Admin-created follow-up campaigns. Each campaign reconciles a CCB group (expected) against a CCB form (submitted) and tracks follow-up outreach to non-submitters. Shared across the ACPD team.';
 
--- 2. Per-person reconciliation rows --------------------------------------------
+-- 2. Per-person reconciliation rows -------------------------------------------
 CREATE TABLE IF NOT EXISTS follow_up_campaign_people (
-  id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  campaign_id         UUID        NOT NULL REFERENCES follow_up_campaigns(id) ON DELETE CASCADE,
-  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  campaign_id UUID NOT NULL REFERENCES follow_up_campaigns(id) ON DELETE CASCADE,
 
-  -- Identity sourced from CCB (group participant side, canonical)
-  ccb_individual_id   TEXT,
-  first_name          TEXT        NOT NULL DEFAULT '',
-  last_name           TEXT        NOT NULL DEFAULT '',
-  email               TEXT,
-  phone               TEXT,         -- normalized digits (strip [^+\d], 10-digit US)
-  mobile_phone        TEXT,
+  -- Identity fields sourced from CCB (group participant or form response or both)
+  ccb_individual_id TEXT,
+  first_name        TEXT NOT NULL DEFAULT '',
+  last_name         TEXT NOT NULL DEFAULT '',
+  -- Form-side names stored separately for needs_review rows so admins can
+  -- compare group-side vs form-side name before confirming the match
+  form_first_name   TEXT,
+  form_last_name    TEXT,
 
-  -- For needs_review rows: the form-side name may differ from the group-side name.
-  -- Stored here so admins can compare both versions side by side.
-  form_first_name     TEXT,
-  form_last_name      TEXT,
+  -- Contact info (normalized: phone digits only, e.g. "2145551234")
+  email             TEXT,
+  phone             TEXT,
+  mobile_phone      TEXT,
 
-  -- Which CCB source contributed this person
-  in_group            BOOLEAN     NOT NULL DEFAULT FALSE,
-  in_form             BOOLEAN     NOT NULL DEFAULT FALSE,
+  -- Which CCB sources contributed this person
+  in_group BOOLEAN NOT NULL DEFAULT FALSE,
+  in_form  BOOLEAN NOT NULL DEFAULT FALSE,
 
-  -- Full raw form response payload — rendered in the submission detail view.
-  form_response_data  JSONB,
+  -- Full raw form response payload so admins can read what people answered
+  form_response_data JSONB,
 
-  -- Reconciliation outcome
-  reconcile_status    TEXT        NOT NULL DEFAULT 'expected'
+  -- Reconciliation outcome — the canonical status bucket
+  reconcile_status TEXT NOT NULL DEFAULT 'expected'
     CHECK (reconcile_status IN (
       'expected',               -- in group only, reconcile not yet run
-      'submitted',              -- matched in both group and form
-      'missing',                -- in group, NOT in form
-      'submitted_not_in_group', -- in form only, no group match
-      'needs_review',           -- fuzzy name match only, needs human confirmation
-      'contacted'               -- admin manually marked as followed-up
+      'submitted',              -- matched: in both group and form
+      'missing',                -- in group but NOT in form responses
+      'submitted_not_in_group', -- in form but NOT in the group
+      'needs_review',           -- fuzzy name match, human confirmation needed
+      'contacted'               -- admin marked as followed up
     )),
 
-  -- How the match was made (null = unmatched / group-only)
-  match_method        TEXT
-    CHECK (match_method IN ('ccb_id', 'email', 'phone', 'fuzzy', NULL)),
+  -- How the match was made (null for unmatched/form-only rows)
+  match_method TEXT CHECK (match_method IN ('ccb_id', 'email', 'phone', 'fuzzy', null)),
 
-  -- Admin contact tracking
-  contact_note        TEXT,
-  contacted_at        TIMESTAMPTZ,
-  contacted_by        UUID        REFERENCES users(id) ON DELETE SET NULL,
+  -- Admin follow-up tracking
+  contact_note  TEXT,
+  contacted_at  TIMESTAMPTZ,
+  contacted_by  UUID REFERENCES users(id) ON DELETE SET NULL,
 
-  -- Unique on (campaign_id, ccb_individual_id). PostgreSQL treats each NULL as
-  -- distinct for unique constraints, so form-only rows with no CCB ID don't
-  -- collide. DEFERRABLE to allow bulk upserts in a single transaction.
-  UNIQUE (campaign_id, ccb_individual_id) DEFERRABLE INITIALLY DEFERRED
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+  -- NULL ccb_individual_ids are exempt from the uniqueness check (each NULL is
+  -- distinct in PostgreSQL, which is the correct behavior for form-only rows)
+  UNIQUE NULLS NOT DISTINCT (campaign_id, ccb_individual_id)
 );
 
 ALTER TABLE follow_up_campaign_people ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "authenticated_read_follow_up_campaign_people"
+CREATE POLICY "Authenticated users can read follow_up_campaign_people"
   ON follow_up_campaign_people FOR SELECT TO authenticated USING (true);
 
 CREATE INDEX IF NOT EXISTS fup_people_campaign_status_idx
   ON follow_up_campaign_people (campaign_id, reconcile_status);
-CREATE INDEX IF NOT EXISTS fup_people_campaign_ccb_id_idx
+CREATE INDEX IF NOT EXISTS fup_people_campaign_ccb_idx
   ON follow_up_campaign_people (campaign_id, ccb_individual_id)
   WHERE ccb_individual_id IS NOT NULL;
 
@@ -139,4 +136,4 @@ CREATE TRIGGER set_updated_at_fup_people
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 COMMENT ON TABLE follow_up_campaign_people IS
-  'One row per person per campaign. reconcile_status is the canonical bucket. form_response_data holds the full CCB form payload for the submission detail view.';
+  'One row per person per campaign. Populated and updated by the reconcile API route. reconcile_status is the canonical bucket. form_response_data holds the full CCB form response for submitted people.';
