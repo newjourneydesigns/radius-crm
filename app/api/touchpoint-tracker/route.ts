@@ -103,9 +103,9 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  // The selectable type list: active connection types + any type seen in data,
-  // and always the event-summary follow-up bucket.
-  const types = Array.from(new Set([...activeTypeNames, ...Array.from(seenTypeNames), FOLLOWUP_TYPE_NAME])).sort();
+  // The selectable type list: active connection types + any type seen in data.
+  // Event Summary Follow-up is excluded from the filter dropdown.
+  const types = Array.from(new Set([...activeTypeNames, ...Array.from(seenTypeNames)])).filter(t => t !== FOLLOWUP_TYPE_NAME).sort();
 
   return NextResponse.json({
     config: {
