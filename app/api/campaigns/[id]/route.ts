@@ -37,11 +37,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (auth.response) return auth.response;
 
   const body = await req.json();
-  const { name, ccb_group_id, ccb_form_id, form_link, due_date, message_template, archived } = body;
+  const { name, ccb_group_ids, ccb_form_id, form_link, due_date, message_template, archived } = body;
 
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = name.trim();
-  if (ccb_group_id !== undefined) updates.ccb_group_id = String(ccb_group_id).trim();
+  if (Array.isArray(ccb_group_ids)) {
+    const clean = ccb_group_ids.map((id: unknown) => String(id).trim()).filter(Boolean);
+    if (clean.length > 0) updates.ccb_group_ids = clean;
+  }
   if (ccb_form_id !== undefined) updates.ccb_form_id = String(ccb_form_id).trim();
   if (form_link !== undefined) updates.form_link = form_link.trim();
   if (due_date !== undefined) updates.due_date = due_date;
