@@ -41,6 +41,8 @@ export interface CampaignPerson {
   form_response_data: Record<string, unknown> | null;
   reconcile_status: string;
   match_method: string | null;
+  source_group_id: string | null;
+  source_group_name: string | null;
   contact_note: string | null;
   contacted_at: string | null;
   contacted_by: string | null;

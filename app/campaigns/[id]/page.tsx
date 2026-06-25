@@ -128,6 +128,8 @@ export default function CampaignDetailPage() {
   const [contactNote, setContactNote] = useState('');
   const [contacting, setContacting] = useState(false);
   const [contactSuccess, setContactSuccess] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [groupFilter, setGroupFilter] = useState<string | null>(null);
 
   // Edit campaign modal
   const [showEdit, setShowEdit] = useState(false);
@@ -184,6 +186,7 @@ export default function CampaignDetailPage() {
     const tab = TABS.find(t => t.key === activeTab);
     if (tab) loadPeople(tab.statusKey);
     setSelected(new Set());
+    setGroupFilter(null);
   }, [activeTab, loadPeople]);
 
   const handleReconcile = useCallback(async () => {
@@ -206,13 +209,30 @@ export default function CampaignDetailPage() {
   }, [id, activeTab, loadCampaign, loadPeople]);
 
   const tabPeople = people;
-  const allSelected = tabPeople.length > 0 && tabPeople.every(p => selected.has(p.id));
+  const uniqueGroups = useMemo(() => {
+    const seen = new Set<string>();
+    const groups: string[] = [];
+    for (const p of people) {
+      if (p.source_group_name && !seen.has(p.source_group_name)) {
+        seen.add(p.source_group_name);
+        groups.push(p.source_group_name);
+      }
+    }
+    return groups;
+  }, [people]);
+
+  const filteredPeople = useMemo(
+    () => (groupFilter ? people.filter(p => p.source_group_name === groupFilter) : people),
+    [people, groupFilter],
+  );
+
+  const allSelected = filteredPeople.length > 0 && filteredPeople.every(p => selected.has(p.id));
 
   function toggleAll() {
     setSelected(prev => {
       const next = new Set(prev);
-      if (allSelected) tabPeople.forEach(p => next.delete(p.id));
-      else tabPeople.forEach(p => next.add(p.id));
+      if (allSelected) filteredPeople.forEach(p => next.delete(p.id));
+      else filteredPeople.forEach(p => next.add(p.id));
       return next;
     });
   }
@@ -236,8 +256,8 @@ export default function CampaignDetailPage() {
   }
 
   const selectedPeople = useMemo(
-    () => tabPeople.filter(p => selected.has(p.id)),
-    [tabPeople, selected],
+    () => filteredPeople.filter(p => selected.has(p.id)),
+    [filteredPeople, selected],
   );
 
   const previewPerson = selectedPeople[0] ?? null;
@@ -274,6 +294,8 @@ export default function CampaignDetailPage() {
     if (!campaign) return;
     const msg = resolveMessage(msgTemplate, person, campaign);
     navigator.clipboard.writeText(msg).catch(() => {});
+    setCopiedId(person.id);
+    setTimeout(() => setCopiedId(prev => prev === person.id ? null : prev), 2000);
     const phone = normalizePhone(bestPhone(person));
     if (phone) window.location.href = `sms:${phone}&body=${encodeURIComponent(msg)}`;
   }
@@ -465,7 +487,7 @@ export default function CampaignDetailPage() {
                 + Add Person
               </button>
               <button
-                className="bg-btn-primary text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
+                className="bg-btn-success text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
                 onClick={handleReconcile}
                 disabled={reconciling}
               >
@@ -516,7 +538,7 @@ export default function CampaignDetailPage() {
             <p className="text-slate-500 text-sm">This campaign hasn&apos;t been reconciled yet.</p>
             {admin && (
               <button
-                className="bg-btn-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity mt-4 flex items-center gap-2"
+                className="bg-btn-success text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity mt-4 flex items-center gap-2"
                 onClick={handleReconcile}
                 disabled={reconciling}
               >
@@ -546,13 +568,42 @@ export default function CampaignDetailPage() {
               ))}
             </div>
 
+            {/* Group filter pills — only shown when 2+ groups */}
+            {uniqueGroups.length >= 2 && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                <button
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                    groupFilter === null
+                      ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
+                      : 'bg-zinc-800 text-slate-400 border border-zinc-700 hover:text-slate-200'
+                  }`}
+                  onClick={() => setGroupFilter(null)}
+                >
+                  All groups
+                </button>
+                {uniqueGroups.map(g => (
+                  <button
+                    key={g}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                      groupFilter === g
+                        ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
+                        : 'bg-zinc-800 text-slate-400 border border-zinc-700 hover:text-slate-200'
+                    }`}
+                    onClick={() => setGroupFilter(g)}
+                  >
+                    {g}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* People table */}
             <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden">
               {loadingPeople ? (
                 <div className="flex justify-center items-center py-12">
                   <Spinner />
                 </div>
-              ) : tabPeople.length === 0 ? (
+              ) : filteredPeople.length === 0 ? (
                 <div className="py-14 text-center">
                   <p className="text-slate-500 text-sm">No people in this bucket.</p>
                 </div>
@@ -574,6 +625,9 @@ export default function CampaignDetailPage() {
                         <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Name</th>
                         <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Email</th>
                         <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Phone</th>
+                        {uniqueGroups.length >= 2 && (
+                          <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Group</th>
+                        )}
                         {activeTab === 'needs_review' && (
                           <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Form Name</th>
                         )}
@@ -590,7 +644,7 @@ export default function CampaignDetailPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-800/70">
-                      {tabPeople.map(p => (
+                      {filteredPeople.map(p => (
                         <React.Fragment key={p.id}>
                           <tr className="hover:bg-zinc-800/40 transition-colors align-top">
                             {showCheckboxes && (
@@ -622,6 +676,11 @@ export default function CampaignDetailPage() {
                             </td>
                             <td className="px-4 py-3 text-slate-400">{p.email || '—'}</td>
                             <td className="px-4 py-3 text-slate-400 whitespace-nowrap">{bestPhone(p) || '—'}</td>
+                            {uniqueGroups.length >= 2 && (
+                              <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
+                                {p.source_group_name || '—'}
+                              </td>
+                            )}
                             {activeTab === 'needs_review' && (
                               <td className="px-4 py-3 text-amber-400 text-xs">
                                 {p.form_first_name || p.form_last_name
@@ -656,7 +715,7 @@ export default function CampaignDetailPage() {
                           </tr>
                           {activeTab === 'submitted' && expandedRows.has(p.id) && (
                             <tr key={`${p.id}-detail`} className="bg-zinc-900/60">
-                              <td colSpan={5} className="px-6 py-4">
+                              <td colSpan={uniqueGroups.length >= 2 ? 6 : 5} className="px-6 py-4">
                                 <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">
                                   Form Submission
                                 </p>
@@ -969,13 +1028,14 @@ export default function CampaignDetailPage() {
               <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                 Preview — {previewPerson.first_name} {previewPerson.last_name}
               </p>
-              <p className="text-sm text-slate-200 whitespace-pre-wrap">{previewMessage}</p>
+              <p className="text-sm text-slate-200 whitespace-pre-wrap break-words">{previewMessage}</p>
               <div className="pt-1">
                 <button
-                  className="bg-slate-700 hover:bg-slate-600 border border-zinc-600 text-slate-300 px-3 py-1 rounded-lg text-xs transition-colors"
+                  className="bg-slate-700 hover:bg-slate-600 border border-zinc-600 text-slate-300 px-3 py-1 rounded-lg text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={!bestPhone(previewPerson) ? 'No phone number on file' : undefined}
                   onClick={() => sendMessage(previewPerson)}
                 >
-                  Send iMessage
+                  {copiedId === previewPerson.id ? 'Copied!' : 'Send iMessage'}
                 </button>
               </div>
             </div>
@@ -995,10 +1055,11 @@ export default function CampaignDetailPage() {
                       )}
                     </span>
                     <button
-                      className="bg-slate-700 hover:bg-slate-600 border border-zinc-600 text-slate-300 px-3 py-1 rounded-lg text-xs transition-colors flex-shrink-0"
+                      className="bg-slate-700 hover:bg-slate-600 border border-zinc-600 text-slate-300 px-3 py-1 rounded-lg text-xs transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                      title={!bestPhone(p) ? 'No phone number on file' : undefined}
                       onClick={() => sendMessage(p)}
                     >
-                      Send iMessage
+                      {copiedId === p.id ? 'Copied!' : 'Send iMessage'}
                     </button>
                   </div>
                 ))}

@@ -45,13 +45,26 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   });
   const ccb = createCCBClient(ctx);
 
-  // 3. Fetch group participants from all configured group IDs, then deduplicate
+  // 3. Fetch group participants from all configured group IDs, then deduplicate.
+  // Also fetch group names in parallel so we can tag each participant with their source group.
   const groupIds: string[] = Array.isArray(campaign.ccb_group_ids)
     ? campaign.ccb_group_ids
     : [campaign.ccb_group_ids].filter(Boolean);
 
+  const groupNameMap: Record<string, string> = {};
+  await Promise.all(groupIds.map(async (gid) => {
+    try {
+      groupNameMap[gid] = await ccb.getGroupName(gid);
+    } catch {
+      groupNameMap[gid] = `Group ${gid}`;
+    }
+  }));
+
   const seenCcbIds = new Set<string>();
-  const groupParticipants: Awaited<ReturnType<typeof ccb.getGroupParticipants>> = [];
+  const groupParticipants: (Awaited<ReturnType<typeof ccb.getGroupParticipants>>[number] & {
+    sourceGroupId?: string;
+    sourceGroupName?: string;
+  })[] = [];
 
   for (const groupId of groupIds) {
     let participants: Awaited<ReturnType<typeof ccb.getGroupParticipants>>;
@@ -70,7 +83,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     for (const p of participants) {
       if (p.id && seenCcbIds.has(p.id)) continue;
       if (p.id) seenCcbIds.add(p.id);
-      groupParticipants.push(p);
+      groupParticipants.push({ ...p, sourceGroupId: groupId, sourceGroupName: groupNameMap[groupId] });
     }
   }
 
@@ -127,7 +140,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   // 5. Reconcile
-  const reconciledPeople = reconcile(groupParticipants, formRespondents);
+  // Deduplicate form respondents by CCB individual ID — a person can submit
+  // the form more than once, producing two entries with the same fp.id.
+  // Without this, Pass 2 of reconcile() pushes a second row for the same ID,
+  // which causes the PostgreSQL "ON CONFLICT DO UPDATE cannot affect row a
+  // second time" error when upserting.
+  const seenFormIds = new Set<string>();
+  const uniqueFormRespondents = formRespondents.filter(fp => {
+    if (!fp.id) return true;
+    if (seenFormIds.has(fp.id)) return false;
+    seenFormIds.add(fp.id);
+    return true;
+  });
+  const reconciledPeople = reconcile(groupParticipants, uniqueFormRespondents);
 
   // 6. Load existing contacted rows so we preserve their status
   const { data: existingContacted } = await supabase
@@ -160,6 +185,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       form_response_data: p.formResponseData || null,
       reconcile_status: wasContacted ? 'contacted' : p.status,
       match_method: p.matchMethod || null,
+      source_group_id: p.sourceGroupId || null,
+      source_group_name: p.sourceGroupName || null,
     };
   });
 

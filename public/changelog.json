@@ -3,6 +3,16 @@
     "date": "2026-06-25",
     "date_display": "June 25, 2026",
     "date_iso": "2026-06-25",
+    "id": "campaigns-group-filter",
+    "type": "feature",
+    "category": "Campaigns",
+    "description": "Campaign detail pages now show which CCB group each person comes from. When a campaign spans multiple groups, filter pills appear above the table so you can view each group separately.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
     "id": "campaigns-form-responses-fix",
     "type": "fix",
     "category": "Campaigns",

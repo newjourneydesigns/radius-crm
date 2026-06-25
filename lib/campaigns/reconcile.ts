@@ -17,6 +17,8 @@ export interface GroupParticipant {
   email: string;
   phone: string;
   mobilePhone: string;
+  sourceGroupId?: string;
+  sourceGroupName?: string;
 }
 
 export interface FormRespondent {
@@ -44,6 +46,8 @@ export interface ReconciledPerson {
   formResponseData: Record<string, unknown> | null;
   status: ReconcileStatus;
   matchMethod: MatchMethod;
+  sourceGroupId: string | null;
+  sourceGroupName: string | null;
 }
 
 function normalizeName(name: string): string {
@@ -125,6 +129,8 @@ export function reconcile(
         formResponseData: formMatch.rawResponse ?? null,
         status: 'submitted',
         matchMethod,
+        sourceGroupId: gp.sourceGroupId ?? null,
+        sourceGroupName: gp.sourceGroupName ?? null,
       });
     } else {
       result.push({
@@ -141,6 +147,8 @@ export function reconcile(
         formResponseData: null,
         status: 'missing',
         matchMethod: null,
+        sourceGroupId: gp.sourceGroupId ?? null,
+        sourceGroupName: gp.sourceGroupName ?? null,
       });
     }
   }
@@ -196,6 +204,8 @@ export function reconcile(
           formResponseData: fp.rawResponse ?? null,
           status: 'needs_review',
           matchMethod: 'fuzzy',
+          sourceGroupId: fuzzyGroupMatch.sourceGroupId ?? null,
+          sourceGroupName: fuzzyGroupMatch.sourceGroupName ?? null,
         });
         matchedFormRefs.add(fp);
       }
@@ -214,6 +224,8 @@ export function reconcile(
         formResponseData: fp.rawResponse ?? null,
         status: 'submitted_not_in_group',
         matchMethod: null,
+        sourceGroupId: null,
+        sourceGroupName: null,
       });
     }
   }
