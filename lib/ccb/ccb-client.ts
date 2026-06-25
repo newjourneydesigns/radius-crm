@@ -509,6 +509,16 @@ export class CCBClient {
    * Returns one row per occurrence (RRULE weekly events are expanded to
    * every occurrence inside [startDate, endDate]).
    */
+  async getGroupName(groupId: string | number): Promise<string> {
+    const xml: any = await this.getXml({
+      srv: 'group_profile_from_id',
+      id: groupId,
+      include_participants: 'false',
+    });
+    const g = xml?.ccb_api?.response?.groups?.group;
+    return String(g?.name || g?.group_name || `Group ${groupId}`).trim();
+  }
+
   async getGroupCalendarEvents(
     groupId: string | number,
     startDate: string,

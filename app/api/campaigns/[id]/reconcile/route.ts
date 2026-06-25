@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceSupabaseClient, getUserFromAuthHeader } from '../../../../../lib/server-supabase';
 import { createCCBClient } from '../../../../../lib/ccb/ccb-client';
+import { createCCBv2Client } from '../../../../../lib/ccb/ccb-v2-client';
 import { getCCBRequestContext } from '../../../../../lib/ccb/ccb-api-gateway';
 import { reconcile, computeCounts } from '../../../../../lib/campaigns/reconcile';
 
@@ -37,13 +38,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
   }
 
-  // 2. Create CCB client
+  // 2. Create CCB clients (v1 for participant list, v2 for phone enrichment)
   const ctx = await getCCBRequestContext(req, {
     module: 'Follow-Up Campaigns',
     action: 'Reconcile',
     direction: 'pull',
   });
   const ccb = createCCBClient(ctx);
+  const ccbV2 = createCCBv2Client(ctx);
 
   // 3. Fetch group participants from all configured group IDs, then deduplicate.
   // Also fetch group names in parallel so we can tag each participant with their source group.
@@ -87,7 +89,24 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
   }
 
-  // 3b. Load manually-added individuals from DB and merge them in.
+  // 3b. Enrich phone data via CCB v2 — one call per group, not per person.
+  // v1's group_participants XML often omits phone numbers (contact-info permission
+  // gate). v2's /groups/{id}/members returns phones in JSON format reliably.
+  const v2PhoneMap: Record<string, { phone: string; mobilePhone: string }> = {};
+  await Promise.all(groupIds.map(async (gid) => {
+    try {
+      const v2Members = await ccbV2.getGroupParticipants(gid);
+      for (const m of v2Members) {
+        if (m.id && (m.phone || m.mobilePhone)) {
+          v2PhoneMap[m.id] = { phone: m.phone, mobilePhone: m.mobilePhone };
+        }
+      }
+    } catch {
+      // v2 unavailable for this group — fall back to whatever v1 returned
+    }
+  }));
+
+  // 3c. Load manually-added individuals from DB and merge them in.
   // They join the group participant list so the reconcile function checks them
   // against form responses automatically.
   const { data: manualPeople } = await supabase
@@ -169,6 +188,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const rows = reconciledPeople.map((p) => {
     const wasContacted = p.ccbIndividualId && contactedIds.has(p.ccbIndividualId);
     const isManual = p.ccbIndividualId ? manualCcbIds.has(p.ccbIndividualId) : false;
+    // Prefer v2 phone data (more reliable than v1 XML); fall back to whatever reconcile() produced
+    const v2Ph = p.ccbIndividualId ? v2PhoneMap[p.ccbIndividualId] : null;
     return {
       campaign_id: params.id,
       ccb_individual_id: p.ccbIndividualId || null,
@@ -177,8 +198,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       form_first_name: p.formFirstName || null,
       form_last_name: p.formLastName || null,
       email: p.email || null,
-      phone: p.phone || null,
-      mobile_phone: p.mobilePhone || null,
+      phone: v2Ph?.phone || p.phone || null,
+      mobile_phone: v2Ph?.mobilePhone || p.mobilePhone || null,
       in_group: p.inGroup,
       in_form: p.inForm,
       manually_added: isManual,

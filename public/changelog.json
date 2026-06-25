@@ -3,6 +3,26 @@
     "date": "2026-06-25",
     "date_display": "June 25, 2026",
     "date_iso": "2026-06-25",
+    "id": "campaigns-group-filter-stats",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Group filter chips now update the stat cards and tab counts. Selecting a group shows Invited, Submitted, Unsubmitted, Completion, Review Matches, and Contacted numbers for that group only. Tab labels also show per-group counts when a filter is active.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "campaigns-form-detail-fix",
+    "type": "fix",
+    "category": "Campaigns",
+    "description": "Fixed the expanded submission detail view on the Submitted tab — nested fields like profile info, form answers, and name fields now display their values correctly instead of showing [object Object].",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
     "id": "campaigns-group-filter",
     "type": "feature",
     "category": "Campaigns",

@@ -88,19 +88,39 @@ function Spinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
   );
 }
 
+function formatValue(v: unknown, depth = 0): string {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (depth > 2) return '';
+  if (Array.isArray(v)) return v.map(item => formatValue(item, depth + 1)).filter(Boolean).join(', ');
+  const rec = v as Record<string, unknown>;
+  if ('#text' in rec) return String(rec['#text']);
+  const leaves = Object.entries(rec)
+    .filter(([k]) => !k.startsWith('@_'))
+    .map(([, val]) => formatValue(val, depth + 1))
+    .filter(Boolean);
+  return leaves.join(' | ');
+}
+
 function SubmissionDetail({ data }: { data: Record<string, unknown> | null }) {
   if (!data) return <p className="text-slate-500 text-xs italic">No form data stored.</p>;
-  const entries = Object.entries(data).filter(([k]) => !k.startsWith('@_') && k !== 'phones' && k !== 'addresses');
+  const entries = Object.entries(data).filter(([k, v]) =>
+    !k.startsWith('@_') && k !== 'phones' && k !== 'addresses' && v !== null && v !== ''
+  );
   if (entries.length === 0) return <p className="text-slate-500 text-xs italic">No readable fields.</p>;
   return (
     <table className="w-full text-xs">
       <tbody className="divide-y divide-zinc-800/60">
-        {entries.map(([k, v]) => (
-          <tr key={k}>
-            <td className="text-slate-500 font-mono w-40 whitespace-nowrap py-1.5 pr-4">{k}</td>
-            <td className="break-all text-slate-300 py-1.5">{String(v ?? '')}</td>
-          </tr>
-        ))}
+        {entries.map(([k, v]) => {
+          const formatted = formatValue(v);
+          if (!formatted) return null;
+          return (
+            <tr key={k}>
+              <td className="text-slate-500 font-mono w-40 whitespace-nowrap py-1.5 pr-4">{k}</td>
+              <td className="break-all text-slate-300 py-1.5">{formatted}</td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
@@ -115,7 +135,7 @@ export default function CampaignDetailPage() {
   const admin = isAdmin();
 
   const [campaign, setCampaign] = useState<Campaign | null>(null);
-  const [people, setPeople] = useState<CampaignPerson[]>([]);
+  const [allPeople, setAllPeople] = useState<CampaignPerson[]>([]);
   const [loadingCampaign, setLoadingCampaign] = useState(true);
   const [loadingPeople, setLoadingPeople] = useState(false);
   const [reconciling, setReconciling] = useState(false);
@@ -166,16 +186,13 @@ export default function CampaignDetailPage() {
     setLoadingCampaign(false);
   }, [id]);
 
-  const loadPeople = useCallback(async (status?: string) => {
+  const loadPeople = useCallback(async () => {
     setLoadingPeople(true);
     const headers = await authHeader();
-    const url = status
-      ? `/api/campaigns/${id}/people?status=${status}`
-      : `/api/campaigns/${id}/people`;
-    const res = await fetch(url, { headers });
+    const res = await fetch(`/api/campaigns/${id}/people`, { headers });
     if (res.ok) {
       const json = await res.json();
-      setPeople(json.people ?? []);
+      setAllPeople(json.people ?? []);
     }
     setLoadingPeople(false);
   }, [id]);
@@ -183,11 +200,13 @@ export default function CampaignDetailPage() {
   useEffect(() => { loadCampaign(); }, [loadCampaign]);
 
   useEffect(() => {
-    const tab = TABS.find(t => t.key === activeTab);
-    if (tab) loadPeople(tab.statusKey);
+    if (campaign?.last_reconciled_at) loadPeople();
+  }, [campaign?.last_reconciled_at, loadPeople]);
+
+  useEffect(() => {
     setSelected(new Set());
     setGroupFilter(null);
-  }, [activeTab, loadPeople]);
+  }, [activeTab]);
 
   const handleReconcile = useCallback(async () => {
     setReconciling(true);
@@ -202,29 +221,51 @@ export default function CampaignDetailPage() {
       setReconcileError(json.message || json.error || 'Reconcile failed');
     } else {
       await loadCampaign();
-      const tab = TABS.find(t => t.key === activeTab);
-      if (tab) await loadPeople(tab.statusKey);
+      await loadPeople();
     }
     setReconciling(false);
-  }, [id, activeTab, loadCampaign, loadPeople]);
+  }, [id, loadCampaign, loadPeople]);
 
-  const tabPeople = people;
+  const tabPeople = useMemo(() => {
+    const tab = TABS.find(t => t.key === activeTab);
+    if (!tab) return [];
+    return allPeople.filter(p => p.reconcile_status === tab.statusKey);
+  }, [allPeople, activeTab]);
+
   const uniqueGroups = useMemo(() => {
     const seen = new Set<string>();
     const groups: string[] = [];
-    for (const p of people) {
+    for (const p of allPeople) {
       if (p.source_group_name && !seen.has(p.source_group_name)) {
         seen.add(p.source_group_name);
         groups.push(p.source_group_name);
       }
     }
     return groups;
-  }, [people]);
+  }, [allPeople]);
 
   const filteredPeople = useMemo(
-    () => (groupFilter ? people.filter(p => p.source_group_name === groupFilter) : people),
-    [people, groupFilter],
+    () => (groupFilter ? tabPeople.filter(p => p.source_group_name === groupFilter) : tabPeople),
+    [tabPeople, groupFilter],
   );
+
+  const filteredStats = useMemo(() => {
+    if (!groupFilter) return null;
+    const base = allPeople.filter(p => p.source_group_name === groupFilter);
+    const submitted = base.filter(p => p.reconcile_status === 'submitted').length;
+    const missing = base.filter(p => p.reconcile_status === 'missing').length;
+    const needsReview = base.filter(p => p.reconcile_status === 'needs_review').length;
+    const contacted = base.filter(p => p.reconcile_status === 'contacted').length;
+    const expected = submitted + missing + needsReview + contacted;
+    return {
+      submitted,
+      missing,
+      needs_review: needsReview,
+      contacted,
+      expected,
+      completion_pct: expected > 0 ? Math.round(((submitted + contacted) / expected) * 100) : 0,
+    };
+  }, [allPeople, groupFilter]);
 
   const allSelected = filteredPeople.length > 0 && filteredPeople.every(p => selected.has(p.id));
 
@@ -283,8 +324,7 @@ export default function CampaignDetailPage() {
       setShowFollowUp(false);
       setContactNote('');
       await loadCampaign();
-      const tab = TABS.find(t => t.key === activeTab);
-      if (tab) await loadPeople(tab.statusKey);
+      await loadPeople();
     }
     setContacting(false);
     setTimeout(() => setContactSuccess(false), 3000);
@@ -379,10 +419,7 @@ export default function CampaignDetailPage() {
         throw new Error(json.error || 'Failed to add person');
       }
       setAddedIds(prev => new Set(prev).add(individual.id));
-      if (activeTab === 'missing') {
-        const tab = TABS.find(t => t.key === 'missing');
-        if (tab) await loadPeople(tab.statusKey);
-      }
+      await loadPeople();
     } catch (e) {
       setSearchError(e instanceof Error ? e.message : 'Failed to add person');
     } finally {
@@ -397,8 +434,7 @@ export default function CampaignDetailPage() {
       headers,
     });
     if (res.ok) {
-      const tab = TABS.find(t => t.key === activeTab);
-      if (tab) await loadPeople(tab.statusKey);
+      await loadPeople();
     }
   }
 
@@ -514,20 +550,27 @@ export default function CampaignDetailPage() {
         {/* Stats — top row: Expected / Submitted / Missing / Completion */}
         {campaign.last_reconciled_at && (
           <div className="space-y-3 mb-6">
+            {groupFilter && (
+              <p className="text-xs text-indigo-400/70 font-medium uppercase tracking-wide">
+                Showing stats for: {groupFilter}
+              </p>
+            )}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCard label="Invited" value={expectedCount || null} />
-              <StatCard label="Submitted" value={campaign.submitted_count} accent="text-green-400" />
-              <StatCard label="Unsubmitted" value={campaign.missing_count} accent="text-red-400" />
+              <StatCard label="Invited" value={(filteredStats?.expected ?? expectedCount) || null} />
+              <StatCard label="Submitted" value={filteredStats?.submitted ?? campaign.submitted_count} accent="text-green-400" />
+              <StatCard label="Unsubmitted" value={filteredStats?.missing ?? campaign.missing_count} accent="text-red-400" />
               <StatCard
                 label="Completion"
-                value={campaign.completion_pct !== null ? `${campaign.completion_pct.toFixed(0)}%` : null}
-                accent={pctColor(campaign.completion_pct)}
+                value={(filteredStats?.completion_pct ?? campaign.completion_pct) !== null
+                  ? `${(filteredStats?.completion_pct ?? campaign.completion_pct)?.toFixed(0)}%`
+                  : null}
+                accent={pctColor(filteredStats?.completion_pct ?? campaign.completion_pct)}
               />
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <StatCard label="Not in Group" value={campaign.not_in_group_count} />
-              <StatCard label="Review Matches" value={campaign.needs_review_count} accent="text-amber-400" />
-              <StatCard label="Contacted" value={campaign.contacted_count} accent="text-indigo-400" />
+              <StatCard label="Not in Group" value={filteredStats ? null : campaign.not_in_group_count} />
+              <StatCard label="Review Matches" value={filteredStats?.needs_review ?? campaign.needs_review_count} accent="text-amber-400" />
+              <StatCard label="Contacted" value={filteredStats?.contacted ?? campaign.contacted_count} accent="text-indigo-400" />
             </div>
           </div>
         )}
@@ -553,19 +596,30 @@ export default function CampaignDetailPage() {
           <>
             {/* Underline tabs */}
             <div className="border-b border-zinc-800 mb-4 flex gap-1 overflow-x-auto">
-              {TABS.map(t => (
-                <button
-                  key={t.key}
-                  className={`px-3 pb-2.5 pt-1 text-sm font-medium whitespace-nowrap transition-colors ${
-                    activeTab === t.key
-                      ? 'border-b-2 border-indigo-400 text-indigo-300 -mb-px'
-                      : 'text-slate-400 hover:text-slate-200 border-b-2 border-transparent -mb-px'
-                  }`}
-                  onClick={() => setActiveTab(t.key)}
-                >
-                  {t.label}
-                </button>
-              ))}
+              {TABS.map(t => {
+                const pool = groupFilter
+                  ? allPeople.filter(p => p.source_group_name === groupFilter)
+                  : allPeople;
+                const count = allPeople.length > 0
+                  ? pool.filter(p => p.reconcile_status === t.statusKey).length
+                  : null;
+                return (
+                  <button
+                    key={t.key}
+                    className={`px-3 pb-2.5 pt-1 text-sm font-medium whitespace-nowrap transition-colors ${
+                      activeTab === t.key
+                        ? 'border-b-2 border-indigo-400 text-indigo-300 -mb-px'
+                        : 'text-slate-400 hover:text-slate-200 border-b-2 border-transparent -mb-px'
+                    }`}
+                    onClick={() => setActiveTab(t.key)}
+                  >
+                    {t.label}
+                    {count !== null && (
+                      <span className="ml-1.5 text-xs opacity-50">({count})</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Group filter pills — only shown when 2+ groups */}
