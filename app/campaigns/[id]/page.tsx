@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { DateTime } from 'luxon';
@@ -107,6 +107,19 @@ export default function CampaignDetailPage() {
   const [contactNote, setContactNote] = useState('');
   const [contacting, setContacting] = useState(false);
   const [contactSuccess, setContactSuccess] = useState(false);
+
+  // Add person modal
+  const [showAddPerson, setShowAddPerson] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Array<{
+    id: string; firstName: string; lastName: string; fullName: string;
+    email: string; phone: string; mobilePhone: string;
+  }>>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
+  const [addingId, setAddingId] = useState<string | null>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load campaign
   const loadCampaign = useCallback(async () => {
@@ -250,6 +263,67 @@ export default function CampaignDetailPage() {
     navigator.clipboard.writeText(msg).catch(() => {});
   }
 
+  // CCB search with 350ms debounce
+  function handleSearchChange(q: string) {
+    setSearchQuery(q);
+    setSearchError(null);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (q.trim().length < 2) { setSearchResults([]); return; }
+    searchTimerRef.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const headers = await authHeader();
+        const res = await fetch(`/api/campaigns/${id}/ccb-search?q=${encodeURIComponent(q.trim())}`, { headers });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Search failed');
+        setSearchResults(json.individuals ?? []);
+      } catch (e) {
+        setSearchError(e instanceof Error ? e.message : 'Search failed');
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 350);
+  }
+
+  async function handleAddPerson(individual: typeof searchResults[0]) {
+    setAddingId(individual.id);
+    try {
+      const headers = await authHeader();
+      const res = await fetch(`/api/campaigns/${id}/people`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ccb_individual: individual }),
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || 'Failed to add person');
+      }
+      setAddedIds(prev => new Set(prev).add(individual.id));
+      // Refresh people list if we're on the missing tab
+      if (activeTab === 'missing') {
+        const tab = TABS.find(t => t.key === 'missing');
+        if (tab) await loadPeople(tab.statusKey);
+      }
+    } catch (e) {
+      setSearchError(e instanceof Error ? e.message : 'Failed to add person');
+    } finally {
+      setAddingId(null);
+    }
+  }
+
+  async function handleRemoveManual(personId: string) {
+    const headers = await authHeader();
+    const res = await fetch(`/api/campaigns/${id}/people?person_id=${personId}`, {
+      method: 'DELETE',
+      headers,
+    });
+    if (res.ok) {
+      const tab = TABS.find(t => t.key === activeTab);
+      if (tab) await loadPeople(tab.statusKey);
+    }
+  }
+
   const showCheckboxes = activeTab === 'missing' || activeTab === 'needs_review';
 
   if (loadingCampaign) {
@@ -305,6 +379,12 @@ export default function CampaignDetailPage() {
                   ? `Last reconciled ${formatDate(campaign.last_reconciled_at)}`
                   : 'Not yet reconciled'}
               </span>
+              <button
+                className="btn btn-ghost btn-sm border border-base-300"
+                onClick={() => { setShowAddPerson(true); setSearchQuery(''); setSearchResults([]); setAddedIds(new Set()); setSearchError(null); }}
+              >
+                + Add Person
+              </button>
               <button
                 className="btn btn-primary btn-sm"
                 onClick={handleReconcile}
@@ -431,7 +511,21 @@ export default function CampaignDetailPage() {
                             </td>
                           )}
                           <td className="font-medium whitespace-nowrap">
-                            {p.first_name} {p.last_name}
+                            <span>{p.first_name} {p.last_name}</span>
+                            {p.manually_added && (
+                              <span className="ml-1.5 inline-flex items-center gap-1">
+                                <span className="badge badge-xs badge-outline text-base-content/40">manual</span>
+                                {(activeTab === 'missing' || activeTab === 'needs_review') && (
+                                  <button
+                                    className="btn btn-ghost btn-xs p-0 h-4 min-h-0 text-base-content/30 hover:text-error"
+                                    title="Remove from campaign"
+                                    onClick={() => handleRemoveManual(p.id)}
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </span>
+                            )}
                           </td>
                           <td className="text-base-content/60">{p.email || '—'}</td>
                           <td className="text-base-content/60 whitespace-nowrap">
@@ -502,6 +596,86 @@ export default function CampaignDetailPage() {
               Clear
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Add Person modal */}
+      {showAddPerson && (
+        <div className="modal modal-open modal-bottom sm:modal-middle z-50">
+          <div className="modal-box w-full max-w-lg max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">Add Person from CCB</h3>
+              <button className="btn btn-ghost btn-sm btn-circle" onClick={() => setShowAddPerson(false)}>✕</button>
+            </div>
+
+            <div className="form-control mb-3">
+              <input
+                type="text"
+                className="input input-bordered w-full"
+                placeholder="Search by name or phone…"
+                value={searchQuery}
+                onChange={e => handleSearchChange(e.target.value)}
+                autoFocus
+              />
+            </div>
+
+            {searchError && (
+              <div className="alert alert-error text-sm py-2 mb-3">{searchError}</div>
+            )}
+
+            <div className="overflow-y-auto flex-1 -mx-2 px-2">
+              {searching && (
+                <div className="flex justify-center py-8">
+                  <span className="loading loading-spinner loading-md" />
+                </div>
+              )}
+
+              {!searching && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
+                <p className="text-center text-base-content/40 text-sm py-8">No results found.</p>
+              )}
+
+              {!searching && searchQuery.trim().length < 2 && (
+                <p className="text-center text-base-content/30 text-sm py-8">Type at least 2 characters to search.</p>
+              )}
+
+              {searchResults.length > 0 && (
+                <div className="divide-y divide-base-content/10 rounded-lg border border-base-300 overflow-hidden">
+                  {searchResults.map(ind => {
+                    const isAdded = addedIds.has(ind.id);
+                    const isAdding = addingId === ind.id;
+                    const phone = ind.mobilePhone || ind.phone;
+                    return (
+                      <div key={ind.id} className="flex items-center gap-3 px-3 py-2.5 bg-base-200">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm">{ind.fullName}</p>
+                          <p className="text-xs text-base-content/40 truncate">
+                            {[ind.email, phone].filter(Boolean).join(' · ') || 'No contact info'}
+                          </p>
+                        </div>
+                        <button
+                          className={`btn btn-sm flex-shrink-0 ${isAdded ? 'btn-success btn-outline' : 'btn-ghost border border-base-300'}`}
+                          disabled={isAdded || isAdding}
+                          onClick={() => !isAdded && handleAddPerson(ind)}
+                        >
+                          {isAdding
+                            ? <span className="loading loading-spinner loading-xs" />
+                            : isAdded ? 'Added' : 'Add'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="modal-action mt-4 pt-4 border-t border-base-content/10">
+              <p className="text-xs text-base-content/30 flex-1">
+                People added here appear in the Missing tab. Run Reconcile to check their form status.
+              </p>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowAddPerson(false)}>Done</button>
+            </div>
+          </div>
+          <div className="modal-backdrop bg-black/50" onClick={() => setShowAddPerson(false)} />
         </div>
       )}
 

@@ -74,10 +74,40 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
   }
 
+  // 3b. Load manually-added individuals from DB and merge them in.
+  // They join the group participant list so the reconcile function checks them
+  // against form responses automatically.
+  const { data: manualPeople } = await supabase
+    .from('follow_up_campaign_people')
+    .select('ccb_individual_id, first_name, last_name, email, phone, mobile_phone')
+    .eq('campaign_id', params.id)
+    .eq('manually_added', true);
+
+  const manualCcbIds = new Set<string>();
+  for (const mp of manualPeople ?? []) {
+    if (mp.ccb_individual_id && seenCcbIds.has(mp.ccb_individual_id)) continue; // already in a group
+    if (mp.ccb_individual_id) {
+      seenCcbIds.add(mp.ccb_individual_id);
+      manualCcbIds.add(mp.ccb_individual_id);
+    }
+    groupParticipants.push({
+      id: mp.ccb_individual_id || '',
+      firstName: mp.first_name || '',
+      lastName: mp.last_name || '',
+      fullName: `${mp.first_name || ''} ${mp.last_name || ''}`.trim(),
+      email: mp.email || '',
+      phone: mp.phone || '',
+      mobilePhone: mp.mobile_phone || '',
+      status: '',
+      statusId: '',
+      isActive: true,
+    });
+  }
+
   if (groupParticipants.length === 0) {
     return NextResponse.json({
       error: 'empty_group',
-      message: `CCB groups [${groupIds.join(', ')}] returned 0 participants. Check that the Group IDs are correct.`,
+      message: `CCB groups [${groupIds.join(', ')}] returned 0 participants and no individuals were manually added. Check that the Group IDs are correct.`,
     }, { status: 422 });
   }
 
@@ -109,9 +139,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const contactedIds = new Set((existingContacted ?? []).map(r => r.ccb_individual_id).filter(Boolean));
 
   // 7. Upsert all people
-  // For each reconciled person, if they were previously contacted, keep that status
+  // For each reconciled person, if they were previously contacted, keep that status.
+  // Preserve manually_added flag for anyone who was manually added.
   const rows = reconciledPeople.map((p) => {
     const wasContacted = p.ccbIndividualId && contactedIds.has(p.ccbIndividualId);
+    const isManual = p.ccbIndividualId ? manualCcbIds.has(p.ccbIndividualId) : false;
     return {
       campaign_id: params.id,
       ccb_individual_id: p.ccbIndividualId || null,
@@ -124,6 +156,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       mobile_phone: p.mobilePhone || null,
       in_group: p.inGroup,
       in_form: p.inForm,
+      manually_added: isManual,
       form_response_data: p.formResponseData || null,
       reconcile_status: wasContacted ? 'contacted' : p.status,
       match_method: p.matchMethod || null,
@@ -136,12 +169,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .filter(Boolean) as string[];
 
   // Delete people who have a CCB ID but are no longer in either list,
-  // and were not contacted
+  // and were not contacted, and were not manually added.
   if (currentCcbIds.length > 0) {
     await supabase
       .from('follow_up_campaign_people')
       .delete()
       .eq('campaign_id', params.id)
+      .eq('manually_added', false)
       .not('reconcile_status', 'eq', 'contacted')
       .not('ccb_individual_id', 'in', `(${currentCcbIds.map(id => `"${id}"`).join(',')})`);
   }

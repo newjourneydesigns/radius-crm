@@ -86,8 +86,9 @@ CREATE TABLE IF NOT EXISTS follow_up_campaign_people (
   mobile_phone      TEXT,
 
   -- Which CCB sources contributed this person
-  in_group BOOLEAN NOT NULL DEFAULT FALSE,
-  in_form  BOOLEAN NOT NULL DEFAULT FALSE,
+  in_group      BOOLEAN NOT NULL DEFAULT FALSE,
+  in_form       BOOLEAN NOT NULL DEFAULT FALSE,
+  manually_added BOOLEAN NOT NULL DEFAULT FALSE,  -- true = added via CCB search, not from a group
 
   -- Full raw form response payload so admins can read what people answered
   form_response_data JSONB,

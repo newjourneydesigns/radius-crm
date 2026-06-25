@@ -37,6 +37,7 @@ export interface CampaignPerson {
   mobile_phone: string | null;
   in_group: boolean;
   in_form: boolean;
+  manually_added: boolean;
   form_response_data: Record<string, unknown> | null;
   reconcile_status: string;
   match_method: string | null;
