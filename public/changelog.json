@@ -3,6 +3,16 @@
     "date": "2026-06-25",
     "date_display": "June 25, 2026",
     "date_iso": "2026-06-25",
+    "id": "campaigns-sortable-submitted-date",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "All columns in every campaign tab are now sortable — click any header to sort, click again to reverse. Submitted tab also shows the exact date and time the form was submitted (e.g. \"May 14 · 9:41 AM\"), sortable like any other column.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
     "id": "campaigns-global-person-search",
     "type": "feature",
     "category": "Campaigns",

@@ -88,6 +88,26 @@ function Spinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
   );
 }
 
+function SortTh({ col, label, sortCol, sortDir, onSort, className = '' }: {
+  col: string; label: React.ReactNode; sortCol: string | null; sortDir: 'asc' | 'desc';
+  onSort: (col: string) => void; className?: string;
+}) {
+  const active = sortCol === col;
+  return (
+    <th
+      className={`text-left text-xs font-medium uppercase tracking-wide px-4 py-3 cursor-pointer select-none group ${className}`}
+      onClick={() => onSort(col)}
+    >
+      <span className={`inline-flex items-center gap-1 transition-colors ${active ? 'text-indigo-300' : 'text-slate-400 group-hover:text-slate-200'}`}>
+        {label}
+        <span className={`transition-opacity ${active ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'}`}>
+          {active && sortDir === 'asc' ? '↑' : '↓'}
+        </span>
+      </span>
+    </th>
+  );
+}
+
 function formatValue(v: unknown, depth = 0): string {
   if (v === null || v === undefined) return '';
   if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v);
@@ -151,6 +171,8 @@ export default function CampaignDetailPage() {
   const [contactSuccess, setContactSuccess] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
+  const [sortCol, setSortCol] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [globalSearch, setGlobalSearch] = useState('');
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const globalSearchRef = useRef<HTMLDivElement>(null);
@@ -253,6 +275,8 @@ export default function CampaignDetailPage() {
   useEffect(() => {
     setSelected(new Set());
     setGroupFilter(null);
+    setSortCol(null);
+    setSortDir('asc');
   }, [activeTab]);
 
   const handleReconcile = useCallback(async () => {
@@ -302,6 +326,33 @@ export default function CampaignDetailPage() {
     () => (groupFilter ? tabPeople.filter(p => p.source_group_name === groupFilter) : tabPeople),
     [tabPeople, groupFilter],
   );
+
+  function onSort(col: string) {
+    setSortCol(prev => {
+      if (prev === col) { setSortDir(d => d === 'asc' ? 'desc' : 'asc'); return col; }
+      setSortDir('asc'); return col;
+    });
+  }
+
+  function submittedAt(p: CampaignPerson): string {
+    return String((p.form_response_data as Record<string, unknown> | null)?.created ?? '');
+  }
+
+  const sortedPeople = useMemo(() => {
+    if (!sortCol) return filteredPeople;
+    return [...filteredPeople].sort((a, b) => {
+      let av = '', bv = '';
+      if (sortCol === 'name')      { av = `${a.last_name} ${a.first_name}`.toLowerCase(); bv = `${b.last_name} ${b.first_name}`.toLowerCase(); }
+      else if (sortCol === 'email')    { av = (a.email || '').toLowerCase(); bv = (b.email || '').toLowerCase(); }
+      else if (sortCol === 'phone')    { av = bestPhone(a); bv = bestPhone(b); }
+      else if (sortCol === 'group')    { av = (a.source_group_name || '').toLowerCase(); bv = (b.source_group_name || '').toLowerCase(); }
+      else if (sortCol === 'submitted') { av = submittedAt(a); bv = submittedAt(b); }
+      else if (sortCol === 'match')    { av = (a.match_method || '').toLowerCase(); bv = (b.match_method || '').toLowerCase(); }
+      else if (sortCol === 'contacted') { av = a.contacted_at || ''; bv = b.contacted_at || ''; }
+      const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [filteredPeople, sortCol, sortDir]);
 
   const filteredStats = useMemo(() => {
     if (!groupFilter) return null;
@@ -785,27 +836,28 @@ export default function CampaignDetailPage() {
                             />
                           </th>
                         )}
-                        <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Name</th>
-                        <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Email</th>
-                        <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">
-                          Phone
-                          {enrichingPhones && (
-                            <span className="ml-2 text-xs font-normal text-slate-500 normal-case tracking-normal">
-                              updating missing numbers…
-                            </span>
-                          )}
-                        </th>
+                        <SortTh col="name"  label="Name"  sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
+                        <SortTh col="email" label="Email" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
+                        <SortTh col="phone" label={
+                          <span className="inline-flex items-center gap-1.5">
+                            Phone
+                            {enrichingPhones && <span className="text-xs font-normal text-slate-500 normal-case tracking-normal">updating…</span>}
+                          </span>
+                        } sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
                         {uniqueGroups.length >= 2 && (
-                          <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Group</th>
+                          <SortTh col="group" label="Group" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
                         )}
                         {activeTab === 'needs_review' && (
                           <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Form Name</th>
                         )}
                         {activeTab === 'submitted' && (
-                          <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Match</th>
+                          <SortTh col="submitted" label="Submitted" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
+                        )}
+                        {activeTab === 'submitted' && (
+                          <SortTh col="match" label="Match" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
                         )}
                         {activeTab === 'contacted' && (
-                          <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Contacted</th>
+                          <SortTh col="contacted" label="Contacted" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
                         )}
                         {activeTab === 'contacted' && (
                           <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Note</th>
@@ -814,7 +866,7 @@ export default function CampaignDetailPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-800/70">
-                      {filteredPeople.map(p => (
+                      {sortedPeople.map(p => (
                         <React.Fragment key={p.id}>
                           <tr className="hover:bg-zinc-800/40 transition-colors align-top">
                             {showCheckboxes && (
@@ -855,6 +907,13 @@ export default function CampaignDetailPage() {
                               <td className="px-4 py-3 text-amber-400 text-xs">
                                 {p.form_first_name || p.form_last_name
                                   ? `${p.form_first_name || ''} ${p.form_last_name || ''}`.trim()
+                                  : '—'}
+                              </td>
+                            )}
+                            {activeTab === 'submitted' && (
+                              <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
+                                {submittedAt(p)
+                                  ? DateTime.fromSQL(submittedAt(p)).toFormat('MMM d · h:mm a')
                                   : '—'}
                               </td>
                             )}
