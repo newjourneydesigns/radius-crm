@@ -249,18 +249,12 @@ export default function CampaignDetailPage() {
     setTimeout(() => setContactSuccess(false), 3000);
   }
 
-  function openSMS(person: CampaignPerson) {
-    if (!campaign) return;
-    const phone = normalizePhone(bestPhone(person));
-    if (!phone) return;
-    const msg = resolveMessage(msgTemplate, person, campaign);
-    window.location.href = `sms:${phone}&body=${encodeURIComponent(msg)}`;
-  }
-
-  function copyMessage(person: CampaignPerson) {
+  function sendMessage(person: CampaignPerson) {
     if (!campaign) return;
     const msg = resolveMessage(msgTemplate, person, campaign);
     navigator.clipboard.writeText(msg).catch(() => {});
+    const phone = normalizePhone(bestPhone(person));
+    if (phone) window.location.href = `sms:${phone}&body=${encodeURIComponent(msg)}`;
   }
 
   // CCB search with 350ms debounce
@@ -739,18 +733,10 @@ export default function CampaignDetailPage() {
                   <div className="flex gap-2 pt-1">
                     <button
                       className="btn btn-xs btn-ghost border border-base-300"
-                      onClick={() => copyMessage(previewPerson)}
+                      onClick={() => sendMessage(previewPerson)}
                     >
-                      Copy
+                      Send iMessage
                     </button>
-                    {bestPhone(previewPerson) && (
-                      <button
-                        className="btn btn-xs btn-ghost border border-base-300"
-                        onClick={() => openSMS(previewPerson)}
-                      >
-                        Open SMS
-                      </button>
-                    )}
                   </div>
                 </div>
               )}
@@ -770,18 +756,10 @@ export default function CampaignDetailPage() {
                         </span>
                         <button
                           className="btn btn-ghost btn-xs border border-base-300"
-                          onClick={() => copyMessage(p)}
+                          onClick={() => sendMessage(p)}
                         >
-                          Copy
+                          Send iMessage
                         </button>
-                        {bestPhone(p) && (
-                          <button
-                            className="btn btn-ghost btn-xs border border-base-300"
-                            onClick={() => openSMS(p)}
-                          >
-                            SMS
-                          </button>
-                        )}
                       </div>
                     ))}
                   </div>
