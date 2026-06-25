@@ -45,25 +45,39 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   });
   const ccb = createCCBClient(ctx);
 
-  // 3. Fetch group participants
-  let groupParticipants: Awaited<ReturnType<typeof ccb.getGroupParticipants>>;
-  try {
-    groupParticipants = await ccb.getGroupParticipants(campaign.ccb_group_id);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
-    if (msg.toLowerCase().includes('permission')) {
-      return NextResponse.json({
-        error: 'ccb_permission',
-        message: 'The CCB API user lacks permission to read group participants. Grant "Group" API access in CCB Admin → API → Permissions.',
-      }, { status: 403 });
+  // 3. Fetch group participants from all configured group IDs, then deduplicate
+  const groupIds: string[] = Array.isArray(campaign.ccb_group_ids)
+    ? campaign.ccb_group_ids
+    : [campaign.ccb_group_ids].filter(Boolean);
+
+  const seenCcbIds = new Set<string>();
+  const groupParticipants: Awaited<ReturnType<typeof ccb.getGroupParticipants>> = [];
+
+  for (const groupId of groupIds) {
+    let participants: Awaited<ReturnType<typeof ccb.getGroupParticipants>>;
+    try {
+      participants = await ccb.getGroupParticipants(groupId);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      if (msg.toLowerCase().includes('permission')) {
+        return NextResponse.json({
+          error: 'ccb_permission',
+          message: 'The CCB API user lacks permission to read group participants. Grant "Group" API access in CCB Admin → API → Permissions.',
+        }, { status: 403 });
+      }
+      return NextResponse.json({ error: 'ccb_group_fetch_failed', message: `Group ${groupId}: ${msg}` }, { status: 502 });
     }
-    return NextResponse.json({ error: 'ccb_group_fetch_failed', message: msg }, { status: 502 });
+    for (const p of participants) {
+      if (p.id && seenCcbIds.has(p.id)) continue;
+      if (p.id) seenCcbIds.add(p.id);
+      groupParticipants.push(p);
+    }
   }
 
   if (groupParticipants.length === 0) {
     return NextResponse.json({
       error: 'empty_group',
-      message: `CCB group ${campaign.ccb_group_id} returned 0 participants. Check that the Group ID is correct.`,
+      message: `CCB groups [${groupIds.join(', ')}] returned 0 participants. Check that the Group IDs are correct.`,
     }, { status: 422 });
   }
 

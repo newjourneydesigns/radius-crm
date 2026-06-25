@@ -3,6 +3,16 @@
     "date": "2026-06-25",
     "date_display": "June 25, 2026",
     "date_iso": "2026-06-25",
+    "id": "campaigns-multi-group",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Campaigns now support multiple CCB groups as the expected list. Add as many Group IDs as you need — Radius merges them, deduplicates, and reconciles the combined list against form submissions.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
     "id": "follow-up-campaigns",
     "type": "feature",
     "category": "Campaigns",

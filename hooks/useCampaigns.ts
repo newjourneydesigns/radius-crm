@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 export interface Campaign {
   id: string;
   name: string;
-  ccb_group_id: string;
+  ccb_group_ids: string[];
   ccb_form_id: string;
   form_link: string;
   due_date: string;
@@ -77,7 +77,7 @@ export function useCampaigns() {
 
   const createCampaign = useCallback(async (payload: {
     name: string;
-    ccb_group_id: string;
+    ccb_group_ids: string[];
     ccb_form_id: string;
     form_link: string;
     due_date: string;

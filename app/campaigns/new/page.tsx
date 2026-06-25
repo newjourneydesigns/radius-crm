@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { DateTime } from 'luxon';
@@ -27,7 +27,6 @@ function insertAtCursor(
   const current = textarea.value;
   const next = current.slice(0, start) + text + current.slice(end);
   setter(next);
-  // Restore cursor position after React re-render
   requestAnimationFrame(() => {
     textarea.selectionStart = textarea.selectionEnd = start + text.length;
     textarea.focus();
@@ -39,7 +38,7 @@ export default function NewCampaignPage() {
   const { createCampaign } = useCampaigns();
 
   const [name, setName] = useState('');
-  const [groupId, setGroupId] = useState('');
+  const [groupIds, setGroupIds] = useState<string[]>(['']);
   const [formId, setFormId] = useState('');
   const [formLink, setFormLink] = useState('');
   const [dueDate, setDueDate] = useState('');
@@ -49,14 +48,31 @@ export default function NewCampaignPage() {
 
   const today = DateTime.now().toISODate()!;
 
+  function updateGroupId(index: number, value: string) {
+    setGroupIds(prev => prev.map((id, i) => (i === index ? value : id)));
+  }
+
+  function addGroup() {
+    setGroupIds(prev => [...prev, '']);
+  }
+
+  function removeGroup(index: number) {
+    setGroupIds(prev => prev.filter((_, i) => i !== index));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const cleanGroupIds = groupIds.map(id => id.trim()).filter(Boolean);
+    if (cleanGroupIds.length === 0) {
+      setErr('At least one CCB Group ID is required');
+      return;
+    }
     setSaving(true);
     setErr(null);
     try {
       const campaign = await createCampaign({
         name: name.trim(),
-        ccb_group_id: groupId.trim(),
+        ccb_group_ids: cleanGroupIds,
         ccb_form_id: formId.trim(),
         form_link: formLink.trim(),
         due_date: dueDate,
@@ -96,43 +112,65 @@ export default function NewCampaignPage() {
             />
           </div>
 
-          {/* CCB IDs */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="form-control">
-              <label className="label pb-1">
-                <span className="label-text font-medium">CCB Group ID</span>
-              </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                className="input input-bordered w-full"
-                placeholder="e.g. 1234"
-                value={groupId}
-                onChange={e => setGroupId(e.target.value)}
-                required
-              />
-              <label className="label pt-1">
-                <span className="label-text-alt text-base-content/40">Found in the CCB group URL</span>
-              </label>
+          {/* CCB Group IDs */}
+          <div className="form-control">
+            <label className="label pb-1">
+              <span className="label-text font-medium">CCB Group IDs</span>
+            </label>
+            <div className="space-y-2">
+              {groupIds.map((gid, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    className="input input-bordered flex-1"
+                    placeholder={i === 0 ? 'e.g. 1234' : 'e.g. 5678'}
+                    value={gid}
+                    onChange={e => updateGroupId(i, e.target.value)}
+                    required={i === 0}
+                  />
+                  {groupIds.length > 1 && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm text-error"
+                      onClick={() => removeGroup(i)}
+                      aria-label="Remove group"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-xs text-base-content/40">Found in the CCB group URL</span>
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs"
+                onClick={addGroup}
+              >
+                + Add another group
+              </button>
+            </div>
+          </div>
 
-            <div className="form-control">
-              <label className="label pb-1">
-                <span className="label-text font-medium">CCB Form ID</span>
-              </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                className="input input-bordered w-full"
-                placeholder="e.g. 56"
-                value={formId}
-                onChange={e => setFormId(e.target.value)}
-                required
-              />
-              <label className="label pt-1">
-                <span className="label-text-alt text-base-content/40">Found in the CCB form URL</span>
-              </label>
-            </div>
+          {/* CCB Form ID */}
+          <div className="form-control">
+            <label className="label pb-1">
+              <span className="label-text font-medium">CCB Form ID</span>
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              className="input input-bordered w-full"
+              placeholder="e.g. 56"
+              value={formId}
+              onChange={e => setFormId(e.target.value)}
+              required
+            />
+            <label className="label pt-1">
+              <span className="label-text-alt text-base-content/40">Found in the CCB form URL</span>
+            </label>
           </div>
 
           {/* Form link */}
@@ -174,7 +212,6 @@ export default function NewCampaignPage() {
             <label className="label pb-1">
               <span className="label-text font-medium">Message template</span>
             </label>
-            {/* Variable chips */}
             <div className="flex flex-wrap gap-1.5 mb-2">
               {VARIABLES.map(v => (
                 <button

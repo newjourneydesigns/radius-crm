@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS follow_up_campaigns (
 
   -- Admin-supplied config
   name              TEXT NOT NULL,
-  ccb_group_id      TEXT NOT NULL,
+  ccb_group_ids     TEXT[] NOT NULL DEFAULT '{}',  -- one or more CCB group IDs
   ccb_form_id       TEXT NOT NULL,
   -- Explicitly stored so {{form_link}} is always available in message templates
   form_link         TEXT NOT NULL DEFAULT '',
@@ -64,7 +64,7 @@ CREATE TRIGGER set_updated_at_follow_up_campaigns
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 COMMENT ON TABLE follow_up_campaigns IS
-  'Admin-created follow-up campaigns. Each campaign reconciles a CCB group (expected) against a CCB form (submitted) and tracks follow-up outreach to non-submitters. Shared across the ACPD team.';
+  'Admin-created follow-up campaigns. Each campaign reconciles one or more CCB groups (expected) against a CCB form (submitted) and tracks follow-up outreach to non-submitters. Shared across the ACPD team.';
 
 -- 2. Per-person reconciliation rows -------------------------------------------
 CREATE TABLE IF NOT EXISTS follow_up_campaign_people (

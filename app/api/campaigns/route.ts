@@ -44,10 +44,14 @@ export async function POST(req: NextRequest) {
   if (auth.response) return auth.response;
 
   const body = await req.json();
-  const { name, ccb_group_id, ccb_form_id, form_link, due_date, message_template } = body;
+  const { name, ccb_group_ids, ccb_form_id, form_link, due_date, message_template } = body;
 
   if (!name?.trim()) return NextResponse.json({ error: 'Campaign name is required' }, { status: 400 });
-  if (!ccb_group_id?.trim()) return NextResponse.json({ error: 'CCB Group ID is required' }, { status: 400 });
+  if (!Array.isArray(ccb_group_ids) || ccb_group_ids.length === 0) {
+    return NextResponse.json({ error: 'At least one CCB Group ID is required' }, { status: 400 });
+  }
+  const cleanGroupIds = ccb_group_ids.map((id: unknown) => String(id).trim()).filter(Boolean);
+  if (cleanGroupIds.length === 0) return NextResponse.json({ error: 'At least one CCB Group ID is required' }, { status: 400 });
   if (!ccb_form_id?.trim()) return NextResponse.json({ error: 'CCB Form ID is required' }, { status: 400 });
   if (!due_date) return NextResponse.json({ error: 'Due date is required' }, { status: 400 });
 
@@ -56,7 +60,7 @@ export async function POST(req: NextRequest) {
     .from('follow_up_campaigns')
     .insert({
       name: name.trim(),
-      ccb_group_id: String(ccb_group_id).trim(),
+      ccb_group_ids: cleanGroupIds,
       ccb_form_id: String(ccb_form_id).trim(),
       form_link: (form_link || '').trim(),
       due_date,
