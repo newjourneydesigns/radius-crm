@@ -217,7 +217,6 @@ export default function CampaignDetailPage() {
     if (p.reconcile_status === 'submitted') return 'submitted';
     if (p.reconcile_status === 'submitted_not_in_group') return 'not_in_group';
     if (p.reconcile_status === 'needs_review') return 'needs_review';
-    if (p.reconcile_status === 'contacted') return 'contacted';
     return 'missing';
   }
 
@@ -307,6 +306,8 @@ export default function CampaignDetailPage() {
   const tabPeople = useMemo(() => {
     const tab = TABS.find(t => t.key === activeTab);
     if (!tab) return [];
+    // Contacted tab: anyone with a contacted_at, regardless of form status
+    if (activeTab === 'contacted') return allPeople.filter(p => p.contacted_at !== null);
     return allPeople.filter(p => p.reconcile_status === tab.statusKey);
   }, [allPeople, activeTab]);
 
@@ -545,7 +546,7 @@ export default function CampaignDetailPage() {
     }
   }
 
-  const showCheckboxes = activeTab === 'missing' || activeTab === 'needs_review';
+  const showCheckboxes = activeTab === 'missing' || activeTab === 'needs_review' || activeTab === 'contacted';
 
   if (loadingCampaign) {
     return (
@@ -710,7 +711,9 @@ export default function CampaignDetailPage() {
                   ? allPeople.filter(p => p.source_group_name === groupFilter)
                   : allPeople;
                 const count = allPeople.length > 0
-                  ? pool.filter(p => p.reconcile_status === t.statusKey).length
+                  ? t.key === 'contacted'
+                    ? pool.filter(p => p.contacted_at !== null).length
+                    : pool.filter(p => p.reconcile_status === t.statusKey).length
                   : null;
                 return (
                   <button

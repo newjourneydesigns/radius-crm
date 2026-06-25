@@ -34,7 +34,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { error } = await supabase
     .from('follow_up_campaign_people')
     .update({
-      reconcile_status: 'contacted',
       contacted_at: new Date().toISOString(),
       contacted_by: auth.user!.id,
       contact_note: note?.trim() || null,
@@ -47,7 +46,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // Refresh aggregate counts on the campaign
   const { data: allPeople } = await supabase
     .from('follow_up_campaign_people')
-    .select('reconcile_status')
+    .select('reconcile_status, contacted_at')
     .eq('campaign_id', params.id);
 
   const counts = computeCounts(allPeople ?? []);

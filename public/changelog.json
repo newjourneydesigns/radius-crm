@@ -3,6 +3,16 @@
     "date": "2026-06-25",
     "date_display": "June 25, 2026",
     "date_iso": "2026-06-25",
+    "id": "campaigns-contacted-preserves-unsubmitted",
+    "type": "fix",
+    "category": "Campaigns",
+    "description": "Marking someone as Contacted no longer removes them from the Unsubmitted tab. Contacted is now an independent flag — people appear in both tabs until they actually submit the form. The Contacted tab also now supports selecting people and sending follow-up messages.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
     "id": "campaigns-sortable-submitted-date",
     "type": "improvement",
     "category": "Campaigns",

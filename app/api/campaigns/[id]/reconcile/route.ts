@@ -199,22 +199,25 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   });
   const reconciledPeople = reconcile(groupParticipants, uniqueFormRespondents);
 
-  // 6. Load existing contacted rows so we preserve their status
+  // 6. Load existing contacted rows so we can preserve their contact fields on re-reconcile
   const { data: existingContacted } = await supabase
     .from('follow_up_campaign_people')
-    .select('id, ccb_individual_id, first_name, last_name')
+    .select('ccb_individual_id, contacted_at, contacted_by, contact_note')
     .eq('campaign_id', params.id)
-    .eq('reconcile_status', 'contacted');
+    .not('contacted_at', 'is', null);
 
-  const contactedIds = new Set((existingContacted ?? []).map(r => r.ccb_individual_id).filter(Boolean));
+  type ContactedRow = { ccb_individual_id: string | null; contacted_at: string | null; contacted_by: string | null; contact_note: string | null };
+  const contactedMap = new Map<string, ContactedRow>();
+  for (const r of existingContacted ?? []) {
+    if (r.ccb_individual_id) contactedMap.set(r.ccb_individual_id, r as ContactedRow);
+  }
 
   // 7. Upsert all people
   // For each reconciled person, if they were previously contacted, keep that status.
   // Preserve manually_added flag for anyone who was manually added.
   const rows = reconciledPeople.map((p) => {
-    const wasContacted = p.ccbIndividualId && contactedIds.has(p.ccbIndividualId);
+    const prevContacted = p.ccbIndividualId ? contactedMap.get(p.ccbIndividualId) : null;
     const isManual = p.ccbIndividualId ? manualCcbIds.has(p.ccbIndividualId) : false;
-    // Prefer v2 phone data (more reliable than v1 XML); fall back to whatever reconcile() produced
     const v2Ph = p.ccbIndividualId ? v2PhoneMap[p.ccbIndividualId] : null;
     return {
       campaign_id: params.id,
@@ -230,10 +233,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       in_form: p.inForm,
       manually_added: isManual,
       form_response_data: p.formResponseData || null,
-      reconcile_status: wasContacted ? 'contacted' : p.status,
+      reconcile_status: p.status,
       match_method: p.matchMethod || null,
       source_group_id: p.sourceGroupId || null,
       source_group_name: p.sourceGroupName || null,
+      // Preserve contact fields so re-reconciling doesn't wipe them
+      contacted_at: prevContacted?.contacted_at ?? null,
+      contacted_by: prevContacted?.contacted_by ?? null,
+      contact_note: prevContacted?.contact_note ?? null,
     };
   });
 
@@ -250,7 +257,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .delete()
       .eq('campaign_id', params.id)
       .eq('manually_added', false)
-      .not('reconcile_status', 'eq', 'contacted')
+      .is('contacted_at', null)
       .not('ccb_individual_id', 'in', `(${currentCcbIds.map(id => `"${id}"`).join(',')})`);
   }
 
@@ -279,7 +286,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .delete()
       .eq('campaign_id', params.id)
       .is('ccb_individual_id', null)
-      .not('reconcile_status', 'eq', 'contacted');
+      .is('contacted_at', null);
 
     const { error: insertError } = await supabase
       .from('follow_up_campaign_people')
@@ -293,7 +300,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // 8. Re-read all people to compute accurate counts (includes any pre-existing contacted rows)
   const { data: allPeople } = await supabase
     .from('follow_up_campaign_people')
-    .select('reconcile_status')
+    .select('reconcile_status, contacted_at')
     .eq('campaign_id', params.id);
 
   const counts = computeCounts(allPeople ?? []);
@@ -303,7 +310,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .from('follow_up_campaigns')
     .update({
       last_reconciled_at: new Date().toISOString(),
-      expected_count: counts.submitted + counts.missing + counts.needs_review + counts.contacted,
+      expected_count: counts.submitted + counts.missing + counts.needs_review,
       submitted_count: counts.submitted,
       missing_count: counts.missing,
       not_in_group_count: counts.submitted_not_in_group,

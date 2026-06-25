@@ -5,7 +5,6 @@ export type ReconcileStatus =
   | 'missing'
   | 'submitted_not_in_group'
   | 'needs_review'
-  | 'contacted'
   | 'expected';
 
 export type MatchMethod = 'ccb_id' | 'email' | 'phone' | 'fuzzy' | null;
@@ -244,7 +243,7 @@ export type ReconcileCounts = {
   completion_pct: number;
 };
 
-export function computeCounts(people: { reconcile_status: string }[]): ReconcileCounts {
+export function computeCounts(people: { reconcile_status: string; contacted_at?: string | null }[]): ReconcileCounts {
   const counts = {
     expected: 0,
     submitted: 0,
@@ -256,14 +255,17 @@ export function computeCounts(people: { reconcile_status: string }[]): Reconcile
     completion_pct: 0,
   };
   for (const p of people) {
-    const s = p.reconcile_status as ReconcileStatus;
-    if (s in counts) (counts as any)[s]++;
+    const s = p.reconcile_status;
+    if (s === 'submitted' || s === 'missing' || s === 'submitted_not_in_group' || s === 'needs_review') {
+      (counts as any)[s]++;
+    }
+    if (p.contacted_at) counts.contacted++;
   }
-  const inGroup = counts.submitted + counts.missing + counts.needs_review + counts.contacted;
+  const inGroup = counts.submitted + counts.missing + counts.needs_review;
   counts.total = inGroup + counts.submitted_not_in_group;
   counts.completion_pct =
     inGroup > 0
-      ? Math.round(((counts.submitted + counts.contacted) / inGroup) * 10000) / 100
+      ? Math.round((counts.submitted / inGroup) * 10000) / 100
       : 0;
   return counts;
 }

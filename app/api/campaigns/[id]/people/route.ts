@@ -25,7 +25,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     .order('last_name', { ascending: true })
     .order('first_name', { ascending: true });
 
-  if (status) {
+  if (status === 'contacted') {
+    // Contacted = anyone we've sent a follow-up to, regardless of form status
+    query = query.not('contacted_at', 'is', null);
+  } else if (status) {
     query = query.eq('reconcile_status', status);
   }
 
