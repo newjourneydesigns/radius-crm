@@ -7,9 +7,10 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, CircleLeader } from '../../lib/supabase';
 import CCBPersonLookup from '../../components/ui/CCBPersonLookup';
 import type { CCBPerson } from '../../components/ui/CCBPersonLookup';
+import { useMacCompanion } from '../../hooks/useMacCompanion';
 
 // ─── Types ────────────────────────────────────────────────────
-enum SendStatus { IDLE = 'IDLE', SENDING = 'SENDING', COMPLETED = 'COMPLETED' }
+enum SendStatus { IDLE = 'IDLE', SENDING = 'SENDING', AUTO_SENDING = 'AUTO_SENDING', COMPLETED = 'COMPLETED' }
 enum LogStatus { SUCCESS = 'SUCCESS', SKIPPED = 'SKIPPED' }
 
 interface Recipient {
@@ -54,6 +55,12 @@ interface SendLog {
   recipient: Recipient;
   timestamp: Date;
   status: LogStatus;
+}
+
+interface AutoSendEntry {
+  recipient: Recipient;
+  status: 'pending' | 'sending' | 'sent' | 'failed';
+  error?: string;
 }
 
 interface MessageTemplate {
@@ -215,6 +222,12 @@ function BulkMessageContent() {
   const [savedIndex, setSavedIndex] = useState<number | null>(null);
   const [logs, setLogs] = useState<SendLog[]>([]);
   const [copyFeedback, setCopyFeedback] = useState(false);
+
+  // Auto Send (companion) state
+  const companion = useMacCompanion();
+  const [autoEntries, setAutoEntries] = useState<AutoSendEntry[]>([]);
+  const autoAbortRef = useRef(false);
+  const autoListRef = useRef<HTMLDivElement>(null);
 
   // CCB manual recipient state
   const [ccbRecipients, setCcbRecipients] = useState<Recipient[]>([]);
@@ -400,10 +413,17 @@ function BulkMessageContent() {
   const nextRecipient = sendStatus === SendStatus.SENDING ? (recipients[currentIndex + 1] || null) : null;
 
   // ─── Preview ───────────────────────────────────────────────
+  const displayRecipient = useMemo(() => {
+    if (sendStatus === SendStatus.AUTO_SENDING) {
+      return autoEntries.find(e => e.status === 'sending')?.recipient ?? null;
+    }
+    return currentRecipient;
+  }, [sendStatus, autoEntries, currentRecipient]);
+
   const visualPreview = useMemo(() => {
-    if (!currentRecipient || !message.trim()) return message || 'Type a message to preview...';
-    return resolveMessage(message, currentRecipient);
-  }, [message, currentRecipient]);
+    if (!displayRecipient || !message.trim()) return message || 'Type a message to preview...';
+    return resolveMessage(message, displayRecipient);
+  }, [message, displayRecipient]);
 
   // ─── Template helpers ──────────────────────────────────────
   const insertPlaceholder = (tag: string) => {
@@ -547,6 +567,51 @@ function BulkMessageContent() {
     setCurrentIndex(0);
     setSavedIndex(null);
     setLogs([]);
+    setAutoEntries([]);
+    autoAbortRef.current = false;
+  };
+
+  const handleAbortAutoSend = () => {
+    autoAbortRef.current = true;
+  };
+
+  const handleStartAutoSend = () => {
+    if (recipients.length === 0 || !message.trim() || !companion.available) return;
+    const entries: AutoSendEntry[] = recipients.map(r => ({ recipient: r, status: 'pending' }));
+    setAutoEntries(entries);
+    autoAbortRef.current = false;
+    setSendStatus(SendStatus.AUTO_SENDING);
+    setLogs([]);
+
+    (async () => {
+      const live = [...entries];
+      for (let i = 0; i < recipients.length; i++) {
+        if (autoAbortRef.current) break;
+
+        const r = recipients[i];
+        live[i] = { ...live[i], status: 'sending' };
+        setAutoEntries([...live]);
+
+        // Scroll active row into view
+        requestAnimationFrame(() => {
+          autoListRef.current
+            ?.querySelector(`[data-auto-idx="${i}"]`)
+            ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+
+        const result = await companion.send(r.phone, resolveMessage(message, r));
+        live[i] = { ...live[i], status: result.success ? 'sent' : 'failed', error: result.error };
+        setAutoEntries([...live]);
+
+        setLogs(prev => [{
+          id: Math.random().toString(36).substr(2, 9),
+          recipient: r,
+          timestamp: new Date(),
+          status: result.success ? LogStatus.SUCCESS : LogStatus.SKIPPED,
+        }, ...prev]);
+      }
+      setSendStatus(SendStatus.COMPLETED);
+    })();
   };
 
   // ─── Search & add leader helpers ──────────────────────────
@@ -1612,7 +1677,7 @@ function BulkMessageContent() {
               </div>
 
               <div className="bg-gray-950 p-8 min-h-[200px] flex flex-col justify-center relative">
-                {currentRecipient ? (
+                {displayRecipient ? (
                   <div className="flex flex-col items-end w-full">
                     <div className="relative max-w-[85%]">
                       <div className="bg-[#0A7FF5] text-white px-5 py-3 rounded-[20px] rounded-br-[6px] text-sm font-medium shadow-lg leading-relaxed whitespace-pre-wrap">
@@ -1621,9 +1686,9 @@ function BulkMessageContent() {
                     </div>
                     <div className="mt-3 pr-1 flex items-center gap-2">
                       <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">
-                        To: {currentRecipient.name}
+                        To: {displayRecipient.name}
                       </span>
-                      <span className="text-[10px] text-gray-600 font-mono">{currentRecipient.phone}</span>
+                      <span className="text-[10px] text-gray-600 font-mono">{displayRecipient.phone}</span>
                     </div>
                   </div>
                 ) : (
@@ -1647,6 +1712,32 @@ function BulkMessageContent() {
                       Resume from #{savedIndex + 1} of {recipients.length}
                     </button>
                   )}
+
+                  {/* Auto Send — only visible when companion is running */}
+                  {companion.available === true && (
+                    <button
+                      onClick={handleStartAutoSend}
+                      disabled={recipients.length === 0 || !message.trim()}
+                      className="w-full py-4 bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold text-base transition-all uppercase tracking-tight border-t border-emerald-600/40 disabled:border-gray-700 flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0H3" />
+                      </svg>
+                      {recipients.length === 0 ? 'No Recipients' : !message.trim() ? 'Write a Message First' : `Auto Send (${recipients.length})`}
+                    </button>
+                  )}
+                  {companion.available === false && (
+                    <div className="px-4 py-2 border-t border-gray-800 flex items-center justify-center gap-2">
+                      <span className="text-[10px] text-gray-600">Companion offline</span>
+                      <button
+                        onClick={companion.recheck}
+                        className="text-[10px] text-gray-500 hover:text-gray-300 underline transition-colors"
+                      >
+                        retry
+                      </button>
+                    </div>
+                  )}
+
                   <button
                     onClick={handleStartBatch}
                     disabled={recipients.length === 0 || !message.trim()}
@@ -1657,9 +1748,17 @@ function BulkMessageContent() {
                 </div>
               ) : sendStatus === SendStatus.COMPLETED ? (
                 <div className="border-t border-gray-800 p-6 text-center space-y-3">
-                  <div className="text-green-400 text-lg font-bold">Batch Complete!</div>
+                  <div className="text-green-400 text-lg font-bold">
+                    {autoEntries.length > 0 ? 'Auto Send Complete!' : 'Batch Complete!'}
+                  </div>
                   <p className="text-gray-500 text-xs">
-                    {logs.filter(l => l.status === LogStatus.SUCCESS).length} sent, {logs.filter(l => l.status === LogStatus.SKIPPED).length} skipped
+                    {logs.filter(l => l.status === LogStatus.SUCCESS).length} sent
+                    {autoEntries.length > 0 && autoEntries.some(e => e.status === 'failed') && (
+                      <span className="text-rose-400 ml-1">· {autoEntries.filter(e => e.status === 'failed').length} failed</span>
+                    )}
+                    {logs.filter(l => l.status === LogStatus.SKIPPED).length > 0 && autoEntries.length === 0 && (
+                      <span>, {logs.filter(l => l.status === LogStatus.SKIPPED).length} skipped</span>
+                    )}
                   </p>
                   <button
                     onClick={handleReset}
@@ -1668,6 +1767,88 @@ function BulkMessageContent() {
                     Start New Batch
                   </button>
                 </div>
+
+              ) : sendStatus === SendStatus.AUTO_SENDING ? (
+                <div className="border-t border-gray-800">
+                  {/* Header */}
+                  <div className="px-5 py-3 flex items-center justify-between border-b border-gray-800/50">
+                    <div>
+                      <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Auto Send</p>
+                      <p className="text-sm font-bold text-white">
+                        {autoEntries.filter(e => e.status === 'sent' || e.status === 'failed').length}
+                        <span className="text-gray-500 font-normal"> / {autoEntries.length}</span>
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleAbortAutoSend}
+                      className="text-[10px] font-bold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-1.5 rounded-lg border border-rose-500/20 transition-all uppercase tracking-wider"
+                    >
+                      Stop
+                    </button>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="h-0.5 bg-gray-800">
+                    <div
+                      className="h-full bg-emerald-500 transition-all duration-500"
+                      style={{ width: `${autoEntries.length > 0 ? (autoEntries.filter(e => e.status === 'sent' || e.status === 'failed').length / autoEntries.length) * 100 : 0}%` }}
+                    />
+                  </div>
+
+                  {/* Recipient list */}
+                  <div ref={autoListRef} className="max-h-64 overflow-y-auto divide-y divide-gray-800/40">
+                    {autoEntries.map((entry, i) => (
+                      <div
+                        key={entry.recipient.phone}
+                        data-auto-idx={i}
+                        className={`flex items-center gap-3 px-4 py-2.5 transition-colors ${
+                          entry.status === 'sending' ? 'bg-emerald-500/10 border-l-2 border-l-emerald-500' : ''
+                        }`}
+                      >
+                        {/* Status icon */}
+                        <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
+                          {entry.status === 'pending' && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-gray-700" />
+                          )}
+                          {entry.status === 'sending' && (
+                            <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                          )}
+                          {entry.status === 'sent' && (
+                            <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                            </svg>
+                          )}
+                          {entry.status === 'failed' && (
+                            <svg className="w-4 h-4 text-rose-400" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          )}
+                        </div>
+
+                        {/* Name + error */}
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs font-medium truncate ${
+                            entry.status === 'sending' ? 'text-white' :
+                            entry.status === 'sent' ? 'text-gray-400' :
+                            entry.status === 'failed' ? 'text-rose-300' :
+                            'text-gray-600'
+                          }`}>
+                            {entry.recipient.name}
+                          </p>
+                          {entry.error && (
+                            <p className="text-[10px] text-rose-400/80 truncate mt-0.5">{entry.error}</p>
+                          )}
+                        </div>
+
+                        {/* Campus badge */}
+                        {entry.recipient.campus && entry.status !== 'pending' && (
+                          <span className="text-[9px] text-gray-600 flex-shrink-0">{entry.recipient.campus}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
               ) : (
                 <div className="border-t border-gray-800">
                   {/* Active contact info */}

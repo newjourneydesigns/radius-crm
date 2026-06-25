@@ -3,6 +3,16 @@
     "date": "2026-06-25",
     "date_display": "June 25, 2026",
     "date_iso": "2026-06-25",
+    "id": "bulk-message-auto-send",
+    "type": "feature",
+    "category": "Messaging",
+    "description": "Added Auto Send to Bulk Message — when the Radius Companion is running on your Mac, a green Auto Send button appears that sends every personalized message automatically through Messages.app, with live per-person progress and a Stop button.",
+    "page": "/bulk-message"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
     "id": "send-from-mac-companion",
     "type": "feature",
     "category": "Messaging",

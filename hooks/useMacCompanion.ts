@@ -1,0 +1,56 @@
+'use client';
+
+import { useState, useCallback, useEffect } from 'react';
+
+const BASE = 'http://localhost:5123';
+const PING_TIMEOUT_MS = 2000;
+
+export interface CompanionSendResult {
+  success: boolean;
+  error?: string;
+}
+
+export function useMacCompanion() {
+  const [available, setAvailable] = useState<boolean | null>(null);
+
+  const ping = useCallback(async (): Promise<boolean> => {
+    try {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), PING_TIMEOUT_MS);
+      const res = await fetch(`${BASE}/ping`, { signal: controller.signal });
+      clearTimeout(id);
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const send = useCallback(async (
+    phone: string,
+    message: string,
+  ): Promise<CompanionSendResult> => {
+    try {
+      const res = await fetch(`${BASE}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, message }),
+      });
+      return await res.json();
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'Network error' };
+    }
+  }, []);
+
+  const recheck = useCallback(async () => {
+    setAvailable(null);
+    const ok = await ping();
+    setAvailable(ok);
+  }, [ping]);
+
+  // Silent ping on mount — no UI until resolved
+  useEffect(() => {
+    ping().then(setAvailable);
+  }, [ping]);
+
+  return { available, send, recheck };
+}
