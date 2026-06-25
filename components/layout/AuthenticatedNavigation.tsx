@@ -189,6 +189,7 @@ const primaryNavItems: Array<{
 
 const toolsNavItems = [
   // { href: '/progress',      label: 'Progress',     Icon: TrendUpIcon }, // hidden — not ready for ACPDs
+  { href: '/campaigns',    label: 'Campaigns',    Icon: LayoutListIcon,  adminOnly: true },
   { href: '/ccb-explorer',  label: 'CCB Explorer', Icon: CompassIcon,     adminOnly: true },
   { href: '/bulk-message',  label: 'Bulk Message', Icon: MessageBulkIcon, adminOnly: true },
   { href: '/birthday-list', label: 'Birthday',     Icon: BirthdayCakeIcon },

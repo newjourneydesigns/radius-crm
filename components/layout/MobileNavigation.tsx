@@ -424,6 +424,7 @@ export default function MobileNavigation({
     // { href: '/progress', label: 'Progress', Icon: ChartIcon }, // hidden — not ready for ACPDs
     ...(admin
       ? [
+          { href: '/campaigns',    label: 'Campaigns',    Icon: MessageBulkIcon },
           { href: '/ccb-explorer', label: 'CCB Explorer', Icon: CompassIcon },
           { href: '/bulk-message', label: 'Bulk Message', Icon: MessageBulkIcon },
         ]
