@@ -139,6 +139,7 @@ export default function CampaignDetailPage() {
   const [loadingCampaign, setLoadingCampaign] = useState(true);
   const [loadingPeople, setLoadingPeople] = useState(false);
   const [reconciling, setReconciling] = useState(false);
+  const [enrichingPhones, setEnrichingPhones] = useState(false);
   const [reconcileError, setReconcileError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>('missing');
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -222,6 +223,13 @@ export default function CampaignDetailPage() {
     } else {
       await loadCampaign();
       await loadPeople();
+      // Enrich missing phone numbers via throttled CCB individual profile calls.
+      // Runs after the UI is already showing data — no circuit breaker risk.
+      setEnrichingPhones(true);
+      fetch(`/api/campaigns/${id}/enrich-phones`, { method: 'POST', headers })
+        .then(() => loadPeople())
+        .catch(() => {})
+        .finally(() => setEnrichingPhones(false));
     }
     setReconciling(false);
   }, [id, loadCampaign, loadPeople]);
@@ -678,7 +686,14 @@ export default function CampaignDetailPage() {
                         )}
                         <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Name</th>
                         <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Email</th>
-                        <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Phone</th>
+                        <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">
+                          Phone
+                          {enrichingPhones && (
+                            <span className="ml-2 text-xs font-normal text-slate-500 normal-case tracking-normal">
+                              updating missing numbers…
+                            </span>
+                          )}
+                        </th>
                         {uniqueGroups.length >= 2 && (
                           <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Group</th>
                         )}

@@ -106,6 +106,32 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
   }));
 
+  // 3b-2. Backfill missing phones from circle_leaders table (zero extra CCB calls).
+  // CCB privacy settings can hide phone numbers from the group participant APIs even
+  // with admin credentials. Since campaign participants are typically circle leaders,
+  // their phone is often already stored in our DB — look it up by email.
+  const missingEmails = groupParticipants
+    .filter(p => p.email && !v2PhoneMap[p.id]?.phone && !v2PhoneMap[p.id]?.mobilePhone && !p.phone && !p.mobilePhone)
+    .map(p => p.email);
+
+  if (missingEmails.length > 0) {
+    const { data: leaderPhones } = await supabase
+      .from('circle_leaders')
+      .select('email, phone')
+      .in('email', missingEmails)
+      .not('phone', 'is', null);
+
+    if (leaderPhones) {
+      const leaderPhoneByEmail = new Map(leaderPhones.map(r => [r.email?.toLowerCase(), r.phone as string]));
+      for (const p of groupParticipants) {
+        const leaderPhone = p.email ? leaderPhoneByEmail.get(p.email.toLowerCase()) : undefined;
+        if (leaderPhone && !v2PhoneMap[p.id]?.phone && !v2PhoneMap[p.id]?.mobilePhone) {
+          v2PhoneMap[p.id] = { phone: leaderPhone, mobilePhone: '' };
+        }
+      }
+    }
+  }
+
   // 3c. Load manually-added individuals from DB and merge them in.
   // They join the group participant list so the reconcile function checks them
   // against form responses automatically.

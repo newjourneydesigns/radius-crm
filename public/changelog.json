@@ -3,6 +3,16 @@
     "date": "2026-06-25",
     "date_display": "June 25, 2026",
     "date_iso": "2026-06-25",
+    "id": "campaigns-enrich-phones",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Campaign phone numbers are now recovered after reconcile for people whose CCB privacy settings block phone visibility in the group participant API. After reconcile completes, missing numbers are fetched individually with throttling to avoid rate limits. The Phone column shows \"updating missing numbers…\" while enrichment is in progress.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
     "id": "campaigns-group-filter-stats",
     "type": "improvement",
     "category": "Campaigns",
