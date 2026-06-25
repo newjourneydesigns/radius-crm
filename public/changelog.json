@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "send-from-mac-companion",
+    "type": "feature",
+    "category": "Messaging",
+    "description": "Added the Radius Companion — a local Mac service that lets you send personalized iMessage and SMS messages through Messages.app directly from Radius, with no third-party messaging service required.",
+    "page": "/bulk-message"
+  },
+  {
     "date": "2026-06-24",
     "date_display": "June 24, 2026",
     "date_iso": "2026-06-24",
