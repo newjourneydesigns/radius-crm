@@ -169,7 +169,7 @@ export default function CampaignDetailPage() {
   const [contactNote, setContactNote] = useState('');
   const [contacting, setContacting] = useState(false);
   const [contactSuccess, setContactSuccess] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [sentIds, setSentIds] = useState<Set<string>>(new Set());
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -442,8 +442,7 @@ export default function CampaignDetailPage() {
     if (!campaign) return;
     const msg = resolveMessage(msgTemplate, person, campaign);
     navigator.clipboard.writeText(msg).catch(() => {});
-    setCopiedId(person.id);
-    setTimeout(() => setCopiedId(prev => prev === person.id ? null : prev), 2000);
+    setSentIds(prev => new Set(prev).add(person.id));
     const phone = normalizePhone(bestPhone(person));
     if (phone) window.location.href = `sms:${phone}&body=${encodeURIComponent(msg)}`;
   }
@@ -1258,14 +1257,27 @@ export default function CampaignDetailPage() {
                 Preview — {previewPerson.first_name} {previewPerson.last_name}
               </p>
               <p className="text-sm text-slate-200 whitespace-pre-wrap break-words">{previewMessage}</p>
-              <div className="pt-1">
-                <button
-                  className="bg-slate-700 hover:bg-slate-600 border border-zinc-600 text-slate-300 px-3 py-1 rounded-lg text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  title={!bestPhone(previewPerson) ? 'No phone number on file' : undefined}
-                  onClick={() => sendMessage(previewPerson)}
-                >
-                  {copiedId === previewPerson.id ? 'Sent' : 'Send iMessage'}
-                </button>
+              <div className="pt-1 flex items-center gap-2">
+                {sentIds.has(previewPerson.id) ? (
+                  <>
+                    <span className="text-xs text-green-400 font-medium">Sent</span>
+                    <button
+                      className="bg-slate-700 hover:bg-slate-600 border border-zinc-600 text-slate-300 px-3 py-1 rounded-lg text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      title={!bestPhone(previewPerson) ? 'No phone number on file' : undefined}
+                      onClick={() => sendMessage(previewPerson)}
+                    >
+                      Send Again
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="bg-slate-700 hover:bg-slate-600 border border-zinc-600 text-slate-300 px-3 py-1 rounded-lg text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    title={!bestPhone(previewPerson) ? 'No phone number on file' : undefined}
+                    onClick={() => sendMessage(previewPerson)}
+                  >
+                    Send iMessage
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -1283,13 +1295,26 @@ export default function CampaignDetailPage() {
                         <span className="text-slate-500 ml-2 text-xs">{bestPhone(p)}</span>
                       )}
                     </span>
-                    <button
-                      className="bg-slate-700 hover:bg-slate-600 border border-zinc-600 text-slate-300 px-3 py-1 rounded-lg text-xs transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-                      title={!bestPhone(p) ? 'No phone number on file' : undefined}
-                      onClick={() => sendMessage(p)}
-                    >
-                      {copiedId === p.id ? 'Sent' : 'Send iMessage'}
-                    </button>
+                    {sentIds.has(p.id) ? (
+                      <>
+                        <span className="text-xs text-green-400 font-medium">Sent</span>
+                        <button
+                          className="bg-slate-700 hover:bg-slate-600 border border-zinc-600 text-slate-300 px-3 py-1 rounded-lg text-xs transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                          title={!bestPhone(p) ? 'No phone number on file' : undefined}
+                          onClick={() => sendMessage(p)}
+                        >
+                          Send Again
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className="bg-slate-700 hover:bg-slate-600 border border-zinc-600 text-slate-300 px-3 py-1 rounded-lg text-xs transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={!bestPhone(p) ? 'No phone number on file' : undefined}
+                        onClick={() => sendMessage(p)}
+                      >
+                        Send iMessage
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
