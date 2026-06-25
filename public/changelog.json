@@ -3,6 +3,16 @@
     "date": "2026-06-25",
     "date_display": "June 25, 2026",
     "date_iso": "2026-06-25",
+    "id": "campaigns-followup-modal-fixes",
+    "type": "fix",
+    "category": "Campaigns",
+    "description": "Fixed three issues in the Follow Up modal: Send iMessage button now shows \"Sent\" after clicking, the Done button no longer spins indefinitely (missing try/finally caused it to get stuck), and the mark-as-contacted button is now simply labeled \"Done\".",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
     "id": "campaigns-enrich-phones",
     "type": "improvement",
     "category": "Campaigns",

@@ -317,25 +317,28 @@ export default function CampaignDetailPage() {
   async function handleMarkContacted() {
     if (!selectedPeople.length) return;
     setContacting(true);
-    const headers = await authHeader();
-    const res = await fetch(`/api/campaigns/${id}/contact`, {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        person_ids: selectedPeople.map(p => p.id),
-        note: contactNote.trim() || undefined,
-      }),
-    });
-    if (res.ok) {
-      setContactSuccess(true);
-      setSelected(new Set());
-      setShowFollowUp(false);
-      setContactNote('');
-      await loadCampaign();
-      await loadPeople();
+    try {
+      const headers = await authHeader();
+      const res = await fetch(`/api/campaigns/${id}/contact`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          person_ids: selectedPeople.map(p => p.id),
+          note: contactNote.trim() || undefined,
+        }),
+      });
+      if (res.ok) {
+        setContactSuccess(true);
+        setSelected(new Set());
+        setShowFollowUp(false);
+        setContactNote('');
+        await loadCampaign();
+        await loadPeople();
+        setTimeout(() => setContactSuccess(false), 3000);
+      }
+    } finally {
+      setContacting(false);
     }
-    setContacting(false);
-    setTimeout(() => setContactSuccess(false), 3000);
   }
 
   function sendMessage(person: CampaignPerson) {
@@ -1104,7 +1107,7 @@ export default function CampaignDetailPage() {
                   title={!bestPhone(previewPerson) ? 'No phone number on file' : undefined}
                   onClick={() => sendMessage(previewPerson)}
                 >
-                  {copiedId === previewPerson.id ? 'Copied!' : 'Send iMessage'}
+                  {copiedId === previewPerson.id ? 'Sent' : 'Send iMessage'}
                 </button>
               </div>
             </div>
@@ -1128,7 +1131,7 @@ export default function CampaignDetailPage() {
                       title={!bestPhone(p) ? 'No phone number on file' : undefined}
                       onClick={() => sendMessage(p)}
                     >
-                      {copiedId === p.id ? 'Copied!' : 'Send iMessage'}
+                      {copiedId === p.id ? 'Sent' : 'Send iMessage'}
                     </button>
                   </div>
                 ))}
@@ -1162,7 +1165,7 @@ export default function CampaignDetailPage() {
             >
               {contacting
                 ? <><Spinner size="sm" /> Marking…</>
-                : `Mark ${selectedPeople.length} as Contacted`}
+                : 'Done'}
             </button>
           </div>
         </div>
