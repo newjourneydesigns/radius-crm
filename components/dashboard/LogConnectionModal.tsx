@@ -2,6 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+
+function sortConnectionTypes(types: ConnectionType[]): ConnectionType[] {
+  return [...types].sort((a, b) => {
+    if (a.name === 'Debrief Touchpoint') return -1;
+    if (b.name === 'Debrief Touchpoint') return 1;
+    return a.name.localeCompare(b.name);
+  });
+}
 import { supabase, ConnectionType } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatDateOnlyForDisplay, getTodayDateString } from '../../lib/dateUtils';
@@ -71,10 +79,11 @@ export default function LogConnectionModal({
           .order('name');
 
         if (data && !error) {
-          setConnectionTypes(data);
+          setConnectionTypes(sortConnectionTypes(data));
         } else {
           // Fallback to default connection types if table doesn't exist
           const defaultTypes: ConnectionType[] = [
+            { id: 9, name: 'Debrief Touchpoint', active: true },
             { id: 1, name: 'In-Person', active: true },
             { id: 2, name: 'Phone Call', active: true },
             { id: 3, name: 'Text', active: true },
@@ -82,7 +91,6 @@ export default function LogConnectionModal({
             { id: 5, name: 'One-on-One', active: true },
             { id: 6, name: 'Circle Visit', active: true },
             { id: 7, name: 'Circle Leader Equipping', active: true },
-            { id: 9, name: 'Event Summary Follow-up', active: true },
             { id: 8, name: 'Other', active: true }
           ];
           setConnectionTypes(defaultTypes);
@@ -91,6 +99,7 @@ export default function LogConnectionModal({
         console.error('Error loading connection types:', error);
         // Use default types on error
         const defaultTypes: ConnectionType[] = [
+          { id: 9, name: 'Debrief Touchpoint', active: true },
           { id: 1, name: 'In-Person', active: true },
           { id: 2, name: 'Phone Call', active: true },
           { id: 3, name: 'Text', active: true },
@@ -98,7 +107,6 @@ export default function LogConnectionModal({
           { id: 5, name: 'One-on-One', active: true },
           { id: 6, name: 'Circle Visit', active: true },
           { id: 7, name: 'Circle Leader Equipping', active: true },
-          { id: 9, name: 'Event Summary Follow-up', active: true },
           { id: 8, name: 'Other', active: true }
         ];
         setConnectionTypes(defaultTypes);

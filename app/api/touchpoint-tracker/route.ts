@@ -4,7 +4,7 @@
  * types. Any signed-in RADIUS user may read; the page filters/sorts and rolls up.
  *
  * Sources, unified under one "type" taxonomy:
- *   - logged touchpoints (from the event-summary modal) -> "Event Summary Follow-up"
+ *   - logged touchpoints (from the event-summary modal) -> "Debrief Touchpoint"
  *   - connections logged on the Circle Leader page -> their connection-type name
  */
 
@@ -14,7 +14,7 @@ import { normalizeTouchpointConfig, resolveCurrentPeriod } from '../../../lib/to
 
 export const dynamic = 'force-dynamic';
 
-const FOLLOWUP_TYPE_NAME = 'Event Summary Follow-up';
+const FOLLOWUP_TYPE_NAME = 'Debrief Touchpoint';
 
 type Acc = { count: number; ms: number; iso: string | null };
 
@@ -104,8 +104,11 @@ export async function GET(req: NextRequest) {
   });
 
   // The selectable type list: active connection types + any type seen in data,
-  // and always the event-summary follow-up bucket.
-  const types = Array.from(new Set([...activeTypeNames, ...Array.from(seenTypeNames), FOLLOWUP_TYPE_NAME])).sort();
+  // and always the debrief-touchpoint bucket. "Debrief Touchpoint" is pinned first.
+  const typeSet = Array.from(new Set([...activeTypeNames, ...Array.from(seenTypeNames), FOLLOWUP_TYPE_NAME]));
+  const types = typeSet
+    .sort()
+    .sort((a, b) => (a === FOLLOWUP_TYPE_NAME ? -1 : b === FOLLOWUP_TYPE_NAME ? 1 : 0));
 
   return NextResponse.json({
     config: {

@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "debrief-touchpoint-rename",
+    "type": "improvement",
+    "category": "Connections",
+    "description": "Renamed \"Event Summary Follow-up\" to \"Debrief Touchpoint\" across the app and moved it to the top of the connection type list for faster access when logging interactions.",
+    "page": "/touchpoint-tracker"
+  },
+  {
     "date": "2026-06-24",
     "date_display": "June 24, 2026",
     "date_iso": "2026-06-24",

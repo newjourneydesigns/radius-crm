@@ -12,6 +12,7 @@ interface Leader { id: number; name: string; }
 interface ConnectionType { id: number; name: string; active: boolean; }
 
 const DEFAULT_CONNECTION_TYPES: ConnectionType[] = [
+  { id: 9, name: 'Debrief Touchpoint', active: true },
   { id: 1, name: 'In-Person', active: true },
   { id: 2, name: 'Phone Call', active: true },
   { id: 3, name: 'Text', active: true },
@@ -19,9 +20,16 @@ const DEFAULT_CONNECTION_TYPES: ConnectionType[] = [
   { id: 5, name: 'One-on-One', active: true },
   { id: 6, name: 'Circle Visit', active: true },
   { id: 7, name: 'Circle Leader Equipping', active: true },
-  { id: 9, name: 'Event Summary Follow-up', active: true },
   { id: 8, name: 'Other', active: true },
 ];
+
+function sortConnectionTypes(types: ConnectionType[]): ConnectionType[] {
+  return [...types].sort((a, b) => {
+    if (a.name === 'Debrief Touchpoint') return -1;
+    if (b.name === 'Debrief Touchpoint') return 1;
+    return a.name.localeCompare(b.name);
+  });
+}
 
 interface Props {
   isOpen: boolean;
@@ -59,7 +67,7 @@ export default function QuickConnectionModal({ isOpen, onClose, onSaved }: Props
         supabase.from('connection_types').select('*').eq('active', true).order('name'),
       ]);
       if (leadersRes.data) setLeaders(leadersRes.data);
-      if (typesRes.data && !typesRes.error) setConnectionTypes(typesRes.data);
+      if (typesRes.data && !typesRes.error) setConnectionTypes(sortConnectionTypes(typesRes.data));
     } catch {
       // leaders stay empty, connection types keep defaults
     } finally {
