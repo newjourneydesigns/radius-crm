@@ -3,6 +3,16 @@
     "date": "2026-06-25",
     "date_display": "June 25, 2026",
     "date_iso": "2026-06-25",
+    "id": "campaigns-list-redesign",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Redesigned the campaigns list page to match RADIUS's dark visual style — zinc card surface, divide-y table rows, colored stat columns, and pill-style completion badges replace the previous light table.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
     "id": "campaigns-detail-redesign",
     "type": "improvement",
     "category": "Campaigns",
