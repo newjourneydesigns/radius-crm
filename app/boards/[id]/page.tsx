@@ -1922,12 +1922,13 @@ function BoardPage() {
 
   useEffect(() => {
     setCardSearchIdx(0);
-    if (!cardSearch.trim()) { setCardSearchResults([]); return; }
+    const term = cardSearch.trim();
+    if (!term) { setCardSearchResults([]); return; }
     const t = setTimeout(async () => {
       const { data: cards } = await supabase
         .from('board_cards')
         .select('id, title, board_id, column_id')
-        .ilike('title', `%${cardSearch}%`)
+        .or(`title.ilike.%${term}%,description.ilike.%${term}%`)
         .eq('is_archived', false)
         .limit(8);
       if (!cards || cards.length === 0) { setCardSearchResults([]); return; }

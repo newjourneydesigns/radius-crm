@@ -23,7 +23,7 @@
  *   prayerRequests?: string,
  *   info?: string,
  *   attendeeCcbIds?: string[],
- *   manualAttendees?: Array<{ firstName, lastName, phone?, email? }>,
+ *   manualAttendees?: Array<{ firstName, lastName, phone, email }>,
  *   dynamicResponses?: Array<{ questionId, label, value }>,
  *   infoUpdate?: { day?, time?, location?, current: { day?, time?, location? } }
  * }
@@ -73,6 +73,28 @@ function isMissingIgnoredEventsTableError(err: unknown): boolean {
     text.includes('does not exist') ||
     text.includes('could not find')
   );
+}
+
+function getManualAttendeeValidationError(attendees: ManualAttendee[]): string | null {
+  const requiredFields: Array<[keyof ManualAttendee, string]> = [
+    ['firstName', 'first name'],
+    ['lastName', 'last name'],
+    ['phone', 'cell phone'],
+    ['email', 'email'],
+  ];
+
+  for (let index = 0; index < attendees.length; index += 1) {
+    const attendee = attendees[index];
+    const missing = requiredFields
+      .filter(([key]) => !String(attendee[key] ?? '').trim())
+      .map(([, label]) => label);
+
+    if (missing.length > 0) {
+      return `Please provide ${missing.join(', ')} for new person #${index + 1}.`;
+    }
+  }
+
+  return null;
 }
 
 export async function POST(req: Request) {
@@ -178,6 +200,10 @@ export async function POST(req: Request) {
   const cleanPrayerRequests = normalizeSummaryText(prayerRequests);
   const cleanInfo = normalizeSummaryText(info);
   const manualAttendeesForSubmit = didNotMeet ? [] : cleanManualAttendees(manualAttendees);
+  const manualAttendeeValidationError = getManualAttendeeValidationError(manualAttendeesForSubmit);
+  if (manualAttendeeValidationError) {
+    return NextResponse.json({ error: manualAttendeeValidationError }, { status: 400 });
+  }
   const supabase = createServiceSupabaseClient();
   const { data: ignoredEvent, error: ignoredError } = await supabase
     .from('circle_summary_ignored_events')

@@ -227,6 +227,7 @@ export default function CircleLeaderProfilePage() {
   const [circleSummaryAccess, setCircleSummaryAccess] = useState<CircleSummaryAccessStatus | null>(null);
   const [isLoadingCircleSummaryAccess, setIsLoadingCircleSummaryAccess] = useState(false);
   const [isUpdatingCircleSummaryAccess, setIsUpdatingCircleSummaryAccess] = useState(false);
+  const [isRestartingCircleToolkitOnboarding, setIsRestartingCircleToolkitOnboarding] = useState(false);
   const [isUpdatingFollowUp, setIsUpdatingFollowUp] = useState(false);
   const [showFollowUpDateModal, setShowFollowUpDateModal] = useState(false);
   const [followUpDateValue, setFollowUpDateValue] = useState('');
@@ -1199,6 +1200,49 @@ export default function CircleLeaderProfilePage() {
     }
   };
 
+  const handleRestartCircleToolkitOnboarding = async () => {
+    if (!leader) return;
+    const confirmed = window.confirm(
+      `Restart Circles Toolkit onboarding for ${leader.name}?\n\nThe next time they open the Toolkit, they will see setup, notifications, and the practice summary again.`
+    );
+    if (!confirmed) return;
+
+    setIsRestartingCircleToolkitOnboarding(true);
+    try {
+      const token = await getAdminToken();
+      if (!token) {
+        setShowAlert({ isOpen: true, type: 'error', title: 'Not signed in', message: 'Please sign in again.' });
+        return;
+      }
+
+      const res = await fetch('/api/circle-leader-toolkit/onboarding/admin', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ leader_id: leader.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || `Request failed (${res.status}). Try again.`);
+      }
+
+      setShowAlert({
+        isOpen: true,
+        type: 'success',
+        title: 'Onboarding restarted',
+        message: `${leader.name} will see Circles Toolkit onboarding the next time they open the Toolkit.`,
+      });
+    } catch (e: unknown) {
+      setShowAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Could not restart onboarding',
+        message: errorMessage(e, 'Failed to restart Circles Toolkit onboarding.'),
+      });
+    } finally {
+      setIsRestartingCircleToolkitOnboarding(false);
+    }
+  };
+
   // ── Teams Toolkit admin links (host-team leaders) ──────────────────────────
   // Mirror the Circle Leader Toolkit handlers above, but target the Teams
   // Toolkit auto-login route. Reuse the shared loading flags — a leader is
@@ -1955,6 +1999,30 @@ export default function CircleLeaderProfilePage() {
     </div>
   );
 
+  const renderCircleToolkitOnboardingTrigger = () => (
+    <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-zinc-700 bg-zinc-900/20 px-3 py-2">
+      <div className="min-w-0">
+        <div className="text-xs font-medium text-slate-300">Onboarding</div>
+        <div className="mt-0.5 text-[11px] leading-snug text-slate-500">
+          Show setup again on their next Toolkit launch.
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={handleRestartCircleToolkitOnboarding}
+        disabled={
+          isRestartingCircleToolkitOnboarding ||
+          !circleSummaryEnabled ||
+          circleSummaryMigrationRequired
+        }
+        className="shrink-0 text-[11px] px-2.5 py-1.5 rounded-md border border-zinc-700 bg-zinc-800/70 text-slate-300 hover:bg-zinc-700 hover:text-white transition-colors disabled:opacity-50"
+        title="Restart this leader's Circles Toolkit onboarding"
+      >
+        {isRestartingCircleToolkitOnboarding ? 'Resetting...' : 'Restart'}
+      </button>
+    </div>
+  );
+
   // Teams Toolkit admin card — shown for host-team leaders in place of the
   // Circle Leader Toolkit card. Reuses the same Leader Access control (both
   // toolkits gate on circle_summary_access_enabled).
@@ -2277,6 +2345,7 @@ export default function CircleLeaderProfilePage() {
                     )}
 
                     {renderCircleSummaryAccessControl()}
+                    {renderCircleToolkitOnboardingTrigger()}
 
                     <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-zinc-700 bg-zinc-900/30 px-3 py-2">
                       <div className="flex items-center gap-2.5 min-w-0">
@@ -2994,6 +3063,7 @@ export default function CircleLeaderProfilePage() {
                       )}
 
                       {renderCircleSummaryAccessControl()}
+                      {renderCircleToolkitOnboardingTrigger()}
 
                       <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-zinc-700 bg-zinc-900/30 px-3 py-2">
                         <div className="flex items-center gap-2.5 min-w-0">

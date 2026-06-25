@@ -91,6 +91,7 @@ type ReportingData = {
     selectedWeek: string;
     previousWeek: string;
     campuses: string[];
+    acpds: string[];
     circleTypes: string[];
     statuses: string[];
   };
@@ -120,6 +121,8 @@ type ReportingData = {
 
 type ReferenceData = {
   campuses?: { id: number; value: string }[];
+  directors?: { id: number; name: string }[];
+  acpds?: string[];
   circleTypes?: { id: number; value: string }[];
   statuses?: { id: number; value: string }[];
 };
@@ -373,6 +376,7 @@ function CircleReportingContent() {
   const [endDate, setEndDate] = useState(endOfLastWeekISO());
   const [rollForwardEnd, setRollForwardEnd] = useState(true);
   const [campus, setCampus] = useState('');
+  const [acpd, setAcpd] = useState('');
   const [circleType, setCircleType] = useState('');
   const [status, setStatus] = useState('');
   const [data, setData] = useState<ReportingData | null>(null);
@@ -417,6 +421,7 @@ function CircleReportingContent() {
         setEndDate(roll ? endOfLastWeekISO() : prefs.endDate || endOfLastWeekISO());
         if (typeof prefs.weekStart === 'string') setWeekStart(prefs.weekStart);
         if (typeof prefs.campus === 'string') setCampus(prefs.campus);
+        if (typeof prefs.acpd === 'string') setAcpd(prefs.acpd);
         if (typeof prefs.circleType === 'string') setCircleType(prefs.circleType);
         if (typeof prefs.status === 'string') setStatus(prefs.status);
         if (typeof prefs.compareMode === 'boolean') setCompareMode(prefs.compareMode);
@@ -434,12 +439,12 @@ function CircleReportingContent() {
     try {
       localStorage.setItem(
         PREFS_KEY,
-        JSON.stringify({ startDate, endDate, rollForwardEnd, weekStart, campus, circleType, status, compareMode, compareStart, compareEnd })
+        JSON.stringify({ startDate, endDate, rollForwardEnd, weekStart, campus, acpd, circleType, status, compareMode, compareStart, compareEnd })
       );
     } catch {
       // Storage may be unavailable (private mode); filters just won't persist.
     }
-  }, [hydrated, startDate, endDate, rollForwardEnd, weekStart, campus, circleType, status, compareMode, compareStart, compareEnd]);
+  }, [hydrated, startDate, endDate, rollForwardEnd, weekStart, campus, acpd, circleType, status, compareMode, compareStart, compareEnd]);
 
   const buildParams = useCallback(() => {
     const params = new URLSearchParams();
@@ -447,10 +452,11 @@ function CircleReportingContent() {
     params.set('end_date', endDate);
     params.set('week_start_date', weekStart);
     if (campus) params.append('campus', campus);
+    if (acpd) params.append('acpd', acpd);
     if (circleType) params.append('circle_type', circleType);
     if (status) params.append('status', status);
     return params;
-  }, [campus, circleType, endDate, startDate, status, weekStart]);
+  }, [acpd, campus, circleType, endDate, startDate, status, weekStart]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -482,6 +488,7 @@ function CircleReportingContent() {
     params.set('start_date', compareStart);
     params.set('end_date', compareEnd);
     if (campus) params.append('campus', campus);
+    if (acpd) params.append('acpd', acpd);
     if (circleType) params.append('circle_type', circleType);
     if (status) params.append('status', status);
 
@@ -503,7 +510,7 @@ function CircleReportingContent() {
     return () => {
       cancelled = true;
     };
-  }, [hydrated, compareMode, compareStart, compareEnd, campus, circleType, status]);
+  }, [hydrated, compareMode, compareStart, compareEnd, campus, acpd, circleType, status]);
 
   // Snap Range B to the prior year (52 weeks back keeps Sun–Sat alignment).
   const setCompareToPriorYear = useCallback(() => {
@@ -548,6 +555,11 @@ function CircleReportingContent() {
   }, []);
 
   const campusOptions = refData?.campuses?.map((item) => item.value).filter(Boolean) ?? data?.filters.campuses ?? [];
+  const acpdOptions =
+    refData?.acpds ??
+    refData?.directors?.map((item) => item.name).filter(Boolean) ??
+    data?.filters.acpds ??
+    [];
   const typeOptions = refData?.circleTypes?.map((item) => item.value).filter(Boolean) ?? data?.filters.circleTypes ?? [];
   const statusOptions = refData?.statuses?.map((item) => item.value).filter(Boolean) ?? data?.filters.statuses ?? [];
 
@@ -720,7 +732,8 @@ function CircleReportingContent() {
       return (
         event.leader_name.toLowerCase().includes(needle) ||
         event.circle_name.toLowerCase().includes(needle) ||
-        event.campus.toLowerCase().includes(needle)
+        event.campus.toLowerCase().includes(needle) ||
+        (event.acpd ?? '').toLowerCase().includes(needle)
       );
     });
     const dir = sortDir === 'asc' ? 1 : -1;
@@ -802,7 +815,7 @@ function CircleReportingContent() {
           </div>
 
           <div className="grid gap-5 lg:grid-cols-12">
-            <div className="lg:col-span-7">
+            <div className="lg:col-span-6">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Reporting range</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {[
@@ -873,7 +886,7 @@ function CircleReportingContent() {
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3 lg:col-span-5 lg:grid-cols-1 xl:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:col-span-6 lg:grid-cols-2 xl:grid-cols-4">
               <label className="text-sm text-slate-300">
                 Campus
                 <select
@@ -883,6 +896,17 @@ function CircleReportingContent() {
                 >
                   <option value="">All campuses</option>
                   {campusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </label>
+              <label className="text-sm text-slate-300">
+                ACPD
+                <select
+                  value={acpd}
+                  onChange={(event) => setAcpd(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                >
+                  <option value="">All ACPDs</option>
+                  {acpdOptions.map((option) => <option key={option} value={option}>{option}</option>)}
                 </select>
               </label>
               <label className="text-sm text-slate-300">
@@ -1060,7 +1084,7 @@ function CircleReportingContent() {
                         type="search"
                         value={eventSearch}
                         onChange={(event) => setEventSearch(event.target.value)}
-                        placeholder="Search leader, circle, campus"
+                        placeholder="Search leader, circle, campus, ACPD"
                         className="w-full rounded-lg border border-slate-700 bg-slate-950 py-2 pl-8 pr-3 text-sm text-white placeholder:text-slate-500 sm:w-64"
                       />
                     </label>

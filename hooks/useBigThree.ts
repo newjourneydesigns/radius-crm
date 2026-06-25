@@ -1,7 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { useRealtimeSubscription } from './useRealtimeSubscription';
+import type { RealtimeSubscriptionConfig } from './useRealtimeSubscription';
 
 const BIG_THREE_LABEL = 'Big 3';
 const BIG_THREE_LABEL_COLOR = '#f59e0b';
@@ -121,18 +123,22 @@ export function useBigThree() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const realtimeLoadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
     setError(null);
-    setIsLoading(true);
+    if (!opts?.silent) setIsLoading(true);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
+        setUserId(null);
         setSlots(EMPTY_SLOTS);
         setBoards([]);
         return;
       }
+      setUserId(user.id);
 
       const [boardsRes, slotsRes] = await Promise.all([
         supabase
@@ -189,13 +195,52 @@ export function useBigThree() {
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Failed to load Big 3.'));
     } finally {
-      setIsLoading(false);
+      if (!opts?.silent) setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  const scheduleRealtimeLoad = useCallback(() => {
+    if (realtimeLoadTimerRef.current) {
+      clearTimeout(realtimeLoadTimerRef.current);
+    }
+
+    realtimeLoadTimerRef.current = setTimeout(() => {
+      load({ silent: true });
+    }, 450);
+  }, [load]);
+
+  const realtimeSubscriptions: RealtimeSubscriptionConfig[] = useMemo(() => {
+    if (!userId) return [];
+
+    return [
+      { table: 'today_big_three_slots', filter: `user_id=eq.${userId}` },
+      { table: 'project_boards', filter: `user_id=eq.${userId}` },
+      { table: 'board_cards' },
+      { table: 'card_checklists' },
+      { table: 'card_label_assignments' },
+      { table: 'board_labels' },
+      { table: 'board_columns' },
+    ];
+  }, [userId]);
+
+  useRealtimeSubscription(
+    userId ? `today-big-three-${userId}` : 'today-big-three-pending',
+    realtimeSubscriptions,
+    scheduleRealtimeLoad,
+    Boolean(userId),
+  );
+
+  useEffect(() => {
+    return () => {
+      if (realtimeLoadTimerRef.current) {
+        clearTimeout(realtimeLoadTimerRef.current);
+      }
+    };
+  }, []);
 
   const ensureBigThreeLabel = useCallback(async (boardId: string) => {
     const { data: existingLabels, error: labelLookupError } = await supabase

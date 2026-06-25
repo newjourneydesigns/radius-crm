@@ -1577,16 +1577,6 @@ export default function TodayPage() {
     setOpenCard({ boardId, cardId });
   }, []);
 
-  const handleModalClose = useCallback((didChange: boolean) => {
-    setOpenCard(null);
-    if (didChange) {
-      clearTodayCache();
-      fetchData({ fresh: true });
-      bigThree.load();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchData]);
-
   // ── Day paging — the day view can show any date; the rail always shows today ──
   const [viewDate, setViewDate] = useState<string | null>(null); // null = today
   const [dayData, setDayData] = useState<TodayData | null>(null);
@@ -1634,6 +1624,18 @@ export default function TodayPage() {
     fetchDay(viewDate);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewDate, data?.today, fetchDay]);
+
+  const handleModalChange = useCallback(() => {
+    clearTodayCache();
+    fetchData({ fresh: true });
+    bigThree.load({ silent: true });
+    if (!isViewToday && viewDate) fetchDay(viewDate, true);
+  }, [bigThree, fetchData, fetchDay, isViewToday, viewDate]);
+
+  const handleModalClose = useCallback((didChange: boolean) => {
+    setOpenCard(null);
+    if (didChange) handleModalChange();
+  }, [handleModalChange]);
 
   const pageDay = useCallback((delta: number) => {
     const base = (isViewToday ? data?.today : viewDate) ?? DateTime.now().toISODate();
@@ -2022,7 +2024,12 @@ export default function TodayPage() {
         <style>{globalCss}</style>
         <div className="today-page-bg" />
         {openCard && (
-          <TodayCardModal boardId={openCard.boardId} cardId={openCard.cardId} onClose={handleModalClose} />
+          <TodayCardModal
+            boardId={openCard.boardId}
+            cardId={openCard.cardId}
+            onChange={handleModalChange}
+            onClose={handleModalClose}
+          />
         )}
 
         <div className="today-page-content" style={{
@@ -2065,7 +2072,12 @@ export default function TodayPage() {
       <style>{globalCss}</style>
       <div className="today-page-bg" />
       {openCard && (
-        <TodayCardModal boardId={openCard.boardId} cardId={openCard.cardId} onClose={handleModalClose} />
+        <TodayCardModal
+          boardId={openCard.boardId}
+          cardId={openCard.cardId}
+          onChange={handleModalChange}
+          onClose={handleModalClose}
+        />
       )}
 
       <div className="today-page-content" style={{ maxWidth: 720, margin: '0 auto', padding: '20px 16px 100px', fontFamily: FONT }}>

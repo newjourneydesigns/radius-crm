@@ -234,10 +234,10 @@ export function CardDetailModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editTitle, editDesc, editPriority, editStartDate, editDueDate, editDueTime, editLabels, editRepeatRule, editRepeatInterval, editRepeatDays, linkedLeaderId]);
 
-  const handleClose = () => {
+  const handleClose = async () => {
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     if (pendingChangesRef.current && editTitle.trim()) {
-      onUpdate({
+      await onUpdate({
         title: editTitle,
         description: editDesc,
         priority: editPriority,
@@ -250,6 +250,7 @@ export function CardDetailModal({
         repeat_days: editRepeatRule === 'daily' && editRepeatDays.length > 0 ? editRepeatDays : null,
         linked_leader_id: linkedLeaderId,
       });
+      pendingChangesRef.current = false;
     }
     onClose();
   };

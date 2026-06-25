@@ -13,10 +13,12 @@ import { kanbanStyles } from '../boards/kanbanStyles';
 export default function TodayCardModal({
   boardId,
   cardId,
+  onChange,
   onClose,
 }: {
   boardId: string;
   cardId: string;
+  onChange?: () => void;
   onClose: (didChange: boolean) => void;
 }) {
   const {
@@ -36,6 +38,9 @@ export default function TodayCardModal({
   }, [boardId, fetchBoard, fetchChecklistTemplates]);
 
   const card = board?.cards.find(c => c.id === cardId) || null;
+  const notifyChanged = () => {
+    onChange?.();
+  };
 
   if (!board || !card) {
     return (
@@ -74,18 +79,19 @@ export default function TodayCardModal({
               await moveCard(boardId, card.id, moveAction.value, 0);
             }
           }
+          notifyChanged();
         }}
-        onDelete={async () => { await deleteCard(boardId, card.id); onClose(true); }}
+        onDelete={async () => { await deleteCard(boardId, card.id); notifyChanged(); onClose(true); }}
         onAddComment={async (content) => { await addComment(boardId, card.id, content); }}
         onUpdateComment={async (commentId, content) => { await updateComment(boardId, card.id, commentId, content); }}
         onDeleteComment={async (commentId) => { await deleteComment(boardId, card.id, commentId); }}
-        onAddChecklistItem={async (title, groupId) => { await addChecklistItem(boardId, card.id, title, groupId); }}
-        onToggleChecklistItem={async (itemId, val) => { await toggleChecklistItem(boardId, card.id, itemId, val); }}
-        onUpdateChecklistDueDate={async (itemId, dueDate) => { await updateChecklistItemDueDate(boardId, card.id, itemId, dueDate); }}
+        onAddChecklistItem={async (title, groupId) => { await addChecklistItem(boardId, card.id, title, groupId); notifyChanged(); }}
+        onToggleChecklistItem={async (itemId, val) => { await toggleChecklistItem(boardId, card.id, itemId, val); notifyChanged(); }}
+        onUpdateChecklistDueDate={async (itemId, dueDate) => { await updateChecklistItemDueDate(boardId, card.id, itemId, dueDate); notifyChanged(); }}
         onRenameChecklistItem={async (itemId, title) => { await renameChecklistItem(boardId, card.id, itemId, title); }}
         onUpdateChecklistItemUrl={async (itemId, url) => { await updateChecklistItemUrl(boardId, card.id, itemId, url); }}
         onReorderChecklistItems={async (orderedItemIds) => { await reorderChecklistItems(boardId, card.id, orderedItemIds); }}
-        onDeleteChecklistItem={async (itemId) => { await deleteChecklistItem(boardId, card.id, itemId); }}
+        onDeleteChecklistItem={async (itemId) => { await deleteChecklistItem(boardId, card.id, itemId); notifyChanged(); }}
         onPromoteUngrouped={async (title) => await promoteUngroupedToGroup(boardId, card.id, title)}
         onAddChecklistGroup={async (title) => await addChecklistGroup(boardId, card.id, title)}
         onRenameChecklistGroup={async (groupId, title) => { await renameChecklistGroup(boardId, card.id, groupId, title); }}
@@ -93,10 +99,12 @@ export default function TodayCardModal({
         onConvertToCard={async (itemId, title, columnId) => {
           await addCard(boardId, { column_id: columnId, title });
           await deleteChecklistItem(boardId, card.id, itemId);
+          notifyChanged();
         }}
-        onMoveCard={async (newColumnId) => { await moveCard(boardId, card.id, newColumnId, 0); }}
+        onMoveCard={async (newColumnId) => { await moveCard(boardId, card.id, newColumnId, 0); notifyChanged(); }}
         onMoveToBoardCard={async (targetBoardId, targetColumnId) => {
           await moveToBoardCard(card.id, targetBoardId, targetColumnId);
+          notifyChanged();
           onClose(true);
         }}
         checklistTemplates={checklistTemplates}
@@ -122,6 +130,7 @@ export default function TodayCardModal({
               await addChecklistItem(boardId, newCard.id, item.title);
             }
           }
+          notifyChanged();
         }}
       />
     </>

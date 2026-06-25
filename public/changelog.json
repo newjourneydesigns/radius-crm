@@ -71,6 +71,17 @@
     "page": "/profile"
   },
   {
+    "date": "2026-06-24",
+    "version": "2.43.7",
+    "date_display": "June 24, 2026",
+    "date_iso": "2026-06-24",
+    "id": "fix-form-submission-logged-in-users",
+    "type": "fix",
+    "category": "Forms",
+    "description": "Fixed a bug where logged-in users who weren't the form owner couldn't submit public forms. Anonymous visitors were unaffected, but any signed-in user saw the form fail silently. This was a database permissions issue — active forms are now readable by all authenticated users, not just the owner.",
+    "page": "/f"
+  },
+  {
     "date": "2026-06-23",
     "version": "2.43.6",
     "date_display": "June 23, 2026",

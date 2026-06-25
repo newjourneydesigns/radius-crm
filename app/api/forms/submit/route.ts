@@ -16,6 +16,16 @@ const corsHeaders = {
 const _rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_MAX = 10;
 const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
+const VALID_CARD_MAPPINGS: Array<NonNullable<FormField['maps_to']>> = [
+  'title',
+  'description',
+  'priority',
+  'due_date',
+  'assignee',
+];
+
+type SubmittedData = Record<string, unknown>;
+type DescriptionRow = { label: string; value: string };
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
@@ -27,6 +37,71 @@ function checkRateLimit(ip: string): boolean {
   if (entry.count >= RATE_LIMIT_MAX) return false;
   entry.count++;
   return true;
+}
+
+function getCardMapping(field: FormField): FormField['maps_to'] {
+  const raw = (
+    field as FormField & {
+      mapsTo?: string;
+      map_to?: string;
+      cardField?: string;
+      card_field?: string;
+    }
+  ).maps_to
+    || (field as { mapsTo?: string }).mapsTo
+    || (field as { map_to?: string }).map_to
+    || (field as { cardField?: string }).cardField
+    || (field as { card_field?: string }).card_field;
+
+  return VALID_CARD_MAPPINGS.includes(raw as NonNullable<FormField['maps_to']>)
+    ? raw as FormField['maps_to']
+    : undefined;
+}
+
+function submittedValueToString(value: unknown): string {
+  if (value == null) return '';
+  if (Array.isArray(value)) return value.map(submittedValueToString).filter(Boolean).join(', ');
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+  return String(value);
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatDescriptionValue(value: string): string {
+  return escapeHtml(value).replace(/\r?\n/g, '<br>');
+}
+
+function formatSubmissionDescription(rows: DescriptionRow[]): string {
+  return rows
+    .map((row) => `<p><strong>${escapeHtml(row.label)}:</strong> ${formatDescriptionValue(row.value)}</p>`)
+    .join('\n');
+}
+
+function normalizePriority(value: string): string | null {
+  const priority = value.trim().toLowerCase();
+  return ['low', 'medium', 'high', 'urgent'].includes(priority) ? priority : null;
+}
+
+function formatPriority(value: string): string {
+  const normalized = normalizePriority(value);
+  return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : value;
+}
+
+function fieldAssigneeName(field: FormField, userId: string): string | null {
+  return (field.assignee_options || []).find((option) => option.id === userId)?.name || null;
 }
 
 export async function OPTIONS() {
@@ -47,7 +122,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { formId, data } = body as { formId: string; data: Record<string, string> };
+    const { formId, data } = body as { formId: string; data: SubmittedData };
 
     if (!formId || !data) {
       return NextResponse.json({ error: 'Missing formId or data' }, { status: 400, headers: corsHeaders });
@@ -75,8 +150,8 @@ export async function POST(request: NextRequest) {
     // Validate required fields server-side.
     for (const field of fields) {
       // Hidden assignee fields are satisfied by their configured default, not user input.
-      if (field.maps_to === 'assignee' && field.assignee_visible === false) continue;
-      if (field.required && !data[field.id]?.trim()) {
+      if (getCardMapping(field) === 'assignee' && field.assignee_visible === false) continue;
+      if (field.required && !submittedValueToString(data[field.id]).trim()) {
         return NextResponse.json({ error: `${field.label} is required` }, { status: 400, headers: corsHeaders });
       }
     }
@@ -87,41 +162,30 @@ export async function POST(request: NextRequest) {
     let cardPriority = 'medium';
     let cardDueDate: string | null = null;
     let cardAssigneeId: string | null = null; // a user id (uuid)
-    const descParts: string[] = [];
 
     for (const field of fields) {
+      const mapping = getCardMapping(field);
+
       // Hidden assignee: apply the form-configured default before the empty-value guard.
-      if (field.maps_to === 'assignee' && field.assignee_visible === false) {
+      if (mapping === 'assignee' && field.assignee_visible === false) {
         if (field.assignee_default_id) cardAssigneeId = field.assignee_default_id;
         continue;
       }
 
-      const value = (data[field.id] || '').trim();
+      const value = submittedValueToString(data[field.id]).trim();
       if (!value) continue;
 
-      if (field.maps_to === 'title') {
+      if (mapping === 'title') {
         cardTitle = value;
-      } else if (field.maps_to === 'description') {
+      } else if (mapping === 'description') {
         cardDescription = value;
-      } else if (field.maps_to === 'priority') {
-        if (['low', 'medium', 'high', 'urgent'].includes(value)) {
-          cardPriority = value;
-        }
-      } else if (field.maps_to === 'due_date') {
+      } else if (mapping === 'priority') {
+        cardPriority = normalizePriority(value) || cardPriority;
+      } else if (mapping === 'due_date') {
         cardDueDate = value;
-      } else if (field.maps_to === 'assignee') {
+      } else if (mapping === 'assignee') {
         cardAssigneeId = value;
-      } else {
-        // Unmapped fields go into the card description.
-        descParts.push(`**${field.label}:** ${value}`);
       }
-    }
-
-    // Append unmapped fields under the mapped description.
-    if (descParts.length > 0) {
-      cardDescription = cardDescription
-        ? cardDescription + '\n\n' + descParts.join('\n')
-        : descParts.join('\n');
     }
 
     // Radius models assignees via the card_assignments join table (the board UI
@@ -140,6 +204,48 @@ export async function POST(request: NextRequest) {
         assigneeUserId = assigneeUser.id;
         assigneeName = assigneeUser.name || null;
       }
+    }
+
+    // Mirror the submissions tab: every submitted field is rendered into the
+    // card description, even when it is also mapped to title/priority/etc.
+    const fieldIds = new Set(fields.map((field) => field.id));
+    const descriptionRows: DescriptionRow[] = [];
+
+    for (const field of fields) {
+      const mapping = getCardMapping(field);
+
+      if (mapping === 'assignee' && field.assignee_visible === false) {
+        if (cardAssigneeId) {
+          descriptionRows.push({
+            label: field.label,
+            value: assigneeName || fieldAssigneeName(field, cardAssigneeId) || cardAssigneeId,
+          });
+        }
+        continue;
+      }
+
+      const value = submittedValueToString(data[field.id]).trim();
+      if (!value) continue;
+
+      descriptionRows.push({
+        label: field.label,
+        value:
+          mapping === 'priority'
+            ? formatPriority(value)
+            : mapping === 'assignee'
+              ? assigneeName || fieldAssigneeName(field, value) || value
+              : value,
+      });
+    }
+
+    for (const [key, rawValue] of Object.entries(data)) {
+      if (fieldIds.has(key)) continue;
+      const value = submittedValueToString(rawValue).trim();
+      if (value) descriptionRows.push({ label: key, value });
+    }
+
+    if (descriptionRows.length > 0) {
+      cardDescription = formatSubmissionDescription(descriptionRows);
     }
 
     // Next position in the target column.

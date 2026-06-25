@@ -544,8 +544,8 @@ export default function CircleSummaryFormPage() {
       phone: manualForm.phone?.trim(),
       email: manualForm.email?.trim(),
     };
-    if (!trimmed.firstName || !trimmed.lastName || !trimmed.phone) {
-      alert('First name, last name, and cell phone are required.');
+    if (!trimmed.firstName || !trimmed.lastName || !trimmed.phone || !trimmed.email) {
+      alert('First name, last name, cell phone, and email are required.');
       return;
     }
     if (editingManualIdx !== null) {
@@ -1098,12 +1098,12 @@ export default function CircleSummaryFormPage() {
                     <>
                       <div className="cs-search-field">
                         <label className="cs-search-field-label" htmlFor="cs-roster-search">
-                          Search by full or partial name
+                          Search by full or partial name or by phone number
                         </label>
                         <input
                           id="cs-roster-search"
                           type="text"
-                          placeholder="Start typing a name..."
+                          placeholder="Start typing a name or phone number..."
                           className="cs-input"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
@@ -1151,6 +1151,7 @@ export default function CircleSummaryFormPage() {
                       <input
                         type="text"
                         className="cs-input"
+                        required
                         value={manualForm.firstName}
                         onChange={(e) => setManualForm((m) => ({ ...m, firstName: e.target.value }))}
                       />
@@ -1160,6 +1161,7 @@ export default function CircleSummaryFormPage() {
                       <input
                         type="text"
                         className="cs-input"
+                        required
                         value={manualForm.lastName}
                         onChange={(e) => setManualForm((m) => ({ ...m, lastName: e.target.value }))}
                       />
@@ -1169,15 +1171,17 @@ export default function CircleSummaryFormPage() {
                       <input
                         type="tel"
                         className="cs-input"
+                        required
                         value={manualForm.phone}
                         onChange={(e) => setManualForm((m) => ({ ...m, phone: e.target.value }))}
                       />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <label className="text-xs font-medium text-neutral-600">Email <span className="text-neutral-400 font-normal">(optional)</span></label>
+                      <label className="text-xs font-medium text-neutral-600">Email <span className="text-red-500">*</span></label>
                       <input
                         type="email"
                         className="cs-input"
+                        required
                         value={manualForm.email}
                         onChange={(e) => setManualForm((m) => ({ ...m, email: e.target.value }))}
                       />

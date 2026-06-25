@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { useRealtimeSubscription } from './useRealtimeSubscription';
+import type { RealtimeSubscriptionConfig } from './useRealtimeSubscription';
 import type { TodayCoreData } from '../app/api/today/core/route';
 import type { TodayCardsData } from '../app/api/today/cards/route';
 import type { CardDigestItem, ChecklistDigestItem } from '../lib/emailService';
@@ -146,6 +148,11 @@ function setCardCompleteFlag(data: TodayData, cardId: string, isComplete: boolea
   };
 }
 
+type FetchTodayOptions = {
+  fresh?: boolean;
+  useCache?: boolean;
+};
+
 export function useTodayData() {
   const [data, setData] = useState<TodayData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -153,14 +160,20 @@ export function useTodayData() {
   const [isCardsLoading, setIsCardsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [completed, setCompleted] = useState<TodayCompleted>(emptyCompleted);
+  const dataRef = useRef<TodayData | null>(null);
+  const realtimeRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // `fresh` (manual Refresh / post-mutation) bypasses the server's per-user
-  // response cache via ?fresh=1. The `cache: 'no-store'` on every fetch is the
-  // critical part: the API responds with `Cache-Control: max-age=60`, so without
-  // it the browser replays a stale response for the identical URL and edits made
-  // to a card don't show up here until the cache expires.
-  const fetchData = useCallback(async (opts?: { fresh?: boolean }) => {
-    const fresh = opts?.fresh ?? false;
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+
+  // Today defaults to a fresh read because stale task/follow-up state is worse
+  // than a slower load here. `fresh` bypasses the server's per-user response
+  // cache via ?fresh=1; `cache: 'no-store'` also prevents the browser from
+  // replaying a stale response for the identical URL.
+  const fetchData = useCallback(async (opts?: FetchTodayOptions) => {
+    const fresh = opts?.fresh ?? true;
+    const useCache = opts?.useCache ?? false;
     setError(null);
     setIsFetching(true);
     // A refresh clears the session's done-marks. Completed cards still come
@@ -168,16 +181,18 @@ export function useTodayData() {
     // to open items server-side.
     setCompleted(emptyCompleted());
 
-    // Load cached data immediately so the page renders without a spinner
-    const cached = readTodayCache();
+    // Cached data is opt-in only; the default Today path favors fresh state.
+    const cached = useCache
+      ? readTodayCache()
+      : { data: null, hasCore: false, hasCards: false };
     const hasCachedCore = cached.hasCore;
     const hasCachedCards = cached.hasCards;
     if (cached.data) setData(cached.data);
 
     // Only block with a full-page spinner on the very first load (no cache at all)
-    if (!hasCachedCore) setIsLoading(true);
+    if (!hasCachedCore && !dataRef.current) setIsLoading(true);
     // Show card-section loading when cards aren't cached
-    if (!hasCachedCards) setIsCardsLoading(true);
+    if (!hasCachedCards && !dataRef.current) setIsCardsLoading(true);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -258,6 +273,57 @@ export function useTodayData() {
     } finally {
       setIsFetching(false);
     }
+  }, []);
+
+  const scheduleRealtimeRefresh = useCallback(() => {
+    if (realtimeRefreshTimerRef.current) {
+      clearTimeout(realtimeRefreshTimerRef.current);
+    }
+
+    realtimeRefreshTimerRef.current = setTimeout(() => {
+      fetchData({ fresh: true, useCache: false });
+    }, 450);
+  }, [fetchData]);
+
+  const userId = data?.user.id ?? null;
+
+  const realtimeSubscriptions: RealtimeSubscriptionConfig[] = useMemo(() => {
+    if (!userId) return [];
+
+    return [
+      { table: 'circle_visits', filter: `scheduled_by=eq.${userId}` },
+      { table: 'acpd_encouragements', filter: `user_id=eq.${userId}` },
+      { table: 'notes', filter: `created_by=eq.${userId}` },
+      { table: 'acpd_prayer_points', filter: `user_id=eq.${userId}` },
+      { table: 'general_prayer_points', filter: `user_id=eq.${userId}` },
+      { table: 'project_boards', filter: `user_id=eq.${userId}` },
+      { table: 'card_assignments', filter: `user_id=eq.${userId}` },
+
+      // These tables do not have a direct user_id on every relevant row. The
+      // debounced fresh refetch re-applies ownership/RLS and keeps Today correct
+      // when cards, checklist items, labels, columns, or leader details change.
+      { table: 'circle_leaders' },
+      { table: 'board_cards' },
+      { table: 'card_checklists' },
+      { table: 'card_label_assignments' },
+      { table: 'board_labels' },
+      { table: 'board_columns' },
+    ];
+  }, [userId]);
+
+  useRealtimeSubscription(
+    userId ? `today-${userId}` : 'today-pending',
+    realtimeSubscriptions,
+    scheduleRealtimeRefresh,
+    Boolean(userId),
+  );
+
+  useEffect(() => {
+    return () => {
+      if (realtimeRefreshTimerRef.current) {
+        clearTimeout(realtimeRefreshTimerRef.current);
+      }
+    };
   }, []);
 
   // Completion handlers keep the item in place (the page strikes it through and

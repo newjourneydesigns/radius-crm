@@ -16,6 +16,7 @@ interface BoardResult {
 interface CardResult {
   id: string;
   title: string;
+  description?: string;
   board_id: string;
   board_title: string;
 }
@@ -88,7 +89,7 @@ export default function GlobalSearch() {
       ] = await Promise.all([
         supabase.from('circle_leaders').select('id, name, circle_name, team_name, leader_type, email, phone, campus, acpd, status, additional_leader_name'),
         supabase.from('project_boards').select('id, title, description').eq('is_archived', false),
-        supabase.from('board_cards').select('id, title, board_id').eq('is_archived', false),
+        supabase.from('board_cards').select('id, title, description, board_id').eq('is_archived', false),
       ]);
 
       if (leadersError) {
@@ -105,6 +106,7 @@ export default function GlobalSearch() {
       const cards: CardResult[] = (cardRows || []).map((c: any) => ({
         id: c.id,
         title: c.title,
+        description: c.description,
         board_id: c.board_id,
         board_title: boardMap.get(c.board_id) || '',
       }));
@@ -155,7 +157,7 @@ export default function GlobalSearch() {
 
       const cardsFuse = new Fuse(searchData.cards, {
         ...fuseOptions,
-        keys: ['title', 'board_title'],
+        keys: ['title', 'description', 'board_title'],
       });
 
       const combined: SearchResult[] = [

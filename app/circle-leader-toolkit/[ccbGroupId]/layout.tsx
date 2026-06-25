@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { getSessionLeader } from '../../../lib/circle-leader-toolkit/session';
+import { getToolkitOnboardingState } from '../../../lib/circle-leader-toolkit/onboarding';
 import CircleChrome from './CircleChrome';
 
 export const dynamic = 'force-dynamic';
@@ -21,6 +22,10 @@ export default async function CircleGroupLayout({
   const leaderGroupId = leader.ccb_group_id != null ? String(leader.ccb_group_id) : null;
   if (leaderGroupId && leaderGroupId !== params.ccbGroupId) {
     redirect(`/circle-leader-toolkit/${leaderGroupId}/events`);
+  }
+  const onboarding = await getToolkitOnboardingState(leader.id);
+  if (!onboarding.isComplete) {
+    redirect('/circle-leader-toolkit/onboarding');
   }
 
   return (

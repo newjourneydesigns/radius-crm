@@ -22,7 +22,7 @@ const FIELD_TYPES: { value: FormFieldType; label: string }[] = [
 ];
 
 const CARD_MAPPINGS: { value: string; label: string }[] = [
-  { value: '', label: 'No mapping (include in description)' },
+  { value: '', label: 'No special mapping' },
   { value: 'title', label: 'Card Title' },
   { value: 'description', label: 'Card Description' },
   { value: 'priority', label: 'Card Priority' },

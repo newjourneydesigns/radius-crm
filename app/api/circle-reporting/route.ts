@@ -512,6 +512,7 @@ export async function GET(request: Request) {
     const customStart = searchParams.get('start_date');
     const customEnd = searchParams.get('end_date');
     const campusFilter = searchParams.getAll('campus').filter(Boolean);
+    const acpdFilter = searchParams.getAll('acpd').filter(Boolean);
     const circleTypeFilter = searchParams.getAll('circle_type').filter(Boolean);
     const statusFilter = searchParams.getAll('status').filter((value) => value && value !== 'all');
     const exportMode = searchParams.get('export') === '1';
@@ -560,6 +561,7 @@ export async function GET(request: Request) {
       .limit(5000);
 
     if (campusFilter.length > 0) leadersQuery = leadersQuery.in('campus', campusFilter);
+    if (acpdFilter.length > 0) leadersQuery = leadersQuery.in('acpd', acpdFilter);
     if (circleTypeFilter.length > 0) leadersQuery = leadersQuery.in('circle_type', circleTypeFilter);
     if (statusFilter.length > 0) leadersQuery = leadersQuery.in('status', statusFilter);
 
@@ -571,7 +573,8 @@ export async function GET(request: Request) {
 
     if (leaderIds.length === 0) {
       return NextResponse.json({
-        filters: { rangePreset, startDate, endDate, selectedWeek, campuses: [], circleTypes: [], statuses: [] },
+        filters: { rangePreset, startDate, endDate, selectedWeek, previousWeek: addDays(selectedWeek, -7), campuses: [], acpds: [], circleTypes: [], statuses: [] },
+        selectedWeekSummary: aggregateEvents([]),
         summary: aggregateEvents([]),
         wowTrend: { complianceDelta: 0, attendanceDelta: 0, expectedDelta: 0 },
         weeklyEvents: [],
@@ -731,6 +734,7 @@ export async function GET(request: Request) {
             startDate,
             endDate,
             campuses: campusFilter,
+            acpds: acpdFilter,
             circleTypes: circleTypeFilter,
             statuses: statusFilter,
           },
@@ -766,6 +770,7 @@ export async function GET(request: Request) {
     });
 
     const campuses = Array.from(new Set(leaderRows.map((leader) => leader.campus).filter(Boolean) as string[])).sort();
+    const acpds = Array.from(new Set(leaderRows.map((leader) => leader.acpd).filter(Boolean) as string[])).sort();
     const circleTypes = Array.from(new Set(leaderRows.map((leader) => leader.circle_type).filter(Boolean) as string[])).sort();
     const statuses = Array.from(new Set(leaderRows.map((leader) => leader.status).filter(Boolean) as string[])).sort();
 
@@ -778,6 +783,7 @@ export async function GET(request: Request) {
           selectedWeek,
           previousWeek,
           campuses,
+          acpds,
           circleTypes,
           statuses,
         },
