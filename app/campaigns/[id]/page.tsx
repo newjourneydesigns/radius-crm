@@ -151,6 +151,9 @@ export default function CampaignDetailPage() {
   const [contactSuccess, setContactSuccess] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
+  const [globalSearch, setGlobalSearch] = useState('');
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const globalSearchRef = useRef<HTMLDivElement>(null);
 
   // Edit campaign modal
   const [showEdit, setShowEdit] = useState(false);
@@ -175,6 +178,49 @@ export default function CampaignDetailPage() {
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [addingId, setAddingId] = useState<string | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Global people search across all tabs
+  const globalSearchResults = useMemo(() => {
+    const q = globalSearch.trim().toLowerCase();
+    if (!q || q.length < 2) return [];
+    return allPeople
+      .filter(p =>
+        `${p.first_name} ${p.last_name}`.toLowerCase().includes(q) ||
+        (p.email || '').toLowerCase().includes(q)
+      )
+      .slice(0, 8);
+  }, [globalSearch, allPeople]);
+
+  function tabForPerson(p: CampaignPerson): TabKey {
+    if (p.reconcile_status === 'submitted') return 'submitted';
+    if (p.reconcile_status === 'submitted_not_in_group') return 'not_in_group';
+    if (p.reconcile_status === 'needs_review') return 'needs_review';
+    if (p.reconcile_status === 'contacted') return 'contacted';
+    return 'missing';
+  }
+
+  function jumpToPerson(p: CampaignPerson) {
+    const tab = tabForPerson(p);
+    setActiveTab(tab);
+    setGlobalSearch('');
+    setGroupFilter(null);
+    setHighlightedId(p.id);
+    setTimeout(() => {
+      document.getElementById(`campaign-row-${p.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
+    setTimeout(() => setHighlightedId(null), 2000);
+  }
+
+  // Close global search dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (globalSearchRef.current && !globalSearchRef.current.contains(e.target as Node)) {
+        setGlobalSearch('');
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   const loadCampaign = useCallback(async () => {
     const headers = await authHeader();
@@ -605,8 +651,10 @@ export default function CampaignDetailPage() {
         {/* Tabs + table */}
         {campaign.last_reconciled_at && (
           <>
+            {/* Tabs row + global search */}
+            <div className="flex items-end gap-3 mb-4">
             {/* Underline tabs */}
-            <div className="border-b border-zinc-800 mb-4 flex gap-1 overflow-x-auto">
+            <div className="border-b border-zinc-800 flex gap-1 overflow-x-auto flex-1">
               {TABS.map(t => {
                 const pool = groupFilter
                   ? allPeople.filter(p => p.source_group_name === groupFilter)
@@ -632,6 +680,56 @@ export default function CampaignDetailPage() {
                 );
               })}
             </div>
+
+              {/* Global people search */}
+              {allPeople.length > 0 && (
+                <div ref={globalSearchRef} className="relative flex-shrink-0 pb-0.5">
+                  <input
+                    type="text"
+                    placeholder="Find person…"
+                    value={globalSearch}
+                    onChange={e => setGlobalSearch(e.target.value)}
+                    className="bg-zinc-800 border border-zinc-700 text-white placeholder-slate-500 rounded-lg pl-8 pr-3 py-1.5 text-sm w-44 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                  />
+                  <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+                  </svg>
+                  {globalSearchResults.length > 0 && (
+                    <div className="absolute right-0 top-full mt-1 w-72 bg-zinc-900 border border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
+                      {globalSearchResults.map(p => {
+                        const tab = TABS.find(t => t.key === tabForPerson(p));
+                        const badgeColor = {
+                          missing: 'bg-red-500/15 text-red-400',
+                          submitted: 'bg-green-500/15 text-green-400',
+                          not_in_group: 'bg-slate-500/20 text-slate-400',
+                          needs_review: 'bg-amber-500/15 text-amber-400',
+                          contacted: 'bg-indigo-500/15 text-indigo-400',
+                        }[tabForPerson(p)];
+                        return (
+                          <button
+                            key={p.id}
+                            className="w-full text-left flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-zinc-800 transition-colors"
+                            onClick={() => jumpToPerson(p)}
+                          >
+                            <span className="text-sm text-slate-200 truncate">
+                              {p.first_name} {p.last_name}
+                            </span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${badgeColor}`}>
+                              {tab?.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {globalSearch.trim().length >= 2 && globalSearchResults.length === 0 && (
+                    <div className="absolute right-0 top-full mt-1 w-56 bg-zinc-900 border border-zinc-700 rounded-xl shadow-xl z-30 px-3 py-3">
+                      <p className="text-xs text-slate-500">No matches found</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>{/* end tabs row */}
 
             {/* Group filter pills — only shown when 2+ groups */}
             {uniqueGroups.length >= 2 && (
@@ -746,7 +844,7 @@ export default function CampaignDetailPage() {
                                 </span>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-slate-400">{p.email || '—'}</td>
+                            <td id={`campaign-row-${p.id}`} className={`px-4 py-3 text-slate-400 transition-colors duration-500 ${highlightedId === p.id ? 'bg-indigo-500/10' : ''}`}>{p.email || '—'}</td>
                             <td className="px-4 py-3 text-slate-400 whitespace-nowrap">{bestPhone(p) || '—'}</td>
                             {uniqueGroups.length >= 2 && (
                               <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">

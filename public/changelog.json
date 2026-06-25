@@ -3,6 +3,16 @@
     "date": "2026-06-25",
     "date_display": "June 25, 2026",
     "date_iso": "2026-06-25",
+    "id": "campaigns-global-person-search",
+    "type": "feature",
+    "category": "Campaigns",
+    "description": "Added a Find Person search box to the campaign detail page. Search by name or email across all tabs — results show a color-coded badge for which tab (Unsubmitted, Submitted, Contacted, etc.) the person is on. Clicking a result jumps to that tab and highlights the row.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
     "id": "campaigns-followup-modal-fixes",
     "type": "fix",
     "category": "Campaigns",
