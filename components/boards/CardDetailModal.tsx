@@ -572,6 +572,7 @@ export function CardDetailModal({
       selectedLabels.length ? `Labels: ${selectedLabels.join(', ')}` : null,
       assignees.length ? `Assignees: ${assignees.join(', ')}` : null,
       linkedLeaderId ? `Circle Leader: ${leader?.name || `Leader #${linkedLeaderId}`}` : null,
+      screenshotUrl ? `Screenshot: ${screenshotUrl.split('?')[0]}` : null,
       cardUrl ? `Card link: ${cardUrl}` : null,
     ].filter(Boolean);
 
