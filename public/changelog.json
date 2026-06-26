@@ -3,6 +3,16 @@
     "date": "2026-06-25",
     "date_display": "June 25, 2026",
     "date_iso": "2026-06-25",
+    "id": "campaigns-last-contacted-column",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Removed the dedicated Contacted tab. The Unsubmitted tab now has a Last Contacted column showing the date and time of the most recent follow-up for each person. Sortable — sort by Last Contacted to instantly see who needs the most attention.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
     "id": "campaigns-stats-reorder",
     "type": "improvement",
     "category": "Campaigns",

@@ -13,14 +13,13 @@ import { normalizePhone } from '../../../lib/phoneUtils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type TabKey = 'missing' | 'submitted' | 'not_in_group' | 'needs_review' | 'contacted';
+type TabKey = 'missing' | 'submitted' | 'not_in_group' | 'needs_review';
 
 const TABS: { key: TabKey; label: string; statusKey: string }[] = [
   { key: 'missing',       label: 'Unsubmitted',    statusKey: 'missing' },
   { key: 'submitted',     label: 'Submitted',      statusKey: 'submitted' },
   { key: 'not_in_group',  label: 'Not in Group',   statusKey: 'submitted_not_in_group' },
   { key: 'needs_review',  label: 'Review Matches', statusKey: 'needs_review' },
-  { key: 'contacted',     label: 'Contacted',      statusKey: 'contacted' },
 ];
 
 const VARIABLES = ['{{first_name}}', '{{form_link}}', '{{campaign_name}}', '{{due_date}}'];
@@ -306,8 +305,6 @@ export default function CampaignDetailPage() {
   const tabPeople = useMemo(() => {
     const tab = TABS.find(t => t.key === activeTab);
     if (!tab) return [];
-    // Contacted tab: anyone with a contacted_at, regardless of form status
-    if (activeTab === 'contacted') return allPeople.filter(p => p.contacted_at !== null);
     return allPeople.filter(p => p.reconcile_status === tab.statusKey);
   }, [allPeople, activeTab]);
 
@@ -349,7 +346,7 @@ export default function CampaignDetailPage() {
       else if (sortCol === 'group')    { av = (a.source_group_name || '').toLowerCase(); bv = (b.source_group_name || '').toLowerCase(); }
       else if (sortCol === 'submitted') { av = submittedAt(a); bv = submittedAt(b); }
       else if (sortCol === 'match')    { av = (a.match_method || '').toLowerCase(); bv = (b.match_method || '').toLowerCase(); }
-      else if (sortCol === 'contacted') { av = a.contacted_at || ''; bv = b.contacted_at || ''; }
+      else if (sortCol === 'last_contacted') { av = a.contacted_at || ''; bv = b.contacted_at || ''; }
       const cmp = av < bv ? -1 : av > bv ? 1 : 0;
       return sortDir === 'asc' ? cmp : -cmp;
     });
@@ -361,15 +358,15 @@ export default function CampaignDetailPage() {
     const submitted = base.filter(p => p.reconcile_status === 'submitted').length;
     const missing = base.filter(p => p.reconcile_status === 'missing').length;
     const needsReview = base.filter(p => p.reconcile_status === 'needs_review').length;
-    const contacted = base.filter(p => p.reconcile_status === 'contacted').length;
-    const expected = submitted + missing + needsReview + contacted;
+    const contacted = base.filter(p => p.contacted_at !== null).length;
+    const expected = submitted + missing + needsReview;
     return {
       submitted,
       missing,
       needs_review: needsReview,
       contacted,
       expected,
-      completion_pct: expected > 0 ? Math.round(((submitted + contacted) / expected) * 100) : 0,
+      completion_pct: expected > 0 ? Math.round((submitted / expected) * 100) : 0,
     };
   }, [allPeople, groupFilter]);
 
@@ -546,7 +543,7 @@ export default function CampaignDetailPage() {
     }
   }
 
-  const showCheckboxes = activeTab === 'missing' || activeTab === 'needs_review' || activeTab === 'contacted';
+  const showCheckboxes = activeTab === 'missing' || activeTab === 'needs_review';
 
   if (loadingCampaign) {
     return (
@@ -722,9 +719,7 @@ export default function CampaignDetailPage() {
                   ? allPeople.filter(p => p.source_group_name === groupFilter)
                   : allPeople;
                 const count = allPeople.length > 0
-                  ? t.key === 'contacted'
-                    ? pool.filter(p => p.contacted_at !== null).length
-                    : pool.filter(p => p.reconcile_status === t.statusKey).length
+                  ? pool.filter(p => p.reconcile_status === t.statusKey).length
                   : null;
                 return (
                   <button
@@ -860,6 +855,9 @@ export default function CampaignDetailPage() {
                         {uniqueGroups.length >= 2 && (
                           <SortTh col="group" label="Group" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
                         )}
+                        {activeTab === 'missing' && (
+                          <SortTh col="last_contacted" label="Last Contacted" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
+                        )}
                         {activeTab === 'needs_review' && (
                           <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Form Name</th>
                         )}
@@ -868,12 +866,6 @@ export default function CampaignDetailPage() {
                         )}
                         {activeTab === 'submitted' && (
                           <SortTh col="match" label="Match" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
-                        )}
-                        {activeTab === 'contacted' && (
-                          <SortTh col="contacted" label="Contacted" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
-                        )}
-                        {activeTab === 'contacted' && (
-                          <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Note</th>
                         )}
                         {activeTab === 'submitted' && <th className="w-10 px-4 py-3" />}
                       </tr>
@@ -916,6 +908,13 @@ export default function CampaignDetailPage() {
                                 {p.source_group_name || '—'}
                               </td>
                             )}
+                            {activeTab === 'missing' && (
+                              <td className="px-4 py-3 text-xs whitespace-nowrap">
+                                {p.contacted_at
+                                  ? <span className="text-indigo-400">{DateTime.fromISO(p.contacted_at).toFormat('MMM d · h:mm a')}</span>
+                                  : <span className="text-slate-600">—</span>}
+                              </td>
+                            )}
                             {activeTab === 'needs_review' && (
                               <td className="px-4 py-3 text-amber-400 text-xs">
                                 {p.form_first_name || p.form_last_name
@@ -932,16 +931,6 @@ export default function CampaignDetailPage() {
                             )}
                             {activeTab === 'submitted' && (
                               <td className="px-4 py-3 text-xs text-slate-500">{p.match_method || '—'}</td>
-                            )}
-                            {activeTab === 'contacted' && (
-                              <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
-                                {p.contacted_at ? formatDate(p.contacted_at) : '—'}
-                              </td>
-                            )}
-                            {activeTab === 'contacted' && (
-                              <td className="px-4 py-3 text-xs text-slate-500 max-w-xs truncate">
-                                {p.contact_note || '—'}
-                              </td>
                             )}
                             {activeTab === 'submitted' && (
                               <td className="px-4 py-3">
