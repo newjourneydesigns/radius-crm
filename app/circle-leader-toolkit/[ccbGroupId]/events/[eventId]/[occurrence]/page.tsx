@@ -830,6 +830,15 @@ export default function CircleSummaryFormPage() {
     }
   }
 
+  const sortedParticipants = useMemo(() => {
+    return [...participants].sort((a, b) => {
+      if (sortBy === 'lastName') {
+        return (a.lastName || '').localeCompare(b.lastName || '');
+      }
+      return (a.firstName || '').localeCompare(b.firstName || '');
+    });
+  }, [participants, sortBy]);
+
   if (loading) {
     return (
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-4">
@@ -845,15 +854,6 @@ export default function CircleSummaryFormPage() {
       </main>
     );
   }
-
-  const sortedParticipants = useMemo(() => {
-    return [...participants].sort((a, b) => {
-      if (sortBy === 'lastName') {
-        return (a.lastName || '').localeCompare(b.lastName || '');
-      }
-      return (a.firstName || '').localeCompare(b.firstName || '');
-    });
-  }, [participants, sortBy]);
 
   const allSelected = participants.length > 0 && selectedCcbIds.size === participants.length;
   const visibleQuestions = questions.filter(
