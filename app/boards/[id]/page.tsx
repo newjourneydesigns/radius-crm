@@ -14,7 +14,7 @@ import {
   FolderKanban, Check, Globe, Lock, StickyNote, UserPlus, Download, Copy,
   Zap, ArrowDownAZ, ArrowUpZA, Bold, Italic, Underline, Strikethrough,
   LinkIcon, ExternalLink, Heading, ListBullet, ListOrdered, SlidersHorizontal, Repeat2,
-  LayoutDashboard, ChevronsLeft, Circle, Star, ArrowUpRight, Archive,
+  LayoutDashboard, ChevronsLeft, Circle, Star, ArrowUpRight, Archive, ImageIcon,
 } from '../../../components/icons/BoardIcons';
 import { supabase } from '../../../lib/supabase';
 import type { CircleLeader } from '../../../lib/supabase';
@@ -309,6 +309,9 @@ function KanbanCard({
 
         {/* Right side: comment/checklist counts */}
         <span className="kb-card-counts">
+          {card.screenshot_url && (
+            <span className="kb-card-count" title="Has screenshot"><ImageIcon size={10} /></span>
+          )}
           {comments.length > 0 && (
             <span className="kb-card-count"><MessageSquare size={10} /> {comments.length}</span>
           )}

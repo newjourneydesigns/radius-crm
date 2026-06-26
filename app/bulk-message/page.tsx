@@ -193,13 +193,13 @@ function BulkMessageContent() {
 
   // Filter state
   const [filterCampus, setFilterCampus] = useState<string[]>([]);
-  const [filterStatus, setFilterStatus] = useState<string[]>(['active']);
+  const [filterStatus, setFilterStatus] = useState<string[]>([]);
   const [filterCircleType, setFilterCircleType] = useState<string[]>([]);
   const [filterDay, setFilterDay] = useState<string[]>([]);
   const [filterAcpd, setFilterAcpd] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [includeAdditionalLeaders, setIncludeAdditionalLeaders] = useState(false);
-  const [selectNone, setSelectNone] = useState(false);
+  const [selectNone, setSelectNone] = useState(true);
 
   // Message state
   const [message, setMessage] = useState('');
@@ -241,6 +241,10 @@ function BulkMessageContent() {
   const [showPastePanel, setShowPastePanel] = useState(false);
   const [pasteText, setPasteText] = useState('');
   const [parsedEntries, setParsedEntries] = useState<PastedEntry[]>([]);
+
+  // Wizard state
+  const [wizardStep, setWizardStep] = useState<'build' | 'compose'>('build');
+  const [buildTab, setBuildTab] = useState<'filter' | 'person' | 'roster' | 'paste'>('filter');
 
   // Persist templates
   useEffect(() => { saveTemplates(templates); }, [templates]);
@@ -645,11 +649,11 @@ function BulkMessageContent() {
   }, []);
 
   const handleSaveList = () => {
-    if (!listNameInput.trim() || ccbRecipients.length === 0) return;
+    if (!listNameInput.trim() || recipients.length === 0) return;
     const newList: SavedRecipientList = {
       id: `l-${Date.now()}`,
       name: listNameInput.trim(),
-      people: ccbRecipients.map(r => ({ id: r.id, name: r.name, firstName: r.firstName, phone: r.phone })),
+      people: recipients.map(r => ({ id: r.id, name: r.name, firstName: r.firstName, phone: r.phone })),
     };
     setSavedLists(prev => [...prev, newList]);
     setSelectedListId(newList.id);
@@ -848,453 +852,332 @@ function BulkMessageContent() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
           {/* ════════════════════════════════════════════════
-              LEFT COLUMN: Filters + Message
+              LEFT COLUMN: Wizard
              ════════════════════════════════════════════════ */}
-          <div className="lg:col-span-7 space-y-6">
+          <div className="lg:col-span-7 space-y-4">
 
-            {/* ── Filter Section ── */}
-            <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-lg">
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-sm font-bold text-vc-400 uppercase tracking-wider flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
+            {/* ── Wizard Step Tabs ── */}
+            <div className="flex items-center gap-1 bg-gray-900 border border-gray-800 rounded-2xl p-1.5 shadow-lg">
+              <button
+                onClick={() => setWizardStep('build')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all ${wizardStep === 'build' ? 'bg-gray-800 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
+              >
+                <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 transition-colors ${wizardStep === 'build' ? 'bg-vc-500 text-white' : 'bg-gray-700 text-gray-500'}`}>1</span>
+                <span>Recipients</span>
+                {recipients.length > 0 && (
+                  <span className="bg-vc-500/20 text-vc-300 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{recipients.length}</span>
+                )}
+              </button>
+              <button
+                onClick={() => setWizardStep('compose')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all ${wizardStep === 'compose' ? 'bg-gray-800 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
+              >
+                <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 transition-colors ${wizardStep === 'compose' ? 'bg-vc-500 text-white' : 'bg-gray-700 text-gray-500'}`}>2</span>
+                <span>Message</span>
+                {message.trim() && (
+                  <svg className="w-3.5 h-3.5 text-green-400" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
-                  Filter Recipients
-                </h2>
-                <div className="flex items-center gap-3">
-                  {!selectNone && (
-                    <button
-                      onClick={() => {
-                        setSelectNone(true);
-                        setFilterCampus([]);
-                        setFilterStatus([]);
-                        setFilterCircleType([]);
-                        setFilterDay([]);
-                        setFilterAcpd([]);
-                      }}
-                      className="text-[10px] font-bold text-gray-400 hover:text-rose-400 uppercase underline transition-colors"
-                    >
-                      Select None
-                    </button>
-                  )}
-                  {(selectNone || filterCampus.length > 0 || filterStatus.length > 1 || filterCircleType.length > 0 || filterDay.length > 0 || filterAcpd.length > 0) && (
-                    <button
-                      onClick={() => {
-                        setSelectNone(false);
-                        setFilterCampus([]);
-                        setFilterStatus(['active']);
-                        setFilterCircleType([]);
-                        setFilterDay([]);
-                        setFilterAcpd([]);
-                      }}
-                      className="text-[10px] font-bold text-vc-400 hover:text-vc-300 uppercase underline"
-                    >
-                      Reset Filters
-                    </button>
-                  )}
-                </div>
+                )}
+              </button>
+            </div>
+
+            {/* ══════════════════════════════════════════════
+                STEP 1: RECIPIENTS
+               ══════════════════════════════════════════════ */}
+            {wizardStep === 'build' && (
+              <>
+
+            {/* ── Source Panel ── */}
+            <section className="bg-gray-900 border border-gray-800 rounded-2xl shadow-lg relative z-30">
+              {/* ── Source Tabs ── */}
+              <div className="flex border-b border-gray-800 px-3 pt-3 gap-0.5 overflow-x-auto">
+                {([
+                  { id: 'filter', label: 'Filter Radius' },
+                  { id: 'person', label: 'Add Person' },
+                  { id: 'roster', label: 'Circle Roster' },
+                  { id: 'paste',  label: 'Paste Import' },
+                ] as const).map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setBuildTab(tab.id)}
+                    className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition-all rounded-t-lg border-b-2 -mb-px ${
+                      buildTab === tab.id
+                        ? 'text-vc-400 border-vc-500 bg-gray-800/60'
+                        : 'text-gray-500 border-transparent hover:text-gray-300 hover:border-gray-700'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
 
-              <div className="space-y-5">
-                {/* Status */}
-                <div>
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Status</label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {filterOptions.statuses.map(s => (
+              {/* ── Tab Panels ── */}
+              <div className="p-6">
+
+                {/* FILTER TAB */}
+                {buildTab === 'filter' && (
+                  <div className="space-y-5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500">Filter circle leaders from Radius</span>
+                      <div className="flex items-center gap-3">
+                        {!selectNone && filterStatus.length > 0 && (
+                          <button
+                            onClick={() => { setSelectNone(true); setFilterCampus([]); setFilterStatus([]); setFilterCircleType([]); setFilterDay([]); setFilterAcpd([]); }}
+                            className="text-[10px] font-bold text-gray-400 hover:text-rose-400 uppercase underline transition-colors"
+                          >Select None</button>
+                        )}
+                        {(filterCampus.length > 0 || filterStatus.length > 0 || filterCircleType.length > 0 || filterDay.length > 0 || filterAcpd.length > 0) && (
+                          <button
+                            onClick={() => { setSelectNone(true); setFilterCampus([]); setFilterStatus([]); setFilterCircleType([]); setFilterDay([]); setFilterAcpd([]); }}
+                            className="text-[10px] font-bold text-vc-400 hover:text-vc-300 uppercase underline"
+                          >Reset</button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Status</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {filterOptions.statuses.map(s => (
+                          <button key={s} onClick={() => toggleFilter(filterStatus, setFilterStatus, s)}
+                            className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${filterStatus.includes(s) ? 'bg-vc-600 border-vc-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'}`}>
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {filterOptions.campuses.length > 0 && (
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Campus</label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {filterOptions.campuses.map(c => (
+                            <button key={c} onClick={() => toggleFilter(filterCampus, setFilterCampus, c)}
+                              className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${filterCampus.includes(c) ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'}`}>
+                              {c}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {filterOptions.circleTypes.length > 0 && (
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Circle Type</label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {filterOptions.circleTypes.map(ct => (
+                            <button key={ct} onClick={() => toggleFilter(filterCircleType, setFilterCircleType, ct)}
+                              className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${filterCircleType.includes(ct) ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'}`}>
+                              {ct}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {filterOptions.days.length > 0 && (
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Meeting Day</label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {filterOptions.days.map(d => (
+                            <button key={d} onClick={() => toggleFilter(filterDay, setFilterDay, d)}
+                              className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${filterDay.includes(d) ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'}`}>
+                              {d}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {filterOptions.acpds.length > 0 && (
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">ACPD</label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {filterOptions.acpds.map(a => (
+                            <button key={a} onClick={() => toggleFilter(filterAcpd, setFilterAcpd, a)}
+                              className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${filterAcpd.includes(a) ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'}`}>
+                              {a}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Additional Leaders</label>
                       <button
-                        key={s}
-                        onClick={() => toggleFilter(filterStatus, setFilterStatus, s)}
-                        className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
-                          filterStatus.includes(s)
-                            ? 'bg-vc-600 border-vc-500 text-white shadow-md shadow-vc-900/30'
-                            : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'
-                        }`}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                        onClick={() => setIncludeAdditionalLeaders(!includeAdditionalLeaders)}
+                        className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${includeAdditionalLeaders ? 'bg-purple-600 border-purple-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'}`}
+                      >Include Additional Leaders</button>
+                    </div>
 
-                {/* Campus */}
-                {filterOptions.campuses.length > 0 && (
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Campus</label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {filterOptions.campuses.map(c => (
-                        <button
-                          key={c}
-                          onClick={() => toggleFilter(filterCampus, setFilterCampus, c)}
-                          className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
-                            filterCampus.includes(c)
-                              ? 'bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-900/30'
-                              : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'
-                          }`}
-                        >
-                          {c}
-                        </button>
-                      ))}
+                    <div className="pt-2 border-t border-gray-800">
+                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Pin Specific Leaders</label>
+                      <div className="relative" ref={searchContainerRef}>
+                        <input
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => { setSearchQuery(e.target.value); setShowSearchDropdown(true); }}
+                          onFocus={() => setShowSearchDropdown(true)}
+                          placeholder="Search by name, phone, campus..."
+                          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-vc-500 focus:border-vc-500 transition-shadow placeholder:text-gray-600"
+                        />
+                        {showSearchDropdown && leaderSearchResults.length > 0 && (
+                          <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-gray-800 border border-gray-700 rounded-xl shadow-xl overflow-hidden max-h-60 overflow-y-auto">
+                            {leaderSearchResults.map(l => {
+                              const r = toRecipient(l);
+                              const alreadyPinned = pinnedLeaderRecipients.some(p => p.id === l.id);
+                              const alreadyInList = r ? recipientPhoneSet.has(r.phone) : false;
+                              return (
+                                <button
+                                  key={l.id}
+                                  type="button"
+                                  onClick={() => handleAddLeaderFromSearch(l)}
+                                  disabled={alreadyPinned || alreadyInList || !r}
+                                  className="w-full text-left px-4 py-2.5 hover:bg-gray-700 transition-colors flex items-center justify-between group disabled:opacity-40 disabled:cursor-not-allowed border-b border-gray-700/50 last:border-0"
+                                >
+                                  <div>
+                                    <span className="text-sm font-medium text-white">{l.name}</span>
+                                    <span className="text-xs text-gray-500 ml-2 font-mono">{r?.phone || 'no phone'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {l.campus && <span className="text-[10px] text-gray-500">{l.campus}</span>}
+                                    {alreadyInList
+                                      ? <span className="text-[10px] font-bold text-gray-500 uppercase">In list</span>
+                                      : alreadyPinned
+                                        ? <span className="text-[10px] font-bold text-green-400 uppercase">Added</span>
+                                        : r && <span className="text-[10px] font-bold text-blue-400 uppercase opacity-0 group-hover:opacity-100 transition-opacity">Add</span>
+                                    }
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      {pinnedLeaderRecipients.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {pinnedLeaderRecipients.map(r => (
+                            <div key={r.phone} className="flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded-lg text-xs">
+                              <span className="text-blue-300 font-medium">{r.name}</span>
+                              <button type="button" onClick={() => handleRemovePinnedLeader(r.phone)} className="text-blue-500/60 hover:text-rose-400 transition-colors font-bold leading-none">×</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
 
-                {/* Circle Type */}
-                {filterOptions.circleTypes.length > 0 && (
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Circle Type</label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {filterOptions.circleTypes.map(ct => (
-                        <button
-                          key={ct}
-                          onClick={() => toggleFilter(filterCircleType, setFilterCircleType, ct)}
-                          className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
-                            filterCircleType.includes(ct)
-                              ? 'bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-900/30'
-                              : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'
-                          }`}
-                        >
-                          {ct}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Meeting Day */}
-                {filterOptions.days.length > 0 && (
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Meeting Day</label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {filterOptions.days.map(d => (
-                        <button
-                          key={d}
-                          onClick={() => toggleFilter(filterDay, setFilterDay, d)}
-                          className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
-                            filterDay.includes(d)
-                              ? 'bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-900/30'
-                              : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'
-                          }`}
-                        >
-                          {d}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* ACPD */}
-                {filterOptions.acpds.length > 0 && (
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">ACPD</label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {filterOptions.acpds.map(a => (
-                        <button
-                          key={a}
-                          onClick={() => toggleFilter(filterAcpd, setFilterAcpd, a)}
-                          className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
-                            filterAcpd.includes(a)
-                              ? 'bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-900/30'
-                              : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'
-                          }`}
-                        >
-                          {a}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Additional Leaders Toggle */}
-                <div>
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Additional Leaders</label>
-                  <div className="flex flex-wrap gap-1.5">
-                    <button
-                      onClick={() => setIncludeAdditionalLeaders(!includeAdditionalLeaders)}
-                      className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
-                        includeAdditionalLeaders
-                          ? 'bg-purple-600 border-purple-500 text-white shadow-md shadow-purple-900/30'
-                          : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'
-                      }`}
-                    >
-                      Include Additional Leaders
-                    </button>
-                  </div>
-                </div>
-
-                {/* Search & Add */}
-                <div className="pt-2 border-t border-gray-800">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Search & Add</label>
-                  <div className="relative" ref={searchContainerRef}>
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => { setSearchQuery(e.target.value); setShowSearchDropdown(true); }}
-                      onFocus={() => setShowSearchDropdown(true)}
-                      placeholder="Search name, phone, campus..."
-                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-vc-500 focus:border-vc-500 transition-shadow placeholder:text-gray-600"
+                {/* ADD PERSON TAB */}
+                {buildTab === 'person' && (
+                  <div className="space-y-4">
+                    <p className="text-xs text-gray-500">Search CCB to add an individual by name or phone number.</p>
+                    <CCBPersonLookup
+                      key={ccbLookupKey}
+                      onSelect={handleAddCCBPerson}
+                      placeholder="Search CCB by name or phone..."
+                      label="Search & Add Person"
+                      size="sm"
                     />
-                    {showSearchDropdown && leaderSearchResults.length > 0 && (
-                      <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-gray-800 border border-gray-700 rounded-xl shadow-xl overflow-hidden max-h-60 overflow-y-auto">
-                        {leaderSearchResults.map(l => {
-                          const r = toRecipient(l);
-                          const alreadyPinned = pinnedLeaderRecipients.some(p => p.id === l.id);
-                          const alreadyInList = r ? recipientPhoneSet.has(r.phone) : false;
-                          return (
+                    {ccbRecipients.filter(r => !r.isFromPaste && !r.isFromRoster).length > 0 && (
+                      <div className="pt-3 border-t border-gray-800">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Added Individually</label>
+                        <div className="flex flex-wrap gap-2">
+                          {ccbRecipients.filter(r => !r.isFromPaste && !r.isFromRoster).map(r => (
+                            <div key={r.phone} className="flex items-center gap-1.5 bg-teal-500/10 border border-teal-500/20 px-2.5 py-1 rounded-lg text-xs">
+                              <span className="text-teal-300 font-medium">{r.name}</span>
+                              <button type="button" onClick={() => handleRemoveCCBRecipient(r.phone)} className="text-teal-500/60 hover:text-rose-400 transition-colors font-bold leading-none">×</button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* CIRCLE ROSTER TAB */}
+                {buildTab === 'roster' && (
+                  <div className="space-y-4">
+                    <p className="text-xs text-gray-500">Search a circle to add its entire current CCB roster.</p>
+                    <div className="relative" ref={rosterContainerRef}>
+                      <input
+                        type="text"
+                        value={rosterQuery}
+                        onChange={(e) => { setRosterQuery(e.target.value); setShowRosterDropdown(true); }}
+                        onFocus={() => setShowRosterDropdown(true)}
+                        placeholder="Search by leader name, campus, day..."
+                        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow placeholder:text-gray-600"
+                      />
+                      {showRosterDropdown && rosterSearchResults.length > 0 && (
+                        <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-gray-800 border border-gray-700 rounded-xl shadow-xl overflow-hidden max-h-60 overflow-y-auto">
+                          {rosterSearchResults.map(l => (
                             <button
                               key={l.id}
                               type="button"
-                              onClick={() => handleAddLeaderFromSearch(l)}
-                              disabled={alreadyPinned || alreadyInList || !r}
+                              onClick={() => handleAddCircleRoster(l)}
+                              disabled={rosterLoadingId !== null}
                               className="w-full text-left px-4 py-2.5 hover:bg-gray-700 transition-colors flex items-center justify-between group disabled:opacity-40 disabled:cursor-not-allowed border-b border-gray-700/50 last:border-0"
                             >
                               <div>
                                 <span className="text-sm font-medium text-white">{l.name}</span>
-                                <span className="text-xs text-gray-500 ml-2 font-mono">{r?.phone || 'no phone'}</span>
+                                <span className="text-xs text-gray-500 ml-2">{l.circle_type || 'Circle'}</span>
                               </div>
                               <div className="flex items-center gap-2">
+                                {l.day && <span className="text-[10px] text-gray-500">{l.day}</span>}
                                 {l.campus && <span className="text-[10px] text-gray-500">{l.campus}</span>}
-                                {alreadyInList
-                                  ? <span className="text-[10px] font-bold text-gray-500 uppercase">In list</span>
-                                  : alreadyPinned
-                                    ? <span className="text-[10px] font-bold text-green-400 uppercase">Added</span>
-                                    : r && <span className="text-[10px] font-bold text-blue-400 uppercase opacity-0 group-hover:opacity-100 transition-opacity">Add</span>
+                                {rosterLoadingId === l.id
+                                  ? <span className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                                  : <span className="text-[10px] font-bold text-emerald-400 uppercase opacity-0 group-hover:opacity-100 transition-opacity">Add Roster</span>
                                 }
                               </div>
                             </button>
-                          );
-                        })}
+                          ))}
+                        </div>
+                      )}
+                      {showRosterDropdown && rosterQuery.trim() && rosterSearchResults.length === 0 && (
+                        <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-gray-800 border border-gray-700 rounded-xl shadow-xl px-4 py-3">
+                          <p className="text-xs text-gray-500">No circles with a linked CCB roster match.</p>
+                        </div>
+                      )}
+                    </div>
+                    {rosterLoadingId !== null && (
+                      <div className="flex items-center gap-2 text-xs text-emerald-400">
+                        <span className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                        Loading roster from CCB...
+                      </div>
+                    )}
+                    {rosterError && <div className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">{rosterError}</div>}
+                    {rosterFeedback && !rosterError && <div className="text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">{rosterFeedback}</div>}
+                    {ccbRecipients.filter(r => r.isFromRoster).length > 0 && (
+                      <div className="pt-3 border-t border-gray-800 space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">
+                          {ccbRecipients.filter(r => r.isFromRoster).length} roster members added
+                        </label>
+                        {Array.from(new Set(ccbRecipients.filter(r => r.isFromRoster).map(r => r.circleLeaderName))).map(leaderName => (
+                          <div key={leaderName} className="flex items-center justify-between py-1.5 border-b border-gray-800/50 last:border-0">
+                            <span className="text-xs text-gray-300">{leaderName}&apos;s Circle</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-gray-500">{ccbRecipients.filter(r => r.isFromRoster && r.circleLeaderName === leaderName).length} members</span>
+                              <button
+                                type="button"
+                                onClick={() => setCcbRecipients(prev => prev.filter(r => !(r.isFromRoster && r.circleLeaderName === leaderName)))}
+                                className="text-gray-600 hover:text-rose-400 transition-colors font-bold text-sm"
+                              >×</button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
-                  {pinnedLeaderRecipients.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {pinnedLeaderRecipients.map(r => (
-                        <div key={r.phone} className="flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded-lg text-xs">
-                          <span className="text-blue-300 font-medium">{r.name}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemovePinnedLeader(r.phone)}
-                            className="text-blue-500/60 hover:text-rose-400 transition-colors font-bold leading-none"
-                          >×</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </section>
-
-            {/* ── Add from CCB ── */}
-            <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-lg">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-bold text-teal-400 uppercase tracking-wider flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3M13.5 4.5a6 6 0 11-12 0 6 6 0 0112 0zM1.5 19.5a6 6 0 0112 0" />
-                  </svg>
-                  Add from CCB
-                </h2>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={selectedListId}
-                    onChange={(e) => handleLoadList(e.target.value)}
-                    className="bg-gray-800 text-[11px] font-medium rounded-lg px-3 py-1.5 border border-gray-700 outline-none text-gray-300 focus:ring-1 focus:ring-teal-500"
-                  >
-                    <option value="">Saved Lists</option>
-                    {savedLists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                  </select>
-                  {selectedListId && (
-                    <button
-                      onClick={handleDeleteList}
-                      className="px-2.5 py-1 text-[10px] font-bold text-rose-400 uppercase hover:bg-rose-500/10 border border-gray-700 rounded-lg transition-colors"
-                    >
-                      Delete
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Search */}
-              <CCBPersonLookup
-                key={ccbLookupKey}
-                onSelect={handleAddCCBPerson}
-                placeholder="Search CCB by name or phone..."
-                label="Search & Add Person"
-                size="sm"
-              />
-
-              {/* Added people chips */}
-              {ccbRecipients.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {ccbRecipients.map(r => (
-                    <div
-                      key={r.phone}
-                      className="flex items-center gap-1.5 bg-gray-800 border border-gray-700 px-2.5 py-1 rounded-lg text-xs"
-                    >
-                      <span className="text-white font-medium">{r.name}</span>
-                      <span className="text-gray-500 font-mono text-[10px]">{r.phone}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveCCBRecipient(r.phone)}
-                        className="text-gray-500 hover:text-rose-400 transition-colors ml-0.5 leading-none font-bold"
-                        aria-label={`Remove ${r.name}`}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setCcbRecipients([])}
-                    className="text-[10px] font-bold text-gray-500 hover:text-rose-400 uppercase transition-colors self-center ml-1"
-                  >
-                    Clear All
-                  </button>
-                </div>
-              )}
-
-              {/* Save list controls */}
-              <div className="flex items-center gap-2 mt-3">
-                {showSaveList ? (
-                  <>
-                    <input
-                      type="text"
-                      value={listNameInput}
-                      onChange={(e) => setListNameInput(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSaveList()}
-                      placeholder="List name..."
-                      className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:ring-1 focus:ring-teal-500 placeholder:text-gray-600"
-                      autoFocus
-                    />
-                    <button
-                      onClick={handleSaveList}
-                      disabled={!listNameInput.trim()}
-                      className="btn-ghost px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={() => { setShowSaveList(false); setListNameInput(''); }}
-                      className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase hover:bg-gray-800 border border-gray-700 rounded-lg transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => setShowSaveList(true)}
-                    disabled={ccbRecipients.length === 0}
-                    className="btn-ghost px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase"
-                  >
-                    Save as List
-                  </button>
                 )}
-              </div>
-            </section>
 
-            {/* ── Add Circle Roster ── */}
-            <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-lg">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
-                  </svg>
-                  Add Circle Roster
-                </h2>
-              </div>
-
-              <p className="text-[11px] text-gray-600 mb-3">
-                Search a circle to add everyone on its current CCB roster as recipients.
-              </p>
-
-              {/* Circle search */}
-              <div className="relative" ref={rosterContainerRef}>
-                <input
-                  type="text"
-                  value={rosterQuery}
-                  onChange={(e) => { setRosterQuery(e.target.value); setShowRosterDropdown(true); }}
-                  onFocus={() => setShowRosterDropdown(true)}
-                  placeholder="Search a circle by leader, campus, day..."
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow placeholder:text-gray-600"
-                />
-                {showRosterDropdown && rosterSearchResults.length > 0 && (
-                  <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-gray-800 border border-gray-700 rounded-xl shadow-xl overflow-hidden max-h-60 overflow-y-auto">
-                    {rosterSearchResults.map(l => (
-                      <button
-                        key={l.id}
-                        type="button"
-                        onClick={() => handleAddCircleRoster(l)}
-                        disabled={rosterLoadingId !== null}
-                        className="w-full text-left px-4 py-2.5 hover:bg-gray-700 transition-colors flex items-center justify-between group disabled:opacity-40 disabled:cursor-not-allowed border-b border-gray-700/50 last:border-0"
-                      >
-                        <div>
-                          <span className="text-sm font-medium text-white">{l.name}</span>
-                          <span className="text-xs text-gray-500 ml-2">{l.circle_type || 'Circle'}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {l.day && <span className="text-[10px] text-gray-500">{l.day}</span>}
-                          {l.campus && <span className="text-[10px] text-gray-500">{l.campus}</span>}
-                          {rosterLoadingId === l.id
-                            ? <span className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                            : <span className="text-[10px] font-bold text-emerald-400 uppercase opacity-0 group-hover:opacity-100 transition-opacity">Add Roster</span>
-                          }
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {showRosterDropdown && rosterQuery.trim() && rosterSearchResults.length === 0 && (
-                  <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-gray-800 border border-gray-700 rounded-xl shadow-xl px-4 py-3">
-                    <p className="text-xs text-gray-500">No circles with a linked CCB roster match.</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Status line */}
-              {rosterLoadingId !== null && (
-                <div className="mt-3 flex items-center gap-2 text-xs text-emerald-400">
-                  <span className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                  Loading roster from CCB...
-                </div>
-              )}
-              {rosterError && (
-                <div className="mt-3 text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
-                  {rosterError}
-                </div>
-              )}
-              {rosterFeedback && !rosterError && (
-                <div className="mt-3 text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
-                  {rosterFeedback}
-                </div>
-              )}
-            </section>
-
-            {/* ── Paste Import ── */}
-            <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-lg">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-bold text-violet-400 uppercase tracking-wider flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
-                  </svg>
-                  Paste Import
-                </h2>
-                <button
-                  onClick={() => { setShowPastePanel(v => !v); if (showPastePanel) { setParsedEntries([]); setPasteText(''); } }}
-                  className={`text-[10px] font-bold uppercase px-3 py-1.5 rounded-lg border transition-all ${
-                    showPastePanel
-                      ? 'text-gray-400 border-gray-700 hover:bg-gray-800'
-                      : 'text-violet-400 border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20'
-                  }`}
-                >
-                  {showPastePanel ? 'Close' : 'Paste List'}
-                </button>
-              </div>
-
-              {showPastePanel && (
-                <div className="space-y-4">
-                  {/* Textarea */}
-                  <div>
+                {/* PASTE TAB */}
+                {buildTab === 'paste' && (
+                  <div className="space-y-4">
                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">
-                      Paste your list — spreadsheet rows with headers, or First / Last / Phone groups
+                      Paste a spreadsheet or First / Last / Phone list
                     </label>
                     <textarea
                       value={pasteText}
@@ -1302,129 +1185,89 @@ function BulkMessageContent() {
                       placeholder={"First Name\tLast Name\tCampus\tEmail\tPreferred Phone\nDiana\tNall\tLewisville\tdiana@example.com\t817-905-9682\nLinsey\tShields\tLewisville\tlinsey@example.com\t940-368-2782"}
                       className="w-full h-36 bg-gray-800 border border-gray-700 rounded-xl p-4 text-xs text-gray-300 font-mono outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 resize-none placeholder:text-gray-700 transition-shadow"
                     />
-                  </div>
-
-                  <button
-                    onClick={parsePastedList}
-                    disabled={!pasteText.trim()}
-                    className="w-full py-2.5 bg-violet-600 hover:bg-violet-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all"
-                  >
-                    Parse List
-                  </button>
-
-                  {/* Parsed entries table */}
-                  {parsedEntries.length > 0 && (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                          {parsedEntries.length} {parsedEntries.length === 1 ? 'entry' : 'entries'} parsed — edit as needed
-                        </span>
+                    <button
+                      onClick={parsePastedList}
+                      disabled={!pasteText.trim()}
+                      className="w-full py-2.5 bg-violet-600 hover:bg-violet-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all"
+                    >Parse List</button>
+                    {parsedEntries.length > 0 && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                            {parsedEntries.length} {parsedEntries.length === 1 ? 'entry' : 'entries'} parsed — edit as needed
+                          </span>
+                          <button onClick={() => setParsedEntries([])} className="text-[10px] font-bold text-gray-500 hover:text-rose-400 uppercase transition-colors">Clear</button>
+                        </div>
+                        <div className="border border-gray-800 rounded-xl overflow-hidden">
+                          <div className="overflow-y-auto max-h-72">
+                            <table className="w-full text-xs">
+                              <thead className="bg-gray-800/60 sticky top-0">
+                                <tr>
+                                  <th className="text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider px-3 py-2">First</th>
+                                  <th className="text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider px-3 py-2">Last</th>
+                                  <th className="text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider px-3 py-2">Campus</th>
+                                  <th className="text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider px-3 py-2">Phone</th>
+                                  <th className="px-2 py-2 w-8"></th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-800/50">
+                                {parsedEntries.map(entry => (
+                                  <tr key={entry.id} className="hover:bg-gray-800/30 transition-colors group">
+                                    <td className="px-2 py-1.5"><input value={entry.firstName} onChange={e => updateParsedEntry(entry.id, 'firstName', e.target.value)} className="w-full bg-transparent text-white text-xs px-1.5 py-1 rounded border border-transparent focus:border-gray-600 focus:bg-gray-800 outline-none transition-all" /></td>
+                                    <td className="px-2 py-1.5"><input value={entry.lastName} onChange={e => updateParsedEntry(entry.id, 'lastName', e.target.value)} className="w-full bg-transparent text-white text-xs px-1.5 py-1 rounded border border-transparent focus:border-gray-600 focus:bg-gray-800 outline-none transition-all" /></td>
+                                    <td className="px-2 py-1.5"><input value={entry.campus || ''} onChange={e => updateParsedEntry(entry.id, 'campus', e.target.value)} className="w-full bg-transparent text-gray-400 text-xs px-1.5 py-1 rounded border border-transparent focus:border-gray-600 focus:bg-gray-800 outline-none transition-all" /></td>
+                                    <td className="px-2 py-1.5"><input value={entry.phone} onChange={e => updateParsedEntry(entry.id, 'phone', e.target.value)} className="w-full bg-transparent text-gray-400 font-mono text-xs px-1.5 py-1 rounded border border-transparent focus:border-gray-600 focus:bg-gray-800 outline-none transition-all" /></td>
+                                    <td className="px-2 py-1.5 text-center"><button type="button" onClick={() => removeParsedEntry(entry.id)} className="text-gray-700 hover:text-rose-400 transition-colors font-bold text-sm leading-none opacity-0 group-hover:opacity-100" aria-label="Remove entry">×</button></td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
                         <button
-                          onClick={() => setParsedEntries([])}
-                          className="text-[10px] font-bold text-gray-500 hover:text-rose-400 uppercase transition-colors"
+                          onClick={handleAddParsedToRecipients}
+                          className="w-full py-3 bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm uppercase tracking-tight rounded-xl transition-all"
                         >
-                          Clear
+                          Add {parsedEntries.length} to List
                         </button>
                       </div>
+                    )}
+                  </div>
+                )}
 
-                      <div className="border border-gray-800 rounded-xl overflow-hidden">
-                        <div className="overflow-y-auto max-h-72">
-                          <table className="w-full text-xs">
-                            <thead className="bg-gray-800/60 sticky top-0">
-                              <tr>
-                                <th className="text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider px-3 py-2">First</th>
-                                <th className="text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider px-3 py-2">Last</th>
-                                <th className="text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider px-3 py-2">Campus</th>
-                                <th className="text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider px-3 py-2">Phone</th>
-                                <th className="px-2 py-2 w-8"></th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-800/50">
-                              {parsedEntries.map(entry => (
-                                <tr key={entry.id} className="hover:bg-gray-800/30 transition-colors group">
-                                  <td className="px-2 py-1.5">
-                                    <input
-                                      value={entry.firstName}
-                                      onChange={e => updateParsedEntry(entry.id, 'firstName', e.target.value)}
-                                      className="w-full bg-transparent text-white text-xs px-1.5 py-1 rounded border border-transparent focus:border-gray-600 focus:bg-gray-800 outline-none transition-all"
-                                    />
-                                  </td>
-                                  <td className="px-2 py-1.5">
-                                    <input
-                                      value={entry.lastName}
-                                      onChange={e => updateParsedEntry(entry.id, 'lastName', e.target.value)}
-                                      className="w-full bg-transparent text-white text-xs px-1.5 py-1 rounded border border-transparent focus:border-gray-600 focus:bg-gray-800 outline-none transition-all"
-                                    />
-                                  </td>
-                                  <td className="px-2 py-1.5">
-                                    <input
-                                      value={entry.campus || ''}
-                                      onChange={e => updateParsedEntry(entry.id, 'campus', e.target.value)}
-                                      className="w-full bg-transparent text-gray-400 text-xs px-1.5 py-1 rounded border border-transparent focus:border-gray-600 focus:bg-gray-800 outline-none transition-all"
-                                    />
-                                  </td>
-                                  <td className="px-2 py-1.5">
-                                    <input
-                                      value={entry.phone}
-                                      onChange={e => updateParsedEntry(entry.id, 'phone', e.target.value)}
-                                      className="w-full bg-transparent text-gray-400 font-mono text-xs px-1.5 py-1 rounded border border-transparent focus:border-gray-600 focus:bg-gray-800 outline-none transition-all"
-                                    />
-                                  </td>
-                                  <td className="px-2 py-1.5 text-center">
-                                    <button
-                                      type="button"
-                                      onClick={() => removeParsedEntry(entry.id)}
-                                      className="text-gray-700 hover:text-rose-400 transition-colors font-bold text-sm leading-none opacity-0 group-hover:opacity-100"
-                                      aria-label="Remove entry"
-                                    >×</button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={handleAddParsedToRecipients}
-                        className="w-full py-3 bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm uppercase tracking-tight rounded-xl transition-all"
-                      >
-                        Add {parsedEntries.length} to Recipients
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {!showPastePanel && (
-                <p className="text-[11px] text-gray-600">
-                  Paste a spreadsheet list or a First / Last / Phone list to quickly build a recipient group.
-                </p>
-              )}
+              </div>
             </section>
 
-            {/* ── Recipient Preview Table ── */}
+            {/* ── Recipients Table ── */}
             <section className="bg-gray-900 border border-gray-800 rounded-2xl shadow-lg overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+              <div className="px-5 py-3.5 border-b border-gray-800 flex items-center justify-between">
                 <h2 className="text-sm font-bold text-vc-400 uppercase tracking-wider flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
                   </svg>
                   Recipients ({recipients.length})
                 </h2>
-                <span className="text-[10px] text-gray-500 font-medium">
-                  {includeAdditionalLeaders && (
-                    <span className="text-purple-400 mr-2">{recipients.filter(r => r.isAdditionalLeader).length} additional</span>
+                <div className="flex items-center gap-2">
+                  {includeAdditionalLeaders && recipients.filter(r => r.isAdditionalLeader).length > 0 && (
+                    <span className="text-[10px] text-purple-400 font-medium">{recipients.filter(r => r.isAdditionalLeader).length} additional</span>
                   )}
-                  {leaders.filter(l => !l.phone).length} without phone excluded
-                </span>
+                  <select
+                    value={selectedListId}
+                    onChange={(e) => handleLoadList(e.target.value)}
+                    className="bg-gray-800 text-[11px] font-medium rounded-lg px-2 py-1.5 border border-gray-700 outline-none text-gray-300 focus:ring-1 focus:ring-teal-500"
+                  >
+                    <option value="">Saved Lists</option>
+                    {savedLists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                  </select>
+                  {selectedListId && (
+                    <button onClick={handleDeleteList} className="px-2 py-1.5 text-[10px] font-bold text-rose-400 uppercase hover:bg-rose-500/10 border border-gray-700 rounded-lg transition-colors">Del</button>
+                  )}
+                </div>
               </div>
 
               <div className="max-h-64 overflow-y-auto">
                 {recipients.length === 0 ? (
-                  <p className="text-center text-gray-600 text-sm py-12">
-                    No recipients match your filters, or none have phone numbers.
-                  </p>
+                  <p className="text-center text-gray-600 text-sm py-12">No recipients yet — use the tabs above to build your list.</p>
                 ) : (
                   <table className="w-full text-sm">
                     <thead className="bg-gray-800/50 sticky top-0">
@@ -1441,26 +1284,16 @@ function BulkMessageContent() {
                       {recipients.map((r, idx) => (
                         <tr
                           key={`${r.id}-${r.phone}`}
-                          className={`hover:bg-gray-800/40 transition-colors ${
-                            sendStatus === SendStatus.SENDING && idx === currentIndex ? 'bg-blue-600/10 border-l-2 border-l-blue-500' : ''
-                          } ${sendStatus === SendStatus.SENDING && idx < currentIndex ? 'opacity-40' : ''}`}
+                          className={`hover:bg-gray-800/40 transition-colors ${sendStatus === SendStatus.SENDING && idx === currentIndex ? 'bg-blue-600/10 border-l-2 border-l-blue-500' : ''} ${sendStatus === SendStatus.SENDING && idx < currentIndex ? 'opacity-40' : ''}`}
                         >
                           <td className="px-4 py-2 text-gray-600 text-xs font-mono">{idx + 1}</td>
                           <td className="px-4 py-2">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="text-white font-medium">{r.name}</span>
-                              {r.isAdditionalLeader && (
-                                <span className="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded font-bold uppercase">Additional</span>
-                              )}
-                              {r.isFromPaste && (
-                                <span className="text-[9px] bg-violet-500/20 text-violet-400 px-1.5 py-0.5 rounded font-bold uppercase">Paste</span>
-                              )}
-                              {r.isFromRoster && (
-                                <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold uppercase">Roster</span>
-                              )}
-                              {r.isFromCCB && !r.isFromPaste && !r.isFromRoster && (
-                                <span className="text-[9px] bg-teal-500/20 text-teal-400 px-1.5 py-0.5 rounded font-bold uppercase">CCB</span>
-                              )}
+                              {r.isAdditionalLeader && <span className="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded font-bold uppercase">Additional</span>}
+                              {r.isFromPaste && <span className="text-[9px] bg-violet-500/20 text-violet-400 px-1.5 py-0.5 rounded font-bold uppercase">Paste</span>}
+                              {r.isFromRoster && <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold uppercase">Roster</span>}
+                              {r.isFromCCB && !r.isFromPaste && !r.isFromRoster && <span className="text-[9px] bg-teal-500/20 text-teal-400 px-1.5 py-0.5 rounded font-bold uppercase">CCB</span>}
                             </div>
                             {(r.isAdditionalLeader || r.isFromRoster) && r.circleLeaderName && (
                               <p className="text-[10px] text-gray-500 mt-0.5">{r.circleLeaderName}&apos;s Circle</p>
@@ -1471,14 +1304,7 @@ function BulkMessageContent() {
                           <td className="px-4 py-2 text-gray-500 text-xs hidden md:table-cell">{r.campus || '—'}</td>
                           <td className="px-2 py-2">
                             {r.isFromCCB && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveCCBRecipient(r.phone)}
-                                className="text-gray-600 hover:text-rose-400 transition-colors font-bold text-base leading-none"
-                                aria-label={`Remove ${r.name}`}
-                              >
-                                ×
-                              </button>
+                              <button type="button" onClick={() => handleRemoveCCBRecipient(r.phone)} className="text-gray-600 hover:text-rose-400 transition-colors font-bold text-base leading-none" aria-label={`Remove ${r.name}`}>×</button>
                             )}
                           </td>
                         </tr>
@@ -1487,117 +1313,152 @@ function BulkMessageContent() {
                   </table>
                 )}
               </div>
+
+              {/* Save list footer */}
+              {recipients.length > 0 && (
+                <div className="px-5 py-3 border-t border-gray-800 bg-gray-900/50">
+                  {showSaveList ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={listNameInput}
+                        onChange={(e) => setListNameInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSaveList()}
+                        placeholder="Name this list..."
+                        className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:ring-1 focus:ring-teal-500 placeholder:text-gray-600"
+                        autoFocus
+                      />
+                      <button onClick={handleSaveList} disabled={!listNameInput.trim()} className="btn-ghost px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase">Save</button>
+                      <button onClick={() => { setShowSaveList(false); setListNameInput(''); }} className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase hover:bg-gray-800 border border-gray-700 rounded-lg transition-colors">Cancel</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setShowSaveList(true)} className="text-[10px] font-bold text-gray-500 hover:text-teal-400 uppercase tracking-widest transition-colors flex items-center gap-1.5">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 16v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-7a2 2 0 012-2h2m3-4H9a2 2 0 00-2 2v7a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-1m-1 4l-3 3m0 0l-3-3m3 3V3" />
+                      </svg>
+                      Save list for later
+                    </button>
+                  )}
+                </div>
+              )}
             </section>
 
-            {/* ── Message Composer ── */}
-            <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-lg">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-bold text-vc-400 uppercase tracking-wider flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+            {/* ── Next Step CTA ── */}
+            <button
+              onClick={() => setWizardStep('compose')}
+              disabled={recipients.length === 0}
+              className="w-full py-3.5 bg-vc-600 hover:bg-vc-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold text-sm uppercase tracking-wide rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2"
+            >
+              {recipients.length === 0
+                ? 'Add recipients above to continue'
+                : <>Next: Write Your Message <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg></>
+              }
+            </button>
+
+              </>
+            )}
+
+            {/* ══════════════════════════════════════════════
+                STEP 2: COMPOSE
+               ══════════════════════════════════════════════ */}
+            {wizardStep === 'compose' && (
+              <>
+                {/* Back link */}
+                <button
+                  onClick={() => setWizardStep('build')}
+                  className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors group"
+                >
+                  <svg className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
                   </svg>
-                  Message Template
-                </h2>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={selectedTemplateId}
-                    onChange={(e) => {
-                      const t = templates.find(x => x.id === e.target.value);
-                      if (t) { setMessage(t.content); setSelectedTemplateId(t.id); }
-                      else { setSelectedTemplateId(''); }
-                    }}
-                    className="bg-gray-800 text-[11px] font-medium rounded-lg px-3 py-1.5 border border-gray-700 outline-none text-gray-300 focus:ring-1 focus:ring-vc-500"
-                  >
-                    <option value="">Saved Templates</option>
-                    {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </select>
+                  <span>Recipients — <span className="font-bold text-white">{recipients.length}</span> selected</span>
+                </button>
 
-                  {selectedTemplateId && isTemplateModified && (
-                    <button onClick={handleUpdateTemplate} className="btn-ghost px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase">
-                      Update
-                    </button>
-                  )}
-                  {selectedTemplateId && (
-                    <button onClick={handleDeleteTemplate} className="px-2.5 py-1 text-[10px] font-bold text-rose-400 uppercase hover:bg-rose-500/10 border border-gray-700 rounded-lg transition-colors">
-                      Delete
-                    </button>
-                  )}
-                </div>
-              </div>
+                {/* Message Composer */}
+                <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-lg">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-sm font-bold text-vc-400 uppercase tracking-wider flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                      </svg>
+                      Message
+                    </h2>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={selectedTemplateId}
+                        onChange={(e) => {
+                          const t = templates.find(x => x.id === e.target.value);
+                          if (t) { setMessage(t.content); setSelectedTemplateId(t.id); }
+                          else { setSelectedTemplateId(''); }
+                        }}
+                        className="bg-gray-800 text-[11px] font-medium rounded-lg px-3 py-1.5 border border-gray-700 outline-none text-gray-300 focus:ring-1 focus:ring-vc-500"
+                      >
+                        <option value="">Saved Templates</option>
+                        {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      </select>
+                      {selectedTemplateId && isTemplateModified && (
+                        <button onClick={handleUpdateTemplate} className="btn-ghost px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase">Update</button>
+                      )}
+                      {selectedTemplateId && (
+                        <button onClick={handleDeleteTemplate} className="px-2.5 py-1 text-[10px] font-bold text-rose-400 uppercase hover:bg-rose-500/10 border border-gray-700 rounded-lg transition-colors">Delete</button>
+                      )}
+                    </div>
+                  </div>
 
-              {/* Placeholder buttons */}
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                <span className="text-[10px] text-gray-600 font-bold uppercase tracking-wider mr-1">Insert:</span>
-                {[
-                  { label: 'First Name', tag: '{{first_name}}' },
-                  { label: 'Full Name', tag: '{{name}}' },
-                  { label: 'Campus', tag: '{{campus}}' },
-                  { label: 'Day', tag: '{{day}}' },
-                  { label: 'Circle Type', tag: '{{circle_type}}' },
-                  { label: 'Circle Leader', tag: '{{circle_leader}}' },
-                ].map(({ label, tag }) => (
-                  <button
-                    key={tag}
-                    onClick={() => insertPlaceholder(tag)}
-                    className="px-2.5 py-1 bg-gray-800 border border-gray-700 hover:border-blue-500/50 hover:bg-gray-750 rounded-md text-[10px] font-semibold text-gray-400 hover:text-blue-400 transition-all"
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <span className="text-[10px] text-gray-600 font-bold uppercase tracking-wider mr-1">Insert:</span>
+                    {[
+                      { label: 'First Name', tag: '{{first_name}}' },
+                      { label: 'Full Name', tag: '{{name}}' },
+                      { label: 'Campus', tag: '{{campus}}' },
+                      { label: 'Day', tag: '{{day}}' },
+                      { label: 'Circle Type', tag: '{{circle_type}}' },
+                      { label: 'Circle Leader', tag: '{{circle_leader}}' },
+                    ].map(({ label, tag }) => (
+                      <button
+                        key={tag}
+                        onClick={() => insertPlaceholder(tag)}
+                        className="px-2.5 py-1 bg-gray-800 border border-gray-700 hover:border-blue-500/50 rounded-md text-[10px] font-semibold text-gray-400 hover:text-blue-400 transition-all"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
 
-              {/* Textarea */}
-              <div className="relative">
-                <textarea
-                  ref={messageRef}
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Hey {{first_name}}, just wanted to check in about your circle..."
-                  className="w-full h-32 bg-gray-800 border border-gray-700 rounded-xl p-4 outline-none focus:ring-1 focus:ring-vc-500 focus:border-vc-500 text-sm leading-relaxed transition-shadow resize-none placeholder:text-gray-600"
-                />
-                <div className="absolute bottom-3 right-3 text-[10px] font-medium text-gray-600 bg-gray-800/80 px-2 py-0.5 rounded">
-                  {message.length} chars
-                </div>
-              </div>
-
-              {/* Save template */}
-              <div className="flex items-center gap-2 mt-3">
-                {showSaveTemplate ? (
-                  <>
-                    <input
-                      type="text"
-                      value={templateNameInput}
-                      onChange={(e) => setTemplateNameInput(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSaveTemplate()}
-                      placeholder="Template name..."
-                      className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:ring-1 focus:ring-vc-500 placeholder:text-gray-600"
-                      autoFocus
+                  <div className="relative">
+                    <textarea
+                      ref={messageRef}
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      placeholder="Hey {{first_name}}, just wanted to check in about your circle..."
+                      className="w-full h-40 bg-gray-800 border border-gray-700 rounded-xl p-4 outline-none focus:ring-1 focus:ring-vc-500 focus:border-vc-500 text-sm leading-relaxed transition-shadow resize-none placeholder:text-gray-600"
                     />
-                    <button
-                      onClick={handleSaveTemplate}
-                      disabled={!templateNameInput.trim()}
-                      className="btn-ghost px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={() => { setShowSaveTemplate(false); setTemplateNameInput(''); }}
-                      className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase hover:bg-gray-800 border border-gray-700 rounded-lg transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => setShowSaveTemplate(true)}
-                    disabled={!message.trim()}
-                    className="btn-ghost px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase"
-                  >
-                    Save as Template
-                  </button>
-                )}
-              </div>
-            </section>
+                    <div className="absolute bottom-3 right-3 text-[10px] font-medium text-gray-600 bg-gray-800/80 px-2 py-0.5 rounded">{message.length} chars</div>
+                  </div>
+
+                  <div className="flex items-center gap-2 mt-3">
+                    {showSaveTemplate ? (
+                      <>
+                        <input
+                          type="text"
+                          value={templateNameInput}
+                          onChange={(e) => setTemplateNameInput(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSaveTemplate()}
+                          placeholder="Template name..."
+                          className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:ring-1 focus:ring-vc-500 placeholder:text-gray-600"
+                          autoFocus
+                        />
+                        <button onClick={handleSaveTemplate} disabled={!templateNameInput.trim()} className="btn-ghost px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase">Save</button>
+                        <button onClick={() => { setShowSaveTemplate(false); setTemplateNameInput(''); }} className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase hover:bg-gray-800 border border-gray-700 rounded-lg transition-colors">Cancel</button>
+                      </>
+                    ) : (
+                      <button onClick={() => setShowSaveTemplate(true)} disabled={!message.trim()} className="btn-ghost px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase">Save as Template</button>
+                    )}
+                  </div>
+                </section>
+              </>
+            )}
+
           </div>
 
           {/* ════════════════════════════════════════════════

@@ -3,6 +3,16 @@
     "date": "2026-06-26",
     "date_display": "June 26, 2026",
     "date_iso": "2026-06-26",
+    "id": "card-screenshots",
+    "type": "feature",
+    "category": "Boards",
+    "description": "Board cards now support screenshot attachments. Open any card, scroll to the new Screenshot section, and attach an image — great for capturing bugs, broken layouts, or anything visual. Images are compressed automatically before upload to keep storage lean. Each card holds one screenshot; uploading a new one replaces the old. Screenshots are deleted when a card is deleted.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-06-26",
+    "date_display": "June 26, 2026",
+    "date_iso": "2026-06-26",
     "id": "toolkit-roster-sort",
     "type": "feature",
     "category": "Circles Toolkit",

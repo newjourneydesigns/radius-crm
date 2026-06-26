@@ -8,7 +8,7 @@ import type { BoardCard, CardChecklistGroup, CardPriority, ChecklistTemplate, Pr
 import {
   Plus, Trash2, Edit3, GripVertical, MessageSquare, CheckSquare, CalendarDays, Tag,
   X, ChevronDown, Clock, User, Flag, Pencil, FolderKanban, Check, Copy,
-  LinkIcon, ExternalLink, Repeat2, Circle, Star, ArrowUpRight,
+  LinkIcon, ExternalLink, Repeat2, Circle, Star, ArrowUpRight, Camera, ImageIcon,
 } from '../icons/BoardIcons';
 import { supabase } from '../../lib/supabase';
 import { buildRepeatLabel, type TodoRepeatRule } from '../../lib/todoRecurrence';
@@ -185,6 +185,11 @@ export function CardDetailModal({
   const [convertingItemId, setConvertingItemId] = useState<string | null>(null);
   const [convertColumnId, setConvertColumnId] = useState(card.column_id);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
+  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(card.screenshot_url ?? null);
+  const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
+  const [screenshotError, setScreenshotError] = useState('');
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const screenshotInputRef = useRef<HTMLInputElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const copyStatusTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -233,6 +238,67 @@ export function CardDetailModal({
     }, 600);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editTitle, editDesc, editPriority, editStartDate, editDueDate, editDueTime, editLabels, editRepeatRule, editRepeatInterval, editRepeatDays, linkedLeaderId]);
+
+  const compressImage = (file: File): Promise<Blob> =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const MAX_PX = 1200;
+        const scale = Math.min(1, MAX_PX / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { reject(new Error('Canvas not supported')); return; }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Compression failed')), 'image/jpeg', 0.82);
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
+
+  const handleUploadScreenshot = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setScreenshotError('Please select an image file.');
+      return;
+    }
+    setUploadingScreenshot(true);
+    setScreenshotError('');
+    try {
+      const compressed = await compressImage(file);
+      const path = `${card.id}/screenshot.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from('card-screenshots')
+        .upload(path, compressed, { contentType: 'image/jpeg', upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from('card-screenshots').getPublicUrl(path);
+      // Cache-bust so the browser shows the new image
+      const url = `${urlData.publicUrl}?t=${Date.now()}`;
+      setScreenshotUrl(url);
+      await onUpdate({ screenshot_url: url });
+    } catch {
+      setScreenshotError('Upload failed. Please try again.');
+    } finally {
+      setUploadingScreenshot(false);
+      if (screenshotInputRef.current) screenshotInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveScreenshot = async () => {
+    setUploadingScreenshot(true);
+    setScreenshotError('');
+    try {
+      await supabase.storage.from('card-screenshots').remove([`${card.id}/screenshot.jpg`]);
+      setScreenshotUrl(null);
+      await onUpdate({ screenshot_url: null });
+    } catch {
+      setScreenshotError('Failed to remove screenshot.');
+    } finally {
+      setUploadingScreenshot(false);
+    }
+  };
 
   const handleClose = async () => {
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
@@ -975,6 +1041,73 @@ export function CardDetailModal({
               </div>
               {renderContactActions(descriptionContacts, 'compact')}
             </div>
+
+            {/* Screenshot */}
+            <div className="kb-screenshot-section">
+              <div className="kb-detail-section-label">
+                <Camera size={13} /> Screenshot
+              </div>
+              {screenshotUrl && (
+                <div className="kb-screenshot-thumb-wrap">
+                  <img
+                    src={screenshotUrl}
+                    alt="Card screenshot"
+                    className="kb-screenshot-thumb"
+                    onClick={() => setLightboxOpen(true)}
+                    title="Click to enlarge"
+                  />
+                  <button
+                    className="kb-screenshot-remove"
+                    onClick={handleRemoveScreenshot}
+                    disabled={uploadingScreenshot}
+                    title="Remove screenshot"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              )}
+              <div className="kb-screenshot-upload-row">
+                <button
+                  className="kb-screenshot-upload-btn"
+                  onClick={() => screenshotInputRef.current?.click()}
+                  disabled={uploadingScreenshot}
+                >
+                  {uploadingScreenshot ? (
+                    <span style={{ width: 12, height: 12, border: '1.5px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
+                  ) : (
+                    <Camera size={12} />
+                  )}
+                  {uploadingScreenshot ? 'Uploading…' : screenshotUrl ? 'Replace' : 'Attach screenshot'}
+                </button>
+                <span className="kb-screenshot-hint">Images are compressed before upload</span>
+                <input
+                  ref={screenshotInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) handleUploadScreenshot(file);
+                  }}
+                />
+              </div>
+              {screenshotError && <div className="kb-screenshot-error">{screenshotError}</div>}
+            </div>
+
+            {/* Lightbox */}
+            {lightboxOpen && screenshotUrl && (
+              <div
+                className="kb-screenshot-lightbox-overlay"
+                onClick={() => setLightboxOpen(false)}
+              >
+                <img
+                  src={screenshotUrl}
+                  alt="Screenshot full size"
+                  className="kb-screenshot-lightbox-img"
+                  onClick={e => e.stopPropagation()}
+                />
+              </div>
+            )}
 
             {/* Checklists */}
             <div style={{ marginBottom: 16 }}>
@@ -1754,6 +1887,9 @@ export function CardDetailModal({
                 className="kb-btn kb-btn-danger"
                 onClick={async () => {
                   if (confirm('Delete this card?')) {
+                    if (screenshotUrl) {
+                      await supabase.storage.from('card-screenshots').remove([`${card.id}/screenshot.jpg`]);
+                    }
                     await onDelete();
                     onClose();
                   }

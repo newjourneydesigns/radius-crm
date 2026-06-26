@@ -2631,4 +2631,79 @@ export const kanbanStyles = `
     .kb-detail-title-input { font-size: 18px !important; }
     .kb-modal-overlay { padding: 16px 12px 80px; }
   }
+
+  /* ── Screenshot section ── */
+  .kb-screenshot-section { margin-bottom: 16px; }
+  .kb-screenshot-thumb-wrap {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #2a2d3a;
+    margin-bottom: 8px;
+  }
+  .kb-screenshot-thumb {
+    display: block;
+    max-width: 100%;
+    max-height: 320px;
+    object-fit: contain;
+    background: #0f1117;
+    cursor: zoom-in;
+  }
+  .kb-screenshot-remove {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: rgba(15, 17, 23, 0.85);
+    border: 1px solid #3a3d4a;
+    border-radius: 6px;
+    color: #9ca3af;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    transition: background 0.15s, color 0.15s;
+  }
+  .kb-screenshot-remove:hover { background: rgba(239,68,68,0.18) !important; color: #f87171 !important; border-color: rgba(239,68,68,0.3) !important; }
+  .kb-screenshot-upload-row { display: flex; align-items: center; gap: 8px; }
+  .kb-screenshot-upload-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 6px;
+    border: 1px dashed #3a3d4a;
+    background: rgba(255,255,255,0.02);
+    color: #9ca3af;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .kb-screenshot-upload-btn:hover { border-color: rgba(141, 169, 196, 0.45) !important; color: #cbd5e1 !important; background: rgba(76, 103, 133, 0.12) !important; }
+  .kb-screenshot-upload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .kb-screenshot-error { margin-top: 6px; font-size: 11px; color: #f87171; }
+  .kb-screenshot-hint { font-size: 10px; color: #4b5563; }
+  .kb-screenshot-lightbox-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+  }
+  .kb-screenshot-lightbox-img {
+    max-width: 92vw;
+    max-height: 92vh;
+    object-fit: contain;
+    border-radius: 6px;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.7);
+  }
 `;
+

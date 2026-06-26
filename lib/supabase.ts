@@ -495,6 +495,7 @@ export interface BoardCard {
   is_series_master?: boolean | null;
   linked_leader_id?: number | null;
   is_focused?: boolean;
+  screenshot_url?: string | null;
   created_at: string;
   updated_at: string;
   // Joined data
