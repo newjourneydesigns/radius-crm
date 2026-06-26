@@ -19,6 +19,7 @@ const FIELD_TYPES: { value: FormFieldType; label: string }[] = [
   { value: 'number', label: 'Number' },
   { value: 'date', label: 'Date' },
   { value: 'select', label: 'Dropdown' },
+  { value: 'image', label: 'Image Upload' },
 ];
 
 const CARD_MAPPINGS: { value: string; label: string }[] = [
@@ -28,10 +29,11 @@ const CARD_MAPPINGS: { value: string; label: string }[] = [
   { value: 'priority', label: 'Card Priority' },
   { value: 'due_date', label: 'Card Due Date' },
   { value: 'assignee', label: 'Card Assignee' },
+  { value: 'screenshot_url', label: 'Card Screenshot' },
 ];
 
 const PRIORITY_OPTIONS = ['Low', 'Medium', 'High', 'Urgent'];
-const LOCKED_TYPE: Array<FormField['maps_to']> = ['priority', 'due_date', 'assignee'];
+const LOCKED_TYPE: Array<FormField['maps_to']> = ['priority', 'due_date', 'assignee', 'screenshot_url'];
 
 type Member = { id: string; name: string };
 
@@ -251,6 +253,8 @@ function FormEditorInner() {
       updateField(field.id, { maps_to: mapping, type: 'date' });
     } else if (mapping === 'assignee') {
       updateField(field.id, { maps_to: mapping, type: 'select', assignee_options: boardMembers });
+    } else if (mapping === 'screenshot_url') {
+      updateField(field.id, { maps_to: mapping, type: 'image' });
     } else {
       updateField(field.id, { maps_to: mapping });
     }
@@ -581,15 +585,21 @@ function FormEditorInner() {
                               </div>
                             </div>
 
-                            <div>
-                              <label className={labelCls}>Placeholder</label>
-                              <input
-                                className={inputCls}
-                                value={field.placeholder || ''}
-                                onChange={(e) => updateField(field.id, { placeholder: e.target.value })}
-                                placeholder="Placeholder text…"
-                              />
-                            </div>
+                            {field.type === 'image' ? (
+                              <p className="rounded-lg border border-slate-700 bg-slate-900/40 px-3 py-2.5 text-xs leading-relaxed text-slate-400">
+                                Submitters will see a file picker. Images are compressed before upload and attached to the created card as a screenshot.
+                              </p>
+                            ) : (
+                              <div>
+                                <label className={labelCls}>Placeholder</label>
+                                <input
+                                  className={inputCls}
+                                  value={field.placeholder || ''}
+                                  onChange={(e) => updateField(field.id, { placeholder: e.target.value })}
+                                  placeholder="Placeholder text…"
+                                />
+                              </div>
+                            )}
 
                             {field.type === 'select' && field.maps_to !== 'priority' && field.maps_to !== 'assignee' && (
                               <div>
@@ -942,10 +952,17 @@ function SubmissionsPanel({
 }
 
 function SubRow({ label, value }: { label: string; value: string }) {
+  const isImage = value.includes('/card-screenshots/');
   return (
     <div className="flex gap-3">
       <span className="w-32 shrink-0 text-xs font-medium uppercase tracking-wide text-slate-400">{label}</span>
-      <span className="break-words text-sm text-slate-200">{value}</span>
+      {isImage ? (
+        <a href={value} target="_blank" rel="noopener noreferrer" className="block">
+          <img src={value} alt={label} className="max-h-40 rounded-lg border border-slate-700 object-cover" />
+        </a>
+      ) : (
+        <span className="break-words text-sm text-slate-200">{value}</span>
+      )}
     </div>
   );
 }

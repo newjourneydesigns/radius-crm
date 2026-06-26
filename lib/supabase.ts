@@ -639,7 +639,7 @@ export interface Notification {
 }
 
 // ---- Board Forms (public intake → card) Types ----
-export type FormFieldType = 'text' | 'textarea' | 'email' | 'url' | 'number' | 'date' | 'select';
+export type FormFieldType = 'text' | 'textarea' | 'email' | 'url' | 'number' | 'date' | 'select' | 'image';
 
 export interface FormField {
   id: string;                 // stable per-field key, used as the submission data key
@@ -648,7 +648,7 @@ export interface FormField {
   required: boolean;
   placeholder?: string;
   options?: string[];         // for 'select'
-  maps_to?: 'title' | 'description' | 'priority' | 'due_date' | 'assignee';
+  maps_to?: 'title' | 'description' | 'priority' | 'due_date' | 'assignee' | 'screenshot_url';
   // assignee config:
   assignee_options?: { id: string; name: string }[]; // members shown in the dropdown
   assignee_visible?: boolean;    // true/undefined = shown on form; false = hidden, auto-applied

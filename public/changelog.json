@@ -3,6 +3,16 @@
     "date": "2026-06-26",
     "date_display": "June 26, 2026",
     "date_iso": "2026-06-26",
+    "id": "form-image-upload",
+    "type": "feature",
+    "category": "Forms",
+    "description": "Forms now support an Image Upload field type. Add one to any form, map it to Card Screenshot, and submitters get a file picker — the image is compressed automatically and attached directly to the created card. Perfect for bug reports where a screenshot says more than words.",
+    "page": "/forms"
+  },
+  {
+    "date": "2026-06-26",
+    "date_display": "June 26, 2026",
+    "date_iso": "2026-06-26",
     "id": "card-screenshots",
     "type": "feature",
     "category": "Boards",

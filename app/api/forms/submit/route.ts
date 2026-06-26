@@ -22,6 +22,7 @@ const VALID_CARD_MAPPINGS: Array<NonNullable<FormField['maps_to']>> = [
   'priority',
   'due_date',
   'assignee',
+  'screenshot_url',
 ];
 
 type SubmittedData = Record<string, unknown>;
@@ -162,6 +163,7 @@ export async function POST(request: NextRequest) {
     let cardPriority = 'medium';
     let cardDueDate: string | null = null;
     let cardAssigneeId: string | null = null; // a user id (uuid)
+    let cardScreenshotUrl: string | null = null;
 
     for (const field of fields) {
       const mapping = getCardMapping(field);
@@ -185,6 +187,8 @@ export async function POST(request: NextRequest) {
         cardDueDate = value;
       } else if (mapping === 'assignee') {
         cardAssigneeId = value;
+      } else if (mapping === 'screenshot_url') {
+        cardScreenshotUrl = value;
       }
     }
 
@@ -227,6 +231,9 @@ export async function POST(request: NextRequest) {
       const value = submittedValueToString(data[field.id]).trim();
       if (!value) continue;
 
+      // Image URLs are attached as screenshot_url on the card; no need to embed in description.
+      if (mapping === 'screenshot_url') continue;
+
       descriptionRows.push({
         label: field.label,
         value:
@@ -268,6 +275,7 @@ export async function POST(request: NextRequest) {
         priority: cardPriority,
         due_date: cardDueDate,
         assignee: assigneeName,
+        screenshot_url: cardScreenshotUrl,
         created_by: form.user_id,
         position: nextPosition,
         is_archived: false,

@@ -17,6 +17,26 @@ const fieldCls =
   'w-full rounded-lg border border-slate-600 bg-slate-900 px-3.5 py-2.5 text-base text-white placeholder-slate-500 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-slate-500';
 const errorCls = 'border-red-500 focus:ring-red-500';
 
+const compressImage = (file: File): Promise<Blob> =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const MAX_PX = 1200;
+      const scale = Math.min(1, MAX_PX / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { reject(new Error('Canvas not supported')); return; }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Compression failed')), 'image/jpeg', 0.82);
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+
 export default function PublicFormPage() {
   const params = useParams();
   const slug = params.slug as string;
@@ -29,6 +49,8 @@ export default function PublicFormPage() {
   const [createdCardUrl, setCreatedCardUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [uploadingImage, setUploadingImage] = useState<Record<string, boolean>>({});
+  const [imageUploadErrors, setImageUploadErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!slug) return;
@@ -58,6 +80,29 @@ export default function PublicFormPage() {
 
   const setVal = (id: string, v: string) => setValues((prev) => ({ ...prev, [id]: v }));
 
+  const handleImageSelect = async (fieldId: string, file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setImageUploadErrors(prev => ({ ...prev, [fieldId]: 'Please select an image file.' }));
+      return;
+    }
+    setUploadingImage(prev => ({ ...prev, [fieldId]: true }));
+    setImageUploadErrors(prev => ({ ...prev, [fieldId]: '' }));
+    setVal(fieldId, '');
+    try {
+      const compressed = await compressImage(file);
+      const fd = new FormData();
+      fd.append('image', compressed, 'screenshot.jpg');
+      const res = await fetch('/api/forms/upload-screenshot', { method: 'POST', body: fd });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Upload failed');
+      setVal(fieldId, result.url);
+    } catch {
+      setImageUploadErrors(prev => ({ ...prev, [fieldId]: 'Upload failed. Please try again.' }));
+    } finally {
+      setUploadingImage(prev => ({ ...prev, [fieldId]: false }));
+    }
+  };
+
   const validate = (): boolean => {
     if (!form) return false;
     const errors: Record<string, string> = {};
@@ -66,7 +111,7 @@ export default function PublicFormPage() {
       if (field.maps_to === 'assignee' && field.assignee_visible === false) continue;
       const val = values[field.id]?.trim() || '';
       if (field.required && !val) {
-        errors[field.id] = `${field.label} is required`;
+        errors[field.id] = field.type === 'image' ? `${field.label} is required` : `${field.label} is required`;
       } else if (field.type === 'email' && val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
         errors[field.id] = 'Please enter a valid email address';
       } else if (field.type === 'url' && val && !/^https?:\/\/.+/.test(val)) {
@@ -80,6 +125,7 @@ export default function PublicFormPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form || !validate()) return;
+    if (Object.values(uploadingImage).some(Boolean)) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -117,6 +163,58 @@ export default function PublicFormPage() {
   };
 
   const renderField = (field: FormField) => {
+    if (field.type === 'image') {
+      const uploaded = values[field.id];
+      const uploading = uploadingImage[field.id];
+      const imgError = imageUploadErrors[field.id];
+      const hasError = !!fieldErrors[field.id];
+      return (
+        <div>
+          {uploaded ? (
+            <div className="mb-2 space-y-2">
+              <img src={uploaded} alt="Uploaded screenshot" className="max-h-48 w-full rounded-lg border border-slate-600 object-contain bg-slate-900" />
+              <button
+                type="button"
+                onClick={() => setVal(field.id, '')}
+                className="text-xs text-slate-400 hover:text-red-400 transition-colors"
+              >
+                Remove &amp; upload different image
+              </button>
+            </div>
+          ) : (
+            <label
+              className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-8 text-center cursor-pointer transition-colors ${
+                hasError ? 'border-red-500 bg-red-500/5' : 'border-slate-600 bg-slate-900/50 hover:border-slate-500 hover:bg-slate-800/50'
+              } ${uploading ? 'opacity-60 pointer-events-none' : ''}`}
+            >
+              <input
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                disabled={uploading}
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleImageSelect(field.id, f); e.target.value = ''; }}
+              />
+              {uploading ? (
+                <>
+                  <div className="h-8 w-8 rounded-full border-2 border-slate-500 border-t-white animate-spin" />
+                  <span className="text-sm text-slate-400">Uploading…</span>
+                </>
+              ) : (
+                <>
+                  <svg className="h-8 w-8 text-slate-500" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                  </svg>
+                  <span className="text-sm font-medium text-slate-300">Click to upload a screenshot</span>
+                  <span className="text-xs text-slate-500">PNG, JPG, WebP — compressed automatically</span>
+                </>
+              )}
+            </label>
+          )}
+          {imgError && <p className="mt-1.5 text-xs text-red-400">{imgError}</p>}
+        </div>
+      );
+    }
+
     const cls = `${fieldCls} ${fieldErrors[field.id] ? errorCls : ''}`;
 
     if (field.maps_to === 'assignee') {
@@ -272,10 +370,10 @@ export default function PublicFormPage() {
 
                   <button
                     type="submit"
-                    disabled={submitting}
+                    disabled={submitting || Object.values(uploadingImage).some(Boolean)}
                     className="w-full rounded-lg bg-btn-primary py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {submitting ? 'Submitting…' : 'Submit'}
+                    {submitting ? 'Submitting…' : Object.values(uploadingImage).some(Boolean) ? 'Uploading image…' : 'Submit'}
                   </button>
                 </form>
               </div>
