@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-06-26",
+    "date_display": "June 26, 2026",
+    "date_iso": "2026-06-26",
+    "id": "acpd-use-case-videos",
+    "type": "feature",
+    "category": "Help",
+    "description": "New ACPD Use Cases page — 10 video walkthroughs covering the workflows ACPDs reach for most, from morning triage to scorecard evaluations. Videos are ready to fill in as recordings are made. Linked from the Help Center.",
+    "page": "/acpd-use-cases"
+  },
+  {
     "date": "2026-06-25",
     "date_display": "June 25, 2026",
     "date_iso": "2026-06-25",
