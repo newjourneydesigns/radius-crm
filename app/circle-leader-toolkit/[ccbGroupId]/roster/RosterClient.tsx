@@ -32,6 +32,7 @@ const ABSENCE_THRESHOLD_DAYS = 15;
 const SNOOZE_DURATION_DAYS = 7;
 const ROSTER_CACHE_KEY = 'cs:roster-cache:v1';
 const ATTENDANCE_CACHE_KEY = 'cs:attendance-cache:v1';
+const ROSTER_SORT_KEY = 'cs:roster-sort:v1';
 
 type RosterCacheEntry = { groupId: string; participants: Participant[]; cachedAt: number };
 type AttendanceCacheEntry = { groupId: string; lastAttended: Record<string, string>; cachedAt: number };
@@ -194,6 +195,8 @@ export default function RosterClient({
   const [searching, setSearching] = useState(false);
   const searchRequestId = useRef(0);
 
+  const [sortBy, setSortBy] = useState<'firstName' | 'lastName'>('firstName');
+
   const [actionSheet, setActionSheet] = useState<{ name: string; phone: string } | null>(null);
   const [removeTarget, setRemoveTarget] = useState<Participant | null>(null);
   const [removing, setRemoving] = useState(false);
@@ -343,6 +346,18 @@ export default function RosterClient({
       }
     } catch {}
   }, []);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(ROSTER_SORT_KEY);
+      if (saved === 'firstName' || saved === 'lastName') setSortBy(saved);
+    } catch {}
+  }, []);
+
+  function updateSort(next: 'firstName' | 'lastName') {
+    setSortBy(next);
+    try { localStorage.setItem(ROSTER_SORT_KEY, next); } catch {}
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -611,6 +626,15 @@ export default function RosterClient({
     out.sort((a, b) => b.daysAway - a.daysAway);
     return out;
   }, [participants, lastAttended, absentDismissed, absentSnoozed]);
+
+  const sortedParticipants = useMemo(() => {
+    return [...participants].sort((a, b) => {
+      if (sortBy === 'lastName') {
+        return (a.lastName || '').localeCompare(b.lastName || '');
+      }
+      return (a.firstName || '').localeCompare(b.firstName || '');
+    });
+  }, [participants, sortBy]);
 
   function dismissAbsent(id: string, lastAttendedDate: string) {
     setAbsentDismissed((prev) => {
@@ -891,11 +915,31 @@ export default function RosterClient({
             </div>
           )}
 
+          {participants.length > 0 && (
+            <div className="flex items-center gap-1.5 text-xs mb-3 -mt-1">
+              <span className="text-neutral-500">Sort:</span>
+              <button
+                type="button"
+                onClick={() => updateSort('firstName')}
+                className={`px-2.5 py-1 rounded-full transition-colors font-semibold ${sortBy === 'firstName' ? 'bg-[color:var(--cs-green)] text-white' : 'border border-[color:var(--cs-border)] text-neutral-600 hover:border-[color:var(--cs-green)] hover:text-[color:var(--cs-green-darker)]'}`}
+              >
+                First name
+              </button>
+              <button
+                type="button"
+                onClick={() => updateSort('lastName')}
+                className={`px-2.5 py-1 rounded-full transition-colors font-semibold ${sortBy === 'lastName' ? 'bg-[color:var(--cs-green)] text-white' : 'border border-[color:var(--cs-border)] text-neutral-600 hover:border-[color:var(--cs-green)] hover:text-[color:var(--cs-green-darker)]'}`}
+              >
+                Last name
+              </button>
+            </div>
+          )}
+
           <div className="space-y-2 mb-4">
             {participants.length === 0 && (
               <p className="text-sm text-neutral-500 py-2">No one on your roster yet.</p>
             )}
-            {participants.map((p) => {
+            {sortedParticipants.map((p) => {
               const fullName = p.fullName || `${p.firstName} ${p.lastName}`.trim();
               const bday = parseBirthday(p.birthday);
               const lastAttendedDate = lastAttended[p.id];
