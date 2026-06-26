@@ -3,6 +3,16 @@
     "date": "2026-06-25",
     "date_display": "June 25, 2026",
     "date_iso": "2026-06-25",
+    "id": "campaigns-stats-reorder",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Reordered campaign stat cards and added Total Submitted (submitted in group + not in group). Row 1: Invited · Total Submitted · Unsubmitted · Completion. Row 2: Submitted in Group · Contacted · Not in Group · Review Matches.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
     "id": "campaigns-contacted-preserves-unsubmitted",
     "type": "fix",
     "category": "Campaigns",

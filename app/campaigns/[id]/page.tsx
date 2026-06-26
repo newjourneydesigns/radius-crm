@@ -571,7 +571,7 @@ export default function CampaignDetailPage() {
     );
   }
 
-  const expectedCount = (campaign.submitted_count ?? 0) + (campaign.missing_count ?? 0) + (campaign.needs_review_count ?? 0) + (campaign.contacted_count ?? 0);
+  const expectedCount = (campaign.submitted_count ?? 0) + (campaign.missing_count ?? 0) + (campaign.needs_review_count ?? 0);
 
   return (
     <ProtectedRoute>
@@ -655,7 +655,7 @@ export default function CampaignDetailPage() {
           </div>
         )}
 
-        {/* Stats — top row: Expected / Submitted / Missing / Completion */}
+        {/* Stats */}
         {campaign.last_reconciled_at && (
           <div className="space-y-3 mb-6">
             {groupFilter && (
@@ -663,9 +663,18 @@ export default function CampaignDetailPage() {
                 Showing stats for: {groupFilter}
               </p>
             )}
+            {/* Row 1 — primary headline numbers */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <StatCard label="Invited" value={(filteredStats?.expected ?? expectedCount) || null} />
-              <StatCard label="Submitted" value={filteredStats?.submitted ?? campaign.submitted_count} accent="text-green-400" />
+              <StatCard
+                label="Total Submitted"
+                value={
+                  filteredStats
+                    ? filteredStats.submitted
+                    : ((campaign.submitted_count ?? 0) + (campaign.not_in_group_count ?? 0)) || null
+                }
+                accent="text-green-400"
+              />
               <StatCard label="Unsubmitted" value={filteredStats?.missing ?? campaign.missing_count} accent="text-red-400" />
               <StatCard
                 label="Completion"
@@ -675,10 +684,12 @@ export default function CampaignDetailPage() {
                 accent={pctColor(filteredStats?.completion_pct ?? campaign.completion_pct)}
               />
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            {/* Row 2 — detail breakdown */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <StatCard label="Submitted in Group" value={filteredStats?.submitted ?? campaign.submitted_count} accent="text-green-400/70" />
+              <StatCard label="Contacted" value={filteredStats?.contacted ?? campaign.contacted_count} accent="text-indigo-400" />
               <StatCard label="Not in Group" value={filteredStats ? null : campaign.not_in_group_count} />
               <StatCard label="Review Matches" value={filteredStats?.needs_review ?? campaign.needs_review_count} accent="text-amber-400" />
-              <StatCard label="Contacted" value={filteredStats?.contacted ?? campaign.contacted_count} accent="text-indigo-400" />
             </div>
           </div>
         )}
