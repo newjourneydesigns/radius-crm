@@ -346,7 +346,7 @@ export default function CampaignDetailPage() {
       else if (sortCol === 'group')    { av = (a.source_group_name || '').toLowerCase(); bv = (b.source_group_name || '').toLowerCase(); }
       else if (sortCol === 'submitted') { av = submittedAt(a); bv = submittedAt(b); }
       else if (sortCol === 'match')    { av = (a.match_method || '').toLowerCase(); bv = (b.match_method || '').toLowerCase(); }
-      else if (sortCol === 'last_contacted') { av = a.contacted_at || ''; bv = b.contacted_at || ''; }
+      else if (sortCol === 'last_contacted') { av = a.contacted_at || '0000'; bv = b.contacted_at || '0000'; }
       const cmp = av < bv ? -1 : av > bv ? 1 : 0;
       return sortDir === 'asc' ? cmp : -cmp;
     });
