@@ -69,6 +69,46 @@ const BoardIcon = () => (
     <rect x="3" y="16" width="7" height="5" rx="1.5" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
+const CircleIcon = () => (
+  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.6} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+  </svg>
+);
+const CampaignIcon = () => (
+  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.6} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 01-1.44-4.282m3.102.069a18.03 18.03 0 01-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 018.835 2.535M10.34 6.66a23.847 23.847 0 008.835-2.535m0 0A23.74 23.74 0 0018.795 3m.38 1.125a23.91 23.91 0 011.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 001.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 010 3.46" />
+  </svg>
+);
+const BulkMessageIcon = () => (
+  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.6} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+  </svg>
+);
+const EmailIcon = () => (
+  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.6} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+  </svg>
+);
+const NavIcon = () => (
+  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.6} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" />
+  </svg>
+);
+const NotebookIcon = () => (
+  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.6} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+  </svg>
+);
+const FormIcon = () => (
+  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.6} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08C20.155 4.01 21 4.973 21 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+  </svg>
+);
+const AutomationIcon = () => (
+  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.6} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+  </svg>
+);
 
 // ── Use case data ─────────────────────────────────────────────────────
 
@@ -88,7 +128,7 @@ const USE_CASES: UseCase[] = [
     category: 'Weekly',
     title: 'Spot at-risk leaders fast',
     description:
-      'Combine the Follow-Up Required filter and the Event Summary filter on the Dashboard to surface leaders who haven\'t met recently or need a check-in — before they fade.',
+      'Combine the Follow-Up Required and Event Summary filters on the Dashboard to surface leaders who haven\'t met recently or need a check-in — before they fade.',
     youtubeId: null,
     tryIt: { label: 'Open Dashboard', href: '/dashboard' },
     icon: FilterIcon,
@@ -101,6 +141,16 @@ const USE_CASES: UseCase[] = [
       'Pull up any leader\'s full history in seconds — pinned notes, recent interactions, open to-dos — then log a call, text, or in-person visit without leaving the profile.',
     youtubeId: null,
     icon: ProfileIcon,
+  },
+  {
+    id: 'inviting-circle',
+    category: 'As needed',
+    title: 'Inviting and connecting people to a circle',
+    description:
+      'Walk through how to add a new member to a leader\'s circle — from the Roster tab, using Person Lookup to find them in CCB, and making sure they\'re connected and showing up in Radius.',
+    youtubeId: null,
+    tryIt: { label: 'Person Lookup', href: '/person-lookup' },
+    icon: CircleIcon,
   },
   {
     id: 'ai-meeting-prep',
@@ -150,6 +200,85 @@ const USE_CASES: UseCase[] = [
     icon: EncourageIcon,
   },
   {
+    id: 'campaigns',
+    category: 'As needed',
+    title: 'Campaigns — a full walkthrough',
+    description:
+      'Create a campaign, write a message with merge variables like first name and form link, track who\'s submitted and who hasn\'t, follow up with the unsubmitted group, and close it out.',
+    youtubeId: null,
+    tryIt: { label: 'Open Campaigns', href: '/campaigns' },
+    icon: CampaignIcon,
+  },
+  {
+    id: 'bulk-message',
+    category: 'As needed',
+    title: 'Bulk messaging a filtered group',
+    description:
+      'Filter leaders by campus, status, or circle type, then compose one message that goes to everyone in the result. Each send is automatically logged as a connection on every recipient\'s profile.',
+    youtubeId: null,
+    tryIt: { label: 'Open Bulk Message', href: '/bulk-message' },
+    icon: BulkMessageIcon,
+  },
+  {
+    id: 'daily-email',
+    category: 'Daily',
+    title: 'Your daily digest email',
+    description:
+      'See what lands in your inbox each morning — overdue follow-ups, due to-dos, and upcoming visits — and how to opt in, adjust your preferences, and act on it before opening Radius.',
+    youtubeId: null,
+    tryIt: { label: 'Open Settings', href: '/settings' },
+    icon: EmailIcon,
+  },
+  {
+    id: 'navbar',
+    category: 'Daily',
+    title: 'Nav bar orientation',
+    description:
+      'A ground-level tour of the sidebar and avatar menu — what lives where, what\'s ACPD-only, and how to get to any tool in two taps from anywhere in the app.',
+    youtubeId: null,
+    icon: NavIcon,
+  },
+  {
+    id: 'notebook',
+    category: 'As needed',
+    title: 'Notebook — and the power of linking',
+    description:
+      'Create pages and folders in the Notebook, then link boards, cards, and leaders directly inside a note. Show how a prep doc, a project card, and a leader profile all connect in one place.',
+    youtubeId: null,
+    tryIt: { label: 'Open Notebook', href: '/notebook' },
+    icon: NotebookIcon,
+  },
+  {
+    id: 'forms',
+    category: 'As needed',
+    title: 'Forms — how to use them',
+    description:
+      'Create a form tied to a board, share the link with leaders, and watch submissions flow in as cards. Walk through field setup, the public submission view, and reviewing responses.',
+    youtubeId: null,
+    tryIt: { label: 'Open Forms', href: '/forms' },
+    icon: FormIcon,
+  },
+  {
+    id: 'boards-deep-dive',
+    category: 'As needed',
+    title: 'Boards, lists, and cards — oh my',
+    description:
+      'A full Boards walkthrough: create a board, build out lists, add cards with checklists and due dates, link leaders to cards, drag between columns, and keep a project moving.',
+    youtubeId: null,
+    tryIt: { label: 'Open Boards', href: '/boards' },
+    icon: BoardIcon,
+  },
+  {
+    id: 'automations',
+    category: 'As needed',
+    title: 'List automations and quick actions',
+    description:
+      'Set up column automations so cards move, checklists appear, or due dates clear automatically when a card lands in a list. Show quick actions for bulk-completing or archiving cards.',
+    youtubeId: null,
+    tryIt: { label: 'Open Boards', href: '/boards' },
+    icon: AutomationIcon,
+  },
+  {
     id: 'progress',
     category: 'Weekly',
     title: 'Review campus progress',
@@ -158,16 +287,6 @@ const USE_CASES: UseCase[] = [
     youtubeId: null,
     tryIt: { label: 'Open Progress', href: '/progress' },
     icon: ProgressIcon,
-  },
-  {
-    id: 'boards',
-    category: 'As needed',
-    title: 'Run a project on Boards',
-    description:
-      'Use a kanban board to coordinate anything that spans multiple leaders — a new-leader onboarding wave, a semester kickoff, a paused-leader re-engagement campaign.',
-    youtubeId: null,
-    tryIt: { label: 'Open Boards', href: '/boards' },
-    icon: BoardIcon,
   },
 ];
 
@@ -179,7 +298,7 @@ const CATEGORY_STYLES: Record<UseCase['category'], string> = {
 
 // ── Video card ────────────────────────────────────────────────────────
 
-function VideoCard({ uc, index }: { uc: UseCase; index: number }) {
+function VideoCard({ uc }: { uc: UseCase }) {
   const [playing, setPlaying] = useState(false);
   const Icon = uc.icon;
   const thumb = uc.youtubeId
@@ -201,7 +320,6 @@ function VideoCard({ uc, index }: { uc: UseCase; index: number }) {
           />
         ) : (
           <>
-            {/* Thumbnail or placeholder */}
             {thumb ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -211,7 +329,6 @@ function VideoCard({ uc, index }: { uc: UseCase; index: number }) {
               />
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                {/* Subtle grid background */}
                 <div
                   className="absolute inset-0 opacity-[0.04]"
                   style={{
@@ -220,14 +337,6 @@ function VideoCard({ uc, index }: { uc: UseCase; index: number }) {
                     backgroundSize: '32px 32px',
                   }}
                 />
-                {/* Large faded index */}
-                <span
-                  className="absolute right-4 bottom-2 text-[80px] font-black leading-none text-white/5 select-none pointer-events-none"
-                  aria-hidden
-                >
-                  {String(index + 1).padStart(2, '0')}
-                </span>
-                {/* Icon */}
                 <span className="relative z-10 flex items-center justify-center w-14 h-14 rounded-2xl bg-zinc-700/70 text-vc-300 ring-1 ring-zinc-600">
                   <Icon />
                 </span>
@@ -235,7 +344,6 @@ function VideoCard({ uc, index }: { uc: UseCase; index: number }) {
               </div>
             )}
 
-            {/* Play button overlay — only shown when there's a real video */}
             {uc.youtubeId && (
               <button
                 onClick={() => setPlaying(true)}
@@ -255,7 +363,7 @@ function VideoCard({ uc, index }: { uc: UseCase; index: number }) {
 
       {/* Content */}
       <div className="flex flex-col flex-1 p-4 sm:p-5">
-        <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="mb-2">
           <span
             className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${CATEGORY_STYLES[uc.category]}`}
           >
@@ -294,6 +402,10 @@ export default function ACPDUseCasesPage() {
 
   const visible = filter === ALL ? USE_CASES : USE_CASES.filter(uc => uc.category === filter);
 
+  const daily = USE_CASES.filter(uc => uc.category === 'Daily').length;
+  const weekly = USE_CASES.filter(uc => uc.category === 'Weekly').length;
+  const asNeeded = USE_CASES.filter(uc => uc.category === 'As needed').length;
+
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-[#0f1117]">
@@ -314,13 +426,26 @@ export default function ACPDUseCasesPage() {
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-widest text-vc-400 mb-0.5">Radius</p>
                 <h1 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight leading-tight">
-                  Top 10 ACPD Use Cases
+                  ACPD Video Library
                 </h1>
               </div>
             </div>
             <p className="text-sm text-slate-400 max-w-xl ml-8">
-              Short video walkthroughs for every workflow an ACPD reaches for most — from the daily morning triage to the occasional scorecard evaluation.
+              Short video walkthroughs for every workflow an ACPD reaches for — from daily triage to boards, campaigns, and automations.
             </p>
+          </div>
+
+          {/* Stats row */}
+          <div className="flex flex-wrap gap-3 mb-6 ml-8">
+            <div className="text-xs text-slate-500">
+              <span className="text-white font-semibold">{USE_CASES.length}</span> videos total
+              <span className="mx-2 text-slate-700">·</span>
+              <span className="text-emerald-400 font-medium">{daily} daily</span>
+              <span className="mx-2 text-slate-700">·</span>
+              <span className="text-sky-400 font-medium">{weekly} weekly</span>
+              <span className="mx-2 text-slate-700">·</span>
+              <span className="text-amber-400 font-medium">{asNeeded} as needed</span>
+            </div>
           </div>
 
           {/* Filter chips */}
@@ -346,9 +471,9 @@ export default function ACPDUseCasesPage() {
           </div>
 
           {/* Grid */}
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2">
-            {visible.map((uc, i) => (
-              <VideoCard key={uc.id} uc={uc} index={USE_CASES.indexOf(uc)} />
+          <div className="grid gap-5 sm:grid-cols-2">
+            {visible.map(uc => (
+              <VideoCard key={uc.id} uc={uc} />
             ))}
           </div>
 

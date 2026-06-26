@@ -1062,8 +1062,8 @@ export default function HelpPage() {
                 </svg>
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white">Top 10 ACPD use cases</p>
-                <p className="text-xs text-slate-400 mt-0.5">Video walkthroughs for the workflows you reach for most.</p>
+                <p className="text-sm font-semibold text-white">ACPD Video Library</p>
+                <p className="text-xs text-slate-400 mt-0.5">Video walkthroughs for every workflow you reach for most.</p>
               </div>
               <span className="text-slate-400 group-hover:text-white text-sm font-medium shrink-0 hidden sm:inline">
                 Watch →
