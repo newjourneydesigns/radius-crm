@@ -3,6 +3,16 @@
     "date": "2026-06-26",
     "date_display": "June 26, 2026",
     "date_iso": "2026-06-26",
+    "id": "copy-card-screenshot",
+    "type": "fix",
+    "category": "Boards",
+    "description": "Copy Card Content now includes the screenshot URL so it travels with the rest of the card context when sharing or pasting into AI tools.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-06-26",
+    "date_display": "June 26, 2026",
+    "date_iso": "2026-06-26",
     "id": "form-image-upload",
     "type": "feature",
     "category": "Forms",
