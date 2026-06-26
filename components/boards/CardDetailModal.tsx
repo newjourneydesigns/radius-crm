@@ -572,7 +572,6 @@ export function CardDetailModal({
       selectedLabels.length ? `Labels: ${selectedLabels.join(', ')}` : null,
       assignees.length ? `Assignees: ${assignees.join(', ')}` : null,
       linkedLeaderId ? `Circle Leader: ${leader?.name || `Leader #${linkedLeaderId}`}` : null,
-      screenshotUrl ? `Screenshot: ${screenshotUrl.split('?')[0]}` : null,
       cardUrl ? `Card link: ${cardUrl}` : null,
     ].filter(Boolean);
 
@@ -638,7 +637,34 @@ export function CardDetailModal({
 
   const handleCopyCardForAi = async () => {
     try {
-      await writeClipboardText(buildAiCopyText());
+      const text = buildAiCopyText();
+      if (screenshotUrl && navigator.clipboard?.write) {
+        try {
+          const res = await fetch(screenshotUrl);
+          const blob = await res.blob();
+          const pngBlob = blob.type === 'image/png' ? blob : await new Promise<Blob>((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.naturalWidth;
+              canvas.height = img.naturalHeight;
+              canvas.getContext('2d')!.drawImage(img, 0, 0);
+              canvas.toBlob(b => b ? resolve(b) : reject(new Error('conversion failed')), 'image/png');
+            };
+            img.onerror = reject;
+            img.src = URL.createObjectURL(blob);
+          });
+          await navigator.clipboard.write([new ClipboardItem({
+            'text/plain': new Blob([text], { type: 'text/plain' }),
+            'image/png': pngBlob,
+          })]);
+          setCopyStatus('copied');
+          return;
+        } catch {
+          // fall through to text-only copy
+        }
+      }
+      await writeClipboardText(text);
       setCopyStatus('copied');
     } catch {
       setCopyStatus('error');
