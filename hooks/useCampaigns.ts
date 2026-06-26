@@ -43,6 +43,7 @@ export interface CampaignPerson {
   match_method: string | null;
   source_group_id: string | null;
   source_group_name: string | null;
+  note: string | null;
   contact_note: string | null;
   contacted_at: string | null;
   contacted_by: string | null;

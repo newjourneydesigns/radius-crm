@@ -3,6 +3,16 @@
     "date": "2026-06-25",
     "date_display": "June 25, 2026",
     "date_iso": "2026-06-25",
+    "id": "campaigns-person-notes",
+    "type": "feature",
+    "category": "Campaigns",
+    "description": "Every row on the Unsubmitted, Not in Group, and Review Matches tabs now has an expand arrow to reveal an inline note editor. Type a note about any person and it saves automatically on blur, or click Save explicitly. A pencil icon replaces the arrow when a note already exists.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
     "id": "campaigns-last-contacted-column",
     "type": "improvement",
     "category": "Campaigns",

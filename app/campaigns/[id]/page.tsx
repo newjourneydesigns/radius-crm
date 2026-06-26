@@ -163,6 +163,8 @@ export default function CampaignDetailPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('missing');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
+  const [noteSaved, setNoteSaved] = useState<Record<string, boolean>>({});
   const [showFollowUp, setShowFollowUp] = useState(false);
   const [msgTemplate, setMsgTemplate] = useState('');
   const [contactNote, setContactNote] = useState('');
@@ -390,8 +392,21 @@ export default function CampaignDetailPage() {
     });
   }
 
-  function toggleExpand(personId: string) {
-    setExpandedRows(prev => {
+  // Note tabs: rows that show the inline note editor on expand
+  const noteTabKeys: TabKey[] = ['missing', 'not_in_group', 'needs_review'];
+  const isNoteTab = noteTabKeys.includes(activeTab);
+
+  async function saveNote(personId: string, note: string) {
+    const headers = await authHeader();
+    await fetch(`/api/campaigns/${id}/people/${personId}`, {
+      method: 'PATCH',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note }),
+    });
+    setNoteSaved(prev => ({ ...prev, [personId]: true }));
+    setAllPeople(prev => prev.map(p => p.id === personId ? { ...p, note: note.trim() || null } : p));
+    setTimeout(() => setNoteSaved(prev => { const n = { ...prev }; delete n[personId]; return n; }), 2000);
+  }    setExpandedRows(prev => {
       const next = new Set(prev);
       if (next.has(personId)) next.delete(personId);
       else next.add(personId);
@@ -861,6 +876,8 @@ export default function CampaignDetailPage() {
                         {activeTab === 'needs_review' && (
                           <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Form Name</th>
                         )}
+                        {/* Expand toggle for note tabs */}
+                        {isNoteTab && <th className="w-10 px-4 py-3" />}
                         {activeTab === 'submitted' && (
                           <SortTh col="submitted" label="Submitted" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
                         )}
@@ -932,6 +949,22 @@ export default function CampaignDetailPage() {
                             {activeTab === 'submitted' && (
                               <td className="px-4 py-3 text-xs text-slate-500">{p.match_method || '—'}</td>
                             )}
+                            {isNoteTab && (
+                              <td className="px-4 py-3">
+                                <button
+                                  className={`transition-colors text-xs ${expandedRows.has(p.id) ? 'text-indigo-400' : 'text-slate-600 hover:text-slate-300'}`}
+                                  title={expandedRows.has(p.id) ? 'Hide note' : (p.note ? 'Edit note' : 'Add note')}
+                                  onClick={() => {
+                                    toggleExpand(p.id);
+                                    if (!expandedRows.has(p.id)) {
+                                      setNoteDrafts(prev => ({ ...prev, [p.id]: p.note ?? '' }));
+                                    }
+                                  }}
+                                >
+                                  {expandedRows.has(p.id) ? '▲' : (p.note ? '📝' : '▼')}
+                                </button>
+                              </td>
+                            )}
                             {activeTab === 'submitted' && (
                               <td className="px-4 py-3">
                                 <button
@@ -944,6 +977,29 @@ export default function CampaignDetailPage() {
                               </td>
                             )}
                           </tr>
+                          {isNoteTab && expandedRows.has(p.id) && (
+                            <tr key={`${p.id}-note`} className="bg-zinc-900/60">
+                              <td colSpan={99} className="px-6 py-3">
+                                <div className="flex items-start gap-3">
+                                  <textarea
+                                    className="flex-1 bg-zinc-800 border border-zinc-700 text-white placeholder-slate-500 rounded-lg px-3 py-2 text-sm resize-none h-20 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                                    placeholder="Add a note about this person…"
+                                    value={noteDrafts[p.id] ?? p.note ?? ''}
+                                    onChange={e => setNoteDrafts(prev => ({ ...prev, [p.id]: e.target.value }))}
+                                    onBlur={e => saveNote(p.id, e.target.value)}
+                                  />
+                                  <div className="flex flex-col items-end gap-1 pt-1">
+                                    <button
+                                      className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                                      onClick={() => saveNote(p.id, noteDrafts[p.id] ?? p.note ?? '')}
+                                    >
+                                      {noteSaved[p.id] ? 'Saved ✓' : 'Save'}
+                                    </button>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
                           {activeTab === 'submitted' && expandedRows.has(p.id) && (
                             <tr key={`${p.id}-detail`} className="bg-zinc-900/60">
                               <td colSpan={uniqueGroups.length >= 2 ? 6 : 5} className="px-6 py-4">
