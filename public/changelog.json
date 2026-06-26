@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-06-26",
+    "date_display": "June 26, 2026",
+    "date_iso": "2026-06-26",
+    "id": "radius-blog",
+    "type": "feature",
+    "category": "Blog",
+    "description": "Introducing the Radius Blog — a video library and article hub for the team. Each post has its own shareable URL, a YouTube embed, rich-text description with links, and both a posted and updated date. Admins can manage all articles from App Settings → Radius Blog. Recent posts appear at the top of the Help Center, and the full blog lives at /blog.",
+    "page": "/blog"
+  },
+  {
     "date": "2026-06-24",
     "date_display": "June 24, 2026",
     "date_iso": "2026-06-24",

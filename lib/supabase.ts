@@ -283,6 +283,21 @@ export interface CircleVisit {
   circle_leader?: CircleLeader; // For joined queries
 }
 
+// ---- Blog Article Types ----
+
+export interface BlogArticle {
+  id: string;
+  title: string;
+  description: string;
+  youtube_url?: string | null;
+  slug: string;
+  published: boolean;
+  posted_at: string;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // ---- Progress Tracking Types ----
 
 export type ScorecardDimension = 'reach' | 'connect' | 'disciple' | 'develop';

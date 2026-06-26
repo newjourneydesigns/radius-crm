@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BellOff, Building2, CalendarDays, ClipboardList, FileText, Mail, Settings, Shapes, Users } from 'lucide-react';
+import { BellOff, BookOpen, Building2, CalendarDays, ClipboardList, FileText, Mail, Settings, Shapes, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import NoteTemplatesManager from '../../components/settings/NoteTemplatesManager';
 import ScorecardQuestionsManager from '../../components/settings/ScorecardQuestionsManager';
 import TouchpointSettingsManager from '../../components/settings/TouchpointSettingsManager';
+import BlogManager from '../../components/settings/BlogManager';
 import ConfirmModal from '../../components/ui/ConfirmModal';
 import AlertModal from '../../components/ui/AlertModal';
 import ServiceWorkerUtils from '../../components/ServiceWorkerUtils';
@@ -73,7 +74,7 @@ export default function SettingsPage() {
 
   // UI state
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'directors' | 'host_team_directors' | 'circles' | 'statuses' | 'frequencies' | 'campuses' | 'templates' | 'scorecard' | 'touchpoints' | 'app'>('directors');
+  const [activeTab, setActiveTab] = useState<'directors' | 'host_team_directors' | 'circles' | 'statuses' | 'frequencies' | 'campuses' | 'templates' | 'scorecard' | 'touchpoints' | 'blog' | 'app'>('directors');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{isOpen: boolean, type: string, id: number, name: string}>({
     isOpen: false, type: '', id: 0, name: ''
   });
@@ -598,6 +599,7 @@ export default function SettingsPage() {
     { id: 'templates', label: 'Note Templates', icon: FileText },
     { id: 'scorecard', label: 'Scorecard Questions', icon: ClipboardList },
     { id: 'touchpoints', label: 'Touchpoint Cadence', icon: CalendarDays },
+    { id: 'blog', label: 'Radius Blog', icon: BookOpen },
     { id: 'app', label: 'App Management', icon: Settings }
   ];
 
@@ -1356,6 +1358,16 @@ export default function SettingsPage() {
               <div className="p-6">
                 <TouchpointSettingsManager />
               </div>
+            </div>
+          )}
+
+          {activeTab === 'blog' && (
+            <div className="p-6">
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-1">Radius Blog</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                Publish articles and video guides for the team. Each article gets its own shareable URL.
+              </p>
+              <BlogManager />
             </div>
           )}
 

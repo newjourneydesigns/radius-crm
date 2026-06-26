@@ -2,8 +2,11 @@
 
 import { useState, useMemo, useEffect, useRef, ReactNode } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import Fuse from 'fuse.js';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import { BlogArticle } from '../../lib/supabase';
+import { extractYouTubeId, youTubeThumbnail } from '../../lib/youtube';
 
 type Level = 'beginner' | 'intermediate' | 'power';
 type Category =
@@ -870,6 +873,7 @@ export default function HelpPage() {
   const [activeCategory, setActiveCategory] = useState<Category | 'All'>('All');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [changelog, setChangelog] = useState<ChangelogEntry[]>([]);
+  const [recentPosts, setRecentPosts] = useState<BlogArticle[]>([]);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Load changelog teaser
@@ -878,6 +882,14 @@ export default function HelpPage() {
       .then(r => r.json())
       .then((entries: ChangelogEntry[]) => setChangelog(entries.slice(0, 4)))
       .catch(() => setChangelog([]));
+  }, []);
+
+  // Load recent blog posts
+  useEffect(() => {
+    fetch('/api/blog')
+      .then(r => r.json())
+      .then((data: BlogArticle[]) => setRecentPosts(Array.isArray(data) ? data.slice(0, 3) : []))
+      .catch(() => setRecentPosts([]));
   }, []);
 
   // Keyboard shortcut for search focus
@@ -957,6 +969,55 @@ export default function HelpPage() {
               <span className="hidden sm:inline"> Press <Kbd>/</Kbd> to jump to search.</span>
             </p>
           </div>
+
+          {/* ─── Radius Blog teaser ─── */}
+          {recentPosts.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-white uppercase tracking-wide">Radius Blog</h2>
+                <Link href="/blog" className="text-xs text-vc-300 hover:text-vc-200 transition-colors">
+                  All articles →
+                </Link>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {recentPosts.map(post => {
+                  const videoId = post.youtube_url ? extractYouTubeId(post.youtube_url) : null;
+                  const thumb = videoId ? youTubeThumbnail(videoId) : null;
+                  return (
+                    <Link
+                      key={post.id}
+                      href={`/blog/${post.slug}`}
+                      className="group flex gap-3 items-center bg-zinc-800 border border-zinc-700/80 rounded-xl p-3 hover:border-zinc-600 hover:bg-zinc-700/40 transition-all"
+                    >
+                      <div className="relative w-16 h-10 shrink-0 rounded-md overflow-hidden bg-zinc-700">
+                        {thumb ? (
+                          <Image src={thumb} alt={post.title} fill className="object-cover" unoptimized />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <svg className="w-4 h-4 text-zinc-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                            </svg>
+                          </div>
+                        )}
+                        {videoId && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-5 h-5 rounded-full bg-black/60 flex items-center justify-center">
+                              <svg className="w-2.5 h-2.5 text-white ml-px" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs font-medium text-slate-200 group-hover:text-white transition-colors line-clamp-2 leading-snug">
+                        {post.title}
+                      </p>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* ─── Get Started banner ─── */}
           <Link
