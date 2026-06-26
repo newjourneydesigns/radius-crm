@@ -392,10 +392,6 @@ export default function CampaignDetailPage() {
     });
   }
 
-  // Note tabs: rows that show the inline note editor on expand
-  const noteTabKeys: TabKey[] = ['missing', 'not_in_group', 'needs_review'];
-  const isNoteTab = noteTabKeys.includes(activeTab);
-
   async function saveNote(personId: string, note: string) {
     const headers = await authHeader();
     await fetch(`/api/campaigns/${id}/people/${personId}`, {
