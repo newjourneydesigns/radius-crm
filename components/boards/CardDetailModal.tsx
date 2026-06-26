@@ -184,7 +184,8 @@ export function CardDetailModal({
   const [targetSuggestionGroupId, setTargetSuggestionGroupId] = useState<string>('__new__');
   const [convertingItemId, setConvertingItemId] = useState<string | null>(null);
   const [convertColumnId, setConvertColumnId] = useState(card.column_id);
-  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'copied-with-image' | 'error'>('idle');
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
+  const [screenshotCopied, setScreenshotCopied] = useState(false);
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(card.screenshot_url ?? null);
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
   const [screenshotError, setScreenshotError] = useState('');
@@ -637,40 +638,38 @@ export function CardDetailModal({
 
   const handleCopyCardForAi = async () => {
     try {
-      const text = buildAiCopyText();
-      let withImage = false;
-      if (screenshotUrl && navigator.clipboard?.write) {
-        try {
-          const res = await fetch(screenshotUrl);
-          const blob = await res.blob();
-          const pngBlob = blob.type === 'image/png' ? blob : await new Promise<Blob>((resolve, reject) => {
-            const img = new Image();
-            img.onload = () => {
-              const canvas = document.createElement('canvas');
-              canvas.width = img.naturalWidth;
-              canvas.height = img.naturalHeight;
-              canvas.getContext('2d')!.drawImage(img, 0, 0);
-              canvas.toBlob(b => b ? resolve(b) : reject(new Error('conversion failed')), 'image/png');
-            };
-            img.onerror = reject;
-            img.src = URL.createObjectURL(blob);
-          });
-          await navigator.clipboard.write([new ClipboardItem({
-            'text/plain': new Blob([text], { type: 'text/plain' }),
-            'image/png': pngBlob,
-          })]);
-          withImage = true;
-        } catch {
-          // fall through to text-only copy
-        }
-      }
-      if (!withImage) await writeClipboardText(text);
-      setCopyStatus(withImage ? 'copied-with-image' : 'copied');
+      await writeClipboardText(buildAiCopyText());
+      setCopyStatus('copied');
     } catch {
       setCopyStatus('error');
     }
     if (copyStatusTimerRef.current) clearTimeout(copyStatusTimerRef.current);
     copyStatusTimerRef.current = setTimeout(() => setCopyStatus('idle'), 2200);
+  };
+
+  const handleCopyScreenshot = async () => {
+    if (!screenshotUrl) return;
+    try {
+      const res = await fetch(screenshotUrl);
+      const blob = await res.blob();
+      const pngBlob = blob.type === 'image/png' ? blob : await new Promise<Blob>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          canvas.getContext('2d')!.drawImage(img, 0, 0);
+          canvas.toBlob(b => b ? resolve(b) : reject(new Error('conversion failed')), 'image/png');
+        };
+        img.onerror = reject;
+        img.src = URL.createObjectURL(blob);
+      });
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
+      setScreenshotCopied(true);
+      setTimeout(() => setScreenshotCopied(false), 2200);
+    } catch {
+      // silently fail — image copy isn't critical
+    }
   };
 
   const suggestChecklistItems = async () => {
@@ -1090,6 +1089,14 @@ export function CardDetailModal({
                     title="Remove screenshot"
                   >
                     <X size={12} />
+                  </button>
+                  <button
+                    className="kb-screenshot-remove"
+                    style={{ right: 28 }}
+                    onClick={handleCopyScreenshot}
+                    title="Copy screenshot to clipboard"
+                  >
+                    {screenshotCopied ? <Check size={12} /> : <Copy size={12} />}
                   </button>
                 </div>
               )}
@@ -1891,13 +1898,13 @@ export function CardDetailModal({
             {/* Actions */}
             <div style={{ borderTop: '1px solid #2a2d3a', paddingTop: 16, marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <button
-                className={`kb-btn ${copyStatus === 'copied' || copyStatus === 'copied-with-image' ? 'kb-btn-primary' : 'kb-btn-ghost'}`}
+                className={`kb-btn ${copyStatus === 'copied' ? 'kb-btn-primary' : 'kb-btn-ghost'}`}
                 onClick={handleCopyCardForAi}
                 style={{ width: '100%', justifyContent: 'center' }}
                 title="Copy this card as formatted text for an AI chat"
               >
-                {copyStatus === 'copied' || copyStatus === 'copied-with-image' ? <Check size={13} /> : <Copy size={13} />}
-                {copyStatus === 'copied-with-image' ? 'Copied + screenshot' : copyStatus === 'copied' ? 'Copied for AI' : copyStatus === 'error' ? 'Copy Failed' : 'Copy content'}
+                {copyStatus === 'copied' ? <Check size={13} /> : <Copy size={13} />}
+                {copyStatus === 'copied' ? 'Copied for AI' : copyStatus === 'error' ? 'Copy Failed' : 'Copy content'}
               </button>
               <button
                 className="kb-btn kb-btn-ghost"
