@@ -406,7 +406,14 @@ export default function CampaignDetailPage() {
     setNoteSaved(prev => ({ ...prev, [personId]: true }));
     setAllPeople(prev => prev.map(p => p.id === personId ? { ...p, note: note.trim() || null } : p));
     setTimeout(() => setNoteSaved(prev => { const n = { ...prev }; delete n[personId]; return n; }), 2000);
-  }    setExpandedRows(prev => {
+  }
+
+  // Note tabs: rows that show the inline note editor on expand
+  const noteTabKeys: TabKey[] = ['missing', 'not_in_group', 'needs_review'];
+  const isNoteTab = noteTabKeys.includes(activeTab);
+
+  function toggleExpand(personId: string) {
+    setExpandedRows(prev => {
       const next = new Set(prev);
       if (next.has(personId)) next.delete(personId);
       else next.add(personId);
