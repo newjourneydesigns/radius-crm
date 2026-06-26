@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-06-26",
+    "date_display": "June 26, 2026",
+    "date_iso": "2026-06-26",
+    "id": "toolkit-roster-sort",
+    "type": "feature",
+    "category": "Circles Toolkit",
+    "description": "You can now sort your roster by first name or last name on both the Roster tab and the attendance form. Defaults to first name A–Z and remembers your preference per device.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
     "date": "2026-06-25",
     "date_display": "June 25, 2026",
     "date_iso": "2026-06-25",

@@ -66,6 +66,7 @@ type CcbSearchResult = {
 
 const ABSENCE_THRESHOLD_DAYS = 15;
 const ATTENDANCE_CACHE_KEY = 'cs:attendance-cache:v1';
+const ROSTER_SORT_KEY = 'cs:roster-sort:v1';
 
 type AttendanceCacheEntry = { groupId: string; lastAttended: Record<string, string>; cachedAt: number };
 
@@ -246,6 +247,8 @@ export default function CircleSummaryFormPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  const [sortBy, setSortBy] = useState<'firstName' | 'lastName'>('firstName');
+
   const [addOpen, setAddOpen] = useState(false);
   const [editRoster, setEditRoster] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -394,6 +397,18 @@ export default function CircleSummaryFormPage() {
       cancelled = true;
     };
   }, [urlGroupId]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(ROSTER_SORT_KEY);
+      if (saved === 'firstName' || saved === 'lastName') setSortBy(saved);
+    } catch {}
+  }, []);
+
+  function updateSort(next: 'firstName' | 'lastName') {
+    setSortBy(next);
+    try { localStorage.setItem(ROSTER_SORT_KEY, next); } catch {}
+  }
 
   const draftPayload = useMemo(
     () => ({
@@ -831,6 +846,15 @@ export default function CircleSummaryFormPage() {
     );
   }
 
+  const sortedParticipants = useMemo(() => {
+    return [...participants].sort((a, b) => {
+      if (sortBy === 'lastName') {
+        return (a.lastName || '').localeCompare(b.lastName || '');
+      }
+      return (a.firstName || '').localeCompare(b.firstName || '');
+    });
+  }, [participants, sortBy]);
+
   const allSelected = participants.length > 0 && selectedCcbIds.size === participants.length;
   const visibleQuestions = questions.filter(
     (q) => (didNotMeet && q.show_when_did_not_meet) || (!didNotMeet && q.show_when_attended)
@@ -953,6 +977,26 @@ export default function CircleSummaryFormPage() {
                   <span>Tap the minus button to remove someone from your Circle&apos;s roster. Their profile isn&apos;t deleted — they&apos;re just removed from this Circle.</span>
                 </div>
               )}
+              {participants.length > 0 && (
+                <div className="flex items-center gap-1.5 text-xs mb-3">
+                  <span className="text-neutral-500">Sort:</span>
+                  <button
+                    type="button"
+                    onClick={() => updateSort('firstName')}
+                    className={`px-2.5 py-1 rounded-full transition-colors font-semibold ${sortBy === 'firstName' ? 'bg-[color:var(--cs-green)] text-white' : 'border border-[color:var(--cs-border)] text-neutral-600 hover:border-[color:var(--cs-green)] hover:text-[color:var(--cs-green-darker)]'}`}
+                  >
+                    First name
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateSort('lastName')}
+                    className={`px-2.5 py-1 rounded-full transition-colors font-semibold ${sortBy === 'lastName' ? 'bg-[color:var(--cs-green)] text-white' : 'border border-[color:var(--cs-border)] text-neutral-600 hover:border-[color:var(--cs-green)] hover:text-[color:var(--cs-green-darker)]'}`}
+                  >
+                    Last name
+                  </button>
+                </div>
+              )}
+
               <div className="space-y-1 mb-4">
                 {participants.length === 0 && (
                   <p className="text-sm text-neutral-500 py-2">No one on your roster yet.</p>
@@ -974,7 +1018,7 @@ export default function CircleSummaryFormPage() {
                     </label>
                   </div>
                 )}
-                {participants.map((p) => {
+                {sortedParticipants.map((p) => {
                   const fullName = p.fullName || `${p.firstName} ${p.lastName}`;
                   const checked = selectedCcbIds.has(p.id);
                   const lastAttendedDate = lastAttended[p.id];
