@@ -3,6 +3,16 @@
     "date": "2026-06-26",
     "date_display": "June 26, 2026",
     "date_iso": "2026-06-26",
+    "id": "campaign-paste-list",
+    "type": "feature",
+    "category": "Campaigns",
+    "description": "You can now set up a campaign by pasting a spreadsheet instead of giving CCB group IDs. On the New Campaign page, switch the invite list to \"Paste a list\" and paste rows straight from a spreadsheet — any column order works. Columns are auto-matched to fields (CCB Individual ID, First, Last, Email, Phone, and a Group-by column like Campus or Team), and you can fix any that look wrong with a dropdown. A live preview shows exactly who will be added before you create the campaign. When the CCB Individual ID and Email are mapped, pasted people reconcile against your CCB form by exact ID/email; otherwise they match by phone and name.",
+    "page": "/campaigns/new"
+  },
+  {
+    "date": "2026-06-26",
+    "date_display": "June 26, 2026",
+    "date_iso": "2026-06-26",
     "id": "copy-card-screenshot",
     "type": "fix",
     "category": "Boards",

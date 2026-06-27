@@ -86,6 +86,8 @@ export function useCampaigns() {
     form_link: string;
     due_date: string;
     message_template: string;
+    // Optional pasted roster — an alternative to CCB groups for the invite list
+    people?: { ccbId: string; firstName: string; lastName: string; phone: string; email: string; group: string }[];
   }): Promise<Campaign | null> => {
     const headers = await authHeader();
     const res = await fetch('/api/campaigns', {

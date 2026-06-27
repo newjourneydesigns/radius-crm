@@ -137,16 +137,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // against form responses automatically.
   const { data: manualPeople } = await supabase
     .from('follow_up_campaign_people')
-    .select('ccb_individual_id, first_name, last_name, email, phone, mobile_phone')
+    .select('ccb_individual_id, first_name, last_name, email, phone, mobile_phone, source_group_name')
     .eq('campaign_id', params.id)
     .eq('manually_added', true);
 
+  // Manually-added people who have no CCB id (e.g. a pasted spreadsheet roster)
+  // can't be tracked by id across reconciles. Key them by normalized name so we
+  // can re-flag them manually_added and preserve their campus team below.
+  const normName = (s: string) => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
+  const manualNullKeys = new Set<string>();
   const manualCcbIds = new Set<string>();
   for (const mp of manualPeople ?? []) {
     if (mp.ccb_individual_id && seenCcbIds.has(mp.ccb_individual_id)) continue; // already in a group
     if (mp.ccb_individual_id) {
       seenCcbIds.add(mp.ccb_individual_id);
       manualCcbIds.add(mp.ccb_individual_id);
+    } else {
+      manualNullKeys.add(`${normName(mp.first_name)}|${normName(mp.last_name)}`);
     }
     groupParticipants.push({
       id: mp.ccb_individual_id || '',
@@ -159,6 +166,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       status: '',
       statusId: '',
       isActive: true,
+      // Carry the campus team through reconcile so it survives the upsert
+      sourceGroupName: mp.source_group_name || undefined,
     });
   }
 
@@ -202,22 +211,29 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // 6. Load existing contacted rows so we can preserve their contact fields on re-reconcile
   const { data: existingContacted } = await supabase
     .from('follow_up_campaign_people')
-    .select('ccb_individual_id, contacted_at, contacted_by, contact_note')
+    .select('ccb_individual_id, first_name, last_name, contacted_at, contacted_by, contact_note')
     .eq('campaign_id', params.id)
     .not('contacted_at', 'is', null);
 
   type ContactedRow = { ccb_individual_id: string | null; contacted_at: string | null; contacted_by: string | null; contact_note: string | null };
   const contactedMap = new Map<string, ContactedRow>();
+  // No-CCB-id contacted people (e.g. pasted roster) are keyed by name instead,
+  // so re-reconciling preserves their follow-up status rather than losing it.
+  const contactedNullMap = new Map<string, ContactedRow>();
   for (const r of existingContacted ?? []) {
     if (r.ccb_individual_id) contactedMap.set(r.ccb_individual_id, r as ContactedRow);
+    else contactedNullMap.set(`${normName(r.first_name)}|${normName(r.last_name)}`, r as ContactedRow);
   }
 
   // 7. Upsert all people
   // For each reconciled person, if they were previously contacted, keep that status.
   // Preserve manually_added flag for anyone who was manually added.
   const rows = reconciledPeople.map((p) => {
-    const prevContacted = p.ccbIndividualId ? contactedMap.get(p.ccbIndividualId) : null;
-    const isManual = p.ccbIndividualId ? manualCcbIds.has(p.ccbIndividualId) : false;
+    const nameKey = `${normName(p.firstName)}|${normName(p.lastName)}`;
+    const prevContacted = p.ccbIndividualId
+      ? contactedMap.get(p.ccbIndividualId)
+      : contactedNullMap.get(nameKey);
+    const isManual = p.ccbIndividualId ? manualCcbIds.has(p.ccbIndividualId) : manualNullKeys.has(nameKey);
     const v2Ph = p.ccbIndividualId ? v2PhoneMap[p.ccbIndividualId] : null;
     return {
       campaign_id: params.id,
@@ -280,13 +296,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   if (rowsWithoutId.length > 0) {
-    // For rows without CCB id, delete existing non-contacted nulls and re-insert
+    // For rows without a CCB id, delete ALL existing null-id rows and re-insert.
+    // Contact status is carried forward in `rows` via contactedNullMap, so deleting
+    // the contacted ones too (rather than skipping them) avoids duplicate rows for
+    // pasted people who were already followed up.
     await supabase
       .from('follow_up_campaign_people')
       .delete()
       .eq('campaign_id', params.id)
-      .is('ccb_individual_id', null)
-      .is('contacted_at', null);
+      .is('ccb_individual_id', null);
 
     const { error: insertError } = await supabase
       .from('follow_up_campaign_people')
