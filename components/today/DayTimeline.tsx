@@ -965,27 +965,25 @@ export default function DayTimeline({
       background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 14, overflow: 'hidden',
       position: 'relative',
     }}>
-      {/* ── Header row 1: date label, then nav + reminders + calendars ── */}
+      {/* ── Header: stacked, left-justified rows ── */}
       <div style={{
         padding: '10px 14px 8px',
         display: 'flex', flexDirection: 'column', gap: 8,
       }}>
-        {/* Date label — its own full-width line so the day + date are never clipped */}
-        <span style={{
-          fontSize: 14, fontWeight: 700, color: isToday ? T.text : '#60a5fa',
-          lineHeight: 1.2,
-        }}>
-          {dateLabel}{dayLoading ? ' · loading…' : ''}
-        </span>
-        {/* Controls row — day navigation on the left, reminders + calendars on the right */}
+        {/* Row 1: date navigation — prev / current date / next, on its own line */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
           <HeaderBtn onClick={onPrevDay} title="Previous day"><ChevronLeft className="h-3.5 w-3.5" /></HeaderBtn>
+          <span style={{
+            fontSize: 14, fontWeight: 700, color: isToday ? T.text : '#60a5fa',
+            lineHeight: 1.2,
+          }}>
+            {dateLabel}{dayLoading ? ' · loading…' : ''}
+          </span>
           <HeaderBtn onClick={onNextDay} title="Next day"><ChevronRight className="h-3.5 w-3.5" /></HeaderBtn>
           {!isToday && <HeaderBtn onClick={onGoToday} title="Back to today" active>Today</HeaderBtn>}
         </div>
-        <div style={{ flex: 1 }} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        {/* Row 2: reminders + calendars, left-justified on their own line */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {remindersSupported && (
             <HeaderBtn
               onClick={toggleReminders}
@@ -1028,10 +1026,9 @@ export default function DayTimeline({
             )}
           </div>
         </div>
-        </div>
       </div>
 
-      {/* ── Header row 2: filter chips ── */}
+      {/* ── Row 3: filter chips ── */}
       <div style={{ padding: '0 14px 9px', borderBottom: `1px solid ${T.cardBorder}` }}>
         <div className="today-tl-chips" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
           {presentKinds.map(kind => {
