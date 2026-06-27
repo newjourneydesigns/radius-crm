@@ -403,6 +403,16 @@
     "date": "2026-06-24",
     "date_display": "June 24, 2026",
     "date_iso": "2026-06-24",
+    "id": "notes-mobile-text-buttons",
+    "type": "improvement",
+    "category": "Notes",
+    "description": "Note action buttons on mobile now show labeled text (Edit, Save as Template, Copy for CCB, Delete) instead of icon-only buttons that were easy to misread. The actions are clearer and easier to tap with confidence.",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-06-24",
+    "date_display": "June 24, 2026",
+    "date_iso": "2026-06-24",
     "id": "leader-profile-last-connection",
     "type": "feature",
     "category": "Circle Leaders",
