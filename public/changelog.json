@@ -3,6 +3,26 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+    "id": "add-card-priority-label-rows",
+    "type": "improvement",
+    "category": "Boards",
+    "description": "Picking a priority or label when adding a board card is easier to read and tap. Each option now sits on its own full-width row with a color dot, and the one you choose fills in with its color and a check mark so the selection is obvious at a glance.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "today-reschedule-menu-stays-open",
+    "type": "fix",
+    "category": "Today",
+    "description": "The Reschedule menu on the Today page no longer closes itself before you can pick a date. The pop-up used a full-screen tap-catcher behind it that, on phones, could swallow the tap meant for the calendar and dismiss the menu instantly. It now stays open until you choose a date or tap somewhere outside it.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
     "id": "today-live-updates-no-stale-cache",
     "type": "fix",
     "category": "Today",
