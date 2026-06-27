@@ -1,23 +1,333 @@
 [
   {
-    "date": "2026-06-25",
-    "date_display": "June 25, 2026",
-    "date_iso": "2026-06-25",
-    "id": "bulk-message-auto-send",
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "campaigns-mobile-friendly",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Campaigns are now much easier to use on a phone. The campaign list and the people lists render as tap-friendly cards instead of tables you had to scroll sideways. On a campaign, Reconcile Now gets its own full-width button with Export, Edit, Add Person, and Delete tucked neatly below it; Find person sits on its own line; the tab bar becomes a View dropdown; and the Campus/Team/Leader filters stack full-width. Tablets and desktops keep the familiar tables and tabs.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "campaign-summary-campus-first",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "The Summary tab now leads with the Campus breakdown (then Team, then Leader/STM), regardless of your spreadsheet's column order, so the exec view starts where you'd expect. The filter bar follows the same order.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "campaign-summary-shows-all",
+    "type": "fix",
+    "category": "Campaigns",
+    "description": "The Summary tab now always reflects the whole campaign — the top stat cards show All even when you have filters applied on another tab — and Export from Summary covers everyone. Your filters aren't cleared, so they're still in place when you switch back to the people tabs.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "campaign-summary-tab",
     "type": "feature",
-    "category": "Messaging",
-    "description": "Added Auto Send to Bulk Message — when the Radius Companion is running on your Mac, a green Auto Send button appears that sends every personalized message automatically through Messages.app, with live per-person progress and a Stop button.",
-    "page": "/bulk-message"
+    "category": "Campaigns",
+    "description": "Campaigns now have a Summary tab — an exec-ready breakdown by every column you pasted (Campus, Team, Leader/STM, …), each showing Invited, Responded, Responded %, RSVP Yes, RSVP No, and No Response with an 'All VCC' total. RSVP Yes/No is read straight from each CCB form submission, so it matches what people actually answered.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "campaign-review-matches",
+    "type": "feature",
+    "category": "Campaigns",
+    "description": "The Review Matches tab is now actionable. When reconcile finds someone in your form responses whose name matches an invitee but can't match them with certainty, you can Confirm the match (counts them as Submitted) or mark Not a match (keeps them Unsubmitted) — per person or in bulk. Your decision sticks: reconcile remembers it instead of re-flagging the same person every time.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "campaign-form-url-and-optional-groups",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Simplified campaign setup: the Form link field is gone — just enter the CCB Form ID and the form URL is built for you automatically (and {{form_link}} keeps working). Editing a campaign no longer demands a CCB Group ID, so campaigns built from a pasted list save without errors.",
+    "page": "/campaigns/new"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "campaign-export-delete",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Campaigns now have an Export CSV button that downloads exactly the view you're looking at — the current tab plus any active filters — with every column, status, contact history, notes, and each person's form answers (Shirt Size, Area of Life, etc.). On the Summary tab it exports the whole campaign. You can also delete a campaign from its page — a confirmation makes clear it permanently removes the campaign and its people, with Archive offered as the reversible alternative. Click anywhere on a person's row to open an inline editor where you can fill in missing data or correct any field — name, email, phone, their note, and any pasted column like Campus or Team. And column filters now stay applied as you move between tabs.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-26",
+    "date_display": "June 26, 2026",
+    "date_iso": "2026-06-26",
+    "id": "campaign-1000-row-fix",
+    "type": "fix",
+    "category": "Campaigns",
+    "description": "Fixed campaigns with more than 1,000 people showing the wrong totals and a truncated list. The app was only reading the first 1,000 rows, so a 1,473-person campaign reported far fewer invited. People lists and reconcile counts now page through everyone, no matter how large the campaign. Re-run Reconcile on any affected campaign to refresh its numbers.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-26",
+    "date_display": "June 26, 2026",
+    "date_iso": "2026-06-26",
+    "id": "campaign-paste-list",
+    "type": "feature",
+    "category": "Campaigns",
+    "description": "You can now set up a campaign by pasting a spreadsheet instead of giving CCB group IDs. On the New Campaign page, switch the invite list to \"Paste a list\" and paste rows straight from a spreadsheet — any column order works. The core fields (CCB Individual ID, First, Last, Email, Phone) are auto-matched and fixable with a dropdown, and every other column you paste (Campus, Team, Age, and so on) is kept too. A live preview shows exactly who will be added. When the CCB Individual ID and Email are mapped, pasted people reconcile against your CCB form by exact ID/email; otherwise they match by phone and name. Inside the campaign, a filter bar lets you narrow the list by several columns at once — e.g. Campus = Lewisville and Team = Kids and Role = Leaders — and the stats update to match your selection. If the same person appears more than once (e.g. on multiple teams), they're merged into a single invite — the import tells you how many were merged — and they still match each of their teams when you filter, so counts stay person-accurate.",
+    "page": "/campaigns/new"
+  },
+  {
+    "date": "2026-06-26",
+    "date_display": "June 26, 2026",
+    "date_iso": "2026-06-26",
+    "id": "copy-card-screenshot",
+    "type": "fix",
+    "category": "Boards",
+    "description": "Copy Card Content now includes the screenshot URL so it travels with the rest of the card context when sharing or pasting into AI tools.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-06-26",
+    "date_display": "June 26, 2026",
+    "date_iso": "2026-06-26",
+    "id": "form-image-upload",
+    "type": "feature",
+    "category": "Forms",
+    "description": "Forms now support an Image Upload field type. Add one to any form, map it to Card Screenshot, and submitters get a file picker — the image is compressed automatically and attached directly to the created card. Perfect for bug reports where a screenshot says more than words.",
+    "page": "/forms"
+  },
+  {
+    "date": "2026-06-26",
+    "date_display": "June 26, 2026",
+    "date_iso": "2026-06-26",
+    "id": "card-screenshots",
+    "type": "feature",
+    "category": "Boards",
+    "description": "Board cards now support screenshot attachments. Open any card, scroll to the new Screenshot section, and attach an image — great for capturing bugs, broken layouts, or anything visual. Images are compressed automatically before upload to keep storage lean. Each card holds one screenshot; uploading a new one replaces the old. Screenshots are deleted when a card is deleted.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-06-26",
+    "date_display": "June 26, 2026",
+    "date_iso": "2026-06-26",
+    "id": "toolkit-roster-sort",
+    "type": "feature",
+    "category": "Circles Toolkit",
+    "description": "You can now sort your roster by first name or last name on both the Roster tab and the attendance form. Defaults to first name A–Z and remembers your preference per device.",
+    "page": "/circle-leader-toolkit"
   },
   {
     "date": "2026-06-25",
     "date_display": "June 25, 2026",
     "date_iso": "2026-06-25",
-    "id": "send-from-mac-companion",
+    "id": "campaigns-person-notes",
     "type": "feature",
-    "category": "Messaging",
-    "description": "Added the Radius Companion — a local Mac service that lets you send personalized iMessage and SMS messages through Messages.app directly from Radius, with no third-party messaging service required.",
-    "page": "/bulk-message"
+    "category": "Campaigns",
+    "description": "Every row on the Unsubmitted, Not in Group, and Review Matches tabs now has an expand arrow to reveal an inline note editor. Type a note about any person and it saves automatically on blur, or click Save explicitly. A pencil icon replaces the arrow when a note already exists.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "campaigns-last-contacted-column",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Removed the dedicated Contacted tab. The Unsubmitted tab now has a Last Contacted column showing the date and time of the most recent follow-up for each person. Sortable — sort by Last Contacted to instantly see who needs the most attention.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "campaigns-stats-reorder",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Reordered campaign stat cards and added Total Submitted (submitted in group + not in group). Row 1: Invited · Total Submitted · Unsubmitted · Completion. Row 2: Submitted in Group · Contacted · Not in Group · Review Matches.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "campaigns-contacted-preserves-unsubmitted",
+    "type": "fix",
+    "category": "Campaigns",
+    "description": "Marking someone as Contacted no longer removes them from the Unsubmitted tab. Contacted is now an independent flag — people appear in both tabs until they actually submit the form. The Contacted tab also now supports selecting people and sending follow-up messages.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "campaigns-sortable-submitted-date",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "All columns in every campaign tab are now sortable — click any header to sort, click again to reverse. Submitted tab also shows the exact date and time the form was submitted (e.g. \"May 14 · 9:41 AM\"), sortable like any other column.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "campaigns-global-person-search",
+    "type": "feature",
+    "category": "Campaigns",
+    "description": "Added a Find Person search box to the campaign detail page. Search by name or email across all tabs — results show a color-coded badge for which tab (Unsubmitted, Submitted, Contacted, etc.) the person is on. Clicking a result jumps to that tab and highlights the row.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "campaigns-followup-modal-fixes",
+    "type": "fix",
+    "category": "Campaigns",
+    "description": "Fixed three issues in the Follow Up modal: Send iMessage button now shows \"Sent\" after clicking, the Done button no longer spins indefinitely (missing try/finally caused it to get stuck), and the mark-as-contacted button is now simply labeled \"Done\".",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "campaigns-enrich-phones",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Campaign phone numbers are now recovered after reconcile for people whose CCB privacy settings block phone visibility in the group participant API. After reconcile completes, missing numbers are fetched individually with throttling to avoid rate limits. The Phone column shows \"updating missing numbers…\" while enrichment is in progress.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "campaigns-group-filter-stats",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Group filter chips now update the stat cards and tab counts. Selecting a group shows Invited, Submitted, Unsubmitted, Completion, Review Matches, and Contacted numbers for that group only. Tab labels also show per-group counts when a filter is active.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "campaigns-form-detail-fix",
+    "type": "fix",
+    "category": "Campaigns",
+    "description": "Fixed the expanded submission detail view on the Submitted tab — nested fields like profile info, form answers, and name fields now display their values correctly instead of showing [object Object].",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "campaigns-group-filter",
+    "type": "feature",
+    "category": "Campaigns",
+    "description": "Campaign detail pages now show which CCB group each person comes from. When a campaign spans multiple groups, filter pills appear above the table so you can view each group separately.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "campaigns-form-responses-fix",
+    "type": "fix",
+    "category": "Campaigns",
+    "description": "Fixed a bug where submitted form responses weren't showing in the Submitted tab. The CCB API returns responses in a different format than expected — reconciling now correctly identifies who has submitted.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "campaigns-label-renames",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Renamed campaign stat cards and tabs to better reflect their meaning: Expected → Invited, Missing → Unsubmitted, Needs Review → Review Matches.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "campaigns-new-redesign",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Restyled the New Campaign form to match RADIUS's dark design — zinc card surface, consistent input styles, CCB Form ID and Due Date in a side-by-side grid, and a campaign edit modal on the detail page.",
+    "page": "/campaigns/new"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "campaigns-list-redesign",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Redesigned the campaigns list page to match RADIUS's dark visual style — zinc card surface, divide-y table rows, colored stat columns, and pill-style completion badges replace the previous light table.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "campaigns-detail-redesign",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Redesigned the campaign detail page to match RADIUS's dark visual style — stat cards, underline tabs, and a clean divide-style table replace the previous boxed layout.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "radius-blog",
+    "type": "feature",
+    "category": "Radius Blog",
+    "description": "Introducing the Radius Blog — a video library and article hub for your team. Browse posts at /blog, search by title or content, and open any post on its own shareable URL. The three most recent posts are previewed at the top of the Help page. Admins can create, edit, and unpublish posts (with YouTube links and rich-text descriptions) directly from App Settings → Radius Blog.",
+    "page": "/blog"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "campaigns-add-person",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Campaigns now support adding individuals directly from a CCB search — not just from groups. Use the new \"+ Add Person\" button on any campaign to find someone by name or phone and add them to the expected list. Manually-added people show a \"manual\" badge and can be removed individually.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "campaigns-multi-group",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Campaigns now support multiple CCB groups as the expected list. Add as many Group IDs as you need — Radius merges them, deduplicates, and reconciles the combined list against form submissions.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "follow-up-campaigns",
+    "type": "feature",
+    "category": "Campaigns",
+    "description": "New Follow-Up Campaigns tool (admin only). Point a campaign at a CCB group and a CCB form, hit Reconcile Now, and Radius shows who submitted and who hasn't. Select missing people, preview a personalized message with the form link already included, copy it or open SMS, and mark them as contacted. Full submission detail is viewable for each person who submitted. Campaigns are team-shared and can be archived when done.",
+    "page": "/campaigns"
   },
   {
     "date": "2026-06-24",
@@ -2880,6 +3190,26 @@
     "type": "improvement"
   },
   {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "bulk-message-auto-send",
+    "type": "feature",
+    "category": "Messaging",
+    "description": "Added Auto Send to Bulk Message — when the Radius Companion is running on your Mac, a green Auto Send button appears that sends every personalized message automatically through Messages.app, with live per-person progress and a Stop button.",
+    "page": "/bulk-message"
+  },
+  {
+    "date": "2026-06-25",
+    "date_display": "June 25, 2026",
+    "date_iso": "2026-06-25",
+    "id": "send-from-mac-companion",
+    "type": "feature",
+    "category": "Messaging",
+    "description": "Added the Radius Companion — a local Mac service that lets you send personalized iMessage and SMS messages through Messages.app directly from Radius, with no third-party messaging service required.",
+    "page": "/bulk-message"
+  },
+  {
     "date": "2026-06-26",
     "date_display": "June 26, 2026",
     "date_iso": "2026-06-26",
@@ -2890,206 +3220,6 @@
     "page": "/acpd-use-cases"
   },
   {
-    "date": "2026-06-25",
-    "date_display": "June 25, 2026",
-    "date_iso": "2026-06-25",
-    "id": "campaigns-person-notes",
-    "type": "feature",
-    "category": "Campaigns",
-    "description": "Every row on the Unsubmitted, Not in Group, and Review Matches tabs now has an expand arrow to reveal an inline note editor. Type a note about any person and it saves automatically on blur, or click Save explicitly. A pencil icon replaces the arrow when a note already exists.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-25",
-    "date_display": "June 25, 2026",
-    "date_iso": "2026-06-25",
-    "id": "campaigns-last-contacted-column",
-    "type": "improvement",
-    "category": "Campaigns",
-    "description": "Removed the dedicated Contacted tab. The Unsubmitted tab now has a Last Contacted column showing the date and time of the most recent follow-up for each person. Sortable — sort by Last Contacted to instantly see who needs the most attention.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-25",
-    "date_display": "June 25, 2026",
-    "date_iso": "2026-06-25",
-    "id": "campaigns-stats-reorder",
-    "type": "improvement",
-    "category": "Campaigns",
-    "description": "Reordered campaign stat cards and added Total Submitted (submitted in group + not in group). Row 1: Invited · Total Submitted · Unsubmitted · Completion. Row 2: Submitted in Group · Contacted · Not in Group · Review Matches.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-25",
-    "date_display": "June 25, 2026",
-    "date_iso": "2026-06-25",
-    "id": "campaigns-contacted-preserves-unsubmitted",
-    "type": "fix",
-    "category": "Campaigns",
-    "description": "Marking someone as Contacted no longer removes them from the Unsubmitted tab. Contacted is now an independent flag — people appear in both tabs until they actually submit the form. The Contacted tab also now supports selecting people and sending follow-up messages.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-25",
-    "date_display": "June 25, 2026",
-    "date_iso": "2026-06-25",
-    "id": "campaigns-sortable-submitted-date",
-    "type": "improvement",
-    "category": "Campaigns",
-    "description": "All columns in every campaign tab are now sortable — click any header to sort, click again to reverse. Submitted tab also shows the exact date and time the form was submitted (e.g. \"May 14 · 9:41 AM\"), sortable like any other column.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-25",
-    "date_display": "June 25, 2026",
-    "date_iso": "2026-06-25",
-    "id": "campaigns-global-person-search",
-    "type": "feature",
-    "category": "Campaigns",
-    "description": "Added a Find Person search box to the campaign detail page. Search by name or email across all tabs — results show a color-coded badge for which tab (Unsubmitted, Submitted, Contacted, etc.) the person is on. Clicking a result jumps to that tab and highlights the row.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-25",
-    "date_display": "June 25, 2026",
-    "date_iso": "2026-06-25",
-    "id": "campaigns-followup-modal-fixes",
-    "type": "fix",
-    "category": "Campaigns",
-    "description": "Fixed three issues in the Follow Up modal: Send iMessage button now shows \"Sent\" after clicking, the Done button no longer spins indefinitely (missing try/finally caused it to get stuck), and the mark-as-contacted button is now simply labeled \"Done\".",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-25",
-    "date_display": "June 25, 2026",
-    "date_iso": "2026-06-25",
-    "id": "campaigns-enrich-phones",
-    "type": "improvement",
-    "category": "Campaigns",
-    "description": "Campaign phone numbers are now recovered after reconcile for people whose CCB privacy settings block phone visibility in the group participant API. After reconcile completes, missing numbers are fetched individually with throttling to avoid rate limits. The Phone column shows \"updating missing numbers…\" while enrichment is in progress.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-25",
-    "date_display": "June 25, 2026",
-    "date_iso": "2026-06-25",
-    "id": "campaigns-group-filter-stats",
-    "type": "improvement",
-    "category": "Campaigns",
-    "description": "Group filter chips now update the stat cards and tab counts. Selecting a group shows Invited, Submitted, Unsubmitted, Completion, Review Matches, and Contacted numbers for that group only. Tab labels also show per-group counts when a filter is active.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-25",
-    "date_display": "June 25, 2026",
-    "date_iso": "2026-06-25",
-    "id": "campaigns-form-detail-fix",
-    "type": "fix",
-    "category": "Campaigns",
-    "description": "Fixed the expanded submission detail view on the Submitted tab — nested fields like profile info, form answers, and name fields now display their values correctly instead of showing [object Object].",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-25",
-    "date_display": "June 25, 2026",
-    "date_iso": "2026-06-25",
-    "id": "campaigns-group-filter",
-    "type": "feature",
-    "category": "Campaigns",
-    "description": "Campaign detail pages now show which CCB group each person comes from. When a campaign spans multiple groups, filter pills appear above the table so you can view each group separately.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-25",
-    "date_display": "June 25, 2026",
-    "date_iso": "2026-06-25",
-    "id": "campaigns-form-responses-fix",
-    "type": "fix",
-    "category": "Campaigns",
-    "description": "Fixed a bug where submitted form responses weren't showing in the Submitted tab. The CCB API returns responses in a different format than expected — reconciling now correctly identifies who has submitted.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-25",
-    "date_display": "June 25, 2026",
-    "date_iso": "2026-06-25",
-    "id": "campaigns-label-renames",
-    "type": "improvement",
-    "category": "Campaigns",
-    "description": "Renamed campaign stat cards and tabs to better reflect their meaning: Expected → Invited, Missing → Unsubmitted, Needs Review → Review Matches.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-25",
-    "date_display": "June 25, 2026",
-    "date_iso": "2026-06-25",
-    "id": "campaigns-new-redesign",
-    "type": "improvement",
-    "category": "Campaigns",
-    "description": "Restyled the New Campaign form to match RADIUS's dark design — zinc card surface, consistent input styles, CCB Form ID and Due Date in a side-by-side grid, and a campaign edit modal on the detail page.",
-    "page": "/campaigns/new"
-  },
-  {
-    "date": "2026-06-25",
-    "date_display": "June 25, 2026",
-    "date_iso": "2026-06-25",
-    "id": "campaigns-list-redesign",
-    "type": "improvement",
-    "category": "Campaigns",
-    "description": "Redesigned the campaigns list page to match RADIUS's dark visual style — zinc card surface, divide-y table rows, colored stat columns, and pill-style completion badges replace the previous light table.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-25",
-    "date_display": "June 25, 2026",
-    "date_iso": "2026-06-25",
-    "id": "campaigns-detail-redesign",
-    "type": "improvement",
-    "category": "Campaigns",
-    "description": "Redesigned the campaign detail page to match RADIUS's dark visual style — stat cards, underline tabs, and a clean divide-style table replace the previous boxed layout.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-25",
-    "date_display": "June 25, 2026",
-    "date_iso": "2026-06-25",
-    "id": "radius-blog",
-    "type": "feature",
-    "category": "Radius Blog",
-    "description": "Introducing the Radius Blog — a video library and article hub for your team. Browse posts at /blog, search by title or content, and open any post on its own shareable URL. The three most recent posts are previewed at the top of the Help page. Admins can create, edit, and unpublish posts (with YouTube links and rich-text descriptions) directly from App Settings → Radius Blog.",
-    "page": "/blog"
-  },
-  {
-    "date": "2026-06-25",
-    "date_display": "June 25, 2026",
-    "date_iso": "2026-06-25",
-    "id": "campaigns-add-person",
-    "type": "improvement",
-    "category": "Campaigns",
-    "description": "Campaigns now support adding individuals directly from a CCB search — not just from groups. Use the new \"+ Add Person\" button on any campaign to find someone by name or phone and add them to the expected list. Manually-added people show a \"manual\" badge and can be removed individually.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-25",
-    "date_display": "June 25, 2026",
-    "date_iso": "2026-06-25",
-    "id": "campaigns-multi-group",
-    "type": "improvement",
-    "category": "Campaigns",
-    "description": "Campaigns now support multiple CCB groups as the expected list. Add as many Group IDs as you need — Radius merges them, deduplicates, and reconciles the combined list against form submissions.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-25",
-    "date_display": "June 25, 2026",
-    "date_iso": "2026-06-25",
-    "id": "follow-up-campaigns",
-    "type": "feature",
-    "category": "Campaigns",
-    "description": "New Follow-Up Campaigns tool (admin only). Point a campaign at a CCB group and a CCB form, hit Reconcile Now, and Radius shows who submitted and who hasn't. Select missing people, preview a personalized message with the form link already included, copy it or open SMS, and mark them as contacted. Full submission detail is viewable for each person who submitted. Campaigns are team-shared and can be archived when done.",
-    "page": "/campaigns"
-  },
-  {
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
@@ -3097,126 +3227,6 @@
     "type": "improvement",
     "category": "Circle Leader Toolkit",
     "description": "The Circle Leader Toolkit loads noticeably faster. Sign-in now verifies your session in a single database lookup instead of two, the event form's leader, roster, questions, attendance, and saved draft are all prepared on the server so the form is filled in and ready the moment it opens (instead of fetching four things after the page appears), the form's question list is cached so repeat opens are instant, and the events list now streams in behind a skeleton so the header and tabs appear right away. None of this changes how fresh your attendance or summary data is — those still come straight from CCB.",
-    "page": "/circle-leader-toolkit"
-  },
-  {
-    "date": "2026-06-27",
-    "date_display": "June 27, 2026",
-    "date_iso": "2026-06-27",
-    "id": "campaign-summary-campus-first",
-    "type": "improvement",
-    "category": "Campaigns",
-    "description": "The Summary tab now leads with the Campus breakdown (then Team, then Leader/STM), regardless of your spreadsheet's column order, so the exec view starts where you'd expect. The filter bar follows the same order.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-27",
-    "date_display": "June 27, 2026",
-    "date_iso": "2026-06-27",
-    "id": "campaign-summary-shows-all",
-    "type": "fix",
-    "category": "Campaigns",
-    "description": "The Summary tab now always reflects the whole campaign — the top stat cards show All even when you have filters applied on another tab — and Export from Summary covers everyone. Your filters aren't cleared, so they're still in place when you switch back to the people tabs.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-27",
-    "date_display": "June 27, 2026",
-    "date_iso": "2026-06-27",
-    "id": "campaign-summary-tab",
-    "type": "feature",
-    "category": "Campaigns",
-    "description": "Campaigns now have a Summary tab — an exec-ready breakdown by every column you pasted (Campus, Team, Leader/STM, …), each showing Invited, Responded, Responded %, RSVP Yes, RSVP No, and No Response with an 'All VCC' total. RSVP Yes/No is read straight from each CCB form submission, so it matches what people actually answered.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-27",
-    "date_display": "June 27, 2026",
-    "date_iso": "2026-06-27",
-    "id": "campaign-review-matches",
-    "type": "feature",
-    "category": "Campaigns",
-    "description": "The Review Matches tab is now actionable. When reconcile finds someone in your form responses whose name matches an invitee but can't match them with certainty, you can Confirm the match (counts them as Submitted) or mark Not a match (keeps them Unsubmitted) — per person or in bulk. Your decision sticks: reconcile remembers it instead of re-flagging the same person every time.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-27",
-    "date_display": "June 27, 2026",
-    "date_iso": "2026-06-27",
-    "id": "campaign-form-url-and-optional-groups",
-    "type": "improvement",
-    "category": "Campaigns",
-    "description": "Simplified campaign setup: the Form link field is gone — just enter the CCB Form ID and the form URL is built for you automatically (and {{form_link}} keeps working). Editing a campaign no longer demands a CCB Group ID, so campaigns built from a pasted list save without errors.",
-    "page": "/campaigns/new"
-  },
-  {
-    "date": "2026-06-27",
-    "date_display": "June 27, 2026",
-    "date_iso": "2026-06-27",
-    "id": "campaign-export-delete",
-    "type": "improvement",
-    "category": "Campaigns",
-    "description": "Campaigns now have an Export CSV button that downloads exactly the view you're looking at — the current tab plus any active filters — with every column, status, contact history, notes, and each person's form answers (Shirt Size, Area of Life, etc.). On the Summary tab it exports the whole campaign. You can also delete a campaign from its page — a confirmation makes clear it permanently removes the campaign and its people, with Archive offered as the reversible alternative. Click anywhere on a person's row to open an inline editor where you can fill in missing data or correct any field — name, email, phone, their note, and any pasted column like Campus or Team. And column filters now stay applied as you move between tabs.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-26",
-    "date_display": "June 26, 2026",
-    "date_iso": "2026-06-26",
-    "id": "campaign-1000-row-fix",
-    "type": "fix",
-    "category": "Campaigns",
-    "description": "Fixed campaigns with more than 1,000 people showing the wrong totals and a truncated list. The app was only reading the first 1,000 rows, so a 1,473-person campaign reported far fewer invited. People lists and reconcile counts now page through everyone, no matter how large the campaign. Re-run Reconcile on any affected campaign to refresh its numbers.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-26",
-    "date_display": "June 26, 2026",
-    "date_iso": "2026-06-26",
-    "id": "campaign-paste-list",
-    "type": "feature",
-    "category": "Campaigns",
-    "description": "You can now set up a campaign by pasting a spreadsheet instead of giving CCB group IDs. On the New Campaign page, switch the invite list to \"Paste a list\" and paste rows straight from a spreadsheet — any column order works. The core fields (CCB Individual ID, First, Last, Email, Phone) are auto-matched and fixable with a dropdown, and every other column you paste (Campus, Team, Age, and so on) is kept too. A live preview shows exactly who will be added. When the CCB Individual ID and Email are mapped, pasted people reconcile against your CCB form by exact ID/email; otherwise they match by phone and name. Inside the campaign, a filter bar lets you narrow the list by several columns at once — e.g. Campus = Lewisville and Team = Kids and Role = Leaders — and the stats update to match your selection. If the same person appears more than once (e.g. on multiple teams), they're merged into a single invite — the import tells you how many were merged — and they still match each of their teams when you filter, so counts stay person-accurate.",
-    "page": "/campaigns/new"
-  },
-  {
-    "date": "2026-06-26",
-    "date_display": "June 26, 2026",
-    "date_iso": "2026-06-26",
-    "id": "copy-card-screenshot",
-    "type": "fix",
-    "category": "Boards",
-    "description": "Copy Card Content now includes the screenshot URL so it travels with the rest of the card context when sharing or pasting into AI tools.",
-    "page": "/boards"
-  },
-  {
-    "date": "2026-06-26",
-    "date_display": "June 26, 2026",
-    "date_iso": "2026-06-26",
-    "id": "form-image-upload",
-    "type": "feature",
-    "category": "Forms",
-    "description": "Forms now support an Image Upload field type. Add one to any form, map it to Card Screenshot, and submitters get a file picker — the image is compressed automatically and attached directly to the created card. Perfect for bug reports where a screenshot says more than words.",
-    "page": "/forms"
-  },
-  {
-    "date": "2026-06-26",
-    "date_display": "June 26, 2026",
-    "date_iso": "2026-06-26",
-    "id": "card-screenshots",
-    "type": "feature",
-    "category": "Boards",
-    "description": "Board cards now support screenshot attachments. Open any card, scroll to the new Screenshot section, and attach an image — great for capturing bugs, broken layouts, or anything visual. Images are compressed automatically before upload to keep storage lean. Each card holds one screenshot; uploading a new one replaces the old. Screenshots are deleted when a card is deleted.",
-    "page": "/boards"
-  },
-  {
-    "date": "2026-06-26",
-    "date_display": "June 26, 2026",
-    "date_iso": "2026-06-26",
-    "id": "toolkit-roster-sort",
-    "type": "feature",
-    "category": "Circles Toolkit",
-    "description": "You can now sort your roster by first name or last name on both the Roster tab and the attendance form. Defaults to first name A–Z and remembers your preference per device.",
     "page": "/circle-leader-toolkit"
   },
   {
