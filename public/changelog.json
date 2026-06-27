@@ -1,133 +1,13 @@
 [
   {
-    "date": "2026-06-27",
-    "date_display": "June 27, 2026",
-    "date_iso": "2026-06-27",
-    "id": "circle-toolkit-faster-load",
-    "type": "improvement",
-    "category": "Circle Leader Toolkit",
-    "description": "The Circle Leader Toolkit loads noticeably faster. Sign-in now verifies your session in a single database lookup instead of two, the event form's leader, roster, questions, attendance, and saved draft are all prepared on the server so the form is filled in and ready the moment it opens (instead of fetching four things after the page appears), the form's question list is cached so repeat opens are instant, and the events list now streams in behind a skeleton so the header and tabs appear right away. None of this changes how fresh your attendance or summary data is — those still come straight from CCB.",
-    "page": "/circle-leader-toolkit"
-  },
-  {
-    "date": "2026-06-27",
-    "date_display": "June 27, 2026",
-    "date_iso": "2026-06-27",
-    "id": "campaign-summary-campus-first",
-    "type": "improvement",
-    "category": "Campaigns",
-    "description": "The Summary tab now leads with the Campus breakdown (then Team, then Leader/STM), regardless of your spreadsheet's column order, so the exec view starts where you'd expect. The filter bar follows the same order.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-27",
-    "date_display": "June 27, 2026",
-    "date_iso": "2026-06-27",
-    "id": "campaign-summary-shows-all",
-    "type": "fix",
-    "category": "Campaigns",
-    "description": "The Summary tab now always reflects the whole campaign — the top stat cards show All even when you have filters applied on another tab — and Export from Summary covers everyone. Your filters aren't cleared, so they're still in place when you switch back to the people tabs.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-27",
-    "date_display": "June 27, 2026",
-    "date_iso": "2026-06-27",
-    "id": "campaign-summary-tab",
-    "type": "feature",
-    "category": "Campaigns",
-    "description": "Campaigns now have a Summary tab — an exec-ready breakdown by every column you pasted (Campus, Team, Leader/STM, …), each showing Invited, Responded, Responded %, RSVP Yes, RSVP No, and No Response with an 'All VCC' total. RSVP Yes/No is read straight from each CCB form submission, so it matches what people actually answered.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-27",
-    "date_display": "June 27, 2026",
-    "date_iso": "2026-06-27",
-    "id": "campaign-review-matches",
-    "type": "feature",
-    "category": "Campaigns",
-    "description": "The Review Matches tab is now actionable. When reconcile finds someone in your form responses whose name matches an invitee but can't match them with certainty, you can Confirm the match (counts them as Submitted) or mark Not a match (keeps them Unsubmitted) — per person or in bulk. Your decision sticks: reconcile remembers it instead of re-flagging the same person every time.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-27",
-    "date_display": "June 27, 2026",
-    "date_iso": "2026-06-27",
-    "id": "campaign-form-url-and-optional-groups",
-    "type": "improvement",
-    "category": "Campaigns",
-    "description": "Simplified campaign setup: the Form link field is gone — just enter the CCB Form ID and the form URL is built for you automatically (and {{form_link}} keeps working). Editing a campaign no longer demands a CCB Group ID, so campaigns built from a pasted list save without errors.",
-    "page": "/campaigns/new"
-  },
-  {
-    "date": "2026-06-27",
-    "date_display": "June 27, 2026",
-    "date_iso": "2026-06-27",
-    "id": "campaign-export-delete",
-    "type": "improvement",
-    "category": "Campaigns",
-    "description": "Campaigns now have an Export CSV button that downloads exactly the view you're looking at — the current tab plus any active filters — with every column, status, contact history, notes, and each person's form answers (Shirt Size, Area of Life, etc.). On the Summary tab it exports the whole campaign. You can also delete a campaign from its page — a confirmation makes clear it permanently removes the campaign and its people, with Archive offered as the reversible alternative. Click anywhere on a person's row to open an inline editor where you can fill in missing data or correct any field — name, email, phone, their note, and any pasted column like Campus or Team. And column filters now stay applied as you move between tabs.",
-    "page": "/campaigns"
-  },
-  {
     "date": "2026-06-26",
     "date_display": "June 26, 2026",
     "date_iso": "2026-06-26",
-    "id": "campaign-1000-row-fix",
-    "type": "fix",
-    "category": "Campaigns",
-    "description": "Fixed campaigns with more than 1,000 people showing the wrong totals and a truncated list. The app was only reading the first 1,000 rows, so a 1,473-person campaign reported far fewer invited. People lists and reconcile counts now page through everyone, no matter how large the campaign. Re-run Reconcile on any affected campaign to refresh its numbers.",
-    "page": "/campaigns"
-  },
-  {
-    "date": "2026-06-26",
-    "date_display": "June 26, 2026",
-    "date_iso": "2026-06-26",
-    "id": "campaign-paste-list",
+    "id": "acpd-use-case-videos",
     "type": "feature",
-    "category": "Campaigns",
-    "description": "You can now set up a campaign by pasting a spreadsheet instead of giving CCB group IDs. On the New Campaign page, switch the invite list to \"Paste a list\" and paste rows straight from a spreadsheet — any column order works. The core fields (CCB Individual ID, First, Last, Email, Phone) are auto-matched and fixable with a dropdown, and every other column you paste (Campus, Team, Age, and so on) is kept too. A live preview shows exactly who will be added. When the CCB Individual ID and Email are mapped, pasted people reconcile against your CCB form by exact ID/email; otherwise they match by phone and name. Inside the campaign, a filter bar lets you narrow the list by several columns at once — e.g. Campus = Lewisville and Team = Kids and Role = Leaders — and the stats update to match your selection. If the same person appears more than once (e.g. on multiple teams), they're merged into a single invite — the import tells you how many were merged — and they still match each of their teams when you filter, so counts stay person-accurate.",
-    "page": "/campaigns/new"
-  },
-  {
-    "date": "2026-06-26",
-    "date_display": "June 26, 2026",
-    "date_iso": "2026-06-26",
-    "id": "copy-card-screenshot",
-    "type": "fix",
-    "category": "Boards",
-    "description": "Copy Card Content now includes the screenshot URL so it travels with the rest of the card context when sharing or pasting into AI tools.",
-    "page": "/boards"
-  },
-  {
-    "date": "2026-06-26",
-    "date_display": "June 26, 2026",
-    "date_iso": "2026-06-26",
-    "id": "form-image-upload",
-    "type": "feature",
-    "category": "Forms",
-    "description": "Forms now support an Image Upload field type. Add one to any form, map it to Card Screenshot, and submitters get a file picker — the image is compressed automatically and attached directly to the created card. Perfect for bug reports where a screenshot says more than words.",
-    "page": "/forms"
-  },
-  {
-    "date": "2026-06-26",
-    "date_display": "June 26, 2026",
-    "date_iso": "2026-06-26",
-    "id": "card-screenshots",
-    "type": "feature",
-    "category": "Boards",
-    "description": "Board cards now support screenshot attachments. Open any card, scroll to the new Screenshot section, and attach an image — great for capturing bugs, broken layouts, or anything visual. Images are compressed automatically before upload to keep storage lean. Each card holds one screenshot; uploading a new one replaces the old. Screenshots are deleted when a card is deleted.",
-    "page": "/boards"
-  },
-  {
-    "date": "2026-06-26",
-    "date_display": "June 26, 2026",
-    "date_iso": "2026-06-26",
-    "id": "toolkit-roster-sort",
-    "type": "feature",
-    "category": "Circles Toolkit",
-    "description": "You can now sort your roster by first name or last name on both the Roster tab and the attendance form. Defaults to first name A–Z and remembers your preference per device.",
-    "page": "/circle-leader-toolkit"
+    "category": "Help",
+    "description": "New ACPD Video Library — 18 use case video slots covering daily triage, campaigns, bulk messaging, forms, notebooks, boards, list automations, and more. Videos are ready to fill in as recordings are made. Linked from the Help Center.",
+    "page": "/acpd-use-cases"
   },
   {
     "date": "2026-06-25",
@@ -378,46 +258,6 @@
     "category": "Today",
     "description": "Birthdays, prayer requests, and focus cards on the Today page now have a Done button so you can check them off as you go. Marking a birthday or prayer done sticks — it stays checked off after a refresh or reload, with Undo always available. Completed cards no longer show a redundant green \"Done\" badge; the strikethrough is enough.",
     "page": "/today"
-  },
-  {
-    "date": "2026-06-24",
-    "date_display": "June 24, 2026",
-    "date_iso": "2026-06-24",
-    "id": "list-automation-add-rule-button",
-    "type": "improvement",
-    "category": "Boards",
-    "description": "Cleaned up the \"Add a rule\" form in list Automations. The Add button is now a full-width \"Add rule\" button at the bottom of the form, directly below the rule you're setting up — instead of a small + tucked next to the trigger dropdown. Makes it clearer what you're adding and easier to tap on mobile.",
-    "page": "/boards"
-  },
-  {
-    "date": "2026-06-24",
-    "date_display": "June 24, 2026",
-    "date_iso": "2026-06-24",
-    "id": "today-day-header-layout",
-    "type": "improvement",
-    "category": "Today",
-    "description": "The Day view header no longer feels cramped. The previous/next day arrows now sit on either side of the date they're moving, on their own line, with the reminders and calendars buttons and the filter chips each on their own left-aligned row below. Easier to scan and tap on a phone.",
-    "page": "/today"
-  },
-  {
-    "date": "2026-06-24",
-    "date_display": "June 24, 2026",
-    "date_iso": "2026-06-24",
-    "id": "notes-mobile-text-buttons",
-    "type": "improvement",
-    "category": "Notes",
-    "description": "Note action buttons on mobile now show labeled text (Edit, Save as Template, Copy for CCB, Delete) instead of icon-only buttons that were easy to misread. The actions are clearer and easier to tap with confidence.",
-    "page": "/circle"
-  },
-  {
-    "date": "2026-06-24",
-    "date_display": "June 24, 2026",
-    "date_iso": "2026-06-24",
-    "id": "prayer-page-hide-archived-leaders",
-    "type": "fix",
-    "category": "Prayer",
-    "description": "The Prayer page no longer shows leaders with Archived status. Archived leaders are now excluded from the Circle Leaders list so the prayer list stays focused on active circles.",
-    "page": "/prayer"
   },
   {
     "date": "2026-06-24",
@@ -3228,5 +3068,175 @@
     "description": "Bulk Message: You can now pause a batch mid-way and resume right where you left off instead of starting over.",
     "page": "/bulk-message",
     "type": "improvement"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "circle-toolkit-faster-load",
+    "type": "improvement",
+    "category": "Circle Leader Toolkit",
+    "description": "The Circle Leader Toolkit loads noticeably faster. Sign-in now verifies your session in a single database lookup instead of two, the event form's leader, roster, questions, attendance, and saved draft are all prepared on the server so the form is filled in and ready the moment it opens (instead of fetching four things after the page appears), the form's question list is cached so repeat opens are instant, and the events list now streams in behind a skeleton so the header and tabs appear right away. None of this changes how fresh your attendance or summary data is — those still come straight from CCB.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "campaign-summary-campus-first",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "The Summary tab now leads with the Campus breakdown (then Team, then Leader/STM), regardless of your spreadsheet's column order, so the exec view starts where you'd expect. The filter bar follows the same order.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "campaign-summary-shows-all",
+    "type": "fix",
+    "category": "Campaigns",
+    "description": "The Summary tab now always reflects the whole campaign — the top stat cards show All even when you have filters applied on another tab — and Export from Summary covers everyone. Your filters aren't cleared, so they're still in place when you switch back to the people tabs.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "campaign-summary-tab",
+    "type": "feature",
+    "category": "Campaigns",
+    "description": "Campaigns now have a Summary tab — an exec-ready breakdown by every column you pasted (Campus, Team, Leader/STM, …), each showing Invited, Responded, Responded %, RSVP Yes, RSVP No, and No Response with an 'All VCC' total. RSVP Yes/No is read straight from each CCB form submission, so it matches what people actually answered.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "campaign-review-matches",
+    "type": "feature",
+    "category": "Campaigns",
+    "description": "The Review Matches tab is now actionable. When reconcile finds someone in your form responses whose name matches an invitee but can't match them with certainty, you can Confirm the match (counts them as Submitted) or mark Not a match (keeps them Unsubmitted) — per person or in bulk. Your decision sticks: reconcile remembers it instead of re-flagging the same person every time.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "campaign-form-url-and-optional-groups",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Simplified campaign setup: the Form link field is gone — just enter the CCB Form ID and the form URL is built for you automatically (and {{form_link}} keeps working). Editing a campaign no longer demands a CCB Group ID, so campaigns built from a pasted list save without errors.",
+    "page": "/campaigns/new"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "campaign-export-delete",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Campaigns now have an Export CSV button that downloads exactly the view you're looking at — the current tab plus any active filters — with every column, status, contact history, notes, and each person's form answers (Shirt Size, Area of Life, etc.). On the Summary tab it exports the whole campaign. You can also delete a campaign from its page — a confirmation makes clear it permanently removes the campaign and its people, with Archive offered as the reversible alternative. Click anywhere on a person's row to open an inline editor where you can fill in missing data or correct any field — name, email, phone, their note, and any pasted column like Campus or Team. And column filters now stay applied as you move between tabs.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-26",
+    "date_display": "June 26, 2026",
+    "date_iso": "2026-06-26",
+    "id": "campaign-1000-row-fix",
+    "type": "fix",
+    "category": "Campaigns",
+    "description": "Fixed campaigns with more than 1,000 people showing the wrong totals and a truncated list. The app was only reading the first 1,000 rows, so a 1,473-person campaign reported far fewer invited. People lists and reconcile counts now page through everyone, no matter how large the campaign. Re-run Reconcile on any affected campaign to refresh its numbers.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-26",
+    "date_display": "June 26, 2026",
+    "date_iso": "2026-06-26",
+    "id": "campaign-paste-list",
+    "type": "feature",
+    "category": "Campaigns",
+    "description": "You can now set up a campaign by pasting a spreadsheet instead of giving CCB group IDs. On the New Campaign page, switch the invite list to \"Paste a list\" and paste rows straight from a spreadsheet — any column order works. The core fields (CCB Individual ID, First, Last, Email, Phone) are auto-matched and fixable with a dropdown, and every other column you paste (Campus, Team, Age, and so on) is kept too. A live preview shows exactly who will be added. When the CCB Individual ID and Email are mapped, pasted people reconcile against your CCB form by exact ID/email; otherwise they match by phone and name. Inside the campaign, a filter bar lets you narrow the list by several columns at once — e.g. Campus = Lewisville and Team = Kids and Role = Leaders — and the stats update to match your selection. If the same person appears more than once (e.g. on multiple teams), they're merged into a single invite — the import tells you how many were merged — and they still match each of their teams when you filter, so counts stay person-accurate.",
+    "page": "/campaigns/new"
+  },
+  {
+    "date": "2026-06-26",
+    "date_display": "June 26, 2026",
+    "date_iso": "2026-06-26",
+    "id": "copy-card-screenshot",
+    "type": "fix",
+    "category": "Boards",
+    "description": "Copy Card Content now includes the screenshot URL so it travels with the rest of the card context when sharing or pasting into AI tools.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-06-26",
+    "date_display": "June 26, 2026",
+    "date_iso": "2026-06-26",
+    "id": "form-image-upload",
+    "type": "feature",
+    "category": "Forms",
+    "description": "Forms now support an Image Upload field type. Add one to any form, map it to Card Screenshot, and submitters get a file picker — the image is compressed automatically and attached directly to the created card. Perfect for bug reports where a screenshot says more than words.",
+    "page": "/forms"
+  },
+  {
+    "date": "2026-06-26",
+    "date_display": "June 26, 2026",
+    "date_iso": "2026-06-26",
+    "id": "card-screenshots",
+    "type": "feature",
+    "category": "Boards",
+    "description": "Board cards now support screenshot attachments. Open any card, scroll to the new Screenshot section, and attach an image — great for capturing bugs, broken layouts, or anything visual. Images are compressed automatically before upload to keep storage lean. Each card holds one screenshot; uploading a new one replaces the old. Screenshots are deleted when a card is deleted.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-06-26",
+    "date_display": "June 26, 2026",
+    "date_iso": "2026-06-26",
+    "id": "toolkit-roster-sort",
+    "type": "feature",
+    "category": "Circles Toolkit",
+    "description": "You can now sort your roster by first name or last name on both the Roster tab and the attendance form. Defaults to first name A–Z and remembers your preference per device.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-06-24",
+    "date_display": "June 24, 2026",
+    "date_iso": "2026-06-24",
+    "id": "list-automation-add-rule-button",
+    "type": "improvement",
+    "category": "Boards",
+    "description": "Cleaned up the \"Add a rule\" form in list Automations. The Add button is now a full-width \"Add rule\" button at the bottom of the form, directly below the rule you're setting up — instead of a small + tucked next to the trigger dropdown. Makes it clearer what you're adding and easier to tap on mobile.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-06-24",
+    "date_display": "June 24, 2026",
+    "date_iso": "2026-06-24",
+    "id": "today-day-header-layout",
+    "type": "improvement",
+    "category": "Today",
+    "description": "The Day view header no longer feels cramped. The previous/next day arrows now sit on either side of the date they're moving, on their own line, with the reminders and calendars buttons and the filter chips each on their own left-aligned row below. Easier to scan and tap on a phone.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-24",
+    "date_display": "June 24, 2026",
+    "date_iso": "2026-06-24",
+    "id": "notes-mobile-text-buttons",
+    "type": "improvement",
+    "category": "Notes",
+    "description": "Note action buttons on mobile now show labeled text (Edit, Save as Template, Copy for CCB, Delete) instead of icon-only buttons that were easy to misread. The actions are clearer and easier to tap with confidence.",
+    "page": "/circle"
+  },
+  {
+    "date": "2026-06-24",
+    "date_display": "June 24, 2026",
+    "date_iso": "2026-06-24",
+    "id": "prayer-page-hide-archived-leaders",
+    "type": "fix",
+    "category": "Prayer",
+    "description": "The Prayer page no longer shows leaders with Archived status. Archived leaders are now excluded from the Circle Leaders list so the prayer list stays focused on active circles.",
+    "page": "/prayer"
   }
 ]
